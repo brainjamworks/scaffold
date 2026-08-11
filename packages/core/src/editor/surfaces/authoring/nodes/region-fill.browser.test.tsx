@@ -2,7 +2,7 @@ import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
+import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor.test-harness";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
@@ -63,7 +63,7 @@ describe("bounded Region authoring geometry", () => {
       region,
       '[data-authoring-frame="layout"][data-definition="tabs"]',
     );
-    const tabs = requiredElement(frame, ":scope > .sc-tabs");
+    const tabs = requiredElement(frame, ":scope > .sc-course-tabs");
     const tab = requiredElement(tabs, '[role="tab"]');
     const regionBounds = region.getBoundingClientRect();
     const regionStyle = getComputedStyle(region);

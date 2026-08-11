@@ -83,7 +83,7 @@ export function TabsLayoutRuntimeView(props: LayoutRuntimeViewProps) {
   }, [activeId, activeIndex, isPresented, layoutId, learningEventReporter, sections.length]);
 
   return (
-    <div className="sc-tabs">
+    <div className="sc-course-tabs">
       <TabsList label={options.label} variant={renderTabsVariant(options.variant)}>
         {sections.map((section) => {
           const isActive = section.id === activeId;
@@ -108,7 +108,7 @@ export function TabsLayoutRuntimeView(props: LayoutRuntimeViewProps) {
           );
         })}
       </TabsList>
-      <NodeViewContent className="sc-tabs__content" />
+      <NodeViewContent className="sc-course-tabs__content" />
     </div>
   );
 }
@@ -125,11 +125,14 @@ export function TabsSectionRuntimeView(props: SectionRuntimeViewProps) {
   const isActive = sectionId === activeId;
 
   return (
-    <div {...tabsPanelAttributes({ layoutId, sectionId, isActive })} className="sc-tabs__panel">
+    <div
+      {...tabsPanelAttributes({ layoutId, sectionId, isActive, focusable: true })}
+      className="sc-course-tabs__panel"
+    >
       <div data-bounded-scroll-frame="">
         <NodeViewContent
           data-bounded-scroll=""
-          className="sc-layout-section__content sc-tabs__panel-content"
+          className="sc-layout-section__content sc-course-tabs__panel-content"
         />
         <BoundedScrollHint />
       </div>
@@ -141,7 +144,7 @@ export function tabsRuntimeSectionFrame(
   _props: SectionRuntimeViewProps,
 ): SectionRuntimeFrameOptions {
   return {
-    className: "sc-tabs__panel-frame",
+    className: "sc-course-tabs__panel-frame",
   };
 }
 

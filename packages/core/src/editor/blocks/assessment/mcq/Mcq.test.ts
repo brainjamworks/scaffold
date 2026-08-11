@@ -13,6 +13,8 @@ import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
 
+import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { MoveContainedAfterTarget } from "@/editor/movement/model/movement-intents";
 import { resolveMovementNodeContext } from "@/editor/movement/model/movement-policy";
@@ -50,6 +52,8 @@ import { mcqBlockDefinition } from "./mcq-definition";
 import { McqAuthoringExtension } from "./mcq-authoring-extension";
 import { McqRuntimeExtension } from "./mcq-runtime-extension";
 
+const testCapabilities = createScaffoldApplication().capabilities;
+
 const BoundedRegionTestNode = TiptapNode.create({
   name: "region",
   group: "block",
@@ -76,6 +80,7 @@ function makeEditor(editable = true) {
     editable,
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([mcqBlockDefinition.nodeType]),
@@ -124,6 +129,7 @@ function makeRuntimeEditor() {
     editable: false,
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([mcqBlockDefinition.nodeType]),

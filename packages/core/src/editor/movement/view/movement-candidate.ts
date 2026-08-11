@@ -42,9 +42,10 @@ export function deriveMovementCandidate({
 }
 
 export function deriveContainedMovementCandidate({
+  canApplyMovementResult,
   queryResult,
   source,
-}: Omit<MovementCandidateInput, "canApplyMovementResult">): MovementCandidate | null {
+}: Omit<MovementCandidateInput, "point">): MovementCandidate | null {
   if (
     !queryResult ||
     !(queryResult.target instanceof ContainedMovementTarget) ||
@@ -57,6 +58,7 @@ export function deriveContainedMovementCandidate({
     queryResult.placement === "before"
       ? new MoveContainedBeforeTarget(queryResult.target)
       : new MoveContainedAfterTarget(queryResult.target);
+  if (canApplyMovementResult && !canApplyMovementResult(source, intent)) return null;
   return Object.freeze({
     intent,
     key: queryResult.key,

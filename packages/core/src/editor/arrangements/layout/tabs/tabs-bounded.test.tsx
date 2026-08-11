@@ -46,6 +46,7 @@ const coreCapabilities = Object.freeze({
 });
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
+  layoutDefinitions: builtInLayoutRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
 });
 const rangeClientRectsDescriptor = Object.getOwnPropertyDescriptor(
@@ -104,22 +105,33 @@ describe("bounded tabs authoring", () => {
     expect(layout?.closest('[data-node="region"]')).not.toBeNull();
     expect(layout?.classList.contains("sc-layout-frame")).toBe(true);
     expect(layout?.classList.contains("sc-layout-frame--authoring")).toBe(true);
-    expect(layout?.classList.contains("sc-tabs")).toBe(false);
+    expect(layout?.classList.contains("sc-course-tabs")).toBe(false);
     expect(layout?.getAttribute("data-bounded-placement")).toBe("fill");
     expect(tabsSurface).not.toBeNull();
     expect(tabsSurface?.getAttribute("data-bounded-placement")).toBeNull();
-    expect(screen.getByRole("tablist").closest(".sc-tabs")).toBe(tabsSurface);
+    expect(screen.getByRole("tablist").closest(".sc-course-tabs")).toBe(tabsSurface);
     expect(sections).toHaveLength(2);
-    expect(sections[0]?.classList.contains("sc-tabs__panel-frame")).toBe(true);
+    expect(sections[0]?.classList.contains("sc-course-tabs__panel-frame")).toBe(true);
     expect(sections[0]?.getAttribute("data-vertical-content-position")).toBe("bottom");
     expect(sectionVerticalState(editor, "tab000000001")).toEqual({
       kind: "value",
       value: "bottom",
     });
     expect(activePanelViewport(panels)?.hasAttribute("data-bounded-scroll")).toBe(true);
-    expect(screen.getByRole("button", { name: "Add tab" })).toBeInTheDocument();
-    expect(layout?.querySelector("[data-authoring-move-handle]")).not.toBeNull();
-    expect(layout?.querySelector("[data-layout-section-menu-trigger]")).not.toBeNull();
+    const addTab = screen.getByRole("button", { name: "Add tab" });
+    const moveTab = layout?.querySelector<HTMLElement>("[data-authoring-move-handle]");
+    const tabOptions = layout?.querySelector<HTMLElement>("[data-layout-section-menu-trigger]");
+    expect(addTab).toHaveClass("sc-course-layout-chrome__add", "sc-course-tabs__add");
+    expect(addTab).not.toHaveClass("sc-app-block-add");
+    expect(moveTab).toHaveClass(
+      "sc-app-structure-movement-handle",
+      "sc-app-structure-movement-handle--bare",
+      "sc-app-compact-movement-handle",
+      "sc-course-tabs__handle",
+    );
+    expect(moveTab).not.toHaveClass("sc-course-layout-chrome__move");
+    expect(tabOptions).toHaveClass("sc-course-layout-chrome__options", "sc-course-tabs__action");
+    expect(tabOptions).not.toHaveClass("sc-layout-section-action-trigger");
 
     await user.click(tabs[1]!);
 
@@ -239,13 +251,13 @@ describe("bounded tabs runtime", () => {
     expect(layout?.closest('[data-node="region"]')).not.toBeNull();
     expect(layout?.classList.contains("sc-layout-frame")).toBe(true);
     expect(layout?.classList.contains("sc-layout-frame--runtime")).toBe(true);
-    expect(layout?.classList.contains("sc-tabs")).toBe(false);
+    expect(layout?.classList.contains("sc-course-tabs")).toBe(false);
     expect(layout?.getAttribute("data-bounded-placement")).toBe("fill");
     expect(tabsSurface).not.toBeNull();
     expect(tabsSurface?.getAttribute("data-bounded-placement")).toBeNull();
-    expect(screen.getByRole("tablist").closest(".sc-tabs")).toBe(tabsSurface);
+    expect(screen.getByRole("tablist").closest(".sc-course-tabs")).toBe(tabsSurface);
     expect(sections).toHaveLength(2);
-    expect(sections[0]?.classList.contains("sc-tabs__panel-frame")).toBe(true);
+    expect(sections[0]?.classList.contains("sc-course-tabs__panel-frame")).toBe(true);
     expect(sections[0]?.getAttribute("data-vertical-content-position")).toBe("bottom");
     expect(activePanelViewport(panels)?.hasAttribute("data-bounded-scroll")).toBe(true);
     expect(sectionVerticalState(editor, "tab000000001")).toEqual({
@@ -255,6 +267,8 @@ describe("bounded tabs runtime", () => {
     expect(screen.queryByRole("button", { name: "Add tab" })).toBeNull();
     expect(layout?.querySelector("[data-authoring-move-handle]")).toBeNull();
     expect(layout?.querySelector("[data-layout-section-menu-trigger]")).toBeNull();
+    expect(panels[0]).toHaveAttribute("tabindex", "0");
+    expect(panels[1]).toHaveAttribute("tabindex", "-1");
 
     await user.click(tabs[1]!);
 
@@ -282,7 +296,7 @@ describe("page-flow tabs", () => {
 
     expect(layout?.closest('[data-node="region"]')).toBeNull();
     expect(layout?.getAttribute("data-bounded-placement")).toBe("fill");
-    expect(layout?.classList.contains("sc-tabs")).toBe(false);
+    expect(layout?.classList.contains("sc-course-tabs")).toBe(false);
     expect(tabsSurface).not.toBeNull();
     expect(tabsSurface?.getAttribute("data-bounded-placement")).toBeNull();
     expect(activePanelViewport(panels)?.hasAttribute("data-bounded-scroll")).toBe(true);
@@ -312,6 +326,7 @@ function makeEditor({
         SectionAuthoringNode,
         createEmptyInsertionRowExtension({
           blockDefinitions: builtInBlockRegistry,
+          layoutDefinitions: builtInLayoutRegistry,
           surfaceVariants: builtInSurfaceVariantRegistry,
         }),
       ]
@@ -470,7 +485,7 @@ function directTabsSurface(layout: HTMLElement | null): HTMLElement | null {
   return (
     Array.from(layout?.children ?? []).find(
       (child): child is HTMLElement =>
-        child instanceof HTMLElement && child.classList.contains("sc-tabs"),
+        child instanceof HTMLElement && child.classList.contains("sc-course-tabs"),
     ) ?? null
   );
 }

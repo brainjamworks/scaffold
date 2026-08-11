@@ -10,22 +10,4 @@
     border-radius: 0;
     pointer-events: none;
   }
-
-  .sc-slide-content-surface-view .sc-app-region-authoring[data-empty="true"]::after {
-    content: "+ Add content";
-    position: absolute;
-    inset: 0.25rem;
-    z-index: 0;
-    display: grid;
-    place-items: center;
-    color: var(--sc-app-color-text-secondary);
-    font-family: var(--sc-app-font-family);
-    font-size: 0.875rem;
-    font-weight: 500;
-    pointer-events: none;
-  }
-
-  .sc-slide-content-surface-view .sc-app-region-authoring[data-empty="true"]:focus-within::after {
-    opacity: 0.45;
-  }
 }

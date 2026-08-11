@@ -4,10 +4,7 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 
 import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
 import { MediaReplaceButton } from "@/ui/components/app/MediaReplaceButton/MediaReplaceButton";
-import {
-  nodeViewUiKey,
-  usePickerOpen,
-} from "@/editor/media/authoring/picker/file-picker-open-state";
+import { nodeViewUiStateKey, useNodeViewOpenState } from "@/editor/prosemirror/node-view-ui-state";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import { selectNodeAt } from "@/editor/selection/selection-commands";
 import { type AudioBlockAttrs } from "@scaffold/contracts";
@@ -50,12 +47,12 @@ function applyAudioPickerResult(result: FilePickerResult): AudioBlockAttrs | nul
 export function AudioBlockAuthoringView(props: NodeViewProps) {
   const mediaPort = useMediaPort();
   const data = parseAudioBlockData(props.node.attrs["data"]);
-  const pickerKey = nodeViewUiKey({
+  const pickerKey = nodeViewUiStateKey({
     owner: "audio-block",
     surface: "file-picker",
     id: props.node.attrs["id"],
   });
-  const [pickerOpen, setPickerOpen] = usePickerOpen(pickerKey);
+  const [pickerOpen, setPickerOpen] = useNodeViewOpenState(pickerKey);
   const { errorMessage, resolvedUrl } = useResolvedAudioBlockSource(data, mediaPort);
 
   const handlePickerResolved = (result: FilePickerResult) => {

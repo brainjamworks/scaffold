@@ -75,14 +75,14 @@ export function PaginatedLayoutRuntimeView(props: LayoutRuntimeViewProps) {
   }, [activeId, activeIndex, isPresented, layoutId, learningEventReporter, pages.length]);
 
   return (
-    <div className="sc-paginated-layout">
+    <div className="sc-course-paginated">
       <PaginatedLayoutShell
         activeId={activeId}
         layoutId={layoutId}
         onActivate={(pageId) => setActivePage(layoutId, pageId)}
         pages={pages}
       >
-        <NodeViewContent className="sc-paginated-layout__content" />
+        <NodeViewContent className="sc-course-paginated__content" />
       </PaginatedLayoutShell>
     </div>
   );
@@ -102,12 +102,12 @@ export function PaginatedSectionRuntimeView(props: SectionRuntimeViewProps) {
   return (
     <div
       {...paginatedPanelAttributes({ layoutId, pageId, isActive })}
-      className="sc-paginated-layout__panel"
+      className="sc-course-paginated__panel"
     >
       <div data-bounded-scroll-frame="">
         <NodeViewContent
           data-bounded-scroll=""
-          className="sc-layout-section__content sc-paginated-layout__page-content"
+          className="sc-layout-section__content sc-course-paginated__page-content"
         />
         <BoundedScrollHint />
       </div>
@@ -119,6 +119,6 @@ export function paginatedRuntimeSectionFrame(
   _props: SectionRuntimeViewProps,
 ): SectionRuntimeFrameOptions {
   return {
-    className: "sc-paginated-layout__section",
+    className: "sc-course-paginated__section",
   };
 }

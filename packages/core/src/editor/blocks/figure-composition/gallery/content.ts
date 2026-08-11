@@ -7,7 +7,7 @@ import {
   type ImageBlockAttrs,
 } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import type { ScaffoldRichTextDocument } from "@/schemas/rich-text";
 
 export const GALLERY_NODE = "gallery";
@@ -31,7 +31,7 @@ export function galleryItemNode(item: GalleryItemData): JSONContent {
   return {
     type: GALLERY_ITEM_NODE,
     attrs: {
-      id: createStableId(),
+      id: createEmbeddedNodeId(),
       data: item,
     },
   };

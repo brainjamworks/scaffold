@@ -24,11 +24,13 @@
     --sc-app-color-success-background: #dcfce7;
     --sc-app-color-success-text: #166534;
     --sc-app-color-warning: #a16207;
+    --sc-app-color-overlay-backdrop: rgb(9 9 11 / 48%);
     --sc-app-color-focus-outline: oklch(0.3 0.15 270);
     --sc-app-color-focus-ring: rgb(22 29 119 / 0.35);
     --sc-app-font-family: var(--font-ui);
     --sc-app-radius-control: 0.375rem;
     --sc-app-radius-surface: 0.5rem;
+    --sc-app-shadow-dialog: 0 24px 64px rgb(9 9 11 / 24%);
   }
 
   .sc-app[data-scaffold-color-mode="dark"] {
@@ -56,8 +58,10 @@
     --sc-app-color-success-background: #143322;
     --sc-app-color-success-text: #bbf7d0;
     --sc-app-color-warning: #fbbf24;
+    --sc-app-color-overlay-backdrop: rgb(0 0 0 / 64%);
     --sc-app-color-focus-outline: #a5b4fc;
     --sc-app-color-focus-ring: rgb(165 180 252 / 0.5);
+    --sc-app-shadow-dialog: 0 24px 64px rgb(0 0 0 / 48%);
   }
 }
 

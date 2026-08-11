@@ -1,6 +1,8 @@
 import { NodeViewContent } from "@tiptap/react";
+import { useCallback, useMemo } from "react";
 
 import {
+  courseLayoutChromePresentation,
   LayoutAddGhost,
   resolveSectionPresentationElement,
   SectionActionTrigger,
@@ -19,12 +21,17 @@ import type {
 import {
   AccordionLayoutShell,
   AccordionSectionFrame,
+  accordionPanelId,
   defaultOpenAccordionSectionIds,
   isAccordionSectionOpen,
   readAccordionOptions,
   readAccordionSections,
   readRequiredAccordionNodeId,
 } from "./accordion-components";
+import {
+  createAccordionAuthoringReorderProjection,
+  resolveAccordionAuthoringSectionElement,
+} from "./accordion-authoring-reorder-projection";
 
 import "./accordion.css";
 
@@ -41,6 +48,7 @@ export function AccordionLayoutView(props: LayoutComponentProps) {
 
   useLayoutSemanticContainerAdapter({
     editor: props.editor,
+    getPos: props.getPos,
     layoutId,
     node: props.node,
     isVisible: (childId) =>
@@ -56,15 +64,17 @@ export function AccordionLayoutView(props: LayoutComponentProps) {
         allowMultiple: options.allowMultiple,
         defaultOpenIds: defaultOpenAccordionSectionIds(readAccordionSections(props.node)),
       }),
+    visibilityElementId: (childId) => accordionPanelId(layoutId, childId),
   });
 
   return (
-    <div className="sc-accordion-layout sc-accordion-layout--authoring">
+    <div className="sc-course-accordion sc-course-accordion--authoring">
       <AccordionLayoutShell
         options={options}
         footer={
           props.editable && props.definition?.section ? (
             <LayoutAddGhost
+              chromePresentation={courseLayoutChromePresentation}
               editor={props.editor}
               getPos={props.getPos}
               label={addLabel}
@@ -77,12 +87,12 @@ export function AccordionLayoutView(props: LayoutComponentProps) {
                 });
               }}
               presentation="full-width"
-              className="sc-accordion-layout__add"
+              className="sc-course-accordion__add"
             />
           ) : null
         }
       >
-        <NodeViewContent className="sc-accordion-layout__content" />
+        <NodeViewContent className="sc-course-accordion__content" />
       </AccordionLayoutShell>
     </div>
   );
@@ -91,6 +101,20 @@ export function AccordionLayoutView(props: LayoutComponentProps) {
 export function AccordionSectionView(props: SectionComponentProps) {
   const sectionId = resolveSectionId(props);
   const state = resolveAccordionSectionState(props);
+  const getPresentationElement = useCallback(
+    () =>
+      resolveAccordionAuthoringSectionElement(
+        resolveSectionPresentationElement({
+          editor: props.editor,
+          getPos: props.getPos,
+        }),
+      ),
+    [props.editor, props.getPos],
+  );
+  const reorderProjection = useMemo(
+    () => createAccordionAuthoringReorderProjection(getPresentationElement),
+    [getPresentationElement],
+  );
 
   return (
     <AccordionSectionFrame
@@ -99,15 +123,11 @@ export function AccordionSectionView(props: SectionComponentProps) {
         props.editable ? (
           <SectionMovementHandle
             editor={props.editor}
-            getPresentationElement={() =>
-              resolveSectionPresentationElement({
-                editor: props.editor,
-                getPos: props.getPos,
-              })
-            }
+            getPresentationElement={getPresentationElement}
             getPos={props.getPos}
+            projection={reorderProjection}
             sectionId={sectionId}
-            className="sc-accordion-section__handle"
+            className="sc-course-accordion__handle"
           />
         ) : null
       }
@@ -115,22 +135,23 @@ export function AccordionSectionView(props: SectionComponentProps) {
         props.editable ? (
           <SectionActionTrigger
             blockDefinitions={props.blockDefinitions}
+            chromePresentation={courseLayoutChromePresentation}
             editor={props.editor}
             getPos={props.getPos}
             sectionId={sectionId}
-            className="sc-accordion-section__action"
+            className="sc-course-accordion__action"
           />
         ) : null
       }
     >
-      <NodeViewContent className="sc-accordion-section__content" />
+      <NodeViewContent className="sc-course-accordion__section-content" />
     </AccordionSectionFrame>
   );
 }
 
 export function accordionSectionFrame(_props: SectionComponentProps): SectionFrameProps {
   return {
-    className: "sc-accordion-section",
+    className: "sc-course-accordion__section",
   };
 }
 

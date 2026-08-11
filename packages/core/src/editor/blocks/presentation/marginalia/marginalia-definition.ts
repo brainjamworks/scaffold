@@ -1,7 +1,7 @@
 import { ArrowsHorizontalIcon as ArrowsHorizontal } from "@phosphor-icons/react";
 import { MarginaliaDataSchema, MarginaliaPositionSchema } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 
@@ -58,7 +58,7 @@ export const marginaliaBlockDefinition = defineBlock({
     content: () => ({
       type: "marginalia",
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyMarginaliaData(),
       },
       content: [

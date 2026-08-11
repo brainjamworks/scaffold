@@ -5,11 +5,11 @@ import {
   ReactNodeViewRenderer,
   type NodeViewProps,
 } from "@tiptap/react";
-import { Checkbox } from "@radix-ui/themes";
 
 import { fieldContainerSpec } from "@/document/model/content-model/content-groups";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { useLearnerActivityRuntime } from "@/runtime/learner-activity";
+import { CourseCompletionCheckbox } from "@/ui/components/course/CourseInputs/CourseInputs";
 
 import { CHECKLIST_ITEM_NODE, CHECKLIST_NODE } from "./content";
 import {
@@ -60,16 +60,17 @@ export function ChecklistItemRuntimeNodeView(props: NodeViewProps) {
       className="sc-course-checklist__item"
     >
       <div className="sc-course-checklist__item-shell">
-        <Checkbox
-          size="2"
-          checked={checked}
-          data-course-state={checked ? "completed" : undefined}
-          contentEditable={false}
-          onCheckedChange={handleToggle}
-          onMouseDown={(event) => event.preventDefault()}
-          className="sc-course-checklist__checkbox"
-          aria-label={checked ? "Mark item as not complete" : "Mark item as complete"}
-        />
+        <span className="sc-course-checklist__control-slot">
+          <CourseCompletionCheckbox
+            checked={checked}
+            state={checked ? "completed" : undefined}
+            contentEditable={false}
+            onCheckedChange={handleToggle}
+            onMouseDown={(event) => event.preventDefault()}
+            className="sc-course-checklist__checkbox"
+            aria-label={checked ? "Mark item as not complete" : "Mark item as complete"}
+          />
+        </span>
         <div className="sc-course-checklist__item-text">
           <NodeViewContent />
         </div>

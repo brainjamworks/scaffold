@@ -29,7 +29,8 @@
     padding: 2rem 1.5rem;
   }
 
-  .scaffold-runtime-surface-view:not([data-course-mode="page"]) [data-surface] {
+  .scaffold-runtime-surface-view:not([data-course-mode="page"]):not([data-course-mode="slideshow"])
+    [data-surface] {
     box-sizing: border-box;
     margin-inline: auto;
     padding: var(--sc-surface-inset);
@@ -61,7 +62,6 @@
     min-height: 0;
     height: 100%;
     padding: 0;
-    border: 0;
   }
 
   .scaffold-runtime-surface-view[data-overflow-mode="clip"] [data-surface] {

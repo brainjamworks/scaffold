@@ -17,7 +17,10 @@ import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import {
+  builtInBlockCapabilityRegistrations,
+  builtInBlockRegistry,
+} from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { builtInSurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-views";
 import {
@@ -59,7 +62,7 @@ const coreInsertCatalog = createCoreScaffoldAuthoringComposition().catalogues.in
 const ReactBlockContext = createContext("missing provider");
 const outerEditors: Editor[] = [];
 const fullChromeCapabilities = resolveScaffoldCapabilities({
-  blockDefinitions: builtInBlockRegistry.definitions,
+  blockCapabilities: builtInBlockCapabilityRegistrations,
   layoutDefinitions: builtInLayoutDefinitions,
   surfaceDefinitions: [],
 });

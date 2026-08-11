@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import { ComparisonDataSchema, type ComparisonData } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 export const COMPARISON_BLOCK_ID = "comparison";
 export const COMPARISON_NODE = "comparison";
@@ -16,7 +16,7 @@ export function createComparisonContent(options?: Partial<ComparisonData>): JSON
   return {
     type: COMPARISON_NODE,
     attrs: {
-      id: createStableId(),
+      id: createEmbeddedNodeId(),
       data: emptyComparisonData(options),
     },
     content: [createComparisonRow(0), createComparisonRow(1)],
@@ -26,7 +26,7 @@ export function createComparisonContent(options?: Partial<ComparisonData>): JSON
 export function createComparisonRow(index: number): JSONContent {
   return {
     type: COMPARISON_ROW_NODE,
-    attrs: { id: createStableId() },
+    attrs: { id: createEmbeddedNodeId() },
     content: [createComparisonCell("left", index), createComparisonCell("right", index)],
   };
 }

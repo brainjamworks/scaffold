@@ -1,7 +1,7 @@
 import { QuotesIcon as Quotes } from "@phosphor-icons/react";
 import { PullQuoteDataSchema } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 
@@ -37,7 +37,7 @@ export const pullQuoteBlockDefinition = defineBlock({
     content: () => ({
       type: "pull_quote",
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyPullQuoteData(),
       },
       content: [

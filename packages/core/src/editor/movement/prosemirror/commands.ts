@@ -2,9 +2,16 @@ import type { Editor } from "@tiptap/core";
 import { Fragment, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { Transaction } from "@tiptap/pm/state";
 
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createEditableTextblock } from "@/document/model/content-model/editable-region";
 import { buildGridBesideDropTransaction } from "@/editor/arrangements/grid/model/grid-drop-rules";
-import { validateBoundedContainerStructure } from "@/editor/bounded-containers/model/bounded-container-structure-policy";
+import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
+import {
+  allowsBoundedContainerRootInsertionAtPosition,
+  isActiveBoundedContainerAtPosition,
+  isFillOccupantNode,
+  type BoundedContainerType,
+} from "@/editor/bounded-containers/model/bounded-container-placement";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import {
   canMoveSiblingNodeTo,
@@ -115,6 +122,7 @@ function buildMovementTransaction(
           sourceNode,
           targetNode,
           intent,
+          blockDefinitions,
           surfaceVariants,
         )
       : isSideMovementIntent(intent)
@@ -124,7 +132,6 @@ function buildMovementTransaction(
     if (!tr || tr.doc.eq(editor.state.doc)) return null;
 
     tr.doc.check();
-    if (!validateBoundedContainerStructure(tr.doc, blockDefinitions).ok) return null;
     return tr;
   } catch {
     return null;
@@ -137,9 +144,19 @@ function buildDirectMoveTransaction(
   sourceNode: ProseMirrorNode,
   targetNode: ProseMirrorNode,
   intent: DirectMoveIntent,
+  blockDefinitions: BlockDefinitionLookup,
   surfaceVariants: SurfaceVariantLookup,
 ): Transaction | null {
-  if (!canInsertForMove(editor, sourceNode, targetNode, intent, surfaceVariants)) {
+  if (
+    !canInsertForMove(
+      editor,
+      sourceNode,
+      targetNode,
+      intent,
+      blockDefinitions,
+      surfaceVariants,
+    )
+  ) {
     return null;
   }
 
@@ -173,6 +190,7 @@ function canInsertForMove(
   sourceNode: ProseMirrorNode,
   targetNode: ProseMirrorNode,
   intent: DirectMoveIntent,
+  blockDefinitions: BlockDefinitionLookup,
   surfaceVariants: SurfaceVariantLookup,
 ): boolean {
   const fragment = Fragment.from(sourceNode);
@@ -185,6 +203,17 @@ function canInsertForMove(
         child: sourceNode,
         surfaceVariants,
       })
+    ) {
+      return false;
+    }
+    if (
+      !allowsBoundedMovePlacementForTarget(
+        editor,
+        sourceNode,
+        targetNode,
+        intent.target.pos,
+        blockDefinitions,
+      )
     ) {
       return false;
     }
@@ -205,9 +234,102 @@ function canInsertForMove(
     return false;
   }
 
+  const parentPos = targetResolved.depth > 0 ? targetResolved.before(targetResolved.depth) : 0;
+  if (
+    !allowsBoundedMovePlacementForTarget(
+      editor,
+      sourceNode,
+      parent,
+      parentPos,
+      blockDefinitions,
+    )
+  ) {
+    return false;
+  }
+
   const targetIndex = targetResolved.index();
   const insertIndex = intent instanceof InsertBeforeTarget ? targetIndex : targetIndex + 1;
   return targetResolved.parent.canReplace(insertIndex, insertIndex, fragment);
+}
+
+function allowsBoundedMovePlacementForTarget(
+  editor: Editor,
+  sourceNode: ProseMirrorNode,
+  targetNode: ProseMirrorNode,
+  targetPos: number,
+  blockDefinitions: BlockDefinitionLookup,
+): boolean {
+  if (!mayBeBoundedMoveTarget(targetNode, blockDefinitions)) return true;
+
+  return allowsBoundedMovePlacement({
+    blockDefinitions,
+    doc: editor.state.doc,
+    layoutDefinitions: getScaffoldCapabilitiesForEditor(editor).layouts.registry,
+    sourceNode,
+    targetNode,
+    targetPos,
+  });
+}
+
+function mayBeBoundedMoveTarget(
+  node: ProseMirrorNode,
+  blockDefinitions: BlockDefinitionLookup,
+): boolean {
+  return (
+    isBoundedContainerType(node.type.name) ||
+    blockDefinitions.getByNodeType(node.type.name)?.stagedBoundedHost !== undefined
+  );
+}
+
+function allowsBoundedMovePlacement({
+  blockDefinitions,
+  doc,
+  layoutDefinitions,
+  sourceNode,
+  targetNode,
+  targetPos,
+}: {
+  blockDefinitions: BlockDefinitionLookup;
+  doc: ProseMirrorNode;
+  layoutDefinitions: LayoutRegistry;
+  sourceNode: ProseMirrorNode;
+  targetNode: ProseMirrorNode;
+  targetPos: number;
+}): boolean {
+  if (
+    !allowsBoundedContainerRootInsertionAtPosition({
+      blockDefinitions,
+      doc,
+      layoutDefinitions,
+      pos: targetPos,
+    })
+  ) {
+    return false;
+  }
+
+  if (!isFillOccupantNode(sourceNode, blockDefinitions, layoutDefinitions)) return true;
+  if (!isBoundedContainerType(targetNode.type.name)) return true;
+  if (
+    !isActiveBoundedContainerAtPosition({
+      blockDefinitions,
+      containerType: targetNode.type.name,
+      doc,
+      layoutDefinitions,
+      pos: targetPos,
+    })
+  ) {
+    return true;
+  }
+
+  return (
+    targetNode.childCount === 1 &&
+    targetNode.firstChild?.type.name === "paragraph" &&
+    targetNode.firstChild.content.size === 0
+  );
+}
+
+function isBoundedContainerType(nodeType: string): nodeType is BoundedContainerType {
+  return nodeType === "cell" || nodeType === "region" || nodeType === "section";
 }
 
 function buildGridSideMovementTransaction(

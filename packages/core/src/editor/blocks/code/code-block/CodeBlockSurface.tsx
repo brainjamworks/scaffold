@@ -4,10 +4,10 @@ import {
   CodeBlockDataSchema,
   type CodeBlockData,
 } from "@scaffold/contracts";
-import { Button } from "@radix-ui/themes";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
+import { CourseButton } from "@/ui/components/course/CourseActions/CourseActions";
 
 import { emptyCodeBlockData } from "./content";
 
@@ -70,10 +70,9 @@ export function CodeBlockSurface({
         {languageControl}
         {data.showCopyButton ? (
           <>
-            <Button
+            <CourseButton
               type="button"
-              variant="ghost"
-              size="2"
+              emphasis="quiet"
               className="sc-course-code-block__copy"
               data-copy-state={copyState}
               aria-label={copyState === "success" ? "Code copied to clipboard" : "Copy code"}
@@ -94,7 +93,7 @@ export function CodeBlockSurface({
                   <span>Copy</span>
                 </>
               )}
-            </Button>
+            </CourseButton>
             <span
               role="status"
               aria-live="polite"

@@ -4,7 +4,6 @@ import "@/styles/globals.css";
 
 import "../authoring/views/AuthoringSurfaceView.css";
 import "../runtime/views/RuntimeSurfaceView.css";
-import "../view/variants/slide-content.css";
 import "../view/variants/slide-image-band.css";
 import "../view/variants/slide-image-cover.css";
 import "../view/variants/slide-layout.css";
@@ -70,45 +69,6 @@ describe("Surface frame cascade layering", () => {
       surface.className = "sc-slide-layout-surface-view";
       surface.dataset.surface = "";
       frame.append(surface);
-      document.body.append(frame);
-
-      expect(getComputedStyle(surface).display).toBe("grid");
-      expect(getComputedStyle(surface).boxSizing).toBe("border-box");
-      expect(getComputedStyle(surface).padding).toBe("1px");
-    },
-  );
-
-  it.each(["authoring", "runtime"] as const)(
-    "allows adapter padding overrides on the %s slide-content frame without losing layout geometry",
-    (renderer) => {
-      const adapterStyles = document.createElement("style");
-      adapterStyles.textContent = `
-        @layer sc-adapters {
-          .scaffold-${renderer}-surface-view .sc-slide-content-surface-view {
-            padding: 1px;
-          }
-        }
-      `;
-      document.head.append(adapterStyles);
-      mountedStyles.push(adapterStyles);
-
-      const frame = document.createElement("div");
-      frame.className = `scaffold-${renderer}-surface-view`;
-      frame.dataset.courseMode = "slideshow";
-      frame.dataset.surfaceSize = "16x9";
-
-      const surface = document.createElement("article");
-      surface.className = "sc-slide-content-surface-view";
-      if (renderer === "authoring") {
-        surface.dataset.surface = "";
-        frame.append(surface);
-      } else {
-        const rendererSurface = document.createElement("section");
-        rendererSurface.dataset.surface = "";
-        rendererSurface.dataset.surfaceVariant = "slide-content";
-        rendererSurface.append(surface);
-        frame.append(rendererSurface);
-      }
       document.body.append(frame);
 
       expect(getComputedStyle(surface).display).toBe("grid");

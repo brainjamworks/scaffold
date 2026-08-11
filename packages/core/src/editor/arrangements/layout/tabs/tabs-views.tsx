@@ -1,7 +1,7 @@
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { NodeViewContent, useEditorState } from "@tiptap/react";
 import type { EditorState } from "@tiptap/pm/state";
-import { useEffect, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, type KeyboardEvent } from "react";
 
 import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
@@ -12,6 +12,7 @@ import { projectInteractionContextOwners } from "@/editor/interactions/targets/p
 import { layoutSectionPositionAt } from "../model/layout-arrangement-helpers";
 import {
   activateLayoutInteractionTarget,
+  courseLayoutChromePresentation,
   LayoutAddGhost,
   SectionActionTrigger,
   SectionMovementHandle,
@@ -37,11 +38,12 @@ import {
   readTabsOptions,
   readTabsSections,
   renderTabsVariant,
+  tabPanelId,
   tabTriggerId,
-  tabsGhostPresentation,
   tabsPanelAttributes,
   type TabsSectionSummary,
 } from "./tabs-components";
+import { createTabsAuthoringReorderProjection } from "./tabs-authoring-reorder-projection";
 
 import "@/editor/bounded-containers/view/bounded-container.css";
 import { BoundedScrollHint } from "@/editor/bounded-containers/view/bounded-scroll";
@@ -94,6 +96,7 @@ export function TabsLayoutView(props: LayoutComponentProps) {
 
   useLayoutSemanticContainerAdapter({
     editor: props.editor,
+    getPos: props.getPos,
     layoutId,
     node: props.node,
     isVisible: (childId) => {
@@ -103,6 +106,7 @@ export function TabsLayoutView(props: LayoutComponentProps) {
       return normalizeActiveTabId(storedActiveId, readTabsSections(props.node)) === childId;
     },
     revealChild: (childId) => setActiveTab(layoutId, childId),
+    visibilityElementId: (childId) => tabPanelId(layoutId, childId),
   });
 
   useEffect(() => {
@@ -124,66 +128,28 @@ export function TabsLayoutView(props: LayoutComponentProps) {
   ]);
 
   return (
-    <div className="sc-tabs">
+    <div className="sc-course-tabs">
       <TabsList label={options.label} variant={renderTabsVariant(options.variant)}>
-        {sections.map((section, index) => {
-          const isActive = section.id === activeId;
-
-          return (
-            <TabsItem key={section.id} isActive={isActive}>
-              {props.editable ? (
-                <SectionMovementHandle
-                  axis="horizontal"
-                  editor={props.editor}
-                  getPresentationElement={() =>
-                    props.editor.view.dom.ownerDocument
-                      .getElementById(tabTriggerId(layoutId, section.id))
-                      ?.closest<HTMLElement>("[data-scaffold-tabs-item]") ?? null
-                  }
-                  layoutPos={layoutPos}
-                  sectionId={section.id}
-                  sectionIndex={index}
-                  className="sc-tabs__handle"
-                />
-              ) : null}
-              <TabsTrigger
-                layoutId={layoutId}
-                section={section}
-                isActive={isActive}
-                onActivate={() => {
-                  activateTab(section.id, index);
-                  activateLayout();
-                }}
-                onKeyDown={(event) =>
-                  handleTabsKeyDown({
-                    activateLayout,
-                    activateTab,
-                    editor: props.editor,
-                    event,
-                    layoutPos,
-                    layoutId,
-                    sectionId: section.id,
-                    sectionIndex: index,
-                    sections,
-                  })
-                }
-              />
-              {props.editable ? (
-                <SectionActionTrigger
-                  blockDefinitions={props.blockDefinitions}
-                  editor={props.editor}
-                  layoutPos={layoutPos}
-                  sectionId={section.id}
-                  sectionIndex={index}
-                  className="sc-tabs__action"
-                />
-              ) : null}
-            </TabsItem>
-          );
-        })}
+        {sections.map((section, index) => (
+          <TabsAuthoringItem
+            key={section.id}
+            activateLayout={activateLayout}
+            activateTab={activateTab}
+            blockDefinitions={props.blockDefinitions}
+            editable={props.editable}
+            editor={props.editor}
+            isActive={section.id === activeId}
+            layoutId={layoutId}
+            layoutPos={layoutPos}
+            section={section}
+            sectionIndex={index}
+            sections={sections}
+          />
+        ))}
         {props.editable ? (
           <LayoutAddGhost
             editor={props.editor}
+            chromePresentation={courseLayoutChromePresentation}
             getPos={props.getPos}
             label={addLabel}
             layoutId={layoutId}
@@ -193,12 +159,100 @@ export function TabsLayoutView(props: LayoutComponentProps) {
                 activateTab(sectionId, sectionIndex);
               }
             }}
-            presentation={tabsGhostPresentation(options.variant)}
+            className="sc-course-tabs__add"
           />
         ) : null}
       </TabsList>
-      <NodeViewContent className="sc-tabs__content" />
+      <NodeViewContent className="sc-course-tabs__content" />
     </div>
+  );
+}
+
+function TabsAuthoringItem({
+  activateLayout,
+  activateTab,
+  blockDefinitions,
+  editable,
+  editor,
+  isActive,
+  layoutId,
+  layoutPos,
+  section,
+  sectionIndex,
+  sections,
+}: {
+  activateLayout: () => void;
+  activateTab: (sectionId: string, sectionIndex: number) => void;
+  blockDefinitions: LayoutComponentProps["blockDefinitions"];
+  editable: boolean;
+  editor: LayoutComponentProps["editor"];
+  isActive: boolean;
+  layoutId: string;
+  layoutPos: number | null;
+  section: TabsSectionSummary;
+  sectionIndex: number;
+  sections: readonly TabsSectionSummary[];
+}) {
+  const getPresentationElement = useCallback(
+    () =>
+      editor.view.dom.ownerDocument
+        .getElementById(tabTriggerId(layoutId, section.id))
+        ?.closest<HTMLElement>("[data-course-tabs-item]") ?? null,
+    [editor, layoutId, section.id],
+  );
+  const reorderProjection = useMemo(
+    () => createTabsAuthoringReorderProjection(getPresentationElement),
+    [getPresentationElement],
+  );
+
+  return (
+    <TabsItem isActive={isActive}>
+      {editable ? (
+        <SectionMovementHandle
+          axis="horizontal"
+          editor={editor}
+          getPresentationElement={getPresentationElement}
+          layoutPos={layoutPos}
+          projection={reorderProjection}
+          sectionId={section.id}
+          sectionIndex={sectionIndex}
+          className="sc-course-tabs__handle"
+        />
+      ) : null}
+      <TabsTrigger
+        layoutId={layoutId}
+        section={section}
+        isActive={isActive}
+        onActivate={() => {
+          activateTab(section.id, sectionIndex);
+          activateLayout();
+        }}
+        onKeyDown={(event) =>
+          handleTabsKeyDown({
+            activateLayout,
+            activateTab,
+            editor,
+            event,
+            layoutPos,
+            layoutId,
+            sectionId: section.id,
+            sectionIndex,
+            sections,
+          })
+        }
+      />
+      {editable ? (
+        <SectionActionTrigger
+          blockDefinitions={blockDefinitions}
+          editor={editor}
+          layoutPos={layoutPos}
+          sectionId={section.id}
+          sectionIndex={sectionIndex}
+          chromePresentation={courseLayoutChromePresentation}
+          className="sc-course-tabs__action"
+        />
+      ) : null}
+    </TabsItem>
   );
 }
 
@@ -216,11 +270,14 @@ export function TabsSectionView(props: SectionComponentProps) {
   const isActive = sectionId === activeId;
 
   return (
-    <div {...tabsPanelAttributes({ layoutId, sectionId, isActive })} className="sc-tabs__panel">
+    <div
+      {...tabsPanelAttributes({ layoutId, sectionId, isActive })}
+      className="sc-course-tabs__panel"
+    >
       <div data-bounded-scroll-frame="">
         <NodeViewContent
           data-bounded-scroll=""
-          className="sc-layout-section__content sc-tabs__panel-content"
+          className="sc-layout-section__content sc-course-tabs__panel-content"
         />
         <BoundedScrollHint editable={props.editable} />
       </div>
@@ -233,14 +290,16 @@ export function tabsSectionFrame(props: SectionComponentProps): SectionFrameProp
   const sectionId = readRequiredTabsNodeId(props.node.attrs["id"], "section");
 
   return {
-    className: "sc-tabs__panel-frame",
+    className: "sc-course-tabs__panel-frame",
     movementTargetPresentation: {
       axis: "horizontal",
       resolveElement: (sectionFrame) => {
         const tabItem = props.editor.view.dom.ownerDocument
           .getElementById(tabTriggerId(layoutId, sectionId))
-          ?.closest("[data-scaffold-tabs-item]");
-        return tabItem?.closest(".sc-tabs") === sectionFrame.closest(".sc-tabs") ? tabItem : null;
+          ?.closest("[data-course-tabs-item]");
+        return tabItem?.closest(".sc-course-tabs") === sectionFrame.closest(".sc-course-tabs")
+          ? tabItem
+          : null;
       },
     },
   };

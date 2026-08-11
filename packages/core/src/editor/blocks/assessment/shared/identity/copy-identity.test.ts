@@ -2,7 +2,7 @@ import type { JSONContent } from "@tiptap/core";
 import { EmbeddedDataIdSchema, EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { RewriteCopiedContent } from "@/editor/blocks/block-definition";
+import type { BlockDuplicationOperation } from "@/document/model/identity/clone-with-new-ids";
 import {
   rewriteCategoriseCopiedContent,
   rewriteDropdownCopiedContent,
@@ -18,7 +18,7 @@ const previousChildId = EmbeddedNodeIdSchema.parse("childold0001");
 const nextChildId = EmbeddedNodeIdSchema.parse("childnew0001");
 
 function rewriteAssessment(
-  callback: RewriteCopiedContent,
+  callback: BlockDuplicationOperation,
   nodeType: string,
   assessment: Record<string, unknown>,
 ) {

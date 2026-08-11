@@ -167,8 +167,7 @@ function createLayoutContractNodeChecked(editor: Editor, input: DescribeLayoutCo
     const action = createLayoutInsertAction(definition);
     const node = editor.schema.nodeFromJSON(input.contentOverride ?? action.content());
     node.check();
-    const issue = action.validateNode?.(node);
-    return issue ? { ok: false as const, issue } : { ok: true as const, node };
+    return { ok: true as const, node };
   } catch (issue) {
     return { ok: false as const, issue };
   }

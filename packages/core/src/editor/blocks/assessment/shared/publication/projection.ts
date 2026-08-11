@@ -86,10 +86,7 @@ export function redactCommonAssessmentShellNode(
   redactChild: (child: JSONContent) => JSONContent = redactCommonAssessmentShellNode,
 ): JSONContent {
   if (node.type === "assessment_summary_feedback") {
-    return {
-      ...cloneJsonNodeWithoutContent(node),
-      content: [{ type: "paragraph" }],
-    };
+    return cloneJsonNodeWithoutContent(node);
   }
 
   return {

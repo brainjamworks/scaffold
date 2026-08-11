@@ -68,7 +68,7 @@
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-checklist__item-shell {
   gap: var(--space-2);
-  padding: 0.375rem var(--space-1);
+  padding-inline: var(--space-1);
   border-radius: var(--radius-2);
   transition: background-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -80,7 +80,7 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-checklist__checkbox {
-  margin-top: 0.1875rem;
+  margin-top: 0;
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
@@ -103,7 +103,6 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-checklist__item-text {
-  padding-top: 0.0625rem;
   color: var(--gray-12);
   font-size: var(--font-size-3);
   font-weight: 400;

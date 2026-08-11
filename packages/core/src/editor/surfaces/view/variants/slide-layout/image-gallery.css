@@ -1,11 +1,11 @@
 .sc-slide-layout-surface-view[data-slide-layout-composition="diptych"] {
   grid-template: auto minmax(0, 1fr) / repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  gap: var(--sc-slide-diptych-gap, 1rem);
 }
 
 .sc-slide-layout-surface-view[data-slide-layout-composition="triptych"] {
   grid-template: auto minmax(0, 1fr) / repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  gap: var(--sc-slide-triptych-gap, 1rem);
 }
 
 .sc-slide-layout-surface-view:is(
@@ -49,12 +49,12 @@
 
 .sc-slide-layout-surface-view[data-slide-layout-title="hidden"][data-slide-layout-composition="diptych"] {
   grid-template: minmax(0, 1fr) / repeat(2, minmax(0, 1fr));
-  gap: 0 1rem;
+  gap: 0 var(--sc-slide-diptych-gap, 1rem);
 }
 
 .sc-slide-layout-surface-view[data-slide-layout-title="hidden"][data-slide-layout-composition="triptych"] {
   grid-template: minmax(0, 1fr) / repeat(3, minmax(0, 1fr));
-  gap: 0 1rem;
+  gap: 0 var(--sc-slide-triptych-gap, 1rem);
 }
 
 .sc-slide-layout-surface-view[data-slide-layout-title="hidden"]:is(

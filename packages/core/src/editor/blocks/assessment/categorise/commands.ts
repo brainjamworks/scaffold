@@ -6,7 +6,13 @@ import {
   type AssessmentFeedbackContent,
 } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import {
+  MoveContainedAfterTarget,
+  MoveContainedBeforeTarget,
+  type AnyMovementIntent,
+} from "@/editor/movement/model/movement-intents";
+import type { MovementNodeContext } from "@/editor/movement/model/movement-policy";
 
 import { fieldContent } from "./categorise-fields-shared";
 
@@ -27,7 +33,7 @@ export function addCategoriseCategory(editor: Editor, binsGroupPos: number): boo
   if (!group || group.type.name !== "categorise_bins_group") return false;
   const category = editor.schema.nodeFromJSON({
     type: "categorise_bin",
-    attrs: { id: createStableId() },
+    attrs: { id: createEmbeddedNodeId() },
     content: [
       { type: "categorise_bin_title", content: fieldContent() },
       { type: "categorise_items_group" },
@@ -45,7 +51,7 @@ export function addCategoriseItem(editor: Editor, itemsGroupPos: number): boolea
   if (!group || group.type.name !== "categorise_items_group") return false;
   const item = editor.schema.nodeFromJSON({
     type: "categorise_item",
-    attrs: { id: createStableId() },
+    attrs: { id: createEmbeddedNodeId() },
     content: [{ type: "categorise_item_body", content: fieldContent() }],
   });
   const insertPos = itemsGroupPos + group.nodeSize - 1;
@@ -121,6 +127,208 @@ export function reassignCategoriseItem(
   return true;
 }
 
+export function canTargetCategoriseItemMovement(
+  source: MovementNodeContext,
+  target: MovementNodeContext,
+): boolean {
+  if (source.nodeType.name !== "categorise_item" || source.pos === target.pos) return false;
+  if (target.nodeType.name !== "categorise_item" && target.nodeType.name !== "categorise_bin") {
+    return false;
+  }
+  const sourceOwner = movementAncestor(source, "categorise");
+  const targetOwner = movementAncestor(target, "categorise");
+  return Boolean(
+    sourceOwner &&
+    targetOwner &&
+    sourceOwner.pos === targetOwner.pos &&
+    sourceOwner.node === targetOwner.node,
+  );
+}
+
+export function canApplyCategoriseItemMovement(
+  editor: Editor,
+  source: MovementNodeContext,
+  intent: AnyMovementIntent,
+): boolean {
+  return categoriseItemMovementIsApplicable(editor.state.doc, source.pos, intent);
+}
+
+export function canNavigateCategoriseItemMovement(
+  _source: MovementNodeContext,
+  current: MovementNodeContext,
+  target: MovementNodeContext,
+  direction: "down" | "left" | "right" | "up",
+): boolean {
+  if (direction === "up" || direction === "down") {
+    return target.nodeType.name === "categorise_item" && target.parentPos === current.parentPos;
+  }
+  const currentCategory = movementCategory(current);
+  const targetCategory = movementCategory(target);
+  if (!currentCategory || !targetCategory) return false;
+  const destinationIndex = currentCategory.index + (direction === "left" ? -1 : 1);
+  return targetCategory.index === destinationIndex;
+}
+
+export function applyCategoriseItemMovement(
+  editor: Editor,
+  source: MovementNodeContext,
+  intent: AnyMovementIntent,
+): boolean {
+  const tr = buildCategoriseItemMovementTransaction(editor, source.pos, intent);
+  if (!tr) return false;
+  editor.view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
+export function describeCategoriseItemMovementDestination(
+  editor: Editor,
+  source: MovementNodeContext,
+  intent: AnyMovementIntent,
+): string | null {
+  const target = categoriseItemMovementTarget(editor.state.doc, intent);
+  if (!target) return null;
+  const category = target.category;
+  const categoryLabel = category.node.firstChild?.textContent.trim() || "unnamed category";
+  if (target.targetNode.type.name === "categorise_bin") {
+    return `category ${categoryLabel}, at the end`;
+  }
+  const targetIndex = target.category.itemsGroup.childBefore(
+    target.targetPos - target.category.itemsGroupPos - 1,
+  ).index;
+  let destinationIndex = targetIndex + (intent instanceof MoveContainedAfterTarget ? 1 : 0);
+  if (source.parentPos === target.category.itemsGroupPos && source.index < destinationIndex) {
+    destinationIndex -= 1;
+  }
+  const position = destinationIndex + 1;
+  return `category ${categoryLabel}, position ${position}`;
+}
+
+function buildCategoriseItemMovementTransaction(
+  editor: Editor,
+  sourcePos: number,
+  intent: AnyMovementIntent,
+): Transaction | null {
+  if (
+    !(intent instanceof MoveContainedBeforeTarget) &&
+    !(intent instanceof MoveContainedAfterTarget)
+  ) {
+    return null;
+  }
+  if (!categoriseItemMovementIsApplicable(editor.state.doc, sourcePos, intent)) return null;
+  const sourceNode = editor.state.doc.nodeAt(sourcePos);
+  if (!sourceNode || sourceNode.type.name !== "categorise_item") return null;
+  const sourceBlock = findCategoriseBlock(editor.state.doc, sourcePos);
+  const target = categoriseItemMovementTarget(editor.state.doc, intent);
+  if (!sourceBlock || !target || sourceBlock.pos !== target.block.pos) return null;
+  if (target.targetPos === sourcePos) return null;
+
+  const insertPos =
+    target.targetNode.type.name === "categorise_bin"
+      ? target.category.itemsGroupPos + target.category.itemsGroup.nodeSize - 1
+      : intent instanceof MoveContainedBeforeTarget
+        ? target.targetPos
+        : target.targetPos + target.targetNode.nodeSize;
+
+  try {
+    const tr = editor.state.tr.delete(sourcePos, sourcePos + sourceNode.nodeSize);
+    const mappedInsertPos = tr.mapping.map(insertPos);
+    tr.insert(mappedInsertPos, sourceNode);
+    if (tr.doc.eq(editor.state.doc)) return null;
+    synchronizeCategoriseAssessmentsInTransaction(tr);
+    tr.doc.check();
+    return tr;
+  } catch {
+    return null;
+  }
+}
+
+function categoriseItemMovementIsApplicable(
+  doc: ProseMirrorNode,
+  sourcePos: number,
+  intent: AnyMovementIntent,
+): boolean {
+  if (
+    !(intent instanceof MoveContainedBeforeTarget) &&
+    !(intent instanceof MoveContainedAfterTarget)
+  ) {
+    return false;
+  }
+  const sourceNode = doc.nodeAt(sourcePos);
+  const sourceBlock = findCategoriseBlock(doc, sourcePos);
+  const target = categoriseItemMovementTarget(doc, intent);
+  if (
+    !sourceNode ||
+    sourceNode.type.name !== "categorise_item" ||
+    !sourceBlock ||
+    !target ||
+    sourceBlock.pos !== target.block.pos ||
+    target.targetPos === sourcePos
+  ) {
+    return false;
+  }
+  const sourceCategory = categoryContaining(sourceBlock, sourcePos);
+  if (!sourceCategory) return false;
+  const sourceIndex = doc.resolve(sourcePos).index();
+  if (target.targetNode.type.name === "categorise_bin") {
+    return (
+      sourceCategory.pos !== target.category.pos ||
+      sourceIndex !== sourceCategory.itemsGroup.childCount - 1
+    );
+  }
+  if (sourceCategory.pos !== target.category.pos) return true;
+  const targetIndex = doc.resolve(target.targetPos).index();
+  return intent instanceof MoveContainedBeforeTarget
+    ? sourceIndex !== targetIndex - 1
+    : sourceIndex !== targetIndex + 1;
+}
+
+function categoriseItemMovementTarget(
+  doc: ProseMirrorNode,
+  intent: AnyMovementIntent,
+): Readonly<{
+  block: CategoriseBlockLocation;
+  category: CategoryLocation;
+  targetNode: ProseMirrorNode;
+  targetPos: number;
+}> | null {
+  if (
+    !(intent instanceof MoveContainedBeforeTarget) &&
+    !(intent instanceof MoveContainedAfterTarget)
+  ) {
+    return null;
+  }
+  const targetPos = intent.target.pos;
+  const targetNode = doc.nodeAt(targetPos);
+  if (!targetNode) return null;
+  const block = findCategoriseBlock(doc, targetPos);
+  if (!block) return null;
+  const category =
+    targetNode.type.name === "categorise_bin"
+      ? categoryAt(doc, targetPos)
+      : targetNode.type.name === "categorise_item"
+        ? categoryContaining(block, targetPos)
+        : null;
+  return category ? { block, category, targetNode, targetPos } : null;
+}
+
+function movementAncestor(
+  context: MovementNodeContext,
+  nodeTypeName: string,
+): MovementNodeContext["ancestors"][number] | null {
+  return (
+    [...context.ancestors].reverse().find((ancestor) => ancestor.nodeType.name === nodeTypeName) ??
+    null
+  );
+}
+
+function movementCategory(context: MovementNodeContext): Readonly<{ index: number }> | null {
+  if (context.nodeType.name === "categorise_bin") {
+    return { index: context.index };
+  }
+  const ancestor = movementAncestor(context, "categorise_bin");
+  return ancestor ? { index: ancestor.index } : null;
+}
+
 /**
  * Keeps stable identities and item-keyed private feedback synchronized in the same transaction
  * as every visible Categorise document mutation, including neutral contained category movement.
@@ -148,7 +356,7 @@ function repairCategoryIds(tr: Transaction, block: CategoriseBlockLocation): voi
       seen.add(originalId);
       continue;
     }
-    const id = createStableId();
+    const id = createEmbeddedNodeId();
     seen.add(id);
     tr.setNodeMarkup(category.pos, undefined, { ...category.node.attrs, id });
   }
@@ -165,7 +373,7 @@ function repairItemIdsAndFeedback(tr: Transaction, block: CategoriseBlockLocatio
       const itemPos = category.itemsGroupPos + 1 + offset;
       const originalId = stringId(item);
       const canKeepId = originalId.trim().length > 0 && !seen.has(originalId);
-      const itemId = canKeepId ? originalId : createStableId();
+      const itemId = canKeepId ? originalId : createEmbeddedNodeId();
       seen.add(itemId);
       if (itemId !== originalId) {
         tr.setNodeMarkup(itemPos, undefined, { ...item.attrs, id: itemId });

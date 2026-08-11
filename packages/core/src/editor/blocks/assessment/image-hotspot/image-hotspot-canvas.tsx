@@ -6,7 +6,6 @@ import {
   PlusIcon as Plus,
   TrashIcon as Trash,
 } from "@phosphor-icons/react";
-import { Button, TextField } from "@radix-ui/themes";
 import {
   NodeViewWrapper,
   ReactNodeViewRenderer,
@@ -25,11 +24,10 @@ import {
 } from "react";
 
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
-import { resolveActiveBoundedPlacement } from "@/editor/bounded-containers/model/bounded-container-structure-policy";
-import {
-  nodeViewUiKey,
-  usePickerOpen,
-} from "@/editor/media/authoring/picker/file-picker-open-state";
+import { CourseButton } from "@/ui/components/course/CourseActions/CourseActions";
+import { CourseAuthoringTextField } from "@/ui/components/course/CourseInputs/CourseInputs";
+import { resolveActiveBoundedPlacement } from "@/editor/bounded-containers/model/bounded-container-placement";
+import { nodeViewUiStateKey, useNodeViewOpenState } from "@/editor/prosemirror/node-view-ui-state";
 import {
   resolveAssessmentAttrParent,
   richTextDocumentToAssessmentFeedback,
@@ -229,18 +227,18 @@ function AuthorCanvas({
 }: AuthorCanvasProps) {
   const isExpanded = presentation === "expanded";
   const mediaPort = useMediaPort();
-  const pickerKey = nodeViewUiKey({
+  const pickerKey = nodeViewUiStateKey({
     owner: "image-hotspot",
     surface: isExpanded ? "file-picker-expanded" : "file-picker",
     id: blockId,
   });
-  const [pickerOpen, setPickerOpen] = usePickerOpen(pickerKey);
-  const workspaceKey = nodeViewUiKey({
+  const [pickerOpen, setPickerOpen] = useNodeViewOpenState(pickerKey);
+  const workspaceKey = nodeViewUiStateKey({
     owner: "image-hotspot",
     surface: "course-workspace-authoring",
     id: blockId,
   });
-  const [workspaceOpen, setWorkspaceOpen] = usePickerOpen(workspaceKey);
+  const [workspaceOpen, setWorkspaceOpen] = useNodeViewOpenState(workspaceKey);
   const workspaceElementRef = useRef<HTMLDivElement>(null);
   const [workspaceSelectionRequestId, setWorkspaceSelectionRequestId] = useState<string | null>(
     null,
@@ -556,9 +554,7 @@ function AuthorCanvas({
       return;
     }
 
-    const selectedHit = selected
-      ? findHitHotspot(pct.x, pct.y, [selected], aspectRatio)
-      : null;
+    const selectedHit = selected ? findHitHotspot(pct.x, pct.y, [selected], aspectRatio) : null;
     const hit = selectedHit ?? findHitHotspot(pct.x, pct.y, visibleHotspots, aspectRatio);
     if (hit) {
       setSelectedId(hit.id);
@@ -630,10 +626,7 @@ function AuthorCanvas({
     if (i.mode === "moving" && i.activeId) {
       const activeId = i.activeId;
       if (i.moveInitiator === "marker" && !i.moved) {
-        const distance = Math.hypot(
-          e.clientX - i.pointerStart.x,
-          e.clientY - i.pointerStart.y,
-        );
+        const distance = Math.hypot(e.clientX - i.pointerStart.x, e.clientY - i.pointerStart.y);
         if (distance < HOTSPOT_DRAG_THRESHOLD_PX) return;
         beginDraftHotspots();
         setDetailsOpenId(null);
@@ -1225,12 +1218,13 @@ function isImageHotspotBoundedFillActive(
   if (canvasPos === null) return false;
   const parent = resolveAssessmentAttrParent(editor, canvasPos, ["image_hotspot"]);
   if (!parent) return false;
-  const blockDefinitions = getScaffoldCapabilitiesForEditor(editor).blocks.registry;
+  const capabilities = getScaffoldCapabilitiesForEditor(editor);
   return (
     resolveActiveBoundedPlacement({
-      blockDefinitions,
+      blockDefinitions: capabilities.blocks.registry,
       capability: "fill",
       doc: editor.state.doc,
+      layoutDefinitions: capabilities.layouts.registry,
       pos: parent.pos,
     }) === "fill"
   );
@@ -1287,7 +1281,7 @@ function ImageHotspotDefinitionFields({
         <label htmlFor={altInputId} className="sc-course-image-hotspot-editor__label">
           Image alternative text
         </label>
-        <TextField.Root
+        <CourseAuthoringTextField
           id={altInputId}
           value={altDraft}
           data-no-select
@@ -1306,7 +1300,7 @@ function ImageHotspotDefinitionFields({
         <label htmlFor={limitInputId} className="sc-course-image-hotspot-editor__label">
           Maximum selections
         </label>
-        <TextField.Root
+        <CourseAuthoringTextField
           id={limitInputId}
           type="number"
           min={1}
@@ -1512,7 +1506,7 @@ function HotspotEditorContent({
         <label htmlFor={labelInputId} className="sc-course-image-hotspot-editor__label">
           Public region label
         </label>
-        <TextField.Root
+        <CourseAuthoringTextField
           id={labelInputId}
           type="text"
           value={labelDraft}
@@ -1538,7 +1532,7 @@ function HotspotEditorContent({
             <label htmlFor={centerXInputId} className="sc-course-image-hotspot-editor__label">
               Centre X
             </label>
-            <TextField.Root
+            <CourseAuthoringTextField
               id={centerXInputId}
               type="number"
               min={0}
@@ -1563,7 +1557,7 @@ function HotspotEditorContent({
             <label htmlFor={centerYInputId} className="sc-course-image-hotspot-editor__label">
               Centre Y
             </label>
-            <TextField.Root
+            <CourseAuthoringTextField
               id={centerYInputId}
               type="number"
               min={0}
@@ -1588,7 +1582,7 @@ function HotspotEditorContent({
             <label htmlFor={radiusInputId} className="sc-course-image-hotspot-editor__label">
               Radius
             </label>
-            <TextField.Root
+            <CourseAuthoringTextField
               id={radiusInputId}
               type="number"
               min={MIN_RADIUS}
@@ -1610,10 +1604,9 @@ function HotspotEditorContent({
         </div>
       </fieldset>
 
-      <Button
+      <CourseButton
         type="button"
-        size="2"
-        variant="soft"
+        emphasis="muted"
         onMouseDown={(e) => e.preventDefault()}
         onClick={(e) => {
           e.stopPropagation();
@@ -1630,7 +1623,7 @@ function HotspotEditorContent({
           className={isCorrect ? "sc-course-image-hotspot-editor__correct-icon" : undefined}
         />
         {isCorrect ? "Marked correct" : "Mark as correct"}
-      </Button>
+      </CourseButton>
 
       <div className="sc-course-image-hotspot-editor__field">
         <label id={editorFieldId} className="sc-course-image-hotspot-editor__label">

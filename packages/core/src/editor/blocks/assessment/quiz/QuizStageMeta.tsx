@@ -6,11 +6,10 @@ import {
   type Icon,
   TrashIcon as Trash,
 } from "@phosphor-icons/react";
-import * as Tooltip from "@radix-ui/react-tooltip";
-import { IconButton } from "@radix-ui/themes";
 
 import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
-import { useOverlayBoundary } from "@/ui/overlays/portal-host-context";
+import { CourseIconButton } from "@/ui/components/course/CourseActions/CourseActions";
+import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
 import { zIndex } from "@/ui/overlays/z-index";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 
@@ -28,8 +27,8 @@ import type { ResolvedQuickAction } from "./quick-actions";
  *   - standard authoring actions: settings, duplicate, delete.
  *
  * Every visible action is Course-owned because this row sits inside the
- * Course canvas. Tooltip behaviour stays with the Radix primitive while
- * its portal content restores the active Course theme boundary.
+ * Course canvas. The owned Tooltip retains Radix behaviour while its
+ * portal content restores the active Course theme boundary.
  */
 export function QuizStageMeta({
   activeIndex,
@@ -125,15 +124,12 @@ function QuizStageAction({
   tone?: "default" | "danger";
   onClick: () => void;
 }) {
-  const overlayBoundary = useOverlayBoundary();
-
   return (
     <Tooltip.Root>
       <Tooltip.Trigger asChild>
-        <IconButton
+        <CourseIconButton
           type="button"
-          size="2"
-          variant="ghost"
+          emphasis="quiet"
           className={`sc-course-quiz__stage-action${className ? ` ${className}` : ""}`}
           data-tone={tone}
           aria-label={label}
@@ -142,29 +138,21 @@ function QuizStageAction({
           onClick={onClick}
         >
           <Icon size={iconSm} aria-hidden />
-        </IconButton>
+        </CourseIconButton>
       </Tooltip.Trigger>
-      {overlayBoundary.status === "pending" ? null : (
-        <Tooltip.Portal
-          container={
-            overlayBoundary.status === "ready" ? overlayBoundary.environment.host : undefined
-          }
-        >
-          <CourseThemePortalBoundary>
-            <Tooltip.Content
-              {...(overlayBoundary.status === "ready"
-                ? { collisionBoundary: overlayBoundary.environment.collisionBoundary }
-                : {})}
-              side="top"
-              sideOffset={7}
-              className="sc-course-quiz__action-tooltip"
-              style={{ zIndex: zIndex.tooltip }}
-            >
-              {label}
-            </Tooltip.Content>
-          </CourseThemePortalBoundary>
-        </Tooltip.Portal>
-      )}
+      <Tooltip.Portal>
+        <CourseThemePortalBoundary>
+          <Tooltip.Content
+            side="top"
+            sideOffset={7}
+            className="sc-course-quiz__action-tooltip"
+            presentation="unskinned"
+            style={{ zIndex: zIndex.tooltip }}
+          >
+            {label}
+          </Tooltip.Content>
+        </CourseThemePortalBoundary>
+      </Tooltip.Portal>
     </Tooltip.Root>
   );
 }

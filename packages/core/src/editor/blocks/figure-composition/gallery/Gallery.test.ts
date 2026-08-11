@@ -20,6 +20,7 @@ import { createElement } from "react";
 import { afterEach, it, expect, vi } from "vite-plus/test";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
@@ -142,6 +143,7 @@ function renderGalleryEditor(content: JSONContent = galleryFixture()) {
   const fixture = createDisposableEditor({
     extensions: [
       StarterKit,
+      createScaffoldCapabilitiesStorageExtension(coreRuntimeComposition.capabilities),
       UniqueID.configure({
         attributeName: "id",
         types: ["gallery", "gallery_item"],
@@ -188,6 +190,7 @@ function renderGalleryLearningEventRuntime(
           children: createElement(CourseDocumentRuntimeRenderer, {
             composition: coreRuntimeComposition,
             initialContent: content,
+            productAccess: { scaffoldPlusAuthorized: false },
             visibleSurfaceId: visibleSurfaceId ?? surfaceId,
           }),
         }),
@@ -873,6 +876,7 @@ it("edits the same stable children through generic collection settings", async (
   render(
     createElement(ConfigurationSettingsSheet, {
       editor,
+      entry: galleryDefinition.settingsSheet!,
       nodeType: GALLERY_NODE,
       pos: 0,
       targetId: "gallery_0001",

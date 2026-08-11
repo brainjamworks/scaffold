@@ -1,0 +1,77 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-slide-image-cover-surface-view {
+  --sc-slide-image-cover-media-column: minmax(0, 50%);
+  --sc-slide-image-cover-content-gap: calc(
+    (var(--space-2) + (var(--space-3) / 2)) * var(--sc-course-author-density)
+  );
+  --sc-slide-image-cover-content-inset-block: calc(
+    var(--space-7) * var(--sc-course-author-density)
+  );
+  --sc-slide-image-cover-content-inset-inline: calc(
+    var(--space-8) * var(--sc-course-author-density)
+  );
+
+  color: var(--gray-12);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-slide-image-cover-surface-view
+  [data-slot="slide-image-cover-image"] {
+  border-left: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-slide-image-cover-surface-view[data-slide-image-side="left"]
+  [data-slot="slide-image-cover-image"] {
+  border-right: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+  border-left: 0;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-slide-image-cover-image__media,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-slide-image-cover-image__missing {
+  background: var(--gray-a2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-slide-image-cover-image__missing {
+  border: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-slide-image-cover-surface-view h1 {
+  color: var(--gray-12);
+  font-family: var(--heading-font-family);
+  font-size: calc(var(--font-size-9) * 0.933333 * var(--sc-course-author-text-scale));
+  font-weight: var(--sc-course-author-heading-weight);
+  letter-spacing: var(--sc-course-author-heading-letter-spacing);
+  line-height: var(--sc-course-author-heading-line-height);
+  text-transform: var(--sc-course-author-heading-text-transform);
+  text-wrap: balance;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-slide-image-cover-surface-authoring-view
+  h1.is-empty::before {
+  color: var(--gray-11);
+  opacity: 0.5;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-slide-image-cover-surface-view
+  [data-slot="slide-cover-subtitle"] {
+  --sc-field-content-flow-gap: calc(var(--space-1) * 1.5 * var(--sc-course-author-density));
+
+  color: var(--gray-11);
+  font-family: var(--default-font-family);
+  font-size: calc(var(--font-size-4) * var(--sc-course-author-text-scale));
+  font-weight: var(--sc-course-author-body-weight);
+  line-height: var(--sc-course-author-body-line-height);
+  text-wrap: pretty;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-slide-image-cover-surface-view
+  [data-slot="slide-cover-subtitle"]
+  > :where(*) {
+  max-width: 38rem;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+}

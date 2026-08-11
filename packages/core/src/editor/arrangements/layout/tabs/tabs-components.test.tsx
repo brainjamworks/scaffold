@@ -16,12 +16,11 @@ import {
   renderTabsVariant,
   tabPanelId,
   tabTriggerId,
-  tabsGhostPresentation,
   tabsPanelAttributes,
 } from "./tabs-components";
 
 describe("tabs shared components", () => {
-  it("reads persisted options and normalizes rendered variants", () => {
+  it("reads persisted options and preserves rendered variant identity", () => {
     expect(readTabsOptions({ variant: "pills", label: "Lesson tabs" })).toEqual({
       variant: "pills",
       label: "Lesson tabs",
@@ -30,7 +29,8 @@ describe("tabs shared components", () => {
       variant: "default",
       label: "Tabs",
     });
-    expect(renderTabsVariant("underline")).toBe("default");
+    expect(renderTabsVariant("default")).toBe("default");
+    expect(renderTabsVariant("underline")).toBe("underline");
     expect(renderTabsVariant("pills")).toBe("pills");
   });
 
@@ -66,7 +66,7 @@ describe("tabs shared components", () => {
     expect(nextTabForKey({ key: "Tab", sectionId: "one", sections })).toBeNull();
   });
 
-  it("builds stable tab ids, panel attributes, and ghost presentations", () => {
+  it("builds stable tab ids and panel attributes", () => {
     expect(tabTriggerId("layout-1", "section-1")).toContain("tabs-trigger");
     expect(tabPanelId("layout-1", "section-1")).toContain("tabs-panel");
     expect(
@@ -74,15 +74,29 @@ describe("tabs shared components", () => {
         layoutId: "layout-1",
         sectionId: "section-1",
         isActive: false,
+        focusable: true,
       }),
     ).toMatchObject({
       role: "tabpanel",
       hidden: true,
       "data-state": "inactive",
+      tabIndex: -1,
     });
-    expect(tabsGhostPresentation("default")).toBe("tab");
-    expect(tabsGhostPresentation("pills")).toBe("tab-pills");
-    expect(tabsGhostPresentation("underline")).toBe("tab-underline");
+    expect(
+      tabsPanelAttributes({
+        layoutId: "layout-1",
+        sectionId: "section-1",
+        isActive: true,
+        focusable: true,
+      }),
+    ).toMatchObject({ tabIndex: 0 });
+    expect(
+      tabsPanelAttributes({
+        layoutId: "layout-1",
+        sectionId: "section-1",
+        isActive: true,
+      }),
+    ).not.toHaveProperty("tabIndex");
   });
 
   it("renders the shared list, item, and trigger shell", async () => {
@@ -108,8 +122,15 @@ describe("tabs shared components", () => {
     expect(screen.getByRole("tablist").getAttribute("aria-label")).toBe("Lesson tabs");
     expect(trigger.getAttribute("aria-selected")).toBe("true");
     expect(trigger.getAttribute("tabindex")).toBe("0");
-    expect(container.querySelector(".sc-tabs__list")?.getAttribute("data-variant")).toBe("pills");
-    expect(container.querySelector(".sc-tabs__item")?.getAttribute("data-state")).toBe("active");
+    expect(container.querySelector(".sc-course-tabs__list")?.getAttribute("data-variant")).toBe(
+      "pills",
+    );
+    expect(container.querySelector(".sc-course-tabs__item")?.getAttribute("data-state")).toBe(
+      "active",
+    );
+    expect(screen.getByRole("tablist")).toHaveAttribute("data-course-tabs-list");
+    expect(screen.getByRole("tablist")).toHaveAttribute("aria-orientation", "horizontal");
+    expect(trigger).toHaveClass("sc-course-tabs__trigger");
     await user.click(trigger);
     expect(onActivate).toHaveBeenCalledTimes(1);
   });

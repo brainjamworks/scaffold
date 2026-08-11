@@ -3,7 +3,7 @@
 import { Editor, type AnyExtension, type JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -46,6 +46,7 @@ const coreCapabilities = Object.freeze({
 });
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
+  layoutDefinitions: builtInLayoutRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
 });
 
@@ -77,20 +78,20 @@ describe("bounded accordion authoring", () => {
     expect(layout?.closest('[data-node="region"]')).not.toBeNull();
     expect(layout?.classList.contains("sc-layout-frame")).toBe(true);
     expect(layout?.classList.contains("sc-layout-frame--authoring")).toBe(true);
-    expect(layout?.classList.contains("sc-accordion-layout")).toBe(false);
+    expect(layout?.classList.contains("sc-course-accordion")).toBe(false);
     expect(layout?.getAttribute("data-bounded-placement")).toBe("fill");
     expect(accordionRoot).not.toBeNull();
     expect(accordionRoot?.parentElement).toBe(layout);
-    expect(accordionRoot?.classList.contains("sc-accordion-layout--authoring")).toBe(true);
+    expect(accordionRoot?.classList.contains("sc-course-accordion--authoring")).toBe(true);
     expect(accordionRoot?.getAttribute("data-bounded-placement")).toBeNull();
     const outline = layout?.querySelector<HTMLElement>(":scope > [data-layout-outline]");
     expect(outline).not.toBeNull();
     expect(accordionRoot?.nextElementSibling).toBe(outline);
-    expect(screen.getByRole("group", { name: "Topics" }).closest(".sc-accordion-layout")).toBe(
+    expect(screen.getByRole("group", { name: "Topics" }).closest(".sc-course-accordion")).toBe(
       accordionRoot,
     );
     expect(sections).toHaveLength(2);
-    expect(sections[0]?.classList.contains("sc-accordion-section")).toBe(true);
+    expect(sections[0]?.classList.contains("sc-course-accordion__section")).toBe(true);
     expect(sections[0]?.getAttribute("data-vertical-content-position")).toBe("bottom");
     expect(sectionVerticalState(editor, "accordion001")).toEqual({ kind: "unavailable" });
     expect(
@@ -103,6 +104,17 @@ describe("bounded accordion authoring", () => {
     expect(screen.getByRole("button", { name: "Add section" })).toBeInTheDocument();
     expect(layout?.querySelector("[data-authoring-move-handle]")).not.toBeNull();
     expect(layout?.querySelector("[data-layout-section-menu-trigger]")).not.toBeNull();
+    expect(layout?.querySelector(".sc-app-structure-movement-handle--bare")).not.toBeNull();
+    expect(layout?.querySelector(".sc-app-compact-movement-handle")).not.toBeNull();
+    expect(layout?.querySelector(".sc-course-layout-chrome__move")).toBeNull();
+    expect(layout?.querySelector(".sc-course-layout-chrome__options")).not.toBeNull();
+    expect(
+      screen
+        .getByRole("button", { name: "Add section" })
+        .classList.contains("sc-course-layout-chrome__add"),
+    ).toBe(true);
+    expect(triggers[0]?.getAttribute("aria-label")).toBe("Before class");
+    expect(fireEvent.mouseDown(triggers[0]!)).toBe(false);
     expect(panelViewport(panels[0])?.hasAttribute("data-bounded-scroll")).toBe(true);
     expect(panels[0]?.querySelector("[data-bounded-scroll-frame]")).not.toBeNull();
     expect(panels[0]?.querySelector("[data-bounded-scroll-hint]")?.textContent).toBe(
@@ -141,21 +153,23 @@ describe("bounded accordion runtime", () => {
     expect(layout?.closest('[data-node="region"]')).not.toBeNull();
     expect(layout?.classList.contains("sc-layout-frame")).toBe(true);
     expect(layout?.classList.contains("sc-layout-frame--runtime")).toBe(true);
-    expect(layout?.classList.contains("sc-accordion-layout")).toBe(false);
+    expect(layout?.classList.contains("sc-course-accordion")).toBe(false);
     expect(layout?.getAttribute("data-bounded-placement")).toBe("fill");
     expect(accordionRoot).not.toBeNull();
     expect(accordionRoot?.parentElement).toBe(layout);
-    expect(accordionRoot?.classList.contains("sc-accordion-layout--authoring")).toBe(false);
+    expect(accordionRoot?.classList.contains("sc-course-accordion--authoring")).toBe(false);
     expect(accordionRoot?.getAttribute("data-bounded-placement")).toBeNull();
-    expect(screen.getByRole("group", { name: "Topics" }).closest(".sc-accordion-layout")).toBe(
+    expect(screen.getByRole("group", { name: "Topics" }).closest(".sc-course-accordion")).toBe(
       accordionRoot,
     );
     expect(sections).toHaveLength(2);
-    expect(sections[0]?.classList.contains("sc-accordion-section")).toBe(true);
+    expect(sections[0]?.classList.contains("sc-course-accordion__section")).toBe(true);
     expect(sections[0]?.getAttribute("data-vertical-content-position")).toBe("bottom");
     expect(screen.queryByRole("button", { name: "Add section" })).toBeNull();
     expect(layout?.querySelector("[data-authoring-move-handle]")).toBeNull();
     expect(layout?.querySelector("[data-layout-section-menu-trigger]")).toBeNull();
+    expect(triggers[0]?.getAttribute("aria-label")).toBe("Before class");
+    expect(fireEvent.mouseDown(triggers[0]!)).toBe(true);
     expect(panelViewport(panels[0])?.hasAttribute("data-bounded-scroll")).toBe(true);
     expect(panels[0]?.querySelector("[data-bounded-scroll-frame]")).not.toBeNull();
     expect(panels[0]?.querySelector("[data-bounded-scroll-hint]")?.textContent).toBe(
@@ -187,7 +201,7 @@ describe("page-flow accordion", () => {
     const panels = accordionPanels();
 
     expect(layout?.closest('[data-node="region"]')).toBeNull();
-    expect(layout?.classList.contains("sc-accordion-layout")).toBe(false);
+    expect(layout?.classList.contains("sc-course-accordion")).toBe(false);
     expect(layout?.getAttribute("data-bounded-placement")).toBe("fill");
     expect(accordionRoot).not.toBeNull();
     expect(accordionRoot?.parentElement).toBe(layout);
@@ -363,11 +377,11 @@ function directAccordionRoot(layout: HTMLElement | null): HTMLElement | null {
   return (
     Array.from(layout?.children ?? []).find(
       (child): child is HTMLElement =>
-        child instanceof HTMLElement && child.classList.contains("sc-accordion-layout"),
+        child instanceof HTMLElement && child.classList.contains("sc-course-accordion"),
     ) ?? null
   );
 }
 
 function panelViewport(panel: HTMLElement | undefined): HTMLElement | null {
-  return panel?.querySelector<HTMLElement>(".sc-accordion-panel__content") ?? null;
+  return panel?.querySelector<HTMLElement>(".sc-course-accordion__panel-content") ?? null;
 }

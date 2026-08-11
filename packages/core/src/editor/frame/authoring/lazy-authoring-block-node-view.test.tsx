@@ -8,6 +8,7 @@ import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
+import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createLazyAuthoringBlockNodeView } from "./lazy-authoring-block-node-view";
 import { AUTHORING_FRAME_ATTR } from "@/editor/interactions/dom/authoring-frame";
 
@@ -43,6 +44,7 @@ const LazyAuthoringFrameTestNode = Node.create({
 
   addNodeView() {
     return createLazyAuthoringBlockNodeView({
+      blockDefinitions: builtInBlockRegistry,
       fallback: LazyAuthoringFrameFallback,
       frame: {
         resizable: true,

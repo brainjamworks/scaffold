@@ -1,6 +1,6 @@
 import type { EditorState } from "@tiptap/pm/state";
 
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { getScaffoldCapabilitiesForState } from "@/composition/extensions/scaffold-capabilities-storage";
 import type {
   FloatingControl,
   FloatingTargetState,
@@ -72,8 +72,9 @@ function resolveStructuralOwnerDescriptor(
   state: EditorState,
   kind: StructuralInteractionTargetKind,
 ): StructuralChromeTargetDescriptor | null {
+  const blockDefinitions = getScaffoldCapabilitiesForState(state).blocks.registry;
   const owners = publishInteractionOwnerSnapshot(state, null, {
-    blockDefinitions: builtInBlockRegistry,
+    blockDefinitions,
   }).owners;
   const ownerRef = owners.menuOwner.target ?? owners.explicitOwner.target;
   if (ownerRef?.kind !== kind) return null;

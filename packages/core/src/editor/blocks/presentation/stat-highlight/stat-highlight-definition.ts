@@ -1,7 +1,7 @@
 import { ChartBarIcon as ChartBar } from "@phosphor-icons/react";
 import { StatHighlightDataSchema } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 
@@ -38,7 +38,7 @@ export const statHighlightBlockDefinition = defineBlock({
     content: () => ({
       type: "stat_highlight",
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyStatHighlightData(),
       },
       content: [

@@ -9,7 +9,7 @@ import { useId } from "react";
 
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 import { GLOSSARY_ENTRY_NODE, GLOSSARY_NODE, glossaryEntryContent } from "./content";
 import { GlossarySurface } from "./GlossarySurface";
@@ -35,7 +35,7 @@ export function GlossaryView(props: NodeViewProps) {
       .focus()
       .insertContentAt(pos + node.nodeSize - 1, {
         type: GLOSSARY_ENTRY_NODE,
-        attrs: { id: createStableId() },
+        attrs: { id: createEmbeddedNodeId() },
         content: glossaryEntryContent(),
       })
       .run();

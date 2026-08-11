@@ -1,4 +1,4 @@
-import { XIcon as X } from "@phosphor-icons/react";
+import { DotsSixVerticalIcon as DotsSixVertical, XIcon as X } from "@phosphor-icons/react";
 import { DOMSerializer } from "@tiptap/pm/model";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
 import { useId, useLayoutEffect, useMemo, useState } from "react";
@@ -69,6 +69,7 @@ interface CategoriseDropData {
 
 function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [selectedPlacedItemId, setSelectedPlacedItemId] = useState<string | null>(null);
   const [hoveredCategoryId, setHoveredCategoryId] = useState<string | null>(null);
   const pos = safeGetPos(props.getPos);
   const authoredBlockId = findAncestorAssessmentBlockId(props.editor, pos ?? undefined, [
@@ -111,18 +112,31 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
   useLayoutEffect(() => {
     if (
       selectedItemId !== null &&
-      (!itemById.has(selectedItemId) || displayPlacements[selectedItemId] !== undefined)
+      (!itemById.has(selectedItemId) ||
+        displayPlacements[selectedItemId] !== undefined ||
+        interactionLocked)
     ) {
       setSelectedItemId(null);
     }
-  }, [displayPlacements, itemById, selectedItemId]);
+  }, [displayPlacements, interactionLocked, itemById, selectedItemId]);
+  useLayoutEffect(() => {
+    if (
+      selectedPlacedItemId !== null &&
+      (!itemById.has(selectedPlacedItemId) ||
+        displayPlacements[selectedPlacedItemId] === undefined ||
+        interactionLocked)
+    ) {
+      setSelectedPlacedItemId(null);
+    }
+  }, [displayPlacements, interactionLocked, itemById, selectedPlacedItemId]);
 
   const commitPlacement = (itemId: string, categoryId: string) => {
-    const itemAvailable = itemById.has(itemId) && displayPlacements[itemId] === undefined;
+    const itemAvailable = itemById.has(itemId) && displayPlacements[itemId] !== categoryId;
     const categoryAvailable = categories.some((category) => category.id === categoryId);
     if (interactionLocked || !itemAvailable || !categoryAvailable) return false;
     problem?.setPlacement(itemId, categoryId);
     setSelectedItemId(null);
+    setSelectedPlacedItemId(null);
     setHoveredCategoryId(null);
     return true;
   };
@@ -131,6 +145,7 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
   };
   const handleDragStart = () => {
     setSelectedItemId(null);
+    setSelectedPlacedItemId(null);
   };
   const handleDragMove = (event: { over: { data: CategoriseDropData } | null }) => {
     setHoveredCategoryId(interactionLocked ? null : (event.over?.data.categoryId ?? null));
@@ -193,6 +208,7 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
                       onEscape={() => setSelectedItemId(null)}
                       onSelect={() => {
                         if (interactionLocked) return;
+                        setSelectedPlacedItemId(null);
                         setSelectedItemId(selected ? null : item.id);
                       }}
                     />
@@ -205,6 +221,7 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
           <div className="sc-course-categorise__bin-grid">
             {categories.map((category, idx) => {
               const placed = items.filter((item) => displayPlacements[item.id] === category.id);
+              const selectedForPlacement = selectedItemId ?? selectedPlacedItemId;
               return (
                 <CategoriseRuntimeCategory
                   key={category.id}
@@ -216,13 +233,18 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
                   interactionLocked={interactionLocked}
                   items={placed}
                   reveal={reveal}
-                  selectedItemId={selectedItemId}
+                  selectedItemId={selectedForPlacement}
                   showFeedback={showFeedback}
                   submitted={submitted}
                   onPlaceSelected={() => {
-                    if (selectedItemId) commitPlacement(selectedItemId, category.id);
+                    if (selectedForPlacement) commitPlacement(selectedForPlacement, category.id);
                   }}
                   onRemovePlacement={(itemId) => problem?.removePlacement(itemId)}
+                  onSelectPlacedItem={(itemId) => {
+                    if (interactionLocked) return;
+                    setSelectedItemId(null);
+                    setSelectedPlacedItemId(selectedPlacedItemId === itemId ? null : itemId);
+                  }}
                 />
               );
             })}
@@ -304,6 +326,7 @@ function CategoriseRuntimeCategory({
   items,
   onPlaceSelected,
   onRemovePlacement,
+  onSelectPlacedItem,
   reveal,
   selectedItemId,
   showFeedback,
@@ -318,6 +341,7 @@ function CategoriseRuntimeCategory({
   items: CategoriseItemProjection[];
   onPlaceSelected: () => void;
   onRemovePlacement: (itemId: string) => void;
+  onSelectPlacedItem: (itemId: string) => void;
   reveal: ReturnType<typeof categoriseRevealFromAnswers>;
   selectedItemId: string | null;
   showFeedback: boolean;
@@ -377,7 +401,9 @@ function CategoriseRuntimeCategory({
             showFeedback={showFeedback}
             submitted={submitted}
             interactionLocked={interactionLocked}
+            selected={selectedItemId === item.id}
             onRemovePlacement={onRemovePlacement}
+            onSelect={() => onSelectPlacedItem(item.id)}
           />
         ))}
         {items.length === 0 && (
@@ -397,7 +423,9 @@ function CategoriseRuntimePlacedItem({
   interactionLocked,
   item,
   onRemovePlacement,
+  onSelect,
   reveal,
+  selected,
   showFeedback,
   submitted,
 }: {
@@ -407,10 +435,18 @@ function CategoriseRuntimePlacedItem({
   interactionLocked: boolean;
   item: CategoriseItemProjection;
   onRemovePlacement: (itemId: string) => void;
+  onSelect: () => void;
   reveal: ReturnType<typeof categoriseRevealFromAnswers>;
   showFeedback: boolean;
+  selected: boolean;
   submitted: boolean;
 }) {
+  const drag = useInteractionDragSource<CategoriseDragData>({
+    data: { html: item.html, itemId: item.id },
+    disabled: interactionLocked,
+    id: `categorise-runtime-placed-item:${item.id}`,
+    label: "Placed Categorise item",
+  });
   const detail = feedbackResultItems?.[item.id] ?? null;
   const correct =
     answerKeyVisible && reveal !== null
@@ -433,16 +469,37 @@ function CategoriseRuntimePlacedItem({
 
   return (
     <div
+      ref={drag.sourceRef}
       role="group"
       aria-label="Placed item"
       aria-describedby={placedItemDescriptionId}
       data-placed-item-id={item.id}
+      data-interaction-drag-placeholder={drag.isPlaceholder ? "" : undefined}
       data-course-state={
         showFeedback && correct !== null ? (correct ? "correct" : "incorrect") : undefined
       }
       className="sc-course-categorise__placed-item"
     >
       <div className="sc-course-categorise__placed-item-row">
+        {!interactionLocked && (
+          <InteractionDragActivationArea
+            ref={drag.handleRef}
+            type="button"
+            aria-label="Move placed item"
+            aria-pressed={selected}
+            data-categorise-placed-item-drag-handle=""
+            data-id={item.id}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect();
+            }}
+            safeLocalHeight={44}
+            safeLocalWidth={44}
+            className="sc-course-categorise__item-handle"
+          >
+            <DotsSixVertical size={iconSm} weight="bold" />
+          </InteractionDragActivationArea>
+        )}
         <div className="sc-course-categorise__item-content">
           {renderStaticHtml(item.html, "Item")}
         </div>

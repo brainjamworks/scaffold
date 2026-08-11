@@ -85,9 +85,9 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
   }, [isPresented, layoutId, learningEventReporter, openSectionIds, sections]);
 
   return (
-    <div className="sc-accordion-layout">
+    <div className="sc-course-accordion">
       <AccordionLayoutShell options={options}>
-        <NodeViewContent className="sc-accordion-layout__content" />
+        <NodeViewContent className="sc-course-accordion__content" />
       </AccordionLayoutShell>
     </div>
   );
@@ -96,7 +96,7 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
 export function AccordionSectionRuntimeView(_props: SectionRuntimeViewProps) {
   return (
     <AccordionSectionFrame>
-      <NodeViewContent className="sc-accordion-section__content" />
+      <NodeViewContent className="sc-course-accordion__section-content" />
     </AccordionSectionFrame>
   );
 }
@@ -105,6 +105,6 @@ export function accordionRuntimeSectionFrame(
   _props: SectionRuntimeViewProps,
 ): SectionRuntimeFrameOptions {
   return {
-    className: "sc-accordion-section",
+    className: "sc-course-accordion__section",
   };
 }

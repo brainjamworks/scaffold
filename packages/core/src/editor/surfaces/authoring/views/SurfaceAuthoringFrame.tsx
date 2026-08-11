@@ -1,7 +1,7 @@
 import { NodeViewContent, NodeViewWrapper, useEditorState } from "@tiptap/react";
 import { useRef, type ReactNode, type RefObject } from "react";
 
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { useBoundedScrollAffordance } from "@/editor/bounded-containers/view/bounded-scroll";
 import "@/editor/bounded-containers/view/bounded-container.css";
 import {
@@ -43,11 +43,12 @@ export function SurfaceAuthoringFrame({
   const chromeActive = useEditorState({
     editor: props.editor,
     selector: ({ editor }) => {
+      const blockDefinitions = getScaffoldCapabilitiesForEditor(editor).blocks.registry;
       const pos = resolveNodeViewPos(props.getPos);
       const outline = resolveStructuralChromeTargetFromSnapshot(
         editor.state,
         publishInteractionOwnerSnapshot(editor.state, null, {
-          blockDefinitions: builtInBlockRegistry,
+          blockDefinitions,
         }),
         "outline",
       );

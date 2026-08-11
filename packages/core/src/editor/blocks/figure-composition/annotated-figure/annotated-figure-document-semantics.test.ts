@@ -133,7 +133,17 @@ describe("Annotated Figure document semantics", () => {
     };
     const presentSurface = vi.fn(async () => undefined);
     const bringIntoView = vi.fn(async () => undefined);
-    const environment: SemanticNavigationEnvironment = { presentSurface, bringIntoView };
+    const createActivationTransaction = vi.fn((location) => {
+      const tr = state.tr;
+      if (location.selectionTarget.kind !== "node") return null;
+      tr.setSelection(NodeSelection.create(tr.doc, location.selectionTarget.pos));
+      return tr;
+    });
+    const environment: SemanticNavigationEnvironment = {
+      createActivationTransaction,
+      presentSurface,
+      bringIntoView,
+    };
     controller = new SemanticDocumentController({
       state,
       definitions: definitions(),

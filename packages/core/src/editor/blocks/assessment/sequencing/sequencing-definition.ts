@@ -2,9 +2,8 @@ import { ListNumbersIcon as ListNumbers } from "@phosphor-icons/react";
 import { SequencingPrivateAssessmentSchema, SequencingSettingsSchema } from "@scaffold/contracts";
 
 import { assessmentShellPlaceholders } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
-import { rewriteSequencingCopiedContent } from "@/editor/blocks/assessment/shared/identity/copy-identity";
 import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import type { ConfigurationControlDescriptor } from "@/editor/configuration/definition";
 import { defineAssessmentCapability, defineBlock } from "@/editor/blocks/block-definition";
@@ -63,7 +62,6 @@ const sequencingConfiguration = createAssessmentConfiguration({
 export const sequencingBlockDefinition = defineBlock({
   nodeType: "sequencing",
   title: "Sequencing",
-  rewriteCopiedContent: rewriteSequencingCopiedContent,
   boundedPlacement: "fill",
   configuration: sequencingConfiguration,
   placeholders: {
@@ -96,12 +94,12 @@ export const sequencingBlockDefinition = defineBlock({
     icon: ListNumbers,
     keywords: ["order", "arrange", "sort", "drag"],
     content: () => {
-      const itemIds = [createStableId(), createStableId(), createStableId()];
+      const itemIds = [createEmbeddedNodeId(), createEmbeddedNodeId(), createEmbeddedNodeId()];
 
       return {
         type: "sequencing",
         attrs: {
-          id: createStableId(),
+          id: createEmbeddedNodeId(),
           assessment: SequencingPrivateAssessmentSchema.parse({
             correctOrder: itemIds,
           }),

@@ -7,7 +7,7 @@ import {
   type NodeViewProps,
 } from "@tiptap/react";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { AssessmentChoiceAddButton } from "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
 
 import { currentNodeViewPos } from "@/editor/prosemirror/position/node-view-position";
@@ -69,7 +69,7 @@ function AssessmentChoicesGroupNodeView(props: NodeViewProps) {
       .focus()
       .insertContentAt(insertAt, {
         type: "selectable_choice",
-        attrs: { id: createStableId() },
+        attrs: { id: createEmbeddedNodeId() },
         content: [
           {
             type: "selectable_choice_body",

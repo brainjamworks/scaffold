@@ -5,8 +5,6 @@
   .scaffold-runtime-surface-view [data-surface][data-surface-variant="slide-image-band"] {
     position: relative;
     overflow: hidden;
-    border-color: var(--color-border);
-    background: var(--color-background);
   }
 
   .scaffold-authoring-surface-view [data-surface].sc-slide-image-band-surface-view,
@@ -22,7 +20,7 @@
     grid-template-areas:
       "media"
       "content";
-    grid-template-rows: minmax(0, 44%) minmax(0, 1fr);
+    grid-template-rows: minmax(0, var(--sc-slide-image-band-media-row, 44%)) minmax(0, 1fr);
     gap: 0;
     align-items: stretch;
     padding: 0;
@@ -39,10 +37,12 @@
     min-width: 0;
     min-height: 0;
     grid-area: content;
-    gap: 0.75rem;
+    gap: var(--sc-slide-image-band-content-gap, 0.75rem);
     align-content: center;
     justify-items: stretch;
-    padding: 2rem 3rem 2.5rem;
+    padding: var(--sc-slide-image-band-content-inset-block-start, 2rem)
+      var(--sc-slide-image-band-content-inset-inline, 3rem)
+      var(--sc-slide-image-band-content-inset-block-end, 2.5rem);
   }
 
   .scaffold-authoring-surface-view
@@ -67,7 +67,6 @@
     z-index: 1;
     grid-area: media;
     min-height: 0;
-    border-bottom: var(--sc-border-width) solid var(--color-border);
   }
 
   .sc-slide-image-band-image {
@@ -92,25 +91,13 @@
   .sc-slide-image-band-image__media {
     object-fit: cover;
     border: 0;
-    background: var(--color-muted);
-  }
-
-  .sc-slide-image-band-image__missing {
-    border: var(--sc-border-width) solid var(--color-border);
-    background: var(--color-muted);
   }
 
   .sc-slide-image-band-surface-view h1 {
     width: 100%;
     max-width: 18ch;
     margin-block: 0;
-    color: var(--color-text-primary);
-    font-size: 3.25rem;
-    font-weight: var(--font-weight-extrabold);
-    letter-spacing: 0;
-    line-height: 1;
     overflow-wrap: break-word;
-    text-wrap: balance;
     word-break: normal;
   }
 
@@ -118,30 +105,17 @@
     content: attr(data-placeholder);
     height: 0;
     float: left;
-    color: currentColor;
-    opacity: 0.5;
     pointer-events: none;
   }
 
   .sc-slide-image-band-surface-view [data-slot="slide-cover-subtitle"] {
-    --sc-field-content-flow-gap: 0.375rem;
-
     width: 100%;
     max-width: none;
-    color: var(--color-text-secondary);
-    font-size: 1.125rem;
-    font-weight: var(--font-weight-normal);
-    line-height: 1.45;
     overflow-wrap: break-word;
-    text-wrap: pretty;
     word-break: normal;
   }
 
   .sc-slide-image-band-surface-view [data-slot="slide-cover-subtitle"] > :where(*) {
     width: 100%;
-    max-width: 42rem;
-    color: inherit;
-    font: inherit;
-    line-height: inherit;
   }
 }

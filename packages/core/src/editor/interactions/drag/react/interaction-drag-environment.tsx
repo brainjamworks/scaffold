@@ -116,8 +116,11 @@ export function InteractionDragEnvironmentProvider({
   useEffect(() => {
     if (!import.meta.env.DEV || resolution.status === "ready") return;
     if (resolution.status === "pending" && resolution.reason === "root") return;
-    const reason = resolution.status === "unscoped" ? "unscoped" : resolution.reason;
-    console.error(`Scaffold drag environment is unavailable: ${reason}.`);
+    const timeout = globalThis.setTimeout(() => {
+      const reason = resolution.status === "unscoped" ? "unscoped" : resolution.reason;
+      console.error(`Scaffold drag environment is unavailable: ${reason}.`);
+    }, 100);
+    return () => globalThis.clearTimeout(timeout);
   }, [resolution]);
 
   return (

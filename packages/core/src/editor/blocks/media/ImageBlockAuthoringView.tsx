@@ -2,10 +2,7 @@ import { type NodeViewProps } from "@tiptap/react";
 
 import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
 import { MediaReplaceButton } from "@/ui/components/app/MediaReplaceButton/MediaReplaceButton";
-import {
-  nodeViewUiKey,
-  usePickerOpen,
-} from "@/editor/media/authoring/picker/file-picker-open-state";
+import { nodeViewUiStateKey, useNodeViewOpenState } from "@/editor/prosemirror/node-view-ui-state";
 import { type ImageBlockAttrs } from "@scaffold/contracts";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
@@ -45,12 +42,12 @@ function applyImagePickerResult(result: FilePickerResult): ImageBlockAttrs | nul
 export function ImageBlockAuthoringView(props: NodeViewProps) {
   const mediaPort = useMediaPort();
   const data = parseImageBlockData(props.node.attrs["data"]);
-  const pickerKey = nodeViewUiKey({
+  const pickerKey = nodeViewUiStateKey({
     owner: "image-block",
     surface: "file-picker",
     id: props.node.attrs["id"],
   });
-  const [open, setOpen] = usePickerOpen(pickerKey);
+  const [open, setOpen] = useNodeViewOpenState(pickerKey);
   const { errorMessage, resolvedUrl } = useResolvedImageBlockSource(data, mediaPort);
 
   const handlePickerResolved = (result: FilePickerResult) => {

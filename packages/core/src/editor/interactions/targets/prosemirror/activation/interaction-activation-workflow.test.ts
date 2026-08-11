@@ -51,7 +51,7 @@ const testBlockRegistry = createBlockRegistry([
   embeddedChildDefinition,
 ]);
 const testCapabilities = resolveScaffoldCapabilities({
-  blockDefinitions: testBlockRegistry.definitions,
+  blockCapabilities: testBlockRegistry.definitions.map((definition) => ({ definition })),
   layoutDefinitions: [],
   surfaceDefinitions: [],
 });

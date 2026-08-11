@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import type { EmbeddedDataId, EmbeddedNodeId } from "@scaffold/contracts";
 
-import type { RewriteCopiedContent } from "@/editor/blocks/block-definition";
+import type { BlockDuplicationOperation } from "@/document/model/identity/clone-with-new-ids";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -38,7 +38,7 @@ function rewriteNodeIdArray(
 }
 
 function rewriteAssessment(
-  content: Parameters<RewriteCopiedContent>[0]["content"],
+  content: Parameters<BlockDuplicationOperation>[0]["content"],
   rewrite: (assessment: JsonRecord) => JsonRecord,
 ) {
   const attrs = asRecord(content.attrs);
@@ -54,53 +54,74 @@ function rewriteAssessment(
   };
 }
 
-export const rewriteMcqCopiedContent: RewriteCopiedContent = ({ content, nodeIdChanges }) =>
+export const rewriteMcqCopiedContent: BlockDuplicationOperation = ({ content, nodeIdChanges }) =>
   rewriteAssessment(content, (assessment) => ({
     ...assessment,
     correctOptionId: rewriteMappedString(assessment["correctOptionId"], nodeIdChanges),
     feedbackByOptionId: rewriteRecordKeys(assessment["feedbackByOptionId"], nodeIdChanges),
   }));
 
-export const rewriteMultiselectCopiedContent: RewriteCopiedContent = ({ content, nodeIdChanges }) =>
+export const rewriteMultiselectCopiedContent: BlockDuplicationOperation = ({
+  content,
+  nodeIdChanges,
+}) =>
   rewriteAssessment(content, (assessment) => ({
     ...assessment,
     correctOptionIds: rewriteNodeIdArray(assessment["correctOptionIds"], nodeIdChanges),
     feedbackByOptionId: rewriteRecordKeys(assessment["feedbackByOptionId"], nodeIdChanges),
   }));
 
-export const rewriteDropdownCopiedContent: RewriteCopiedContent = ({ content, nodeIdChanges }) =>
+export const rewriteDropdownCopiedContent: BlockDuplicationOperation = ({
+  content,
+  nodeIdChanges,
+}) =>
   rewriteAssessment(content, (assessment) => ({
     ...assessment,
     correctOptionId: rewriteMappedString(assessment["correctOptionId"], nodeIdChanges),
     feedbackByOptionId: rewriteRecordKeys(assessment["feedbackByOptionId"], nodeIdChanges),
   }));
 
-export const rewriteFillBlanksCopiedContent: RewriteCopiedContent = ({ content, nodeIdChanges }) =>
+export const rewriteFillBlanksCopiedContent: BlockDuplicationOperation = ({
+  content,
+  nodeIdChanges,
+}) =>
   rewriteAssessment(content, (assessment) => ({
     ...assessment,
     blanksById: rewriteRecordKeys(assessment["blanksById"], nodeIdChanges),
   }));
 
-export const rewriteSequencingCopiedContent: RewriteCopiedContent = ({ content, nodeIdChanges }) =>
+export const rewriteSequencingCopiedContent: BlockDuplicationOperation = ({
+  content,
+  nodeIdChanges,
+}) =>
   rewriteAssessment(content, (assessment) => ({
     ...assessment,
     correctOrder: rewriteNodeIdArray(assessment["correctOrder"], nodeIdChanges),
     feedbackByItemId: rewriteRecordKeys(assessment["feedbackByItemId"], nodeIdChanges),
   }));
 
-export const rewriteMatchingCopiedContent: RewriteCopiedContent = ({ content, nodeIdChanges }) =>
+export const rewriteMatchingCopiedContent: BlockDuplicationOperation = ({
+  content,
+  nodeIdChanges,
+}) =>
   rewriteAssessment(content, (assessment) => ({
     ...assessment,
     feedbackByItemId: rewriteRecordKeys(assessment["feedbackByItemId"], nodeIdChanges),
   }));
 
-export const rewriteCategoriseCopiedContent: RewriteCopiedContent = ({ content, nodeIdChanges }) =>
+export const rewriteCategoriseCopiedContent: BlockDuplicationOperation = ({
+  content,
+  nodeIdChanges,
+}) =>
   rewriteAssessment(content, (assessment) => ({
     ...assessment,
     feedbackByItemId: rewriteRecordKeys(assessment["feedbackByItemId"], nodeIdChanges),
   }));
 
-export const rewriteImageHotspotCopiedContent: RewriteCopiedContent = ({ content, generators }) => {
+export const rewriteImageHotspotCopiedContent: BlockDuplicationOperation = ({
+  content,
+  generators,
+}) => {
   const hotspotIdChanges = new Map<EmbeddedDataId, EmbeddedDataId>();
   const rewrittenContent = rewriteHotspotCanvases(
     content,

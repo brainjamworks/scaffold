@@ -7,7 +7,6 @@ import { defineBlock } from "@/editor/blocks/block-definition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { ChartBlockDataSchema } from "@/schemas/shared";
 
-import { rewriteChartCopiedContent } from "./chart-copy-identity";
 import {
   chartDataToSettingsDraft,
   chartSettingsDraftToData,
@@ -42,7 +41,6 @@ const textTableColumnsOptionSource = {
 export const chartBlockDefinition = defineBlock({
   nodeType: "chart_block",
   title: "Chart",
-  rewriteCopiedContent: rewriteChartCopiedContent,
   frame: {
     resizable: true,
     resizeMode: "freeform",

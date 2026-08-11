@@ -542,6 +542,7 @@ function TestAuthoringChrome({
     () =>
       createAlignmentTargetPort({
         blockDefinitions: builtInBlockRegistry,
+        layoutDefinitions: builtInLayoutRegistry,
         surfaceVariants: builtInSurfaceVariantRegistry,
       }),
     [],

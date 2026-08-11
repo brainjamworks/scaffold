@@ -233,7 +233,7 @@ export function InteractionDragSession<ActiveData, OverData>({
     activeSession.stopCoordinateSubscription = null;
     activeSession.stopLifecycleListeners?.();
     activeSession.stopLifecycleListeners = null;
-    restoreFocus(activeSession.focusTarget);
+    restoreFocusAfterDrag(activeSession.focusTarget, activeSession.environment.ownerWindow);
     return activeSession;
   }, []);
 
@@ -1051,6 +1051,25 @@ function restoreFocus(element: HTMLElement | null): void {
   } catch {
     element.focus();
   }
+}
+
+function restoreFocusAfterDrag(element: HTMLElement | null, ownerWindow: Window): void {
+  restoreFocus(element);
+  let remainingFrames = 4;
+  const preserveRestoredFocus = () => {
+    if (!element?.isConnected) return;
+    const activeElement = element.ownerDocument.activeElement;
+    if (
+      activeElement === null ||
+      activeElement === element.ownerDocument.body ||
+      activeElement === element.ownerDocument.documentElement
+    ) {
+      restoreFocus(element);
+    }
+    remainingFrames -= 1;
+    if (remainingFrames > 0) ownerWindow.requestAnimationFrame(preserveRestoredFocus);
+  };
+  ownerWindow.requestAnimationFrame(preserveRestoredFocus);
 }
 
 function environmentElementsAreLive(environment: ReadyInteractionDragEnvironment): boolean {

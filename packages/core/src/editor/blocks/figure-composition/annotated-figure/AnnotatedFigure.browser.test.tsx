@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
 
-import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
+import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor.test-harness";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
@@ -561,6 +561,7 @@ async function mountBoundedPair(
             <CourseDocumentRuntimeRenderer
               composition={coreRuntimeComposition}
               initialContent={cloneJSON(initialContent)}
+              productAccess={{ scaffoldPlusAuthorized: false }}
               visibleSurfaceId="annotsurf001"
               onReady={(editor) => {
                 runtimeEditor = editor;

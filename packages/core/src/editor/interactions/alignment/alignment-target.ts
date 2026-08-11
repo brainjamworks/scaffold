@@ -3,6 +3,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { EditorState } from "@tiptap/pm/state";
 
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import {
   normalizeBlockFrame,
   setBlockFrameHorizontalAlignmentInTransaction,
@@ -16,7 +17,7 @@ import {
   type GridCellVerticalPosition,
 } from "@/editor/arrangements/grid/model/grid-model";
 import { setLayoutSectionVerticalPositionAt } from "@/editor/arrangements/layout/model/layout-commands";
-import { isActiveBoundedContainerAtPosition } from "@/editor/bounded-containers/model/bounded-container-structure-policy";
+import { isActiveBoundedContainerAtPosition } from "@/editor/bounded-containers/model/bounded-container-placement";
 import {
   readRegionVerticalPosition,
   setRegionVerticalPositionInTransaction,
@@ -76,9 +77,11 @@ const unavailable = { kind: "unavailable" } as const;
 
 export function createAlignmentTargetPort({
   blockDefinitions,
+  layoutDefinitions,
   surfaceVariants,
 }: {
   blockDefinitions: BlockDefinitionLookup;
+  layoutDefinitions: LayoutRegistry;
   surfaceVariants: SurfaceVariantLookup;
 }): AlignmentTargetPort {
   return {
@@ -98,6 +101,7 @@ export function createAlignmentTargetPort({
             state.doc,
             live,
             blockDefinitions,
+            layoutDefinitions,
             surfaceVariants,
           ),
         };
@@ -212,6 +216,7 @@ export function createAlignmentTargetPort({
               blockDefinitions,
               containerType: "section",
               doc: editor.state.doc,
+              layoutDefinitions,
               pos: descriptor.pos,
             })
           ) {
@@ -222,6 +227,7 @@ export function createAlignmentTargetPort({
             descriptor.pos,
             value,
             blockDefinitions,
+            layoutDefinitions,
           );
         default:
           return false;
@@ -234,6 +240,7 @@ function verticalStateForOwnedStructuralTarget(
   doc: ProseMirrorNode,
   descriptor: StructuralChromeTargetDescriptor,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
   surfaceVariants: SurfaceVariantLookup,
 ): AlignmentAxisState<VerticalContentPosition> {
   if (descriptor.kind === InteractionTargetKind.Surface) {
@@ -257,6 +264,7 @@ function verticalStateForOwnedStructuralTarget(
       blockDefinitions,
       containerType: "section",
       doc,
+      layoutDefinitions,
       pos: descriptor.pos,
     })
   ) {

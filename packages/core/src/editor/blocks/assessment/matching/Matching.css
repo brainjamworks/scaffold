@@ -259,6 +259,20 @@
     min-inline-size: 12rem;
   }
 
+  .sc-course-matching__item[data-interaction-drag-placeholder] {
+    position: relative;
+    pointer-events: none;
+    border-style: dashed;
+    border-color: var(--color-border);
+    background: var(--color-canvas);
+    cursor: default;
+    opacity: 1;
+  }
+
+  .sc-course-matching__item[data-interaction-drag-placeholder] > * {
+    visibility: hidden;
+  }
+
   .sc-assessment-node-view[data-bounded-placement="fill"]
     > .sc-course-assessment-matching
     [data-slot="matching-pairs-group"] {
@@ -278,5 +292,17 @@
     > .sc-course-assessment-matching
     .sc-course-matching__scroll[data-bounded-scroll-overflow] {
     justify-content: flex-start;
+  }
+}
+
+@layer sc-overlays {
+  .sc-course-matching__pair[data-authoring-movement-silhouette]
+    .sc-course-matching__pair-grid[data-authoring-movement-silhouette-surface] {
+    border-radius: var(--radius-3);
+    background: transparent !important;
+    outline: 1px dashed var(--gray-a7);
+    outline-offset: -1px;
+    box-shadow: none !important;
+    transition: none !important;
   }
 }

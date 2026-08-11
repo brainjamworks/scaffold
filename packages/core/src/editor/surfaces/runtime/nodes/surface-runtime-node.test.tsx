@@ -273,7 +273,7 @@ describe("surface runtime node views", () => {
       expect(headerFooter?.hasAttribute("data-region-size")).toBe(false);
       expect(headerFooter?.getAttribute("data-region-role")).toBe("main");
       expect(headerFooter?.classList.contains("sc-region")).toBe(true);
-      expect(headerFooter?.classList.contains("sc-region-authoring")).toBe(false);
+      expect(headerFooter?.classList.contains("sc-app-region-authoring")).toBe(false);
       expect(headerFooter?.textContent).toContain("Runtime region content");
       expect(headerFooter?.querySelector("[data-layout-section-menu-trigger]")).toBeNull();
       expect(headerFooter?.getAttribute("data-authoring-frame")).toBeNull();

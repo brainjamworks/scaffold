@@ -1,4 +1,3 @@
-import { Button, Checkbox } from "@radix-ui/themes";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
@@ -9,6 +8,8 @@ import { RuntimeSurfaceView } from "@/editor/surfaces/runtime/views/RuntimeSurfa
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import { CourseButton } from "@/ui/components/course/CourseActions/CourseActions";
+import { CourseCompletionCheckbox } from "@/ui/components/course/CourseInputs/CourseInputs";
 
 import "./Checklist.css";
 import "./ChecklistAuthoringControls.css";
@@ -103,6 +104,7 @@ describe("Checklist presentation", () => {
       expect(runtimeText.getBoundingClientRect().left).toBeGreaterThanOrEqual(
         runtimeCheckbox.getBoundingClientRect().right,
       );
+      expect(verticalCenter(runtimeCheckbox)).toBeCloseTo(firstLineCenter(runtimeText), 1);
       expect(getComputedStyle(deleteButton).opacity).toBe("1");
     }
 
@@ -154,9 +156,14 @@ function ChecklistSpecimen({
             <span className="sc-course-checklist__progress-total">1</span>
             <span className="sc-course-checklist__progress-label">complete</span>
           </span>
-          <Button type="button" size="1" variant="ghost" className="sc-course-checklist__reset">
+          <CourseButton
+            type="button"
+            size="compact"
+            emphasis="quiet"
+            className="sc-course-checklist__reset"
+          >
             Reset
-          </Button>
+          </CourseButton>
         </header>
         <ul role="list" className="sc-course-checklist__list">
           <li
@@ -174,23 +181,26 @@ function ChecklistSpecimen({
                   Move
                 </button>
               ) : null}
-              <Checkbox
-                size="2"
-                checked={!authoring}
-                disabled={authoring}
-                data-course-state={!authoring ? "completed" : undefined}
-                className="sc-course-checklist__checkbox"
-                aria-label={authoring ? "Completion preview" : "Mark item as not complete"}
-              />
+              <span className="sc-course-checklist__control-slot">
+                <CourseCompletionCheckbox
+                  checked={!authoring}
+                  disabled={authoring}
+                  state={!authoring ? "completed" : undefined}
+                  className="sc-course-checklist__checkbox"
+                  aria-label={authoring ? "Completion preview" : "Mark item as not complete"}
+                />
+              </span>
               <div className="sc-course-checklist__item-text">Review the course</div>
               {authoring ? (
-                <button
-                  type="button"
-                  className="sc-app-checklist-item-delete sc-course-checklist__delete"
-                  aria-label="Delete checklist item 1"
-                >
-                  Delete
-                </button>
+                <span className="sc-app-checklist-item-action-slot">
+                  <button
+                    type="button"
+                    className="sc-app-checklist-item-delete sc-course-checklist__delete"
+                    aria-label="Delete checklist item 1"
+                  >
+                    Delete
+                  </button>
+                </span>
               ) : null}
             </div>
           </li>
@@ -204,6 +214,17 @@ function requiredElement<T extends Element>(root: ParentNode, selector: string):
   const element = root.querySelector<T>(selector);
   if (!element) throw new Error(`Expected an element for ${selector}.`);
   return element;
+}
+
+function verticalCenter(element: Element): number {
+  const rect = element.getBoundingClientRect();
+  return rect.top + rect.height / 2;
+}
+
+function firstLineCenter(element: Element): number {
+  const rect = element.getBoundingClientRect();
+  const style = getComputedStyle(element);
+  return rect.top + Number.parseFloat(style.paddingTop) + Number.parseFloat(style.lineHeight) / 2;
 }
 
 async function waitForCondition(condition: () => unknown): Promise<void> {

@@ -9,7 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import {
   defineBlock,
   type BlockAuthoringControlsInput,
@@ -54,7 +54,7 @@ function defaultTable() {
   }));
   return {
     type: "table",
-    attrs: { id: createStableId() },
+    attrs: { id: createEmbeddedNodeId() },
     content: [headerRow, ...bodyRows],
   };
 }

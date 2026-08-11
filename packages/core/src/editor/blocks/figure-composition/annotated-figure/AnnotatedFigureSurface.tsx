@@ -1,5 +1,4 @@
 import { ImageIcon as ImagePlaceholder, XIcon as X } from "@phosphor-icons/react";
-import { IconButton } from "@radix-ui/themes";
 import {
   useLayoutEffect,
   useMemo,
@@ -14,6 +13,7 @@ import {
 } from "react";
 
 import type { AnnotatedFigureData } from "@scaffold/contracts";
+import { CourseIconButton } from "@/ui/components/course/CourseActions/CourseActions";
 
 import type { AnnotatedFigureAnnotationProjection } from "./annotated-figure-document-model";
 
@@ -39,7 +39,6 @@ export function AnnotatedFigureSurface({
   errorMessage,
   emptyAction,
   expandAction,
-  actionOwner = "course",
   fileUrl,
   draggingPinId,
   stageRef,
@@ -59,7 +58,6 @@ export function AnnotatedFigureSurface({
   errorMessage?: string | null;
   emptyAction?: ReactNode;
   expandAction?: ReactNode;
-  actionOwner?: "app" | "course";
   fileUrl: string | null;
   draggingPinId?: string | null;
   stageRef?: RefObject<HTMLDivElement | null>;
@@ -164,7 +162,7 @@ export function AnnotatedFigureSurface({
           ref={stageRef}
           className={
             onStageClick
-              ? "sc-course-annotated-figure__canvas sc-app-annotated-figure__canvas"
+              ? "sc-course-annotated-figure__canvas sc-course-annotated-figure__canvas--authoring"
               : "sc-course-annotated-figure__canvas"
           }
           data-media-fit-ready={activeFitSize ? "true" : "false"}
@@ -225,11 +223,7 @@ export function AnnotatedFigureSurface({
 
           {expandAction ? (
             <div
-              className={
-                actionOwner === "app"
-                  ? "sc-app-annotated-figure__image-actions"
-                  : "sc-course-annotated-figure__image-actions"
-              }
+              className="sc-course-annotated-figure__image-actions"
               role="group"
               aria-label="Annotated figure image actions"
               onClick={(event) => event.stopPropagation()}
@@ -287,7 +281,7 @@ function AnnotatedFigurePinMarker({
       type="button"
       className={
         onPointerDown
-          ? "sc-course-annotated-figure__pin-activate sc-app-annotated-figure__pin-activate"
+          ? "sc-course-annotated-figure__pin-activate sc-course-annotated-figure__pin-activate--authoring"
           : "sc-course-annotated-figure__pin-activate"
       }
       aria-label={activationLabel ?? `Select annotation ${annotation.number}`}
@@ -323,20 +317,20 @@ function AnnotatedFigurePinMarker({
         <span className="sc-course-annotated-figure__pin-number">{annotation.number}</span>
       )}
       {onRemove ? (
-        <IconButton
+        <CourseIconButton
           type="button"
-          size="1"
-          variant="solid"
+          size="compact"
+          emphasis="strong"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation();
             onRemove();
           }}
           aria-label={`Remove pin ${annotation.number}`}
-          className="sc-app-annotated-figure__pin-remove"
+          className="sc-course-annotated-figure__pin-remove"
         >
           <X size={9} weight="bold" aria-hidden />
-        </IconButton>
+        </CourseIconButton>
       ) : null}
     </div>
   );

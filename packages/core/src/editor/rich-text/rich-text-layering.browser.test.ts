@@ -43,6 +43,26 @@ describe("Rich-text cascade layering", () => {
 
     expect(getComputedStyle(content).maxWidth).toBe("none");
   });
+
+  it("centers a small inline icon within its surrounding text line", () => {
+    const line = document.createElement("p");
+    line.style.fontSize = "16px";
+    line.style.lineHeight = "24px";
+    line.textContent = "Before ";
+
+    const icon = document.createElement("span");
+    icon.className = "sc-inline-icon";
+    icon.dataset.iconSize = "sm";
+    line.append(icon, " after");
+    document.body.append(line);
+
+    const lineRect = line.getBoundingClientRect();
+    const iconRect = icon.getBoundingClientRect();
+    const lineCenter = lineRect.top + lineRect.height / 2;
+    const iconCenter = iconRect.top + iconRect.height / 2;
+
+    expect(Math.abs(iconCenter - lineCenter)).toBeLessThan(1.1);
+  });
 });
 
 function mountAdapterStyles(rules: string): void {

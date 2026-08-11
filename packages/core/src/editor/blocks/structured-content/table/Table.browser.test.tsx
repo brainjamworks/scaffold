@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "@/styles/globals.css";
 
-import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
+import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor.test-harness";
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";

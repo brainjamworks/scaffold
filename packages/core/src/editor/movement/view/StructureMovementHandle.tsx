@@ -15,6 +15,7 @@ import {
   AUTHORING_MOVEMENT_ACTIVATION_ID_ATTR,
   authoringMovementSnapshotChromeAttributes,
   useAuthoringMovementDragSource,
+  type AuthoringContainedMovementProjection,
 } from "./authoring-movement-presentation";
 import "./movement-handles.css";
 
@@ -24,6 +25,7 @@ export interface StructureMovementHandleProps {
   getPresentationElement: () => HTMLElement | null;
   getSourcePos?: () => number | null | undefined;
   label: string;
+  projection?: AuthoringContainedMovementProjection;
   sourceKey?: string | number | null;
   sourcePos: number | null | undefined;
   variant?: "pill" | "bare";
@@ -35,6 +37,7 @@ export function StructureMovementHandle({
   getPresentationElement,
   getSourcePos,
   label,
+  projection,
   sourceKey,
   sourcePos,
   variant = "pill",
@@ -51,6 +54,7 @@ export function StructureMovementHandle({
     ...(getSourcePos ? { getSourcePos } : {}),
     id: `scaffold-structure-movement-${draggableKey ?? "missing"}`,
     label,
+    ...(projection ? { projection } : {}),
     sourcePos,
   });
   const backwardKey = axis === "horizontal" ? "ArrowLeft" : "ArrowUp";

@@ -1,7 +1,4 @@
 import type { Icon } from "@phosphor-icons/react";
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-
-import type { CheckedMutationIssue } from "@/document/model/commands/checked-transactions";
 import type { BoundedPlacement } from "@/editor/frame/model/bounded-placement";
 
 export type InsertCategory =
@@ -52,7 +49,6 @@ export interface InsertAction {
   readonly boundedPlacement?: BoundedPlacement;
   /** Fresh ProseMirror node JSON for every invocation. */
   readonly content: () => Record<string, unknown>;
-  readonly validateNode?: (node: ProseMirrorNode) => CheckedMutationIssue | null;
 }
 
 export interface InsertActionRange {

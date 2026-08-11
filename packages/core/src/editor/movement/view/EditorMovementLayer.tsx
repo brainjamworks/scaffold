@@ -57,12 +57,19 @@ import {
   type MovementKeyboardDirection,
   type MovementTargetIndexController,
 } from "./movement-target-index-controller";
-import { MoveContainedAfterTarget, MoveContainedBeforeTarget } from "../model/movement-intents";
+import {
+  InsertAfterTarget,
+  InsertBeforeTarget,
+  MoveContainedAfterTarget,
+  MoveContainedBeforeTarget,
+} from "../model/movement-intents";
 import {
   AUTHORING_MOVEMENT_ACTIVATION_ID_ATTR,
   AuthoringMovementSnapshotPreview,
   captureAuthoringMovementSnapshot,
   useAuthoringMovementDragSource,
+  type AuthoringContainedMovementProjection,
+  type AuthoringContainedMovementStrategy,
   type AuthoringMovementDragData,
   type AuthoringMovementSnapshot,
 } from "./authoring-movement-presentation";
@@ -90,8 +97,10 @@ interface AuthoringMovementDropData {
 }
 
 interface ActiveKeyboardMovement {
+  readonly activationId: string;
   readonly axis: AuthoringMovementDragData["axis"];
   destinationIndex: number;
+  destinationDescription: string | null;
   readonly initialIndex: number;
   readonly label: string;
   readonly total: number;
@@ -116,9 +125,12 @@ export function EditorMovementLayer({
   );
   const movementSessionId = useId();
   const [candidate, setCandidate] = useState<MovementCandidate | null>(null);
+  const [dropIndicatorSuppressed, setDropIndicatorSuppressed] = useState(false);
   const latestTargetRef = useRef<EditorMovementTarget | null>(target);
   const activeSourceRef = useRef<MovementNodeContext | null>(null);
   const activeSnapshotRef = useRef<AuthoringMovementSnapshot | null>(null);
+  const activeProjectionRef = useRef<AuthoringContainedMovementProjection | null>(null);
+  const activeContainedStrategyRef = useRef<AuthoringContainedMovementStrategy | null>(null);
   const activeKeyboardMovementRef = useRef<ActiveKeyboardMovement | null>(null);
   const containedSourceActiveRef = useRef(false);
   const movementControllerRef = useRef<MovementTargetIndexController | null>(null);
@@ -135,6 +147,10 @@ export function EditorMovementLayer({
   const clearMovement = () => {
     movementControllerRef.current?.dispose();
     movementControllerRef.current = null;
+    activeProjectionRef.current?.clear();
+    activeProjectionRef.current = null;
+    activeContainedStrategyRef.current = null;
+    setDropIndicatorSuppressed(false);
     commands.endGesture();
     setEmptyInsertionRowMovementDragActive(editor, false);
     activeSourceRef.current = null;
@@ -196,6 +212,19 @@ export function EditorMovementLayer({
       clearMovement();
       return;
     }
+    const activeSource = activeSourceRef.current;
+    let projectionStarted = false;
+    if (event.active.data.projection && activeSource) {
+      const projection = event.active.data.projection;
+      if (projection.start(activeSource.index)) {
+        activeProjectionRef.current = projection;
+        projectionStarted = true;
+      }
+    }
+    setDropIndicatorSuppressed(event.active.data.containedMovement || projectionStarted);
+    activeContainedStrategyRef.current = event.active.data.containedMovement
+      ? (event.active.data.strategy ?? null)
+      : null;
 
     commands.dismissInteraction();
     if (nextTarget) {
@@ -210,9 +239,23 @@ export function EditorMovementLayer({
     let controller: MovementTargetIndexController | null = null;
     controller = createMovementTargetIndexController({
       blockDefinitions,
+      ...(activeContainedStrategyRef.current
+        ? {
+            canNavigateContainedKeyboard: (source, current, movementTarget, direction) =>
+              activeContainedStrategyRef.current?.canNavigateKeyboard?.(
+                source,
+                current,
+                movementTarget,
+                direction,
+              ) ?? true,
+            canTargetContained: (source, movementTarget) =>
+              activeContainedStrategyRef.current?.canTarget(source, movementTarget) ?? false,
+          }
+        : {}),
       canApplyMovementResult: (context, intent) =>
         isContainedMoveIntent(intent)
-          ? canApplyContainedMovementIntent(editor, context.pos, intent)
+          ? (activeContainedStrategyRef.current?.canApply(editor, context, intent) ??
+            canApplyContainedMovementIntent(editor, context.pos, intent))
           : canApplyMovementIntent(editor, context.pos, intent, blockDefinitions, surfaceVariants),
       coordinateSpace: environment.coordinateSpace,
       isEnvironmentValid: () =>
@@ -222,8 +265,33 @@ export function EditorMovementLayer({
       onCancel: () => {
         if (movementControllerRef.current === controller) clearMovement();
       },
-      onCandidateChange: setCandidate,
+      onCandidateChange: (nextCandidate) => {
+        setCandidate(nextCandidate);
+        const projection = activeProjectionRef.current;
+        const source = activeSourceRef.current;
+        if (projection && source) {
+          const sameOwner =
+            nextCandidate?.target.context.parent === source.parent &&
+            nextCandidate.target.context.parentPos === source.parentPos;
+          projection.project(
+            sameOwner
+              ? movementProjectionDestinationIndex(nextCandidate, source.index)
+              : source.index,
+          );
+          if (!sameOwner && nextCandidate) {
+            projection.projectAcrossOwners?.(nextCandidate, environment.overlayHost);
+          }
+        }
+      },
       ownerDocument: environment.ownerDocument,
+      resolveKeyboardOrigin: () => {
+        const element = event.active.data.getPresentationElement();
+        if (!element?.isConnected) return null;
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0
+          ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+          : null;
+      },
       resolveSource: () => resolveMovementIndexSource(editor, event.active.data, blockDefinitions),
       subscribeDocumentStructure: (listener) => {
         const handleTransaction = ({ transaction }: { transaction: { docChanged: boolean } }) => {
@@ -237,11 +305,12 @@ export function EditorMovementLayer({
     movementControllerRef.current = controller;
     setCandidate(null);
     controller.start(event.input === "pointer" ? event.clientPoint : null);
-    const activeSource = activeSourceRef.current;
     if (event.input === "keyboard" && activeSource?.parent) {
       activeKeyboardMovementRef.current = {
+        activationId: event.active.id,
         axis: event.active.data.axis,
         destinationIndex: activeSource.index,
+        destinationDescription: null,
         initialIndex: activeSource.index,
         label: event.active.data.label,
         total: activeSource.parent.childCount,
@@ -259,19 +328,42 @@ export function EditorMovementLayer({
       if (event.clientPoint) movementControllerRef.current?.updatePoint(event.clientPoint);
       return;
     }
-    const direction = keyboardMovementDirection(event.keyboardDirection, event.active.data.axis);
-    if (!direction) return;
-    const navigation = movementControllerRef.current?.moveKeyboard(direction);
+    const spatial = event.active.data.strategy?.keyboardNavigation === "spatial";
+    const spatialDirection = spatial ? event.keyboardDirection : null;
+    const linearDirection = spatial
+      ? null
+      : keyboardMovementDirection(event.keyboardDirection, event.active.data.axis);
+    if (!spatialDirection && !linearDirection) return;
+    const navigation = spatialDirection
+      ? movementControllerRef.current?.moveKeyboardSpatial(spatialDirection)
+      : movementControllerRef.current?.moveKeyboard(linearDirection!);
     const activeKeyboard = activeKeyboardMovementRef.current;
     if (!navigation || !activeKeyboard) return;
     if (!navigation.changed) {
-      const boundary = direction === "backward" ? "first" : "last";
-      setKeyboardMovementStatus(`${capitalize(activeKeyboard.label)} is already ${boundary}.`);
+      if (spatial) {
+        setKeyboardMovementStatus(
+          `No available destination ${spatialDirection} of ${activeKeyboard.label}.`,
+        );
+      } else {
+        const boundary = linearDirection === "backward" ? "first" : "last";
+        setKeyboardMovementStatus(`${capitalize(activeKeyboard.label)} is already ${boundary}.`);
+      }
       return;
     }
     activeKeyboard.destinationIndex = navigation.destinationIndex;
+    const destinationDescription =
+      navigation.candidate && event.active.data.strategy?.describeDestination
+        ? event.active.data.strategy.describeDestination(
+            editor,
+            navigation.candidate.source,
+            navigation.candidate.intent,
+          )
+        : null;
+    activeKeyboard.destinationDescription = destinationDescription;
     setKeyboardMovementStatus(
-      `Destination position ${navigation.destinationIndex + 1} of ${navigation.total} for ${activeKeyboard.label}. Press Space or Enter to drop.`,
+      destinationDescription
+        ? `Destination ${destinationDescription} for ${activeKeyboard.label}. Press Space or Enter to drop.`
+        : `Destination position ${navigation.destinationIndex + 1} of ${navigation.total} for ${activeKeyboard.label}. Press Space or Enter to drop.`,
     );
   };
 
@@ -285,11 +377,12 @@ export function EditorMovementLayer({
     let moved = false;
     if (nextCandidate) {
       if (isContainedMoveIntent(nextCandidate.intent)) {
-        moved = applyContainedMovementIntent(
-          editor,
-          nextCandidate.source.pos,
-          nextCandidate.intent,
-        );
+        moved =
+          activeContainedStrategyRef.current?.apply(
+            editor,
+            nextCandidate.source,
+            nextCandidate.intent,
+          ) ?? applyContainedMovementIntent(editor, nextCandidate.source.pos, nextCandidate.intent);
       } else {
         moved = applyMovementIntent(
           editor,
@@ -304,12 +397,18 @@ export function EditorMovementLayer({
     clearMovement();
     if (event.input === "keyboard" && activeKeyboard) {
       if (moved) {
-        restoreCommittedKeyboardMovementFocus(editor.view.dom.ownerDocument, event.active.id);
-        const direction =
-          activeKeyboard.destinationIndex < activeKeyboard.initialIndex ? "backward" : "forward";
-        setKeyboardMovementStatus(
-          `Moved ${activeKeyboard.label} ${keyboardDirectionLabel(activeKeyboard.axis, direction)}. Position ${activeKeyboard.destinationIndex + 1} of ${activeKeyboard.total}.`,
-        );
+        restoreKeyboardMovementFocus(editor.view.dom.ownerDocument, activeKeyboard.activationId);
+        if (activeKeyboard.destinationDescription) {
+          setKeyboardMovementStatus(
+            `Moved ${activeKeyboard.label} to ${activeKeyboard.destinationDescription}.`,
+          );
+        } else {
+          const direction =
+            activeKeyboard.destinationIndex < activeKeyboard.initialIndex ? "backward" : "forward";
+          setKeyboardMovementStatus(
+            `Moved ${activeKeyboard.label} ${keyboardDirectionLabel(activeKeyboard.axis, direction)}. Position ${activeKeyboard.destinationIndex + 1} of ${activeKeyboard.total}.`,
+          );
+        }
       } else {
         setKeyboardMovementStatus(`Dropped ${activeKeyboard.label} without moving.`);
       }
@@ -320,6 +419,7 @@ export function EditorMovementLayer({
     const activeKeyboard = activeKeyboardMovementRef.current;
     clearMovement();
     if (activeKeyboard) {
+      restoreKeyboardMovementFocus(editor.view.dom.ownerDocument, activeKeyboard.activationId);
       setKeyboardMovementStatus(`Cancelled moving ${activeKeyboard.label}.`);
     }
   };
@@ -328,6 +428,8 @@ export function EditorMovementLayer({
     () => () => {
       movementControllerRef.current?.dispose();
       movementControllerRef.current = null;
+      activeProjectionRef.current?.clear();
+      activeProjectionRef.current = null;
       setEmptyInsertionRowMovementDragActive(editor, false);
     },
     [editor],
@@ -336,7 +438,7 @@ export function EditorMovementLayer({
   const movementChromeLayer = (
     <MovementChromeLayer
       blockDefinitions={blockDefinitions}
-      candidate={candidate}
+      candidate={dropIndicatorSuppressed ? null : candidate}
       editor={editor}
       keyboardMovementStatus={keyboardMovementStatus}
       target={movementHandleTarget}
@@ -477,6 +579,27 @@ function isContainedMoveIntent(
   return intent instanceof MoveContainedBeforeTarget || intent instanceof MoveContainedAfterTarget;
 }
 
+function movementProjectionDestinationIndex(
+  candidate: MovementCandidate | null,
+  sourceIndex: number,
+): number {
+  if (!candidate) return sourceIndex;
+  const targetIndex = candidate.intent.target.context.index;
+  if (
+    candidate.intent instanceof InsertBeforeTarget ||
+    candidate.intent instanceof MoveContainedBeforeTarget
+  ) {
+    return targetIndex > sourceIndex ? targetIndex - 1 : targetIndex;
+  }
+  if (
+    candidate.intent instanceof InsertAfterTarget ||
+    candidate.intent instanceof MoveContainedAfterTarget
+  ) {
+    return targetIndex > sourceIndex ? targetIndex : targetIndex + 1;
+  }
+  return sourceIndex;
+}
+
 function keyboardMovementDirection(
   direction: DragKeyboardDirection | null,
   axis: AuthoringMovementDragData["axis"],
@@ -498,10 +621,7 @@ function capitalize(value: string): string {
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 }
 
-function restoreCommittedKeyboardMovementFocus(
-  ownerDocument: Document,
-  activationId: string,
-): void {
+function restoreKeyboardMovementFocus(ownerDocument: Document, activationId: string): void {
   const ownerWindow = ownerDocument.defaultView;
   if (!ownerWindow) return;
   let remainingFrames = COMMITTED_KEYBOARD_FOCUS_RESTORE_FRAMES;
@@ -654,7 +774,7 @@ function movementHandleLabel(context: MovementNodeContext): string {
 }
 
 export function MovementDropIndicator({ candidate }: { candidate: MovementCandidate | null }) {
-  if (!candidate) return null;
+  if (!candidate || isContainedMoveIntent(candidate.intent)) return null;
 
   const rect = candidate.target.rect;
   return (

@@ -1,6 +1,7 @@
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-roadmap {
   --sc-course-roadmap-marker-size: var(--space-8);
   --sc-course-roadmap-marker-gap: var(--space-4);
+  --sc-course-roadmap-marker-radius: var(--radius-3);
   --sc-course-roadmap-milestone-gap: var(--space-6);
 
   padding-block: var(--space-3);
@@ -53,7 +54,7 @@
   align-items: center;
   justify-content: center;
   border: 1px solid var(--sc-course-state-available-border);
-  border-radius: var(--radius-3);
+  border-radius: var(--sc-course-roadmap-marker-radius);
   background: var(--sc-course-state-available-background);
   color: var(--sc-course-state-available-indicator);
   font-size: var(--font-size-3);
@@ -89,6 +90,58 @@
   width: 1.25rem;
   height: 1.25rem;
   font-size: 1.25rem;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-roadmap__delete {
+  border: 0;
+  border-radius: max(var(--radius-2), var(--radius-full));
+  background: transparent;
+  color: var(--gray-11);
+  opacity: 0.72;
+  transition:
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-roadmap__delete[aria-disabled="true"] {
+  color: var(--gray-9);
+  opacity: 0.55;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-roadmap__delete:focus-visible {
+  outline: 2px solid var(--accent-9);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-roadmap__delete:not([aria-disabled="true"]):focus-visible {
+  background: var(--sc-course-state-error-background);
+  color: var(--sc-course-state-error-text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-roadmap__milestone:hover
+    .sc-course-roadmap__delete,
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-roadmap__milestone:focus-within
+    .sc-course-roadmap__delete {
+    opacity: 1;
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-roadmap__delete:not([aria-disabled="true"]):hover {
+    background: var(--sc-course-state-error-background);
+    color: var(--sc-course-state-error-text);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-roadmap__delete {
+    transition: none;
+  }
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-roadmap__content {

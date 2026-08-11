@@ -27,13 +27,18 @@ export const RadioGroup = forwardRef<
   return <RadixRadio.Root ref={ref} className={cn("sc-radio-group", className)} {...rest} />;
 });
 
+export interface RadioItemProps extends ComponentPropsWithoutRef<typeof RadixRadio.Item> {
+  showIndicator?: boolean;
+}
+
 export const RadioItem = forwardRef<
   ComponentRef<typeof RadixRadio.Item>,
-  ComponentPropsWithoutRef<typeof RadixRadio.Item>
->(function RadioItem({ className, ...rest }, ref) {
+  RadioItemProps
+>(function RadioItem({ children, className, showIndicator = true, ...rest }, ref) {
   return (
     <RadixRadio.Item ref={ref} className={cn("sc-radio-item", className)} {...rest}>
-      <RadixRadio.Indicator className="sc-radio-indicator" />
+      {children}
+      {showIndicator ? <RadixRadio.Indicator className="sc-radio-indicator" /> : null}
     </RadixRadio.Item>
   );
 });

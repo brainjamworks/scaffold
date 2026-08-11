@@ -1,11 +1,9 @@
 import { TargetIcon as Target } from "@phosphor-icons/react";
-import { NumberedListDataSchema, NumberedListMarkerStateSchema } from "@scaffold/contracts";
-import { z } from "zod";
+import { NumberedListDataSchema } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
-import { validateCatalogNodeAttrs } from "@/editor/insertion/catalog-validation";
 
 import {
   NUMBERED_LIST_ITEM_NODE,
@@ -64,18 +62,10 @@ export const numberedListBlockDefinition = defineBlock({
     description: "A structured numbered list with an optional icon header",
     icon: Target,
     keywords: ["numbered", "list", "steps", "outcomes", "goals"],
-    validateNode: validateCatalogNodeAttrs([
-      {
-        nodeType: NUMBERED_LIST_ITEM_NODE,
-        schema: z.object({ status: NumberedListMarkerStateSchema }),
-        field: "status",
-        message: "Numbered list catalog content contains an invalid item status.",
-      },
-    ]),
     content: () => ({
       type: NUMBERED_LIST_NODE,
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyNumberedListData(),
       },
       content: [
@@ -86,7 +76,7 @@ export const numberedListBlockDefinition = defineBlock({
         ...DEFAULT_ITEMS.map((item) => ({
           type: NUMBERED_LIST_ITEM_NODE,
           attrs: {
-            id: createStableId(),
+            id: createEmbeddedNodeId(),
             status: "neutral",
           },
           content: numberedListItemContent(item),

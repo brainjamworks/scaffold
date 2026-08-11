@@ -12,11 +12,6 @@ import {
   paginatedRuntimeSectionFrame,
 } from "../paginated/paginated-runtime-views";
 import {
-  ProcessFlowLayoutRuntimeView,
-  ProcessFlowSectionRuntimeView,
-  processFlowRuntimeSectionFrame,
-} from "../process-flow/process-flow-runtime-views";
-import {
   TabsLayoutRuntimeView,
   TabsSectionRuntimeView,
   tabsRuntimeSectionFrame,
@@ -34,12 +29,6 @@ export const builtInLayoutRuntimeViews = Object.freeze([
     component: PaginatedLayoutRuntimeView,
     sectionComponent: PaginatedSectionRuntimeView,
     sectionFrame: paginatedRuntimeSectionFrame,
-  },
-  {
-    id: "process-flow",
-    component: ProcessFlowLayoutRuntimeView,
-    sectionComponent: ProcessFlowSectionRuntimeView,
-    sectionFrame: processFlowRuntimeSectionFrame,
   },
   {
     id: "tabs",

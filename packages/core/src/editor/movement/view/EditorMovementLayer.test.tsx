@@ -982,8 +982,8 @@ describe("EditorMovementLayer", () => {
       expect(handle).not.toHaveAttribute("aria-roledescription");
       expect(handle).toHaveAttribute("aria-keyshortcuts", "Space Enter ArrowUp ArrowDown Escape");
     }
-    expect(blockHandle.className).toContain("sc-editor-movement-handle");
-    expect(containedHandle.className).toContain("sc-contained-movement-handle");
+    expect(blockHandle).toHaveAttribute("data-authoring-move-handle", "");
+    expect(containedHandle).toHaveAttribute("data-contained-movement-handle", "");
     editor.destroy();
   });
 
@@ -1487,7 +1487,7 @@ describe("EditorMovementLayer", () => {
     expect(indicator.getAttribute("contenteditable")).toBe("false");
   });
 
-  it("renders contained row indicators inside the resolved row lane", () => {
+  it("does not render structural indicators for contained movement", () => {
     render(
       <MovementDropIndicator
         candidate={containedMovementCandidate(
@@ -1503,16 +1503,7 @@ describe("EditorMovementLayer", () => {
       />,
     );
 
-    const frame = screen.getByTestId("scaffold-drop-indicator-frame");
-    const indicator = screen.getByTestId("scaffold-drop-indicator");
-
-    expect(frame.getAttribute("contenteditable")).toBe("false");
-    expect(frame.style.left).toBe("80px");
-    expect(frame.style.top).toBe("48px");
-    expect(frame.style.width).toBe("280px");
-    expect(frame.style.height).toBe("48px");
-    expect(indicator.getAttribute("data-scaffold-drop-intent")).toBe("move-contained-after");
-    expect(indicator.getAttribute("contenteditable")).toBe("false");
+    expect(screen.queryByTestId("scaffold-drop-indicator-frame")).toBeNull();
   });
 });
 

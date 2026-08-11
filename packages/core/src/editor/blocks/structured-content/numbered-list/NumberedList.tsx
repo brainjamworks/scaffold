@@ -15,7 +15,7 @@ import { useId, type ReactNode } from "react";
 import { IconRenderer } from "@/ui/icons/IconRenderer";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { catalogIconValue, type IconValue } from "@/schemas/media/icon";
 
 import { normalizeNumberedListData, parseNumberedListData } from "./NumberedListModel";
@@ -106,7 +106,7 @@ export function NumberedListView(props: NumberedListViewProps) {
       .insertContentAt(pos + node.nodeSize - 1, {
         type: NUMBERED_LIST_ITEM_NODE,
         attrs: {
-          id: createStableId(),
+          id: createEmbeddedNodeId(),
           status: "neutral",
         },
         content: numberedListItemContent(),

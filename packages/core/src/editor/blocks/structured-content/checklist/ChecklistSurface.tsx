@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Button } from "@radix-ui/themes";
+
+import { CourseButton } from "@/ui/components/course/CourseActions/CourseActions";
 
 export interface ChecklistProgress {
   completed: number;
@@ -40,16 +41,16 @@ export function ChecklistSection({
             <span />
           )}
           {resetAction ? (
-            <Button
+            <CourseButton
               type="button"
-              size="1"
-              variant="ghost"
+              size="compact"
+              emphasis="quiet"
               className="sc-course-checklist__reset"
               onClick={resetAction.onClick}
               aria-label={resetAction.label}
             >
               {resetAction.text}
-            </Button>
+            </CourseButton>
           ) : null}
         </header>
       ) : null}

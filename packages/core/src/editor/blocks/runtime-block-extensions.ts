@@ -22,6 +22,7 @@ import { ComparisonRuntimeExtension } from "./structured-content/comparison/comp
 import { FlashcardRuntimeExtension } from "./presentation/flashcard/flashcard-runtime-extension";
 import { MarginaliaRuntimeExtension } from "./presentation/marginalia/marginalia-runtime-extension";
 import { PullQuoteRuntimeExtension } from "./presentation/pull-quote/pull-quote-runtime-extension";
+import { ProcessFlowRuntimeExtension } from "./presentation/process-flow/process-flow-runtime-extension";
 import { RoadmapRuntimeExtension } from "./presentation/roadmap/roadmap-runtime-extension";
 import { SidebarRuntimeExtension } from "./presentation/sidebar/sidebar-runtime-extension";
 import { StatHighlightRuntimeExtension } from "./presentation/stat-highlight/stat-highlight-runtime-extension";
@@ -72,6 +73,7 @@ export const builtInBlockRuntimeBindings: readonly BlockRuntimeBinding[] = Objec
     { nodeType: "chapter_epigraph", extension: ChapterEpigraphRuntimeExtension },
     { nodeType: "marginalia", extension: MarginaliaRuntimeExtension },
     { nodeType: "pull_quote", extension: PullQuoteRuntimeExtension },
+    { nodeType: "process_flow", extension: ProcessFlowRuntimeExtension },
     { nodeType: "roadmap", extension: RoadmapRuntimeExtension },
     { nodeType: "sidebar", extension: SidebarRuntimeExtension },
     { nodeType: "stat_highlight", extension: StatHighlightRuntimeExtension },

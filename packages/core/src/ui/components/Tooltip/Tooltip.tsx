@@ -37,10 +37,18 @@ const tooltipGeometryStyle: TooltipGeometryStyle = {
   "--sc-overlay-available-inline-size": "var(--radix-tooltip-content-available-width)",
 };
 
+export interface TooltipContentProps
+  extends ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> {
+  presentation?: "default" | "unskinned";
+}
+
 export const Content = forwardRef<
   ElementRef<typeof TooltipPrimitive.Content>,
-  ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(function TooltipContent({ className, collisionBoundary, style, ...props }, ref) {
+  TooltipContentProps
+>(function TooltipContent(
+  { className, collisionBoundary, presentation = "default", style, ...props },
+  ref,
+) {
   const resolution = useOverlayBoundary();
   const resolvedCollisionBoundary =
     collisionBoundary === undefined && resolution.status === "ready"
@@ -50,7 +58,11 @@ export const Content = forwardRef<
   return (
     <TooltipPrimitive.Content
       ref={ref}
-      className={cn("sc-overlay-positioned-content", "sc-tooltip", className)}
+      className={cn(
+        "sc-overlay-positioned-content",
+        presentation === "default" && "sc-tooltip",
+        className,
+      )}
       {...(resolvedCollisionBoundary === undefined
         ? {}
         : { collisionBoundary: resolvedCollisionBoundary })}
@@ -75,7 +87,6 @@ export const TooltipPortal = Portal;
 
 export type {
   TooltipArrowProps,
-  TooltipContentProps,
   TooltipPortalProps,
   TooltipProps,
   TooltipProviderProps,

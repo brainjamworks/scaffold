@@ -34,10 +34,14 @@ describe("Region vertical content geometry", () => {
     expect(style.gap).toBe("1px");
   });
 
-  it("centres content in the available Region height", () => {
+  it.each([
+    ["top", 0],
+    ["middle", 80],
+    ["bottom", 160],
+  ] as const)("positions %s content in the available Region height", (position, expectedTop) => {
     const region = document.createElement("div");
     region.className = "sc-region";
-    region.dataset.verticalContentPosition = "middle";
+    region.dataset.verticalContentPosition = position;
     region.style.cssText =
       "--sc-region-inset: 0; --sc-region-flow-gap: 0; width: 200px; height: 200px;";
 
@@ -47,7 +51,7 @@ describe("Region vertical content geometry", () => {
     document.body.append(region);
 
     expect(content.getBoundingClientRect().top - region.getBoundingClientRect().top).toBeCloseTo(
-      80,
+      expectedTop,
       0,
     );
   });

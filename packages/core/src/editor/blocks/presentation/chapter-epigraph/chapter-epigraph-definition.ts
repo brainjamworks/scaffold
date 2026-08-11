@@ -1,7 +1,7 @@
 import { BookOpenTextIcon as BookOpenText } from "@phosphor-icons/react";
 import { ChapterEpigraphDataSchema } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 
@@ -37,7 +37,7 @@ export const chapterEpigraphBlockDefinition = defineBlock({
     content: () => ({
       type: "chapter_epigraph",
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyChapterEpigraphData(),
       },
       content: [

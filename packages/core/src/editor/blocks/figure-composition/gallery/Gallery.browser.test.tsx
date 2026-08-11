@@ -3,7 +3,7 @@ import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
+import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor.test-harness";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
@@ -380,6 +380,7 @@ async function mountPair(
           <CourseDocumentRuntimeRenderer
             composition={coreRuntimeComposition}
             initialContent={cloneJSON(initialContent)}
+            productAccess={{ scaffoldPlusAuthorized: false }}
             visibleSurfaceId={surfaceId}
             onReady={(editor) => {
               runtimeEditor = editor;

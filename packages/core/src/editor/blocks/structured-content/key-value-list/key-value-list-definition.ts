@@ -10,7 +10,7 @@ import {
   KeyValueListLayoutSchema,
 } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 
@@ -99,12 +99,12 @@ export const keyValueListBlockDefinition = defineBlock({
     content: () => ({
       type: KEY_VALUE_LIST_NODE,
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyKeyValueListData(),
       },
       content: Array.from({ length: 3 }, () => ({
         type: KEY_VALUE_ROW_NODE,
-        attrs: { id: createStableId() },
+        attrs: { id: createEmbeddedNodeId() },
         content: [
           { type: KEY_VALUE_ROW_KEY_NODE, content: [{ type: "paragraph" }] },
           { type: KEY_VALUE_ROW_VALUE_NODE, content: [{ type: "paragraph" }] },

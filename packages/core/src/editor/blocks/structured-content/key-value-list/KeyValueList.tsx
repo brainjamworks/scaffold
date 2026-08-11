@@ -7,7 +7,7 @@ import {
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 import { KEY_VALUE_ROW_KEY_NODE, KEY_VALUE_ROW_NODE, KEY_VALUE_ROW_VALUE_NODE } from "./content";
 import { KeyValueListSurface } from "./KeyValueListSurface";
@@ -45,7 +45,7 @@ export function KeyValueListView(props: KeyValueListViewProps) {
       .chain()
       .insertContentAt(insertAt, {
         type: KEY_VALUE_ROW_NODE,
-        attrs: { id: createStableId() },
+        attrs: { id: createEmbeddedNodeId() },
         content: [
           { type: KEY_VALUE_ROW_KEY_NODE, content: [{ type: "paragraph" }] },
           { type: KEY_VALUE_ROW_VALUE_NODE, content: [{ type: "paragraph" }] },

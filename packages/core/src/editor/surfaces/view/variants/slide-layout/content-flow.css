@@ -178,6 +178,6 @@
 
 .sc-slide-layout-surface-view[data-slide-layout-composition="centred-stage"]
   [data-region-role="main"] {
-  width: min(72%, 48rem);
+  width: var(--sc-slide-centred-stage-width, min(72%, 48rem));
   place-self: center;
 }

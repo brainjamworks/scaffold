@@ -1,13 +1,14 @@
 import {
+  ArrowsClockwiseIcon as ArrowsClockwise,
   CaretDownIcon as CaretDown,
   CaretUpIcon as CaretUp,
+  ImageIcon as ImagePlaceholder,
   InfoIcon as Info,
   ArrowsOutSimpleIcon as ArrowsOutSimple,
   PlusIcon as Plus,
   TrashIcon as Trash,
   XIcon as X,
 } from "@phosphor-icons/react";
-import { IconButton, TextField, Tooltip } from "@radix-ui/themes";
 import {
   NodeViewContent,
   NodeViewWrapper,
@@ -29,14 +30,9 @@ import {
 import { flushSync } from "react-dom";
 
 import type { CheckedMutationResult } from "@/document/model/commands/checked-transactions";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
-import {
-  nodeViewUiKey,
-  usePickerOpen,
-} from "@/editor/media/authoring/picker/file-picker-open-state";
-import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
-import { MediaReplaceButton } from "@/ui/components/app/MediaReplaceButton/MediaReplaceButton";
+import { nodeViewUiStateKey, useNodeViewOpenState } from "@/editor/prosemirror/node-view-ui-state";
 import {
   useAuthoringNodeTarget,
   type ResolvedAuthoringNode,
@@ -46,6 +42,11 @@ import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-over
 import { focusTextSelectionNear, selectNodeAt } from "@/editor/selection/selection-commands";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
+import {
+  CourseIconButton,
+  CourseTooltip,
+} from "@/ui/components/course/CourseActions/CourseActions";
+import { CourseAuthoringTextField } from "@/ui/components/course/CourseInputs/CourseInputs";
 import { iconSm, iconXs } from "@/ui/tokens/icon-sizes";
 import {
   AnnotatedFigureDataSchema,
@@ -109,43 +110,49 @@ function AnnotatedFigureImageActions({
 }) {
   return (
     <div
-      className="sc-app-annotated-figure__image-toolbar"
+      className="sc-course-annotated-figure__image-toolbar"
       role="toolbar"
       aria-label="Annotated figure image tools"
     >
-      <MediaReplaceButton
-        aria-label="Replace image"
-        className="sc-app-annotated-figure__image-action"
-        onClick={onReplace}
-        placement="inline"
-      />
-      <Tooltip content="Add annotation" delayDuration={350} side="top" sideOffset={8}>
-        <IconButton
-          aria-label="Add annotation"
-          className="sc-app-annotated-figure__image-action"
-          onClick={onAdd}
-          radius="full"
-          size="2"
+      <CourseTooltip content="Replace image" delayDuration={350} side="top" sideOffset={8}>
+        <CourseIconButton
+          aria-label="Replace image"
+          className="sc-course-annotated-figure__image-action"
+          emphasis="raised"
+          onClick={onReplace}
           type="button"
-          variant="surface"
+        >
+          <ArrowsClockwise size={iconSm} weight="bold" aria-hidden />
+        </CourseIconButton>
+      </CourseTooltip>
+      <CourseTooltip content="Add annotation" delayDuration={350} side="top" sideOffset={8}>
+        <CourseIconButton
+          aria-label="Add annotation"
+          className="sc-course-annotated-figure__image-action"
+          onClick={onAdd}
+          emphasis="raised"
+          type="button"
         >
           <Plus size={iconSm} weight="bold" aria-hidden />
-        </IconButton>
-      </Tooltip>
-      <Tooltip content="Open expanded workspace" delayDuration={350} side="top" sideOffset={8}>
+        </CourseIconButton>
+      </CourseTooltip>
+      <CourseTooltip
+        content="Open expanded workspace"
+        delayDuration={350}
+        side="top"
+        sideOffset={8}
+      >
         <WorkspaceDialog.Trigger asChild>
-          <IconButton
+          <CourseIconButton
             aria-label="Edit annotated figure in expanded workspace"
-            className="sc-app-annotated-figure__image-action"
-            radius="full"
-            size="2"
+            className="sc-course-annotated-figure__image-action"
+            emphasis="raised"
             type="button"
-            variant="surface"
           >
             <ArrowsOutSimple size={iconSm} weight="bold" aria-hidden />
-          </IconButton>
+          </CourseIconButton>
         </WorkspaceDialog.Trigger>
-      </Tooltip>
+      </CourseTooltip>
     </div>
   );
 }
@@ -257,7 +264,7 @@ function AnnotatedFigureAnnotationAuthoringView(props: NodeViewProps) {
       data-node="annotated-figure-annotation"
       data-annotation-id={annotationId}
       data-selected={selected ? "true" : "false"}
-      className="sc-course-annotated-figure__annotation sc-app-annotated-figure__annotation"
+      className="sc-course-annotated-figure__annotation"
     >
       <span className="sc-course-annotated-figure__annotation-number" contentEditable={false}>
         {number}
@@ -271,19 +278,19 @@ function AnnotatedFigureAnnotationAuthoringView(props: NodeViewProps) {
         <NodeViewContent />
       </div>
       <div
-        className="sc-app-annotated-figure__annotation-actions"
+        className="sc-course-annotated-figure__annotation-actions"
         contentEditable={false}
         role="group"
         aria-label={`Reorder and remove annotation ${number ?? ""}`.trim()}
       >
-        <IconButton
+        <CourseIconButton
           type="button"
-          className="sc-app-annotated-figure__annotation-action"
+          className="sc-course-annotated-figure__annotation-action"
           data-annotation-move="previous"
           disabled={!previousAnnotation}
           aria-label={`Move annotation ${number ?? ""} previous`.trim()}
-          size="1"
-          variant="ghost"
+          size="compact"
+          emphasis="quiet"
           onMouseDown={(event) => event.preventDefault()}
           onClick={(event) => {
             event.stopPropagation();
@@ -291,15 +298,15 @@ function AnnotatedFigureAnnotationAuthoringView(props: NodeViewProps) {
           }}
         >
           <CaretUp size={16} aria-hidden />
-        </IconButton>
-        <IconButton
+        </CourseIconButton>
+        <CourseIconButton
           type="button"
-          className="sc-app-annotated-figure__annotation-action"
+          className="sc-course-annotated-figure__annotation-action"
           data-annotation-move="next"
           disabled={!nextAnnotation}
           aria-label={`Move annotation ${number ?? ""} next`.trim()}
-          size="1"
-          variant="ghost"
+          size="compact"
+          emphasis="quiet"
           onMouseDown={(event) => event.preventDefault()}
           onClick={(event) => {
             event.stopPropagation();
@@ -307,13 +314,13 @@ function AnnotatedFigureAnnotationAuthoringView(props: NodeViewProps) {
           }}
         >
           <CaretDown size={16} aria-hidden />
-        </IconButton>
-        <IconButton
+        </CourseIconButton>
+        <CourseIconButton
           type="button"
-          className="sc-app-annotated-figure__annotation-remove"
+          className="sc-course-annotated-figure__annotation-remove"
           aria-label={`Remove annotation ${number ?? ""}`.trim()}
-          size="1"
-          variant="ghost"
+          size="compact"
+          emphasis="quiet"
           onMouseDown={(event) => event.preventDefault()}
           onClick={(event) => {
             event.stopPropagation();
@@ -327,7 +334,7 @@ function AnnotatedFigureAnnotationAuthoringView(props: NodeViewProps) {
           }}
         >
           <X size={16} aria-hidden />
-        </IconButton>
+        </CourseIconButton>
       </div>
     </NodeViewWrapper>
   );
@@ -350,12 +357,12 @@ function AnnotatedFigureCanvasAuthoringView(props: NodeViewProps) {
   const data = model?.data ?? emptyAnnotatedFigureData();
   const mediaPort = useMediaPort();
   const { errorMessage, resolvedUrl } = useResolvedAnnotatedFigureSource(data, mediaPort);
-  const pickerKey = nodeViewUiKey({
+  const pickerKey = nodeViewUiStateKey({
     owner: "annotated-figure",
     surface: "file-picker",
     id: ownerId,
   });
-  const [pickerOpen, setPickerOpen] = usePickerOpen(pickerKey);
+  const [pickerOpen, setPickerOpen] = useNodeViewOpenState(pickerKey);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<AnnotatedFigurePinDragState | null>(null);
   const pointerOriginRef = useRef<AnnotatedFigurePinPointerOrigin | null>(null);
@@ -579,7 +586,7 @@ function AnnotatedFigureCanvasAuthoringView(props: NodeViewProps) {
   };
 
   const addAnnotation = (x: number, y: number) => {
-    const annotationId = createStableId();
+    const annotationId = createEmbeddedNodeId();
     const result = target?.transact((tr, resolvedOwner) =>
       addAnnotatedFigureAnnotationChecked({
         tr,
@@ -800,12 +807,17 @@ function AnnotatedFigureCanvasAuthoringView(props: NodeViewProps) {
       presentation={presentation}
       {...(presentation === "compact" ? { stageRef } : {})}
       emptyAction={
-        <MediaEmptyAction
+        <button
+          type="button"
           onClick={() => setPickerOpen(true)}
           aria-label="Add annotated figure image"
-          label="Add image"
-          className="sc-app-annotated-figure__empty-action"
-        />
+          className="sc-course-annotated-figure__empty-action"
+        >
+          <span className="sc-course-annotated-figure__empty-action-icon" aria-hidden>
+            <ImagePlaceholder size={24} weight="regular" />
+          </span>
+          <span>Add image</span>
+        </button>
       }
       onActivatePin={(annotationId) => {
         if (suppressNextPinClickRef.current === annotationId) {
@@ -877,9 +889,9 @@ function AnnotatedFigureCanvasAuthoringView(props: NodeViewProps) {
                         side="bottom"
                         sideOffset={8}
                         title={
-                          <TextField.Root
+                          <CourseAuthoringTextField
                             aria-label={`Annotation ${annotation.number} title`}
-                            className="sc-app-annotated-figure__title-field"
+                            className="sc-course-annotated-figure__title-field"
                             maxLength={120}
                             onChange={(event) =>
                               updateAnnotationTitle(annotation.id, event.currentTarget.value)
@@ -897,10 +909,10 @@ function AnnotatedFigureCanvasAuthoringView(props: NodeViewProps) {
                             /[^A-Za-z0-9_-]/g,
                             "",
                           )}`,
-                          className: "sc-app-annotated-figure__caption-field",
+                          className: "sc-course-annotated-figure__caption-field",
                           extensions: captionEditorExtensions,
                           fieldKey: `annotation:${annotation.id}:caption`,
-                          mountClassName: "sc-app-annotated-figure__caption-editor",
+                          mountClassName: "sc-course-annotated-figure__caption-editor",
                           outerEditor: props.editor,
                           placeholder: "Describe this annotation",
                           syncKey: openAnnotation.captionNode,
@@ -922,7 +934,6 @@ function AnnotatedFigureCanvasAuthoringView(props: NodeViewProps) {
           />
         ) : null
       }
-      actionOwner="app"
     />
   );
 
@@ -1022,7 +1033,7 @@ function focusAnnotationRowControl(
       `[data-annotation-move="${preferredDirection}"]:not(:disabled)`,
     );
     const fallback = row.querySelector<HTMLButtonElement>(
-      "[data-annotation-move]:not(:disabled), .sc-app-annotated-figure__annotation-remove",
+      "[data-annotation-move]:not(:disabled), .sc-course-annotated-figure__annotation-remove",
     );
     (preferred ?? fallback)?.focus();
     return;

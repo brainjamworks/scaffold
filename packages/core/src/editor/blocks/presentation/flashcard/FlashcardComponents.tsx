@@ -1,7 +1,6 @@
 import type { KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
-import { Badge, Button, IconButton, Progress } from "@radix-ui/themes";
 import {
   ArrowLeftIcon as ArrowLeft,
   ArrowRightIcon as ArrowRight,
@@ -13,6 +12,11 @@ import {
 } from "@phosphor-icons/react";
 
 import { cn } from "@/lib/cn";
+import { CourseButton, CourseIconButton } from "@/ui/components/course/CourseActions/CourseActions";
+import {
+  CourseProgressMeter,
+  CourseStatusBadge,
+} from "@/ui/components/course/CourseIndicators/CourseIndicators";
 
 import type {
   FlashcardActivityData,
@@ -122,10 +126,10 @@ function LearnerDeckHeader({
         <span className="sc-course-flashcard-deck-header__status">{status}</span>
         <DeckCounter currentIndex={currentIndex} total={total} />
       </div>
-      <Progress
+      <CourseProgressMeter
         value={mastered}
         max={total}
-        aria-label={`${mastered} of ${total} cards mastered`}
+        label={`${mastered} of ${total} cards mastered`}
         className="sc-course-flashcard-deck-header__progress"
       />
       <span className="sc-sr-only" aria-live="polite" aria-atomic="true">
@@ -196,15 +200,15 @@ export function ReaderControls({
       </div>
       {masteredCount > 0 ? (
         <div className="sc-course-flashcard-reader-controls__reset-row">
-          <Button
+          <CourseButton
             type="button"
-            variant="ghost"
+            emphasis="quiet"
             onClick={onReset}
             className="sc-course-flashcard-reader-controls__reset-button"
           >
             <ResetIcon size={14} weight="bold" aria-hidden />
             Reset deck
-          </Button>
+          </CourseButton>
         </div>
       ) : null}
     </div>
@@ -236,9 +240,9 @@ function NavigationControls({
       >
         <ArrowLeft size={18} weight="bold" aria-hidden />
       </IconCircleButton>
-      <Button
+      <CourseButton
         type="button"
-        variant="surface"
+        emphasis="raised"
         onClick={onFlip}
         aria-keyshortcuts="Space"
         className="sc-course-flashcard-reader-controls__flip-button"
@@ -246,7 +250,7 @@ function NavigationControls({
         <FlipIcon size={16} weight="bold" aria-hidden />
         <span>{flipped ? "Show front" : "Flip card"}</span>
         {showKeycaps ? <KeyCap>Space</KeyCap> : null}
-      </Button>
+      </CourseButton>
       <IconCircleButton
         label="Next card"
         shortcut="ArrowRight"
@@ -273,9 +277,9 @@ function IconCircleButton({
   children: ReactNode;
 }) {
   return (
-    <IconButton
+    <CourseIconButton
       type="button"
-      variant="surface"
+      emphasis="raised"
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
@@ -283,7 +287,7 @@ function IconCircleButton({
       className="sc-course-flashcard-reader-controls__icon-button"
     >
       {children}
-    </IconButton>
+    </CourseIconButton>
   );
 }
 
@@ -298,9 +302,9 @@ function RatingButton({
 }) {
   const isGotIt = status === "gotIt";
   return (
-    <Button
+    <CourseButton
       type="button"
-      variant="surface"
+      emphasis="raised"
       onClick={onClick}
       aria-pressed={active}
       aria-keyshortcuts={isGotIt ? "G" : "N"}
@@ -320,7 +324,7 @@ function RatingButton({
       )}
       <span>{isGotIt ? "Got it" : "Not yet"}</span>
       <KeyCap inverted={active}>{isGotIt ? "G" : "N"}</KeyCap>
-    </Button>
+    </CourseButton>
   );
 }
 
@@ -360,15 +364,15 @@ export function MasteredState({ onReset, children }: { onReset: () => void; chil
         Deck complete.
       </p>
       <p className="sc-course-flashcard-mastered__body">Reset to study from the top.</p>
-      <Button
+      <CourseButton
         type="button"
-        variant="surface"
+        emphasis="raised"
         onClick={onReset}
         className="sc-course-flashcard-mastered__reset"
       >
         <ResetIcon size={14} weight="bold" aria-hidden />
         Reset deck
-      </Button>
+      </CourseButton>
       {children}
     </div>
   );
@@ -511,10 +515,10 @@ export function FlashcardCardSurface({
     >
       <div className="sc-course-flashcard-card__rotator">{children}</div>
       {mastery ? (
-        <Badge
+        <CourseStatusBadge
           data-scaffold-card-no-flip
           contentEditable={false}
-          data-course-state={mastery === "gotIt" ? "completed" : "available"}
+          state={mastery === "gotIt" ? "completed" : "available"}
           className="sc-course-flashcard-card__mastery-badge"
         >
           {mastery === "gotIt" ? (
@@ -525,7 +529,7 @@ export function FlashcardCardSurface({
           ) : (
             "Review again"
           )}
-        </Badge>
+        </CourseStatusBadge>
       ) : null}
     </div>
   );

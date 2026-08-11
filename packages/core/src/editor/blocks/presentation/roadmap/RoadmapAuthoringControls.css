@@ -10,6 +10,38 @@
     white-space: nowrap;
   }
 
+  .sc-course-roadmap__milestone[data-authoring-movement-silhouette]
+    .sc-course-roadmap__milestone-shell {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .sc-course-roadmap__milestone[data-authoring-movement-silhouette]
+    .sc-course-roadmap__milestone-shell::before {
+    content: "";
+    position: absolute;
+    box-sizing: border-box;
+    display: block;
+    pointer-events: none;
+  }
+
+  .sc-course-roadmap__milestone[data-authoring-movement-silhouette]
+    .sc-course-roadmap__milestone-shell::before {
+    top: 0;
+    left: 0;
+    width: var(--sc-course-roadmap-marker-size);
+    height: var(--sc-course-roadmap-marker-size);
+    border: 1px dashed var(--gray-a7);
+    border-radius: var(--radius-3);
+  }
+
+  .sc-course-roadmap[data-orientation="horizontal"]
+    .sc-course-roadmap__milestone[data-authoring-movement-silhouette]
+    .sc-course-roadmap__milestone-shell::before {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
   .sc-app-roadmap-icon-picker {
     padding: 0;
     font: inherit;
@@ -35,24 +67,10 @@
     height: 2.75rem;
     align-items: center;
     justify-content: center;
-    border: 0;
-    border-radius: 50%;
-    background: transparent;
-    color: var(--sc-app-color-text-muted);
-    opacity: 0.72;
-    transition:
-      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
-      color 150ms cubic-bezier(0.16, 1, 0.3, 1),
-      opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .sc-app-roadmap-delete {
     cursor: pointer;
   }
 
   .sc-app-roadmap-delete[aria-disabled="true"] {
-    color: var(--sc-app-color-text-placeholder);
-    opacity: 0.55;
     cursor: not-allowed;
   }
 
@@ -74,9 +92,9 @@
     padding: 0;
     border: 0;
     background: transparent;
-    color: var(--sc-app-color-text-muted);
-    font-family: var(--font-ui);
-    font-size: 0.9375rem;
+    color: var(--gray-11);
+    font-family: var(--default-font-family);
+    font-size: var(--font-size-2);
     font-weight: 600;
     text-align: left;
   }
@@ -89,9 +107,9 @@
     flex: 0 0 var(--sc-course-roadmap-marker-size);
     align-items: center;
     justify-content: center;
-    border: 1px dashed var(--sc-app-color-border);
-    border-radius: 50%;
-    background: var(--sc-app-color-background);
+    border: 1px dashed var(--gray-a7);
+    border-radius: var(--sc-course-roadmap-marker-radius, var(--radius-3));
+    background: var(--gray-1);
   }
 
   .sc-course-roadmap[data-orientation="horizontal"] .sc-app-block-add.sc-app-roadmap-add {
@@ -115,7 +133,6 @@
 
   .sc-app-roadmap-icon-picker:focus-visible,
   .sc-app-roadmap-status:focus-visible,
-  .sc-app-roadmap-delete:focus-visible,
   .sc-app-block-add.sc-app-roadmap-add:focus-visible {
     outline: 2px solid var(--sc-app-color-focus-outline);
     outline-offset: 2px;
@@ -129,23 +146,13 @@
       outline-offset: 1px;
     }
 
-    .sc-course-roadmap__milestone:hover .sc-app-roadmap-delete,
-    .sc-course-roadmap__milestone:focus-within .sc-app-roadmap-delete {
-      opacity: 1;
-    }
-
-    .sc-app-roadmap-delete:not([aria-disabled="true"]):hover {
-      background: var(--sc-app-color-error-background);
-      color: var(--sc-app-color-error);
-    }
-
     .sc-app-block-add.sc-app-roadmap-add:hover:not(:disabled) {
-      color: var(--sc-app-color-primary);
+      color: var(--accent-11);
     }
 
     .sc-app-block-add.sc-app-roadmap-add:hover:not(:disabled) .sc-app-roadmap-add__marker {
-      border-color: var(--sc-app-color-primary);
-      background: var(--sc-app-color-primary-muted);
+      border-color: var(--accent-8);
+      background: var(--accent-a3);
     }
   }
 
@@ -154,15 +161,9 @@
     transform: scale(0.96);
   }
 
-  .sc-app-roadmap-delete:not([aria-disabled="true"]):focus-visible {
-    background: var(--sc-app-color-error-background);
-    color: var(--sc-app-color-error);
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .sc-app-roadmap-icon-picker,
     .sc-app-roadmap-status,
-    .sc-app-roadmap-delete,
     .sc-app-roadmap-add,
     .sc-app-roadmap-add__marker {
       transition: none;

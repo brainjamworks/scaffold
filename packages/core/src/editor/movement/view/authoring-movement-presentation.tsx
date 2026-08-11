@@ -6,11 +6,17 @@ import {
   useRef,
   type CSSProperties,
 } from "react";
+import type { Editor } from "@tiptap/core";
 
 import { useInteractionDragSource } from "@/editor/interactions/drag/react/use-interaction-drag-source";
+import type { AnyMovementIntent } from "../model/movement-intents";
+import type { MovementNodeContext } from "../model/movement-policy";
 import type { MovementTargetAxis } from "../model/movement-target";
+import type { MovementCandidate } from "./movement-candidate";
 
 export const AUTHORING_MOVEMENT_SILHOUETTE_ATTR = "data-authoring-movement-silhouette";
+export const AUTHORING_MOVEMENT_SILHOUETTE_SURFACE_ATTR =
+  "data-authoring-movement-silhouette-surface";
 export const AUTHORING_MOVEMENT_ACTIVATION_ID_ATTR = "data-authoring-movement-activation-id";
 export const AUTHORING_MOVEMENT_SNAPSHOT_CHROME_ATTR = "data-authoring-movement-snapshot-chrome";
 
@@ -22,7 +28,27 @@ export interface AuthoringMovementDragData {
   readonly getPresentationElement: () => HTMLElement | null;
   readonly getSourcePos?: () => number | null | undefined;
   readonly label: string;
+  readonly projection?: AuthoringContainedMovementProjection;
+  readonly strategy?: AuthoringContainedMovementStrategy;
   readonly sourcePos: number | null | undefined;
+}
+
+export interface AuthoringContainedMovementStrategy {
+  readonly keyboardNavigation?: "spatial";
+  apply(editor: Editor, source: MovementNodeContext, intent: AnyMovementIntent): boolean;
+  canApply(editor: Editor, source: MovementNodeContext, intent: AnyMovementIntent): boolean;
+  canNavigateKeyboard?(
+    source: MovementNodeContext,
+    current: MovementNodeContext,
+    target: MovementNodeContext,
+    direction: "down" | "left" | "right" | "up",
+  ): boolean;
+  canTarget(source: MovementNodeContext, target: MovementNodeContext): boolean;
+  describeDestination?(
+    editor: Editor,
+    source: MovementNodeContext,
+    intent: AnyMovementIntent,
+  ): string | null;
 }
 
 export interface AuthoringMovementSnapshot {
@@ -34,6 +60,13 @@ export interface AuthoringMovementSnapshot {
   readonly width: number;
 }
 
+export interface AuthoringContainedMovementProjection {
+  clear(): void;
+  project(destinationIndex: number): void;
+  projectAcrossOwners?(candidate: MovementCandidate, overlayHost: HTMLElement): void;
+  start(sourceIndex: number): boolean;
+}
+
 interface AuthoringMovementDragSourceInput {
   readonly axis: MovementTargetAxis;
   readonly containedMovement: boolean;
@@ -42,11 +75,17 @@ interface AuthoringMovementDragSourceInput {
   readonly getSourcePos?: () => number | null | undefined;
   readonly id: string;
   readonly label: string;
+  readonly projection?: AuthoringContainedMovementProjection;
+  readonly strategy?: AuthoringContainedMovementStrategy;
   readonly sourcePos: number | null | undefined;
 }
 
 export function authoringMovementSnapshotChromeAttributes(): Record<string, string> {
   return { [AUTHORING_MOVEMENT_SNAPSHOT_CHROME_ATTR]: "" };
+}
+
+export function authoringMovementSilhouetteSurfaceAttributes(): Record<string, string> {
+  return { [AUTHORING_MOVEMENT_SILHOUETTE_SURFACE_ATTR]: "" };
 }
 
 export function useAuthoringMovementDragSource({
@@ -57,6 +96,8 @@ export function useAuthoringMovementDragSource({
   getSourcePos,
   id,
   label,
+  projection,
+  strategy,
   sourcePos,
 }: AuthoringMovementDragSourceInput) {
   const getPresentationElementRef = useRef(getPresentationElement);
@@ -74,6 +115,8 @@ export function useAuthoringMovementDragSource({
       getPresentationElement: readPresentationElement,
       ...(getSourcePos ? { getSourcePos: readSourcePos } : {}),
       label,
+      ...(projection ? { projection } : {}),
+      ...(strategy ? { strategy } : {}),
       sourcePos,
     }),
     [
@@ -81,16 +124,18 @@ export function useAuthoringMovementDragSource({
       containedMovement,
       getSourcePos,
       label,
+      projection,
       readPresentationElement,
       readSourcePos,
       sourcePos,
+      strategy,
     ],
   );
   const drag = useInteractionDragSource<AuthoringMovementDragData>({
     data,
     disabled,
     id,
-    keyboardAxis: axis,
+    ...(strategy?.keyboardNavigation === "spatial" ? {} : { keyboardAxis: axis }),
     label,
   });
   const sourceRef = drag.sourceRef;

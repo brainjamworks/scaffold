@@ -1,6 +1,6 @@
 import { BookOpenIcon as BookOpen } from "@phosphor-icons/react";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineBlock } from "@/editor/blocks/block-definition";
 
 import {
@@ -51,12 +51,12 @@ export const glossaryBlockDefinition = defineBlock({
     content: () => ({
       type: GLOSSARY_NODE,
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyGlossaryData(),
       },
       content: DEFAULT_ENTRIES.map(({ term, definition }) => ({
         type: GLOSSARY_ENTRY_NODE,
-        attrs: { id: createStableId() },
+        attrs: { id: createEmbeddedNodeId() },
         content: glossaryEntryContent(term, definition),
       })),
     }),

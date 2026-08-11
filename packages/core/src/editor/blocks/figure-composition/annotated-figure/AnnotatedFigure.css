@@ -146,10 +146,6 @@
     flex-direction: column;
   }
 
-  .sc-course-annotated-figure__image-actions > .sc-media-expand-button {
-    position: static;
-  }
-
   .sc-course-annotated-figure__empty {
     box-sizing: border-box;
     display: flex;

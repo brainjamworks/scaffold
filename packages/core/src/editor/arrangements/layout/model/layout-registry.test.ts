@@ -263,7 +263,7 @@ describe("createLayoutRegistry", () => {
   it("constructs the exact built-in registry without setup", async () => {
     const { builtInLayoutDefinitions, builtInLayoutRegistry } =
       await import("./built-in-layout-definitions");
-    const expectedIds = ["accordion", "paginated", "process-flow", "tabs"];
+    const expectedIds = ["accordion", "paginated", "tabs"];
 
     expect(builtInLayoutDefinitions.map((definition) => definition.id)).toEqual(expectedIds);
     expect(builtInLayoutRegistry.definitions.map((definition) => definition.id)).toEqual(

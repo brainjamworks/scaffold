@@ -11,16 +11,39 @@
   }
 
   .sc-app-checklist-item-shell {
-    grid-template-columns: 1.25rem auto minmax(0, 1fr) 1.75rem;
+    grid-template-columns: auto auto minmax(0, 1fr) 1.75rem;
+    align-items: start;
   }
 
-  .sc-app-checklist-item-drag {
-    display: inline-flex;
-    width: 1.25rem;
-    height: 1.25rem;
-    align-items: center;
-    justify-content: center;
-    margin-top: 0.125rem;
+  .sc-app-checklist-item-action-slot {
+    display: grid;
+    min-height: var(--sc-course-checklist-row-control-size);
+    place-items: center;
+  }
+
+  .sc-app-checklist-item-shell .sc-course-checklist__control-slot {
+    position: relative;
+  }
+
+  .sc-course-checklist__item[data-authoring-movement-silhouette] .sc-app-checklist-item-shell {
+    background: transparent !important;
+    box-shadow: none;
+  }
+
+  .sc-course-checklist__item[data-authoring-movement-silhouette]
+    .sc-course-checklist__control-slot::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    box-sizing: border-box;
+    width: 1rem;
+    height: 1rem;
+    border: 1px dashed var(--gray-a7);
+    border-radius: 3px;
+    background: transparent;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
   }
 
   .sc-app-checklist-item-delete {
@@ -48,7 +71,7 @@
 
   .sc-app-block-add.sc-app-checklist-add {
     display: grid;
-    grid-template-columns: 1.25rem auto minmax(0, 1fr) 1.75rem;
+    grid-template-columns: 2.75rem auto minmax(0, 1fr) 1.75rem;
     width: 100%;
     align-items: start;
     gap: 0.5rem;
@@ -64,7 +87,7 @@
 
   .sc-app-checklist-add__drag-placeholder {
     display: block;
-    width: 1.25rem;
+    width: 2.75rem;
     height: 1.125rem;
   }
 

@@ -2,9 +2,8 @@ import { CaretDownIcon as CaretDown } from "@phosphor-icons/react";
 import { DropdownPrivateAssessmentSchema, DropdownSettingsSchema } from "@scaffold/contracts";
 
 import { assessmentShellPlaceholders } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
-import { rewriteDropdownCopiedContent } from "@/editor/blocks/assessment/shared/identity/copy-identity";
 import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import type { ConfigurationControlDescriptor } from "@/editor/configuration/definition";
 import { defineAssessmentCapability, defineBlock } from "@/editor/blocks/block-definition";
@@ -71,7 +70,6 @@ const dropdownConfiguration = createAssessmentConfiguration({
 export const dropdownBlockDefinition = defineBlock({
   nodeType: "dropdown",
   title: "Dropdown",
-  rewriteCopiedContent: rewriteDropdownCopiedContent,
   boundedPlacement: "fill",
   configuration: dropdownConfiguration,
   placeholders: {
@@ -104,13 +102,13 @@ export const dropdownBlockDefinition = defineBlock({
     icon: CaretDown,
     keywords: ["select", "menu", "choice", "question"],
     content: () => {
-      const firstChoiceId = createStableId();
-      const secondChoiceId = createStableId();
+      const firstChoiceId = createEmbeddedNodeId();
+      const secondChoiceId = createEmbeddedNodeId();
 
       return {
         type: "dropdown",
         attrs: {
-          id: createStableId(),
+          id: createEmbeddedNodeId(),
           assessment: DropdownPrivateAssessmentSchema.parse({
             correctOptionId: firstChoiceId,
           }),

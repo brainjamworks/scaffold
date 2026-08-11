@@ -44,6 +44,7 @@ const coreCapabilities = Object.freeze({
 });
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
+  layoutDefinitions: builtInLayoutRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
 });
 const rangeClientRectsDescriptor = Object.getOwnPropertyDescriptor(
@@ -98,24 +99,31 @@ describe("paginated authoring", () => {
     expect(layout?.closest('[data-node="region"]')).not.toBeNull();
     expect(layout?.classList.contains("sc-layout-frame")).toBe(true);
     expect(layout?.classList.contains("sc-layout-frame--authoring")).toBe(true);
-    expect(layout?.classList.contains("sc-paginated-layout")).toBe(false);
+    expect(layout?.classList.contains("sc-course-paginated")).toBe(false);
     expect(layout?.getAttribute("data-bounded-placement")).toBe("fill");
     expect(paginatedRoot).not.toBeNull();
     expect(paginatedRoot?.parentElement).toBe(layout);
-    expect(paginatedRoot?.classList.contains("sc-paginated-layout--authoring")).toBe(true);
+    expect(paginatedRoot?.classList.contains("sc-course-paginated--authoring")).toBe(true);
     expect(paginatedRoot?.getAttribute("data-bounded-placement")).toBeNull();
-    expect(screen.getByRole("navigation", { name: "Pages" }).closest(".sc-paginated-layout")).toBe(
+    expect(screen.getByRole("navigation", { name: "Pages" }).closest(".sc-course-paginated")).toBe(
       paginatedRoot,
     );
     expect(sections).toHaveLength(3);
-    expect(sections[0]?.classList.contains("sc-paginated-layout__section")).toBe(true);
+    expect(sections[0]?.classList.contains("sc-course-paginated__section")).toBe(true);
     expect(sections[0]?.getAttribute("data-vertical-content-position")).toBe("middle");
     expect(sectionVerticalState(editor, "page00000001")).toEqual({
       kind: "value",
       value: "middle",
     });
-    expect(screen.getByRole("button", { name: "Add page" })).toBeInTheDocument();
-    expect(layout?.querySelector("[data-layout-section-menu-trigger]")).not.toBeNull();
+    const addPage = screen.getByRole("button", { name: "Add page" });
+    const sectionOptions = layout?.querySelector<HTMLElement>("[data-layout-section-menu-trigger]");
+    expect(addPage).toHaveClass("sc-course-layout-chrome__add", "sc-course-paginated__add");
+    expect(addPage).not.toHaveClass("sc-app-block-add", "sc-layout-add-ghost");
+    expect(sectionOptions).toHaveClass(
+      "sc-course-layout-chrome__options",
+      "sc-course-paginated__action",
+    );
+    expect(sectionOptions).not.toHaveClass("sc-layout-section-action-trigger");
     expect(pageButtons[0]?.getAttribute("aria-current")).toBe("page");
     expect(panels[0]?.hidden).toBe(false);
     expect(panels[1]?.hidden).toBe(true);
@@ -203,16 +211,16 @@ describe("paginated runtime", () => {
     expect(layout?.closest('[data-node="region"]')).not.toBeNull();
     expect(layout?.classList.contains("sc-layout-frame")).toBe(true);
     expect(layout?.classList.contains("sc-layout-frame--runtime")).toBe(true);
-    expect(layout?.classList.contains("sc-paginated-layout")).toBe(false);
+    expect(layout?.classList.contains("sc-course-paginated")).toBe(false);
     expect(layout?.getAttribute("data-bounded-placement")).toBe("fill");
     expect(paginatedRoot).not.toBeNull();
     expect(paginatedRoot?.parentElement).toBe(layout);
-    expect(paginatedRoot?.classList.contains("sc-paginated-layout--authoring")).toBe(false);
-    expect(screen.getByRole("navigation", { name: "Pages" }).closest(".sc-paginated-layout")).toBe(
+    expect(paginatedRoot?.classList.contains("sc-course-paginated--authoring")).toBe(false);
+    expect(screen.getByRole("navigation", { name: "Pages" }).closest(".sc-course-paginated")).toBe(
       paginatedRoot,
     );
     expect(sections).toHaveLength(3);
-    expect(sections[0]?.classList.contains("sc-paginated-layout__section")).toBe(true);
+    expect(sections[0]?.classList.contains("sc-course-paginated__section")).toBe(true);
     expect(sections[0]?.getAttribute("data-vertical-content-position")).toBe("middle");
     expect(screen.queryByRole("button", { name: "Add page" })).toBeNull();
     expect(layout?.querySelector("[data-layout-section-menu-trigger]")).toBeNull();
@@ -264,6 +272,7 @@ function makeEditor(editable: boolean, placement: "region" | "surface"): Editor 
         SectionAuthoringNode,
         createEmptyInsertionRowExtension({
           blockDefinitions: builtInBlockRegistry,
+          layoutDefinitions: builtInLayoutRegistry,
           surfaceVariants: builtInSurfaceVariantRegistry,
         }),
       ]
@@ -376,19 +385,19 @@ function directPaginatedRoot(layout: HTMLElement | null): HTMLElement | null {
   return (
     Array.from(layout?.children ?? []).find(
       (child): child is HTMLElement =>
-        child instanceof HTMLElement && child.classList.contains("sc-paginated-layout"),
+        child instanceof HTMLElement && child.classList.contains("sc-course-paginated"),
     ) ?? null
   );
 }
 
 function pageNumberButtons(): HTMLButtonElement[] {
   return Array.from(
-    document.body.querySelectorAll<HTMLButtonElement>(".sc-paginated-layout__page"),
+    document.body.querySelectorAll<HTMLButtonElement>(".sc-course-paginated__page"),
   );
 }
 
 function pagePanels(): HTMLElement[] {
-  return Array.from(document.body.querySelectorAll<HTMLElement>(".sc-paginated-layout__panel"));
+  return Array.from(document.body.querySelectorAll<HTMLElement>(".sc-course-paginated__panel"));
 }
 
 function activePageViewport(panels: HTMLElement[]): HTMLElement | null {

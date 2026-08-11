@@ -1,18 +1,15 @@
 import { NodeViewContent, useEditorState, type NodeViewProps } from "@tiptap/react";
 import { PlusIcon as Plus, TrashIcon as Trash } from "@phosphor-icons/react";
-import { IconButton } from "@radix-ui/themes";
 import type { Transaction } from "@tiptap/pm/state";
 import { useEffect, useRef, useState } from "react";
 import { GalleryItemDataSchema, type GalleryItemData } from "@scaffold/contracts";
 
 import { Lightbox } from "@/ui/components/Lightbox/Lightbox";
+import { CourseIconButton } from "@/ui/components/course/CourseActions/CourseActions";
 import type { CheckedMutationResult } from "@/document/model/commands/checked-transactions";
 import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
-import { createStableId } from "@/document/model/identity/stable-ids";
-import {
-  nodeViewUiKey,
-  usePickerOpen,
-} from "@/editor/media/authoring/picker/file-picker-open-state";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { nodeViewUiStateKey, useNodeViewOpenState } from "@/editor/prosemirror/node-view-ui-state";
 import {
   insertDirectChildSettingsItemChecked,
   removeDirectChildSettingsItemChecked,
@@ -77,12 +74,12 @@ export function GalleryAuthoringView(props: NodeViewProps) {
     lightboxItems.findIndex((item) => item.key === activeId),
   );
 
-  const pickerKey = nodeViewUiKey({
+  const pickerKey = nodeViewUiStateKey({
     owner: "gallery",
     surface: "file-picker",
     id: props.node.attrs["id"],
   });
-  const [pickerOpen, setPickerOpen] = usePickerOpen(pickerKey);
+  const [pickerOpen, setPickerOpen] = useNodeViewOpenState(pickerKey);
 
   const insertItem = (item: GalleryItemData) => {
     dispatchCollectionMutation(
@@ -90,7 +87,7 @@ export function GalleryAuthoringView(props: NodeViewProps) {
       insertDirectChildSettingsItemChecked({
         tr: props.editor.state.tr,
         ...galleryCollectionTarget(props),
-        childId: createStableId(),
+        childId: createEmbeddedNodeId(),
         value: item,
       }),
     );
@@ -150,9 +147,10 @@ export function GalleryAuthoringView(props: NodeViewProps) {
               }}
               onBeforeTileClick={selectBlock}
               renderTileAction={(item, index) => (
-                <IconButton
+                <CourseIconButton
                   type="button"
-                  size="1"
+                  size="compact"
+                  emphasis="strong"
                   onClick={(event) => {
                     event.stopPropagation();
                     removeItem(item.key);
@@ -161,7 +159,7 @@ export function GalleryAuthoringView(props: NodeViewProps) {
                   aria-label={`Remove image ${index + 1}`}
                 >
                   <Trash size={14} aria-hidden />
-                </IconButton>
+                </CourseIconButton>
               )}
               renderAddTile={
                 <BlockAddGhost
@@ -190,9 +188,10 @@ export function GalleryAuthoringView(props: NodeViewProps) {
               onBeforeSelect={selectBlock}
               onBeforeOpenLightbox={selectBlock}
               renderThumbAction={(item, index) => (
-                <IconButton
+                <CourseIconButton
                   type="button"
-                  size="1"
+                  size="compact"
+                  emphasis="strong"
                   onClick={(event) => {
                     event.stopPropagation();
                     removeItem(item.key);
@@ -201,7 +200,7 @@ export function GalleryAuthoringView(props: NodeViewProps) {
                   aria-label={`Remove image ${index + 1}`}
                 >
                   <Trash size={14} aria-hidden />
-                </IconButton>
+                </CourseIconButton>
               )}
               renderAddThumb={
                 <BlockAddGhost

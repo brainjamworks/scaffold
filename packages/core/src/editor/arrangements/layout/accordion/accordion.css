@@ -1,42 +1,28 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-components {
-  .sc-accordion-layout {
+  .sc-course-accordion {
     position: relative;
-    border-radius: var(--radius-lg);
+    min-width: 0;
+    container-type: inline-size;
   }
 
-  .sc-layout-frame--authoring[data-empty="true"] > .sc-accordion-layout--authoring {
+  .sc-layout-frame--authoring[data-empty="true"] > .sc-course-accordion--authoring {
     min-height: 6rem;
   }
 
-  .sc-accordion {
+  .sc-course-accordion__root {
     overflow: hidden;
-    background: var(--color-background);
   }
 
-  .sc-accordion[data-variant="default"] {
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-  }
-
-  .sc-accordion[data-variant="borderless"] {
-    border-block: 1px solid var(--color-border);
-    border-radius: 0;
-  }
-
-  .sc-accordion-layout:has(> .sc-accordion[data-variant="borderless"]) {
-    border-radius: 0;
-  }
-
-  .sc-accordion-layout__content,
-  .sc-accordion-section,
-  .sc-accordion-section__content,
-  .sc-accordion-section__frame {
+  .sc-course-accordion__content,
+  .sc-course-accordion__section,
+  .sc-course-accordion__section-content,
+  .sc-course-accordion__section-frame {
     min-width: 0;
   }
 
-  [data-node="region"] .sc-layout-frame[data-bounded-placement="fill"] > .sc-accordion-layout {
+  [data-node="region"] .sc-layout-frame[data-bounded-placement="fill"] > .sc-course-accordion {
     display: grid;
     grid-template-rows: minmax(0, 1fr);
     align-self: stretch;
@@ -48,8 +34,8 @@
 
   [data-node="region"]
     .sc-layout-frame[data-bounded-placement="fill"]
-    > .sc-accordion-layout
-    > .sc-accordion {
+    > .sc-course-accordion
+    > .sc-course-accordion__root {
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto;
     height: 100%;
@@ -59,8 +45,8 @@
 
   [data-node="region"]
     .sc-layout-frame[data-bounded-placement="fill"]
-    > .sc-accordion-layout
-    .sc-accordion-layout__content {
+    > .sc-course-accordion
+    .sc-course-accordion__content {
     display: flex;
     height: 100%;
     min-height: 0;
@@ -70,8 +56,8 @@
 
   [data-node="region"]
     .sc-layout-frame[data-bounded-placement="fill"]
-    > .sc-accordion-layout
-    .sc-accordion-layout__content
+    > .sc-course-accordion
+    .sc-course-accordion__content
     > [data-node-view-content-react] {
     display: flex;
     height: 100%;
@@ -83,8 +69,8 @@
 
   [data-node="region"]
     .sc-layout-frame[data-bounded-placement="fill"]
-    > .sc-accordion-layout
-    .sc-accordion-layout__content
+    > .sc-course-accordion
+    .sc-course-accordion__content
     > [data-node-view-content-react]
     > .react-renderer {
     min-height: 0;
@@ -93,10 +79,10 @@
 
   [data-node="region"]
     .sc-layout-frame[data-bounded-placement="fill"]
-    > .sc-accordion-layout
-    .sc-accordion-layout__content
+    > .sc-course-accordion
+    .sc-course-accordion__content
     > [data-node-view-content-react]
-    > .react-renderer:has(.sc-accordion-panel:not([hidden])) {
+    > .react-renderer:has(.sc-course-accordion__panel:not([hidden])) {
     display: grid;
     min-height: 0;
     flex: 1 1 0;
@@ -105,16 +91,16 @@
 
   [data-node="region"]
     .sc-layout-frame[data-bounded-placement="fill"]
-    > .sc-accordion-layout
-    .sc-accordion-layout__content
+    > .sc-course-accordion
+    .sc-course-accordion__content
     > [data-node-view-content-react]
-    > .react-renderer:has(.sc-accordion-panel:not([hidden]))
-    > .sc-accordion-section,
+    > .react-renderer:has(.sc-course-accordion__panel:not([hidden]))
+    > .sc-course-accordion__section,
   [data-node="region"]
     .sc-layout-frame[data-bounded-placement="fill"]
-    > .sc-accordion-layout
-    .sc-accordion-section:has(.sc-accordion-panel:not([hidden]))
-    > .sc-accordion-section__frame {
+    > .sc-course-accordion
+    .sc-course-accordion__section:has(.sc-course-accordion__panel:not([hidden]))
+    > .sc-course-accordion__section-frame {
     display: grid;
     min-height: 0;
     grid-template-rows: minmax(0, 1fr);
@@ -122,9 +108,9 @@
 
   [data-node="region"]
     .sc-layout-frame[data-bounded-placement="fill"]
-    > .sc-accordion-layout
-    .sc-accordion-section__frame:has(.sc-accordion-panel:not([hidden]))
-    > .sc-accordion-section__content {
+    > .sc-course-accordion
+    .sc-course-accordion__section-frame:has(.sc-course-accordion__panel:not([hidden]))
+    > .sc-course-accordion__section-content {
     display: grid;
     min-height: 0;
     grid-template-rows: minmax(0, 1fr);
@@ -132,8 +118,8 @@
 
   [data-node="region"]
     .sc-layout-frame[data-bounded-placement="fill"]
-    > .sc-accordion-layout
-    .sc-accordion-section__content
+    > .sc-course-accordion
+    .sc-course-accordion__section-content
     > [data-node-view-content-react] {
     display: grid;
     min-height: 0;
@@ -142,14 +128,14 @@
 
   [data-node="region"]
     .sc-layout-frame[data-bounded-placement="fill"]
-    > .sc-accordion-layout
-    .sc-accordion-section__content
+    > .sc-course-accordion
+    .sc-course-accordion__section-content
     > [data-node-view-content-react]
-    > .react-renderer:has(.sc-accordion-panel:not([hidden])),
+    > .react-renderer:has(.sc-course-accordion__panel:not([hidden])),
   [data-node="region"]
     .sc-layout-frame[data-bounded-placement="fill"]
-    > .sc-accordion-layout
-    .sc-accordion-panel:not([hidden]) {
+    > .sc-course-accordion
+    .sc-course-accordion__panel:not([hidden]) {
     display: grid;
     min-height: 0;
     grid-template-rows: minmax(0, 1fr);
@@ -157,175 +143,134 @@
 
   [data-node="region"]
     .sc-layout-frame[data-bounded-placement="fill"]
-    > .sc-accordion-layout
-    .sc-accordion-panel__content {
+    > .sc-course-accordion
+    .sc-course-accordion__panel-content {
     height: 100%;
     min-height: 0;
   }
 
-  .sc-accordion-layout__add.sc-layout-add-ghost--full-width {
-    min-height: var(--spacing-touch-target);
-    justify-content: flex-start;
-    gap: 0.75rem;
-    padding: 1rem 1.25rem;
+  .sc-course-accordion__add {
+    width: 100%;
   }
 
-  .sc-accordion-layout__add .sc-app-block-add__icon {
-    width: 1.75rem;
-    height: 1.75rem;
-    order: 1;
-    margin-inline-start: auto;
-  }
-
-  .sc-accordion-section {
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .sc-accordion-layout__content
-    > [data-node-view-content-react]
-    > .react-renderer:last-child
-    .sc-accordion-section {
-    border-bottom: 0;
-  }
-
-  .sc-accordion-section__frame {
+  .sc-course-accordion__section-frame {
     position: relative;
   }
 
-  .sc-accordion-section__handle,
-  .sc-accordion-section__action {
+  .sc-course-accordion__handle,
+  .sc-course-accordion__action {
     position: absolute;
-    top: 1.5rem;
-    z-index: var(--z-interactive);
+    top: 2.125rem;
+    z-index: var(--z-interactive, 5);
+    pointer-events: none;
     transform: translateY(-50%);
   }
 
-  .sc-accordion-section__handle {
-    inset-inline-start: 0.5rem;
+  .sc-course-accordion__handle {
+    inset-inline-start: 0.625rem;
   }
 
-  .sc-accordion-section__action {
-    inset-inline-end: 0.5rem;
+  .sc-course-accordion__action {
+    inset-inline-end: 0.625rem;
   }
 
-  .sc-accordion-title {
+  .sc-course-accordion__section-frame:focus-within .sc-course-accordion__handle,
+  .sc-course-accordion__section-frame:focus-within .sc-course-accordion__action,
+  .sc-course-accordion__handle:focus-visible,
+  .sc-course-accordion__action:focus-visible,
+  [data-authoring-frame="layout"][data-authoring-chrome-active]
+    .sc-course-accordion__section-frame[data-state="open"]
+    .sc-course-accordion__handle,
+  [data-authoring-frame="layout"][data-authoring-chrome-active]
+    .sc-course-accordion__section-frame[data-state="open"]
+    .sc-course-accordion__action {
+    pointer-events: auto;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .sc-course-accordion__section-frame:hover .sc-course-accordion__handle,
+    .sc-course-accordion__section-frame:hover .sc-course-accordion__action {
+      pointer-events: auto;
+    }
+  }
+
+  @container (max-width: 20rem) {
+    [data-authoring-frame="layout"][data-authoring-chrome-active]
+      .sc-course-accordion__section-frame[data-state="open"]
+      .sc-course-accordion__handle,
+    [data-authoring-frame="layout"][data-authoring-chrome-active]
+      .sc-course-accordion__section-frame[data-state="open"]
+      .sc-course-accordion__action {
+      pointer-events: none;
+    }
+
+    .sc-course-accordion__section-frame:focus-within .sc-course-accordion__handle,
+    .sc-course-accordion__section-frame:focus-within .sc-course-accordion__action,
+    .sc-course-accordion__handle:focus-visible,
+    .sc-course-accordion__action:focus-visible {
+      pointer-events: auto;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .sc-course-accordion__section-frame:hover .sc-course-accordion__handle,
+      .sc-course-accordion__section-frame:hover .sc-course-accordion__action {
+        pointer-events: auto;
+      }
+    }
+  }
+
+  .sc-course-accordion__title {
     display: block;
     min-width: 0;
   }
 
-  .sc-accordion-title__row-shell {
+  .sc-course-accordion__title-row-shell {
     display: flex;
     margin: 0;
   }
 
-  .sc-accordion-title__row {
-    display: flex;
+  .sc-course-accordion__title-row {
+    display: grid;
     width: 100%;
-    min-height: var(--touch-target, 2.75rem);
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 1rem 1.25rem;
-    color: var(--color-ink);
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: -0.005em;
-    text-align: left;
-    transition:
-      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
-      color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+    min-height: 2.75rem;
+    grid-template-columns: minmax(0, 1fr) 2.75rem;
+    align-items: start;
   }
 
-  .sc-accordion-title__row:hover {
-    background: var(--color-canvas);
-    color: var(--color-primary);
-  }
-
-  .sc-accordion-title__row[data-state="open"] {
-    background: var(--color-canvas);
-  }
-
-  .sc-accordion-title__row[data-editable="true"] {
-    padding-inline: 2.5rem;
-  }
-
-  .sc-accordion-title__row:not([data-editable="true"]) {
+  .sc-course-accordion__title-row:not([data-editable="true"]) {
     cursor: pointer;
   }
 
-  .sc-accordion-title__content {
+  .sc-course-accordion__title-content {
     min-width: 0;
-    flex: 1 1 auto;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    align-self: center;
+    overflow-wrap: normal;
+    word-break: normal;
   }
 
-  .sc-accordion-title__content :is(p, h1, h2, h3, ul, ol, blockquote, pre) {
+  .sc-course-accordion__title-content :is(p, h1, h2, h3, ul, ol, blockquote, pre) {
+    align-self: center;
     margin-block: 0;
   }
 
-  .sc-accordion-title__trigger {
+  .sc-course-accordion__trigger {
     display: flex;
-    width: 1.75rem;
-    height: 1.75rem;
+    width: 2.75rem;
+    height: 2.75rem;
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    transition:
-      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
-      color 150ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .sc-accordion-title__trigger:hover {
-    background: var(--color-background);
-    color: var(--color-primary);
-  }
-
-  .sc-accordion-title__trigger:focus-visible {
-    outline: 2px solid var(--color-focus-ring);
-    outline-offset: 2px;
-  }
-
-  .sc-accordion-title__icon {
-    transition:
-      color 150ms cubic-bezier(0.16, 1, 0.3, 1),
-      transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .sc-accordion-title__row:hover .sc-accordion-title__icon,
-  .sc-accordion-title__trigger[data-state="open"] .sc-accordion-title__icon {
-    color: var(--color-primary);
-  }
-
-  .sc-accordion-title__trigger[data-state="open"] .sc-accordion-title__icon {
-    transform: rotate(180deg);
-  }
-
-  .sc-accordion-panel {
+  .sc-course-accordion__panel {
     min-width: 0;
   }
 
-  .sc-accordion-panel[hidden] {
+  .sc-course-accordion__panel[hidden] {
     display: none;
   }
 
-  .sc-accordion-panel__content {
+  .sc-course-accordion__panel-content {
     min-width: 0;
-    color: var(--color-ink);
-    font-size: 1rem;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .sc-accordion-title__row,
-    .sc-accordion-title__trigger,
-    .sc-accordion-title__icon {
-      transition: none;
-    }
   }
 }

@@ -82,7 +82,10 @@ import {
   AccordionSectionTitleNode,
 } from "../accordion/accordion-section-nodes";
 import { builtInLayoutAuthoringViews } from "../authoring/built-in-layout-views";
-import { builtInLayoutDefinitions } from "../model/built-in-layout-definitions";
+import {
+  builtInLayoutDefinitions,
+  builtInLayoutRegistry,
+} from "../model/built-in-layout-definitions";
 import { createLayoutArrangementAnchorId } from "../model/layout-arrangement-helpers";
 import {
   layoutStructuralInteractionBubbleRendererBindings,
@@ -94,12 +97,12 @@ import type { LayoutComponentProps } from "../authoring/layout-view-definition";
 import { createLayoutRegistry } from "../model/layout-registry";
 import { createLayoutAuthoringViewRegistry } from "../authoring/layout-view-registry";
 import { DefaultLayoutContent } from "../authoring/default-layout-content";
-import { processFlowLayoutDefinition } from "../process-flow/process-flow-definition";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
+  layoutDefinitions: builtInLayoutRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
 });
 const layoutStructuralRenderers = createStructuralInteractionBubbleRendererMap(
@@ -298,6 +301,7 @@ function renderAuthoringChrome(editor: Editor) {
     createElement(AuthoringDocumentChrome, {
       editable: true,
       editor,
+      surfaceAuthoringChrome: builtInSurfaceAuthoringChromeResolver,
       children: createElement(EditorContent, { editor }),
     }),
   );
@@ -606,34 +610,6 @@ describe("layout arrangement nodes", () => {
     expect(layoutElement?.querySelector("[data-authoring-move-handle]")).toBeNull();
     expect(sectionElement?.hasAttribute("data-authoring-move-handle")).toBe(false);
     expect(document.body.querySelector("[data-layout-section-reorder-handle]")).toBeNull();
-
-    editor.destroy();
-  });
-
-  it("dispatches process-flow through the supplied authoring view registry", async () => {
-    const editor = makeEditor({
-      type: "doc",
-      content: [
-        {
-          type: "courseDocument",
-          content: [
-            {
-              type: "surface",
-              content: [processFlowLayoutDefinition.createContent({})],
-            },
-          ],
-        },
-      ],
-    });
-    renderEditorContent(editor);
-
-    await waitFor(() => {
-      expect(
-        document.body.querySelector(
-          '[data-authoring-frame="layout"][data-definition="process-flow"] .sc-process-flow',
-        ),
-      ).not.toBeNull();
-    });
 
     editor.destroy();
   });
@@ -1527,8 +1503,9 @@ describe("layout arrangement nodes", () => {
     await waitFor(() => {
       expect(document.body.querySelector("[data-layout-add-ghost]")).not.toBeNull();
     });
-    expect(document.body.querySelector("[data-layout-add-ghost]")?.getAttribute("class")).toContain(
-      "sc-layout-add-ghost--tab",
+    expect(document.body.querySelector("[data-layout-add-ghost]")).toHaveClass(
+      "sc-course-layout-chrome__add",
+      "sc-course-tabs__add",
     );
 
     fireEvent.click(document.body.querySelector("[data-layout-add-ghost]")!);
@@ -1703,11 +1680,11 @@ describe("layout arrangement nodes", () => {
     renderEditorContent(editor);
 
     await waitFor(() => {
-      expect(document.body.querySelector("[data-scaffold-tabs-item]")).not.toBeNull();
+      expect(document.body.querySelector("[data-course-tabs-item]")).not.toBeNull();
     });
 
-    const item = document.body.querySelector<HTMLElement>("[data-scaffold-tabs-item]");
-    const tab = item?.querySelector<HTMLButtonElement>("[data-scaffold-tabs-trigger]");
+    const item = document.body.querySelector<HTMLElement>("[data-course-tabs-item]");
+    const tab = item?.querySelector<HTMLButtonElement>("[data-course-tabs-trigger]");
     const panel = document.body.querySelector<HTMLElement>('[role="tabpanel"]');
     const move = item?.querySelector<HTMLButtonElement>("[data-authoring-move-handle]");
     const menu = item?.querySelector<HTMLButtonElement>("[data-layout-section-menu-trigger]");
@@ -1718,9 +1695,9 @@ describe("layout arrangement nodes", () => {
     expect(move?.getAttribute("class")).toContain("sc-app-structure-movement-handle--bare");
     expect(move?.getAttribute("class")).toContain("sc-app-compact-movement-handle");
     expect(move?.getAttribute("class")).not.toContain("sc-course-layout-chrome__move");
-    expect(move?.getAttribute("class")).toContain("sc-tabs__handle");
-    expect(move?.closest("[data-scaffold-tabs-item]")).toBe(item);
-    expect(menu?.closest("[data-scaffold-tabs-item]")).toBe(item);
+    expect(move?.getAttribute("class")).toContain("sc-course-tabs__handle");
+    expect(move?.closest("[data-course-tabs-item]")).toBe(item);
+    expect(menu?.closest("[data-course-tabs-item]")).toBe(item);
     expect(tab?.contains(move ?? null)).toBe(false);
     expect(tab?.contains(menu ?? null)).toBe(false);
     expect(panel?.contains(move ?? null)).toBe(false);
@@ -1770,9 +1747,9 @@ describe("layout arrangement nodes", () => {
     renderEditorContent(editor);
 
     await waitFor(() => {
-      expect(document.body.querySelector("[data-scaffold-tabs-item]")).not.toBeNull();
+      expect(document.body.querySelector("[data-course-tabs-item]")).not.toBeNull();
     });
-    const item = document.body.querySelector<HTMLElement>("[data-scaffold-tabs-item]");
+    const item = document.body.querySelector<HTMLElement>("[data-course-tabs-item]");
     if (!item) throw new Error("Expected tab item");
     const handle = item.querySelector<HTMLButtonElement>("[data-authoring-move-handle]");
     if (!handle) throw new Error("Expected tab movement handle");
@@ -1964,7 +1941,7 @@ describe("layout arrangement nodes", () => {
       builtInBlockRegistry,
     );
     expect(movementPresentation?.axis).toBe("horizontal");
-    expect(movementPresentation?.element).toBe(tabs[0]?.closest("[data-scaffold-tabs-item]"));
+    expect(movementPresentation?.element).toBe(tabs[0]?.closest("[data-course-tabs-item]"));
 
     fireEvent.keyDown(tabs[0]!, { key: "ArrowRight" });
 
@@ -2352,7 +2329,7 @@ describe("layout arrangement nodes", () => {
       ),
     );
     const panels = Array.from(
-      document.body.querySelectorAll<HTMLElement>(".sc-paginated-layout__panel"),
+      document.body.querySelectorAll<HTMLElement>(".sc-course-paginated__panel"),
     );
 
     expect(pageButton).not.toBeNull();
@@ -2532,7 +2509,7 @@ describe("layout arrangement nodes", () => {
       ),
     );
     const sectionFrames = Array.from(
-      document.body.querySelectorAll<HTMLElement>(".sc-accordion-section__frame"),
+      document.body.querySelectorAll<HTMLElement>(".sc-course-accordion__section-frame"),
     );
     const panels = Array.from(
       document.body.querySelectorAll<HTMLElement>("[data-scaffold-accordion-panel]"),
@@ -2542,7 +2519,7 @@ describe("layout arrangement nodes", () => {
     expect(sections).toHaveLength(2);
     expect(panels).toHaveLength(2);
     expect(sectionFrames).toHaveLength(2);
-    expect(triggers[0]?.getAttribute("aria-label")).toContain("Before class");
+    expect(triggers[0]?.getAttribute("aria-label")).toBe("Before class");
     expect(triggers[0]?.getAttribute("aria-expanded")).toBe("true");
     expect(triggers[1]?.getAttribute("aria-expanded")).toBe("false");
     expect(triggers[0]?.getAttribute("aria-controls")).toBe(panels[0]?.id);
@@ -2629,7 +2606,7 @@ describe("layout arrangement nodes", () => {
       expect(document.body.querySelector("[data-layout-add-ghost]")).not.toBeNull();
     });
     expect(document.body.querySelector("[data-layout-add-ghost]")?.getAttribute("class")).toContain(
-      "sc-layout-add-ghost--full-width",
+      "sc-course-layout-chrome__add",
     );
 
     fireEvent.click(document.body.querySelector("[data-layout-add-ghost]")!);
@@ -2644,7 +2621,7 @@ describe("layout arrangement nodes", () => {
         ),
       );
       const sectionFrames = Array.from(
-        document.body.querySelectorAll<HTMLElement>(".sc-accordion-section__frame"),
+        document.body.querySelectorAll<HTMLElement>(".sc-course-accordion__section-frame"),
       );
       const panels = Array.from(
         document.body.querySelectorAll<HTMLElement>("[data-scaffold-accordion-panel]"),
@@ -2655,7 +2632,7 @@ describe("layout arrangement nodes", () => {
       expect(sectionFrames).toHaveLength(3);
       expect(panels).toHaveLength(3);
       expect(triggers[0]?.getAttribute("aria-expanded")).toBe("false");
-      expect(triggers[2]?.getAttribute("aria-label")).toContain("Section 3");
+      expect(triggers[2]?.getAttribute("aria-label")).toBe("Section 3");
       expect(triggers[2]?.getAttribute("aria-expanded")).toBe("true");
       expect(sections[0]?.getAttribute("data-state")).toBeNull();
       expect(sectionFrames[0]?.getAttribute("data-state")).toBe("closed");

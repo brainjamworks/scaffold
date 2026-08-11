@@ -22,6 +22,7 @@ import { ComparisonAuthoringExtension } from "./structured-content/comparison/co
 import { FlashcardAuthoringExtension } from "./presentation/flashcard/flashcard-authoring-extension";
 import { MarginaliaAuthoringExtension } from "./presentation/marginalia/marginalia-authoring-extension";
 import { PullQuoteAuthoringExtension } from "./presentation/pull-quote/pull-quote-authoring-extension";
+import { ProcessFlowAuthoringExtension } from "./presentation/process-flow/process-flow-authoring-extension";
 import { RoadmapAuthoringExtension } from "./presentation/roadmap/roadmap-authoring-extension";
 import { SidebarAuthoringExtension } from "./presentation/sidebar/sidebar-authoring-extension";
 import { StatHighlightAuthoringExtension } from "./presentation/stat-highlight/stat-highlight-authoring-extension";
@@ -72,6 +73,7 @@ export const builtInBlockAuthoringBindings: readonly BlockAuthoringBinding[] = O
     { nodeType: "chapter_epigraph", extension: ChapterEpigraphAuthoringExtension },
     { nodeType: "marginalia", extension: MarginaliaAuthoringExtension },
     { nodeType: "pull_quote", extension: PullQuoteAuthoringExtension },
+    { nodeType: "process_flow", extension: ProcessFlowAuthoringExtension },
     { nodeType: "roadmap", extension: RoadmapAuthoringExtension },
     { nodeType: "sidebar", extension: SidebarAuthoringExtension },
     { nodeType: "stat_highlight", extension: StatHighlightAuthoringExtension },

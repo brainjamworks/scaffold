@@ -14,6 +14,7 @@ import { resolveBlockChromeTargetDescriptor } from "@/editor/interactions/target
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { describeBlockContract } from "@/editor/testing";
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
@@ -151,6 +152,7 @@ describe("pull quote presentation", () => {
     );
     const alignmentTargetPort = createAlignmentTargetPort({
       blockDefinitions: builtInBlockRegistry,
+      layoutDefinitions: builtInLayoutRegistry,
       surfaceVariants: builtInSurfaceVariantRegistry,
     });
 

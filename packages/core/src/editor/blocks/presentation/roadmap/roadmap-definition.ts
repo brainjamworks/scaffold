@@ -4,13 +4,11 @@ import {
   MapPinIcon as MapPin,
   MapTrifoldIcon as Map,
 } from "@phosphor-icons/react";
-import { RoadmapDataSchema, RoadmapMilestoneStatusSchema } from "@scaffold/contracts";
-import { z } from "zod";
+import { RoadmapDataSchema } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
-import { validateCatalogNodeAttrs } from "@/editor/insertion/catalog-validation";
 
 import {
   ROADMAP_MILESTONE_NODE,
@@ -90,24 +88,16 @@ export const roadmapBlockDefinition = defineBlock({
     description: "A sequence of learning milestones",
     icon: Map,
     keywords: ["roadmap", "milestones", "sequence", "syllabus", "progression"],
-    validateNode: validateCatalogNodeAttrs([
-      {
-        nodeType: ROADMAP_MILESTONE_NODE,
-        schema: z.object({ status: RoadmapMilestoneStatusSchema }),
-        field: "status",
-        message: "Roadmap catalog content contains an invalid milestone status.",
-      },
-    ]),
     content: () => ({
       type: ROADMAP_NODE,
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyRoadmapData(),
       },
       content: DEFAULT_MILESTONES.map(({ heading, body }) => ({
         type: ROADMAP_MILESTONE_NODE,
         attrs: {
-          id: createStableId(),
+          id: createEmbeddedNodeId(),
           status: "upcoming",
         },
         content: roadmapMilestoneContent(heading, body),

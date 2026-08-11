@@ -35,6 +35,7 @@ const testSurfaceVariants = createSurfaceVariantRegistry([
 ]);
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: testBlockRegistry,
+  layoutDefinitions: builtInLayoutRegistry,
   surfaceVariants: testSurfaceVariants,
 });
 const coreCapabilities = Object.freeze({

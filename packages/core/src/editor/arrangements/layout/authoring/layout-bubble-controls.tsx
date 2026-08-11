@@ -79,13 +79,13 @@ export function LayoutMenuBubbleContent({
   const duplicateLabel = snapshot.kind === "layout" ? "Duplicate layout" : "Duplicate section";
   const deleteLabel = snapshot.kind === "layout" ? "Delete layout" : "Delete section";
   const duplicateTarget = () => {
-    const blockDefinitions = getScaffoldCapabilitiesForEditor(editor).blocks.registry;
+    const blockDuplications = getScaffoldCapabilitiesForEditor(editor).blocks.duplication;
     if (snapshot.kind === "layout") {
-      duplicateLayoutAt(editor, snapshot.layoutPos, blockDefinitions);
+      duplicateLayoutAt(editor, snapshot.layoutPos, blockDuplications);
       return;
     }
 
-    duplicateLayoutSectionAt(editor, snapshot.sectionPos, blockDefinitions);
+    duplicateLayoutSectionAt(editor, snapshot.sectionPos, blockDuplications);
   };
   const deleteTarget = () => {
     const deleted =

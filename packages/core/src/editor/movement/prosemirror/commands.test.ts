@@ -23,6 +23,8 @@ import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-va
 import { RegionAuthoringNode } from "@/editor/surfaces/authoring/nodes/region-authoring-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 
 import {
   applyMovementIntent as applyMovementIntentWithLookup,
@@ -116,6 +118,11 @@ const testSurfaceVariants = createSurfaceVariantRegistry([
   rootInsertionDisabledSurfaceDefinition,
   fixedSurfaceDefinition,
 ]);
+const testCapabilities = Object.freeze({
+  blocks: Object.freeze({ registry: testBlockRegistry }),
+  layouts: Object.freeze({ registry: builtInLayoutRegistry }),
+  surfaces: Object.freeze({ registry: testSurfaceVariants }),
+});
 
 const TestBlockNode = Node.create({
   name: "test_block",
@@ -253,7 +260,11 @@ function courseDocument(content: JSONContent[], surfaceVariant = "page-default")
   };
 }
 
-function makeEditor(content: JSONContent[], surfaceVariant = "page-default") {
+function makeEditor(
+  content: JSONContent[],
+  surfaceVariant = "page-default",
+  options: { includeCapabilities?: boolean } = {},
+) {
   return new Editor({
     extensions: [
       DocumentNode,
@@ -263,6 +274,9 @@ function makeEditor(content: JSONContent[], surfaceVariant = "page-default") {
         undoRedo: false,
       }),
       createTestNodeIdentityExtension(),
+      ...(options.includeCapabilities === false
+        ? []
+        : [createScaffoldCapabilitiesStorageExtension(testCapabilities)]),
       ExtendedParagraph,
       CourseDocumentNode,
       createCourseSectionNode(),
@@ -421,6 +435,24 @@ function nodeTypesInJson(content: JSONContent): string[] {
 }
 
 describe("drag movement commands", () => {
+  it("moves ordinary siblings without requiring bounded capability storage", () => {
+    const editor = makeEditor(
+      [block("a"), block("b")],
+      "page-default",
+      { includeCapabilities: false },
+    );
+
+    expect(
+      applyMovementIntent(
+        editor,
+        nodePos(editor, "test_block", "a"),
+        new InsertAfterTarget(blockTarget(editor, "b")),
+      ),
+    ).toBe(true);
+    expect(idsInDocument(editor)).toEqual(["b", "a"]);
+    editor.destroy();
+  });
+
   it("moves a block after a sibling in the same parent", () => {
     const editor = makeEditor([block("a"), block("b"), block("c")]);
 

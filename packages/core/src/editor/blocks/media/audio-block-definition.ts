@@ -1,6 +1,6 @@
 import { SpeakerHighIcon as Speaker } from "@phosphor-icons/react";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { MEDIA_ACCESSIBILITY_COPY } from "@/editor/media/accessibility/media-accessibility";
@@ -48,7 +48,7 @@ export const audioBlockDefinition = defineBlock({
     keywords: ["audio", "sound", "clip", "media"],
     content: () => ({
       type: "audio_block",
-      attrs: { id: createStableId(), data: null },
+      attrs: { id: createEmbeddedNodeId(), data: null },
     }),
   },
 });

@@ -1,7 +1,7 @@
 import { FilePdfIcon as FilePdf } from "@phosphor-icons/react";
 import { PdfEmbedDataSchema } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { emptyPdfEmbedData } from "./content";
@@ -54,7 +54,7 @@ export const pdfEmbedBlockDefinition = defineBlock({
     content: () => ({
       type: "pdf_embed",
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyPdfEmbedData(),
       },
     }),

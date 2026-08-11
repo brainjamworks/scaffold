@@ -1,7 +1,6 @@
 import { DotsThreeVerticalIcon as DotsThreeVertical } from "@phosphor-icons/react";
 import type { EditorState } from "@tiptap/pm/state";
 
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type {
   FloatingControl,
@@ -48,9 +47,6 @@ export function createLayoutFloatingAuthoringControls(blockDefinitions: BlockDef
 
   return [layoutMenuFloatingControl] as const;
 }
-
-export const LAYOUT_FLOATING_AUTHORING_CONTROLS =
-  createLayoutFloatingAuthoringControls(builtInBlockRegistry);
 
 function resolveActiveLayoutDescriptor(
   state: EditorState,

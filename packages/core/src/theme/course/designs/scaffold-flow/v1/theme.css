@@ -1,5 +1,23 @@
 @import "./page.css";
 @import "./region.css";
+@import "./slideshow.css";
+@import "./slide-cover.css";
+@import "./slide-content.css";
+@import "./slide-two-columns.css";
+@import "./slide-three-columns.css";
+@import "./slide-two-stacked.css";
+@import "./slide-side-title.css";
+@import "./slide-centred-stage.css";
+@import "./slide-editorial.css";
+@import "./slide-image-content-split.css";
+@import "./slide-image-content-stacked.css";
+@import "./slide-full-bleed-image.css";
+@import "./slide-image-backdrop-panel.css";
+@import "./slide-module-cover.css";
+@import "./slide-image-cover.css";
+@import "./slide-image-band.css";
+@import "./slide-diptych.css";
+@import "./slide-triptych.css";
 @import "./glossary.css";
 @import "./key-value-list.css";
 @import "./numbered-list.css";
@@ -14,6 +32,7 @@
 @import "./comparison.css";
 @import "./timeline.css";
 @import "./roadmap.css";
+@import "./process-flow.css";
 @import "./flashcard.css";
 @import "./image-block.css";
 @import "./audio-block.css";
@@ -37,12 +56,20 @@
 @import "./assessment-matching.css";
 @import "./assessment-image-hotspot.css";
 @import "./assessment-quiz.css";
+@import "./layout-chrome.css";
+@import "./tabs.css";
+@import "./accordion.css";
+@import "./paginated.css";
 
 .sc-course.sc-course-theme-scaffold-flow-v1 {
   --sc-container-flow-gap: calc(0.75rem * var(--sc-course-author-density));
 
   min-width: 0;
   font-family: var(--default-font-family);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 [data-interaction-drag-placeholder] {
+  border-style: dashed;
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1

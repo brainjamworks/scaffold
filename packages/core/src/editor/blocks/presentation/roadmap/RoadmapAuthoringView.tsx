@@ -2,7 +2,7 @@ import { PlusIcon as Plus } from "@phosphor-icons/react";
 import { type NodeViewProps } from "@tiptap/react";
 
 import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 
 import { ROADMAP_MILESTONE_NODE, ROADMAP_NODE, roadmapMilestoneContent } from "./content";
@@ -22,7 +22,7 @@ export function RoadmapAuthoringView(props: NodeViewProps) {
       .insertContentAt(pos + node.nodeSize - 1, {
         type: ROADMAP_MILESTONE_NODE,
         attrs: {
-          id: createStableId(),
+          id: createEmbeddedNodeId(),
           status: "upcoming",
         },
         content: roadmapMilestoneContent(),

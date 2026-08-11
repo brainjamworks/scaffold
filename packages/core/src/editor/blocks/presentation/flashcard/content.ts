@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import { FlashcardDataSchema, type FlashcardData } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 export const FLASHCARD_BLOCK_ID = "flashcard";
 export const FLASHCARD_NODE = "flashcard";
@@ -29,7 +29,7 @@ export function createFlashcardContent(options?: Partial<FlashcardData>): JSONCo
   return {
     type: FLASHCARD_NODE,
     attrs: {
-      id: createStableId(),
+      id: createEmbeddedNodeId(),
       data: emptyFlashcardData(options),
     },
     content: DEFAULT_SEEDS.map(({ front, back }) => createFlashcardCard(front, back)),
@@ -39,7 +39,7 @@ export function createFlashcardContent(options?: Partial<FlashcardData>): JSONCo
 export function createFlashcardCard(front?: string, back?: string): JSONContent {
   return {
     type: FLASHCARD_CARD_NODE,
-    attrs: { id: createStableId() },
+    attrs: { id: createEmbeddedNodeId() },
     content: [
       createFlashcardCardSide(FLASHCARD_CARD_FRONT_NODE, front),
       createFlashcardCardSide(FLASHCARD_CARD_BACK_NODE, back),

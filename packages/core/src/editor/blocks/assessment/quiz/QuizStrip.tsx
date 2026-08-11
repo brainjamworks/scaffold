@@ -5,7 +5,6 @@ import {
   DotsSixVerticalIcon as DotsSixVertical,
   PlusIcon as Plus,
 } from "@phosphor-icons/react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useId, useState } from "react";
 
 import { EditorFloatingPopover as EditorFloating } from "@/editor/interactions/floating/EditorFloatingPopover";
@@ -16,6 +15,7 @@ import { useInteractionSortable } from "@/editor/interactions/drag/react/use-int
 import "@/editor/movement/view/movement-handles.css";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
+import * as DropdownMenu from "@/ui/components/DropdownMenu/DropdownMenu";
 import { useOverlayBoundary } from "@/ui/overlays/portal-host-context";
 import { zIndex } from "@/ui/overlays/z-index";
 import { iconXs } from "@/ui/tokens/icon-sizes";

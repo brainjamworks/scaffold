@@ -3,6 +3,7 @@ import { forwardRef, useId, type ButtonHTMLAttributes, type ReactNode } from "re
 
 import { cn } from "@/lib/cn";
 import { iconSm } from "@/ui/tokens/icon-sizes";
+import { authoringMovementSilhouetteSurfaceAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 
 import "../AssessmentChoiceSurface/AssessmentChoiceSurface.css";
 import "./AssessmentChoiceAuthoringRow.css";
@@ -13,7 +14,7 @@ export interface AssessmentChoiceAuthoringActionProps extends Omit<
 > {
   active?: boolean;
   children: ReactNode;
-  intent: "move" | "correctness" | "feedback" | "delete";
+  intent: "move" | "correctness" | "feedback" | "options" | "delete";
   label: string;
   unavailableReason?: string;
 }
@@ -97,6 +98,7 @@ export function AssessmentChoiceAuthoringRow({
 }: AssessmentChoiceAuthoringRowProps) {
   return (
     <div
+      {...authoringMovementSilhouetteSurfaceAttributes()}
       className="sc-course-assessment-choice sc-course-assessment-choice--authoring"
       data-author-correct={correct || undefined}
     >
@@ -158,7 +160,9 @@ export function AssessmentChoiceAddButton({
       data-authoring-movement-snapshot-chrome=""
       data-no-select=""
     >
-      <Plus size={iconSm} aria-hidden />
+      <span className="sc-course-assessment-choice-add__icon" aria-hidden>
+        <Plus size={iconSm} />
+      </span>
       <span>{label}</span>
     </button>
   );

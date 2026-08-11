@@ -10,7 +10,6 @@ import type {
   AssessmentResponseValue,
   AssessmentTargetSettings,
 } from "@scaffold/contracts";
-import type { RewriteCopiedContent } from "@/document/model/identity/clone-with-new-ids";
 import {
   normalizeDocumentSemanticsDefinition,
   type DocumentSemanticsDefinition,
@@ -21,12 +20,6 @@ import type { QuickControlDescriptor, QuickMenuDefinition } from "../configurati
 import { deriveSettingsSheetDefinition } from "../configuration/settings-sheet-derivation";
 import type { NodeSettingsSheetDefinition } from "../configuration/settings-sheet";
 import type { BoundedPlacement } from "../frame/model/bounded-placement";
-
-export type {
-  CopiedContentIdentityGenerators,
-  RewriteCopiedContent,
-  RewriteCopiedContentInput,
-} from "@/document/model/identity/clone-with-new-ids";
 
 export type BlockAttrSurface = "data" | "settings" | "options";
 
@@ -100,12 +93,6 @@ export type BlockInsertCategory =
   | "embed"
   | "layout";
 
-export type BlockInsertNodeValidator = (node: ProseMirrorNode) => {
-  readonly code: string;
-  readonly message: string;
-  readonly field?: string;
-} | null;
-
 export interface BlockInsertVariantDefinition {
   readonly id: string;
   readonly title: string;
@@ -113,7 +100,6 @@ export interface BlockInsertVariantDefinition {
   readonly keywords?: readonly string[];
   /** Fresh ProseMirror node JSON for each insert invocation. */
   readonly content: () => Record<string, unknown>;
-  readonly validateNode?: BlockInsertNodeValidator;
 }
 
 export interface BlockInsertDefinition {
@@ -126,7 +112,6 @@ export interface BlockInsertDefinition {
   readonly keywords?: readonly string[];
   /** Fresh ProseMirror node JSON for each insert invocation. */
   readonly content: () => Record<string, unknown>;
-  readonly validateNode?: BlockInsertNodeValidator;
   readonly variants?: readonly BlockInsertVariantDefinition[];
 }
 
@@ -216,8 +201,6 @@ export interface BlockDefinitionInput {
   readonly insert?: BlockInsertDefinition;
   readonly interaction?: BlockInteractionDefinition;
   readonly placeholders?: BlockPlaceholderDefinition;
-  /** Purely repairs capability-private identity in a generic controlled duplicate. */
-  readonly rewriteCopiedContent?: RewriteCopiedContent;
   readonly boundedPlacement?: BoundedPlacement;
   readonly stagedBoundedHost?: BlockStagedBoundedHostDefinition;
   readonly frame?: BlockFrameDefinition;
