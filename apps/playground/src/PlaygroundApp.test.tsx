@@ -24,8 +24,6 @@ const mocks = vi.hoisted(() => {
     scaffoldApplications: [] as unknown[],
     previewProjectionReaders: [] as Array<() => unknown>,
     previewAssessmentPorts: [] as Array<{ type: string; projectionIndex: number }>,
-    publishNow: vi.fn(async () => true),
-    publishState: "not-published",
     requestPersistentStorage: vi.fn(async () => false),
     saveArtifact: vi.fn(async (_payload: ArtifactSavePayload) => ({
       artifactRevision: "revision-1",
@@ -117,13 +115,10 @@ vi.mock("@scaffold/core/authoring", async () => {
       }
 
       const title = artifact.title ?? "";
-      const headerActions =
-        typeof props["headerActions"] === "function"
-          ? props["headerActions"]({
+      const hostActionSlots =
+        typeof props["hostHeaderActions"] === "function"
+          ? props["hostHeaderActions"]({
               preview,
-              hasUnpublishedChanges: false,
-              publishNow: mocks.publishNow,
-              publishState: mocks.publishState,
               saveNow: async () => true,
               saveState: "idle",
               title,
@@ -137,7 +132,9 @@ vi.mock("@scaffold/core/authoring", async () => {
           "header",
           null,
           createElement("h1", null, title),
-          headerActions as ReactNode,
+          (hostActionSlots as { beforePublish?: ReactNode } | null)?.beforePublish,
+          createElement("button", { type: "button" }, "Core Publish"),
+          (hostActionSlots as { afterPublish?: ReactNode } | null)?.afterPublish,
           !preview
             ? createElement(
                 "button",
@@ -226,7 +223,6 @@ import { PlaygroundApp } from "./PlaygroundApp";
 
 beforeEach(() => {
   mocks.learnerPreviewContent = createLearnerPreviewContent();
-  mocks.publishState = "not-published";
 });
 
 afterEach(() => {
@@ -380,29 +376,27 @@ describe("PlaygroundApp preview boundary", () => {
     });
   });
 
-  it("renders a host-owned Publish action without invoking Save", async () => {
-    const user = userEvent.setup();
+  it("supplies header extras only in the before-Publish host slot", async () => {
     mocks.loadArtifact.mockResolvedValueOnce(storedArtifact());
 
-    render(<PlaygroundApp artifactId="shell-doc" />);
+    render(
+      <PlaygroundApp
+        artifactId="shell-doc"
+        headerExtras={<button type="button">Reset playground</button>}
+      />,
+    );
 
     await screen.findByTestId("content-author-workspace");
-    expect(screen.getByText("Not published")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Publish" }));
-
-    expect(mocks.publishNow).toHaveBeenCalledTimes(1);
-    expect(mocks.saveArtifact).not.toHaveBeenCalled();
-  });
-
-  it("disables Publish and explains when the canonical generation is unsaved", async () => {
-    mocks.publishState = "unsaved";
-    mocks.loadArtifact.mockResolvedValueOnce(storedArtifact());
-
-    render(<PlaygroundApp artifactId="shell-doc" />);
-
-    await screen.findByTestId("content-author-workspace");
-    expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
-    expect(screen.getByText("Save before publishing")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset playground" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Core Publish" })).toBeInTheDocument();
+    expect(mocks.authoringAppProps.at(-1)?.["headerActions"]).toBeUndefined();
+    const hostHeaderActions = mocks.authoringAppProps.at(-1)?.["hostHeaderActions"];
+    expect(hostHeaderActions).toBeTypeOf("function");
+    const slots = (
+      hostHeaderActions as (context: Record<string, unknown>) => Record<string, unknown>
+    )({ preview: false, saveNow: async () => true, saveState: "idle", title: "Stored draft" });
+    expect(Object.keys(slots)).toEqual(["beforePublish"]);
+    expect(slots["afterPublish"]).toBeUndefined();
   });
 
   it("provides browser-local artifact metadata before mounting authoring when storage is empty", async () => {
