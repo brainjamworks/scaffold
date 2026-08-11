@@ -3,7 +3,7 @@
 @layer sc-overlays {
   .sc-app-grid-authoring {
     position: relative;
-    border-radius: var(--sc-app-radius-surface);
+    border-radius: 0;
     outline: 1px solid transparent;
     transition: outline-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
   }

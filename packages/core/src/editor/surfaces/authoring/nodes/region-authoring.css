@@ -7,7 +7,7 @@
     inset: 0;
     border: 1px dotted
       color-mix(in oklch, var(--sc-app-color-primary) 18%, var(--sc-app-color-border));
-    border-radius: var(--sc-app-radius-surface);
+    border-radius: 0;
     pointer-events: none;
   }
 
