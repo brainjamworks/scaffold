@@ -10,7 +10,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { AUTHORING_FRAME_EDITABLE_ATTR } from "@/editor/interactions/dom/authoring-frame";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
@@ -53,7 +53,7 @@ describe("Table containment contract", () => {
             content: [
               {
                 type: "surface",
-                attrs: { id: createStableId(), variant: "page-default" },
+                attrs: { id: createEmbeddedNodeId(), variant: "page-default" },
                 content: [createTableJson(editor)],
               },
             ],
@@ -102,7 +102,7 @@ describe("Table containment contract", () => {
             content: [
               {
                 type: "surface",
-                attrs: { id: createStableId(), variant: "page-default" },
+                attrs: { id: createEmbeddedNodeId(), variant: "page-default" },
                 content: [createTableJson(editor)],
               },
             ],
@@ -144,7 +144,7 @@ describe("Table containment contract", () => {
             content: [
               {
                 type: "surface",
-                attrs: { id: createStableId(), variant: "page-default" },
+                attrs: { id: createEmbeddedNodeId(), variant: "page-default" },
                 content: [createTableJson(editor)],
               },
             ],
@@ -189,30 +189,30 @@ describe("Table containment contract", () => {
                 content: [
                   {
                     type: "surface",
-                    attrs: { id: createStableId(), variant: "page-default" },
+                    attrs: { id: createEmbeddedNodeId(), variant: "page-default" },
                     content: [
                       surfaceTable,
                       {
                         type: "grid",
                         attrs: {
-                          id: createStableId(),
+                          id: createEmbeddedNodeId(),
                           columnWidths: [1],
                         },
                         content: [
                           {
                             type: "cell",
-                            attrs: { id: createStableId() },
+                            attrs: { id: createEmbeddedNodeId() },
                             content: [gridTable],
                           },
                         ],
                       },
                       {
                         type: "layout",
-                        attrs: { id: createStableId() },
+                        attrs: { id: createEmbeddedNodeId() },
                         content: [
                           {
                             type: "section",
-                            attrs: { id: createStableId() },
+                            attrs: { id: createEmbeddedNodeId() },
                             content: [layoutTable],
                           },
                         ],
@@ -239,7 +239,7 @@ describe("Table containment contract", () => {
         editor.schema
           .nodeFromJSON({
             type: "table",
-            attrs: { id: createStableId() },
+            attrs: { id: createEmbeddedNodeId() },
             content: [
               {
                 type: "tableRow",
@@ -270,7 +270,7 @@ describe("Table containment contract", () => {
             content: [
               {
                 type: "surface",
-                attrs: { id: createStableId(), variant: "page-default" },
+                attrs: { id: createEmbeddedNodeId(), variant: "page-default" },
                 content: [createTableJson(editor)],
               },
             ],
@@ -300,7 +300,7 @@ describe("Table containment contract", () => {
             content: [
               {
                 type: "surface",
-                attrs: { id: createStableId(), variant: "page-default" },
+                attrs: { id: createEmbeddedNodeId(), variant: "page-default" },
                 content: [createTableJson(editor)],
               },
             ],

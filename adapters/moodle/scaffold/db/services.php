@@ -39,6 +39,12 @@ $functions = [
         'type' => 'write',
         'ajax' => true,
     ],
+    'mod_scaffold_publish_content' => [
+        'classname' => 'mod_scaffold\external\publish_content',
+        'description' => 'Publish one saved Scaffold revision for learners.',
+        'type' => 'write',
+        'ajax' => true,
+    ],
     'mod_scaffold_load_learner_activity' => [
         'classname' => 'mod_scaffold\external\load_learner_activity',
         'description' => 'Load the current learner activity snapshot.',

@@ -133,9 +133,7 @@ describe("Tiptap 3.26 owned compatibility attrs", () => {
     );
 
     expect(editor.getJSON()).toEqual(serializedWorkingJson);
-    expect(compatibilityItemJson(editor)?.attrs?.["original"]).toEqual(
-      originalFixture(),
-    );
+    expect(compatibilityItemJson(editor)?.attrs?.["original"]).toEqual(originalFixture());
   });
 
   it("refuses a selected compatibility item before browser copy serialization", () => {

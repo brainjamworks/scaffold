@@ -11,6 +11,7 @@ import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { ScaffoldAuthoringApp } from "@/editor/shell/authoring/ScaffoldAuthoringApp";
+import type { ArtifactSavePayload } from "@/host/ports";
 import type { LearnerPublicationPort } from "@/host/ports/learner-publication";
 import "@/styles/globals.css";
 
@@ -57,6 +58,8 @@ describe("Document Outline authoring integration", () => {
         .toBeVisible();
       requireElement<HTMLButtonElement>('button[aria-label="Show Document Outline"]').click();
       await expect.element(page.getByRole("tree", { name: "Document outline" })).toBeVisible();
+      await expect.element(page.getByRole("heading", { name: "Course Outline" })).toBeVisible();
+      expect(document.querySelector('button[aria-label="Add Course Section"]')).toBeNull();
 
       const blockRow = requireElement<HTMLElement>(
         '[role="treeitem"][aria-label^="Multiple choice"]',
@@ -209,6 +212,77 @@ describe("Document Outline authoring integration", () => {
       await rendered.unmount();
     }
   });
+
+  it("persists a renamed Block through the ordinary save and reload path", async () => {
+    const content = createScaffoldDocumentContent({
+      mode: "page",
+      surfaceId: "surface00009",
+    });
+    const surface = content.content?.[0]?.content?.[0];
+    const mcq = builtInBlockRegistry.getByNodeType("mcq")?.insert;
+    if (!surface || !mcq) throw new Error("Expected the built-in page Surface and MCQ insert");
+    surface.content = [mountedMcq(mcq.content())];
+    const saveArtifact = vi.fn(async (_payload: ArtifactSavePayload) => ({
+      artifactRevision: "outline-test-revision" as const,
+    }));
+    let rendered = await renderBrowserReact(
+      <ScaffoldAuthoringApp
+        application={createScaffoldApplication()}
+        artifact={{
+          id: "outline-rename-artifact",
+          title: "Outline rename",
+          mode: "page",
+          content,
+        }}
+        productAccess={{ scaffoldPlusAuthorized: false }}
+        services={{
+          artifactPersistence: { saveArtifact },
+          learnerPublication: createTestLearnerPublicationPort(),
+          media: null,
+        }}
+      />,
+    );
+
+    try {
+      requireElement<HTMLButtonElement>('button[aria-label="Show Document Outline"]').click();
+      await expect.element(page.getByRole("tree", { name: "Document outline" })).toBeVisible();
+      const blockRow = requireElement<HTMLElement>(
+        '[role="treeitem"][aria-label^="Multiple choice"]',
+      );
+      blockRow.focus();
+      await userEvent.keyboard("{F2}");
+      const input = requireElement<HTMLInputElement>('input[aria-label^="Rename Multiple choice"]');
+      await userEvent.clear(input);
+      await userEvent.type(input, "Knowledge check");
+      await userEvent.keyboard("{Enter}");
+
+      await expect.element(page.getByRole("treeitem", { name: "Knowledge check" })).toBeVisible();
+      await expect.poll(() => saveArtifact.mock.calls.length).toBeGreaterThan(0);
+      const saveCall = saveArtifact.mock.lastCall;
+      if (!saveCall) throw new Error("Expected the renamed artifact to be saved");
+      const saved = structuredClone(saveCall[0].artifact);
+      const savedMcq = findFirstNodeOfType(saved.content, "mcq");
+      expect(savedMcq?.attrs?.["semanticLabel"]).toBe("Knowledge check");
+
+      await rendered.unmount();
+      rendered = await renderBrowserReact(
+        <ScaffoldAuthoringApp
+          application={createScaffoldApplication()}
+          artifact={saved}
+          productAccess={{ scaffoldPlusAuthorized: false }}
+          services={{
+            artifactPersistence: { saveArtifact },
+            learnerPublication: createTestLearnerPublicationPort(),
+            media: null,
+          }}
+        />,
+      );
+      requireElement<HTMLButtonElement>('button[aria-label="Show Document Outline"]').click();
+      await expect.element(page.getByRole("treeitem", { name: "Knowledge check" })).toBeVisible();
+    } finally {
+      await rendered.unmount();
+    }
+  });
 });
 
 function multipleChoiceOutlineCount(): number {
@@ -236,6 +310,15 @@ function requireElement<ElementType extends Element>(selector: string): ElementT
   const element = document.querySelector<ElementType>(selector);
   if (!element) throw new Error(`Expected element ${selector}`);
   return element;
+}
+
+function findFirstNodeOfType(root: JSONContent, type: string): JSONContent | null {
+  if (root.type === type) return root;
+  for (const child of root.content ?? []) {
+    const found = findFirstNodeOfType(child, type);
+    if (found) return found;
+  }
+  return null;
 }
 
 function mountedMcq(content: JSONContent): JSONContent {

@@ -7,6 +7,7 @@ import {
   canTargetStructureMovement,
   createStructureMovementPolicy,
   resolveMovementNodeContext,
+  type MovementNodeContext,
 } from "../model/movement-policy";
 import {
   resolveContainedMovementTargetPresentation,
@@ -20,6 +21,10 @@ import type {
 
 export interface DiscoverMovementTargetDescriptorsInput {
   readonly blockDefinitions: BlockDefinitionLookup;
+  readonly canTargetContained?: (
+    source: MovementNodeContext,
+    target: MovementNodeContext,
+  ) => boolean;
   readonly documentRevision: number;
   readonly source: MovementTargetQuerySource;
   readonly view: EditorView;
@@ -32,6 +37,7 @@ export interface MovementTargetDiscoveryResult {
 
 export function discoverMovementTargetDescriptors({
   blockDefinitions,
+  canTargetContained,
   documentRevision,
   source,
   view,
@@ -50,7 +56,7 @@ export function discoverMovementTargetDescriptors({
     const eligible =
       source.kind === "structure"
         ? canTargetStructureMovement(policy!, context)
-        : canTargetContainedMovement(source.context, context);
+        : (canTargetContained ?? canTargetContainedMovement)(source.context, context);
     if (!eligible) return true;
 
     const dom = view.nodeDOM(pos);

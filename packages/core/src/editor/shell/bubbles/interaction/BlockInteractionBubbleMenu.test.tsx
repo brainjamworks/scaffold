@@ -12,6 +12,7 @@ import { z } from "zod";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { RESIZE_GESTURE_ACTIVE_ATTR } from "@/editor/interactions/gesture/editor-resize-gesture";
 import { courseBlockAuthoringFrameAttributes } from "@/editor/interactions/dom/authoring-frame";
 import {
@@ -144,6 +145,7 @@ const resizableBlockDefinition = defineBlock({
 const testBlockRegistry = createBlockRegistry([quickBlockDefinition, resizableBlockDefinition]);
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: testBlockRegistry,
+  layoutDefinitions: builtInLayoutRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
 });
 

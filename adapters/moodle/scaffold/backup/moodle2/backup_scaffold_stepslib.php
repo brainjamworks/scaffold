@@ -163,7 +163,9 @@ final class backup_scaffold_activity_structure_step extends backup_activity_stru
             throw new \invalid_parameter_exception('Stored Scaffold artifact content must be a JSON object');
         }
 
-        \mod_scaffold\local\content_service::read_json_nullable_object((string) $activity->learnercontentjson);
+        \mod_scaffold\local\content_service::read_publication_envelope(
+            (string) $activity->learnercontentjson,
+        );
         \mod_scaffold\local\assessment_projection::for_activity($activity);
     }
 

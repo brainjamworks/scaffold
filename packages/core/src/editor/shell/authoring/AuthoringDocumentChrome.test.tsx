@@ -36,6 +36,11 @@ const TEMPLATE_PICKER_SURFACE_ID = createEmbeddedNodeId();
 const TEMPLATE_PICKER_TEARDOWN_SURFACE_ID = createEmbeddedNodeId();
 const COURSE_SECTION_START_FIRST_SURFACE_ID = createEmbeddedNodeId();
 const COURSE_SECTION_START_SECOND_SURFACE_ID = createEmbeddedNodeId();
+const PLUS_REGION_ID = createEmbeddedNodeId();
+const CORE_REGION_ID = createEmbeddedNodeId();
+const MENU_REGION_ID = createEmbeddedNodeId();
+const TEMPLATE_PICKER_REGION_ID = createEmbeddedNodeId();
+const TEMPLATE_PICKER_TEARDOWN_REGION_ID = createEmbeddedNodeId();
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { interactionOwnerPluginKey } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-plugin-state";
 import { authoringSlideDividersPluginKey } from "@/editor/surfaces/authoring/AuthoringSlideDividers";
@@ -72,7 +77,7 @@ function createAuthoringEditor() {
       composition: coreAuthoringComposition,
       editable: true,
     }),
-    content: { type: "doc", content: [{ type: "paragraph" }] },
+    content: createScaffoldDocumentContent({ mode: "page" }),
   });
 }
 
@@ -147,7 +152,7 @@ describe("AuthoringDocumentChrome", () => {
     const plusEditor = createApplicationAuthoringEditor(
       plusApplication,
       createSlideshowDocumentJSON({
-        regionId: "plus-region",
+        regionId: PLUS_REGION_ID,
         surfaceId: PLUS_SURFACE_ID,
         text: "Plus slide content",
       }),
@@ -155,7 +160,7 @@ describe("AuthoringDocumentChrome", () => {
     const coreEditor = createApplicationAuthoringEditor(
       createScaffoldApplication(),
       createSlideshowDocumentJSON({
-        regionId: "core-region",
+        regionId: CORE_REGION_ID,
         surfaceId: CORE_SURFACE_ID,
         text: "Core slide content",
       }),
@@ -212,7 +217,11 @@ describe("AuthoringDocumentChrome", () => {
     const editor = createTestEditor();
 
     const { rerender } = render(
-      <AuthoringDocumentChrome editable editor={editor}>
+      <AuthoringDocumentChrome
+        editable
+        editor={editor}
+        surfaceAuthoringChrome={coreAuthoringComposition.surfaces.chrome}
+      >
         <div data-testid="editor-content" />
       </AuthoringDocumentChrome>,
     );
@@ -225,7 +234,11 @@ describe("AuthoringDocumentChrome", () => {
     expect(screen.getByTestId("editor-content")).toBeInTheDocument();
 
     rerender(
-      <AuthoringDocumentChrome editable={false} editor={editor}>
+      <AuthoringDocumentChrome
+        editable={false}
+        editor={editor}
+        surfaceAuthoringChrome={coreAuthoringComposition.surfaces.chrome}
+      >
         <div data-testid="editor-content" />
       </AuthoringDocumentChrome>,
     );
@@ -240,12 +253,19 @@ describe("AuthoringDocumentChrome", () => {
   it("suppresses authoring chrome when the editor instance is read-only", () => {
     const editor = new Editor({
       editable: false,
-      extensions: [StarterKit.configure({ undoRedo: false })],
+      extensions: [
+        StarterKit.configure({ undoRedo: false }),
+        createScaffoldCapabilitiesStorageExtension(coreAuthoringComposition.capabilities),
+      ],
       content: { type: "doc", content: [{ type: "paragraph" }] },
     });
 
     render(
-      <AuthoringDocumentChrome editable editor={editor}>
+      <AuthoringDocumentChrome
+        editable
+        editor={editor}
+        surfaceAuthoringChrome={coreAuthoringComposition.surfaces.chrome}
+      >
         <div data-testid="editor-content" />
       </AuthoringDocumentChrome>,
     );
@@ -259,7 +279,7 @@ describe("AuthoringDocumentChrome", () => {
   it("renders active surface and region menu triggers in floating chrome", async () => {
     const editor = createAuthoringEditor();
     const documentJSON = createSlideshowDocumentJSON({
-      regionId: "region-a",
+      regionId: MENU_REGION_ID,
       surfaceId: REGION_MENU_SURFACE_ID,
       text: "Region content",
     });
@@ -270,12 +290,16 @@ describe("AuthoringDocumentChrome", () => {
         blockDefinitions: builtInBlockRegistry,
       }).owners.contextOwners.region,
     ).toMatchObject({
-      id: "region-a",
+      id: MENU_REGION_ID,
       kind: InteractionTargetKind.Region,
     });
 
     const rendered = render(
-      <AuthoringDocumentChrome editable editor={editor}>
+      <AuthoringDocumentChrome
+        editable
+        editor={editor}
+        surfaceAuthoringChrome={coreAuthoringComposition.surfaces.chrome}
+      >
         <EditorContent className="sc-course-document-editor__content" editor={editor} />
       </AuthoringDocumentChrome>,
     );
@@ -289,7 +313,7 @@ describe("AuthoringDocumentChrome", () => {
     });
     const region = await waitUntil(() => {
       const element = document.body.querySelector<HTMLElement>(
-        '[data-authoring-frame="region"][data-id="region-a"]',
+        `[data-authoring-frame="region"][data-id="${MENU_REGION_ID}"]`,
       );
       if (!element) throw new Error("Expected region frame.");
       return element;
@@ -357,9 +381,9 @@ describe("AuthoringDocumentChrome", () => {
 
     expect(
       ports.activateStructuralTarget({
-        id: "region-a",
+        id: MENU_REGION_ID,
         kind: InteractionTargetKind.Region,
-        pos: nodePos(editor, "region", "region-a"),
+        pos: nodePos(editor, "region", MENU_REGION_ID),
       }),
     ).toBe(true);
 
@@ -372,20 +396,20 @@ describe("AuthoringDocumentChrome", () => {
     });
 
     expect(region.contains(regionTrigger)).toBe(false);
-    expect(regionTrigger.getAttribute(AUTHORING_ANCHOR_ATTR)).toBe("region-menu:region-a");
+    expect(regionTrigger.getAttribute(AUTHORING_ANCHOR_ATTR)).toBe(`region-menu:${MENU_REGION_ID}`);
 
     fireEvent.click(regionTrigger);
 
     await waitUntil(() => {
       expect(interactionOwnerPluginKey.getState(editor.state)?.menuOwner).toMatchObject({
-        id: "region-a",
+        id: MENU_REGION_ID,
         kind: InteractionTargetKind.Region,
       });
     });
     expect(
       getInteractionFacadeStoreForEditor(editor).getState().snapshot.owners.menuOwner.target,
     ).toMatchObject({
-      id: "region-a",
+      id: MENU_REGION_ID,
       kind: InteractionTargetKind.Region,
     });
 
@@ -397,14 +421,18 @@ describe("AuthoringDocumentChrome", () => {
     const editor = createAuthoringEditor();
     editor.commands.setContent(
       createSlideshowDocumentJSON({
-        regionId: "region-template-picker",
+        regionId: TEMPLATE_PICKER_REGION_ID,
         surfaceId: TEMPLATE_PICKER_SURFACE_ID,
         text: "Template picker content",
       }),
     );
 
     const rendered = render(
-      <AuthoringDocumentChrome editable editor={editor}>
+      <AuthoringDocumentChrome
+        editable
+        editor={editor}
+        surfaceAuthoringChrome={coreAuthoringComposition.surfaces.chrome}
+      >
         <EditorContent className="sc-course-document-editor__content" editor={editor} />
       </AuthoringDocumentChrome>,
     );
@@ -425,7 +453,7 @@ describe("AuthoringDocumentChrome", () => {
     editor.destroy();
   });
 
-  it("opens Course Section authoring from leading and between-slide keyboard controls", async () => {
+  it("keeps Course Section lifecycle controls out of the document chrome", async () => {
     const editor = createApplicationAuthoringEditor(
       createScaffoldApplication(),
       createSlideshowWithSurfaceIds([
@@ -434,23 +462,20 @@ describe("AuthoringDocumentChrome", () => {
       ]),
     );
     const rendered = render(
-      <AuthoringDocumentChrome editable editor={editor}>
+      <AuthoringDocumentChrome
+        editable
+        editor={editor}
+        surfaceAuthoringChrome={coreAuthoringComposition.surfaces.chrome}
+      >
         <EditorContent className="sc-course-document-editor__content" editor={editor} />
       </AuthoringDocumentChrome>,
     );
 
-    const leading = await screen.findByRole("button", {
-      name: "Start Course Section at slide 1",
-    });
-    expect(
-      screen.getByRole("button", { name: "Start Course Section at slide 2" }),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Start Course Section at slide 3" })).toBeNull();
-
-    fireEvent.keyDown(leading, { key: "Enter" });
-
-    expect(await screen.findByRole("dialog", { name: "Start Course Section" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Course Section title")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Add slide after slide 1" })).toBeInTheDocument(),
+    );
+    expect(document.querySelector("[data-course-section-start-divider]")).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
 
     rendered.unmount();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -460,12 +485,16 @@ describe("AuthoringDocumentChrome", () => {
   it("does not expose Course Section start controls for Page documents", () => {
     const editor = createApplicationAuthoringEditor(createScaffoldApplication());
     const rendered = render(
-      <AuthoringDocumentChrome editable editor={editor}>
+      <AuthoringDocumentChrome
+        editable
+        editor={editor}
+        surfaceAuthoringChrome={coreAuthoringComposition.surfaces.chrome}
+      >
         <EditorContent className="sc-course-document-editor__content" editor={editor} />
       </AuthoringDocumentChrome>,
     );
 
-    expect(screen.queryByRole("button", { name: /Start Course Section at slide/ })).toBeNull();
+    expect(document.querySelector("[data-course-section-start-divider]")).toBeNull();
 
     rendered.unmount();
     editor.destroy();
@@ -475,7 +504,7 @@ describe("AuthoringDocumentChrome", () => {
     const editor = createAuthoringEditor();
     editor.commands.setContent(
       createSlideshowDocumentJSON({
-        regionId: "region-template-picker-teardown",
+        regionId: TEMPLATE_PICKER_TEARDOWN_REGION_ID,
         surfaceId: TEMPLATE_PICKER_TEARDOWN_SURFACE_ID,
         text: "Template picker teardown content",
       }),
@@ -483,7 +512,11 @@ describe("AuthoringDocumentChrome", () => {
     const focus = vi.spyOn(editor.view, "focus");
 
     const rendered = render(
-      <AuthoringDocumentChrome editable editor={editor}>
+      <AuthoringDocumentChrome
+        editable
+        editor={editor}
+        surfaceAuthoringChrome={coreAuthoringComposition.surfaces.chrome}
+      >
         <EditorContent className="sc-course-document-editor__content" editor={editor} />
       </AuthoringDocumentChrome>,
     );
@@ -529,6 +562,7 @@ function hostBlockCapability(nodeType: string, title: string): BlockCapability {
   return {
     definition: {
       nodeType,
+      title,
       insert: {
         id: nodeType.replaceAll("_", "-"),
         title,
@@ -614,7 +648,9 @@ function openSurfaceTemplatePicker(editor: Editor, afterSurfaceId: string): void
 }
 
 function readSurfaceVariants(documentJSON: JSONContent): unknown[] {
-  return (documentJSON.content?.[0]?.content ?? []).map((surface) => surface.attrs?.["variant"]);
+  return (documentJSON.content?.[0]?.content ?? [])
+    .filter((node) => node.type === "surface")
+    .map((surface) => surface.attrs?.["variant"]);
 }
 
 function createSlideshowDocumentJSON({
@@ -638,7 +674,7 @@ function createSlideshowDocumentJSON({
     },
   ];
 
-  return {
+  return addMissingNodeIds({
     type: "doc",
     content: [
       {
@@ -649,14 +685,17 @@ function createSlideshowDocumentJSON({
           surfaceSize: "16x9",
           overflowMode: "clip",
         },
-        content: [surface],
+        content: [
+          { type: "courseSection", attrs: { title: "Introduction" } },
+          surface,
+        ],
       },
     ],
-  };
+  });
 }
 
 function createSlideshowWithSurfaceIds(surfaceIds: readonly EmbeddedNodeId[]): JSONContent {
-  return {
+  return addMissingNodeIds({
     type: "doc",
     content: [
       {
@@ -667,11 +706,23 @@ function createSlideshowWithSurfaceIds(surfaceIds: readonly EmbeddedNodeId[]): J
           surfaceSize: "16x9",
           overflowMode: "clip",
         },
-        content: surfaceIds.map((surfaceId) =>
-          slideContentSurfaceDefinition.createSurface({ surfaceId }),
-        ),
+        content: [
+          { type: "courseSection", attrs: { title: "Introduction" } },
+          ...surfaceIds.map((surfaceId) =>
+            slideContentSurfaceDefinition.createSurface({ surfaceId }),
+          ),
+        ],
       },
     ],
+  });
+}
+
+function addMissingNodeIds(node: JSONContent): JSONContent {
+  if (node.type === "text") return node;
+  return {
+    ...node,
+    attrs: { ...node.attrs, id: node.attrs?.["id"] ?? createEmbeddedNodeId() },
+    ...(node.content ? { content: node.content.map(addMissingNodeIds) } : {}),
   };
 }
 

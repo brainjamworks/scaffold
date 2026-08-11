@@ -11,7 +11,7 @@ import {
   type LayoutAuthoringViewRegistry,
 } from "@/editor/arrangements/layout/authoring/layout-view-registry";
 import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
-import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
+import { builtInBlockCapabilityRegistrations } from "@/editor/blocks/built-in-block-definitions";
 import { builtInBlockAuthoringBindings } from "@/editor/blocks/authoring-block-extensions";
 import {
   createSurfaceAuthoringChromeResolver,
@@ -78,7 +78,7 @@ export function createScaffoldAuthoringComposition(
 
 export function createCoreScaffoldAuthoringComposition(): ScaffoldAuthoringComposition {
   const capabilities = resolveScaffoldCapabilities({
-    blockDefinitions: builtInBlockDefinitions,
+    blockCapabilities: builtInBlockCapabilityRegistrations,
     layoutDefinitions: builtInLayoutDefinitions,
     surfaceDefinitions: builtInSurfaceVariantDefinitions,
   });

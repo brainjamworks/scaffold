@@ -2,10 +2,7 @@ import { NodeViewContent, type NodeViewProps } from "@tiptap/react";
 import type { TextWrapImageData, TextWrapImageSource } from "@scaffold/contracts";
 import type { MouseEvent as ReactMouseEvent } from "react";
 
-import {
-  nodeViewUiKey,
-  usePickerOpen,
-} from "@/editor/media/authoring/picker/file-picker-open-state";
+import { nodeViewUiStateKey, useNodeViewOpenState } from "@/editor/prosemirror/node-view-ui-state";
 import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
 import { MediaReplaceButton } from "@/ui/components/app/MediaReplaceButton/MediaReplaceButton";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
@@ -43,12 +40,12 @@ export function TextWrapImageAuthoringView(props: NodeViewProps) {
     });
   };
 
-  const pickerKey = nodeViewUiKey({
+  const pickerKey = nodeViewUiStateKey({
     owner: "text-wrap-image",
     surface: "file-picker",
     id: props.node.attrs["id"],
   });
-  const [pickerOpen, setPickerOpen] = usePickerOpen(pickerKey);
+  const [pickerOpen, setPickerOpen] = useNodeViewOpenState(pickerKey);
   const { errorMessage, resolvedUrl } = useResolvedTextWrapImageSource(data, mediaPort);
 
   const handlePickerResolved = (result: FilePickerResult) => {
@@ -95,7 +92,7 @@ export function TextWrapImageAuthoringView(props: NodeViewProps) {
         />
         <NodeViewContent className="sc-course-text-wrap-image__content" />
       </div>
-      {/* Keep the picker mounted from this NodeView so usePickerOpen
+      {/* Keep the picker mounted from this NodeView so useNodeViewOpenState
        * can survive ProseMirror remounts during block selection. */}
       <FilePickerModal
         open={pickerOpen}

@@ -17,16 +17,9 @@ export type {
 } from "./course-structure";
 export { CourseDocumentNode, DocumentNode } from "./nodes";
 export {
-  defineCourseDocumentMigration,
-  migrateCourseDocumentJSON,
+  cloneCourseDocumentJSON,
+  findCourseDocument,
   readCourseDocumentFormatVersion,
-  runCourseDocumentMigrationSteps,
-  validateCourseDocumentMigrationPlan,
-  type AppliedCourseDocumentMigration,
-  type CourseDocumentMigrationErrorCode,
-  type CourseDocumentMigrationResult,
-  type CourseDocumentMigrationStep,
-  type CourseDocumentMigrationStepResult,
 } from "./validation";
 export {
   getSurfaceViewSettings,

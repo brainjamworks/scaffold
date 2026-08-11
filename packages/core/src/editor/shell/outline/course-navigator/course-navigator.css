@@ -1,0 +1,410 @@
+@layer sc-components {
+  .sc-course-navigator {
+    min-width: 0;
+    padding-block-end: 1rem;
+    color: var(--color-text-primary);
+  }
+
+  .sc-course-navigator-overview-actions {
+    display: flex;
+    min-width: 0;
+    min-height: 2.25rem;
+    align-items: center;
+    gap: 0.5rem;
+    margin-block-end: 0.25rem;
+    padding-inline: 0.75rem;
+  }
+
+  .sc-course-navigator-overview-label {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    color: var(--sc-app-color-text-primary);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sc-course-navigator-overview-actions .sc-course-navigator-add-section {
+    flex: 0 0 auto;
+    border-radius: var(--sc-app-radius-control);
+    padding-inline: 0.625rem;
+    color: var(--sc-app-color-text-secondary);
+  }
+
+  .sc-course-navigator-overview-actions .sc-course-navigator-add-section:hover:not(:disabled) {
+    background: var(--sc-app-color-muted);
+    color: var(--sc-app-color-text-primary);
+  }
+
+  .sc-course-navigator-overview-actions .sc-course-navigator-add-section:focus-visible {
+    outline-color: var(--sc-app-color-focus-outline);
+  }
+
+  .sc-course-overview {
+    display: grid;
+    min-width: 0;
+    gap: 1.25rem;
+    padding: 0.25rem 0.75rem 1rem;
+  }
+
+  .sc-course-section-group {
+    min-width: 0;
+  }
+
+  .sc-course-section-header {
+    display: flex;
+    min-width: 0;
+    min-height: 2rem;
+    align-items: center;
+    gap: 0.5rem;
+    margin-block-end: 0.5rem;
+  }
+
+  .sc-course-section-title {
+    min-width: 0;
+    flex: 1 1 auto;
+    margin: 0;
+    overflow: hidden;
+    color: var(--color-text-primary);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sc-course-section-surfaces {
+    display: grid;
+    min-width: 0;
+    gap: 0;
+  }
+
+  .sc-course-section-surfaces > [role="listitem"] {
+    position: relative;
+    min-width: 0;
+    padding-block-end: 0.75rem;
+  }
+
+  .sc-course-section-surfaces > [role="listitem"]:last-child {
+    padding-block-end: 0;
+  }
+
+  .sc-course-section-surfaces > [data-course-outline-projected-source] {
+    height: 0;
+    min-height: 0;
+    padding-block-end: 0;
+  }
+
+  .sc-course-section-surfaces > [data-course-outline-projected-source] > .sc-course-surface-card {
+    position: absolute;
+    top: 0;
+    inset-inline: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .sc-course-surface-card {
+    position: relative;
+    min-width: 0;
+  }
+
+  .sc-course-surface-card[data-interaction-drag-placeholder] {
+    pointer-events: none;
+  }
+
+  .sc-course-surface-card[data-interaction-drag-placeholder] .sc-course-surface-card-selection {
+    border-style: dashed;
+    border-color: color-mix(in srgb, var(--color-primary) 48%, var(--color-border));
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .sc-course-surface-card[data-interaction-drag-placeholder]
+    :is(
+      .sc-course-surface-placeholder,
+      .sc-course-surface-meta,
+      .sc-course-surface-actions,
+      .sc-document-outline-drag-handle
+    ) {
+    visibility: hidden;
+  }
+
+  .sc-course-outline-slide-ghost {
+    box-sizing: border-box;
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+  }
+
+  .sc-course-outline-slide-ghost--overlay {
+    height: 100%;
+    grid-template-rows: minmax(0, 1fr) 2rem 2rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .sc-course-outline-slide-ghost--projection {
+    grid-template-rows: auto 2rem 2rem;
+    border: 1px dashed color-mix(in srgb, var(--color-primary) 52%, var(--color-border));
+    background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+    opacity: 0.72;
+    transition:
+      opacity 160ms var(--ease-out-soft),
+      transform 160ms var(--ease-out-soft);
+  }
+
+  .sc-course-outline-slide-ghost--projection .sc-course-outline-slide-ghost__canvas {
+    aspect-ratio: 16 / 9;
+  }
+
+  .sc-course-outline-slide-ghost__canvas {
+    display: block;
+    min-height: 0;
+    border-block-end: 1px dashed color-mix(in srgb, var(--color-border) 76%, transparent);
+    background: var(--color-surface);
+  }
+
+  .sc-course-outline-slide-ghost__label {
+    min-width: 0;
+    align-self: center;
+    overflow: hidden;
+    padding-inline: 0.625rem;
+    font-size: 0.8125rem;
+    font-weight: 550;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sc-course-outline-slide-ghost__footer {
+    border-block-start: 1px dashed color-mix(in srgb, var(--color-border) 68%, transparent);
+  }
+
+  @starting-style {
+    .sc-course-outline-slide-ghost--projection {
+      opacity: 0;
+      transform: scale(0.985);
+    }
+  }
+
+  .sc-course-surface-card-selection {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 0;
+    background: var(--color-muted);
+    color: inherit;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .sc-course-surface-placeholder {
+    display: block;
+    aspect-ratio: 16 / 9;
+    width: 100%;
+    background: var(--color-surface);
+  }
+
+  .sc-course-surface-card-selection:hover {
+    border-color: color-mix(in srgb, var(--color-text-secondary) 42%, var(--color-border));
+  }
+
+  .sc-course-surface-card-selection:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-focus-outline);
+  }
+
+  .sc-course-surface-card[data-selected="true"] .sc-course-surface-card-selection {
+    border-color: var(--color-primary);
+    box-shadow: inset 0 0 0 1px var(--color-primary);
+  }
+
+  .sc-course-surface-meta {
+    display: flex;
+    min-width: 0;
+    min-height: 2rem;
+    align-items: center;
+    padding-block: 0.375rem 0.125rem;
+    padding-inline: 0.125rem;
+  }
+
+  .sc-course-surface-label {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.8125rem;
+    font-weight: 550;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sc-course-surface-actions {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.125rem;
+  }
+
+  .sc-course-surface-action {
+    display: inline-flex;
+    min-width: 0;
+    min-height: 2rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border: 0;
+    border-radius: var(--radius-sm);
+    padding-inline: 0.5rem;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.75rem;
+  }
+
+  .sc-course-surface-action:hover {
+    background: var(--color-muted);
+    color: var(--color-text-primary);
+  }
+
+  .sc-course-surface-action:focus-visible,
+  .sc-course-section-header .sc-document-outline-actions-trigger:focus-visible,
+  .sc-course-surface-rename :is(input, button):focus-visible {
+    outline: 2px solid var(--color-focus-outline);
+    outline-offset: 1px;
+  }
+
+  .sc-course-surface-action--icon {
+    width: 2rem;
+    margin-inline-start: auto;
+    padding: 0;
+  }
+
+  .sc-course-surface-card > .sc-document-outline-drag-handle {
+    position: absolute;
+    top: 0.375rem;
+    inset-inline-end: 0.375rem;
+    z-index: 1;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-sm);
+    opacity: 0;
+  }
+
+  .sc-course-surface-card:hover > .sc-document-outline-drag-handle,
+  .sc-course-surface-card:focus-within > .sc-document-outline-drag-handle,
+  .sc-course-surface-card > .sc-document-outline-drag-handle[data-dragging="true"] {
+    opacity: 1;
+  }
+
+  .sc-course-section-surfaces .sc-document-outline-drop-target--insertion {
+    inset-inline: 0;
+  }
+
+  .sc-course-section-surfaces > .sc-document-outline-drop-target--section {
+    min-height: 2.75rem;
+    margin: 0;
+  }
+
+  .sc-course-section-surfaces > .sc-document-outline-drop-target--section[data-active="true"] {
+    height: 2.75rem;
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+  }
+
+  .sc-course-surface-rename {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    gap: 0.375rem;
+  }
+
+  .sc-course-surface-rename input {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding-inline: 0.5rem;
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: 0.8125rem;
+  }
+
+  .sc-course-surface-rename button {
+    border: 0;
+    border-radius: var(--radius-sm);
+    padding-inline: 0.625rem;
+    background: var(--color-muted);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.75rem;
+  }
+
+  .sc-surface-structure-view {
+    min-width: 0;
+  }
+
+  .sc-surface-structure-header {
+    display: grid;
+    min-width: 0;
+    gap: 0.375rem;
+    border-bottom: 1px solid var(--sc-app-color-border);
+    margin-block: -1rem 0.75rem;
+    margin-inline: -0.75rem;
+    padding: 0.375rem 0.75rem 0.625rem;
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-primary);
+  }
+
+  .sc-surface-structure-back {
+    width: fit-content;
+    max-width: 100%;
+    border-radius: var(--sc-app-radius-control);
+    padding-inline: 0.375rem 0.625rem;
+    color: var(--sc-app-color-text-secondary);
+  }
+
+  .sc-surface-structure-back:hover:not(:disabled) {
+    background: var(--sc-app-color-muted);
+    color: var(--sc-app-color-text-primary);
+  }
+
+  .sc-surface-structure-back:focus-visible {
+    outline-color: var(--sc-app-color-focus-outline);
+  }
+
+  .sc-surface-structure-header h3 {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    padding-inline: 0.5rem;
+    color: var(--sc-app-color-text-primary);
+    font-size: 0.875rem;
+    font-weight: 650;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @media (pointer: coarse) {
+    .sc-course-surface-card > .sc-document-outline-drag-handle {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-course-outline-slide-ghost--projection {
+      transition: none;
+    }
+  }
+}

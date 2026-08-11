@@ -1,51 +1,45 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-components {
-  .sc-app-annotated-figure__empty-action {
+  .sc-course-annotated-figure__empty-action {
+    display: flex;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
     aspect-ratio: 16 / 9;
   }
 
-  .sc-app-annotated-figure__canvas {
+  .sc-course-annotated-figure__empty-action-icon {
+    display: inline-flex;
+    flex: none;
+  }
+
+  .sc-course-annotated-figure__canvas--authoring {
     cursor: var(--sc-cursor-place, crosshair);
   }
 
-  .sc-app-annotated-figure__image-actions {
-    position: absolute;
-    z-index: var(--z-interactive);
-    inset-block-start: 0.625rem;
-    inset-inline-end: 0.625rem;
-  }
-
-  .sc-app-annotated-figure__image-toolbar {
+  .sc-course-annotated-figure__image-toolbar {
     display: flex;
     align-items: center;
-    gap: var(--space-1);
   }
 
-  .radix-themes .sc-app-annotated-figure__image-action {
+  .sc-course-annotated-figure__image-action {
     position: static;
-    border: 1px solid var(--sc-app-color-border);
-    background: color-mix(in srgb, var(--sc-app-color-background) 82%, transparent);
-    color: var(--sc-app-color-ink);
-    opacity: 1;
-    backdrop-filter: blur(4px);
   }
 
-  .radix-themes .sc-app-annotated-figure__image-action:hover:not(:disabled) {
-    border-color: var(--sc-app-color-text-muted);
-    background: var(--sc-app-color-background);
-  }
-
-  .sc-app-annotated-figure__pin-activate {
+  .sc-course-annotated-figure__pin-activate--authoring {
     cursor: grab;
     touch-action: none;
   }
 
-  .sc-course-annotated-figure__pin[data-dragging="true"] .sc-app-annotated-figure__pin-activate {
+  .sc-course-annotated-figure__pin[data-dragging="true"]
+    .sc-course-annotated-figure__pin-activate--authoring {
     cursor: grabbing;
   }
 
-  .sc-app-annotated-figure__pin-remove {
+  .sc-course-annotated-figure__pin-remove {
     position: absolute;
     inset-block-start: 0;
     inset-inline-end: 0;
@@ -53,62 +47,42 @@
     height: var(--spacing-touch-target-inline, 1.5rem);
     min-width: 0;
     min-height: 0;
-    border-radius: 50%;
-    background: var(--sc-app-color-ink);
-    color: var(--sc-app-color-background);
     cursor: pointer;
-    opacity: 0.86;
-    transition: opacity var(--default-transition-duration) var(--ease-out-soft);
   }
 
-  .sc-course-annotated-figure__pin:hover .sc-app-annotated-figure__pin-remove,
-  .sc-app-annotated-figure__pin-remove:focus-visible {
-    opacity: 1;
-  }
-
-  .sc-app-annotated-figure__annotation-actions {
+  .sc-course-annotated-figure__annotation-actions {
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
-    gap: var(--space-1);
   }
 
-  .radix-themes
-    :is(.sc-app-annotated-figure__annotation-action, .sc-app-annotated-figure__annotation-remove) {
+  :is(
+    .sc-course-annotated-figure__annotation-action,
+    .sc-course-annotated-figure__annotation-remove
+  ) {
     flex: 0 0 auto;
-    color: var(--sc-app-color-text-muted);
     cursor: pointer;
   }
 
-  .radix-themes .sc-app-annotated-figure__annotation-action:disabled {
-    color: var(--sc-app-color-text-placeholder);
-    cursor: not-allowed;
-    opacity: 0.5;
-  }
-
-  .radix-themes .sc-app-annotated-figure__annotation-remove:hover,
-  .radix-themes .sc-app-annotated-figure__annotation-remove:focus-visible,
   .radix-themes .sc-app-annotated-figure-workspace__row-delete:hover,
   .radix-themes .sc-app-annotated-figure-workspace__row-delete:focus-visible {
     background: var(--sc-app-color-error-background);
     color: var(--sc-app-color-error);
   }
 
-  .radix-themes
-    :is(.sc-app-annotated-figure__title-field, .sc-app-annotated-figure-workspace__title-field) {
+  .sc-course-annotated-figure__title-field,
+  .sc-app-annotated-figure-workspace__title-field {
     width: 100%;
     min-width: 0;
+  }
+
+  .sc-app-annotated-figure-workspace__title-field {
     font-weight: 600;
   }
 
-  .sc-app-annotated-figure__caption-editor,
-  .sc-app-annotated-figure__caption-field {
+  .sc-course-annotated-figure__caption-editor,
+  .sc-course-annotated-figure__caption-field {
     min-height: 3rem;
-  }
-
-  .sc-app-annotated-figure__caption-field:focus-visible {
-    outline: 2px solid var(--sc-app-color-focus-outline);
-    outline-offset: 2px;
   }
 
   .sc-app-annotated-figure-workspace__course-surface {
@@ -179,23 +153,4 @@
   .sc-app-annotated-figure-workspace__caption-preview > p {
     margin: 0;
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    .sc-app-annotated-figure__pin-remove {
-      transition: none;
-    }
-  }
-}
-
-.radix-themes .sc-app-annotated-figure__pin-remove {
-  position: absolute;
-  inset-block-start: 0;
-  inset-inline-end: 0;
-  width: var(--spacing-touch-target-inline, 1.5rem);
-  height: var(--spacing-touch-target-inline, 1.5rem);
-  min-width: 0;
-  min-height: 0;
-  border-radius: 50%;
-  background: var(--sc-app-color-ink);
-  color: var(--sc-app-color-background);
 }

@@ -7,7 +7,7 @@ import {
   type AssessmentFeedbackContent,
 } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { itemContent } from "./sequencing-fields-shared";
 
 interface SequencingBlockLocation {
@@ -21,7 +21,7 @@ export function addSequencingItem(editor: Editor, groupPos: number): boolean {
 
   const item = editor.schema.nodeFromJSON({
     type: "sequencing_item",
-    attrs: { id: createStableId() },
+    attrs: { id: createEmbeddedNodeId() },
     content: itemContent(),
   });
   const tr = editor.state.tr.insert(groupPos + group.nodeSize - 1, item);
@@ -83,7 +83,7 @@ export function synchronizeSequencingAssessmentsInTransaction(tr: Transaction): 
       if (child.type.name !== "sequencing_item") return;
       const originalId = typeof child.attrs["id"] === "string" ? child.attrs["id"] : "";
       const canKeepId = originalId.trim().length > 0 && !seen.has(originalId);
-      const itemId = canKeepId ? originalId : createStableId();
+      const itemId = canKeepId ? originalId : createEmbeddedNodeId();
       itemIds.push(itemId);
       seen.add(itemId);
 

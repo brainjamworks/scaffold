@@ -88,21 +88,30 @@ export function projectCategoriseSettings(settings: unknown): Partial<Assessment
 function projectCategoriseContentLearnerNode(node: JSONContent, blockId: string): JSONContent {
   const binsGroup = childByType(node, "categorise_bins_group");
   const categories = binsGroup ? childrenOfType(binsGroup, "categorise_bin") : [];
-  const authoredItems = categories.flatMap((category) => {
+  const authoredItemGroups = categories.flatMap((category) => {
     const group = childByType(category, "categorise_items_group");
-    return group ? childrenOfType(group, "categorise_item") : [];
+    return group ? [group] : [];
   });
+  const authoredItems = authoredItemGroups.flatMap((group) =>
+    childrenOfType(group, "categorise_item"),
+  );
   const items = stableCategoriseSourceItems(authoredItems, blockId);
+  const projectedBinsGroup = binsGroup
+    ? cloneJsonNodeWithoutContent(binsGroup)
+    : { type: "categorise_bins_group" };
+  const projectedItemsGroup = authoredItemGroups[0]
+    ? cloneJsonNodeWithoutContent(authoredItemGroups[0])
+    : { type: "categorise_items_group" };
 
   return {
     ...cloneJsonNodeWithoutContent(node),
     content: [
       {
-        type: "categorise_bins_group",
+        ...projectedBinsGroup,
         content: categories.map(projectCategoriseCategoryLearnerNode),
       },
       {
-        type: "categorise_items_group",
+        ...projectedItemsGroup,
         content: items.map(projectCategoriseItemLearnerNode),
       },
     ],

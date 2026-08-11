@@ -11,6 +11,7 @@ import {
   AccordionSectionTitleNode,
 } from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
@@ -22,8 +23,7 @@ import {
   allowsBoundedContainerRootInsertionAtPosition as allowsBoundedContainerRootInsertionAtPositionWithLookup,
   isActiveBoundedContainerAtPosition as isActiveBoundedContainerAtPositionWithLookup,
   resolveActiveBoundedPlacement as resolveActiveBoundedPlacementWithLookup,
-  validateBoundedContainerStructure as validateBoundedContainerStructureWithLookup,
-} from "./bounded-container-structure-policy";
+} from "./bounded-container-placement";
 
 const TEST_FILL_NODE = "test_accordion_terminal_fill";
 const editors: Editor[] = [];
@@ -47,42 +47,42 @@ const testBlockRegistry = createBlockRegistry([
   testFillDefinition,
 ]);
 
-function validateBoundedContainerStructure(
-  doc: Parameters<typeof validateBoundedContainerStructureWithLookup>[0],
-) {
-  return validateBoundedContainerStructureWithLookup(doc, testBlockRegistry);
-}
-
 function allowsBoundedContainerRootInsertionAtPosition(
   input: Omit<
     Parameters<typeof allowsBoundedContainerRootInsertionAtPositionWithLookup>[0],
-    "blockDefinitions"
+    "blockDefinitions" | "layoutDefinitions"
   >,
 ) {
   return allowsBoundedContainerRootInsertionAtPositionWithLookup({
     ...input,
     blockDefinitions: testBlockRegistry,
+    layoutDefinitions: builtInLayoutRegistry,
   });
 }
 
 function resolveActiveBoundedPlacement(
-  input: Omit<Parameters<typeof resolveActiveBoundedPlacementWithLookup>[0], "blockDefinitions">,
+  input: Omit<
+    Parameters<typeof resolveActiveBoundedPlacementWithLookup>[0],
+    "blockDefinitions" | "layoutDefinitions"
+  >,
 ) {
   return resolveActiveBoundedPlacementWithLookup({
     ...input,
     blockDefinitions: testBlockRegistry,
+    layoutDefinitions: builtInLayoutRegistry,
   });
 }
 
 function isActiveBoundedContainerAtPosition(
   input: Omit<
     Parameters<typeof isActiveBoundedContainerAtPositionWithLookup>[0],
-    "blockDefinitions"
+    "blockDefinitions" | "layoutDefinitions"
   >,
 ) {
   return isActiveBoundedContainerAtPositionWithLookup({
     ...input,
     blockDefinitions: testBlockRegistry,
+    layoutDefinitions: builtInLayoutRegistry,
   });
 }
 
@@ -109,10 +109,6 @@ describe("accordion terminal bounded placement", () => {
         pos: firstNodePos(editor, "section"),
       }),
     ).toBe(true);
-    expect(validateBoundedContainerStructure(editor.state.doc)).toEqual({
-      ok: true,
-      violations: [],
-    });
     expect(
       isActiveBoundedContainerAtPosition({
         containerType: "section",

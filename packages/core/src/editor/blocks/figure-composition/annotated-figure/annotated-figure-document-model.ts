@@ -83,7 +83,12 @@ export function resolveAnnotatedFigureModel(owner: {
 
   for (let index = 0; index < legendNode.childCount; index += 1) {
     const annotationNode = legendNode.child(index);
-    const attrs = AnnotatedFigureAnnotationAttrsSchema.safeParse(annotationNode.attrs);
+    const attrs = AnnotatedFigureAnnotationAttrsSchema.safeParse({
+      id: annotationNode.attrs["id"],
+      title: annotationNode.attrs["title"],
+      x: annotationNode.attrs["x"],
+      y: annotationNode.attrs["y"],
+    });
     if (
       annotationNode.type.name !== ANNOTATED_FIGURE_ANNOTATION_NODE ||
       annotationNode.childCount !== 1 ||

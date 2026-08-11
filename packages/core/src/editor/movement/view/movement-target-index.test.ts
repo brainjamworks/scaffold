@@ -196,6 +196,31 @@ describe("movement target index", () => {
     expect(move?.placement).toBe("after");
   });
 
+  it("does not treat an adjacent index in a different contained owner as a no-op", () => {
+    const target = entry(
+      "contained:owner_item:20",
+      context(20, "owner_item", { index: 1, parentPos: 50 }),
+      { height: 80, left: 20, top: 20, width: 200 },
+      "contained",
+    );
+    const snapshot = createMovementTargetIndexSnapshot({
+      documentRevision: 1,
+      entries: [target],
+      geometryRevision: 1,
+    });
+
+    const move = snapshot.query(
+      { x: 100, y: 30 },
+      {
+        context: context(10, "owner_item", { index: 0, parentPos: 5 }),
+        kind: "contained",
+      },
+    );
+
+    expect(move?.target).toBeInstanceOf(ContainedMovementTarget);
+    expect(move?.placement).toBe("before");
+  });
+
   it("uses the owner-published axis without interpreting the node type", () => {
     const target = entry(
       "contained:owner_defined_item:20",

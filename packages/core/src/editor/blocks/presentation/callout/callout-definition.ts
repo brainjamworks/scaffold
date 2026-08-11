@@ -1,7 +1,7 @@
 import { MegaphoneSimpleIcon as MegaphoneSimple } from "@phosphor-icons/react";
 import { CalloutDataSchema } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 
@@ -82,7 +82,7 @@ export const calloutBlockDefinition = defineBlock({
     keywords: ["note", "tip", "warning", "info", "alert", "callout"],
     content: () => ({
       type: "callout",
-      attrs: { id: createStableId(), data: emptyCalloutData() },
+      attrs: { id: createEmbeddedNodeId(), data: emptyCalloutData() },
       content: [
         {
           type: "callout_title",

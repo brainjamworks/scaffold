@@ -6,7 +6,7 @@ import {
   type NodeViewProps,
 } from "@tiptap/react";
 
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
 import {
   authoringChromeActiveAttributes,
@@ -36,11 +36,12 @@ function RegionAuthoringNodeView(props: NodeViewProps) {
   const chromeActive = useEditorState({
     editor: props.editor,
     selector: ({ editor }) => {
+      const blockDefinitions = getScaffoldCapabilitiesForEditor(editor).blocks.registry;
       const pos = resolveNodeViewPos(props.getPos);
       const outline = resolveStructuralChromeTargetFromSnapshot(
         editor.state,
         publishInteractionOwnerSnapshot(editor.state, null, {
-          blockDefinitions: builtInBlockRegistry,
+          blockDefinitions,
         }),
         "outline",
       );

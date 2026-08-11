@@ -3,7 +3,7 @@ import {
   MapPinSimpleAreaIcon as MapPinSimpleArea,
 } from "@phosphor-icons/react";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import {
@@ -79,7 +79,7 @@ export const annotatedFigureDefinition = defineBlock({
     content: () => ({
       type: ANNOTATED_FIGURE_NODE,
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyAnnotatedFigureData(),
       },
       content: [

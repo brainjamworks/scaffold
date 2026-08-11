@@ -1,0 +1,198 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-course-process-flow-node,
+  .sc-course-process-flow,
+  .sc-course-process-flow__scrollport,
+  .sc-course-process-flow__rail,
+  .sc-course-process-flow__steps,
+  .sc-course-process-flow__step,
+  .sc-course-process-flow__card,
+  .sc-course-process-flow__header,
+  .sc-course-process-flow__content {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .sc-course-process-flow-node,
+  .sc-course-process-flow {
+    width: 100%;
+  }
+
+  .sc-course-process-flow {
+    container-name: sc-course-process-flow;
+    container-type: inline-size;
+  }
+
+  .sc-course-process-flow__scrollport,
+  .sc-course-process-flow__rail,
+  .sc-course-process-flow__step,
+  .sc-course-process-flow__card {
+    position: relative;
+  }
+
+  .sc-course-process-flow__steps {
+    display: flex;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .sc-course-process-flow__steps > [data-node-view-content-react],
+  .sc-course-process-flow__steps > [data-node-view-content-react] > .react-renderer {
+    display: contents;
+  }
+
+  .sc-course-process-flow__step {
+    z-index: 1;
+    margin: 0;
+    padding: 0;
+  }
+
+  .sc-course-process-flow__card {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+  }
+
+  .sc-course-process-flow__header,
+  .sc-course-process-flow__controls,
+  .sc-course-process-flow__number,
+  .sc-course-process-flow__move,
+  .sc-course-process-flow__delete,
+  .sc-course-process-flow__add,
+  .sc-course-process-flow__add-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sc-course-process-flow__header {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .sc-course-process-flow__content,
+  .sc-course-process-flow__content [data-node-view-content],
+  .sc-course-process-flow__content [data-node-view-content-react] {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .sc-course-process-flow__content p {
+    max-width: 100%;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .sc-course-process-flow__move,
+  .sc-course-process-flow__delete,
+  .sc-course-process-flow__add {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .sc-course-process-flow__control-explanation {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .sc-course-process-flow[data-orientation="horizontal"] .sc-course-process-flow__scrollport {
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+  }
+
+  .sc-course-process-flow[data-orientation="horizontal"] .sc-course-process-flow__rail,
+  .sc-course-process-flow[data-orientation="horizontal"] .sc-course-process-flow__steps {
+    display: flex;
+    width: max-content;
+    max-width: none;
+    flex-flow: row nowrap;
+    align-items: stretch;
+  }
+
+  .sc-course-process-flow[data-orientation="horizontal"] .sc-course-process-flow__rail {
+    min-width: 100%;
+  }
+
+  .sc-course-process-flow[data-orientation="horizontal"] .sc-course-process-flow__step,
+  .sc-course-process-flow[data-orientation="horizontal"] .sc-course-process-flow__add {
+    width: var(--sc-course-process-flow-card-size);
+    max-width: none;
+    flex: 0 0 var(--sc-course-process-flow-card-size);
+  }
+
+  .sc-course-process-flow[data-orientation="vertical"] .sc-course-process-flow__rail,
+  .sc-course-process-flow[data-orientation="vertical"] .sc-course-process-flow__steps {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .sc-course-process-flow[data-orientation="vertical"] .sc-course-process-flow__scrollport {
+    overflow-x: hidden;
+  }
+
+  .sc-course-process-flow[data-show-connectors="true"]
+    .sc-course-process-flow__step:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    box-sizing: border-box;
+    width: var(--sc-course-process-flow-connector-size);
+    height: var(--sc-course-process-flow-connector-size);
+    border-style: solid;
+    border-color: var(--sc-course-process-flow-connector-color);
+    pointer-events: none;
+  }
+
+  .sc-course-process-flow[data-orientation="horizontal"][data-show-connectors="true"]
+    .sc-course-process-flow__step:not(:last-child)::after {
+    top: 50%;
+    right: calc(var(--sc-course-process-flow-step-gap) / -2);
+    border-width: 0 var(--sc-course-process-flow-connector-stroke)
+      var(--sc-course-process-flow-connector-stroke) 0;
+    transform: translate(50%, -50%) rotate(-45deg);
+  }
+
+  .sc-course-process-flow[data-orientation="vertical"][data-show-connectors="true"]
+    .sc-course-process-flow__step:not(:last-child)::after {
+    bottom: calc(var(--sc-course-process-flow-step-gap) / -2);
+    left: 50%;
+    border-width: 0 var(--sc-course-process-flow-connector-stroke)
+      var(--sc-course-process-flow-connector-stroke) 0;
+    transform: translate(-50%, 50%) rotate(45deg);
+  }
+
+  .sc-course-process-flow-node[data-bounded-placement="fill"] {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .sc-course-process-flow-node[data-bounded-placement="fill"] .sc-course-process-flow {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sc-course-process-flow-node[data-bounded-placement="fill"] .sc-course-process-flow__scrollport {
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  .sc-course-process-flow-node[data-bounded-placement="fill"]
+    .sc-course-process-flow[data-orientation="vertical"]
+    .sc-course-process-flow__scrollport {
+    overflow-y: auto;
+    overscroll-behavior-block: contain;
+  }
+}

@@ -8,22 +8,30 @@ import {
   type RenderOptions,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import {
+  createCoreScaffoldRuntimeComposition,
+  type ScaffoldRuntimeComposition,
+} from "@/composition/runtime/scaffold-runtime-composition";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import type { ScaffoldProductAccess } from "@/host/contracts/product-access";
 import { projectCourseStructure } from "@/document/model/course-structure";
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import type { ScaffoldColorMode } from "@/theme/state/color-mode";
+import { checkRuntimeDocumentReadiness } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 
 import { SlideshowPlayer, type SlideshowPlayerProps } from "./SlideshowPlayer";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
+const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
 
 let restoreFullscreenHarness: (() => void) | null = null;
 
@@ -108,6 +116,7 @@ function slideshowDocumentContent(surfaces: Array<{ id: string; text: string }>)
   const firstSurfaceId = surfaces[0]?.id ?? "slide_000001";
   const content = createScaffoldDocumentContent({
     mode: "slideshow",
+    initialCourseSectionTitle: "Introduction",
     surfaceId: firstSurfaceId,
   });
   const courseDocument = content.content?.[0];
@@ -120,11 +129,14 @@ function slideshowDocumentContent(surfaces: Array<{ id: string; text: string }>)
     ...courseDocument.attrs,
     mode: "slideshow",
   };
-  courseDocument.content = surfaces.map((surface) => ({
-    type: "surface",
-    attrs: { id: surface.id, variant: "slide-cover" },
-    content: [paragraph(surface.text)],
-  }));
+  courseDocument.content = [
+    { type: "courseSection", attrs: { id: "section00001", title: "Introduction" } },
+    ...surfaces.map((surface) => ({
+      type: "surface",
+      attrs: { id: surface.id, variant: "slide-cover" },
+      content: [paragraph(surface.text)],
+    })),
+  ];
 
   return content;
 }
@@ -148,7 +160,7 @@ function sectionedSlideshowDocumentContent(
 
 function slideshowDocumentContentWithRuntimeHint(): JSONContent {
   const content = slideshowDocumentContent([{ id: "slide_000001", text: "Hinted slide" }]);
-  const surface = content.content?.[0]?.content?.[0];
+  const surface = content.content?.[0]?.content?.[1];
 
   if (!surface) {
     throw new Error("slideshow player test document is missing its first surface");
@@ -321,12 +333,46 @@ function restoreProperty(
   Reflect.deleteProperty(target, property);
 }
 
-function TestSlideshowPlayer(props: Omit<SlideshowPlayerProps, "structure">) {
-  const structure = projectCourseStructure(props.initialContent);
+function TestSlideshowPlayer(
+  props: Omit<SlideshowPlayerProps, "preparedDocument" | "structure"> & {
+    readonly composition: ScaffoldRuntimeComposition;
+    readonly initialContent: JSONContent;
+    readonly productAccess?: ScaffoldProductAccess;
+  },
+) {
+  const { composition, initialContent, productAccess = coreProductAccess, ...playerProps } = props;
+  normalizeRuntimeFixtureIds(initialContent);
+  const readiness = checkRuntimeDocumentReadiness(initialContent, composition, productAccess);
+  if (readiness.status !== "supported") {
+    throw new Error(`Expected a prepared Slideshow fixture, received ${readiness.status}.`);
+  }
+  const structure = projectCourseStructure(readiness.preparedDocument.content);
   if (!structure || structure.mode !== "slideshow") {
     throw new Error("Expected a projected Slideshow fixture.");
   }
-  return <SlideshowPlayer {...props} structure={structure} />;
+  return (
+    <SlideshowPlayer
+      {...playerProps}
+      preparedDocument={readiness.preparedDocument}
+      structure={structure}
+    />
+  );
+}
+
+function normalizeRuntimeFixtureIds(content: JSONContent): void {
+  const seen = new Set<string>();
+  const stack = [content];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node.type !== "doc" && node.type !== "text") {
+      const id = node.attrs?.id;
+      if (!EmbeddedNodeIdSchema.safeParse(id).success || seen.has(String(id))) {
+        node.attrs = { ...node.attrs, id: createEmbeddedNodeId() };
+      }
+      seen.add(String(node.attrs?.id));
+    }
+    stack.push(...(node.content ?? []));
+  }
 }
 
 describe("SlideshowPlayer", () => {
@@ -387,7 +433,7 @@ describe("SlideshowPlayer", () => {
     expect(
       screen.getByTestId("slideshow-controls").closest(".sc-slideshow-player__stage"),
     ).not.toBeNull();
-    expect(screen.getByText("1 of 1")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("1 of 1");
     expect(buttonByName("Previous slide").disabled).toBe(true);
     expect(buttonByName("Next slide").disabled).toBe(true);
     expect(surfaceById("slide_000001").getAttribute("data-runtime-surface-visible")).toBe("true");
@@ -800,17 +846,21 @@ describe("SlideshowPlayer", () => {
     expect(canvas.style.transform).toBe("scale(0.5)");
   });
 
-  it("rejects a slideshow document without 16x9 view settings", () => {
+  it("refuses a slideshow document without 16x9 view settings before player construction", () => {
     const initialContent = slideshowDocumentContent([
       { id: "slide_000001", text: "Invalid slide" },
     ]);
     initialContent.content![0]!.attrs!.surfaceSize = "fluid";
+    normalizeRuntimeFixtureIds(initialContent);
 
-    render(
-      <TestSlideshowPlayer composition={runtimeComposition} initialContent={initialContent} />,
+    expect(
+      checkRuntimeDocumentReadiness(initialContent, runtimeComposition, coreProductAccess),
+    ).toEqual(
+      expect.objectContaining({
+        status: "invalid-learner-content",
+      }),
     );
 
-    expect(screen.getByRole("alert").textContent).toContain("Slideshow surface size must be 16x9.");
     expect(ResizeObserverStub.instances).toHaveLength(0);
     expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
   });
@@ -997,7 +1047,7 @@ describe("SlideshowPlayer", () => {
     expect(screen.queryByRole("button", { name: /fullscreen/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /autoplay/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /narration/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Course Section/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Course Section 1 of 1/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /presenter notes/i })).toBeNull();
     expect(screen.queryByTestId("slide-thumbnails")).toBeNull();
     expect(screen.queryByTestId("authoring-agent-dock")).toBeNull();

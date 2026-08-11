@@ -21,6 +21,89 @@ afterEach(() => {
 });
 
 describe("Roadmap responsive ownership", () => {
+  it("keeps the authoring add control on the milestone axis and in the milestone rhythm", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mountedRoots.push(root);
+
+    root.render(
+      <AppThemeProvider appearance="light">
+        <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+          <RoadmapSpecimen id="vertical-authoring" mode="authoring" orientation="vertical" />
+        </CourseThemeProvider>
+      </AppThemeProvider>,
+    );
+
+    await waitForCondition(() => host.querySelector(".sc-app-roadmap-add"));
+
+    const roadmap = requiredElement<HTMLElement>(host, '[data-specimen="vertical-authoring"]');
+    const list = requiredElement<HTMLElement>(roadmap, ".sc-course-roadmap__milestones");
+    const milestones = roadmap.querySelectorAll<HTMLElement>(".sc-course-roadmap__milestone");
+    const lastMilestone = milestones[milestones.length - 1]!;
+    const lastMarker = requiredElement<HTMLElement>(lastMilestone, ".sc-course-roadmap__marker");
+    const add = requiredElement<HTMLElement>(roadmap, ".sc-app-roadmap-add");
+    const addMarker = requiredElement<HTMLElement>(add, ".sc-app-roadmap-add__marker");
+
+    const expectedGap = Number.parseFloat(getComputedStyle(list).gap);
+    const actualGap =
+      add.getBoundingClientRect().top - lastMilestone.getBoundingClientRect().bottom;
+    expect(actualGap).toBeCloseTo(expectedGap, 1);
+    expect(addMarker.getBoundingClientRect().left).toBeCloseTo(
+      lastMarker.getBoundingClientRect().left,
+      1,
+    );
+    expect(getComputedStyle(addMarker).borderRadius).toBe(
+      getComputedStyle(lastMarker).borderRadius,
+    );
+  });
+
+  it("adapts the embedded delete action to every Course roundness value", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mountedRoots.push(root);
+    const roundnessValues = ["square", "subtle", "rounded", "full"] as const;
+
+    root.render(
+      <AppThemeProvider appearance="light">
+        <main>
+          {roundnessValues.map((roundness) => (
+            <CourseThemeProvider
+              key={roundness}
+              theme={courseThemeWithRoundness(roundness)}
+              appearance="light"
+            >
+              <RoadmapSpecimen id={`roundness-${roundness}`} mode="authoring" />
+            </CourseThemeProvider>
+          ))}
+        </main>
+      </AppThemeProvider>,
+    );
+
+    await waitForCondition(
+      () =>
+        host.querySelectorAll('[data-specimen^="roundness-"]').length === roundnessValues.length,
+    );
+
+    const radii = Object.fromEntries(
+      roundnessValues.map((roundness) => {
+        const roadmap = requiredElement<HTMLElement>(
+          host,
+          `[data-specimen="roundness-${roundness}"]`,
+        );
+        const deleteAction = requiredElement<HTMLElement>(roadmap, ".sc-course-roadmap__delete");
+        return [roundness, Number.parseFloat(getComputedStyle(deleteAction).borderTopLeftRadius)];
+      }),
+    ) as Record<(typeof roundnessValues)[number], number>;
+
+    expect(radii.square).toBe(0);
+    expect(radii.subtle).toBeGreaterThan(radii.square);
+    expect(radii.rounded).toBeGreaterThan(radii.subtle);
+    expect(radii.rounded).toBeLessThan(22);
+    expect(radii.full).toBeGreaterThanOrEqual(22);
+  });
+
   it("keeps Course status readable, App controls stable, and horizontal milestones intact narrow", async () => {
     await page.viewport(1000, 900);
     const host = document.createElement("div");
@@ -59,8 +142,8 @@ describe("Roadmap responsive ownership", () => {
     const lightMarkers = light.querySelectorAll<HTMLElement>(".sc-course-roadmap__marker");
     const darkMarkers = dark.querySelectorAll<HTMLElement>(".sc-course-roadmap__marker");
     const lightItems = light.querySelectorAll<HTMLElement>(".sc-course-roadmap__milestone");
-    const lightDelete = requiredElement<HTMLElement>(light, ".sc-app-roadmap-delete");
-    const darkDelete = requiredElement<HTMLElement>(dark, ".sc-app-roadmap-delete");
+    const lightDelete = requiredElement<HTMLElement>(light, ".sc-course-roadmap__delete");
+    const darkDelete = requiredElement<HTMLElement>(dark, ".sc-course-roadmap__delete");
     const lightMovementVisual = requiredElement<HTMLElement>(
       light,
       ".sc-app-compact-movement-handle__visual",
@@ -91,7 +174,7 @@ describe("Roadmap responsive ownership", () => {
     expect(getComputedStyle(requiredElement(light, ".sc-course-roadmap__content")).color).not.toBe(
       getComputedStyle(requiredElement(dark, ".sc-course-roadmap__content")).color,
     );
-    expect(getComputedStyle(lightDelete).color).toBe(getComputedStyle(darkDelete).color);
+    expect(getComputedStyle(lightDelete).color).not.toBe(getComputedStyle(darkDelete).color);
     expect(getComputedStyle(lightMovementVisual).color).toBe(
       getComputedStyle(darkCourseMovementVisual).color,
     );
@@ -136,7 +219,15 @@ describe("Roadmap responsive ownership", () => {
   });
 });
 
-function RoadmapSpecimen({ id, mode }: { id: string; mode: "authoring" | "runtime" }) {
+function RoadmapSpecimen({
+  id,
+  mode,
+  orientation = "horizontal",
+}: {
+  id: string;
+  mode: "authoring" | "runtime";
+  orientation?: "horizontal" | "vertical";
+}) {
   const authoring = mode === "authoring";
   const statuses = ["completed", "current", "available"] as const;
 
@@ -144,7 +235,7 @@ function RoadmapSpecimen({ id, mode }: { id: string; mode: "authoring" | "runtim
     <section
       data-specimen={id}
       data-block-align="left"
-      data-orientation="horizontal"
+      data-orientation={orientation}
       aria-label="Roadmap"
       className="sc-course-roadmap"
       style={{ width: "720px" }}
@@ -168,7 +259,10 @@ function RoadmapSpecimen({ id, mode }: { id: string; mode: "authoring" | "runtim
                         Move
                       </span>
                     </button>
-                    <button type="button" className="sc-app-roadmap-delete">
+                    <button
+                      type="button"
+                      className="sc-app-roadmap-delete sc-course-roadmap__delete"
+                    >
                       Delete
                     </button>
                   </div>
@@ -206,6 +300,13 @@ function RoadmapSpecimen({ id, mode }: { id: string; mode: "authoring" | "runtim
       </div>
     </section>
   );
+}
+
+function courseThemeWithRoundness(roundness: "square" | "subtle" | "rounded" | "full") {
+  return {
+    ...createDefaultPersistedCourseTheme(),
+    overrides: { design: { roundness } },
+  };
 }
 
 function requiredElement<T extends Element = HTMLElement>(root: ParentNode, selector: string): T {

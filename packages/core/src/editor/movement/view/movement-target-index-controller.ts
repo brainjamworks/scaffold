@@ -17,7 +17,11 @@ import {
   type AnyMovementIntent,
 } from "../model/movement-intents";
 import type { MovementNodeContext } from "../model/movement-policy";
-import { ContainedMovementTarget, createMovementTarget } from "../model/movement-target";
+import {
+  ContainedMovementTarget,
+  createMovementTarget,
+  type MovementTargetRect,
+} from "../model/movement-target";
 import {
   deriveContainedMovementCandidate,
   deriveMovementCandidate,
@@ -60,7 +64,17 @@ export interface MovementTargetIndexControllerOptions {
     source: MovementNodeContext,
     intent: AnyMovementIntent,
   ) => boolean;
+  readonly canNavigateContainedKeyboard?: (
+    source: MovementNodeContext,
+    current: MovementNodeContext,
+    target: MovementNodeContext,
+    direction: MovementSpatialKeyboardDirection,
+  ) => boolean;
   readonly coordinateSpace?: Pick<InteractionCoordinateSpace, "subscribe"> | null;
+  readonly canTargetContained?: (
+    source: MovementNodeContext,
+    target: MovementNodeContext,
+  ) => boolean;
   readonly createMutationObserver?: (callback: MutationCallback) => MovementMutationObserver | null;
   readonly createResizeObserver?: (
     callback: ResizeObserverCallback,
@@ -77,6 +91,7 @@ export interface MovementTargetIndexControllerOptions {
   readonly onCandidateChange: (candidate: MovementCandidate | null) => void;
   readonly ownerDocument: Document;
   readonly resolveSource: () => MovementTargetQuerySource | null;
+  readonly resolveKeyboardOrigin?: () => Readonly<{ x: number; y: number }> | null;
   readonly subscribeDocumentStructure?: (listener: () => void) => () => void;
   readonly view: EditorView;
 }
@@ -87,12 +102,16 @@ export interface MovementTargetIndexController {
   getSnapshot(): MovementTargetIndexSnapshot | null;
   invalidate(reason: MovementIndexInvalidation): void;
   moveKeyboard(direction: MovementKeyboardDirection): MovementKeyboardNavigationResult | null;
+  moveKeyboardSpatial(
+    direction: MovementSpatialKeyboardDirection,
+  ): MovementKeyboardNavigationResult | null;
   revalidate(point?: ClientPoint | null): MovementCandidate | null;
   start(point: ClientPoint | null): void;
   updatePoint(point: ClientPoint): void;
 }
 
 export type MovementKeyboardDirection = "backward" | "forward";
+export type MovementSpatialKeyboardDirection = "down" | "left" | "right" | "up";
 
 export interface MovementKeyboardNavigationResult {
   readonly candidate: MovementCandidate | null;
@@ -120,6 +139,8 @@ export function createMovementTargetIndexController(
   let sourceIdentity: string | null = null;
   let latestPoint: ClientPoint | null = null;
   let keyboardDestinationIndex: number | null = null;
+  let keyboardSpatialTargetKey: MovementTargetDescriptor["key"] | null = null;
+  let keyboardSpatialPlacement: "after" | "before" | null = null;
   let documentRevision = 0;
   let geometryRevision = 0;
   let structuralDirty = false;
@@ -180,6 +201,7 @@ export function createMovementTargetIndexController(
     if (!refreshSource() || !source) return false;
     const result = discoverDescriptors({
       blockDefinitions: options.blockDefinitions,
+      ...(options.canTargetContained ? { canTargetContained: options.canTargetContained } : {}),
       documentRevision,
       source,
       view: options.view,
@@ -239,7 +261,9 @@ export function createMovementTargetIndexController(
     const queryResult = snapshot.query(latestPoint, source);
     return source.kind === "contained"
       ? deriveContainedMovementCandidate({
-          point: latestPoint,
+          ...(options.canApplyMovementResult
+            ? { canApplyMovementResult: options.canApplyMovementResult }
+            : {}),
           queryResult,
           source: source.context,
         })
@@ -254,6 +278,12 @@ export function createMovementTargetIndexController(
   }
 
   function queryAndPublish(): MovementCandidate | null {
+    if (latestPoint === null && keyboardSpatialTargetKey !== null && keyboardSpatialPlacement) {
+      const descriptor = descriptors.find((item) => item.key === keyboardSpatialTargetKey);
+      return publishCandidate(
+        descriptor ? containedKeyboardCandidate(descriptor, keyboardSpatialPlacement) : null,
+      );
+    }
     if (latestPoint === null && keyboardDestinationIndex !== null) {
       return publishCandidate(keyboardCandidateAt(keyboardDestinationIndex));
     }
@@ -315,6 +345,103 @@ export function createMovementTargetIndexController(
       return null;
     }
     return Object.freeze({ intent, key: descriptor.key, source: source.context, target });
+  }
+
+  function containedKeyboardCandidate(
+    descriptor: MovementTargetDescriptor,
+    placement: "after" | "before",
+  ): MovementCandidate | null {
+    if (!source || source.kind !== "contained" || descriptor.kind !== "contained") return null;
+    if (!descriptor.element.isConnected) return null;
+    const rect = clientRectForElement(descriptor.element);
+    if (!rect) return null;
+    const target = new ContainedMovementTarget(descriptor.context, rect, descriptor.axis);
+    const intent =
+      placement === "before"
+        ? new MoveContainedBeforeTarget(target)
+        : new MoveContainedAfterTarget(target);
+    if (options.canApplyMovementResult && !options.canApplyMovementResult(source.context, intent)) {
+      return null;
+    }
+    return Object.freeze({ intent, key: descriptor.key, source: source.context, target });
+  }
+
+  function spatialOrigin(): Readonly<{ x: number; y: number }> | null {
+    if (keyboardSpatialTargetKey) {
+      const descriptor = descriptors.find((item) => item.key === keyboardSpatialTargetKey);
+      const rect = descriptor ? clientRectForElement(descriptor.element) : null;
+      if (rect) return rectCenter(rect);
+    }
+    return options.resolveKeyboardOrigin?.() ?? null;
+  }
+
+  function spatialKeyboardTarget(
+    direction: MovementSpatialKeyboardDirection,
+  ):
+    | Readonly<{ descriptor: MovementTargetDescriptor; placement: "after" | "before" }>
+    | "source"
+    | null {
+    if (!source || source.kind !== "contained") return null;
+    const origin = spatialOrigin();
+    const sourceOrigin = options.resolveKeyboardOrigin?.() ?? null;
+    if (!origin || !sourceOrigin) return null;
+    const choices: Array<
+      Readonly<{
+        descriptor: MovementTargetDescriptor | null;
+        distance: number;
+        secondaryDistance: number;
+      }>
+    > = [];
+
+    if (keyboardSpatialTargetKey) {
+      const sourceDelta = directionalDelta(origin, sourceOrigin, direction);
+      if (sourceDelta) {
+        choices.push({
+          descriptor: null,
+          distance: Math.hypot(sourceDelta.primary, sourceDelta.secondary),
+          secondaryDistance: sourceDelta.secondary,
+        });
+      }
+    }
+
+    const currentContext =
+      descriptors.find((item) => item.key === keyboardSpatialTargetKey)?.context ?? source.context;
+    for (const descriptor of descriptors) {
+      if (descriptor.kind !== "contained" || descriptor.key === keyboardSpatialTargetKey) continue;
+      if (
+        options.canNavigateContainedKeyboard &&
+        !options.canNavigateContainedKeyboard(
+          source.context,
+          currentContext,
+          descriptor.context,
+          direction,
+        )
+      ) {
+        continue;
+      }
+      const rect = clientRectForElement(descriptor.element);
+      if (!rect) continue;
+      const delta = directionalDelta(origin, rectCenter(rect), direction);
+      if (!delta) continue;
+      choices.push({
+        descriptor,
+        distance: Math.hypot(delta.primary, delta.secondary),
+        secondaryDistance: delta.secondary,
+      });
+    }
+
+    const choice = choices.sort(
+      (left, right) =>
+        left.distance - right.distance || left.secondaryDistance - right.secondaryDistance,
+    )[0];
+    if (!choice) return null;
+    if (!choice.descriptor) return "source";
+    const sameParent =
+      choice.descriptor.context.parent === source.context.parent &&
+      choice.descriptor.context.parentPos === source.context.parentPos;
+    const placement =
+      sameParent && choice.descriptor.context.index > source.context.index ? "after" : "before";
+    return { descriptor: choice.descriptor, placement };
   }
 
   function syncResizeObservation(): void {
@@ -406,6 +533,8 @@ export function createMovementTargetIndexController(
     sourceIdentity = null;
     latestPoint = null;
     keyboardDestinationIndex = null;
+    keyboardSpatialTargetKey = null;
+    keyboardSpatialPlacement = null;
     relevantScrollTargets.clear();
     currentScrollOffsets.clear();
   }
@@ -467,6 +596,60 @@ export function createMovementTargetIndexController(
         total,
       };
     },
+    moveKeyboardSpatial(direction) {
+      if (disposed || !started || !environmentIsValid()) return null;
+      if (!refreshSource()) return null;
+      const currentSource = source;
+      if (!currentSource || currentSource.kind !== "contained") return null;
+      frame.cancel();
+      if (structuralDirty && !discoverNow()) return null;
+      if (geometryDirty || !snapshot) {
+        if (!measureNow()) return null;
+      }
+      const nextTarget = spatialKeyboardTarget(direction);
+      if (!nextTarget) {
+        return {
+          candidate,
+          changed: false,
+          destinationIndex: candidate?.target.context.index ?? currentSource.context.index,
+          total:
+            candidate?.target.context.parent?.childCount ??
+            currentSource.context.parent?.childCount ??
+            1,
+        };
+      }
+      if (nextTarget === "source") {
+        keyboardSpatialTargetKey = null;
+        keyboardSpatialPlacement = null;
+        return {
+          candidate: publishCandidate(null),
+          changed: true,
+          destinationIndex: currentSource.context.index,
+          total: currentSource.context.parent?.childCount ?? 1,
+        };
+      }
+      const nextCandidate = containedKeyboardCandidate(nextTarget.descriptor, nextTarget.placement);
+      if (!nextCandidate) {
+        return {
+          candidate,
+          changed: false,
+          destinationIndex: candidate?.target.context.index ?? currentSource.context.index,
+          total:
+            candidate?.target.context.parent?.childCount ??
+            currentSource.context.parent?.childCount ??
+            1,
+        };
+      }
+      keyboardDestinationIndex = null;
+      keyboardSpatialTargetKey = nextTarget.descriptor.key;
+      keyboardSpatialPlacement = nextTarget.placement;
+      return {
+        candidate: publishCandidate(nextCandidate),
+        changed: true,
+        destinationIndex: nextTarget.descriptor.context.index,
+        total: nextTarget.descriptor.context.parent?.childCount ?? descriptors.length,
+      };
+    },
     revalidate(point = null) {
       if (disposed || !started) return null;
       if (point) latestPoint = point;
@@ -499,6 +682,8 @@ export function createMovementTargetIndexController(
       started = true;
       latestPoint = point;
       keyboardDestinationIndex = null;
+      keyboardSpatialTargetKey = null;
+      keyboardSpatialPlacement = null;
       if (!environmentIsValid()) {
         cancel("environment-lost");
         return;
@@ -547,4 +732,46 @@ function scrollTargetFromEvent(event: Event, ownerDocument: Document): Element |
   if (event.target === ownerDocument) return ownerDocument;
   const ElementConstructor = ownerDocument.defaultView?.Element;
   return ElementConstructor && event.target instanceof ElementConstructor ? event.target : null;
+}
+
+function clientRectForElement(element: Element): MovementTargetRect | null {
+  if (!element.isConnected) return null;
+  const rect = element.getBoundingClientRect();
+  if (
+    !Number.isFinite(rect.width) ||
+    !Number.isFinite(rect.height) ||
+    rect.width <= 0 ||
+    rect.height <= 0
+  ) {
+    return null;
+  }
+  return Object.freeze({
+    bottom: rect.bottom,
+    height: rect.height,
+    left: rect.left,
+    right: rect.right,
+    top: rect.top,
+    width: rect.width,
+  });
+}
+
+function rectCenter(rect: MovementTargetRect): Readonly<{ x: number; y: number }> {
+  return Object.freeze({
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+  });
+}
+
+function directionalDelta(
+  origin: Readonly<{ x: number; y: number }>,
+  target: Readonly<{ x: number; y: number }>,
+  direction: MovementSpatialKeyboardDirection,
+): Readonly<{ primary: number; secondary: number }> | null {
+  const x = target.x - origin.x;
+  const y = target.y - origin.y;
+  const primary =
+    direction === "left" ? -x : direction === "right" ? x : direction === "up" ? -y : y;
+  if (primary <= 1) return null;
+  const secondary = direction === "left" || direction === "right" ? Math.abs(y) : Math.abs(x);
+  return Object.freeze({ primary, secondary });
 }

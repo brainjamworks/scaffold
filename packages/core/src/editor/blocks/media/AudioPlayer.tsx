@@ -4,16 +4,10 @@ import {
   SpeakerHighIcon as SpeakerHigh,
   SpeakerSlashIcon as SpeakerSlash,
 } from "@phosphor-icons/react";
-import { Button, IconButton, Slider } from "@radix-ui/themes";
-import {
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ComponentPropsWithoutRef,
-  type MouseEvent,
-} from "react";
+import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
+
+import { CourseButton, CourseIconButton } from "@/ui/components/course/CourseActions/CourseActions";
+import { CourseMediaSlider } from "@/ui/components/course/CourseInputs/CourseInputs";
 
 import "./AudioPlayer.css";
 
@@ -179,28 +173,27 @@ export function AudioPlayer({ src, title, onStarted, onEnded }: AudioPlayerProps
         aria-label={title ? `${title} controls` : "Audio player controls"}
         className="sc-course-audio-player__bar"
       >
-        <IconButton
+        <CourseIconButton
           type="button"
           onClick={togglePlay}
           aria-label={playing ? "Pause" : "Play"}
           className="sc-course-audio-player__play"
-          size="2"
-          variant="solid"
+          emphasis="strong"
         >
           {playing ? (
             <Pause size={14} weight="fill" aria-hidden />
           ) : (
             <Play size={14} weight="fill" aria-hidden />
           )}
-        </IconButton>
+        </CourseIconButton>
 
-        <AccessibleAudioSlider
+        <CourseMediaSlider
           min={0}
           max={duration || 0}
           step={1}
           value={duration > 0 ? [Math.min(currentTime, duration)] : []}
-          label="Seek"
-          valueText={seekValueText}
+          ariaLabel="Seek"
+          ariaValueText={seekValueText}
           onValueChange={(next) => onSeek(next[0] ?? 0)}
           className="sc-course-audio-player__progress"
         />
@@ -211,40 +204,40 @@ export function AudioPlayer({ src, title, onStarted, onEnded }: AudioPlayerProps
           {formatTime(duration)}
         </span>
 
-        <Button
+        <CourseButton
           type="button"
           onClick={cycleRate}
           aria-label={`Playback speed, ${rate}x`}
           className="sc-course-audio-player__rate"
-          size="1"
-          variant="ghost"
+          size="compact"
+          emphasis="quiet"
         >
           {rate}x
-        </Button>
+        </CourseButton>
 
         <div className="sc-course-audio-player__volume-group">
-          <IconButton
+          <CourseIconButton
             type="button"
             onClick={toggleMute}
             aria-label={muted ? "Unmute" : "Mute"}
             className="sc-course-audio-player__mute"
-            size="1"
-            variant="ghost"
+            size="compact"
+            emphasis="quiet"
           >
             {muted || volume === 0 ? (
               <SpeakerSlash size={14} weight="regular" aria-hidden />
             ) : (
               <SpeakerHigh size={14} weight="regular" aria-hidden />
             )}
-          </IconButton>
+          </CourseIconButton>
 
-          <AccessibleAudioSlider
+          <CourseMediaSlider
             min={0}
             max={1}
             step={0.05}
             value={[effectiveVolume]}
-            label="Volume"
-            valueText={volumeValueText}
+            ariaLabel="Volume"
+            ariaValueText={volumeValueText}
             onValueChange={(next) => onVolumeChange(next[0] ?? 0)}
             className="sc-course-audio-player__volume"
           />
@@ -252,25 +245,4 @@ export function AudioPlayer({ src, title, onStarted, onEnded }: AudioPlayerProps
       </div>
     </div>
   );
-}
-
-interface AccessibleAudioSliderProps extends Omit<
-  ComponentPropsWithoutRef<typeof Slider>,
-  "aria-label" | "aria-valuetext"
-> {
-  label: string;
-  valueText: string;
-}
-
-function AccessibleAudioSlider({ label, valueText, ...props }: AccessibleAudioSliderProps) {
-  const rootRef = useRef<HTMLSpanElement | null>(null);
-
-  useLayoutEffect(() => {
-    const thumb = rootRef.current?.querySelector<HTMLElement>('[role="slider"]');
-    if (!thumb) return;
-    thumb.setAttribute("aria-label", label);
-    thumb.setAttribute("aria-valuetext", valueText);
-  }, [label, valueText]);
-
-  return <Slider {...props} ref={rootRef} />;
 }

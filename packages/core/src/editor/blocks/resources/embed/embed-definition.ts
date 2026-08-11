@@ -1,7 +1,7 @@
 import { CodeIcon as Code } from "@phosphor-icons/react";
 import { EmbedAspectRatioSchema, EmbedDataSchema } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 
@@ -65,7 +65,7 @@ export const embedBlockDefinition = defineBlock({
     content: () => ({
       type: "embed",
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyEmbedData(),
       },
     }),

@@ -1,17 +1,24 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import type {
   ScaffoldAuthoringArtifact,
   ScaffoldAuthoringEntryHostServices,
 } from "@/host/contracts";
 import type { ScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
+import { useAuthoringColorMode } from "@/theme/state/authoring-color-mode";
+import { Button } from "@/ui/components/Button/Button";
+import { AppShellState } from "@/ui/components/app/AppShellState/AppShellState";
+import { Wordmark } from "@/ui/components/app/Mark/Mark";
+import { AuthoringColorModeButton } from "@/editor/shell/chrome/AuthoringColorModeButton";
 
 import {
   DocumentCreationGate,
-  type DocumentCreationMode,
+  type DocumentCreationRequest,
   type DocumentCreationState,
 } from "./DocumentCreationGate";
 import type { ScaffoldAuthoringAppProps } from "./ScaffoldAuthoringApp";
+import "./ScaffoldAuthoringEntry.css";
 
 type ReadyAuthoringCapability = typeof import("./ScaffoldAuthoringApp");
 type ArtifactCreationCapability = typeof import("./createAndPersistAuthoringArtifact");
@@ -49,19 +56,23 @@ export interface ScaffoldAuthoringEntryProps extends Omit<
 export function ScaffoldAuthoringEntry({
   application,
   artifact,
+  productAccess,
   services,
   ...appProps
 }: ScaffoldAuthoringEntryProps) {
   const [createdArtifactState, setCreatedArtifactState] = useState<{
     source: ScaffoldAuthoringArtifact | null;
-    artifact: ScaffoldAuthoringArtifact;
+    result: Awaited<ReturnType<ArtifactCreationCapability["createAndPersistAuthoringArtifact"]>>;
   } | null>(null);
   const [creationState, setCreationState] = useState<DocumentCreationState>("idle");
   const [readyCapability, setReadyCapability] = useState<ReadyAuthoringCapability | null>(null);
   const [failedCapability, setFailedCapability] = useState<FailedCapability | null>(null);
   const creationPendingRef = useRef(false);
-  const activeArtifact =
-    artifact ?? (createdArtifactState?.source === artifact ? createdArtifactState.artifact : null);
+  const activeCreation =
+    artifact === null && createdArtifactState?.source === artifact
+      ? createdArtifactState.result
+      : null;
+  const activeArtifact = artifact ?? activeCreation?.artifact ?? null;
 
   useEffect(() => {
     if (!activeArtifact || readyCapability || failedCapability) return;
@@ -79,7 +90,7 @@ export function ScaffoldAuthoringEntry({
   }, [activeArtifact, failedCapability, readyCapability]);
 
   const handleCreateDocument = useCallback(
-    (mode: DocumentCreationMode) => {
+    (request: DocumentCreationRequest) => {
       if (creationPendingRef.current) return;
       creationPendingRef.current = true;
       setCreationState("creating");
@@ -93,23 +104,24 @@ export function ScaffoldAuthoringEntry({
         .catch(() => {
           throw new CapabilityLoadError("ready_authoring");
         });
-      const creationPromise = loadArtifactCreationCapability()
-        .catch(() => {
-          throw new CapabilityLoadError("artifact_creation");
-        })
-        .then(({ createAndPersistAuthoringArtifact }) =>
+      const creationCapabilityPromise = loadArtifactCreationCapability().catch(() => {
+        throw new CapabilityLoadError("artifact_creation");
+      });
+      const creationPromise = Promise.all([readyPromise, creationCapabilityPromise])
+        .then(([readyAuthoring, { createAndPersistAuthoringArtifact }]) =>
           createAndPersistAuthoringArtifact({
-            mode,
+            ...request,
+            productAccess,
             services,
-            blockDefinitions: application.capabilities.blocks.registry,
+            authoringEnvironment: readyAuthoring.createScaffoldAuthoringAppEnvironment(application),
           }),
         )
-        .then((savedArtifact) => {
+        .then((result) => {
           setCreatedArtifactState({
             source: artifact,
-            artifact: savedArtifact,
+            result,
           });
-          return savedArtifact;
+          return result;
         });
 
       void Promise.all([readyPromise, creationPromise])
@@ -127,41 +139,76 @@ export function ScaffoldAuthoringEntry({
           creationPendingRef.current = false;
         });
     },
-    [application, artifact, services],
+    [application, artifact, productAccess, services],
   );
 
   if (failedCapability) {
-    return <ScaffoldAuthoringCapabilityUnavailable capability={failedCapability} />;
+    return (
+      <ScaffoldAuthoringEntryAppSurface>
+        <ScaffoldAuthoringCapabilityUnavailable capability={failedCapability} />
+      </ScaffoldAuthoringEntryAppSurface>
+    );
   }
 
   if (!activeArtifact) {
-    return <DocumentCreationGate onCreate={handleCreateDocument} state={creationState} />;
+    return (
+      <ScaffoldAuthoringEntryAppSurface>
+        <DocumentCreationGate onCreate={handleCreateDocument} state={creationState} />
+      </ScaffoldAuthoringEntryAppSurface>
+    );
   }
 
   if (!readyCapability) {
-    return <div role="status">Opening editor...</div>;
+    return (
+      <ScaffoldAuthoringEntryAppSurface>
+        <AppShellState kind="loading" title="Opening editor" />
+      </ScaffoldAuthoringEntryAppSurface>
+    );
   }
 
-  const { ScaffoldAuthoringApp } = readyCapability;
+  const { ScaffoldAuthoringAppForEntry } = readyCapability;
   return (
-    <ScaffoldAuthoringApp
+    <ScaffoldAuthoringAppForEntry
       {...appProps}
       application={application}
       artifact={activeArtifact}
+      initialSavedArtifactRevision={activeCreation?.artifactRevision ?? null}
+      productAccess={productAccess}
       services={services}
     />
   );
 }
 
-function ScaffoldAuthoringCapabilityUnavailable({ capability }: { capability: FailedCapability }) {
-  const capabilityLabel = capability === "ready_authoring" ? "editor" : "document creation";
+function ScaffoldAuthoringEntryAppSurface({ children }: { children: ReactNode }) {
+  const { mode, toggleMode } = useAuthoringColorMode();
   return (
-    <div role="alert">
-      <strong>Scaffold {capabilityLabel} could not be loaded.</strong>
-      <span>Reload this page to try again.</span>
-      <button type="button" onClick={() => window.location.reload()}>
-        Reload
-      </button>
-    </div>
+    <AppThemeProvider appearance={mode}>
+      <div className="sc-scaffold-authoring-entry-surface">
+        <header className="sc-scaffold-authoring-entry-surface__header">
+          <Wordmark markSize={28} surface={mode} />
+          <AuthoringColorModeButton mode={mode} onToggle={toggleMode} />
+        </header>
+        {children}
+      </div>
+    </AppThemeProvider>
+  );
+}
+
+function ScaffoldAuthoringCapabilityUnavailable({ capability }: { capability: FailedCapability }) {
+  const title =
+    capability === "ready_authoring"
+      ? "The editor couldn’t load"
+      : "Document creation couldn’t load";
+  return (
+    <AppShellState
+      action={
+        <Button variant="secondary" onClick={() => window.location.reload()}>
+          Reload page
+        </Button>
+      }
+      description="Reload this page to try again."
+      kind="error"
+      title={title}
+    />
   );
 }

@@ -7,8 +7,6 @@
   min-height: 100%;
   padding: var(--sc-surface-inset);
   overflow: hidden;
-  border-color: var(--color-border);
-  background: var(--color-background);
 }
 
 .sc-slide-layout-surface-view[data-slide-layout-proportion="equal"] {

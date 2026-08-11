@@ -5,7 +5,7 @@ import {
   CodeBlockLanguageSchema,
 } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 
@@ -58,7 +58,7 @@ export const codeBlockDefinition = defineBlock({
     content: () => ({
       type: CODE_BLOCK_NODE,
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyCodeBlockData(),
       },
       content: [{ type: CODE_BLOCK_BODY_NODE }],

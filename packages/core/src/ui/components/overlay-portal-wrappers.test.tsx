@@ -151,6 +151,33 @@ describe.each(portalFamilies)("$name owned portal", (family) => {
   });
 });
 
+describe("Tooltip.Content", () => {
+  it("can retain neutral overlay positioning without the generic tooltip skin", async () => {
+    render(
+      <Tooltip.Provider delayDuration={0}>
+        <Tooltip.Root open>
+          <Tooltip.Trigger>Unskinned tooltip trigger</Tooltip.Trigger>
+          <Tooltip.Portal forceMount>
+            <Tooltip.Content
+              className="course-tooltip"
+              data-testid="unskinned-tooltip"
+              presentation="unskinned"
+            >
+              Course tooltip
+            </Tooltip.Content>
+          </Tooltip.Portal>
+        </Tooltip.Root>
+      </Tooltip.Provider>,
+    );
+
+    const content = await screen.findByTestId("unskinned-tooltip");
+
+    expect(content.classList.contains("sc-overlay-positioned-content")).toBe(true);
+    expect(content.classList.contains("course-tooltip")).toBe(true);
+    expect(content.classList.contains("sc-tooltip")).toBe(false);
+  });
+});
+
 describe("SelectMenu.Content", () => {
   it("uses popper positioning when position is omitted", async () => {
     render(

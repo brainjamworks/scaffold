@@ -1,4 +1,4 @@
-import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
+import type { Editor as TiptapEditor } from "@tiptap/core";
 import { useMemo, useState } from "react";
 
 import { createViewportCoordinateSpace } from "@/editor/interactions/drag/dom/dom-coordinate-space";
@@ -7,23 +7,21 @@ import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 
 import {
-  CourseDocumentRuntimeRenderer,
-  type CourseDocumentRuntimeRendererProps,
+  PreparedCourseDocumentRuntimeRenderer,
+  type PreparedRuntimeDocument,
 } from "../../renderer/CourseDocumentRuntimeRenderer";
 import "./PagePlayer.css";
 
 export interface PagePlayerProps {
   artifactId?: string | null;
-  composition: CourseDocumentRuntimeRendererProps["composition"];
-  initialContent: JSONContent;
+  preparedDocument: PreparedRuntimeDocument;
   surfaceId: string;
   onRendererReady?: (editor: TiptapEditor) => void;
 }
 
 export function PagePlayer({
   artifactId,
-  composition,
-  initialContent,
+  preparedDocument,
   surfaceId,
   onRendererReady,
 }: PagePlayerProps) {
@@ -61,10 +59,9 @@ export function PagePlayer({
           coordinateSpace={coordinateSpace}
         >
           <div className="sc-page-player__content">
-            <CourseDocumentRuntimeRenderer
+            <PreparedCourseDocumentRuntimeRenderer
               artifactId={artifactId ?? null}
-              composition={composition}
-              initialContent={initialContent}
+              preparedDocument={preparedDocument}
               {...(onRendererReady ? { onReady: onRendererReady } : {})}
             />
           </div>

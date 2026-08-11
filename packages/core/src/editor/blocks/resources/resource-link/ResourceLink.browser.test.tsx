@@ -22,6 +22,48 @@ afterEach(() => {
 });
 
 describe("Resource Link presentation", () => {
+  it("themes the authoring kind selector from its active Course scope", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+
+    const root = createRoot(host);
+    mountedRoots.push(root);
+    root.render(
+      <AppThemeProvider appearance="light">
+        <main>
+          <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+            <div data-authoring-controls="light">
+              <KindPickerFixture />
+            </div>
+          </CourseThemeProvider>
+          <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="dark">
+            <div data-authoring-controls="dark">
+              <KindPickerFixture />
+            </div>
+          </CourseThemeProvider>
+        </main>
+      </AppThemeProvider>,
+    );
+
+    await waitForCondition(() => host.querySelectorAll('[role="radiogroup"]').length === 2);
+    const lightPicker = requiredElement<HTMLElement>(
+      host,
+      '[data-authoring-controls="light"] [role="radiogroup"]',
+    );
+    const darkPicker = requiredElement<HTMLElement>(
+      host,
+      '[data-authoring-controls="dark"] [role="radiogroup"]',
+    );
+
+    expect(lightPicker).toHaveClass("sc-course-resource-link__kind-picker");
+    expect(
+      host.querySelector('[class^="sc-app-resource-link"], [class*=" sc-app-resource-link"]'),
+    ).toBeNull();
+    expect(getComputedStyle(lightPicker).backgroundColor).not.toBe(
+      getComputedStyle(darkPicker).backgroundColor,
+    );
+  });
+
   it("keeps the Course card theme-aware and contained at narrow intrinsic widths", async () => {
     const host = document.createElement("div");
     host.style.width = "480px";

@@ -5,53 +5,36 @@ import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import {
   SCAFFOLD_DOCUMENT_FORMAT_VERSION,
   CourseDocumentAttrsSchema,
-  ScaffoldArtifactSchema,
+  CourseSectionTitleSchema,
   type CourseDocumentAttrs,
-  type ScaffoldArtifact,
   type CourseMode,
   type OverflowMode,
   type SurfaceSize,
 } from "@/schemas/course-document";
 import { getCourseDocumentDefaultsForMode } from "@/document/model/course-document-defaults";
-import { projectCourseStructure } from "@/document/model/course-structure";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { migrateCourseDocumentJSON } from "@/document/model/validation/migrations";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 
-export interface CreateScaffoldDocumentContentInput {
-  mode: CourseMode;
+interface CreateScaffoldDocumentContentOptions {
+  requiresScaffoldPlus?: boolean;
   surfaceSize?: SurfaceSize;
   overflowMode?: OverflowMode;
   surfaceId?: string;
 }
 
-export interface CreateScaffoldArtifactInput extends CreateScaffoldDocumentContentInput {
+export type CreateScaffoldDocumentContentInput = CreateScaffoldDocumentContentOptions &
+  (
+    | { mode: "slideshow"; initialCourseSectionTitle: string }
+    | {
+        mode: Exclude<CourseMode, "slideshow">;
+        initialCourseSectionTitle?: never;
+      }
+  );
+
+export type CreateScaffoldArtifactInput = CreateScaffoldDocumentContentInput & {
   id: string;
   title: string;
-}
-
-export type PreparedScaffoldArtifactValue = Omit<ScaffoldArtifact, "content"> & {
-  content: JSONContent;
 };
-
-export type ScaffoldUninitializedAuthoringBootstrap = Omit<ScaffoldArtifact, "content"> & {
-  content: null;
-};
-
-export type PreparedScaffoldArtifact =
-  | {
-      status: "ready";
-      artifact: PreparedScaffoldArtifactValue;
-      source: "stored";
-    }
-  | {
-      status: "uninitialized";
-      bootstrap: ScaffoldUninitializedAuthoringBootstrap;
-    }
-  | {
-      status: "error";
-      message: string;
-    };
 
 export function createScaffoldDocumentContent(
   input: CreateScaffoldDocumentContentInput,
@@ -60,6 +43,7 @@ export function createScaffoldDocumentContent(
   const courseDocumentId = createEmbeddedNodeId();
   const attrs = CourseDocumentAttrsSchema.parse({
     schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+    requiresScaffoldPlus: input.requiresScaffoldPlus ?? false,
     mode: defaults.mode,
     surfaceSize: input.surfaceSize ?? defaults.surfaceSize,
     overflowMode: input.overflowMode ?? defaults.overflowMode,
@@ -70,21 +54,46 @@ export function createScaffoldDocumentContent(
       ? createEmbeddedNodeId()
       : EmbeddedNodeIdSchema.parse(input.surfaceId);
 
+  const surface = builtInSurfaceVariantRegistry.createDefault({
+    mode: input.mode,
+    surfaceId,
+  });
+  assignCreatedNodeIds(surface);
+  const documentContent =
+    input.mode === "slideshow"
+      ? [
+          {
+            type: "courseSection",
+            attrs: {
+              id: createEmbeddedNodeId(),
+              title: CourseSectionTitleSchema.parse(input.initialCourseSectionTitle),
+            },
+          },
+          surface,
+        ]
+      : [surface];
+
   return {
     type: "doc",
     content: [
       {
         type: "courseDocument",
         attrs: { id: courseDocumentId, ...attrs },
-        content: [
-          builtInSurfaceVariantRegistry.createDefault({
-            mode: input.mode,
-            surfaceId,
-          }),
-        ],
+        content: documentContent,
       },
     ],
   };
+}
+
+function assignCreatedNodeIds(root: JSONContent): void {
+  const stack = [root];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node.type !== "doc" && node.type !== "text") {
+      node.attrs = { ...node.attrs, id: node.attrs?.["id"] ?? createEmbeddedNodeId() };
+    }
+    for (const child of node.content ?? []) stack.push(child);
+  }
 }
 
 export function readCourseDocumentAttrs(content: unknown): CourseDocumentAttrs | null {
@@ -110,16 +119,21 @@ export function createScaffoldArtifact({
   id,
   title,
   mode,
+  requiresScaffoldPlus,
   surfaceSize,
   overflowMode,
   surfaceId,
-}: CreateScaffoldArtifactInput): PreparedScaffoldArtifactValue {
+  ...input
+}: CreateScaffoldArtifactInput) {
   return {
     id,
     title,
     mode,
     content: createScaffoldDocumentContent({
-      mode,
+      ...(mode === "slideshow"
+        ? { mode, initialCourseSectionTitle: input.initialCourseSectionTitle }
+        : { mode }),
+      ...(requiresScaffoldPlus === undefined ? {} : { requiresScaffoldPlus }),
       ...(surfaceSize ? { surfaceSize } : {}),
       ...(overflowMode ? { overflowMode } : {}),
       ...(surfaceId !== undefined ? { surfaceId } : {}),
@@ -127,66 +141,10 @@ export function createScaffoldArtifact({
   };
 }
 
-export function prepareScaffoldArtifactForAuthoring(value: unknown): PreparedScaffoldArtifact {
-  const parsedArtifact = ScaffoldArtifactSchema.safeParse(value);
-  if (!parsedArtifact.success) {
-    return {
-      status: "error",
-      message: parsedArtifact.error.message,
-    };
-  }
-
-  const artifact = parsedArtifact.data;
-  if (artifact.content === null) {
-    return {
-      status: "uninitialized",
-      bootstrap: { ...artifact, content: null },
-    };
-  }
-
-  const migration = migrateCourseDocumentJSON(artifact.content);
-  if (!migration.ok) {
-    return {
-      status: "error",
-      message: migration.message,
-    };
-  }
-
-  const attrs = readCourseDocumentAttrs(migration.document);
-  if (!attrs) {
-    return {
-      status: "error",
-      message: "Scaffold artifact content is missing courseDocument attrs.",
-    };
-  }
-
-  if (attrs.mode !== artifact.mode) {
-    return {
-      status: "error",
-      message: `Scaffold artifact mode "${artifact.mode}" does not match content mode "${attrs.mode}".`,
-    };
-  }
-
-  if (!projectCourseStructure(migration.document)) {
-    return {
-      status: "error",
-      message: "Scaffold artifact content has invalid Course Structure.",
-    };
-  }
-
-  return {
-    status: "ready",
-    artifact: {
-      ...artifact,
-      content: migration.document,
-    },
-    source: "stored",
-  };
-}
-
 export {
   ScaffoldArtifactSchema,
   CourseDocumentAttrsSchema,
+  CourseSectionTitleSchema,
   ScaffoldDocumentContentSchema,
   CourseModeSchema,
   OverflowModeSchema,

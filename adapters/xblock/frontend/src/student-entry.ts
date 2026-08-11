@@ -20,12 +20,12 @@ export function renderBlock(
   }
 
   runtime.element = handlerElement;
-  const bootstrapGradeDelivery = xblockPost(
-    runtime,
-    handlerElement,
-    "retry_assessment_grade_delivery",
-    {},
-  ).catch(() => undefined);
+  const accessAllowed = data.artifactAccess.status === "supported";
+  const bootstrapGradeDelivery = accessAllowed
+    ? xblockPost(runtime, handlerElement, "retry_assessment_grade_delivery", {}).catch(
+        () => undefined,
+      )
+    : Promise.resolve();
 
   const sessionId = createXBlockSessionId();
   const initPayload = buildXBlockInnerInitPayload({
@@ -42,8 +42,15 @@ export function renderBlock(
     minHeight: 0,
     initPayload,
     onRequest(request, frame) {
+      if (!accessAllowed) {
+        frame.sendFailureResponse({
+          requestId: request.requestId,
+          error: toBridgeError(new Error("Scaffold content access is unavailable.")),
+        });
+        return;
+      }
       void bootstrapGradeDelivery.then(() =>
-        respondToRequest(request, frame, runtime, handlerElement, data.artifact.id),
+        respondToRequest(request, frame, runtime, handlerElement, data.artifactAccess.artifact.id),
       );
     },
   });

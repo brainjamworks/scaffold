@@ -1,4 +1,27 @@
 @layer sc-components {
+  .sc-document-outline-add-section {
+    width: fit-content;
+    margin: 0.5rem 0.75rem;
+    border: 0;
+    border-radius: var(--radius-sm);
+    padding: 0.375rem 0.5rem;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.8125rem;
+  }
+
+  .sc-document-outline-add-section:hover {
+    background: var(--color-muted);
+    color: var(--color-text-primary);
+  }
+
+  .sc-document-outline-add-section:focus-visible {
+    outline: 2px solid var(--color-focus-outline);
+    outline-offset: 1px;
+  }
+
   .sc-document-outline-content {
     min-width: 0;
     color: var(--color-text-primary);
@@ -12,15 +35,17 @@
   }
 
   .sc-document-outline-row {
+    position: relative;
     display: flex;
+    height: 2.75rem;
     min-width: 0;
-    min-height: 2.25rem;
+    min-height: 2.75rem;
     align-items: center;
     border-radius: var(--radius-sm);
     color: var(--color-text-secondary);
     cursor: default;
     outline: none;
-    padding-block: 0.25rem;
+    padding-block: 0;
     padding-inline-end: 0.5rem;
   }
 
@@ -46,9 +71,9 @@
   .sc-document-outline-disclosure,
   .sc-document-outline-disclosure-placeholder {
     display: grid;
-    width: 1.75rem;
-    height: 1.75rem;
-    flex: 0 0 1.75rem;
+    width: 2rem;
+    height: 2rem;
+    flex: 0 0 2rem;
     place-items: center;
   }
 
@@ -78,6 +103,7 @@
     flex: 1 1 auto;
     flex-direction: column;
     gap: 0.125rem;
+    margin-inline-start: 0.25rem;
   }
 
   .sc-document-outline-row-label {
@@ -98,6 +124,208 @@
     line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .sc-document-outline-rename,
+  .sc-document-outline-actions-trigger,
+  .sc-document-outline-rename-input {
+    flex: 0 0 auto;
+  }
+
+  .sc-document-outline-rename {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: currentColor;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .sc-document-outline-actions-trigger {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    flex: 0 0 2rem;
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: currentColor;
+    cursor: pointer;
+  }
+
+  .sc-document-outline-actions-trigger:hover {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  .sc-document-outline-drag-handle {
+    display: grid;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: 0 0 1.75rem;
+    place-items: center;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: currentColor;
+    cursor: grab;
+    opacity: 0;
+    transition: opacity 120ms var(--ease-out-soft);
+  }
+
+  .sc-document-outline-row:hover > .sc-document-outline-drag-handle,
+  .sc-document-outline-row:focus-within > .sc-document-outline-drag-handle,
+  .sc-document-outline-drag-handle[data-dragging="true"] {
+    opacity: 1;
+  }
+
+  .sc-document-outline-drag-handle:hover {
+    color: var(--color-primary);
+  }
+
+  .sc-document-outline-drag-handle:focus-visible {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  .sc-document-outline-drop-target {
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+
+  .sc-document-outline-drop-target--insertion {
+    position: absolute;
+    height: 0.5rem;
+    inset-inline-start: calc((var(--sc-document-outline-level) - 1) * 0.875rem + 2.25rem);
+    inset-inline-end: 0.5rem;
+    z-index: 1;
+  }
+
+  .sc-document-outline-drop-target--insertion[data-destination^="before:"] {
+    top: -0.25rem;
+  }
+
+  .sc-document-outline-drop-target--insertion[data-destination^="after:"] {
+    bottom: -0.25rem;
+  }
+
+  .sc-document-outline-row:has(
+    > .sc-document-outline-drop-target--insertion[data-active="true"][data-destination^="before:"]
+  ) {
+    margin-block-start: 1.75rem;
+  }
+
+  .sc-document-outline-row:has(
+    > .sc-document-outline-drop-target--insertion[data-active="true"][data-destination^="after:"]
+  ) {
+    margin-block-end: 1.75rem;
+  }
+
+  .sc-document-outline-drop-target--insertion[data-active="true"][data-destination^="before:"] {
+    top: -1.625rem;
+  }
+
+  .sc-document-outline-drop-target--insertion[data-active="true"][data-destination^="after:"] {
+    bottom: -1.625rem;
+  }
+
+  .sc-document-outline-drop-target--section {
+    position: relative;
+    display: block;
+    height: 0.25rem;
+    margin-block: -0.125rem;
+    margin-inline-start: calc((var(--sc-document-outline-level) - 1) * 0.875rem + 2.25rem);
+    margin-inline-end: 0.5rem;
+  }
+
+  .sc-document-outline-drop-target[data-active="true"] {
+    height: 1.5rem;
+  }
+
+  .sc-document-outline-drop-target[data-active="true"]::before {
+    position: absolute;
+    inset-inline: 0;
+    top: calc(50% - 0.5px);
+    height: 1px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-primary) 58%, transparent);
+    content: "";
+  }
+
+  .sc-document-outline-drop-target[data-active="true"]::after {
+    position: absolute;
+    inset-inline-start: 0;
+    top: calc(50% - 2px);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    content: "";
+  }
+
+  .sc-document-outline-drop-target--section[data-active="true"] {
+    margin-block: 0.125rem;
+  }
+
+  .sc-document-outline-actions-menu {
+    min-width: 13rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-lg);
+    padding: 0.25rem;
+  }
+
+  .sc-document-outline-actions-item {
+    border-radius: var(--radius-sm);
+    cursor: default;
+    font-size: 0.8125rem;
+    outline: none;
+    padding: 0.5rem 0.625rem;
+  }
+
+  .sc-document-outline-actions-item[data-highlighted] {
+    background: var(--color-muted);
+  }
+
+  .sc-document-outline-actions-item--danger {
+    color: var(--color-danger, var(--color-text-primary));
+  }
+
+  .sc-document-outline-dialog-form {
+    display: contents;
+  }
+
+  .sc-document-outline-section-list {
+    display: grid;
+    gap: 0.375rem;
+    margin: 0;
+    padding-inline-start: 1.25rem;
+    color: var(--sc-app-color-text-secondary);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  .sc-document-outline-row:hover .sc-document-outline-rename,
+  .sc-document-outline-row:focus .sc-document-outline-rename,
+  .sc-document-outline-row:focus-within .sc-document-outline-rename {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .sc-document-outline-rename:hover {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  .sc-document-outline-rename-input {
+    width: 100%;
+    min-width: 0;
+    height: 1.75rem;
+    font-size: 0.8125rem;
   }
 
   .sc-document-outline-diagnostic {
@@ -127,6 +355,19 @@
     line-height: 1.35;
   }
 
+  .sc-document-outline-status--visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    min-height: 0;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
   .sc-document-outline-empty {
     display: grid;
     min-height: 12rem;
@@ -144,8 +385,15 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .sc-document-outline-disclosure svg {
+    .sc-document-outline-disclosure svg,
+    .sc-document-outline-drag-handle {
       transition: none;
+    }
+  }
+
+  @media (pointer: coarse) {
+    .sc-document-outline-drag-handle {
+      opacity: 1;
     }
   }
 }

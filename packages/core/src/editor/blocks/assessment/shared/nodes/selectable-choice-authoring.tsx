@@ -12,6 +12,10 @@ import { richTextDocumentToAssessmentFeedback } from "../model/private-assessmen
 import { deleteAssessmentChoice } from "../model/delete-assessment-choice";
 import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
+import {
+  createAuthoringContainedReorderProjection,
+  resolveAuthoringNodeViewSiblingElements,
+} from "@/editor/movement/view/authoring-contained-reorder-projection";
 import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
@@ -46,6 +50,19 @@ export const SelectableChoiceAuthoringNode = createSelectableChoiceNode({
 
 function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
   const presentationRef = useRef<HTMLDivElement | null>(null);
+  const reorderProjection = useMemo(
+    () =>
+      createAuthoringContainedReorderProjection({
+        axis: "vertical",
+        getSiblingElements: (sourceElement) =>
+          resolveAuthoringNodeViewSiblingElements(
+            sourceElement,
+            (element) => element.getAttribute("data-node") === "selectable-choice",
+          ),
+        getSourceElement: () => presentationRef.current,
+      }),
+    [],
+  );
   const parsed = SelectableChoiceAttrsSchema.safeParse(props.node.attrs);
   const attrs: SelectableChoiceAttrs = parsed.success ? parsed.data : { id: "" };
   const popoverId = useId();
@@ -209,6 +226,7 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
             getPresentationElement={() => presentationRef.current}
             getSourcePos={() => safeGetPos(props.getPos)}
             label="choice"
+            projection={reorderProjection}
             sourceKey={attrs.id}
             sourcePos={pos}
             className="sc-app-contained-movement-handle--row-offset"

@@ -209,6 +209,78 @@ describe("movement target index controller", () => {
     controller.dispose();
   });
 
+  it("navigates owner-enabled contained targets spatially across parents", () => {
+    const sourceParent = { childCount: 2 } as MovementNodeContext["parent"];
+    const targetParent = { childCount: 2 } as MovementNodeContext["parent"];
+    const source = { ...context(1, "source"), index: 0, parent: sourceParent, parentPos: 5 };
+    const belowContext = {
+      ...context(2, "below"),
+      index: 1,
+      parent: sourceParent,
+      parentPos: 5,
+    };
+    const rightContext = {
+      ...context(3, "right"),
+      index: 0,
+      parent: targetParent,
+      parentPos: 50,
+    };
+    const below = containedDescriptor(belowContext);
+    const right = containedDescriptor(rightContext);
+    document.body.append(below.element, right.element);
+    vi.spyOn(below.element, "getBoundingClientRect").mockReturnValue(
+      DOMRect.fromRect({ height: 60, width: 120, x: 20, y: 120 }),
+    );
+    vi.spyOn(right.element, "getBoundingClientRect").mockReturnValue(
+      DOMRect.fromRect({ height: 60, width: 120, x: 220, y: 20 }),
+    );
+    const canNavigateContainedKeyboard = vi.fn(
+      (
+        _source: MovementNodeContext,
+        current: MovementNodeContext,
+        target: MovementNodeContext,
+        direction: "down" | "left" | "right" | "up",
+      ) =>
+        direction === "up" || direction === "down"
+          ? current.parentPos === target.parentPos
+          : current.parentPos !== target.parentPos,
+    );
+    const controller = createMovementTargetIndexController(
+      controllerOptions({
+        canNavigateContainedKeyboard,
+        discoverDescriptors: ({ documentRevision }) => ({
+          descriptors: [below, right],
+          documentRevision,
+        }),
+        measureEntries: () => [
+          {
+            ...entry(below, 120),
+            rect: {
+              measuredRect: createClientRectSnapshot(20, 120, 120, 60)!,
+              scrollAncestors: [],
+            },
+          },
+          {
+            ...entry(right, 20),
+            rect: {
+              measuredRect: createClientRectSnapshot(220, 20, 120, 60)!,
+              scrollAncestors: [],
+            },
+          },
+        ],
+        resolveKeyboardOrigin: () => ({ x: 80, y: 50 }),
+        resolveSource: () => ({ context: source, kind: "contained" as const }),
+      }),
+    );
+
+    controller.start(null);
+
+    expect(controller.moveKeyboardSpatial("down")?.candidate?.target.pos).toBe(2);
+    expect(controller.moveKeyboardSpatial("right")?.candidate?.target.pos).toBe(3);
+    expect(canNavigateContainedKeyboard).toHaveBeenCalled();
+    controller.dispose();
+  });
+
   it("re-queries a stationary pointer from tracked scroll offsets", () => {
     const scroller = document.createElement("div");
     document.body.append(scroller);

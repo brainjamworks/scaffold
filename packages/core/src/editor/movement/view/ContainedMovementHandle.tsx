@@ -14,6 +14,8 @@ import {
   AUTHORING_MOVEMENT_ACTIVATION_ID_ATTR,
   authoringMovementSnapshotChromeAttributes,
   useAuthoringMovementDragSource,
+  type AuthoringContainedMovementStrategy,
+  type AuthoringContainedMovementProjection,
 } from "./authoring-movement-presentation";
 import { CONTAINED_MOVEMENT_HANDLE_ATTR } from "./movement-dom";
 import "./movement-handles.css";
@@ -24,8 +26,10 @@ export interface ContainedMovementHandleProps {
   getPresentationElement: () => HTMLElement | null;
   getSourcePos?: () => number | null | undefined;
   label: string;
+  projection?: AuthoringContainedMovementProjection;
   sourceKey?: string | number | null;
   sourcePos: number | null | undefined;
+  strategy?: AuthoringContainedMovementStrategy;
 }
 
 export function ContainedMovementHandle({
@@ -34,14 +38,19 @@ export function ContainedMovementHandle({
   getPresentationElement,
   getSourcePos,
   label,
+  projection,
   sourceKey,
   sourcePos,
+  strategy,
 }: ContainedMovementHandleProps) {
   const disabled = !isValidSourcePos(sourcePos);
   const descriptionId = useId();
   const draggableKey =
     sourceKey !== null && sourceKey !== undefined && sourceKey !== "" ? sourceKey : sourcePos;
-  const accessibleLabel = `Move ${label} within its group`;
+  const spatial = strategy?.keyboardNavigation === "spatial";
+  const accessibleLabel = spatial
+    ? `Move ${label} between groups`
+    : `Move ${label} within its group`;
   const drag = useAuthoringMovementDragSource({
     axis,
     containedMovement: true,
@@ -50,7 +59,9 @@ export function ContainedMovementHandle({
     ...(getSourcePos ? { getSourcePos } : {}),
     id: `scaffold-contained-movement-${draggableKey ?? "missing"}`,
     label,
+    ...(projection ? { projection } : {}),
     sourcePos,
+    ...(strategy ? { strategy } : {}),
   });
 
   const backwardKey = axis === "horizontal" ? "ArrowLeft" : "ArrowUp";
@@ -62,7 +73,11 @@ export function ContainedMovementHandle({
     <InteractionDragActivationArea
       ref={drag.handleRef}
       aria-describedby={descriptionId}
-      aria-keyshortcuts={`Space Enter ${backwardKey} ${forwardKey} Escape`}
+      aria-keyshortcuts={
+        spatial
+          ? "Space Enter ArrowUp ArrowDown ArrowLeft ArrowRight Escape"
+          : `Space Enter ${backwardKey} ${forwardKey} Escape`
+      }
       aria-label={accessibleLabel}
       contentEditable={false}
       {...authoringChromeAttributes(AuthoringChromeKind.Handle)}
@@ -82,9 +97,18 @@ export function ContainedMovementHandle({
       )}
     >
       <span id={descriptionId} className="sc-sr-only">
-        Press Space or Enter to pick up this {label}. Use Arrow {backwardLabel} or Arrow{" "}
-        {forwardLabel} to choose a destination within its group. Press Space or Enter to drop, or
-        Escape to cancel.
+        {spatial ? (
+          <>
+            Press Space or Enter to pick up this {label}. Use the Arrow keys to choose a destination
+            within or between groups. Press Space or Enter to drop, or Escape to cancel.
+          </>
+        ) : (
+          <>
+            Press Space or Enter to pick up this {label}. Use Arrow {backwardLabel} or Arrow{" "}
+            {forwardLabel} to choose a destination within its group. Press Space or Enter to drop,
+            or Escape to cancel.
+          </>
+        )}
       </span>
       <span
         aria-hidden

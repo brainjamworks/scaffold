@@ -61,7 +61,7 @@ $PAGE->set_context($context);
 
 $rootid = html_writer::random_id('scaffold-moodle-');
 $bundleurl = (new moodle_url('/mod/scaffold/public/moodle-ui.js'))->out(false);
-$innerurl = (new moodle_url('/mod/scaffold/public/moodle-inner.html'))->out(false);
+$innerurl = (new moodle_url('/mod/scaffold/public/moodle-learner-inner.html'))->out(false);
 $PAGE->requires->js_call_amd('mod_scaffold/bootstrap', 'init', [
     $rootid,
     [

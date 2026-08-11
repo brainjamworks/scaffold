@@ -8,6 +8,7 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { createAlignmentTargetPort } from "@/editor/interactions/alignment/alignment-target";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
@@ -155,6 +156,7 @@ describe("chapter epigraph presentation", () => {
     );
     const alignmentTargetPort = createAlignmentTargetPort({
       blockDefinitions: builtInBlockRegistry,
+      layoutDefinitions: builtInLayoutRegistry,
       surfaceVariants: builtInSurfaceVariantRegistry,
     });
 

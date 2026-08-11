@@ -73,14 +73,7 @@
   .sc-app-contained-movement-handle {
     flex-shrink: 0;
     color: var(--sc-app-color-text-muted);
-    opacity: 0;
-  }
-
-  [data-contained-movement-target]:hover
-    .sc-app-contained-movement-handle:not(.sc-app-movement-handle--disabled),
-  [data-contained-movement-target]:focus-within
-    .sc-app-contained-movement-handle:not(.sc-app-movement-handle--disabled) {
-    opacity: 0.5;
+    opacity: 1;
   }
 
   .sc-app-contained-movement-handle:hover:not(.sc-app-movement-handle--disabled),
@@ -133,6 +126,10 @@
   [data-authoring-movement-silhouette]::before,
   [data-authoring-movement-silhouette]::after {
     visibility: hidden !important;
+  }
+
+  [data-authoring-movement-silhouette] [data-authoring-movement-silhouette-surface] {
+    visibility: visible !important;
   }
 
   @media (prefers-reduced-motion: reduce) {

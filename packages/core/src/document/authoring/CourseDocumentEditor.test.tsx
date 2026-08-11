@@ -7,7 +7,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { createElement, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
-import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
+import { EmbeddedNodeIdSchema, McqSettingsSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import {
@@ -24,7 +24,7 @@ import { createScaffoldDocumentContent } from "@/format/artifact";
 import { setCourseDesignOverride } from "@/theme/authoring/course-theme-commands";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { builtInCourseDesignThemeRegistry } from "@/theme/course/designs/registry";
-import { CourseDocumentEditor } from "./CourseDocumentEditor";
+import { CourseDocumentEditor } from "./CourseDocumentEditor.test-harness";
 
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 const FIRST_SLIDE_ID = createEmbeddedNodeId();
@@ -93,15 +93,16 @@ describe("CourseDocumentEditor", () => {
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
   });
 
-  it("reports document changes without serializing the editor", async () => {
+  it("canonicalizes portable document changes before reporting them", async () => {
     const content = createInitializedDocument();
     const onChange = vi.fn();
     const onReady = vi.fn();
+    const onUpdate = vi.fn();
 
     render(
       createElement(CourseDocumentEditor, {
         composition: coreAuthoringComposition,
-        source: { mode: "document", content },
+        source: { mode: "document", content, onUpdate },
         onChange,
         onReady,
       }),
@@ -116,7 +117,8 @@ describe("CourseDocumentEditor", () => {
     editor.commands.insertContent("a");
 
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(editor));
-    expect(getJSON).not.toHaveBeenCalled();
+    expect(getJSON).toHaveBeenCalled();
+    expect(onUpdate).toHaveBeenLastCalledWith(expect.objectContaining({ type: "doc" }), []);
   });
 
   it("preserves redo after undoing a course theme change", async () => {
@@ -192,7 +194,7 @@ describe("CourseDocumentEditor", () => {
     );
     expect(uniqueIdExtension?.options.types).toBe("all");
     expect(uniqueIdExtension?.options.updateDocument).toBe(true);
-    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ type: "doc" }));
+    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ type: "doc" }), []);
   });
 
   it("renders initialized slideshow documents in slideshow mode", async () => {
@@ -497,8 +499,8 @@ describe("CourseDocumentEditor", () => {
       caption: richTextDocument("Shared authoring caption"),
     });
     expect(gallery?.content?.map((item: JSONContent) => item.attrs?.["id"])).toEqual([
-      "gallery-item-1",
-      "gallery-item-2",
+      "galitem00001",
+      "galitem00002",
     ]);
     expect(JSON.stringify(gallery)).not.toContain("showCaptions");
   });
@@ -631,7 +633,7 @@ function PrivateSurfaceView() {
 }
 
 function authoringDocumentWithMcq(): JSONContent {
-  return {
+  return withCurrentNodeIds({
     type: "doc",
     content: [
       {
@@ -639,6 +641,7 @@ function authoringDocumentWithMcq(): JSONContent {
         attrs: {
           id: createEmbeddedNodeId(),
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+          requiresScaffoldPlus: false,
           mode: "page",
           surfaceSize: "fluid",
           overflowMode: "grow",
@@ -653,8 +656,9 @@ function authoringDocumentWithMcq(): JSONContent {
                 type: "mcq",
                 attrs: {
                   id: MCQ_BLOCK_ID,
+                  settings: McqSettingsSchema.parse({}),
                   assessment: {
-                    correctOptionId: "choice-a",
+                    correctOptionId: "choice000001",
                     summaryFeedback: null,
                     choiceFeedback: {},
                   },
@@ -682,7 +686,7 @@ function authoringDocumentWithMcq(): JSONContent {
                     content: [
                       {
                         type: "selectable_choice",
-                        attrs: { id: "choice-a" },
+                        attrs: { id: "choice000001" },
                         content: [
                           {
                             type: "selectable_choice_body",
@@ -697,7 +701,7 @@ function authoringDocumentWithMcq(): JSONContent {
                       },
                       {
                         type: "selectable_choice",
-                        attrs: { id: "choice-b" },
+                        attrs: { id: "choice000002" },
                         content: [
                           {
                             type: "selectable_choice_body",
@@ -739,11 +743,11 @@ function authoringDocumentWithMcq(): JSONContent {
         ],
       },
     ],
-  };
+  });
 }
 
 function authoringDocumentWithGallery(): JSONContent {
-  return {
+  return withCurrentNodeIds({
     type: "doc",
     content: [
       {
@@ -751,6 +755,7 @@ function authoringDocumentWithGallery(): JSONContent {
         attrs: {
           id: createEmbeddedNodeId(),
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+          requiresScaffoldPlus: false,
           mode: "page",
           surfaceSize: "fluid",
           overflowMode: "grow",
@@ -772,8 +777,8 @@ function authoringDocumentWithGallery(): JSONContent {
                   },
                 },
                 content: [
-                  galleryItem("gallery-item-1", "First gallery image", "first.jpg"),
-                  galleryItem("gallery-item-2", "Second gallery image", "second.jpg"),
+                  galleryItem("galitem00001", "First gallery image", "first.jpg"),
+                  galleryItem("galitem00002", "Second gallery image", "second.jpg"),
                 ],
               },
             ],
@@ -781,7 +786,7 @@ function authoringDocumentWithGallery(): JSONContent {
         ],
       },
     ],
-  };
+  });
 }
 
 function galleryItem(id: string, alt: string, fileName: string): JSONContent {
@@ -805,7 +810,7 @@ function richTextDocument(text: string): JSONContent {
 }
 
 function authoringSlideshowDocument(surfaceIds: EmbeddedNodeId[]): JSONContent {
-  return {
+  return withCurrentNodeIds({
     type: "doc",
     content: [
       {
@@ -813,6 +818,7 @@ function authoringSlideshowDocument(surfaceIds: EmbeddedNodeId[]): JSONContent {
         attrs: {
           id: createEmbeddedNodeId(),
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+          requiresScaffoldPlus: false,
           mode: "slideshow",
           surfaceSize: "16x9",
           overflowMode: "clip",
@@ -823,7 +829,19 @@ function authoringSlideshowDocument(surfaceIds: EmbeddedNodeId[]): JSONContent {
         ),
       },
     ],
-  };
+  });
+}
+
+function withCurrentNodeIds(document: JSONContent): JSONContent {
+  const pending = [document];
+  while (pending.length > 0) {
+    const node = pending.pop()!;
+    if (node.type !== "doc" && node.type !== "text" && node.attrs?.["id"] === undefined) {
+      node.attrs = { ...node.attrs, id: createEmbeddedNodeId() };
+    }
+    pending.push(...(node.content ?? []));
+  }
+  return document;
 }
 
 function courseSection(id: EmbeddedNodeId, title: string): JSONContent {

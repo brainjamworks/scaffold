@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 import { categoriseBlockDefinition } from "./categorise/categorise-definition";
 import { dropdownBlockDefinition } from "./dropdown/dropdown-definition";
 import { fillBlanksBlockDefinition } from "./fill-blanks/fill-blanks-definition";
@@ -53,10 +54,14 @@ const assessmentDefinitions = [
 ];
 
 describe("assessment block definitions", () => {
+  const blockDuplications = createScaffoldApplication().capabilities.blocks.duplication;
+
   it.each(assessmentDefinitions)(
-    "$definition.nodeType explicitly owns copied private identity repair",
+    "$definition.nodeType registers private identity repair on its mounted capability",
     ({ definition }) => {
-      expect(definition.rewriteCopiedContent).toEqual(expect.any(Function));
+      expect(blockDuplications.getByNodeType(definition.nodeType)).toEqual(expect.any(Function));
+      expect(definition).not.toHaveProperty("duplication");
+      expect(definition).not.toHaveProperty("rewriteCopiedContent");
     },
   );
 

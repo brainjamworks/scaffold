@@ -3,7 +3,8 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { JSONContent } from "@tiptap/core";
-import type { ReactNode } from "react";
+import { McqSettingsSchema } from "@scaffold/contracts";
+import { StrictMode, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   createScaffoldApplication,
@@ -15,8 +16,17 @@ import { McqAuthoringExtension } from "@/editor/blocks/assessment/mcq/mcq-author
 import { McqRuntimeExtension } from "@/editor/blocks/assessment/mcq/mcq-runtime-extension";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/ScaffoldUnavailableAgentIntegration";
-import type { ScaffoldAgentIntegration } from "@/editor/shell/agent/agent-integration";
-import type { ArtifactSaveBundle } from "@/host/ports";
+import {
+  getCourseDocumentAuthoringMountState,
+  type CourseDocumentAuthoringMount,
+} from "@/document/authoring/prepared-authoring-mount";
+import type {
+  ArtifactSavePayload,
+  ArtifactSaveResult,
+  LearnerPublicationPayload,
+  LearnerPublicationPort,
+} from "@/host/ports";
+import type { ScaffoldAuthoringHostServices } from "@/host/contracts";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 const mocks = vi.hoisted(() => {
@@ -38,7 +48,7 @@ const mocks = vi.hoisted(() => {
     learnerAppProps: [] as Array<Record<string, unknown>>,
     contentAuthorHostProps: [] as Array<Record<string, unknown>>,
     contentAuthorHostRenderCount: 0,
-    savedBundles: [] as Array<ArtifactSaveBundle>,
+    savedBundles: [] as Array<ArtifactSavePayload>,
   };
 });
 
@@ -58,8 +68,28 @@ vi.mock("@/editor/shell/chrome/Header", async () => {
   const { createElement } = await import("react");
 
   return {
-    Header: ({ actions, title }: { actions?: ReactNode; title: string }) =>
-      createElement("header", null, createElement("h1", null, title), actions),
+    Header: ({
+      actions,
+      onTitleChange,
+      saveState,
+      title,
+    }: {
+      actions?: ReactNode;
+      onTitleChange?: (title: string) => void;
+      saveState?: string;
+      title: string;
+    }) =>
+      createElement(
+        "header",
+        { "data-save-state": saveState },
+        createElement("h1", null, title),
+        createElement(
+          "button",
+          { type: "button", onClick: () => onTitleChange?.("Changed title") },
+          "Change title",
+        ),
+        actions,
+      ),
   };
 });
 
@@ -93,26 +123,28 @@ vi.mock("./ContentAuthorHost", async () => {
       agentIntegration,
       agentOpen,
       authoringNavigatorDock,
-      content,
-      composition,
+      mount,
       onAgentClose,
       onChange,
       onEditorReady,
+      onDocumentError,
       leftRail,
       onUpdate,
+      onUnavailableContentChange,
       rightRail,
       courseAppearance,
     }: {
       agentIntegration?: unknown;
       agentOpen?: boolean;
       authoringNavigatorDock?: (editor: unknown) => ReactNode;
-      content?: unknown;
-      composition?: unknown;
+      mount?: CourseDocumentAuthoringMount;
       onAgentClose?: () => void;
       onChange?: (editor: unknown) => void;
       onEditorReady?: (editor: unknown) => void;
+      onDocumentError?: (failure: unknown) => void;
       leftRail?: (editor: unknown) => ReactNode;
       onUpdate?: (content: unknown) => void;
+      onUnavailableContentChange?: (content: unknown) => void;
       rightRail?: (editor: unknown) => ReactNode;
       courseAppearance?: unknown;
     }) => {
@@ -121,12 +153,13 @@ vi.mock("./ContentAuthorHost", async () => {
         agentIntegration,
         agentOpen,
         authoringNavigatorDock,
-        content,
-        composition,
+        mount,
         leftRail,
         onAgentClose,
         onChange,
+        onDocumentError,
         onUpdate,
+        onUnavailableContentChange,
         courseAppearance,
         rightRail,
       });
@@ -180,6 +213,7 @@ const coreMcqDefinition = builtInBlockRegistry.getByNodeType("mcq");
 if (!coreMcqDefinition?.capabilities?.assessment || !coreMcqDefinition.insert) {
   throw new Error("expected installed Core MCQ definition");
 }
+const coreMcqInsert = coreMcqDefinition.insert;
 const privateAssessmentDefinition = defineBlock({
   ...coreMcqDefinition,
   nodeType: PRIVATE_ASSESSMENT_NODE_TYPE,
@@ -233,11 +267,72 @@ Object.assign(mocks.fakeEditor.storage, {
   }),
 });
 
-import { ScaffoldAuthoringApp } from "./ScaffoldAuthoringApp";
+import {
+  ScaffoldAuthoringApp as PublicScaffoldAuthoringApp,
+  type ScaffoldAuthoringHeaderActionsContext,
+  type ScaffoldAuthoringAppProps,
+} from "./ScaffoldAuthoringApp";
 import { ScaffoldAuthoringEntry } from "./ScaffoldAuthoringEntry";
+
+const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
+const plusProductAccess = { scaffoldPlusAuthorized: true } as const;
+
+function ScaffoldAuthoringApp(
+  props: Omit<ScaffoldAuthoringAppProps, "productAccess" | "services"> & {
+    readonly productAccess?: ScaffoldAuthoringAppProps["productAccess"];
+    readonly services: Omit<
+      ScaffoldAuthoringHostServices,
+      "artifactPersistence" | "learnerPublication"
+    > & {
+      readonly artifactPersistence: {
+        readonly saveArtifact: (payload: ArtifactSavePayload) => Promise<unknown>;
+      };
+      readonly learnerPublication?: LearnerPublicationPort;
+    };
+  },
+) {
+  const learnerPublication =
+    props.services.learnerPublication ?? createDefaultLearnerPublicationPort();
+  const services: ScaffoldAuthoringHostServices = {
+    ...props.services,
+    artifactPersistence: {
+      async saveArtifact(payload) {
+        const result = await props.services.artifactPersistence.saveArtifact(payload);
+        return {
+          artifactRevision: "test-saved-revision",
+          ...(result && typeof result === "object" ? result : {}),
+        };
+      },
+    },
+    learnerPublication,
+  };
+  return (
+    <PublicScaffoldAuthoringApp
+      {...props}
+      productAccess={props.productAccess ?? coreProductAccess}
+      services={services}
+    />
+  );
+}
+
+function createDefaultLearnerPublicationPort(): LearnerPublicationPort {
+  return {
+    getStatus: async () => ({
+      currentArtifactRevision: "test-saved-revision",
+      publishedArtifactRevision: null,
+      publishedAt: null,
+    }),
+    publish: async (payload) => ({
+      currentArtifactRevision: payload.sourceArtifactRevision,
+      publishedArtifactRevision: payload.sourceArtifactRevision,
+      publishedAt: "2026-08-10T12:00:00.000Z",
+    }),
+  };
+}
 
 beforeEach(() => {
   localStorage.clear();
+  mocks.learnerModuleReads = 0;
   mocks.authorJSON = pageDocumentWithParagraph("authorsurf01", "Author");
   mocks.fakeEditor.getJSON.mockImplementation(() => mocks.authorJSON);
   mocks.fakeEditor.state.doc.firstChild.attrs = mocks.authorJSON.content?.[0]?.attrs ?? {};
@@ -256,14 +351,19 @@ afterEach(() => {
 });
 
 function firstSurfaceAttrs(content: unknown): Record<string, unknown> | null {
-  const doc = content as {
-    content?: Array<{
-      content?: Array<{
-        attrs?: Record<string, unknown>;
-      }>;
-    }>;
-  };
-  return doc.content?.[0]?.content?.[0]?.attrs ?? null;
+  return findJsonNode(content, "surface")?.attrs ?? null;
+}
+
+function findJsonNode(content: unknown, type: string): JSONContent | undefined {
+  const stack = [content];
+  while (stack.length > 0) {
+    const value = stack.pop();
+    if (!value || typeof value !== "object") continue;
+    const node = value as JSONContent;
+    if (node.type === type) return node;
+    stack.push(...(node.content ?? []));
+  }
+  return undefined;
 }
 
 function pageDocumentWithParagraph(surfaceId: string, text: string): JSONContent {
@@ -285,24 +385,49 @@ function pageDocumentWithParagraph(surfaceId: string, text: string): JSONContent
   return document;
 }
 
+function pageDocumentWithEmptyQuiz(): JSONContent {
+  const document = pageDocumentWithParagraph("authorsurf01", "Published learner content");
+  document.content![0]!.content![0]!.content!.push({
+    type: "quiz",
+    attrs: { id: "quizempty001", settings: {} },
+  });
+  return document;
+}
+
 function slideshowDocument(surfaceId: string): JSONContent {
-  return createScaffoldDocumentContent({ mode: "slideshow", surfaceId });
+  return createScaffoldDocumentContent({
+    mode: "slideshow",
+    surfaceId,
+    initialCourseSectionTitle: "Section 1",
+  });
 }
 
 function privateAssessmentDocument(): JSONContent {
   const document = createScaffoldDocumentContent({ mode: "page", surfaceId: "privatesurf1" });
   const surface = document.content?.[0]?.content?.[0];
   if (!surface) throw new Error("expected default page Surface");
-  surface.content = [
-    {
-      type: PRIVATE_ASSESSMENT_NODE_TYPE,
-      attrs: {
-        id: "privassess01",
-        settings: {},
-        assessment: { privateAnswer: "must-not-reach-preview" },
-      },
+  const privateAssessment = coreMcqInsert.content() as JSONContent;
+  privateAssessment.type = PRIVATE_ASSESSMENT_NODE_TYPE;
+  privateAssessment.attrs = {
+    ...privateAssessment.attrs,
+    id: "privassess01",
+    settings: McqSettingsSchema.parse({}),
+    assessment: {
+      ...((privateAssessment.attrs?.["assessment"] as Record<string, unknown> | undefined) ?? {}),
+      privateAnswer: "must-not-reach-preview",
     },
-  ];
+  };
+  const pending = [...(privateAssessment.content ?? [])];
+  let embeddedIndex = 0;
+  while (pending.length > 0) {
+    const node = pending.pop()!;
+    if (node.type !== "text") {
+      embeddedIndex += 1;
+      node.attrs = { ...node.attrs, id: `privch${String(embeddedIndex).padStart(6, "0")}` };
+    }
+    pending.push(...(node.content ?? []));
+  }
+  surface.content = [privateAssessment];
   return document;
 }
 
@@ -327,7 +452,153 @@ function createDeferred<T>() {
   };
 }
 
+function createControlledArtifactHost() {
+  const requests: Array<{
+    readonly completion: ReturnType<typeof createDeferred<ArtifactSaveResult>>;
+    readonly payload: ArtifactSavePayload;
+  }> = [];
+  let storedPayload: ArtifactSavePayload | null = null;
+  const saveArtifact = vi.fn((payload: ArtifactSavePayload) => {
+    const completion = createDeferred<ArtifactSaveResult>();
+    const request = { completion, payload: structuredClone(payload) };
+    requests.push(request);
+    return completion.promise.then((result) => {
+      storedPayload = request.payload;
+      return result;
+    });
+  });
+
+  return {
+    requests,
+    saveArtifact,
+    getStoredPayload: () => storedPayload,
+    resolve(index: number, artifactRevision: string) {
+      const request = requests[index];
+      if (!request) throw new Error(`save request ${index} does not exist`);
+      request.completion.resolve({ artifactRevision });
+    },
+    reject(index: number, reason: unknown) {
+      const request = requests[index];
+      if (!request) throw new Error(`save request ${index} does not exist`);
+      request.completion.reject(reason);
+    },
+  };
+}
+
+function renderSaveCoordinatorHarness(
+  saveArtifact: (payload: ArtifactSavePayload) => Promise<unknown>,
+) {
+  let actions: ScaffoldAuthoringHeaderActionsContext | null = null;
+  render(
+    <ScaffoldAuthoringApp
+      application={testApplication}
+      artifact={{
+        id: "artifact-save-coordinator",
+        title: "Draft",
+        mode: "page",
+        content: mocks.authorJSON,
+      }}
+      services={{ artifactPersistence: { saveArtifact }, media: null }}
+      headerActions={(context) => {
+        actions = context;
+        return <span data-testid="coordinator-publish-state">{context.publishState}</span>;
+      }}
+    />,
+  );
+
+  const getActions = () => {
+    if (!actions) throw new Error("save coordinator actions are unavailable");
+    return actions;
+  };
+  const update = (content: JSONContent) => {
+    mocks.authorJSON = content;
+    const onUpdate = mocks.contentAuthorHostProps.at(-1)?.["onUpdate"] as
+      | ((nextContent: JSONContent, unavailableContent: readonly []) => void)
+      | undefined;
+    if (!onUpdate) throw new Error("authoring update callback is unavailable");
+    act(() => onUpdate(content, []));
+  };
+  const invalidate = () => {
+    const onDocumentError = mocks.contentAuthorHostProps.at(-1)?.["onDocumentError"] as
+      | ((failure: unknown) => void)
+      | undefined;
+    if (!onDocumentError) throw new Error("authoring error callback is unavailable");
+    act(() => onDocumentError({ status: "canonicalization-failed", issues: [] }));
+  };
+  const saveNow = () => {
+    let result!: Promise<boolean>;
+    act(() => {
+      result = getActions().saveNow();
+    });
+    return result;
+  };
+
+  return { getActions, invalidate, saveNow, update };
+}
+
 describe("ScaffoldAuthoringApp preview", () => {
+  it("presents invalid Course Structure as a plain-language App error", () => {
+    const content = pageDocumentWithParagraph("authorsurf01", "Invalid structure");
+    const courseDocument = content.content?.[0];
+    const surface = courseDocument?.content?.[0];
+    if (!courseDocument?.content || !surface) throw new Error("expected default page structure");
+    courseDocument.content.push({
+      ...surface,
+      attrs: { ...surface.attrs, id: "authorsurf02" },
+    });
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{ id: "artifact-invalid-structure", title: "Invalid", mode: "page", content }}
+        productAccess={coreProductAccess}
+        services={{ artifactPersistence: { saveArtifact: vi.fn(async () => ({})) }, media: null }}
+      />,
+    );
+
+    const unavailable = screen.getByRole("alert", { name: "This document couldn’t be opened" });
+    expect(unavailable).toHaveTextContent("The saved course structure is invalid.");
+    expect(unavailable).not.toHaveTextContent("Scaffold content has invalid Course Structure.");
+  });
+
+  it("refuses a Plus-required artifact before mounting authoring", () => {
+    const content = pageDocumentWithParagraph("authorsurf01", "Protected authoring content");
+    content.content![0]!.attrs!["requiresScaffoldPlus"] = true;
+    const saveArtifact = vi.fn(async () => ({}));
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{ id: "artifact-plus-required", title: "Plus", mode: "page", content }}
+        productAccess={coreProductAccess}
+        services={{ artifactPersistence: { saveArtifact }, media: null }}
+      />,
+    );
+
+    expect(screen.getByTestId("scaffold-authoring-unavailable")).toHaveTextContent(
+      "This course requires Scaffold Plus.",
+    );
+    expect(screen.queryByTestId("content-author-host")).toBeNull();
+    expect(saveArtifact).not.toHaveBeenCalled();
+  });
+
+  it("mounts a Plus-required artifact after product access succeeds", async () => {
+    const content = pageDocumentWithParagraph("authorsurf01", "Protected authoring content");
+    content.content![0]!.attrs!["requiresScaffoldPlus"] = true;
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{ id: "artifact-plus-authorized", title: "Plus", mode: "page", content }}
+        productAccess={plusProductAccess}
+        services={{ artifactPersistence: { saveArtifact: vi.fn(async () => ({})) }, media: null }}
+      />,
+    );
+
+    expect(await screen.findByTestId("content-author-host")).toBeInTheDocument();
+    expect(screen.queryByTestId("scaffold-authoring-unavailable")).toBeNull();
+  });
+
   it("synchronizes the live persisted theme from every editor document update", async () => {
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
       callback(0);
@@ -470,35 +741,676 @@ describe("ScaffoldAuthoringApp preview", () => {
     );
 
     const initialProps = mocks.contentAuthorHostProps.at(-1);
-    const onChange = initialProps?.["onChange"] as ((editor: unknown) => void) | undefined;
-    expect(onChange).toBeTypeOf("function");
+    const onUpdate = initialProps?.["onUpdate"] as
+      | ((content: JSONContent, unavailableContent: readonly []) => void)
+      | undefined;
+    expect(onUpdate).toBeTypeOf("function");
     expect(mocks.fakeEditor.getJSON).not.toHaveBeenCalled();
     mocks.fakeEditor.getJSON.mockClear();
 
     act(() => {
-      onChange?.(mocks.fakeEditor);
+      onUpdate?.(mocks.authorJSON, []);
     });
-    const rendersAfterDirtyState = mocks.contentAuthorHostRenderCount;
     act(() => {
-      onChange?.(mocks.fakeEditor);
-      onChange?.(mocks.fakeEditor);
+      onUpdate?.(mocks.authorJSON, []);
+      onUpdate?.(mocks.authorJSON, []);
     });
 
     expect(mocks.fakeEditor.getJSON).not.toHaveBeenCalled();
     expect(saveArtifact).not.toHaveBeenCalled();
-    expect(mocks.contentAuthorHostRenderCount).toBe(rendersAfterDirtyState);
 
     act(() => {
       vi.advanceTimersByTime(500);
     });
 
-    expect(mocks.fakeEditor.getJSON).toHaveBeenCalledTimes(1);
+    expect(mocks.fakeEditor.getJSON).not.toHaveBeenCalled();
     expect(saveArtifact).toHaveBeenCalledTimes(1);
+  });
+
+  it("autosaves after StrictMode replays the coordinator lifecycle effect", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+    const saveArtifact = vi.fn(async () => ({ artifactRevision: "revision-strict-mode" }));
+
+    render(
+      <StrictMode>
+        <ScaffoldAuthoringApp
+          application={testApplication}
+          artifact={{
+            id: "artifact-strict-mode-autosave",
+            title: "Draft",
+            mode: "page",
+            content: mocks.authorJSON,
+          }}
+          services={{ artifactPersistence: { saveArtifact }, media: null }}
+        />
+      </StrictMode>,
+    );
+
+    const onUpdate = mocks.contentAuthorHostProps.at(-1)?.["onUpdate"] as
+      | ((content: JSONContent, unavailableContent: readonly []) => void)
+      | undefined;
+    expect(onUpdate).toBeTypeOf("function");
+
+    act(() => onUpdate?.(mocks.authorJSON, []));
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+
+    expect(saveArtifact).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("banner")).toHaveAttribute("data-save-state", "saved");
+  });
+
+  it("starts a newer Save only after the in-flight Save settles", async () => {
+    const host = createControlledArtifactHost();
+    const harness = renderSaveCoordinatorHarness(host.saveArtifact);
+    const contentA = pageDocumentWithParagraph("authorsurf01", "Snapshot A");
+    const contentB = pageDocumentWithParagraph("authorsurf01", "Snapshot B");
+
+    harness.update(contentA);
+    const saveA = harness.saveNow();
+    harness.update(contentB);
+    const saveB = harness.saveNow();
+
+    expect(host.requests).toHaveLength(1);
+    expect(
+      findJsonNode(host.requests[0]?.payload.artifact.content, "paragraph")?.content?.[0]?.text,
+    ).toBe("Snapshot A");
+
+    await act(async () => {
+      host.resolve(0, "revision-a");
+      await Promise.resolve();
+    });
+
+    expect(host.requests).toHaveLength(2);
+    expect(
+      findJsonNode(host.requests[1]?.payload.artifact.content, "paragraph")?.content?.[0]?.text,
+    ).toBe("Snapshot B");
+
+    await act(async () => {
+      host.resolve(1, "revision-b");
+      await Promise.all([saveA, saveB]);
+    });
+  });
+
+  it("keeps the UI saving until the newest requested snapshot reaches the host", async () => {
+    const host = createControlledArtifactHost();
+    const harness = renderSaveCoordinatorHarness(host.saveArtifact);
+    const contentA = pageDocumentWithParagraph("authorsurf01", "Snapshot A");
+    const contentB = pageDocumentWithParagraph("authorsurf01", "Snapshot B");
+
+    harness.update(contentA);
+    const saveA = harness.saveNow();
+    let saveAOutcome: boolean | undefined;
+    void saveA.then((saved) => {
+      saveAOutcome = saved;
+    });
+    harness.update(contentB);
+    const saveB = harness.saveNow();
+    expect(screen.getByRole("banner")).toHaveAttribute("data-save-state", "saving");
+
+    await act(async () => {
+      host.resolve(0, "revision-a");
+      await Promise.resolve();
+    });
+
+    expect(saveAOutcome).toBeUndefined();
+    expect(screen.getByRole("banner")).toHaveAttribute("data-save-state", "saving");
+    expect(host.getStoredPayload()?.artifact.content).toEqual(contentA);
+
+    await act(async () => {
+      host.resolve(1, "revision-b");
+      await Promise.all([saveA, saveB]);
+    });
+
+    expect(host.getStoredPayload()?.artifact.content).toEqual(contentB);
+    expect(screen.getByRole("banner")).toHaveAttribute("data-save-state", "saved");
+  });
+
+  it("coalesces multiple pending Saves to the latest immutable snapshot", async () => {
+    const host = createControlledArtifactHost();
+    const harness = renderSaveCoordinatorHarness(host.saveArtifact);
+    const contentA = pageDocumentWithParagraph("authorsurf01", "Snapshot A");
+    const contentB = pageDocumentWithParagraph("authorsurf01", "Snapshot B");
+    const contentC = pageDocumentWithParagraph("authorsurf01", "Snapshot C");
+
+    harness.update(contentA);
+    const saveA = harness.saveNow();
+    harness.update(contentB);
+    const saveB = harness.saveNow();
+    harness.update(contentC);
+    const saveC = harness.saveNow();
+
+    expect(host.requests).toHaveLength(1);
+
+    await act(async () => {
+      host.resolve(0, "revision-a");
+      await Promise.resolve();
+    });
+
+    expect(host.requests).toHaveLength(2);
+    expect(
+      findJsonNode(host.requests[1]?.payload.artifact.content, "paragraph")?.content?.[0]?.text,
+    ).toBe("Snapshot C");
+
+    await act(async () => {
+      host.resolve(1, "revision-c");
+      await Promise.all([saveA, saveB, saveC]);
+    });
+    expect(host.requests.map((request) => request.payload.artifact.content)).toEqual([
+      contentA,
+      contentC,
+    ]);
+  });
+
+  it("orders title-only autosave behind an in-flight content Save", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+    const host = createControlledArtifactHost();
+    const harness = renderSaveCoordinatorHarness(host.saveArtifact);
+    const contentA = pageDocumentWithParagraph("authorsurf01", "Snapshot A");
+
+    harness.update(contentA);
+    const saveA = harness.saveNow();
+    act(() => {
+      screen.getByRole("button", { name: "Change title" }).click();
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(host.requests).toHaveLength(1);
+
+    await act(async () => {
+      host.resolve(0, "revision-a");
+      await Promise.resolve();
+    });
+
+    expect(host.requests).toHaveLength(2);
+    expect(host.requests[1]?.payload.artifact.title).toBe("Changed title");
+    expect(host.requests[1]?.payload.artifact.content).toEqual(contentA);
+
+    await act(async () => {
+      host.resolve(1, "revision-title");
+      await saveA;
+    });
+    expect(screen.getByRole("banner")).toHaveAttribute("data-save-state", "saved");
+  });
+
+  it("clears an unsent pending Save when the working state becomes invalid", async () => {
+    const host = createControlledArtifactHost();
+    const harness = renderSaveCoordinatorHarness(host.saveArtifact);
+    const contentA = pageDocumentWithParagraph("authorsurf01", "Snapshot A");
+    const contentB = pageDocumentWithParagraph("authorsurf01", "Snapshot B");
+
+    harness.update(contentA);
+    const saveA = harness.saveNow();
+    harness.update(contentB);
+    const saveB = harness.saveNow();
+    harness.invalidate();
+
+    expect(screen.getByRole("banner")).toHaveAttribute("data-save-state", "error");
+    expect(screen.getByTestId("coordinator-publish-state")).toHaveTextContent("invalid");
+
+    await act(async () => {
+      host.resolve(0, "revision-a");
+      await Promise.resolve();
+    });
+
+    await expect(saveA).resolves.toBe(false);
+    await expect(saveB).resolves.toBe(false);
+    expect(host.requests).toHaveLength(1);
+    expect(screen.getByRole("banner")).toHaveAttribute("data-save-state", "error");
+  });
+
+  it("satisfies coalesced manual callers with a newer successful generation", async () => {
+    const host = createControlledArtifactHost();
+    const harness = renderSaveCoordinatorHarness(host.saveArtifact);
+    const contentA = pageDocumentWithParagraph("authorsurf01", "Snapshot A");
+    const contentB = pageDocumentWithParagraph("authorsurf01", "Snapshot B");
+    const contentC = pageDocumentWithParagraph("authorsurf01", "Snapshot C");
+
+    harness.update(contentA);
+    const saveA = harness.saveNow();
+    harness.update(contentB);
+    const saveB = harness.saveNow();
+    harness.update(contentC);
+    const saveC = harness.saveNow();
+
+    await act(async () => {
+      host.reject(0, new Error("older save failed"));
+      await Promise.resolve();
+    });
+
+    expect(host.requests).toHaveLength(2);
+    expect(host.requests[1]?.payload.artifact.content).toEqual(contentC);
+
+    await act(async () => {
+      host.resolve(1, "revision-c");
+      await Promise.resolve();
+    });
+
+    await expect(saveA).resolves.toBe(true);
+    await expect(saveB).resolves.toBe(true);
+    await expect(saveC).resolves.toBe(true);
+    expect(host.getStoredPayload()?.artifact.content).toEqual(contentC);
+  });
+
+  it("keeps Publish unavailable while an otherwise-current Save is in flight", async () => {
+    const host = createControlledArtifactHost();
+    const harness = renderSaveCoordinatorHarness(host.saveArtifact);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("coordinator-publish-state")).toHaveTextContent("not-published"),
+    );
+    const save = harness.saveNow();
+    expect(screen.getByTestId("coordinator-publish-state")).toHaveTextContent("unsaved");
+
+    await act(async () => {
+      host.resolve(0, "revision-current");
+      await save;
+    });
+    expect(screen.getByTestId("coordinator-publish-state")).toHaveTextContent("not-published");
+  });
+
+  it("cancels pending autosave when canonicalization rejects the latest edit", () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+    const saveArtifact = vi.fn(async () => ({}));
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-invalid-edit",
+          title: "Draft",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{ artifactPersistence: { saveArtifact }, media: null }}
+      />,
+    );
+
+    const props = mocks.contentAuthorHostProps.at(-1);
+    const onUpdate = props?.["onUpdate"] as
+      | ((content: JSONContent, unavailableContent: readonly []) => void)
+      | undefined;
+    const onDocumentError = props?.["onDocumentError"] as ((failure: unknown) => void) | undefined;
+    act(() => {
+      onUpdate?.(mocks.authorJSON, []);
+      onDocumentError?.({
+        status: "canonicalization-failed",
+        issues: [{ code: "invalid", message: "Rejected edit.", path: [] }],
+      });
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(saveArtifact).not.toHaveBeenCalled();
+    expect(screen.getByRole("banner")).toHaveAttribute("data-save-state", "error");
+  });
+
+  it("refuses explicit Save while the current working state is invalid", async () => {
+    const user = userEvent.setup();
+    const saveArtifact = vi.fn(async () => ({}));
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-invalid-explicit-save",
+          title: "Draft",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{ artifactPersistence: { saveArtifact }, media: null }}
+        headerActions={({ saveNow }) => (
+          <button type="button" onClick={() => void saveNow()}>
+            Save now
+          </button>
+        )}
+      />,
+    );
+
+    const onDocumentError = mocks.contentAuthorHostProps.at(-1)?.["onDocumentError"] as
+      | ((failure: unknown) => void)
+      | undefined;
+    act(() => onDocumentError?.({ status: "canonicalization-failed", issues: [] }));
+    await user.click(screen.getByRole("button", { name: "Save now" }));
+
+    expect(saveArtifact).not.toHaveBeenCalled();
+    expect(screen.getByRole("banner")).toHaveAttribute("data-save-state", "error");
+  });
+
+  it("refuses Preview while the current working state is invalid", async () => {
+    const user = userEvent.setup();
+    const saveArtifact = vi.fn(async () => ({}));
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-invalid-preview",
+          title: "Draft",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{ artifactPersistence: { saveArtifact }, media: null }}
+      />,
+    );
+
+    const onDocumentError = mocks.contentAuthorHostProps.at(-1)?.["onDocumentError"] as
+      | ((failure: unknown) => void)
+      | undefined;
+    act(() => onDocumentError?.({ status: "canonicalization-failed", issues: [] }));
+    await user.click(screen.getByRole("button", { name: "Switch to preview" }));
+
+    expect(saveArtifact).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("scaffold-learner-app")).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent("Preview could not be prepared");
+  });
+
+  it("refuses title autosave while the current working state is invalid", () => {
+    vi.useFakeTimers();
+    const saveArtifact = vi.fn(async () => ({}));
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-invalid-title",
+          title: "Draft",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{ artifactPersistence: { saveArtifact }, media: null }}
+      />,
+    );
+
+    const onDocumentError = mocks.contentAuthorHostProps.at(-1)?.["onDocumentError"] as
+      | ((failure: unknown) => void)
+      | undefined;
+    act(() => {
+      onDocumentError?.({ status: "canonicalization-failed", issues: [] });
+      screen.getByRole("button", { name: "Change title" }).click();
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(saveArtifact).not.toHaveBeenCalled();
+    expect(screen.getByRole("banner")).toHaveAttribute("data-save-state", "error");
+  });
+
+  it("previews current supported content without persisting draft or publication state", async () => {
+    const user = userEvent.setup();
+    const saveArtifact = vi.fn(async () => ({ artifactRevision: "revision-1" }));
+    const publish = vi.fn();
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-preview-memory-only",
+          title: "Draft",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact },
+          learnerPublication: {
+            getStatus: async () => ({
+              currentArtifactRevision: "revision-1",
+              publishedArtifactRevision: null,
+              publishedAt: null,
+            }),
+            publish,
+          },
+          media: null,
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Switch to preview" }));
+
+    expect(await screen.findByTestId("scaffold-learner-app")).toBeInTheDocument();
+    expect(saveArtifact).not.toHaveBeenCalled();
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  it("previews a course while omitting a newly inserted empty quiz", async () => {
+    const user = userEvent.setup();
+    const saveArtifact = vi.fn(async () => ({ artifactRevision: "revision-1" }));
+    mocks.authorJSON = pageDocumentWithEmptyQuiz();
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-empty-quiz-preview",
+          title: "Draft",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{ artifactPersistence: { saveArtifact }, media: null }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Switch to preview" }));
+
+    expect(await screen.findByTestId("scaffold-learner-app")).toBeInTheDocument();
+    const publication = (
+      mocks.learnerAppProps.at(-1)?.["bootstrap"] as
+        | { publication?: { learnerContent?: JSONContent } }
+        | undefined
+    )?.publication;
+    expect(findJsonNode(publication?.learnerContent, "quiz")).toBeUndefined();
+    expect(saveArtifact).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("publishes only the latest successfully saved canonical generation", async () => {
+    const user = userEvent.setup();
+    const saveArtifact = vi.fn(async () => ({ artifactRevision: "revision-2" }));
+    const publish = vi.fn(async (_payload: LearnerPublicationPayload) => ({
+      currentArtifactRevision: "revision-2",
+      publishedArtifactRevision: "revision-2",
+      publishedAt: "2026-08-10T12:00:00.000Z",
+    }));
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-explicit-publication",
+          title: "Draft",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact },
+          learnerPublication: {
+            getStatus: async () => ({
+              currentArtifactRevision: "revision-1",
+              publishedArtifactRevision: null,
+              publishedAt: null,
+            }),
+            publish,
+          },
+          media: null,
+        }}
+        headerActions={({ hasUnpublishedChanges, publishNow, publishState, saveNow }) => (
+          <>
+            <button type="button" onClick={() => void saveNow()}>
+              Save now
+            </button>
+            <button type="button" onClick={() => void publishNow()}>
+              Publish now
+            </button>
+            <span data-testid="publish-state">{publishState}</span>
+            <span data-testid="unpublished-state">{String(hasUnpublishedChanges)}</span>
+          </>
+        )}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("publish-state")).toHaveTextContent("not-published"),
+    );
+    mocks.authorJSON = pageDocumentWithParagraph("authorsurf01", "Unsaved generation");
+    const onUpdate = mocks.contentAuthorHostProps.at(-1)?.["onUpdate"] as
+      | ((content: JSONContent, unavailableContent: readonly []) => void)
+      | undefined;
+    act(() => onUpdate?.(mocks.authorJSON, []));
+
+    await user.click(screen.getByRole("button", { name: "Publish now" }));
+    expect(publish).not.toHaveBeenCalled();
+    expect(screen.getByTestId("publish-state")).toHaveTextContent("unsaved");
+
+    await user.click(screen.getByRole("button", { name: "Save now" }));
+    await waitFor(() => expect(saveArtifact).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole("button", { name: "Publish now" }));
+
+    await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+    expect(publish).toHaveBeenCalledWith({
+      sourceArtifactRevision: "revision-2",
+      artifact: {
+        id: "artifact-explicit-publication",
+        title: "Draft",
+        mode: "page",
+        requiresScaffoldPlus: false,
+      },
+      learnerContent: mocks.authorJSON,
+      assessmentTargets: [],
+      assessmentGroups: [],
+    });
+    expect(screen.getByTestId("publish-state")).toHaveTextContent("published");
+    expect(screen.getByTestId("unpublished-state")).toHaveTextContent("false");
+  });
+
+  it("saves an empty quiz canonically and publishes learner content without it", async () => {
+    const user = userEvent.setup();
+    const content = pageDocumentWithEmptyQuiz();
+    mocks.authorJSON = content;
+    const saveArtifact = vi.fn(async (_payload: ArtifactSavePayload) => ({
+      artifactRevision: "revision-empty-quiz",
+    }));
+    const publish = vi.fn(async (_payload: LearnerPublicationPayload) => ({
+      currentArtifactRevision: "revision-empty-quiz",
+      publishedArtifactRevision: "revision-empty-quiz",
+      publishedAt: "2026-08-11T10:00:00.000Z",
+    }));
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{ id: "artifact-empty-quiz", title: "Draft", mode: "page", content }}
+        services={{
+          artifactPersistence: { saveArtifact },
+          learnerPublication: {
+            getStatus: async () => ({
+              currentArtifactRevision: "revision-before-empty-quiz",
+              publishedArtifactRevision: null,
+              publishedAt: null,
+            }),
+            publish,
+          },
+          media: null,
+        }}
+        headerActions={({ publishNow, saveNow }) => (
+          <>
+            <button type="button" onClick={() => void saveNow()}>
+              Save empty quiz
+            </button>
+            <button type="button" onClick={() => void publishNow()}>
+              Publish without empty quiz
+            </button>
+          </>
+        )}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save empty quiz" }));
+    await waitFor(() => expect(saveArtifact).toHaveBeenCalledTimes(1));
+    expect(findJsonNode(saveArtifact.mock.calls[0]?.[0].artifact.content, "quiz")).toEqual(
+      findJsonNode(content, "quiz"),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Publish without empty quiz" }));
+    await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+    const publication = publish.mock.calls[0]?.[0];
+    expect(findJsonNode(publication?.learnerContent, "quiz")).toBeUndefined();
+    expect(publication?.assessmentTargets).toEqual([]);
+    expect(publication?.assessmentGroups).toEqual([]);
+  });
+
+  it("does not adopt a completed Save after a newer canonicalization failure", async () => {
+    const user = userEvent.setup();
+    const saveResult = createDeferred<{ artifactRevision: string }>();
+    const saveArtifact = vi.fn(() => saveResult.promise);
+    const publish = vi.fn();
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-superseded-save",
+          title: "Draft",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact },
+          learnerPublication: {
+            getStatus: async () => ({
+              currentArtifactRevision: "revision-1",
+              publishedArtifactRevision: null,
+              publishedAt: null,
+            }),
+            publish,
+          },
+          media: null,
+        }}
+        headerActions={({ publishNow, publishState, saveNow }) => (
+          <>
+            <button type="button" onClick={() => void saveNow()}>
+              Save now
+            </button>
+            <button type="button" onClick={() => void publishNow()}>
+              Publish now
+            </button>
+            <span data-testid="publish-state">{publishState}</span>
+          </>
+        )}
+      />,
+    );
+
+    const onUpdate = mocks.contentAuthorHostProps.at(-1)?.["onUpdate"] as
+      | ((content: JSONContent, unavailableContent: readonly []) => void)
+      | undefined;
+    const onDocumentError = mocks.contentAuthorHostProps.at(-1)?.["onDocumentError"] as
+      | ((failure: unknown) => void)
+      | undefined;
+    act(() => onUpdate?.(mocks.authorJSON, []));
+    await user.click(screen.getByRole("button", { name: "Save now" }));
+    expect(saveArtifact).toHaveBeenCalledTimes(1);
+    act(() => onDocumentError?.({ status: "canonicalization-failed", issues: [] }));
+    saveResult.resolve({ artifactRevision: "revision-2" });
+
+    await waitFor(() => expect(screen.getByTestId("publish-state")).toHaveTextContent("invalid"));
+    await user.click(screen.getByRole("button", { name: "Publish now" }));
+    expect(publish).not.toHaveBeenCalled();
+    expect(screen.getByRole("banner")).toHaveAttribute("data-save-state", "error");
   });
 
   it("serializes current editor content for an explicit save", async () => {
     const user = userEvent.setup();
-    const saveArtifact = vi.fn(async (bundle: ArtifactSaveBundle) => {
+    const saveArtifact = vi.fn(async (bundle: ArtifactSavePayload) => {
       mocks.savedBundles.push(bundle);
       return {};
     });
@@ -525,12 +1437,84 @@ describe("ScaffoldAuthoringApp preview", () => {
     );
 
     mocks.authorJSON = pageDocumentWithParagraph("authorsurf01", "Fresh editor content");
+    const onUpdate = mocks.contentAuthorHostProps.at(-1)?.["onUpdate"] as
+      | ((content: JSONContent, unavailableContent: readonly []) => void)
+      | undefined;
+    act(() => onUpdate?.(mocks.authorJSON, []));
     mocks.fakeEditor.getJSON.mockClear();
     await user.click(screen.getByRole("button", { name: "Save now" }));
 
     await waitFor(() => expect(saveArtifact).toHaveBeenCalledTimes(1));
-    expect(mocks.fakeEditor.getJSON).toHaveBeenCalledTimes(1);
+    expect(mocks.fakeEditor.getJSON).not.toHaveBeenCalled();
     expect(mocks.savedBundles.at(-1)?.artifact.content).toEqual(mocks.authorJSON);
+  });
+
+  it("opens and saves unavailable canonical content without persisting compatibility nodes", async () => {
+    const user = userEvent.setup();
+    const content = pageDocumentWithParagraph("authorsurf01", "Editable");
+    content.content![0]!.content![0]!.content!.push({
+      type: "plus_private_block",
+      attrs: { id: "plusblock001", private: "preserve exactly" },
+    });
+    const saveArtifact = vi.fn(async (bundle: ArtifactSavePayload) => {
+      mocks.savedBundles.push(bundle);
+      return {};
+    });
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{ id: "artifact-plus", title: "Plus", mode: "page", content }}
+        services={{ artifactPersistence: { saveArtifact }, media: null }}
+        headerActions={({ saveNow }) => (
+          <button type="button" onClick={() => void saveNow()}>
+            Save unavailable
+          </button>
+        )}
+      />,
+    );
+
+    await screen.findByTestId("content-author-host");
+    expect(screen.queryByTestId("scaffold-authoring-unavailable-content")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Save unavailable" }));
+    await waitFor(() => expect(saveArtifact).toHaveBeenCalledTimes(1));
+
+    const saved = mocks.savedBundles.at(-1)?.artifact.content;
+    expect(findJsonNode(saved, "plus_private_block")?.attrs).toMatchObject({
+      id: "plusblock001",
+      private: "preserve exactly",
+    });
+    expect(findJsonNode(saved, "unavailable_block")).toBeUndefined();
+  });
+
+  it("refuses learner preview with safe details without persisting unavailable content", async () => {
+    const user = userEvent.setup();
+    const content = pageDocumentWithParagraph("authorsurf01", "Editable");
+    content.content![0]!.content![0]!.content!.push({
+      type: "plus_private_block",
+      attrs: {
+        id: "plusblock001",
+        private: "must never appear in preview errors",
+      },
+    });
+    const saveArtifact = vi.fn(async (_payload: ArtifactSavePayload) => ({}));
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{ id: "artifact-plus-preview", title: "Plus", mode: "page", content }}
+        services={{ artifactPersistence: { saveArtifact }, media: null }}
+      />,
+    );
+
+    await screen.findByTestId("content-author-host");
+    await user.click(screen.getByRole("button", { name: "Switch to preview" }));
+
+    expect(saveArtifact).not.toHaveBeenCalled();
+    const refusal = await screen.findByRole("alert");
+    expect(refusal).toHaveTextContent("Preview unavailable: 1 block capability is not installed.");
+    expect(refusal).not.toHaveTextContent("must never appear in preview errors");
+    expect(screen.queryByTestId("scaffold-learner-app")).toBeNull();
   });
 
   it("cancels a pending autosave when authoring unmounts", () => {
@@ -556,13 +1540,13 @@ describe("ScaffoldAuthoringApp preview", () => {
         }}
       />,
     );
-    const onChange = mocks.contentAuthorHostProps.at(-1)?.["onChange"] as
-      | ((editor: unknown) => void)
+    const onUpdate = mocks.contentAuthorHostProps.at(-1)?.["onUpdate"] as
+      | ((content: JSONContent, unavailableContent: readonly []) => void)
       | undefined;
     mocks.fakeEditor.getJSON.mockClear();
 
     act(() => {
-      onChange?.(mocks.fakeEditor);
+      onUpdate?.(mocks.authorJSON, []);
     });
     rendered.unmount();
     act(() => {
@@ -573,10 +1557,9 @@ describe("ScaffoldAuthoringApp preview", () => {
     expect(saveArtifact).not.toHaveBeenCalled();
   });
 
-  it("loads learner preview on demand while projected content is being persisted", async () => {
+  it("loads learner preview on demand without persisting projected content", async () => {
     const user = userEvent.setup();
-    const saveResult = createDeferred<Record<string, never>>();
-    const saveArtifact = vi.fn((_bundle: ArtifactSaveBundle) => saveResult.promise);
+    const saveArtifact = vi.fn(async () => ({ artifactRevision: "revision-1" }));
     mocks.authorJSON = privateAssessmentDocument();
 
     expect(mocks.learnerModuleReads).toBe(0);
@@ -598,24 +1581,22 @@ describe("ScaffoldAuthoringApp preview", () => {
     );
 
     await screen.findByTestId("content-author-host");
-    expect(mocks.contentAuthorHostProps.at(-1)?.["composition"]).toBe(
-      privateAssessmentApplication.authoring,
-    );
+    expect(mocks.contentAuthorHostProps.at(-1)?.["mount"]).toEqual(expect.any(Object));
+    expect(mocks.contentAuthorHostProps.at(-1)).not.toHaveProperty("content");
+    expect(mocks.contentAuthorHostProps.at(-1)).not.toHaveProperty("composition");
+    expect(mocks.contentAuthorHostProps.at(-1)).not.toHaveProperty("authoringEnvironment");
     const previewButton = screen.getByRole("button", { name: "Switch to preview" });
     await waitFor(() => expect(previewButton).toHaveProperty("disabled", false));
     await user.click(previewButton);
 
-    await waitFor(() => expect(mocks.learnerModuleReads).toBe(1));
-    expect(saveArtifact).toHaveBeenCalledTimes(1);
-    const savedBundle = saveArtifact.mock.calls[0]?.[0];
-    expect(savedBundle?.assessmentTargets[0]?.blockType).toBe(PRIVATE_ASSESSMENT_NODE_TYPE);
-    expect(JSON.stringify(savedBundle?.learnerContent)).not.toContain("must-not-reach-preview");
-    expect(previewButton.textContent).toBe("Preparing...");
-    expect(screen.queryByTestId("scaffold-learner-app")).toBeNull();
-
-    saveResult.resolve({});
-
     await screen.findByTestId("scaffold-learner-app");
+    expect(saveArtifact).not.toHaveBeenCalled();
+    expect(mocks.learnerAppProps.at(-1)?.["bootstrap"]).toMatchObject({
+      publication: { status: "supported", learnerContent: expect.any(Object) },
+    });
+    expect(JSON.stringify(mocks.learnerAppProps.at(-1)?.["bootstrap"])).not.toContain(
+      "must-not-reach-preview",
+    );
     expect(mocks.learnerAppProps.at(-1)?.["composition"]).toBe(
       privateAssessmentApplication.runtime,
     );
@@ -627,8 +1608,7 @@ describe("ScaffoldAuthoringApp preview", () => {
     await user.click(nextPreviewButton);
 
     await screen.findByTestId("scaffold-learner-app");
-    expect(mocks.learnerModuleReads).toBe(1);
-    expect(saveArtifact).toHaveBeenCalledTimes(2);
+    expect(saveArtifact).not.toHaveBeenCalled();
   });
 
   it("restores the current session document when returning from learner preview", async () => {
@@ -658,6 +1638,11 @@ describe("ScaffoldAuthoringApp preview", () => {
       />,
     );
 
+    const onUpdate = mocks.contentAuthorHostProps.at(-1)?.["onUpdate"] as
+      | ((content: JSONContent, unavailableContent: readonly []) => void)
+      | undefined;
+    act(() => onUpdate?.(workingContent, []));
+
     const previewButton = screen.getByRole("button", { name: "Switch to preview" });
     await waitFor(() => expect(previewButton).toHaveProperty("disabled", false));
     await user.click(previewButton);
@@ -665,7 +1650,11 @@ describe("ScaffoldAuthoringApp preview", () => {
     await user.click(screen.getByRole("button", { name: "Switch to editing" }));
     await screen.findByTestId("content-author-host");
 
-    expect(mocks.contentAuthorHostProps.at(-1)?.["content"]).toEqual(workingContent);
+    const remount = mocks.contentAuthorHostProps.at(-1)?.["mount"] as
+      | CourseDocumentAuthoringMount
+      | undefined;
+    expect(remount).toBeDefined();
+    expect(getCourseDocumentAuthoringMountState(remount!).workingDocument).toEqual(workingContent);
   });
 
   it("shares application mode with the canvas and learner Preview without changing JSON", async () => {
@@ -760,8 +1749,8 @@ describe("ScaffoldAuthoringApp preview", () => {
         accept,
       },
     });
-
     await screen.findByTestId("scaffold-learner-app");
+    expect(mocks.learnerAppProps.at(-1)?.["productAccess"]).toBe(coreProductAccess);
     expect(mocks.learnerAppProps.at(-1)?.["services"]).toEqual({ media: null });
     expect(accept).not.toHaveBeenCalled();
   });
@@ -842,55 +1831,58 @@ describe("ScaffoldAuthoringApp preview", () => {
   });
 
   it("shows the document creation gate before mounting authoring without an artifact", () => {
-    const onEditorReady = vi.fn();
-
     render(
       <ScaffoldAuthoringEntry
         application={testApplication}
         artifact={null}
+        productAccess={coreProductAccess}
         services={{
-          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+          artifactPersistence: {
+            saveArtifact: vi.fn(async () => ({ artifactRevision: "revision-1" })),
+          },
           artifactCreation: { createArtifactMetadata: vi.fn() },
+          learnerPublication: createDefaultLearnerPublicationPort(),
           media: null,
         }}
-        onEditorReady={onEditorReady}
       />,
     );
 
     expect(screen.getByTestId("document-creation-gate")).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: "Create document" })).toBeInTheDocument();
+    expect(screen.getByRole("main", { name: "Choose a format" })).toBeInTheDocument();
     expect(
       screen.getByText("Choose how learners will move through your content."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Slideshow (Beta)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create slideshow (beta)" })).toBeInTheDocument();
     expect(
       screen.getByText(
         "Slideshow is currently in beta. You can use it now, but features and layouts may change.",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("content-author-host")).toBeNull();
-    expect(onEditorReady).not.toHaveBeenCalled();
   });
 
   it("creates an artifact before mounting the editor", async () => {
     const user = userEvent.setup();
     const createArtifactMetadata = vi.fn(async (_input: { mode: "page" | "slideshow" }) => ({
       id: "artifact-new-slideshow",
+      requiresScaffoldPlus: false,
       title: "Untitled",
     }));
-    const saveArtifact = vi.fn(async (_bundle: ArtifactSaveBundle) => ({}));
-    const onEditorReady = vi.fn();
+    const saveArtifact = vi.fn(async (_payload: ArtifactSavePayload) => ({
+      artifactRevision: "revision-new",
+    }));
 
     render(
       <ScaffoldAuthoringEntry
         application={testApplication}
         artifact={null}
+        productAccess={coreProductAccess}
         services={{
           artifactPersistence: { saveArtifact },
           artifactCreation: { createArtifactMetadata },
+          learnerPublication: createDefaultLearnerPublicationPort(),
           media: null,
         }}
-        onEditorReady={onEditorReady}
       />,
     );
 
@@ -913,10 +1905,72 @@ describe("ScaffoldAuthoringApp preview", () => {
     expect(firstSurfaceAttrs(savedBundle?.artifact.content)).toMatchObject({
       variant: "slide-cover",
     });
-    expect(firstSurfaceAttrs(savedBundle?.learnerContent)).toMatchObject({
-      variant: "slide-cover",
+    expect(savedBundle.artifact.content.content?.[0]?.attrs).toMatchObject({
+      requiresScaffoldPlus: false,
     });
-    expect(onEditorReady).toHaveBeenCalledTimes(1);
+    expect(findJsonNode(savedBundle.artifact.content, "courseSection")?.attrs).toMatchObject({
+      title: "Section 1",
+    });
+    expect(savedBundle).not.toHaveProperty("learnerContent");
+  });
+
+  it("publishes a newly created artifact with its creation Save revision", async () => {
+    const user = userEvent.setup();
+    const createArtifactMetadata = vi.fn(async () => ({
+      id: "artifact-new-page",
+      requiresScaffoldPlus: false,
+      title: "Untitled",
+    }));
+    const saveArtifact = vi.fn(async () => ({
+      artifactRevision: "revision-created",
+    }));
+    const publish = vi.fn(async (_payload: LearnerPublicationPayload) => ({
+      currentArtifactRevision: "revision-created",
+      publishedArtifactRevision: "revision-created",
+      publishedAt: "2026-08-11T09:00:00.000Z",
+    }));
+
+    render(
+      <ScaffoldAuthoringEntry
+        application={testApplication}
+        artifact={null}
+        productAccess={coreProductAccess}
+        services={{
+          artifactPersistence: { saveArtifact },
+          artifactCreation: { createArtifactMetadata },
+          learnerPublication: {
+            getStatus: async () => ({
+              currentArtifactRevision: "revision-bootstrap",
+              publishedArtifactRevision: null,
+              publishedAt: null,
+            }),
+            publish,
+          },
+          media: null,
+        }}
+        headerActions={({ publishNow, publishState }) => (
+          <>
+            <button type="button" onClick={() => void publishNow()}>
+              Publish created artifact
+            </button>
+            <span data-testid="created-publish-state">{publishState}</span>
+          </>
+        )}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Create page" }));
+    await screen.findByTestId("content-author-host");
+    await waitFor(() =>
+      expect(screen.getByTestId("created-publish-state")).toHaveTextContent("not-published"),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Publish created artifact" }));
+
+    await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+    expect(publish.mock.calls[0]?.[0]?.sourceArtifactRevision).toBe("revision-created");
+    expect(saveArtifact).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("created-publish-state")).toHaveTextContent("published");
   });
 
   it("keeps the creation gate open when artifact creation fails", async () => {
@@ -924,18 +1978,20 @@ describe("ScaffoldAuthoringApp preview", () => {
     const createArtifactMetadata = vi.fn(async () => {
       throw new Error("save failed");
     });
-    const onEditorReady = vi.fn();
 
     render(
       <ScaffoldAuthoringEntry
         application={testApplication}
         artifact={null}
+        productAccess={coreProductAccess}
         services={{
-          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+          artifactPersistence: {
+            saveArtifact: vi.fn(async () => ({ artifactRevision: "revision-1" })),
+          },
           artifactCreation: { createArtifactMetadata },
+          learnerPublication: createDefaultLearnerPublicationPort(),
           media: null,
         }}
-        onEditorReady={onEditorReady}
       />,
     );
 
@@ -947,7 +2003,6 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     expect(screen.getByTestId("document-creation-gate")).toBeInTheDocument();
     expect(screen.queryByTestId("content-author-host")).toBeNull();
-    expect(onEditorReady).not.toHaveBeenCalled();
   });
 
   it("keeps the Agent button available when no AI port is configured", async () => {
@@ -995,31 +2050,6 @@ describe("ScaffoldAuthoringApp preview", () => {
     expect(screen.getByRole("button", { name: "Show Scaffold Agent" })).toBeInTheDocument();
     expect(screen.queryByTestId("authoring-agent-dock")).toBeNull();
     expect(onAgentClose).toHaveBeenCalledTimes(1);
-  });
-
-  it("passes a supplied Agent integration to the authoring host", async () => {
-    const FakeAgentIntegration: ScaffoldAgentIntegration = () => null;
-
-    render(
-      <ScaffoldAuthoringApp
-        application={testApplication}
-        agentIntegration={FakeAgentIntegration}
-        artifact={{
-          id: "artifact-agent",
-          title: "Draft",
-          mode: "page",
-          content: mocks.authorJSON,
-        }}
-        services={{
-          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
-          media: null,
-        }}
-      />,
-    );
-
-    await screen.findByTestId("content-author-host");
-
-    expect(mocks.contentAuthorHostProps.at(-1)?.["agentIntegration"]).toBe(FakeAgentIntegration);
   });
 
   it("keeps the left Document Outline and right Agent docks independently operable", async () => {
@@ -1090,7 +2120,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
   it("renders preview from projected learner content", async () => {
     const user = userEvent.setup();
-    const saveArtifact = vi.fn(async (bundle: ArtifactSaveBundle) => {
+    const saveArtifact = vi.fn(async (bundle: ArtifactSavePayload) => {
       mocks.savedBundles.push(bundle);
       return {};
     });
@@ -1120,30 +2150,28 @@ describe("ScaffoldAuthoringApp preview", () => {
     await waitFor(() => expect(previewButton).toHaveProperty("disabled", false));
     await user.click(previewButton);
 
-    await waitFor(() => expect(saveArtifact).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(onPreviewContentChange).toHaveBeenCalledTimes(1));
     await screen.findByTestId("scaffold-learner-app");
 
-    expect(saveArtifact).toHaveBeenCalledTimes(1);
-    expect(mocks.savedBundles.at(-1)?.["artifact"]).toMatchObject({
-      id: "artifact-preview",
-      title: "Draft",
-      mode: "page",
-    });
+    expect(saveArtifact).not.toHaveBeenCalled();
     expect(onPreviewContentChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        learnerContent: mocks.savedBundles.at(-1)?.["learnerContent"],
+        learnerContent: expect.any(Object),
       }),
     );
+    const projectedPreview = onPreviewContentChange.mock.calls.at(-1)?.[0];
     expect(mocks.learnerAppProps.at(-1)?.["bootstrap"]).toMatchObject({
       artifactId: "artifact-preview",
       title: "Draft",
       mode: "page",
-      learnerContent: mocks.savedBundles.at(-1)?.["learnerContent"],
+      publication: {
+        status: "supported",
+        learnerContent: projectedPreview?.learnerContent,
+      },
     });
     expect(createPreviewServices).toHaveBeenCalledWith(
       expect.objectContaining({
-        learnerContent: mocks.savedBundles.at(-1)?.["learnerContent"],
+        learnerContent: projectedPreview?.learnerContent,
       }),
     );
   });

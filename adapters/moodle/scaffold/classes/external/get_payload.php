@@ -80,7 +80,21 @@ class get_payload extends \core_external\external_api {
     public static function execute_returns(): \core_external\external_single_structure {
         return new \core_external\external_single_structure([
             'success' => new \core_external\external_value(PARAM_BOOL, 'Success flag'),
+            'artifactAccessJson' => new \core_external\external_value(
+                PARAM_RAW,
+                'Typed artifact access JSON',
+            ),
             'artifactJson' => new \core_external\external_value(PARAM_RAW, 'Scaffold artifact JSON'),
+            'publicationStatusJson' => new \core_external\external_value(
+                PARAM_RAW,
+                'Authoritative authoring publication status JSON',
+                VALUE_OPTIONAL,
+            ),
+            'learnerPublicationJson' => new \core_external\external_value(
+                PARAM_RAW,
+                'Typed learner publication JSON',
+                VALUE_OPTIONAL,
+            ),
             'assessmentSnapshotJson' => new \core_external\external_value(PARAM_RAW, 'Canonical learner assessment snapshot JSON'),
             'learnerActivitySnapshotJson' => new \core_external\external_value(
                 PARAM_RAW,

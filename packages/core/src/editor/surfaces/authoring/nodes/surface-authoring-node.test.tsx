@@ -16,9 +16,11 @@ import { createElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
@@ -102,6 +104,7 @@ const testBlockRegistry = createBlockRegistry([
 ]);
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: testBlockRegistry,
+  layoutDefinitions: builtInLayoutRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
 });
 
@@ -836,7 +839,7 @@ describe("surface authoring node views", () => {
       expect(headerFooter?.hasAttribute("data-region-size")).toBe(false);
       expect(headerFooter?.getAttribute("data-region-role")).toBe("main");
       expect(headerFooter?.classList.contains("sc-region")).toBe(true);
-      expect(headerFooter?.classList.contains("sc-region-authoring")).toBe(true);
+      expect(headerFooter?.classList.contains("sc-app-region-authoring")).toBe(true);
       expect(headerFooter?.getAttribute("data-authoring-frame")).toBe("region");
       expect(headerFooter?.getAttribute("data-id")).toBe("region-a");
       expect(headerFooter?.getAttribute("data-vertical-content-position")).toBe("top");
@@ -1449,6 +1452,11 @@ function createEditor(
   return new Editor({
     extensions: [
       DocumentNode,
+      createScaffoldCapabilitiesStorageExtension({
+        blocks: { registry: testBlockRegistry },
+        layouts: { registry: builtInLayoutRegistry },
+        surfaces: { registry: surfaceComposition.registry },
+      }),
       StarterKit.configure({
         document: false,
         paragraph: false,

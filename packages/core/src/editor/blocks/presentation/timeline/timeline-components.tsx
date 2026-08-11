@@ -1,5 +1,13 @@
 import { CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight } from "@phosphor-icons/react";
-import { useId, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentPropsWithoutRef,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 
 export interface TimelineOptions {
   showAxis: boolean;
@@ -132,16 +140,18 @@ export function TimelineTrack({
 }
 
 export function TimelineEventCard({
+  cardProps,
   children,
   chrome,
 }: {
+  cardProps?: Omit<ComponentPropsWithoutRef<"div">, "children" | "className">;
   children: ReactNode;
   chrome?: ReactNode;
 }) {
   return (
     <>
       <span aria-hidden className="sc-course-timeline__dot" />
-      <div data-timeline-card="" className="sc-course-timeline__card">
+      <div {...cardProps} data-timeline-card="" className="sc-course-timeline__card">
         {chrome ? (
           <div contentEditable={false} className="sc-app-timeline-chrome">
             {chrome}

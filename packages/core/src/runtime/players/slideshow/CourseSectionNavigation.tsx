@@ -59,7 +59,10 @@ export function CourseSectionNavigation({
                 value={item.id}
                 aria-label={courseSectionLabel(item)}
                 className="sc-slideshow-player__course-section-menu-item"
-                onSelect={() => onSelectSurface(item.firstSurfaceId)}
+                disabled={item.firstSurfaceId === null}
+                onSelect={() => {
+                  if (item.firstSurfaceId) onSelectSurface(item.firstSurfaceId);
+                }}
               >
                 <span className="sc-slideshow-player__course-section-menu-title">{item.title}</span>
                 <span className="sc-slideshow-player__course-section-menu-position">

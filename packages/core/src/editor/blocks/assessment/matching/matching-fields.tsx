@@ -21,6 +21,11 @@ import {
   AssessmentChoiceAuthoringAction,
 } from "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
 import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
+import {
+  createAuthoringContainedReorderProjection,
+  resolveAuthoringNodeViewSiblingElements,
+} from "@/editor/movement/view/authoring-contained-reorder-projection";
+import { authoringMovementSilhouetteSurfaceAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
@@ -96,6 +101,19 @@ export const MatchingPairNode = createMatchingPairNode({
 
 function MatchingPairNodeView(props: NodeViewProps) {
   const presentationRef = useRef<HTMLDivElement | null>(null);
+  const reorderProjection = useMemo(
+    () =>
+      createAuthoringContainedReorderProjection({
+        axis: "vertical",
+        getSiblingElements: (sourceElement) =>
+          resolveAuthoringNodeViewSiblingElements(
+            sourceElement,
+            (element) => element.getAttribute("data-node") === "matching-pair",
+          ),
+        getSourceElement: () => presentationRef.current,
+      }),
+    [],
+  );
   const pos = safeGetPos(props.getPos);
   const itemId = String(props.node.firstChild?.attrs["id"] ?? "");
   const targetId = String(props.node.lastChild?.attrs["id"] ?? "");
@@ -189,12 +207,16 @@ function MatchingPairNodeView(props: NodeViewProps) {
       aria-label={`Matching pair ${pairIndex}, ${itemLabel}`}
       className="sc-course-matching__pair"
     >
-      <div className="sc-course-matching__pair-grid">
+      <div
+        {...authoringMovementSilhouetteSurfaceAttributes()}
+        className="sc-course-matching__pair-grid"
+      >
         <div className="sc-course-matching__move-cell">
           <ContainedMovementHandle
             getPresentationElement={() => presentationRef.current}
             getSourcePos={() => safeGetPos(props.getPos)}
             label={`Move matching pair ${pairIndex}, ${itemLabel}`}
+            projection={reorderProjection}
             sourceKey={`${itemId}:${targetId}`}
             sourcePos={pos}
             className="sc-course-matching__move-action"

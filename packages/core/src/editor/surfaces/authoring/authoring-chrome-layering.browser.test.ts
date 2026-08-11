@@ -86,9 +86,8 @@ describe("Authoring surface chrome cascade layering", () => {
     expect(restingOutline.borderTopStyle).toBe("dotted");
     expect(restingOutline.borderTopColor).toBe(activeOutline.borderTopColor);
     expect(restingOutline.borderTopColor).not.toBe(appDarkOutline.borderTopColor);
-    expect(getComputedStyle(resting, "::after").content).toContain("Add content");
-    expect(getComputedStyle(resting, "::after").color).toBe("rgb(70, 80, 90)");
-    expect(getComputedStyle(appDark, "::after").color).toBe("rgb(230, 240, 250)");
+    expect(getComputedStyle(resting, "::after").content).toBe("none");
+    expect(getComputedStyle(appDark, "::after").content).toBe("none");
   });
 
   it("allows adapter border overrides on authoring Region chrome", () => {
@@ -129,7 +128,9 @@ function mountAuthoringRegion({
   application.style.setProperty("--sc-app-color-text-secondary", appTextSecondary);
 
   const course = document.createElement("div");
-  course.className = "sc-slide-content-surface-view";
+  course.className = "sc-slide-layout-surface-view sc-slide-layout-surface-authoring-view";
+  course.dataset.slideLayoutVariant = "slide-content";
+  course.dataset.slideLayoutComposition = "content";
   course.style.setProperty("--color-border", courseBorder);
   course.style.setProperty("--color-primary", coursePrimary);
   course.style.setProperty("--color-text-secondary", courseBorder);

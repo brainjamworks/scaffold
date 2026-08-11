@@ -29,8 +29,7 @@ import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extens
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { createCourseDocumentBaseExtensions } from "@/composition/model/create-document-composition";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
-import { CourseDocumentNode } from "@/document/model/nodes";
-import { createCourseSectionAuthoringNode } from "@/editor/course-sections/authoring/course-section-authoring-node";
+import { CourseDocumentNode, createCourseSectionNode } from "@/document/model/nodes";
 import {
   assertMountedNodeIdentitySchema,
   type DocumentCapabilityLookups,
@@ -40,7 +39,6 @@ import { createSurfaceRootSelectionPolicy } from "@/editor/surfaces/authoring/su
 import { createSurfaceAuthoringNode } from "@/editor/surfaces/authoring/nodes/surface-authoring-node";
 import { RegionAuthoringNode } from "@/editor/surfaces/authoring/nodes/region-authoring-node";
 import "@/editor/surfaces/authoring/AuthoringSlideDividers.css";
-import "@/editor/course-sections/authoring/course-section-authoring.css";
 import "@/editor/rich-text/view/text-alignment.css";
 
 import type { ScaffoldAuthoringComposition } from "./scaffold-authoring-composition";
@@ -152,7 +150,7 @@ export function createCourseDocumentAuthoringExtensions({
     assessmentHintsGroupNode: AssessmentHintsGroupNode,
     assessmentSummaryFeedbackNode: AssessmentSummaryFeedbackNode,
     cellNode: CellAuthoringNode,
-    courseSectionNode: createCourseSectionAuthoringNode(),
+    courseSectionNode: createCourseSectionNode(),
     gridNode: GridAuthoringNode,
     inlineIconNode: InlineIconAuthoringNode,
     layoutNode,

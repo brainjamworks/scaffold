@@ -352,8 +352,12 @@ function createTimelineFixture(input: {
       chrome.className = "sc-app-timeline-chrome";
       movementButton = document.createElement("button");
       movementButton.type = "button";
-      movementButton.className = "sc-app-contained-movement-handle sc-app-timeline-movement";
-      movementButton.textContent = "Move event";
+      movementButton.className = "sc-app-contained-movement-handle sc-app-compact-movement-handle";
+      const movementVisual = document.createElement("span");
+      movementVisual.className =
+        "sc-app-contained-movement-handle__visual sc-app-compact-movement-handle__visual";
+      movementVisual.textContent = "Move event";
+      movementButton.append(movementVisual);
       deleteButton = document.createElement("button");
       deleteButton.type = "button";
       deleteButton.className = "sc-app-timeline-delete sc-course-timeline__delete";

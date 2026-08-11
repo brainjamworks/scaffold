@@ -360,6 +360,7 @@ function isContainedNoOp(
   target: MovementNodeContext,
   placement: "after" | "before",
 ): boolean {
+  if (source.parentPos !== target.parentPos) return false;
   if (placement === "before") return source.index === target.index - 1;
   return source.index === target.index + 1;
 }

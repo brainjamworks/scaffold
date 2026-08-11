@@ -15,6 +15,7 @@ import type { AssessmentStoreApi } from "../assessment/types";
 import type { LearnerActivityStoreApi } from "./types";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
+const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
 
 const capturedStores = vi.hoisted(() => ({
   assessment: new Map<string, unknown>(),
@@ -50,6 +51,10 @@ afterEach(() => {
 
 function runtimeContent(surfaceId: string): JSONContent {
   return createScaffoldDocumentContent({ mode: "page", surfaceId });
+}
+
+function runtimePublication(surfaceId: string) {
+  return { status: "supported" as const, learnerContent: runtimeContent(surfaceId) };
 }
 
 function storesFor(surfaceId: string) {
@@ -136,7 +141,8 @@ describe("learner activity runtime composition", () => {
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-one"
-          initialContent={runtimeContent("noport000001")}
+          productAccess={coreProductAccess}
+          publication={runtimePublication("noport000001")}
         />
       </ScaffoldServicesProvider>,
     );
@@ -184,7 +190,8 @@ describe("learner activity runtime composition", () => {
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-one"
-          initialContent={runtimeContent("failure00001")}
+          productAccess={coreProductAccess}
+          publication={runtimePublication("failure00001")}
         />
       </ScaffoldServicesProvider>,
     );
@@ -220,7 +227,8 @@ describe("learner activity runtime composition", () => {
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="shared-artifact"
-          initialContent={runtimeContent("firstsurf001")}
+          productAccess={coreProductAccess}
+          publication={runtimePublication("firstsurf001")}
         />
       </ScaffoldServicesProvider>,
     );
@@ -229,7 +237,8 @@ describe("learner activity runtime composition", () => {
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="shared-artifact"
-          initialContent={runtimeContent("secondsurf01")}
+          productAccess={coreProductAccess}
+          publication={runtimePublication("secondsurf01")}
         />
       </ScaffoldServicesProvider>,
     );

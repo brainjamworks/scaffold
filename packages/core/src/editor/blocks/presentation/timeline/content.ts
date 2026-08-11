@@ -1,7 +1,7 @@
 import { TimelineDataSchema, type TimelineData } from "@scaffold/contracts";
 import type { JSONContent } from "@tiptap/core";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 export const TIMELINE_NODE = "timeline";
 export const TIMELINE_ITEM_NODE = "timeline_item";
@@ -32,7 +32,7 @@ export function createTimelineContent(options?: Partial<TimelineData>): JSONCont
   return {
     type: TIMELINE_NODE,
     attrs: {
-      id: createStableId(),
+      id: createEmbeddedNodeId(),
       data: emptyTimelineData(options),
     },
     content: DEFAULT_EVENTS.map((event, index) => createTimelineItem(index, event)),
@@ -49,7 +49,7 @@ export function createTimelineItem(
 
   return {
     type: TIMELINE_ITEM_NODE,
-    attrs: { id: createStableId() },
+    attrs: { id: createEmbeddedNodeId() },
     content: [
       {
         type: "paragraph",

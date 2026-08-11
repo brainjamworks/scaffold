@@ -5,7 +5,7 @@ import {
   CornersOutIcon as CornersOut,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
+import type { Editor as TiptapEditor } from "@tiptap/core";
 
 import { IconButton } from "@/ui/components/IconButton/IconButton";
 import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
@@ -24,8 +24,8 @@ import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
 import { iconMd } from "@/ui/tokens/icon-sizes";
 
 import {
-  CourseDocumentRuntimeRenderer,
-  type CourseDocumentRuntimeRendererProps,
+  PreparedCourseDocumentRuntimeRenderer,
+  type PreparedRuntimeDocument,
 } from "../../renderer/CourseDocumentRuntimeRenderer";
 import type { SlideshowPlayerSizing } from "../player-types";
 import { CourseSectionNavigation } from "./CourseSectionNavigation";
@@ -38,8 +38,7 @@ interface EmbeddedStageStyle extends CSSProperties {
 
 export interface SlideshowPlayerProps {
   artifactId?: string | null;
-  composition: CourseDocumentRuntimeRendererProps["composition"];
-  initialContent: JSONContent;
+  preparedDocument: PreparedRuntimeDocument;
   structure: ProjectedSlideshowCourseStructure;
   sizing?: SlideshowPlayerSizing;
   onRendererReady?: (editor: TiptapEditor) => void;
@@ -48,18 +47,18 @@ export interface SlideshowPlayerProps {
 
 export function SlideshowPlayer({
   artifactId,
-  composition,
-  initialContent,
+  preparedDocument,
   structure,
   sizing = "contained",
   onRendererReady,
   onActiveSurfaceChange,
 }: SlideshowPlayerProps) {
+  const initialContent = preparedDocument.content;
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const [canvasElement, setCanvasElement] = useState<HTMLDivElement | null>(null);
   const [scaleState, setScaleState] = useState<SlideshowCanvasScaleState | null>(null);
-  const [activeSurfaceId, setActiveSurfaceId] = useState(structure.surfaceIds[0]);
+  const [activeSurfaceId, setActiveSurfaceId] = useState(structure.surfaceIds[0] ?? null);
   const [fullscreenAvailable, setFullscreenAvailable] = useState(false);
   const [fullscreenPending, setFullscreenPending] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -89,7 +88,7 @@ export function SlideshowPlayer({
   }
 
   useEffect(() => {
-    onActiveSurfaceChange?.(navigation.activeSurfaceId);
+    if (navigation.activeSurfaceId) onActiveSurfaceChange?.(navigation.activeSurfaceId);
   }, [navigation.activeSurfaceId, onActiveSurfaceChange]);
 
   useEffect(() => {
@@ -249,10 +248,9 @@ export function SlideshowPlayer({
                     coordinateRoot={canvasElement}
                     coordinateSpace={coordinateSpace}
                   >
-                    <CourseDocumentRuntimeRenderer
+                    <PreparedCourseDocumentRuntimeRenderer
                       artifactId={artifactId ?? null}
-                      composition={composition}
-                      initialContent={initialContent}
+                      preparedDocument={preparedDocument}
                       surfaceStates={surfaceStates}
                       {...(onRendererReady ? { onReady: onRendererReady } : {})}
                     />
@@ -298,7 +296,9 @@ export function SlideshowPlayer({
                         aria-live="polite"
                         aria-atomic="true"
                       >
-                        {navigation.currentNumber} of {navigation.count}
+                        {navigation.count === 0
+                          ? "No slides"
+                          : `${navigation.currentNumber} of ${navigation.count}`}
                       </span>
                       <IconButton
                         className="sc-slideshow-player__nav-button"

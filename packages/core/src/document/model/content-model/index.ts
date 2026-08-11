@@ -31,10 +31,7 @@ export {
   createAssessmentActionsGroupJSON,
   createAssessmentSupportingMaterialJSON,
   isAssessmentSupportingMaterialEmpty,
-  normalizeAssessmentSupportingMaterialDisplaySize,
-  validateAssessmentSupportingMaterial,
   type AssessmentSupportingMaterialDisplaySize,
   type AssessmentSupportingMaterialJSON,
-  type SupportingMaterialValidationResult,
 } from "./assessment-supporting-material";
 export { isFieldContentEmpty } from "./is-field-content-empty";

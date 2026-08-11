@@ -39,9 +39,6 @@ class save_content extends \core_external\external_api {
         return new \core_external\external_function_parameters([
             'cmid' => new \core_external\external_value(PARAM_INT, 'Course module id'),
             'artifactjson' => new \core_external\external_value(PARAM_RAW, 'Scaffold artifact JSON'),
-            'learnercontentjson' => new \core_external\external_value(PARAM_RAW, 'Learner content JSON'),
-            'assessmenttargetsjson' => new \core_external\external_value(PARAM_RAW, 'Assessment targets JSON'),
-            'assessmentgroupsjson' => new \core_external\external_value(PARAM_RAW, 'Assessment groups JSON'),
         ]);
     }
 
@@ -50,38 +47,25 @@ class save_content extends \core_external\external_api {
      *
      * @param int $cmid Course module ID.
      * @param string $artifactjson Artifactjson.
-     * @param string $learnercontentjson Learnercontentjson.
-     * @param string $assessmenttargetsjson Assessmenttargetsjson.
-     * @param string $assessmentgroupsjson Assessmentgroupsjson.
      * @return array
      */
     public static function execute(
         int $cmid,
         string $artifactjson,
-        string $learnercontentjson,
-        string $assessmenttargetsjson,
-        string $assessmentgroupsjson,
     ): array {
         $params = self::validate_parameters(self::execute_parameters(), [
             'cmid' => $cmid,
             'artifactjson' => $artifactjson,
-            'learnercontentjson' => $learnercontentjson,
-            'assessmenttargetsjson' => $assessmenttargetsjson,
-            'assessmentgroupsjson' => $assessmentgroupsjson,
         ]);
         $scope = activity_access::require($params['cmid'], 'mod/scaffold:editcontent');
         $result = (new content_service())->save(
             $scope,
             $params['artifactjson'],
-            $params['learnercontentjson'],
-            $params['assessmenttargetsjson'],
-            $params['assessmentgroupsjson'],
         );
 
         return [
             'success' => true,
-            'artifact' => ['title' => $result['content']->name],
-            'gradeItemPublication' => $result['gradeItemPublication'],
+            'artifactRevision' => $result['artifactRevision'],
         ];
     }
 
@@ -93,12 +77,9 @@ class save_content extends \core_external\external_api {
     public static function execute_returns(): \core_external\external_single_structure {
         return new \core_external\external_single_structure([
             'success' => new \core_external\external_value(PARAM_BOOL, 'Success flag'),
-            'artifact' => new \core_external\external_single_structure([
-                'title' => new \core_external\external_value(PARAM_TEXT, 'Saved artifact title'),
-            ]),
-            'gradeItemPublication' => new \core_external\external_value(
-                PARAM_ALPHA,
-                'Grade-item publication status after content confirmation',
+            'artifactRevision' => new \core_external\external_value(
+                PARAM_ALPHANUM,
+                'Opaque canonical artifact revision',
             ),
         ]);
     }

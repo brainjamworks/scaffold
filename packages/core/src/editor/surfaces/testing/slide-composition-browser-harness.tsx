@@ -2,10 +2,8 @@ import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { createRoot, type Root } from "react-dom/client";
 
-import {
-  CourseDocumentEditor,
-  type CourseDocumentEditorProps,
-} from "@/document/authoring/CourseDocumentEditor";
+import type { ScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor.test-harness";
 import { isRegisteredSlideCompositionSurfaceDefinition } from "@/editor/surfaces/model/slide-composition-definition";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { createScaffoldDocumentContent } from "@/format/artifact";
@@ -83,7 +81,7 @@ export interface RenderRegisteredSurfaceVariantOptions {
 
 export async function renderCompositionStateCase(
   state: CompositionStateCase,
-  authoringComposition: CourseDocumentEditorProps["composition"],
+  authoringComposition: ScaffoldAuthoringComposition,
   runtimeComposition: CourseDocumentRuntimeRendererProps["composition"],
   options: RenderCompositionStateCaseOptions = {},
 ): Promise<RenderedCompositionStateCase> {
@@ -105,7 +103,7 @@ export async function renderCompositionStateCase(
 
 export async function renderRegisteredSurfaceVariant(
   variant: string,
-  authoringComposition: CourseDocumentEditorProps["composition"],
+  authoringComposition: ScaffoldAuthoringComposition,
   runtimeComposition: CourseDocumentRuntimeRendererProps["composition"],
   options: RenderRegisteredSurfaceVariantOptions = {},
 ): Promise<RenderedCompositionStateCase> {
@@ -131,7 +129,7 @@ async function renderDocumentPair(
   visibleSurfaceId: string,
   authoringEditable: boolean,
   description: string,
-  authoringComposition: CourseDocumentEditorProps["composition"],
+  authoringComposition: ScaffoldAuthoringComposition,
   runtimeComposition: CourseDocumentRuntimeRendererProps["composition"],
 ): Promise<RenderedCompositionStateCase> {
   const harnessHost = globalThis.document.createElement("div");
@@ -182,6 +180,7 @@ async function renderDocumentPair(
             <CourseDocumentRuntimeRenderer
               composition={runtimeComposition}
               initialContent={cloneJSON(initialContent)}
+              productAccess={{ scaffoldPlusAuthorized: false }}
               visibleSurfaceId={visibleSurfaceId}
               onReady={runtimeReady}
             />

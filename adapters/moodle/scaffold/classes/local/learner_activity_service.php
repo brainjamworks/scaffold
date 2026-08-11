@@ -108,22 +108,13 @@ final class learner_activity_service {
      * @return array
      */
     public static function activity_map(\stdClass $scaffold): array {
-        try {
-            $content = json_decode(
-                (string) ($scaffold->learnercontentjson ?? 'null'),
-                false,
-                512,
-                JSON_THROW_ON_ERROR,
-            );
-        } catch (\JsonException) {
-            throw new \invalid_parameter_exception('Stored learner content is invalid JSON');
-        }
-        if ($content === null) {
+        $publishedcontent = content_service::read_published_learner_content(
+            (string) ($scaffold->learnercontentjson ?? 'null'),
+        );
+        if ($publishedcontent === null) {
             return [];
         }
-        if (!($content instanceof \stdClass)) {
-            throw new \invalid_parameter_exception('Stored learner content must be a JSON object or null');
-        }
+        $content = json_decode(json_encode($publishedcontent, JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR);
 
         $activities = [];
         self::collect_activity_map($content, $activities);

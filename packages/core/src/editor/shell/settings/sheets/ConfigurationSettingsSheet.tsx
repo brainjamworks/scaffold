@@ -6,7 +6,8 @@ import type { ZodTypeAny } from "zod";
 
 import { EmptyState } from "@/ui/components/app/EmptyState/EmptyState";
 import { Sheet } from "@/ui/components/app/Sheet/Sheet";
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
+import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import { updateNodeSettingsChecked } from "@/document/model/commands/settings";
 import {
   type NodeSettingsSheetDefinition,
@@ -126,7 +127,7 @@ interface ConfigurationSettingsSheetProps {
   targetId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  entry?: ConfigurationNodeSettingsSheetDefinition;
+  entry: ConfigurationNodeSettingsSheetDefinition;
   title?: string;
 }
 
@@ -156,18 +157,17 @@ interface ResolveSettingsSheetDraftLoadArgs {
 export function ConfigurationSettingsSheet({
   editor,
   nodeType,
-  entry: entryOverride,
+  entry,
   pos,
   targetId,
   title: titleOverride,
   open,
   onOpenChange,
 }: ConfigurationSettingsSheetProps) {
-  const definition = nodeType ? builtInBlockRegistry.getByNodeType(nodeType) : undefined;
-  const entry = entryOverride ?? definition?.settingsSheet;
-  const persistedSchema = entry?.schema;
-  const formSchema = entry?.editSchema ?? persistedSchema;
-  const attr = entry?.attr;
+  const blockDefinitions = getScaffoldCapabilitiesForEditor(editor).blocks.registry;
+  const persistedSchema = entry.schema;
+  const formSchema = entry.editSchema ?? persistedSchema;
+  const attr = entry.attr;
   const target = useAuthoringNodeTarget(
     editor,
     nodeType && targetId ? { id: targetId, nodeType } : null,
@@ -178,8 +178,8 @@ export function ConfigurationSettingsSheet({
   const targetTitle = useMemo(() => {
     if (titleOverride) return titleOverride;
     if (!nodeType) return null;
-    return resolveSettingsTargetTitle(nodeType);
-  }, [nodeType, titleOverride]);
+    return resolveSettingsTargetTitle(nodeType, blockDefinitions);
+  }, [blockDefinitions, nodeType, titleOverride]);
 
   const draftLoad = resolveSettingsSheetDraftLoad({
     attr,
@@ -193,12 +193,12 @@ export function ConfigurationSettingsSheet({
   const settingsContext = useMemo(
     () =>
       resolveSettingsContext({
-        blockDefinitions: builtInBlockRegistry,
+        blockDefinitions,
         editor,
         target:
           nodeType && settingsTargetPos !== null ? { nodeType, pos: settingsTargetPos } : null,
       }),
-    [editor, nodeType, settingsTargetPos],
+    [blockDefinitions, editor, nodeType, settingsTargetPos],
   );
   const renderedEntry = useMemo(
     () =>
@@ -227,8 +227,11 @@ export function ConfigurationSettingsSheet({
   );
 }
 
-export function resolveSettingsTargetTitle(nodeType: string): string {
-  return builtInBlockRegistry.getByNodeType(nodeType)?.insert?.title ?? nodeType;
+export function resolveSettingsTargetTitle(
+  nodeType: string,
+  blockDefinitions: BlockDefinitionLookup,
+): string {
+  return blockDefinitions.getByNodeType(nodeType)?.insert?.title ?? nodeType;
 }
 
 function resolveSettingsSheetDraftLoad({

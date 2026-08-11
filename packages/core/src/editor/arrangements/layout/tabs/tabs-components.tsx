@@ -3,7 +3,7 @@ import type { KeyboardEvent, ReactNode } from "react";
 import { createAriaElementId } from "@/ui/accessibility/aria-element-id";
 
 export type TabsVariant = "default" | "pills" | "underline";
-export type RenderedTabsVariant = "default" | "pills";
+export type RenderedTabsVariant = TabsVariant;
 
 export interface TabsOptions {
   variant: TabsVariant;
@@ -62,13 +62,7 @@ export function normalizeActiveTabId(
 }
 
 export function renderTabsVariant(variant: TabsVariant): RenderedTabsVariant {
-  return variant === "pills" ? "pills" : "default";
-}
-
-export function tabsGhostPresentation(variant: TabsVariant): "tab" | "tab-pills" | "tab-underline" {
-  if (variant === "pills") return "tab-pills";
-  if (variant === "underline") return "tab-underline";
-  return "tab";
+  return variant;
 }
 
 export function tabTriggerId(layoutId: string, sectionId: string): string {
@@ -121,10 +115,12 @@ export function tabsPanelAttributes({
   layoutId,
   sectionId,
   isActive,
+  focusable = false,
 }: {
   layoutId: string;
   sectionId: string;
   isActive: boolean;
+  focusable?: boolean;
 }) {
   return {
     role: "tabpanel",
@@ -132,6 +128,7 @@ export function tabsPanelAttributes({
     "aria-labelledby": tabTriggerId(layoutId, sectionId),
     hidden: !isActive,
     "data-state": isActive ? "active" : "inactive",
+    ...(focusable ? { tabIndex: isActive ? 0 : -1 } : {}),
   } as const;
 }
 
@@ -148,10 +145,11 @@ export function TabsList({
     <div
       role="tablist"
       aria-label={label}
+      aria-orientation="horizontal"
       contentEditable={false}
-      data-scaffold-tabs-list=""
+      data-course-tabs-list=""
       data-variant={variant}
-      className="sc-tabs__list"
+      className="sc-course-tabs__list"
     >
       {children}
     </div>
@@ -162,8 +160,8 @@ export function TabsItem({ isActive, children }: { isActive: boolean; children: 
   return (
     <div
       data-state={isActive ? "active" : "inactive"}
-      data-scaffold-tabs-item=""
-      className="sc-tabs__item"
+      data-course-tabs-item=""
+      className="sc-course-tabs__item"
     >
       {children}
     </div>
@@ -192,12 +190,12 @@ export function TabsTrigger({
       aria-controls={tabPanelId(layoutId, section.id)}
       tabIndex={isActive ? 0 : -1}
       data-state={isActive ? "active" : "inactive"}
-      data-scaffold-tabs-trigger=""
+      data-course-tabs-trigger=""
       onClick={onActivate}
       onKeyDown={onKeyDown}
-      className="sc-tabs__trigger"
+      className="sc-course-tabs__trigger"
     >
-      <span className="sc-tabs__trigger-label">{section.label}</span>
+      <span className="sc-course-tabs__trigger-label">{section.label}</span>
     </button>
   );
 }

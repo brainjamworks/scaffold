@@ -7,9 +7,11 @@ import { page } from "vite-plus/test/browser/context";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
-import type { ArtifactSaveBundle } from "@/host/ports";
+import type { ArtifactSavePayload } from "@/host/ports";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/styles/globals.css";
+
+const contentHostMocks = vi.hoisted(() => ({ editors: [] as unknown[] }));
 
 vi.mock("@/document/authoring/CourseDocumentEditor", () => ({
   CourseDocumentEditor: () => null,
@@ -23,6 +25,8 @@ vi.mock("@/editor/shell/authoring/ContentAuthorHost", async () => {
   const { CourseDocumentNode, createCourseSectionNode, DocumentNode } =
     await import("@/document/model/nodes");
   const { SurfaceNode } = await import("@/editor/surfaces/model/nodes/surface-node");
+  const { getCourseDocumentAuthoringMountState } =
+    await import("@/document/authoring/prepared-authoring-mount");
   const TestArrangementNode = Node.create({
     name: "testArrangement",
     group: "arrangement",
@@ -36,16 +40,17 @@ vi.mock("@/editor/shell/authoring/ContentAuthorHost", async () => {
 
   return {
     ContentAuthorHost: ({
-      content,
+      mount,
       leftRail,
       onChange,
       onEditorReady,
     }: {
-      content: JSONContent;
+      mount: Parameters<typeof getCourseDocumentAuthoringMountState>[0];
       leftRail?: (editor: Editor) => ReactNode;
       onChange?: (editor: Editor) => void;
       onEditorReady?: (editor: Editor) => void;
     }) => {
+      const content = getCourseDocumentAuthoringMountState(mount).workingDocument as JSONContent;
       const [editor] = useState(
         () =>
           new Editor({
@@ -64,6 +69,7 @@ vi.mock("@/editor/shell/authoring/ContentAuthorHost", async () => {
       );
 
       useEffect(() => {
+        contentHostMocks.editors.push(editor);
         onEditorReady?.(editor);
         return () => editor.destroy();
       }, [editor, onEditorReady]);
@@ -90,7 +96,7 @@ describe("course theme panel browser workflow", () => {
     const { ScaffoldAuthoringApp } = await import("@/editor/shell/authoring/ScaffoldAuthoringApp");
     await page.viewport(480, 650);
     let editor: Editor | null = null;
-    const savedBundles: ArtifactSaveBundle[] = [];
+    const savedBundles: ArtifactSavePayload[] = [];
     const content = createScaffoldDocumentContent({
       mode: "page",
       surfaceId: "themepage001",
@@ -103,6 +109,7 @@ describe("course theme panel browser workflow", () => {
     const rendered = await renderBrowserReact(
       <ScaffoldAuthoringApp
         application={createScaffoldApplication()}
+        productAccess={{ scaffoldPlusAuthorized: false }}
         artifact={{
           id: "theme-browser-artifact",
           title: "Theme browser",
@@ -118,14 +125,12 @@ describe("course theme panel browser workflow", () => {
           },
           media: null,
         }}
-        onEditorReady={(nextEditor) => {
-          editor = nextEditor;
-        }}
       />,
     );
 
     try {
-      await waitForCondition(() => editor !== null);
+      await waitForCondition(() => contentHostMocks.editors.length > 0);
+      editor = contentHostMocks.editors.at(-1) as Editor;
       const openTheme = await waitForElement<HTMLButtonElement>(
         document,
         'button[aria-label="Open course theme"]',
@@ -350,7 +355,7 @@ function readEditorTheme(editor: Editor | null): PersistedCourseTheme | null {
   return structuredClone(editor.state.doc.firstChild?.attrs["theme"] ?? null);
 }
 
-function readBundleTheme(bundle: ArtifactSaveBundle | undefined): unknown {
+function readBundleTheme(bundle: ArtifactSavePayload | undefined): unknown {
   return bundle?.artifact.content.content?.[0]?.attrs?.["theme"];
 }
 

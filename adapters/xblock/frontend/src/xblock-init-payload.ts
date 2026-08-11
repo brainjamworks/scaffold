@@ -16,13 +16,37 @@ export function buildXBlockInnerInitPayload({
   data,
   defaultMediaContext,
 }: BuildXBlockInnerInitPayloadOptions): ScaffoldXBlockInnerInitPayload {
+  if (view === "student" && !data.learnerPublication) {
+    throw new Error("XBlock student payload is missing learner publication state.");
+  }
+  if (view === "studio" && !data.publicationStatus) {
+    throw new Error("XBlock Studio payload is missing publication status.");
+  }
+  const supported = data.artifactAccess.status === "supported";
   return {
     view,
-    artifact: data.artifact,
+    artifactAccess: data.artifactAccess,
+    artifact: supported ? data.artifact : null,
     mediaContext: data.mediaContext ?? defaultMediaContext,
-    ...(data.resolvedMedia ? { resolvedMedia: data.resolvedMedia } : {}),
+    ...(supported && data.resolvedMedia ? { resolvedMedia: data.resolvedMedia } : {}),
     ...(typeof data.protocolVersion === "number" ? { protocolVersion: data.protocolVersion } : {}),
-    initialLearnerState: toXBlockInitialLearnerState(data, view),
+    initialLearnerState: supported ? toXBlockInitialLearnerState(data, view) : {},
+    learnerPublication:
+      view === "student"
+        ? data.learnerPublication!
+        : {
+            status: "invalid",
+            issues: [
+              {
+                code: "missing_learner_publication",
+                message: "Learner publication is unavailable.",
+                path: [],
+              },
+            ],
+          },
+    ...(view === "studio" && data.publicationStatus
+      ? { publicationStatus: data.publicationStatus }
+      : {}),
   };
 }
 

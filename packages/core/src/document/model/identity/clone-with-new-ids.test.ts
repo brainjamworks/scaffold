@@ -2,33 +2,45 @@ import type { JSONContent } from "@tiptap/core";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { EmbeddedDataIdSchema, EmbeddedNodeIdSchema } from "@scaffold/contracts";
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import { defineBlock } from "@/editor/blocks/block-definition";
-import { createBlockRegistry } from "@/editor/blocks/block-registry";
+import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createEmbeddedNodeId } from "./stable-ids";
 
 import {
   cloneJsonWithNewStableIds as cloneJsonWithNewStableIdsUsingLookup,
+  type BlockDuplicationLookup,
+  type BlockDuplicationOperation,
   type CloneJsonWithNewStableIdsOptions,
-  type CopiedBlockDefinitionLookup,
 } from "./clone-with-new-ids";
 
 const STABLE_ID_PATTERN = /^[0-9A-Z_a-z-]{12}$/;
 const SOURCE_SURFACE_ID = createEmbeddedNodeId();
-const EMPTY_BLOCK_DEFINITIONS: CopiedBlockDefinitionLookup = Object.freeze({
+const CORE_BLOCK_DUPLICATIONS = createScaffoldApplication().capabilities.blocks.duplication;
+const EMPTY_BLOCK_DUPLICATIONS: BlockDuplicationLookup = Object.freeze({
   getByNodeType: () => undefined,
+  hasNodeType: () => false,
 });
 
 function cloneJsonWithNewStableIds<T extends JSONContent | JSONContent[]>(
   content: T,
-  options: Omit<CloneJsonWithNewStableIdsOptions, "blockDefinitions"> & {
-    blockDefinitions?: CopiedBlockDefinitionLookup;
+  options: Omit<CloneJsonWithNewStableIdsOptions, "blockDuplications"> & {
+    blockDuplications?: BlockDuplicationLookup;
   } = {},
 ): T {
   return cloneJsonWithNewStableIdsUsingLookup(content, {
-    blockDefinitions: builtInBlockRegistry,
+    blockDuplications: CORE_BLOCK_DUPLICATIONS,
     ...options,
+  });
+}
+
+function duplicationLookup(
+  operations: Readonly<Record<string, BlockDuplicationOperation>>,
+  mountedNodeTypes: readonly string[] = Object.keys(operations),
+): BlockDuplicationLookup {
+  const mountedNodeTypeSet = new Set(mountedNodeTypes);
+  return Object.freeze({
+    getByNodeType: (nodeType: string) => operations[nodeType],
+    hasNodeType: (nodeType: string) => mountedNodeTypeSet.has(nodeType),
   });
 }
 
@@ -80,8 +92,13 @@ describe("cloneJsonWithNewStableIds", () => {
     };
     const sourceSnapshot = structuredClone(source);
     const seenMaps: ReadonlyMap<unknown, unknown>[] = [];
-    const rewriteCopiedContent = vi.fn(({ content, nodeIdChanges, generators }) => {
+    const operationOrder: string[] = [];
+    let parentSawChildRepair = false;
+    const repairPrivateIdentity = vi.fn(({ content, nodeIdChanges, generators }) => {
+      operationOrder.push("parent");
       seenMaps.push(nodeIdChanges);
+      parentSawChildRepair =
+        content.content?.[1]?.attrs?.["data"]?.repairedBy === "child-capability";
       const data = content.attrs?.["data"] as {
         records: Array<{ id: string; label: string }>;
         selectedId: string;
@@ -103,21 +120,20 @@ describe("cloneJsonWithNewStableIds", () => {
       };
     });
     const observeCopiedContent = vi.fn(({ content, nodeIdChanges }) => {
+      operationOrder.push("child");
       seenMaps.push(nodeIdChanges);
-      return content;
+      return {
+        ...content,
+        attrs: {
+          ...content.attrs,
+          data: { repairedBy: "child-capability" },
+        },
+      };
     });
-    const blockDefinitions = createBlockRegistry([
-      defineBlock({
-        nodeType: "copy_fixture",
-        title: "Copy fixture",
-        rewriteCopiedContent,
-      }),
-      defineBlock({
-        nodeType: "copy_observer",
-        title: "Copy observer",
-        rewriteCopiedContent: observeCopiedContent,
-      }),
-    ]);
+    const blockDuplications = duplicationLookup({
+      copy_fixture: repairPrivateIdentity,
+      copy_observer: observeCopiedContent,
+    });
     const allocatedNodeIds = [
       EmbeddedNodeIdSchema.parse("blocknew0001"),
       EmbeddedNodeIdSchema.parse("childnew0001"),
@@ -125,7 +141,7 @@ describe("cloneJsonWithNewStableIds", () => {
     ];
 
     const clone = cloneJsonWithNewStableIds(source, {
-      blockDefinitions,
+      blockDuplications,
       createDataId: () => EmbeddedDataIdSchema.parse("datanew00001"),
       createId: () => {
         const id = allocatedNodeIds.shift();
@@ -134,9 +150,11 @@ describe("cloneJsonWithNewStableIds", () => {
       },
     });
 
-    expect(rewriteCopiedContent).toHaveBeenCalledOnce();
+    expect(repairPrivateIdentity).toHaveBeenCalledOnce();
     expect(observeCopiedContent).toHaveBeenCalledOnce();
     expect(seenMaps).toHaveLength(2);
+    expect(operationOrder).toEqual(["child", "parent"]);
+    expect(parentSawChildRepair).toBe(true);
     expect(seenMaps[0]).toBe(seenMaps[1]);
     expect(Object.isFrozen(seenMaps[0])).toBe(true);
     expect("set" in seenMaps[0]!).toBe(false);
@@ -160,7 +178,10 @@ describe("cloneJsonWithNewStableIds", () => {
         },
         {
           type: "copy_observer",
-          attrs: { id: "observenew01" },
+          attrs: {
+            id: "observenew01",
+            data: { repairedBy: "child-capability" },
+          },
         },
       ],
     });
@@ -168,19 +189,135 @@ describe("cloneJsonWithNewStableIds", () => {
   });
 
   it("clones an ordinary registered Block without callback ceremony", () => {
-    const blockDefinitions = createBlockRegistry([
-      defineBlock({ nodeType: "ordinary_fixture", title: "Ordinary fixture" }),
-    ]);
-
     const clone = cloneJsonWithNewStableIds(
       { type: "ordinary_fixture", attrs: { id: "ordinary0001" } },
       {
-        blockDefinitions,
+        blockDuplications: duplicationLookup({}, ["ordinary_fixture"]),
         createId: () => EmbeddedNodeIdSchema.parse("ordinary0002"),
       },
     );
 
     expect(clone.attrs?.["id"]).toBe("ordinary0002");
+  });
+
+  it.each([
+    {
+      label: "root document-node identity",
+      tamper: (content: JSONContent): JSONContent => ({
+        ...content,
+        attrs: { ...content.attrs, id: "tampered0001" },
+      }),
+    },
+    {
+      label: "root node type",
+      tamper: (content: JSONContent): JSONContent => ({ ...content, type: "different_owner" }),
+    },
+    {
+      label: "structural content topology",
+      tamper: (content: JSONContent): JSONContent => ({
+        ...content,
+        content: [...(content.content ?? []), { type: "paragraph" }],
+      }),
+    },
+  ])("rejects an operation that changes its $label", ({ tamper }) => {
+    const source: JSONContent = {
+      type: "hostile_owner",
+      attrs: { id: "ownerold0001", data: { privateRef: "ownerold0001" } },
+      content: [{ type: "paragraph", attrs: { id: "paraold00001" } }],
+    };
+    const sourceSnapshot = structuredClone(source);
+    const blockDuplications = duplicationLookup({
+      hostile_owner: ({ content }) => tamper(content),
+    });
+    const allocatedNodeIds = ["ownernew0001", "paranew00001"];
+
+    expect(() =>
+      cloneJsonWithNewStableIds(source, {
+        blockDuplications,
+        createId: () => {
+          const id = allocatedNodeIds.shift();
+          if (!id) throw new Error("unexpected node identity allocation");
+          return id;
+        },
+      }),
+    ).toThrow(/Block duplication operation/);
+    expect(source).toEqual(sourceSnapshot);
+  });
+
+  it("rejects a parent operation that changes a nested ordinary mounted Block", () => {
+    const source: JSONContent = {
+      type: "hostile_parent",
+      attrs: { id: "parentold001" },
+      content: [
+        {
+          type: "ordinary_child",
+          attrs: { id: "childold0001", data: { ownerValue: "preserve" } },
+        },
+      ],
+    };
+    const sourceSnapshot = structuredClone(source);
+    const blockDuplications = duplicationLookup(
+      {
+        hostile_parent: ({ content }) => ({
+          ...content,
+          ...(content.content
+            ? {
+                content: content.content.map((child) => ({
+                  ...child,
+                  attrs: { ...child.attrs, data: { ownerValue: "overwritten" } },
+                })),
+              }
+            : {}),
+        }),
+      },
+      ["hostile_parent", "ordinary_child"],
+    );
+    const allocatedNodeIds = ["parentnew001", "childnew0001"];
+
+    expect(() =>
+      cloneJsonWithNewStableIds(source, {
+        blockDuplications,
+        createId: () => {
+          const id = allocatedNodeIds.shift();
+          if (!id) throw new Error("unexpected node identity allocation");
+          return id;
+        },
+      }),
+    ).toThrow(/nested mounted Block "ordinary_child"/);
+    expect(source).toEqual(sourceSnapshot);
+  });
+
+  it.each([
+    {
+      label: "text",
+      tamper: (child: JSONContent): JSONContent => ({ ...child, text: "Changed" }),
+    },
+    {
+      label: "marks",
+      tamper: (child: JSONContent): JSONContent => ({
+        ...child,
+        marks: [{ type: "italic" }],
+      }),
+    },
+  ])("rejects an operation that changes owned descendant $label", ({ tamper }) => {
+    const source: JSONContent = {
+      type: "hostile_owner",
+      attrs: { id: "ownerold0002" },
+      content: [{ type: "text", text: "Original", marks: [{ type: "bold" }] }],
+    };
+    const blockDuplications = duplicationLookup({
+      hostile_owner: ({ content }) => ({
+        ...content,
+        ...(content.content ? { content: content.content.map(tamper) } : {}),
+      }),
+    });
+
+    expect(() =>
+      cloneJsonWithNewStableIds(source, {
+        blockDuplications,
+        createId: () => "ownernew0002",
+      }),
+    ).toThrow(/Block duplication operation/);
   });
 
   it("does not discover private payload references without a mounted owner callback", () => {
@@ -198,7 +335,7 @@ describe("cloneJsonWithNewStableIds", () => {
     };
 
     const clone = cloneJsonWithNewStableIds(source, {
-      blockDefinitions: EMPTY_BLOCK_DEFINITIONS,
+      blockDuplications: EMPTY_BLOCK_DUPLICATIONS,
       createId: () => {
         const id = allocatedNodeIds.shift();
         if (!id) throw new Error("unexpected node identity allocation");

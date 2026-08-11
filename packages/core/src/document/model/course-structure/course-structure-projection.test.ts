@@ -42,24 +42,10 @@ describe("projectCourseStructure", () => {
     });
   });
 
-  it("preserves the flat order of an unsectioned Slideshow", () => {
+  it("rejects an unsectioned Slideshow", () => {
     const content = slideshowContent([surface(SURFACE_1), surface(SURFACE_2), surface(SURFACE_3)]);
 
-    const projection = projectCourseStructure(content);
-
-    expect(projection).toMatchObject({
-      kind: "unsectioned-slideshow",
-      mode: "slideshow",
-      surfaceIds: [SURFACE_1, SURFACE_2, SURFACE_3],
-      courseSections: [],
-      courseSectionById: {},
-    });
-    expect(projection?.surfaceById[SURFACE_2]).toEqual({
-      id: SURFACE_2,
-      index: 1,
-      courseSectionId: null,
-      courseSectionSurfaceIndex: null,
-    });
+    expect(projectCourseStructure(content)).toBeNull();
   });
 
   it("projects ordered Course Sections and member lookup data in one semantic structure", () => {
@@ -74,7 +60,7 @@ describe("projectCourseStructure", () => {
     const projection = projectCourseStructure(content);
 
     expect(projection).toMatchObject({
-      kind: "sectioned-slideshow",
+      kind: "slideshow",
       mode: "slideshow",
       surfaceIds: [SURFACE_1, SURFACE_2, SURFACE_3],
       courseSections: [
@@ -106,6 +92,48 @@ describe("projectCourseStructure", () => {
     });
   });
 
+  it("projects adjacent, trailing, and empty-only Course Sections", () => {
+    const projection = projectCourseStructure(
+      slideshowContent([
+        courseSection(SECTION_1, "Empty"),
+        courseSection(SECTION_2, "Populated"),
+        surface(SURFACE_1),
+        courseSection(EmbeddedNodeIdSchema.parse("section00003"), "Trailing"),
+      ]),
+    );
+
+    expect(projection).toMatchObject({
+      kind: "slideshow",
+      surfaceIds: [SURFACE_1],
+      courseSections: [
+        { id: SECTION_1, surfaceIds: [], firstSurfaceId: null },
+        { id: SECTION_2, surfaceIds: [SURFACE_1], firstSurfaceId: SURFACE_1 },
+        { surfaceIds: [], firstSurfaceId: null },
+      ],
+    });
+    expect(
+      projectCourseStructure(slideshowContent([courseSection(SECTION_1, "Only")]))
+        ?.courseSections[0],
+    ).toMatchObject({ surfaceIds: [], firstSurfaceId: null });
+  });
+
+  it("reads only canonical structural fields from established Course Section attrs", () => {
+    const boundary = courseSection(SECTION_1, "Practice");
+    boundary.attrs = { ...boundary.attrs, semanticLabel: "Workshop outline label" };
+
+    expect(
+      projectCourseStructure(slideshowContent([boundary, surface(SURFACE_1)]))?.courseSections,
+    ).toEqual([
+      {
+        id: SECTION_1,
+        title: "Practice",
+        index: 0,
+        surfaceIds: [SURFACE_1],
+        firstSurfaceId: SURFACE_1,
+      },
+    ]);
+  });
+
   it("keeps authoring-only unavailable Surfaces outside canonical projection", () => {
     const content = createScaffoldDocumentContent({ mode: "page", surfaceId: PAGE_SURFACE_ID });
     content.content![0]!.content = [
@@ -132,16 +160,12 @@ describe("projectCourseStructure", () => {
       ]),
     },
     {
-      name: "an empty Course Section",
+      name: "a duplicate stable ID",
       content: slideshowContent([
         courseSection(SECTION_1, "Introduction"),
-        courseSection(SECTION_2, "Practice"),
+        surface(SURFACE_1),
         surface(SURFACE_1),
       ]),
-    },
-    {
-      name: "a duplicate stable ID",
-      content: slideshowContent([surface(SURFACE_1), surface(SURFACE_1)]),
     },
     {
       name: "an invalid Course Section title",
@@ -163,7 +187,11 @@ describe("projectCourseStructure", () => {
 });
 
 function slideshowContent(children: JSONContent[]): JSONContent {
-  const content = createScaffoldDocumentContent({ mode: "slideshow", surfaceId: SURFACE_1 });
+  const content = createScaffoldDocumentContent({
+    mode: "slideshow",
+    initialCourseSectionTitle: "Introduction",
+    surfaceId: SURFACE_1,
+  });
   const courseDocument = content.content?.[0];
   if (!courseDocument) throw new Error("Expected a Course Document fixture.");
   courseDocument.content = children;

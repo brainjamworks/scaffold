@@ -4,15 +4,13 @@ import {
   SlideshowIcon as Slideshow,
 } from "@phosphor-icons/react";
 import { GalleryDataSchema, GalleryItemDataSchema, GalleryLayoutSchema } from "@scaffold/contracts";
-import { z } from "zod";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import {
   defineConfiguration,
   type ConfigurationDirectChildCollectionDescriptor,
 } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
-import { validateCatalogNodeAttrs } from "@/editor/insertion/catalog-validation";
 import { GALLERY_ITEM_NODE, GALLERY_NODE, emptyGalleryData, emptyGalleryItemData } from "./content";
 
 export const GALLERY_BLOCK_ID = "gallery";
@@ -95,18 +93,10 @@ export const galleryDefinition = defineBlock({
     description: "Multi-image carousel or grid with fullscreen viewer",
     icon: Images,
     keywords: ["gallery", "images", "photos", "carousel", "slideshow", "grid"],
-    validateNode: validateCatalogNodeAttrs([
-      {
-        nodeType: GALLERY_ITEM_NODE,
-        schema: z.object({ data: GalleryItemDataSchema }),
-        field: "data",
-        message: "Gallery catalog content contains invalid gallery item data.",
-      },
-    ]),
     content: () => ({
       type: GALLERY_NODE,
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyGalleryData(),
       },
     }),

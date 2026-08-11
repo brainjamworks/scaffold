@@ -9,6 +9,8 @@ import StarterKit from "@tiptap/starter-kit";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
@@ -30,6 +32,7 @@ import { timelineBlockDefinition } from "./timeline-definition";
 import { TimelineRuntimeExtension } from "./timeline-runtime-extension";
 
 const blockInsertCatalog = createInsertCatalog(createBlockInsertActions([timelineBlockDefinition]));
+const testCapabilities = createScaffoldApplication().capabilities;
 
 const BoundedRegionTestNode = TiptapNode.create({
   name: "region",
@@ -137,6 +140,7 @@ function renderTimelineEditor(
         undoRedo: false,
         paragraph: false,
       }),
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
       ExtendedParagraph,
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       BoundedRegionTestNode,

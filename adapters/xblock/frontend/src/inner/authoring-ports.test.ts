@@ -58,6 +58,22 @@ class RecordingBridge implements XBlockInnerBridge {
         },
       } as TResult);
     }
+    if (type === "persistence.saveArtifact") {
+      return Promise.resolve({
+        success: true,
+        artifactRevision: "revision-2",
+      } as TResult);
+    }
+    if (type === "publication.publish") {
+      return Promise.resolve({
+        success: true,
+        publicationStatus: {
+          currentArtifactRevision: "revision-2",
+          publishedArtifactRevision: "revision-2",
+          publishedAt: "2026-08-10T10:00:00Z",
+        },
+      } as TResult);
+    }
     if (type === "media.resolve") {
       return Promise.resolve({
         success: true,
@@ -154,6 +170,12 @@ const assessmentArgs = {
   response: { kind: "single-select" as const, optionId: "option_00001" },
   expectedAttemptNumber: 0,
 };
+const publicationStatus = {
+  currentArtifactRevision: "revision-1",
+  publishedArtifactRevision: null,
+  publishedAt: null,
+};
+const authoringOptions = { publicationStatus };
 
 describe("XBlock assessment ports", () => {
   it("marks student assessment port as runtime and routes to learner handlers", async () => {
@@ -378,7 +400,7 @@ describe("XBlock assessment ports", () => {
 
   it("routes Studio media calls with authoring and preview contexts", async () => {
     const authoringBridge = new RecordingBridge();
-    const authoringServices = createXBlockAuthoringHostServices(authoringBridge);
+    const authoringServices = createXBlockAuthoringHostServices(authoringBridge, authoringOptions);
 
     await expect(authoringServices.media?.resolve("media-authoring")).resolves.toBe(
       "https://cdn.example/media-from-handler.png",
@@ -451,49 +473,95 @@ describe("XBlock assessment ports", () => {
 
   it("keeps artifact persistence on authoring host services", async () => {
     const bridge = new RecordingBridge();
-    const services = createXBlockAuthoringHostServices(bridge);
+    const services = createXBlockAuthoringHostServices(bridge, authoringOptions);
     const bundle = {
       artifact: {
         id: "artifact-1",
         title: "Scaffold",
         mode: "page" as const,
-        content: { type: "doc", content: [] },
+        content: {
+          type: "doc",
+          content: [
+            {
+              type: "plus_private_block",
+              attrs: { id: "plusblock001", privateAnswer: "canonical-only" },
+            },
+          ],
+        },
       },
-      learnerContent: { type: "doc", content: [] },
-      assessmentTargets: [],
-      assessmentGroups: [],
     };
 
-    await services.artifactPersistence.saveArtifact(bundle);
+    await expect(services.artifactPersistence.saveArtifact(bundle)).resolves.toEqual({
+      artifactRevision: "revision-2",
+    });
 
     expect(bridge.requests).toEqual([
       {
         type: "persistence.saveArtifact",
-        payload: {
-          artifact: bundle.artifact,
-          learnerContent: bundle.learnerContent,
-          assessmentTargets: [],
-          assessmentGroups: [],
-        },
+        payload: { artifact: bundle.artifact },
       },
     ]);
+    await expect(services.learnerPublication.getStatus()).resolves.toBe(publicationStatus);
   });
 
   it("gets authoring artifact metadata through the XBlock creation handler", async () => {
     const bridge = new RecordingBridge();
-    const services = createXBlockAuthoringHostServices(bridge);
+    const services = createXBlockAuthoringHostServices(bridge, authoringOptions);
 
     await expect(
       services.artifactCreation.createArtifactMetadata({ mode: "slideshow" }),
     ).resolves.toMatchObject({
       id: "usage-v1",
       title: "Scaffold",
+      requiresScaffoldPlus: false,
     });
 
     expect(bridge.requests).toEqual([
       {
         type: "persistence.createArtifact",
         payload: { mode: "slideshow" },
+      },
+    ]);
+  });
+
+  it("routes blank creation through one Save and immediate Publish with the Save revision", async () => {
+    const bridge = new RecordingBridge();
+    const services = createXBlockAuthoringHostServices(bridge, authoringOptions);
+    const metadata = await services.artifactCreation.createArtifactMetadata({ mode: "page" });
+    const artifact = {
+      id: metadata.id,
+      title: metadata.title ?? "Untitled",
+      mode: "page" as const,
+      content: { type: "doc", content: [] },
+    };
+
+    const saved = await services.artifactPersistence.saveArtifact({ artifact });
+    await expect(services.learnerPublication.getStatus()).resolves.toBe(publicationStatus);
+    await services.learnerPublication.publish({
+      sourceArtifactRevision: saved.artifactRevision,
+      artifact: {
+        id: artifact.id,
+        title: artifact.title,
+        mode: artifact.mode,
+        requiresScaffoldPlus: false,
+      },
+      learnerContent: artifact.content,
+      assessmentTargets: [],
+      assessmentGroups: [],
+    });
+
+    expect(bridge.requests).toEqual([
+      {
+        type: "persistence.createArtifact",
+        payload: { mode: "page" },
+      },
+      {
+        type: "persistence.saveArtifact",
+        payload: { artifact },
+      },
+      {
+        type: "publication.publish",
+        payload: expect.objectContaining({ sourceArtifactRevision: "revision-2" }),
       },
     ]);
   });

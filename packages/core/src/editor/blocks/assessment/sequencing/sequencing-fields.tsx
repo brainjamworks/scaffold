@@ -23,7 +23,10 @@ import {
   richTextDocumentToAssessmentFeedback,
   setAssessmentAttr,
 } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
-import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
+import {
+  ContainedMovementHandle,
+  type ContainedMovementHandleProps,
+} from "@/editor/movement/view/ContainedMovementHandle";
 import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
@@ -43,6 +46,7 @@ import {
   createSequencingItemsGroupNode,
   sequencingReorderLabel,
 } from "./sequencing-fields-shared";
+import { createSequencingAuthoringReorderProjection } from "./sequencing-authoring-reorder-projection";
 import { addSequencingItem, deleteSequencingItem } from "./commands";
 import "./Sequencing.css";
 
@@ -62,6 +66,10 @@ export const SequencingItemNode = createSequencingItemNode({
 
 function SequencingItemNodeView(props: NodeViewProps) {
   const presentationRef = useRef<HTMLDivElement | null>(null);
+  const reorderProjection = useMemo(
+    () => createSequencingAuthoringReorderProjection(() => presentationRef.current),
+    [],
+  );
   const pos = safeGetPos(props.getPos);
   const itemId = String(props.node.attrs["id"] ?? "");
   const popoverId = useId();
@@ -158,6 +166,7 @@ function SequencingItemNodeView(props: NodeViewProps) {
         getPresentationElement={() => presentationRef.current}
         getSourcePos={() => safeGetPos(props.getPos)}
         label={reorderLabel}
+        projection={reorderProjection}
         sourceKey={itemId}
         sourcePos={pos}
       />
@@ -218,12 +227,14 @@ function SequencingAuthoringMovementAction({
   getPresentationElement,
   getSourcePos,
   label,
+  projection,
   sourceKey,
   sourcePos,
 }: {
   getPresentationElement: () => HTMLElement | null;
   getSourcePos: () => number | null | undefined;
   label: string;
+  projection: NonNullable<ContainedMovementHandleProps["projection"]>;
   sourceKey: string;
   sourcePos: number | null | undefined;
 }) {
@@ -233,6 +244,7 @@ function SequencingAuthoringMovementAction({
       getSourcePos={getSourcePos}
       className="sc-course-sequencing__movement-action"
       label={label}
+      projection={projection}
       sourceKey={sourceKey}
       sourcePos={sourcePos}
     />

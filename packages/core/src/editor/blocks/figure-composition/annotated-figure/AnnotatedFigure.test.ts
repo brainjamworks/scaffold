@@ -168,6 +168,7 @@ function renderAnnotatedFigureLearningEventRuntime(
           children: createElement(CourseDocumentRuntimeRenderer, {
             composition: coreRuntimeComposition,
             initialContent: content,
+            productAccess: { scaffoldPlusAuthorized: false },
             visibleSurfaceId: visibleSurfaceId ?? surfaceId,
           }),
         }),

@@ -5,11 +5,11 @@ import {
   HourglassIcon as Hourglass,
   TimerIcon as Timer,
 } from "@phosphor-icons/react";
-import { Button } from "@radix-ui/themes";
 import type { Score } from "@scaffold/contracts";
 import { useEffect, useRef, useState } from "react";
 
 import type { AssessmentRequestState } from "@/runtime/assessment/types";
+import { CourseButton } from "@/ui/components/course/CourseActions/CourseActions";
 
 /**
  * Learner-facing runtime surfaces of a quiz attempt. Five small shapes,
@@ -62,16 +62,16 @@ export function QuizRuntimeStart({
     >
       <h3 className="sc-course-quiz__runtime-title">Ready to begin?</h3>
       <p className="sc-course-quiz__runtime-meta">{description}</p>
-      <Button
+      <CourseButton
         type="button"
-        size="3"
-        variant="solid"
+        size="large"
+        emphasis="strong"
         className="sc-course-quiz__primary-action"
         disabled={!canStart}
         onClick={onStart}
       >
         Start quiz
-      </Button>
+      </CourseButton>
     </div>
   );
 }
@@ -107,10 +107,10 @@ export function QuizReviewableControls({
     >
       <div className="sc-course-quiz__runtime-nav">
         {showPrevious ? (
-          <Button
+          <CourseButton
             type="button"
-            size="3"
-            variant="outline"
+            size="large"
+            emphasis="outlined"
             className="sc-course-quiz__secondary-action"
             aria-label="Previous question"
             disabled={!canPrevious}
@@ -118,13 +118,13 @@ export function QuizReviewableControls({
           >
             <CaretLeft size={12} weight="bold" aria-hidden />
             Previous
-          </Button>
+          </CourseButton>
         ) : null}
         {!isFinalStage ? (
-          <Button
+          <CourseButton
             type="button"
-            size="3"
-            variant="outline"
+            size="large"
+            emphasis="outlined"
             className="sc-course-quiz__secondary-action"
             aria-label="Next question"
             disabled={!canNext}
@@ -132,20 +132,20 @@ export function QuizReviewableControls({
           >
             Next
             <CaretRight size={12} weight="bold" aria-hidden />
-          </Button>
+          </CourseButton>
         ) : null}
       </div>
       {isFinalStage ? (
-        <Button
+        <CourseButton
           type="button"
-          size="3"
-          variant="solid"
+          size="large"
+          emphasis="strong"
           className="sc-course-quiz__primary-action"
           disabled={!canSubmitQuiz}
           onClick={onSubmitQuiz}
         >
           Submit quiz
-        </Button>
+        </CourseButton>
       ) : null}
     </div>
   );
@@ -165,16 +165,16 @@ export function QuizLockedControls({
       data-testid="quiz-locked-controls"
     >
       <span className="sc-course-quiz__runtime-meta">Submit this answer to review it.</span>
-      <Button
+      <CourseButton
         type="button"
-        size="3"
-        variant="solid"
+        size="large"
+        emphasis="strong"
         className="sc-course-quiz__primary-action"
         disabled={!canSubmit}
         onClick={onSubmit}
       >
         Submit answer
-      </Button>
+      </CourseButton>
     </div>
   );
 }
@@ -193,16 +193,16 @@ export function QuizRetryControls({
       data-testid="quiz-retry-controls"
     >
       <span className="sc-course-quiz__runtime-meta">Change your answer, then try again.</span>
-      <Button
+      <CourseButton
         type="button"
-        size="3"
-        variant="solid"
+        size="large"
+        emphasis="strong"
         className="sc-course-quiz__primary-action"
         disabled={!canRetry}
         onClick={onRetry}
       >
         Try again
-      </Button>
+      </CourseButton>
     </div>
   );
 }
@@ -221,17 +221,17 @@ export function QuizReviewPauseControls({
       data-testid="quiz-review-pause-controls"
     >
       <span className="sc-course-quiz__runtime-meta">Review this answer, then continue.</span>
-      <Button
+      <CourseButton
         type="button"
-        size="3"
-        variant="solid"
+        size="large"
+        emphasis="strong"
         className="sc-course-quiz__primary-action"
         disabled={!canContinue}
         onClick={onContinue}
       >
         Next question
         <CaretRight size={12} weight="bold" aria-hidden />
-      </Button>
+      </CourseButton>
     </div>
   );
 }
@@ -280,10 +280,10 @@ export function QuizAnswerReviewControls({
       data-testid="quiz-answer-review-controls"
     >
       <div className="sc-course-quiz__runtime-nav">
-        <Button
+        <CourseButton
           type="button"
-          size="3"
-          variant="outline"
+          size="large"
+          emphasis="outlined"
           className="sc-course-quiz__secondary-action"
           aria-label="Previous question"
           disabled={!canPrev}
@@ -291,11 +291,11 @@ export function QuizAnswerReviewControls({
         >
           <CaretLeft size={12} weight="bold" aria-hidden />
           Previous
-        </Button>
-        <Button
+        </CourseButton>
+        <CourseButton
           type="button"
-          size="3"
-          variant="outline"
+          size="large"
+          emphasis="outlined"
           className="sc-course-quiz__secondary-action"
           aria-label="Next question"
           disabled={!canNext}
@@ -303,7 +303,7 @@ export function QuizAnswerReviewControls({
         >
           Next
           <CaretRight size={12} weight="bold" aria-hidden />
-        </Button>
+        </CourseButton>
       </div>
     </div>
   );

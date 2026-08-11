@@ -29,6 +29,7 @@ import {
   GridAuthoringNode,
 } from "@/editor/arrangements/grid/authoring/grid-nodes";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
+import { tabPanelId } from "@/editor/arrangements/layout/tabs/tabs-components";
 import { AnnotatedFigureAuthoringExtension } from "@/editor/blocks/figure-composition/annotated-figure";
 import { FlashcardAuthoringExtension } from "@/editor/blocks/presentation/flashcard";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
@@ -68,6 +69,13 @@ const IDS = {
   annotationFigure: id("annotfig0001"),
   annotation: id("annotpin0001"),
   mcq: id("mcqblock0001"),
+  outerTabs: id("outertabs001"),
+  outerFirstTab: id("outertab0001"),
+  outerHiddenTab: id("outertab0002"),
+  innerTabs: id("innertabs001"),
+  innerFirstTab: id("innertab0001"),
+  innerHiddenTab: id("innertab0002"),
+  nestedHiddenProse: id("nestedpara01"),
 } as const;
 
 const mounted: MountedOutlineHarness[] = [];
@@ -193,6 +201,55 @@ describe("Document Outline bidirectional navigation", () => {
     });
     expect(document.activeElement).toBe(annotationRow);
   });
+
+  it("commits hidden outer and inner Layout Sections before resolving final scroll geometry", async () => {
+    const harness = await mountOutline();
+    mounted.push(harness);
+    const target = harness.controller.getSnapshot().semantics.itemById.get(IDS.nestedHiddenProse);
+    if (!target) throw new Error("Expected nested hidden prose semantic item");
+    const outerPanel = requiredElement<HTMLElement>(
+      harness.editor.view.dom,
+      `#${tabPanelId(IDS.outerTabs, IDS.outerHiddenTab)}`,
+    );
+    const innerPanel = requiredElement<HTMLElement>(
+      harness.editor.view.dom,
+      `#${tabPanelId(IDS.innerTabs, IDS.innerHiddenTab)}`,
+    );
+    const commitOrder: string[] = [];
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.type !== "attributes" || record.attributeName !== "hidden") continue;
+        if (record.target === outerPanel && !outerPanel.hidden) commitOrder.push("outer");
+        if (record.target === innerPanel && !innerPanel.hidden) commitOrder.push("inner");
+      }
+    });
+    observer.observe(harness.editor.view.dom, {
+      attributeFilter: ["hidden"],
+      attributes: true,
+      subtree: true,
+    });
+    const outerCommit = holdHiddenCommit(outerPanel);
+    const innerCommit = holdHiddenCommit(innerPanel);
+
+    await expandAncestorsThroughOutline(harness, IDS.nestedHiddenProse);
+    const targetRow = treeItemForLabel(target.label);
+    await userEvent.click(targetRow);
+
+    await expect.poll(() => outerCommit.requested()).toBe(true);
+    expect(harness.scrollVisibility).toEqual([]);
+    outerCommit.release();
+    await expect.poll(() => innerCommit.requested()).toBe(true);
+    expect(commitOrder).toEqual(["outer"]);
+    expect(harness.scrollVisibility).toEqual([]);
+    innerCommit.release();
+    await expect
+      .poll(() => harness.controller.getSnapshot().selectedId)
+      .toBe(IDS.nestedHiddenProse);
+    expect(commitOrder).toEqual(["outer", "inner"]);
+    expect(harness.scrollVisibility.at(-1)).toEqual({ inner: true, outer: true });
+    expect(document.activeElement).toBe(targetRow);
+    observer.disconnect();
+  });
 });
 
 interface MountedOutlineHarness {
@@ -200,6 +257,7 @@ interface MountedOutlineHarness {
   readonly editor: Editor;
   readonly rendered: RenderResult;
   readonly revealedIds: EmbeddedNodeId[];
+  readonly scrollVisibility: Array<{ inner: boolean; outer: boolean }>;
   readonly viewController: SemanticHierarchyViewController;
   dispose(): Promise<void>;
 }
@@ -274,6 +332,7 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
     { baseElement: host, container: reactElement },
   );
   const revealedIds: EmbeddedNodeId[] = [];
+  const scrollVisibility: Array<{ inner: boolean; outer: boolean }> = [];
   const environment = createAuthoringSemanticNavigationEnvironment({
     blockDefinitions: builtInBlockRegistry,
     getSnapshot: () => controller.getSnapshot().semantics,
@@ -289,11 +348,22 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
     presentSurface: (surfaceId) => environment.presentSurface(surfaceId),
     async bringIntoView(location, behavior) {
       revealedIds.push(location.id);
+      const outerPanel = document.getElementById(tabPanelId(IDS.outerTabs, IDS.outerHiddenTab));
+      const innerPanel = document.getElementById(tabPanelId(IDS.innerTabs, IDS.innerHiddenTab));
+      if (outerPanel instanceof HTMLElement && innerPanel instanceof HTMLElement) {
+        scrollVisibility.push({ inner: !innerPanel.hidden, outer: !outerPanel.hidden });
+      }
       await environment.bringIntoView(location, behavior);
     },
   });
 
-  await expect.element(page.getByRole("tree", { name: "Document outline" })).toBeVisible();
+  await expect
+    .poll(() => document.querySelector<HTMLButtonElement>('button[aria-label^="Show structure for "]'))
+    .not.toBeNull();
+  document
+    .querySelector<HTMLButtonElement>('button[aria-label^="Show structure for "]')!
+    .click();
+  await expect.element(page.getByRole("tree", { name: /structure$/ })).toBeVisible();
   await expect.poll(() => controller.containerAdapters.get(IDS.tabs) !== undefined).toBe(true);
 
   return {
@@ -301,6 +371,7 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
     editor,
     rendered,
     revealedIds,
+    scrollVisibility,
     viewController,
     async dispose() {
       viewController.destroy();
@@ -325,9 +396,14 @@ async function expandAncestorsThroughOutline(
   for (const id of ancestors) {
     const item = snapshot.itemById.get(id);
     if (!item || item.children.length === 0) continue;
+    if (item.kind === "course-section" || item.kind === "surface") continue;
     const button = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
       (candidate) => candidate.getAttribute("aria-label") === `Expand ${item.label}`,
     );
+    const alreadyExpanded = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).some(
+      (candidate) => candidate.getAttribute("aria-label") === `Collapse ${item.label}`,
+    );
+    if (!button && alreadyExpanded) continue;
     if (!button)
       throw new Error(`Expected disclosure for ${item.label}. Visible tree: ${treeText()}`);
     button.focus();
@@ -385,6 +461,35 @@ function roleElement<ElementType extends HTMLElement>(role: string, label: strin
   );
   if (!element) throw new Error(`Expected ${role} named ${label}`);
   return element;
+}
+
+function holdHiddenCommit(element: HTMLElement): {
+  release(): void;
+  requested(): boolean;
+} {
+  const removeAttribute = element.removeAttribute.bind(element);
+  let requested = false;
+  Object.defineProperty(element, "removeAttribute", {
+    configurable: true,
+    value(name: string) {
+      if (name === "hidden") {
+        requested = true;
+        return;
+      }
+      removeAttribute(name);
+    },
+  });
+
+  return {
+    release() {
+      Object.defineProperty(element, "removeAttribute", {
+        configurable: true,
+        value: removeAttribute,
+      });
+      removeAttribute("hidden");
+    },
+    requested: () => requested,
+  };
 }
 
 const TestSurfaceAuthoringNode = createSurfaceNode().extend({
@@ -462,6 +567,7 @@ function representativeDocument(): JSONContent {
                   flashcardContent(),
                   annotatedFigureContent(),
                   { type: "mcq", attrs: { id: IDS.mcq, assessment: {} } },
+                  nestedTabsContent(),
                 ],
               },
             ],
@@ -478,6 +584,58 @@ function representativeDocument(): JSONContent {
                 type: "region",
                 attrs: { id: IDS.secondRegion, role: "main" },
                 content: [paragraph("secondpara01", "Second surface")],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function nestedTabsContent(): JSONContent {
+  return {
+    type: "layout",
+    attrs: { id: IDS.outerTabs, variant: "tabs", options: { label: "Outer topics" } },
+    content: [
+      {
+        type: "section",
+        attrs: {
+          id: IDS.outerFirstTab,
+          label: "Outer visible",
+          options: { label: "Outer visible" },
+        },
+        content: [paragraph("outerpara001", "Outer visible prose")],
+      },
+      {
+        type: "section",
+        attrs: {
+          id: IDS.outerHiddenTab,
+          label: "Outer hidden",
+          options: { label: "Outer hidden" },
+        },
+        content: [
+          {
+            type: "layout",
+            attrs: { id: IDS.innerTabs, variant: "tabs", options: { label: "Inner topics" } },
+            content: [
+              {
+                type: "section",
+                attrs: {
+                  id: IDS.innerFirstTab,
+                  label: "Inner visible",
+                  options: { label: "Inner visible" },
+                },
+                content: [paragraph("innerpara001", "Inner visible prose")],
+              },
+              {
+                type: "section",
+                attrs: {
+                  id: IDS.innerHiddenTab,
+                  label: "Inner hidden",
+                  options: { label: "Inner hidden" },
+                },
+                content: [paragraph(IDS.nestedHiddenProse, "Deep hidden prose")],
               },
             ],
           },

@@ -19,7 +19,7 @@ import type { LayoutDefinition } from "@/editor/arrangements/layout/model/layout
 import { builtInLayoutRuntimeViews } from "@/editor/arrangements/layout/runtime/built-in-layout-views";
 import type { LayoutRuntimeViewRegistration } from "@/editor/arrangements/layout/runtime/layout-view-definition";
 import { builtInBlockAuthoringBindings } from "@/editor/blocks/authoring-block-extensions";
-import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
+import { builtInBlockCapabilityRegistrations } from "@/editor/blocks/built-in-block-definitions";
 import { builtInBlockRuntimeBindings } from "@/editor/blocks/runtime-block-extensions";
 import { builtInSurfaceAuthoringViewBindings } from "@/editor/surfaces/authoring/surface-authoring-views";
 import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
@@ -126,7 +126,7 @@ export function createScaffoldApplication(
   }
 
   const capabilities = resolveScaffoldCapabilities({
-    blockDefinitions: blockCapabilities.map((capability) => capability.definition),
+    blockCapabilities,
     layoutDefinitions: layoutCapabilities.map((capability) => capability.definition),
     surfaceDefinitions: surfaceCapabilities.map((capability) => capability.definition),
   });
@@ -152,7 +152,7 @@ export function createScaffoldApplication(
 function createBuiltInBlockCapabilities(): readonly BlockCapability[] {
   return createBlockCapabilitiesFromBindings({
     owner: "Core",
-    definitions: builtInBlockDefinitions,
+    registrations: builtInBlockCapabilityRegistrations,
     authoringBindings: builtInBlockAuthoringBindings,
     runtimeBindings: builtInBlockRuntimeBindings,
   });

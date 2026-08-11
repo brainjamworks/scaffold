@@ -13,6 +13,7 @@ export interface SemanticContainerAdapter {
   reveal(
     childId: EmbeddedNodeId,
     reason: SemanticContainerRevealReason,
+    signal?: AbortSignal,
   ): SemanticContainerRevealResult | Promise<SemanticContainerRevealResult>;
 }
 

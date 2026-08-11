@@ -66,7 +66,7 @@ describe("createScaffoldApplication", () => {
       "surfaces",
       "documentSemantics",
     ]);
-    expect(Object.keys(application.capabilities.blocks)).toEqual(["registry"]);
+    expect(Object.keys(application.capabilities.blocks)).toEqual(["registry", "duplication"]);
     expect(Object.keys(application.capabilities.layouts)).toEqual(["registry"]);
     expect(Object.keys(application.capabilities.surfaces)).toEqual(["registry"]);
     expect(application.authoring.capabilities.blocks.registry).toBe(
@@ -111,7 +111,7 @@ describe("createScaffoldApplication", () => {
     const firstApplication = createScaffoldApplication();
     const secondApplication = createScaffoldApplication();
 
-    expect(firstApplication.capabilities.blocks.registry.definitions).toHaveLength(34);
+    expect(firstApplication.capabilities.blocks.registry.definitions).toHaveLength(35);
     expect(firstApplication.capabilities.blocks.registry).not.toBe(
       secondApplication.capabilities.blocks.registry,
     );
@@ -266,6 +266,42 @@ describe("createScaffoldApplication", () => {
         (extension) => extension === hostBlock.runtimeExtension,
       ),
     ).toHaveLength(1);
+  });
+
+  it("derives one immutable Core-plus-host Block duplication lookup from mounted capabilities", () => {
+    const duplication = vi.fn(({ content }) => content);
+    const hostBlock = {
+      ...testBlockCapability("host_duplication_owner"),
+      duplication,
+    } satisfies BlockCapability;
+    const hostApplication = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "host-duplication-owner",
+          blocks: [hostBlock],
+        }),
+      ],
+    });
+    const coreApplication = createScaffoldApplication();
+
+    expect(hostApplication.capabilities.blocks.duplication.getByNodeType("mcq")).toBeTypeOf(
+      "function",
+    );
+    expect(hostApplication.capabilities.blocks.duplication.hasNodeType("callout")).toBe(true);
+    expect(
+      hostApplication.capabilities.blocks.duplication.hasNodeType(hostBlock.definition.nodeType),
+    ).toBe(true);
+    expect(
+      hostApplication.capabilities.blocks.duplication.getByNodeType(hostBlock.definition.nodeType),
+    ).toBe(duplication);
+    expect(
+      coreApplication.capabilities.blocks.duplication.getByNodeType(hostBlock.definition.nodeType),
+    ).toBeUndefined();
+    expect(
+      coreApplication.capabilities.blocks.duplication.hasNodeType(hostBlock.definition.nodeType),
+    ).toBe(false);
+    expect(Object.isFrozen(hostApplication.capabilities.blocks.duplication)).toBe(true);
+    expect(duplication).not.toHaveBeenCalled();
   });
 
   it("shares one exact Core-plus-host semantic lookup across both composition lanes", () => {

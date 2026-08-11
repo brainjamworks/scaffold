@@ -49,6 +49,15 @@
     align-items: center;
   }
 
+  .sc-course-assessment-choice-add__icon {
+    display: inline-flex;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex: 0 0 2.75rem;
+    align-items: center;
+    justify-content: center;
+  }
+
   @container (max-width: 20rem) {
     .sc-course-assessment-choice.sc-course-assessment-choice--authoring {
       grid-template-columns: repeat(2, 2.75rem) minmax(0, 1fr) repeat(2, 2.75rem);
@@ -96,5 +105,16 @@
       grid-column: 2;
       grid-row: 3;
     }
+  }
+}
+
+@layer sc-overlays {
+  [data-authoring-movement-silhouette]
+    .sc-course-assessment-choice--authoring[data-authoring-movement-silhouette-surface] {
+    border-color: var(--gray-a7) !important;
+    border-style: dashed !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transition: none !important;
   }
 }

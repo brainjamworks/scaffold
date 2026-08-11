@@ -5,9 +5,8 @@ import {
   assessmentShellPlaceholders,
   selectableChoicePlaceholders,
 } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
-import { rewriteMcqCopiedContent } from "@/editor/blocks/assessment/shared/identity/copy-identity";
 import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import type { ConfigurationControlDescriptor } from "@/editor/configuration/definition";
 import { defineAssessmentCapability, defineBlock } from "@/editor/blocks/block-definition";
@@ -66,7 +65,6 @@ const mcqConfiguration = createAssessmentConfiguration({
 export const mcqBlockDefinition = defineBlock({
   nodeType: "mcq",
   title: "Multiple choice",
-  rewriteCopiedContent: rewriteMcqCopiedContent,
   boundedPlacement: "fill",
   configuration: mcqConfiguration,
   placeholders: {
@@ -99,13 +97,13 @@ export const mcqBlockDefinition = defineBlock({
     icon: RadioButton,
     keywords: ["quiz", "question", "radio"],
     content: () => {
-      const firstChoiceId = createStableId();
-      const secondChoiceId = createStableId();
+      const firstChoiceId = createEmbeddedNodeId();
+      const secondChoiceId = createEmbeddedNodeId();
 
       return {
         type: "mcq",
         attrs: {
-          id: createStableId(),
+          id: createEmbeddedNodeId(),
           assessment: McqPrivateAssessmentSchema.parse({
             correctOptionId: firstChoiceId,
           }),

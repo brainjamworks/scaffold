@@ -1,11 +1,8 @@
 // @vitest-environment happy-dom
 
-import { Editor } from "@tiptap/core";
+import { Editor, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-
-import { defineBlock } from "@/editor/blocks/block-definition";
-import { createBlockRegistry } from "@/editor/blocks/block-registry";
 
 import {
   deleteNodeChecked,
@@ -243,20 +240,45 @@ describe("checked transaction primitives", () => {
 
   it("requires the mounted Block lookup when regenerating duplicate identities", () => {
     const editor = makeEditor();
-    const rewriteCopiedContent = vi.fn(({ content }) => content);
-    const blockDefinitions = createBlockRegistry([
-      defineBlock({ nodeType: "paragraph", rewriteCopiedContent }),
-    ]);
+    const duplication = vi.fn(({ content }) => content);
+    const blockDuplications = Object.freeze({
+      getByNodeType: (nodeType: string) => (nodeType === "paragraph" ? duplication : undefined),
+      hasNodeType: (nodeType: string) => nodeType === "paragraph",
+    });
 
     const result = duplicateNodeChecked({
       tr: editor.state.tr,
       pos: 0,
-      regenerateStableIds: true,
-      blockDefinitions,
+      regenerateNodeIds: true,
+      blockDuplications,
     });
 
     expect(result.ok).toBe(true);
-    expect(rewriteCopiedContent).toHaveBeenCalledOnce();
+    expect(duplication).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a mounted duplication contract fault before checked insertion", () => {
+    const editor = makeEditor();
+    const tr = editor.state.tr;
+    const before = tr.doc.toJSON();
+    const blockDuplications = Object.freeze({
+      getByNodeType: (nodeType: string) =>
+        nodeType === "paragraph"
+          ? ({ content }: { content: JSONContent }) => ({ ...content, type: "heading" })
+          : undefined,
+      hasNodeType: (nodeType: string) => nodeType === "paragraph",
+    });
+
+    expect(() =>
+      duplicateNodeChecked({
+        tr,
+        pos: 0,
+        regenerateNodeIds: true,
+        blockDuplications,
+      }),
+    ).toThrow(/Block duplication operation for "paragraph" changed a node type/);
+    expect(tr.doc.toJSON()).toEqual(before);
+    expect(tr.steps).toHaveLength(0);
   });
 
   it("rejects invalid duplicate positions before mutating the transform", () => {

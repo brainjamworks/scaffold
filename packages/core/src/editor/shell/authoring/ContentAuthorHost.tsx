@@ -1,14 +1,20 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { memo, useCallback, useRef, useState, type ReactNode } from "react";
 
-import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
+import {
+  CourseDocumentEditor,
+  type CourseDocumentAuthoringFailure,
+} from "@/document/authoring/CourseDocumentEditor";
+import type { CourseDocumentAuthoringMount } from "@/document/authoring/prepared-authoring-mount";
+import { getCourseDocumentAuthoringMountState } from "@/document/authoring/prepared-authoring-mount";
+import { getCourseDocumentAuthoringEnvironmentState } from "@/composition/authoring/create-authoring-composition";
+import type { UnavailableContentRef } from "@/document/model/establishment";
 import {
   type ScaffoldAgentIntegration,
   type ScaffoldAgentWorkspaceContribution,
 } from "@/editor/shell/agent/agent-integration";
 import { EditorShell, type EditorShellScrollModel } from "@/editor/shell/chrome/EditorShell";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
-import type { ScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 
 function ignoreAgentClose() {}
@@ -16,12 +22,12 @@ function ignoreAgentClose() {}
 export interface ContentAuthorHostProps {
   agentIntegration: ScaffoldAgentIntegration;
   artifactId?: string | null;
-  content: JSONContent;
-  composition: ScaffoldAuthoringComposition;
-  editable?: boolean;
+  mount: CourseDocumentAuthoringMount;
   onChange?: (editor: TiptapEditor) => void;
   onEditorReady?: (editor: TiptapEditor) => void;
-  onUpdate?: (json: JSONContent) => void;
+  onUpdate?: (json: JSONContent, unavailableContent: readonly UnavailableContentRef[]) => void;
+  onDocumentError?: (failure: CourseDocumentAuthoringFailure) => void;
+  onUnavailableContentChange?: (content: readonly UnavailableContentRef[]) => void;
   courseAppearance?: ScaffoldColorMode;
   /**
    * Whether the Scaffold Agent dock is open. Defaults to true so the
@@ -50,12 +56,12 @@ export interface ContentAuthorHostProps {
 export const ContentAuthorHost = memo(function ContentAuthorHost({
   agentIntegration: AgentIntegration,
   artifactId,
-  content,
-  composition,
-  editable = true,
+  mount,
   onChange,
   onEditorReady,
+  onDocumentError,
   onUpdate,
+  onUnavailableContentChange,
   courseAppearance,
   agentOpen = true,
   onAgentClose,
@@ -64,23 +70,26 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
   leftRail,
   rightRail,
 }: ContentAuthorHostProps) {
-  const sessionIdentity = artifactId ?? content;
+  const editable = getCourseDocumentAuthoringEnvironmentState(
+    getCourseDocumentAuthoringMountState(mount).environment,
+  ).editable;
+  const sessionIdentity = artifactId ?? mount;
   const sessionRef = useRef<{
-    identity: string | JSONContent;
-    composition: ScaffoldAuthoringComposition;
+    identity: string | CourseDocumentAuthoringMount;
+    mount: CourseDocumentAuthoringMount;
     key: number;
   }>({
     identity: sessionIdentity,
-    composition,
+    mount,
     key: 0,
   });
   if (
     !Object.is(sessionRef.current.identity, sessionIdentity) ||
-    !Object.is(sessionRef.current.composition, composition)
+    !Object.is(sessionRef.current.mount, mount)
   ) {
     sessionRef.current = {
       identity: sessionIdentity,
-      composition,
+      mount,
       key: sessionRef.current.key + 1,
     };
   }
@@ -95,9 +104,6 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
   });
   const editor = editorState.sessionKey === sessionKey ? editorState.editor : null;
   const changeProps = onChange ? { onChange } : {};
-  const source = onUpdate
-    ? { mode: "document" as const, content, onUpdate }
-    : { mode: "document" as const, content };
   const artifactProps = artifactId !== undefined ? { artifactId } : {};
   const handleReady = useCallback(
     (nextEditor: TiptapEditor) => {
@@ -128,13 +134,14 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
           <>
             <CourseDocumentEditor
               key={sessionKey}
-              composition={composition}
+              mount={mount}
               authoringOverlayCollisionBoundary={stageElement}
               {...artifactProps}
               {...changeProps}
-              source={source}
-              editable={editable}
+              {...(onUpdate ? { onUpdate } : {})}
               onReady={handleReady}
+              {...(onDocumentError ? { onDocumentError } : {})}
+              {...(onUnavailableContentChange ? { onUnavailableContentChange } : {})}
               {...(courseAppearance ? { courseAppearance } : {})}
               suspended={reviewing}
             />

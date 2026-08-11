@@ -190,9 +190,18 @@ final class backup_scaffold_test extends advanced_testcase {
         $DB->set_field('scaffold', 'artifactjson', json_encode($artifact, JSON_THROW_ON_ERROR), [
             'id' => $activityid,
         ]);
-        $DB->set_field('scaffold', 'learnercontentjson', json_encode($learnercontent, JSON_THROW_ON_ERROR), [
-            'id' => $activityid,
-        ]);
+        $DB->set_field('scaffold', 'learnercontentjson', json_encode([
+            'publicationVersion' => 1,
+            'sourceArtifactRevision' => 'published-revision',
+            'publishedAt' => '2026-08-09T10:00:00Z',
+            'artifact' => [
+                'id' => 'moodle-cm-' . $cmid,
+                'title' => 'Portable Scaffold activity',
+                'mode' => 'page',
+                'requiresScaffoldPlus' => false,
+            ],
+            'learnerContent' => $learnercontent,
+        ], JSON_THROW_ON_ERROR), ['id' => $activityid]);
 
         return [$DB->get_record('scaffold', ['id' => $activityid], '*', MUST_EXIST), (int) $cmid];
     }

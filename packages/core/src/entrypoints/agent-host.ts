@@ -24,8 +24,6 @@ export type {
 
 export { CourseModeSchema, type CourseMode } from "@/schemas/course-document";
 
-export { getBlockDefinitionByNodeType } from "@/host/agent/block-definition-metadata";
-export { updateRegisteredNodeSettingsChecked } from "@/host/agent/checked-settings";
 export {
   canInsertCatalogItem,
   createCatalogNodeChecked,

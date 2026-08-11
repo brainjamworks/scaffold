@@ -1,13 +1,15 @@
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import UniqueID from "@tiptap/extension-unique-id";
+import { UndoRedo } from "@tiptap/extensions";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TextSelection } from "@tiptap/pm/state";
 import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { render as renderBrowserReact, type RenderResult } from "vitest-browser-react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { page } from "vite-plus/test/browser/context";
+import { page, userEvent } from "vite-plus/test/browser/context";
 
+import { SemanticLabel } from "@/composition/model/semantic-label-extension";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createSemanticDefinitionLookup } from "@/composition/model/semantic-definition-lookup";
 import {
@@ -19,6 +21,11 @@ import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-
 import { resolveStableNode } from "@/document/model/identity/resolve-stable-node";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { MAX_SEMANTIC_LABEL_LENGTH } from "@/document/model/semantic-document/semantic-labels";
+import {
+  CellAuthoringNode,
+  GridAuthoringNode,
+} from "@/editor/arrangements/grid/authoring/grid-nodes";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import {
   moveAnnotatedFigureAnnotationChecked,
@@ -30,7 +37,12 @@ import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 
-import { DocumentOutline, DocumentOutlineRowViewport } from "./DocumentOutline";
+import {
+  DocumentOutline,
+  DocumentOutlineRowViewport,
+  type DocumentOutlineAuthoringPort,
+} from "./DocumentOutline";
+import { createDocumentOutlineAuthoringPort } from "./DocumentOutlineHost";
 
 const IDS = {
   course: id("livecourse01"),
@@ -44,6 +56,9 @@ const IDS = {
   firstPin: id("livepin00001"),
   secondPin: id("livepin00002"),
   thirdPin: id("livepin00003"),
+  grid: id("livegrid0001"),
+  cell: id("livecell0001"),
+  cellParagraph: id("cellprose001"),
 } as const;
 
 const mounted: MountedLiveOutline[] = [];
@@ -176,9 +191,207 @@ describe("Document Outline live mounted updates", () => {
     expect(controller.getSnapshot().selectedId).toBe(IDS.figure);
     expect(outlineLabelCount("Second annotation")).toBe(0);
   });
+
+  it("renders direct Grid Cell prose as a live child of the expandable Cell", async () => {
+    const harness = await mountLiveOutline(gridCellDocument());
+    mounted.push(harness);
+    const { controller, editor, viewController } = harness;
+
+    expect(semanticChildIds(controller, IDS.cell)).toEqual([IDS.cellParagraph]);
+    expect(controller.getSnapshot().semantics.parentById.get(IDS.cellParagraph)).toBe(IDS.cell);
+
+    for (const ancestorId of [IDS.surface, IDS.region, IDS.grid]) {
+      viewController.setExpanded(ancestorId, true);
+    }
+    viewController.setExpanded(IDS.cell, false);
+    const cellRow = page.getByRole("treeitem", { name: "Cell 1" });
+    await expect.element(cellRow).toBeVisible();
+    await expect.element(cellRow).toHaveAttribute("aria-expanded", "false");
+    await page.getByRole("button", { name: "Expand Cell 1" }).click();
+
+    const proseRow = page.getByRole("treeitem", { name: "Direct Cell prose" });
+    await expect.element(proseRow).toBeVisible();
+    await expect.element(proseRow).toHaveAttribute("aria-level", "5");
+
+    const prose = requireNode(editor, IDS.cellParagraph);
+    editor.view.dispatch(
+      editor.state.tr.replaceWith(
+        prose.pos + 1,
+        prose.pos + prose.node.nodeSize - 1,
+        editor.schema.text("Current Cell prose"),
+      ),
+    );
+
+    await expect
+      .poll(() => semanticLabel(controller, IDS.cellParagraph))
+      .toBe("Current Cell prose");
+    await expect.element(page.getByRole("treeitem", { name: "Current Cell prose" })).toBeVisible();
+    expect(outlineLabelCount("Direct Cell prose")).toBe(0);
+  });
+
+  it("preserves the disclosure hit area and adds a logical label gap for branches and leaves", async () => {
+    const harness = await mountLiveOutline();
+    mounted.push(harness);
+    const { controller, viewController } = harness;
+
+    viewController.setExpanded(IDS.surface, true);
+    viewController.setExpanded(IDS.region, true);
+    await expect.element(page.getByRole("treeitem", { name: "Alpha paragraph" })).toBeVisible();
+
+    const surfaceLabel = semanticLabel(controller, IDS.surface);
+    if (!surfaceLabel) throw new Error("Expected Surface semantic label");
+    expectOutlineLabelGap(requireOutlineRow(surfaceLabel), ".sc-document-outline-disclosure");
+    expectOutlineLabelGap(
+      requireOutlineRow("Alpha paragraph"),
+      ".sc-document-outline-disclosure-placeholder",
+    );
+  });
+
+  it("renames inline with F2, isolates input events, resets the override and preserves undo history", async () => {
+    const harness = await mountLiveOutline();
+    mounted.push(harness);
+    const { controller, editor, viewController } = harness;
+
+    viewController.setExpanded(IDS.surface, true);
+    viewController.setExpanded(IDS.region, true);
+    selectTextNode(editor, IDS.beta);
+    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.beta);
+
+    const alphaRow = requireOutlineRow("Alpha paragraph");
+    alphaRow.focus();
+    await userEvent.keyboard("{F2}");
+    const input = requireElement<HTMLInputElement>('input[aria-label="Rename Alpha paragraph"]');
+    expect(document.activeElement).toBe(input);
+    expect(input.maxLength).toBe(MAX_SEMANTIC_LABEL_LENGTH);
+
+    await userEvent.clear(input);
+    await userEvent.type(input, "  Author   overview  ");
+    expect(controller.getSnapshot().selectedId).toBe(IDS.beta);
+    await userEvent.keyboard("{Enter}");
+
+    await expect.poll(() => semanticLabel(controller, IDS.alpha)).toBe("Author overview");
+    expect(requireNode(editor, IDS.alpha).node.attrs["semanticLabel"]).toBe("Author overview");
+    expect(requireNode(editor, IDS.alpha).node.textContent).toBe("Alpha paragraph");
+    expect(document.activeElement).toBe(requireOutlineRow("Author overview"));
+    const successStatus = requireElement<HTMLElement>('[role="status"]');
+    expect(successStatus).toHaveTextContent("Outline label updated.");
+    expect(successStatus).toHaveClass("sc-document-outline-status--visually-hidden");
+
+    expect(editor.commands.undo()).toBe(true);
+    await expect.poll(() => semanticLabel(controller, IDS.alpha)).toBe("Alpha paragraph");
+    expect(editor.commands.redo()).toBe(true);
+    await expect.poll(() => semanticLabel(controller, IDS.alpha)).toBe("Author overview");
+
+    const renamedRow = requireOutlineRow("Author overview");
+    renamedRow.focus();
+    await userEvent.keyboard("{F2}");
+    const resetInput = requireElement<HTMLInputElement>(
+      'input[aria-label="Rename Author overview"]',
+    );
+    await userEvent.clear(resetInput);
+    await userEvent.keyboard("{Enter}");
+
+    await expect.poll(() => semanticLabel(controller, IDS.alpha)).toBe("Alpha paragraph");
+    expect(requireNode(editor, IDS.alpha).node.attrs["semanticLabel"]).toBeNull();
+    expect(document.activeElement).toBe(requireOutlineRow("Alpha paragraph"));
+  });
+
+  it("cancels an inline rename with Escape and commits it on blur", async () => {
+    const harness = await mountLiveOutline();
+    mounted.push(harness);
+    const { controller, editor, viewController } = harness;
+
+    viewController.setExpanded(IDS.surface, true);
+    viewController.setExpanded(IDS.region, true);
+    const alphaRow = requireOutlineRow("Alpha paragraph");
+    alphaRow.focus();
+    await userEvent.keyboard("{F2}");
+    const cancelledInput = requireElement<HTMLInputElement>(
+      'input[aria-label="Rename Alpha paragraph"]',
+    );
+    await userEvent.clear(cancelledInput);
+    await userEvent.type(cancelledInput, "Cancelled label");
+    await userEvent.keyboard("{Escape}");
+
+    expect(requireNode(editor, IDS.alpha).node.attrs["semanticLabel"]).toBeNull();
+    expect(document.activeElement).toBe(requireOutlineRow("Alpha paragraph"));
+
+    await userEvent.keyboard("{F2}");
+    const blurredInput = requireElement<HTMLInputElement>(
+      'input[aria-label="Rename Alpha paragraph"]',
+    );
+    await userEvent.clear(blurredInput);
+    await userEvent.type(blurredInput, "Blurred label");
+    blurredInput.blur();
+
+    await expect.poll(() => semanticLabel(controller, IDS.alpha)).toBe("Blurred label");
+    expect(requireNode(editor, IDS.alpha).node.attrs["semanticLabel"]).toBe("Blurred label");
+    expect(document.activeElement).toBe(requireOutlineRow("Blurred label"));
+  });
+
+  it("resolves moved structural, Block and rich-text targets through their current stable IDs", async () => {
+    const harness = await mountLiveOutline();
+    mounted.push(harness);
+    const { authoring, controller, editor } = harness;
+    const beta = controller.getSnapshot().semantics.itemById.get(IDS.beta);
+    if (!beta) throw new Error("Expected the Beta paragraph semantic item");
+
+    moveNodeAfter(editor, IDS.beta, IDS.figure);
+
+    for (const [itemId, label] of [
+      [IDS.surface, "Author surface"],
+      [IDS.figure, "Author figure"],
+      [IDS.alpha, "Author prose"],
+    ] as const) {
+      const item = controller.getSnapshot().semantics.itemById.get(itemId);
+      if (!item) throw new Error(`Expected semantic item ${itemId}`);
+      expect(authoring.write(item, label)).toEqual({ ok: true });
+      expect(semanticLabel(controller, itemId)).toBe(label);
+      expect(requireNode(editor, itemId).node.attrs["semanticLabel"]).toBe(label);
+    }
+
+    expect(authoring.write(beta, "Moved prose")).toEqual({ ok: true });
+    expect(semanticLabel(controller, IDS.beta)).toBe("Moved prose");
+    expect(requireNode(editor, IDS.beta).node.attrs["semanticLabel"]).toBe("Moved prose");
+  });
+
+  it("announces a stale rename failure without activating an unavailable tree item", async () => {
+    const harness = await mountLiveOutline(liveDocument(), (editor) => {
+      const authoring = createDocumentOutlineAuthoringPort(editor);
+      return {
+        read(item) {
+          return authoring.read(item);
+        },
+        write(item, value) {
+          deleteNode(editor, item.id);
+          return authoring.write(item, value);
+        },
+      };
+    });
+    mounted.push(harness);
+    harness.viewController.setExpanded(IDS.surface, true);
+    harness.viewController.setExpanded(IDS.region, true);
+
+    const alphaRow = requireOutlineRow("Alpha paragraph");
+    alphaRow.focus();
+    await userEvent.keyboard("{F2}");
+    const input = requireElement<HTMLInputElement>('input[aria-label="Rename Alpha paragraph"]');
+    await userEvent.clear(input);
+    await userEvent.type(input, "Unavailable prose");
+    await userEvent.keyboard("{Enter}");
+
+    await expect
+      .element(page.getByRole("status"))
+      .toHaveTextContent("The authoring target no longer exists.");
+    expect(requireElement<HTMLElement>('[role="status"]')).toHaveClass(
+      "sc-document-outline-status--visually-hidden",
+    );
+    expect(harness.controller.getSnapshot().semantics.itemById.has(IDS.alpha)).toBe(false);
+  });
 });
 
 interface MountedLiveOutline {
+  readonly authoring: DocumentOutlineAuthoringPort;
   readonly controller: ReturnType<typeof getSemanticDocumentControllerForEditor>;
   readonly editor: Editor;
   readonly rendered: RenderResult;
@@ -186,7 +399,12 @@ interface MountedLiveOutline {
   dispose(): Promise<void>;
 }
 
-async function mountLiveOutline(): Promise<MountedLiveOutline> {
+async function mountLiveOutline(
+  content: JSONContent = liveDocument(),
+  createAuthoringPort: (
+    editor: Editor,
+  ) => DocumentOutlineAuthoringPort = createDocumentOutlineAuthoringPort,
+): Promise<MountedLiveOutline> {
   const semantics = createSemanticDefinitionLookup({
     blocks: builtInBlockRegistry,
     layouts: builtInLayoutRegistry,
@@ -219,20 +437,25 @@ async function mountLiveOutline(): Promise<MountedLiveOutline> {
       createSemanticDocumentExtension(semantics),
       DocumentNode,
       StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
+      UndoRedo,
+      SemanticLabel,
       ExtendedParagraph,
       CourseDocumentNode,
       createCourseSectionNode(),
       TestArrangementNode,
       SurfaceNode,
       RegionNode,
+      GridAuthoringNode,
+      CellAuthoringNode,
       AnnotatedFigureNode,
       AnnotatedFigureCanvasNode,
       AnnotatedFigureLegendNode,
       AnnotatedFigureAnnotationNode,
     ],
-    content: liveDocument(),
+    content,
   });
   const controller = getSemanticDocumentControllerForEditor(editor);
+  const authoring = createAuthoringPort(editor);
   const viewport = new DocumentOutlineRowViewport();
   const viewController = new SemanticHierarchyViewController({
     controller,
@@ -242,6 +465,7 @@ async function mountLiveOutline(): Promise<MountedLiveOutline> {
   const rendered = await renderBrowserReact(
     <div>
       <DocumentOutline
+        authoring={authoring}
         controller={controller}
         viewController={viewController}
         viewport={viewport}
@@ -252,6 +476,7 @@ async function mountLiveOutline(): Promise<MountedLiveOutline> {
   await expect.element(page.getByRole("tree", { name: "Document outline" })).toBeVisible();
 
   return {
+    authoring,
     controller,
     editor,
     rendered,
@@ -337,6 +562,30 @@ function outlineLabelCount(label: string): number {
   ).length;
 }
 
+function requireOutlineRow(label: string): HTMLElement {
+  const row = Array.from(document.querySelectorAll<HTMLElement>('[role="treeitem"]')).find(
+    (candidate) => candidate.getAttribute("aria-label") === label,
+  );
+  if (!row) throw new Error(`Expected Outline row ${label}`);
+  return row;
+}
+
+function requireElement<ElementType extends Element>(selector: string): ElementType {
+  const element = document.querySelector<ElementType>(selector);
+  if (!element) throw new Error(`Expected element ${selector}`);
+  return element;
+}
+
+function expectOutlineLabelGap(row: HTMLElement, leadingSelector: string): void {
+  const leading = row.querySelector<HTMLElement>(leadingSelector);
+  const copy = row.querySelector<HTMLElement>(".sc-document-outline-row-copy");
+  if (!leading || !copy) throw new Error(`Expected row geometry for ${row.ariaLabel}`);
+
+  expect(getComputedStyle(leading).width).toBe("32px");
+  expect(getComputedStyle(copy).marginInlineStart).toBe("4px");
+  expect(copy.getBoundingClientRect().left - leading.getBoundingClientRect().right).toBeCloseTo(4);
+}
+
 const AnnotatedFigureNode = Node.create({
   name: "annotated_figure",
   group: "block",
@@ -348,7 +597,7 @@ const AnnotatedFigureNode = Node.create({
 
 const TestArrangementNode = Node.create({
   name: "live_test_arrangement",
-  group: "arrangement",
+  group: "arrangement cell_arrangement",
   atom: true,
 });
 
@@ -412,6 +661,43 @@ function liveDocument(): JSONContent {
                           annotation(IDS.secondPin, "Second annotation"),
                           annotation(IDS.thirdPin, "Third annotation"),
                         ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function gridCellDocument(): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: { id: IDS.course, mode: "page" },
+        content: [
+          {
+            type: "surface",
+            attrs: { id: IDS.surface, variant: "page-default" },
+            content: [
+              {
+                type: "region",
+                attrs: { id: IDS.region, role: "main" },
+                content: [
+                  {
+                    type: "grid",
+                    attrs: { id: IDS.grid },
+                    content: [
+                      {
+                        type: "cell",
+                        attrs: { id: IDS.cell },
+                        content: [paragraph(IDS.cellParagraph, "Direct Cell prose")],
                       },
                     ],
                   },

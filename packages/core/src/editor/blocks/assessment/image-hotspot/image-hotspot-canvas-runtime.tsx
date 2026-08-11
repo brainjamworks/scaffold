@@ -4,7 +4,6 @@ import {
   InfoIcon as Info,
   XIcon as XMark,
 } from "@phosphor-icons/react";
-import * as Popover from "@radix-ui/react-popover";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
 import {
   useCallback,
@@ -18,10 +17,7 @@ import {
 } from "react";
 
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
-import {
-  nodeViewUiKey,
-  usePickerOpen,
-} from "@/editor/media/authoring/picker/file-picker-open-state";
+import { nodeViewUiStateKey, useNodeViewOpenState } from "@/editor/prosemirror/node-view-ui-state";
 import type {
   HotspotClickRecord,
   ImageHotspotClickChangeStatus,
@@ -31,11 +27,12 @@ import { AssessmentRuntimePopoverShell } from "@/editor/blocks/assessment/shared
 import { resolveAssessmentAttrParent } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
 import { renderRuntimeRichTextNode } from "@/editor/rich-text/runtime/render-rich-text";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
-import { resolveActiveBoundedPlacement } from "@/editor/bounded-containers/model/bounded-container-structure-policy";
+import { resolveActiveBoundedPlacement } from "@/editor/bounded-containers/model/bounded-container-placement";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import { cn } from "@/lib/cn";
+import * as Popover from "@/ui/components/Popover/Popover";
 import { zIndex } from "@/ui/overlays/z-index";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 import { SpatialHotspotAssessmentSchema } from "@scaffold/contracts";
@@ -185,12 +182,12 @@ function RuntimeCanvas({
   } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fitStageRef = useRef<HTMLDivElement>(null);
-  const workspaceKey = nodeViewUiKey({
+  const workspaceKey = nodeViewUiStateKey({
     owner: "image-hotspot",
     surface: "course-workspace-runtime",
     id: authoredBlockId,
   });
-  const [workspaceOpen, setWorkspaceOpen] = usePickerOpen(workspaceKey);
+  const [workspaceOpen, setWorkspaceOpen] = useNodeViewOpenState(workspaceKey);
   const [announcement, setAnnouncement] = useState("");
   const [mediaStatus, setMediaStatus] = useState<"idle" | "loading" | "error">("idle");
   const [imageError, setImageError] = useState(false);
@@ -553,12 +550,13 @@ function isImageHotspotBoundedFillActive(
 ): boolean {
   const parent = resolveAssessmentAttrParent(editor, canvasPos, ["image_hotspot"]);
   if (!parent) return false;
-  const blockDefinitions = getScaffoldCapabilitiesForEditor(editor).blocks.registry;
+  const capabilities = getScaffoldCapabilitiesForEditor(editor);
   return (
     resolveActiveBoundedPlacement({
-      blockDefinitions,
+      blockDefinitions: capabilities.blocks.registry,
       capability: "fill",
       doc: editor.state.doc,
+      layoutDefinitions: capabilities.layouts.registry,
       pos: parent.pos,
     }) === "fill"
   );

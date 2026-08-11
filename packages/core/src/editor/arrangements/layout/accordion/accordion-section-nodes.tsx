@@ -119,26 +119,26 @@ function AccordionSectionTitleView(props: NodeViewProps) {
     <NodeViewWrapper
       data-slot="accordion-section-title"
       data-state={state}
-      className="sc-accordion-title"
+      className="sc-course-accordion__title"
     >
-      <div className="sc-accordion-title__row-shell">
+      <div className="sc-course-accordion__title-row-shell">
         <div
           data-state={state}
           data-editable={editable ? "true" : undefined}
           onClick={handleRowClick}
-          className="sc-accordion-title__row"
+          className="sc-course-accordion__title-row"
         >
-          <NodeViewContent className="sc-accordion-title__content" />
+          <NodeViewContent className="sc-course-accordion__title-content" />
           <button
             type="button"
             id={context?.triggerId}
-            aria-label={`${context?.isOpen ? "Collapse" : "Expand"} ${title}`}
+            aria-label={title}
             aria-expanded={context?.isOpen ?? false}
             aria-controls={context?.panelId}
             contentEditable={false}
             data-scaffold-accordion-trigger=""
             data-state={state}
-            onMouseDown={(event) => event.preventDefault()}
+            onMouseDown={editable ? (event) => event.preventDefault() : undefined}
             onClick={toggle}
             onKeyDown={(event) => {
               if (!context) return;
@@ -149,13 +149,13 @@ function AccordionSectionTitleView(props: NodeViewProps) {
                 sections: context.sections,
               });
             }}
-            className="sc-accordion-title__trigger"
+            className="sc-course-accordion__trigger"
           >
             <CaretDown
               size={iconSm}
               weight="bold"
               aria-hidden
-              className="sc-accordion-title__icon"
+              className="sc-course-accordion__caret"
             />
           </button>
         </div>
@@ -177,12 +177,12 @@ function AccordionSectionPanelView(props: NodeViewProps) {
       hidden={context ? !context.isOpen : false}
       data-scaffold-accordion-panel=""
       data-state={state}
-      className="sc-accordion-panel"
+      className="sc-course-accordion__panel"
     >
       <div data-bounded-scroll-frame="">
         <NodeViewContent
           data-bounded-scroll=""
-          className="sc-layout-section__content sc-accordion-panel__content"
+          className="sc-layout-section__content sc-course-accordion__panel-content"
         />
         <BoundedScrollHint editable={props.editor.isEditable} />
       </div>

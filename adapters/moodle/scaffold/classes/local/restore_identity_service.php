@@ -160,7 +160,19 @@ final class restore_identity_service {
         self::validate_artifact($artifact, $destinationartifactid);
         $repaired->artifactjson = self::encode($artifact, 'Restored Scaffold artifact');
 
-        content_service::read_json_nullable_object((string) ($repaired->learnercontentjson ?? ''));
+        $publication = content_service::read_publication_envelope(
+            (string) ($repaired->learnercontentjson ?? ''),
+        );
+        if ($publication !== null) {
+            $publication['sourceArtifactRevision'] = hash('sha256', $repaired->artifactjson);
+            $publication['artifact']['id'] = $destinationartifactid;
+            $publication['artifact']['title'] = $artifact->title;
+            $publication['artifact']['mode'] = $artifact->mode;
+            $repaired->learnercontentjson = self::encode(
+                $publication,
+                'Restored learner publication',
+            );
+        }
         $projection = assessment_projection::for_activity($repaired);
         $repaired->assessmenttargetsjson = self::encode(
             $projection['targets'],

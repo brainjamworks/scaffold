@@ -9,10 +9,13 @@ import { z } from "zod";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import {
+  resolveScaffoldCapabilities,
+  type ResolvedBlockCapabilities,
+} from "@/composition/model/resolved-scaffold-capabilities";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
 import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { CourseDocumentNode, DocumentNode, createCourseSectionNode } from "@/document/model/nodes";
-import { createLayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
@@ -36,7 +39,10 @@ const SECTION_3 = EmbeddedNodeIdSchema.parse("section00003");
 const BLOCK_1 = EmbeddedNodeIdSchema.parse("copyblock001");
 
 const editors: Editor[] = [];
-const blockDefinitions = createBlockRegistry([]);
+const EMPTY_BLOCK_CAPABILITIES: ResolvedBlockCapabilities = Object.freeze({
+  registry: createBlockRegistry([]),
+  duplication: Object.freeze({ getByNodeType: () => undefined, hasNodeType: () => false }),
+});
 const TestArrangementNode = Node.create({
   name: "testArrangement",
   group: ARRANGEMENT_CONTENT,
@@ -107,74 +113,22 @@ describe("Course Structure Tiptap commands", () => {
     expect(editor.state.selection.anchor).toBe(4);
   });
 
-  it("introduces boundaries at the first Surface or around a later Surface", () => {
-    const first = makeEditor([surface(SURFACE_1), surface(SURFACE_2)], "slideshow", [
+  it("appends a genuinely empty Course Section", () => {
+    const editor = makeEditor([section(SECTION_1, "One"), surface(SURFACE_1)], "slideshow", [
       "newsect_0001",
     ]);
     expect(
-      runCommand(first, {
-        type: "course-section.start",
-        atSurfaceId: SURFACE_1,
-        title: "Introduction",
+      runCommand(editor, {
+        type: "course-section.create",
+        title: "  Practice  ",
+        placement: "end",
       }),
     ).toBe(true);
-    expect(childIdentity(first)).toEqual(["newsect_0001", SURFACE_1, SURFACE_2]);
-
-    const later = makeEditor(
-      [surface(SURFACE_1), surface(SURFACE_2), surface(SURFACE_3)],
-      "slideshow",
-      ["leading_0001", "latersec0001"],
-    );
-    expect(
-      runCommand(later, {
-        type: "course-section.start",
-        atSurfaceId: SURFACE_2,
-        title: "Later",
-        leadingTitle: "Leading",
-      }),
-    ).toBe(true);
-    expect(childIdentity(later)).toEqual([
-      "leading_0001",
-      SURFACE_1,
-      "latersec0001",
-      SURFACE_2,
-      SURFACE_3,
-    ]);
+    expect(childIdentity(editor)).toEqual([SECTION_1, SURFACE_1, "newsect_0001"]);
+    expect(courseChildren(editor).at(-1)?.attrs?.["title"]).toBe("Practice");
   });
 
-  it("splits an existing section and refuses incomplete or duplicate boundaries", () => {
-    const unsectioned = makeEditor([surface(SURFACE_1), surface(SURFACE_2)], "slideshow", []);
-    expect(
-      runCommand(unsectioned, {
-        type: "course-section.start",
-        atSurfaceId: SURFACE_2,
-        title: "Later",
-      }),
-    ).toBe(false);
-
-    const sectioned = makeEditor(
-      [section(SECTION_1, "One"), surface(SURFACE_1), surface(SURFACE_2)],
-      "slideshow",
-      ["splitsec0001"],
-    );
-    expect(
-      runCommand(sectioned, {
-        type: "course-section.start",
-        atSurfaceId: SURFACE_2,
-        title: "Two",
-      }),
-    ).toBe(true);
-    expect(childIdentity(sectioned)).toEqual([SECTION_1, SURFACE_1, "splitsec0001", SURFACE_2]);
-    expect(
-      runCommand(sectioned, {
-        type: "course-section.start",
-        atSurfaceId: SURFACE_1,
-        title: "Duplicate",
-      }),
-    ).toBe(false);
-  });
-
-  it("removes boundaries without removing their Surfaces", () => {
+  it("deletes exactly the confirmed populated Section membership", () => {
     const editor = makeEditor(
       [
         section(SECTION_1, "One"),
@@ -186,75 +140,36 @@ describe("Course Structure Tiptap commands", () => {
       [],
     );
 
-    expect(runCommand(editor, { type: "course-section.remove", courseSectionId: SECTION_1 })).toBe(
-      true,
-    );
-    expect(childIdentity(editor)).toEqual([SECTION_2, SURFACE_1, SURFACE_2]);
-  });
-
-  it("moves a complete section locally and preserves selection and undo", () => {
-    const editor = makeEditor(
-      [
-        section(SECTION_1, "One"),
-        surface(SURFACE_1, paragraph("Selected")),
-        section(SECTION_2, "Two"),
-        surface(SURFACE_2),
-        section(SECTION_3, "Three"),
-        surface(SURFACE_3),
-      ],
-      "slideshow",
-      [],
-    );
     const before = editor.getJSON();
-    editor.commands.setTextSelection(surfaceTextPosition(editor, SURFACE_1));
-    const transaction = captureNextDocumentChange(editor);
-
     expect(
       runCommand(editor, {
-        type: "course-section.move",
+        type: "course-section.delete",
         courseSectionId: SECTION_1,
-        beforeCourseSectionId: null,
+        expectedSurfaceIds: [SURFACE_2],
+      }),
+    ).toBe(false);
+    expect(editor.getJSON()).toEqual(before);
+    expect(
+      runCommand(editor, {
+        type: "course-section.delete",
+        courseSectionId: SECTION_1,
+        expectedSurfaceIds: [SURFACE_1],
       }),
     ).toBe(true);
-
-    expect(childIdentity(editor)).toEqual([
-      SECTION_2,
-      SURFACE_2,
-      SECTION_3,
-      SURFACE_3,
-      SECTION_1,
-      SURFACE_1,
-    ]);
-    expectLocalSteps(transaction(), 2);
-    expect(selectedSurfaceId(editor)).toBe(SURFACE_1);
+    expect(childIdentity(editor)).toEqual([SECTION_2, SURFACE_2]);
     expect(editor.commands.undo()).toBe(true);
     expect(editor.getJSON()).toEqual(before);
   });
 
-  it("keeps a selected section boundary selected when it moves", () => {
-    const editor = makeEditor(
-      [
-        section(SECTION_1, "One"),
-        surface(SURFACE_1),
-        section(SECTION_2, "Two"),
-        surface(SURFACE_2),
-      ],
-      "slideshow",
-      [],
-    );
-    editor.commands.setNodeSelection(directChildPosition(editor, "courseSection", SECTION_2));
-
+  it("rejects deletion of the final Course Section", () => {
+    const editor = makeEditor([section(SECTION_1, "One"), surface(SURFACE_1)], "slideshow", []);
     expect(
       runCommand(editor, {
-        type: "course-section.move",
-        courseSectionId: SECTION_2,
-        beforeCourseSectionId: SECTION_1,
+        type: "course-section.delete",
+        courseSectionId: SECTION_1,
+        expectedSurfaceIds: [SURFACE_1],
       }),
-    ).toBe(true);
-
-    expect(isNodeSelection(editor.state.selection)).toBe(true);
-    if (!isNodeSelection(editor.state.selection)) throw new Error("expected a NodeSelection");
-    expect(editor.state.selection.node.attrs["id"]).toBe(SECTION_2);
+    ).toBe(false);
   });
 
   it("duplicates a complete section with coordinated fresh identities", () => {
@@ -326,7 +241,42 @@ describe("Course Structure Tiptap commands", () => {
     ]);
   });
 
-  it("removes the boundary vacated by a singleton Surface", () => {
+  it("moves a final Surface into an empty Course Section and retains the source boundary", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "One"), surface(SURFACE_1), section(SECTION_2, "Empty")],
+      "slideshow",
+      [],
+    );
+
+    expect(
+      runCommand(editor, {
+        type: "surface.move",
+        surfaceId: SURFACE_1,
+        destination: { intoCourseSectionId: SECTION_2, edge: "end" },
+      }),
+    ).toBe(true);
+    expect(childIdentity(editor)).toEqual([SECTION_1, SECTION_2, SURFACE_1]);
+  });
+
+  it("duplicates an empty Course Section as empty with fresh identity", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "One"), surface(SURFACE_1), section(SECTION_2, "Empty")],
+      "slideshow",
+      ["copysect0001"],
+    );
+
+    expect(
+      runCommand(editor, { type: "course-section.duplicate", courseSectionId: SECTION_2 }),
+    ).toBe(true);
+    expect(childIdentity(editor)).toEqual([
+      SECTION_1,
+      SURFACE_1,
+      SECTION_2,
+      "copysect0001",
+    ]);
+  });
+
+  it("retains the boundary vacated by a singleton Surface", () => {
     const editor = makeEditor(
       [
         section(SECTION_1, "One"),
@@ -341,15 +291,26 @@ describe("Course Structure Tiptap commands", () => {
     );
 
     expect(runCommand(editor, { type: "surface.delete", surfaceId: SURFACE_2 })).toBe(true);
-    expect(childIdentity(editor)).toEqual([SECTION_1, SURFACE_1, SECTION_3, SURFACE_3]);
+    expect(childIdentity(editor)).toEqual([
+      SECTION_1,
+      SURFACE_1,
+      SECTION_2,
+      SECTION_3,
+      SURFACE_3,
+    ]);
     expect(selectedSurfaceId(editor)).toBe(SURFACE_3);
   });
 
   it("returns false for inapplicable operations without dispatching", () => {
-    const one = makeEditor([surface(SURFACE_1)], "slideshow", []);
-    expect(runCommand(one, { type: "surface.delete", surfaceId: SURFACE_1 })).toBe(false);
+    const one = makeEditor([section(SECTION_1, "One"), surface(SURFACE_1)], "slideshow", []);
+    expect(runCommand(one, { type: "surface.delete", surfaceId: SURFACE_1 })).toBe(true);
+    expect(childIdentity(one)).toEqual([SECTION_1]);
 
-    const two = makeEditor([surface(SURFACE_1), surface(SURFACE_2)], "slideshow", []);
+    const two = makeEditor(
+      [section(SECTION_1, "One"), surface(SURFACE_1), surface(SURFACE_2)],
+      "slideshow",
+      [],
+    );
     expect(runCommand(two, { type: "surface.delete", surfaceId: SURFACE_4 })).toBe(false);
     expect(
       runCommand(two, {
@@ -388,7 +349,7 @@ describe("Course Structure Tiptap commands", () => {
   });
 
   it("lets a mounted Block rewrite private identity during Surface duplication", () => {
-    const rewriteCopiedContent = vi.fn(({ content, nodeIdChanges }) => {
+    const duplication = vi.fn(({ content, nodeIdChanges }) => {
       const data = content.attrs?.["data"];
       const referenceId =
         data && typeof data === "object" && "referenceId" in data ? data.referenceId : undefined;
@@ -400,11 +361,19 @@ describe("Course Structure Tiptap commands", () => {
         ? { ...content, attrs: { ...content.attrs, data: { ...data, referenceId: replacement } } }
         : content;
     });
-    const mountedBlocks = createBlockRegistry([
-      defineBlock({ nodeType: "copy_fixture", rewriteCopiedContent }),
-    ]);
+    const mountedBlocks = Object.freeze({
+      registry: createBlockRegistry([
+        defineBlock({ nodeType: "copy_fixture", title: "Copy fixture" }),
+      ]),
+      duplication: Object.freeze({
+        getByNodeType: (nodeType: string) =>
+          nodeType === "copy_fixture" ? duplication : undefined,
+        hasNodeType: (nodeType: string) => nodeType === "copy_fixture",
+      }),
+    });
     const editor = makeEditor(
       [
+        section(SECTION_1, "One"),
         surface(
           SURFACE_1,
           [{ type: "copy_fixture", attrs: { id: BLOCK_1, data: { referenceId: BLOCK_1 } } }],
@@ -417,10 +386,63 @@ describe("Course Structure Tiptap commands", () => {
     );
 
     expect(runCommand(editor, { type: "surface.duplicate", surfaceId: SURFACE_1 })).toBe(true);
-    expect(courseChildren(editor)[1]?.content?.[0]).toMatchObject({
+    expect(courseChildren(editor)[2]?.content?.[0]).toMatchObject({
       type: "copy_fixture",
       attrs: { id: "copyblock002", data: { referenceId: "copyblock002" } },
     });
+    expect(duplication).toHaveBeenCalledOnce();
+  });
+
+  it("lets a mounted Block repair private identity during Course Section duplication", () => {
+    const duplication = vi.fn(({ content, nodeIdChanges }) => {
+      const data = content.attrs?.["data"];
+      const referenceId =
+        data && typeof data === "object" && "referenceId" in data ? data.referenceId : undefined;
+      const replacement =
+        typeof referenceId === "string"
+          ? nodeIdChanges.get(EmbeddedNodeIdSchema.parse(referenceId))
+          : undefined;
+      return replacement
+        ? { ...content, attrs: { ...content.attrs, data: { ...data, referenceId: replacement } } }
+        : content;
+    });
+    const mountedBlocks = Object.freeze({
+      registry: createBlockRegistry([
+        defineBlock({ nodeType: "copy_fixture", title: "Copy fixture" }),
+      ]),
+      duplication: Object.freeze({
+        getByNodeType: (nodeType: string) =>
+          nodeType === "copy_fixture" ? duplication : undefined,
+        hasNodeType: (nodeType: string) => nodeType === "copy_fixture",
+      }),
+    });
+    const editor = makeEditor(
+      [
+        section(SECTION_1, "One"),
+        surface(
+          SURFACE_1,
+          [{ type: "copy_fixture", attrs: { id: BLOCK_1, data: { referenceId: BLOCK_1 } } }],
+          "test-flex-slide",
+        ),
+        section(SECTION_2, "Two"),
+        surface(SURFACE_2),
+      ],
+      "slideshow",
+      ["copysect0001", "copysurf0001", "copyblock002"],
+      mountedBlocks,
+    );
+
+    expect(
+      runCommand(editor, {
+        type: "course-section.duplicate",
+        courseSectionId: SECTION_1,
+      }),
+    ).toBe(true);
+    expect(courseChildren(editor)[3]?.content?.[0]).toMatchObject({
+      type: "copy_fixture",
+      attrs: { id: "copyblock002", data: { referenceId: "copyblock002" } },
+    });
+    expect(duplication).toHaveBeenCalledOnce();
   });
 });
 
@@ -428,13 +450,16 @@ function makeEditor(
   children: JSONContent[],
   mode: "page" | "slideshow",
   ids: string[],
-  mountedBlocks = blockDefinitions,
+  mountedBlocks: ResolvedBlockCapabilities = EMPTY_BLOCK_CAPABILITIES,
 ): Editor {
   const remainingIds = [...ids];
-  const capabilities = Object.freeze({
-    blocks: Object.freeze({ registry: mountedBlocks }),
-    layouts: Object.freeze({ registry: createLayoutRegistry([]) }),
-    surfaces: Object.freeze({ registry: surfaceVariants }),
+  const capabilities = resolveScaffoldCapabilities({
+    blockCapabilities: mountedBlocks.registry.definitions.map((definition) => {
+      const duplication = mountedBlocks.duplication.getByNodeType(definition.nodeType);
+      return duplication ? { definition, duplication } : { definition };
+    }),
+    layoutDefinitions: [],
+    surfaceDefinitions: surfaceVariants.definitions,
   });
   const editor = new Editor({
     extensions: [

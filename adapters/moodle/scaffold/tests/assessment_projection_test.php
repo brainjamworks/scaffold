@@ -138,70 +138,48 @@ final class assessment_projection_test extends \advanced_testcase {
         assessment_projection::raw_grade_for_user($stored, 42);
     }
 
-    public function test_invalid_author_projection_is_rejected_before_write(): void {
+    public function test_canonical_save_does_not_validate_separate_assessment_projection(): void {
         global $DB;
 
         $this->resetAfterTest(true);
         [$scope, $activity] = $this->create_fixture();
-        $before = $DB->get_record('scaffold', ['id' => $activity->id], '*', MUST_EXIST);
-        [$artifactjson, $learnerjson] = $this->content_bundle(
+        $DB->set_field('scaffold', 'assessmenttargetsjson', '{', ['id' => $activity->id]);
+        $DB->set_field('scaffold', 'assessmentgroupsjson', '{', ['id' => $activity->id]);
+        $artifactjson = $this->content_bundle(
             (int) $scope->cm->id,
-            'Rejected title',
-        );
-        $target = $this->target();
-
-        try {
-            (new content_service())->save(
-                $scope,
-                $artifactjson,
-                $learnerjson,
-                json_encode([$target], JSON_THROW_ON_ERROR),
-                json_encode(
-                    [$this->quiz_group(['missing-target'])],
-                    JSON_THROW_ON_ERROR,
-                ),
-            );
-            $this->fail('Invalid target/group membership was accepted');
-        } catch (\invalid_parameter_exception) {
-            $this->addToAssertionCount(1);
-        }
-        $this->assertEquals(
-            $before,
-            $DB->get_record('scaffold', ['id' => $activity->id], '*', MUST_EXIST),
+            'Canonical title',
         );
 
-        try {
-            (new content_service())->save(
-                $scope,
-                $artifactjson,
-                $learnerjson,
-                json_encode([$target], JSON_THROW_ON_ERROR),
-                json_encode(
-                    [$this->quiz_group(), $this->quiz_group()],
-                    JSON_THROW_ON_ERROR,
-                ),
-            );
-            $this->fail('Duplicate group identity was accepted');
-        } catch (\invalid_parameter_exception) {
-            $this->addToAssertionCount(1);
-        }
-        $this->assertEquals(
-            $before,
-            $DB->get_record('scaffold', ['id' => $activity->id], '*', MUST_EXIST),
-        );
+        (new content_service())->save($scope, $artifactjson);
+
+        $stored = $DB->get_record('scaffold', ['id' => $activity->id], '*', MUST_EXIST);
+        $this->assertSame('Existing lesson', $stored->name);
+        $this->assertSame('Canonical title', json_decode($stored->artifactjson)->title);
+        $this->assertSame('{', $stored->assessmenttargetsjson);
+        $this->assertSame('{', $stored->assessmentgroupsjson);
     }
 
-    public function test_valid_author_save_commits_projection_without_learner_writes(): void {
+    public function test_canonical_save_preserves_learner_publication_and_assessment_projection(): void {
         global $DB;
 
         $this->resetAfterTest(true);
         [$scope, $activity] = $this->create_fixture();
-        [$artifactjson, $learnerjson] = $this->content_bundle(
+        $artifactjson = $this->content_bundle(
             (int) $scope->cm->id,
             'Saved lesson',
         );
         $target = $this->target();
         $group = $this->quiz_group();
+        $learnerjson = json_encode([
+            'type' => 'doc',
+            'content' => [['type' => 'paragraph', 'attrs' => ['audience' => 'learner-safe']]],
+        ], JSON_THROW_ON_ERROR);
+        $targetsjson = json_encode([$target], JSON_THROW_ON_ERROR);
+        $groupsjson = json_encode([$group], JSON_THROW_ON_ERROR);
+        $DB->set_field('scaffold', 'learnercontentjson', $learnerjson, ['id' => $activity->id]);
+        $DB->set_field('scaffold', 'assessmenttargetsjson', $targetsjson, ['id' => $activity->id]);
+        $DB->set_field('scaffold', 'assessmentgroupsjson', $groupsjson, ['id' => $activity->id]);
+        $DB->set_field('scaffold', 'assessmentdefinitionversion', 7, ['id' => $activity->id]);
         $refreshes = [];
         $service = new content_service(
             static function (\stdClass $saved) use (&$refreshes): int {
@@ -210,39 +188,28 @@ final class assessment_projection_test extends \advanced_testcase {
             },
         );
 
-        $result = $service->save(
-            $scope,
-            $artifactjson,
-            $learnerjson,
-            json_encode([$target], JSON_THROW_ON_ERROR),
-            json_encode([$group], JSON_THROW_ON_ERROR),
-        );
+        $result = $service->save($scope, $artifactjson);
         $stored = $DB->get_record('scaffold', ['id' => $activity->id], '*', MUST_EXIST);
 
-        $this->assertSame('Saved lesson', $result['content']->name);
-        $this->assertSame('published', $result['gradeItemPublication']);
-        $this->assertSame('Saved lesson', $stored->name);
-        $this->assertEquals(
-            json_decode(json_encode([$target], JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR),
-            json_decode($stored->assessmenttargetsjson, false, 512, JSON_THROW_ON_ERROR),
-        );
-        $this->assertEquals(
-            json_decode(json_encode([$group], JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR),
-            json_decode($stored->assessmentgroupsjson, false, 512, JSON_THROW_ON_ERROR),
-        );
-        $this->assertSame(2, (int) $stored->assessmentdefinitionversion);
+        $this->assertSame('Existing lesson', $result['content']->name);
+        $this->assertNotSame('', $result['artifactRevision']);
+        $this->assertSame('Existing lesson', $stored->name);
+        $this->assertSame($learnerjson, $stored->learnercontentjson);
+        $this->assertSame($targetsjson, $stored->assessmenttargetsjson);
+        $this->assertSame($groupsjson, $stored->assessmentgroupsjson);
+        $this->assertSame(7, (int) $stored->assessmentdefinitionversion);
         $this->assertSame('pending', $stored->gradeitemstatus);
-        $this->assertCount(1, $refreshes);
+        $this->assertCount(0, $refreshes);
         $this->assertSame(0, $DB->count_records('scaffold_assessment_state'));
         $this->assertSame(0, $DB->count_records('scaffold_grade_publications'));
     }
 
-    public function test_title_only_save_refreshes_metadata_without_definition_change(): void {
+    public function test_title_only_save_remains_a_private_draft_change(): void {
         global $DB;
 
         $this->resetAfterTest(true);
         [$scope, $activity] = $this->create_fixture();
-        [$artifactjson, $learnerjson] = $this->content_bundle(
+        $artifactjson = $this->content_bundle(
             (int) $scope->cm->id,
             'Renamed lesson',
         );
@@ -254,13 +221,14 @@ final class assessment_projection_test extends \advanced_testcase {
             },
         );
 
-        $service->save($scope, $artifactjson, $learnerjson, '[]', '[]');
+        $service->save($scope, $artifactjson);
         $stored = $DB->get_record('scaffold', ['id' => $activity->id], '*', MUST_EXIST);
 
-        $this->assertSame('Renamed lesson', $stored->name);
+        $this->assertSame('Existing lesson', $stored->name);
+        $this->assertSame('Renamed lesson', json_decode($stored->artifactjson)->title);
         $this->assertSame(1, (int) $stored->assessmentdefinitionversion);
         $this->assertSame('pending', $stored->gradeitemstatus);
-        $this->assertSame(1, $refreshes);
+        $this->assertSame(0, $refreshes);
         $this->assertSame(0, $DB->count_records('scaffold_assessment_state'));
         $this->assertSame(0, $DB->count_records('scaffold_grade_publications'));
     }
@@ -333,26 +301,27 @@ final class assessment_projection_test extends \advanced_testcase {
      *
      * @param int $cmid Course module ID.
      * @param string $title Title.
-     * @return array
+     * @return string
      */
-    private function content_bundle(int $cmid, string $title): array {
+    private function content_bundle(int $cmid, string $title): string {
         $content = [
             'type' => 'doc',
             'content' => [[
                 'type' => 'courseDocument',
-                'attrs' => ['mode' => 'page'],
+                'attrs' => [
+                    'mode' => 'page',
+                    'schemaVersion' => 4,
+                    'requiresScaffoldPlus' => false,
+                ],
                 'content' => [],
             ]],
         ];
-        return [
-            json_encode([
-                'id' => 'moodle-cm-' . $cmid,
-                'title' => $title,
-                'mode' => 'page',
-                'content' => $content,
-            ], JSON_THROW_ON_ERROR),
-            json_encode($content, JSON_THROW_ON_ERROR),
-        ];
+        return json_encode([
+            'id' => 'moodle-cm-' . $cmid,
+            'title' => $title,
+            'mode' => 'page',
+            'content' => $content,
+        ], JSON_THROW_ON_ERROR);
     }
 
     /**

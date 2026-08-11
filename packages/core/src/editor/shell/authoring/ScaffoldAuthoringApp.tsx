@@ -2,9 +2,7 @@ import {
   ChatCircleTextIcon as ChatCircleText,
   EyeIcon as Eye,
   ListBulletsIcon as ListBullets,
-  MoonIcon as Moon,
   PencilSimpleIcon as PencilSimple,
-  SunIcon as Sun,
 } from "@phosphor-icons/react";
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import {
@@ -19,32 +17,54 @@ import {
 } from "react";
 import type { AssessmentGroupContract, AssessmentTargetContract } from "@scaffold/contracts";
 import type { ScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import {
+  createCourseDocumentAuthoringEnvironment,
+  getCourseDocumentAuthoringEnvironmentState,
+} from "@/composition/authoring/create-authoring-composition";
+import type { CourseDocumentAuthoringFailure } from "@/document/authoring/CourseDocumentEditor";
+import {
+  getCourseDocumentAuthoringMountState,
+  prepareCourseDocumentAuthoringMount,
+} from "@/document/authoring/prepared-authoring-mount";
+import {
+  prepareScaffoldArtifactForAuthoring,
+  type PreparedScaffoldArtifactValue,
+} from "@/document/authoring/prepare-scaffold-artifact-for-authoring";
+import {
+  checkLearnerProjectionReadiness,
+  type UnavailableContentRef,
+} from "@/document/model/establishment";
 
 import { cn } from "@/lib/cn";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { iconSm } from "@/ui/tokens/icon-sizes";
+import { AppShellState } from "@/ui/components/app/AppShellState/AppShellState";
 import {
-  projectArtifactSaveBundle,
-  validateArtifactSaveBundleSize,
+  createArtifactSavePayload,
+  validateLearnerPublicationPayloadSize,
 } from "@/authoring/publication/artifact-save-bundle";
+import { projectLearnerPublication } from "@/authoring/publication/document-projection";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/ScaffoldUnavailableAgentIntegration";
-import type { ScaffoldAgentIntegration } from "@/editor/shell/agent/agent-integration";
 import { Header } from "@/editor/shell/chrome/Header";
-import { AuthoringHeaderIconButton } from "@/editor/shell/chrome/AuthoringHeaderIconButton";
+import { AuthoringColorModeButton } from "@/editor/shell/chrome/AuthoringColorModeButton";
 import { Toolbar } from "@/editor/shell/chrome/Toolbar";
 import type { EditorShellScrollModel } from "@/editor/shell/chrome/EditorShell";
-import {
-  prepareScaffoldArtifactForAuthoring,
-  type PreparedScaffoldArtifactValue,
-} from "@/format/artifact";
 import { DocumentOutlineHost } from "@/editor/shell/outline/DocumentOutlineHost";
 import type {
   ScaffoldAuthoringArtifact,
   ScaffoldAuthoringHostServices,
   ScaffoldLearnerHostServices,
 } from "@/host/contracts";
-import type { ArtifactSaveBundle, SaveableScaffoldArtifact } from "@/host/ports";
+import type { ScaffoldProductAccess } from "@/host/contracts/product-access";
+import type {
+  ArtifactRevision,
+  ArtifactSaveResult,
+  LearnerPublicationPayload,
+  LearnerPublicationPortErrorCode,
+  LearnerPublicationStatus,
+  SaveableScaffoldArtifact,
+} from "@/host/ports";
 import {
   CourseDocumentAttrsSchema,
   PersistedCourseThemeSchema,
@@ -58,9 +78,29 @@ import { useAuthoringColorMode } from "@/theme/state/authoring-color-mode";
 
 import { ContentAuthorHost } from "./ContentAuthorHost";
 import { AuthoringDocumentBlockStrip } from "./AuthoringDocumentChrome";
+import {
+  createAuthoringSaveMachine,
+  type AuthoringSaveMachine,
+  type AuthoringSaveSnapshot,
+} from "./authoring-save-machine";
 import "./ScaffoldAuthoringApp.css";
 
 export type ScaffoldAuthoringSaveState = "idle" | "saving" | "saved" | "error";
+export type ScaffoldAuthoringPublishState =
+  | "loading"
+  | "not-published"
+  | "published"
+  | "unpublished"
+  | "unsaved"
+  | "publishing"
+  | "invalid"
+  | "unavailable-content"
+  | "requires-scaffold-plus"
+  | "unsupported-core-format"
+  | "projection-warning"
+  | "payload-too-large"
+  | LearnerPublicationPortErrorCode
+  | "error";
 const SAVE_DEBOUNCE_MS = 500;
 const SAVE_OK_DISPLAY_MS = 2_000;
 
@@ -92,6 +132,9 @@ export interface PrepareScaffoldLearnerPreviewArgs {
 }
 
 export interface ScaffoldAuthoringHeaderActionsContext {
+  hasUnpublishedChanges: boolean;
+  publishNow: () => Promise<boolean>;
+  publishState: ScaffoldAuthoringPublishState;
   saveState: ScaffoldAuthoringSaveState;
   saveNow: () => Promise<boolean>;
   title: string;
@@ -114,10 +157,9 @@ function withoutLearningEventCapability(
 
 export interface ScaffoldAuthoringAppProps {
   application: ScaffoldApplication;
-  agentIntegration?: ScaffoldAgentIntegration;
   artifact: ScaffoldAuthoringArtifact;
+  productAccess: ScaffoldProductAccess;
   services: ScaffoldAuthoringHostServices;
-  onEditorReady?: (editor: TiptapEditor) => void;
   /**
    * Host-specific header actions, for example XBlock Save / Done or a
    * browser Reset button. Scaffold-owned actions such as Agent and
@@ -128,7 +170,6 @@ export interface ScaffoldAuthoringAppProps {
   onAgentOpenChange?: (open: boolean) => void;
   onAgentClose?: () => void;
   enablePreview?: boolean;
-  onAuthoringEditorChange?: (editor: TiptapEditor | null) => void;
   onPreviewChange?: (preview: boolean) => void;
   onPreviewContentChange?: (content: ScaffoldLearnerPreviewContent | null) => void;
   createPreviewServices?: ScaffoldPreviewServicesFactory;
@@ -143,21 +184,34 @@ export interface ScaffoldAuthoringAppProps {
 }
 
 export function ScaffoldAuthoringApp(props: ScaffoldAuthoringAppProps) {
+  return <ScaffoldAuthoringAppSession {...props} initialSavedArtifactRevision={null} />;
+}
+
+interface ScaffoldAuthoringAppEntryProps extends ScaffoldAuthoringAppProps {
+  readonly initialSavedArtifactRevision: ArtifactRevision | null;
+}
+
+export function ScaffoldAuthoringAppForEntry(props: ScaffoldAuthoringAppEntryProps) {
   return <ScaffoldAuthoringAppSession {...props} />;
+}
+
+export function createScaffoldAuthoringAppEnvironment(application: ScaffoldApplication) {
+  return createCourseDocumentAuthoringEnvironment({
+    composition: application.authoring,
+  });
 }
 
 function ScaffoldAuthoringAppSession({
   application,
-  agentIntegration = ScaffoldUnavailableAgentIntegration,
   artifact,
+  initialSavedArtifactRevision,
+  productAccess,
   services,
-  onEditorReady,
   headerActions,
   agentOpen = false,
   onAgentOpenChange,
   onAgentClose,
   enablePreview = true,
-  onAuthoringEditorChange,
   onPreviewChange,
   onPreviewContentChange,
   createPreviewServices,
@@ -165,11 +219,31 @@ function ScaffoldAuthoringAppSession({
   className,
   mainClassName,
   workspaceClassName,
-}: ScaffoldAuthoringAppProps) {
+}: ScaffoldAuthoringAppEntryProps) {
   const { mode: applicationColorMode, toggleMode: toggleApplicationColorMode } =
     useAuthoringColorMode();
-  const preparedArtifact = useMemo(() => prepareScaffoldArtifactForAuthoring(artifact), [artifact]);
-  const readyArtifact = preparedArtifact.status === "ready" ? preparedArtifact.artifact : null;
+  const authoringEnvironment = useMemo(
+    () => createScaffoldAuthoringAppEnvironment(application),
+    [application],
+  );
+  const preparedArtifact = useMemo(
+    () => prepareScaffoldArtifactForAuthoring(artifact, authoringEnvironment, productAccess),
+    [artifact, authoringEnvironment, productAccess],
+  );
+  const readyArtifact =
+    preparedArtifact.status === "supported" || preparedArtifact.status === "unavailable"
+      ? preparedArtifact.artifact
+      : null;
+  const authoringMount =
+    preparedArtifact.status === "supported" || preparedArtifact.status === "unavailable"
+      ? preparedArtifact.authoringMount
+      : null;
+  const [authoringMountState, setAuthoringMountState] = useState<{
+    source: PreparedScaffoldArtifactValue | null;
+    mount: typeof authoringMount;
+  }>(() => ({ source: readyArtifact, mount: authoringMount }));
+  const activeAuthoringMount =
+    authoringMountState.source === readyArtifact ? authoringMountState.mount : authoringMount;
   const readyCourseTheme = useMemo(
     () =>
       readyArtifact
@@ -199,8 +273,16 @@ function ScaffoldAuthoringAppSession({
   const [uncontrolledAgentOpen, setUncontrolledAgentOpen] = useState(agentOpen);
   const [previewContent, setPreviewContent] = useState<ScaffoldLearnerPreviewContent | null>(null);
   const [previewServices, setPreviewServices] = useState<ScaffoldPreviewHostServices | null>(null);
-  const [previewState, setPreviewStateStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [previewState, setPreviewStateStatus] = useState<
+    "idle" | "loading" | "error" | "requires-scaffold-plus" | "unavailable-content"
+  >("idle");
+  const [previewUnavailableContent, setPreviewUnavailableContent] = useState<
+    readonly UnavailableContentRef[]
+  >([]);
   const [saveState, setSaveState] = useState<ScaffoldAuthoringSaveState>("idle");
+  const [publicationStatus, setPublicationStatus] = useState<LearnerPublicationStatus | null>(null);
+  const [publishActionState, setPublishActionState] =
+    useState<ScaffoldAuthoringPublishState | null>(null);
   const [applicationElement, setApplicationElement] = useState<HTMLDivElement | null>(null);
   const saveStateRef = useRef<ScaffoldAuthoringSaveState>("idle");
   const outlineToggleRef = useRef<HTMLButtonElement | null>(null);
@@ -222,6 +304,39 @@ function ScaffoldAuthoringAppSession({
       value: initialLatestContent,
     };
   }
+  const invalidWorkingStateRef = useRef({
+    source: contentSessionSource,
+    value: false,
+  });
+  if (invalidWorkingStateRef.current.source !== contentSessionSource) {
+    invalidWorkingStateRef.current = { source: contentSessionSource, value: false };
+  }
+  const publicationLifecycleRef = useRef<{
+    source: unknown;
+    generation: number;
+    savedGeneration: number | null;
+    savedRevision: ArtifactRevision | null;
+  }>({
+    source: contentSessionSource,
+    generation: 0,
+    savedGeneration: null,
+    savedRevision: null,
+  });
+  if (publicationLifecycleRef.current.source !== contentSessionSource) {
+    publicationLifecycleRef.current = {
+      source: contentSessionSource,
+      generation: 0,
+      savedGeneration: null,
+      savedRevision: null,
+    };
+  }
+  const saveMachineRef = useRef<AuthoringSaveMachine>(
+    createAuthoringSaveMachine(contentSessionSource),
+  );
+  if (saveMachineRef.current.source !== contentSessionSource) {
+    saveMachineRef.current = createAuthoringSaveMachine(contentSessionSource);
+  }
+  const [, setPublicationLifecycleVersion] = useState(0);
   const titleRef = useRef(title);
   titleRef.current = title;
   const resolvedArtifactId = readyArtifact?.id ?? artifact.id ?? null;
@@ -233,15 +348,60 @@ function ScaffoldAuthoringAppSession({
     [services.media],
   );
 
+  const refreshPublicationLifecycleView = useCallback(() => {
+    setPublicationLifecycleVersion((version) => version + 1);
+  }, []);
+
   useEffect(() => {
+    let cancelled = false;
+    const source = contentSessionSource;
+    setPublicationStatus(null);
+    setPublishActionState(null);
+    void services.learnerPublication
+      .getStatus()
+      .then((status) => {
+        if (cancelled || publicationLifecycleRef.current.source !== source) return;
+        const currentArtifactRevision =
+          initialSavedArtifactRevision ?? status.currentArtifactRevision;
+        setPublicationStatus(
+          currentArtifactRevision === status.currentArtifactRevision
+            ? status
+            : { ...status, currentArtifactRevision },
+        );
+        if (
+          publicationLifecycleRef.current.generation === 0 &&
+          !invalidWorkingStateRef.current.value
+        ) {
+          publicationLifecycleRef.current.savedGeneration = 0;
+          publicationLifecycleRef.current.savedRevision = currentArtifactRevision;
+          refreshPublicationLifecycleView();
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPublishActionState("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    contentSessionSource,
+    initialSavedArtifactRevision,
+    refreshPublicationLifecycleView,
+    services.learnerPublication,
+  ]);
+
+  useEffect(() => {
+    const machine = saveMachineRef.current;
+    machine.activate();
     return () => {
       if (autosaveTimeoutRef.current !== null) {
         window.clearTimeout(autosaveTimeoutRef.current);
         autosaveTimeoutRef.current = null;
       }
+      machine.deactivate();
       latestEditorRef.current = null;
     };
-  }, []);
+  }, [contentSessionSource]);
 
   const setTitleForCurrentArtifact = useCallback(
     (value: string) => {
@@ -268,73 +428,142 @@ function ScaffoldAuthoringAppSession({
       requestAnimationFrame(() => {
         hydratingRef.current = false;
       });
-      onAuthoringEditorChange?.(nextEditor);
-      onEditorReady?.(nextEditor);
     },
-    [onAuthoringEditorChange, onEditorReady, readyArtifact],
+    [readyArtifact],
   );
 
-  const persist = useCallback(
-    async (content: unknown, nextTitle: string): Promise<ArtifactSaveBundle> => {
-      if (!readyArtifact) {
-        throw new Error("Scaffold authoring artifact is not ready.");
-      }
+  const readLatestContent = useCallback(() => latestContentRef.current.value, []);
 
-      setResolvedSaveState("saving");
+  const captureSaveSnapshot = useCallback((): AuthoringSaveSnapshot => {
+    if (!readyArtifact) {
+      throw new Error("Scaffold authoring artifact is not ready.");
+    }
+    const machine = saveMachineRef.current;
+    const lifecycle = publicationLifecycleRef.current;
+    if (machine.source !== lifecycle.source) {
+      throw new Error("Scaffold authoring save source is not current.");
+    }
+    const sequence = machine.reserveSequence();
+    const content = structuredClone(readLatestContent());
+    const payload = createArtifactSavePayload({
+      artifact: toSaveableArtifact({
+        artifact: readyArtifact,
+        title: titleRef.current,
+        content,
+      }),
+    });
+    return {
+      generation: lifecycle.generation,
+      payload,
+      saveArtifact: services.artifactPersistence.saveArtifact,
+      sequence,
+      source: lifecycle.source,
+    };
+  }, [readLatestContent, readyArtifact, services.artifactPersistence.saveArtifact]);
+
+  const drainSaveCoordinator = useCallback(
+    async (machine: AuthoringSaveMachine): Promise<void> => {
+      if (!machine.beginDrain()) return;
       try {
-        const bundle = projectArtifactSaveBundle(
-          {
-            artifact: toSaveableArtifact({
-              artifact: readyArtifact,
-              title: nextTitle,
-              content,
-            }),
-          },
-          application.capabilities.blocks.registry,
-        );
-        validateArtifactSaveBundleSize(bundle);
-        const result = await services.artifactPersistence.saveArtifact(bundle);
-        if (typeof result?.artifact?.title === "string" && result.artifact.title) {
-          setTitleForCurrentArtifact(result.artifact.title);
+        while (true) {
+          const snapshot = machine.takeNext();
+          if (!snapshot) break;
+          let result: ArtifactSaveResult | null = null;
+          try {
+            result = await snapshot.saveArtifact(snapshot.payload);
+          } catch {
+            result = null;
+          }
+          machine.finishInFlight(snapshot);
+
+          if (
+            !machine.isActive() ||
+            saveMachineRef.current !== machine ||
+            publicationLifecycleRef.current.source !== snapshot.source
+          ) {
+            machine.deactivate();
+            break;
+          }
+
+          if (result) {
+            if (
+              !machine.hasPending() &&
+              !invalidWorkingStateRef.current.value &&
+              publicationLifecycleRef.current.generation === snapshot.generation
+            ) {
+              machine.settleThrough(snapshot.sequence, true);
+              publicationLifecycleRef.current.savedGeneration = snapshot.generation;
+              publicationLifecycleRef.current.savedRevision = result.artifactRevision;
+              setPublicationStatus((current) =>
+                current
+                  ? { ...current, currentArtifactRevision: result.artifactRevision }
+                  : current,
+              );
+              if (typeof result.artifact?.title === "string" && result.artifact.title) {
+                setTitleForCurrentArtifact(result.artifact.title);
+              }
+              setPublishActionState(null);
+              setResolvedSaveState("saved");
+              refreshPublicationLifecycleView();
+            } else if (!invalidWorkingStateRef.current.value) {
+              setResolvedSaveState("saving");
+            }
+          } else if (
+            !machine.hasPending() &&
+            publicationLifecycleRef.current.generation === snapshot.generation
+          ) {
+            machine.settleThrough(snapshot.sequence, false);
+            if (!invalidWorkingStateRef.current.value) setResolvedSaveState("error");
+          }
         }
-        setResolvedSaveState("saved");
-        return bundle;
-      } catch {
-        setResolvedSaveState("error");
-        throw new Error("Scaffold authoring save failed.");
+      } finally {
+        machine.finishDrain();
       }
     },
-    [
-      application,
-      readyArtifact,
-      services.artifactPersistence,
-      setResolvedSaveState,
-      setTitleForCurrentArtifact,
-    ],
+    [refreshPublicationLifecycleView, setResolvedSaveState, setTitleForCurrentArtifact],
   );
 
-  const readLatestContent = useCallback(
-    (currentEditor: TiptapEditor | null = latestEditorRef.current) => {
-      const content = currentEditor?.getJSON() ?? latestContentRef.current.value;
-      latestContentRef.current = {
-        source: contentSessionSource,
-        value: content,
-      };
-      return content;
+  const handleDocumentError = useCallback(
+    (_failure: CourseDocumentAuthoringFailure) => {
+      invalidWorkingStateRef.current.value = true;
+      publicationLifecycleRef.current.generation += 1;
+      saveMachineRef.current.invalidate();
+      setPublishActionState("invalid");
+      refreshPublicationLifecycleView();
+      if (autosaveTimeoutRef.current !== null) {
+        window.clearTimeout(autosaveTimeoutRef.current);
+        autosaveTimeoutRef.current = null;
+      }
+      setResolvedSaveState("error");
     },
-    [contentSessionSource],
+    [refreshPublicationLifecycleView, setResolvedSaveState],
   );
 
   const saveNow = useCallback(async (): Promise<boolean> => {
-    try {
-      await persist(readLatestContent(), titleRef.current);
-      return true;
-    } catch {
+    if (invalidWorkingStateRef.current.value) {
+      setResolvedSaveState("error");
       return false;
     }
-  }, [persist, readLatestContent]);
+    let snapshot: AuthoringSaveSnapshot;
+    try {
+      snapshot = captureSaveSnapshot();
+    } catch {
+      setResolvedSaveState("error");
+      return false;
+    }
+    const machine = saveMachineRef.current;
+    if (!machine.isActive()) return false;
+    const outcome = machine.enqueue(snapshot);
+    setResolvedSaveState("saving");
+    void drainSaveCoordinator(machine);
+    return outcome;
+  }, [captureSaveSnapshot, drainSaveCoordinator, setResolvedSaveState]);
 
   const scheduleAutosave = useCallback(() => {
+    if (invalidWorkingStateRef.current.value) {
+      setResolvedSaveState("error");
+      return;
+    }
     setResolvedSaveState("saving");
     if (autosaveTimeoutRef.current !== null) {
       window.clearTimeout(autosaveTimeoutRef.current);
@@ -345,11 +574,25 @@ function ScaffoldAuthoringAppSession({
     }, SAVE_DEBOUNCE_MS);
   }, [saveNow, setResolvedSaveState]);
 
+  const handleCanonicalUpdate = useCallback(
+    (content: JSONContent) => {
+      invalidWorkingStateRef.current.value = false;
+      publicationLifecycleRef.current.generation += 1;
+      setPublishActionState(null);
+      refreshPublicationLifecycleView();
+      latestContentRef.current = {
+        source: contentSessionSource,
+        value: content,
+      };
+      if (!hydratingRef.current) scheduleAutosave();
+    },
+    [contentSessionSource, refreshPublicationLifecycleView, scheduleAutosave],
+  );
+
   const handleEditorChange = useCallback(
     (nextEditor: TiptapEditor) => {
       latestEditorRef.current = nextEditor;
       const nextTheme = readPersistedCourseTheme(nextEditor);
-      const shouldAutosave = !hydratingRef.current;
       queueMicrotask(() => {
         if (latestEditorRef.current !== nextEditor) return;
         if (nextTheme) {
@@ -359,10 +602,9 @@ function ScaffoldAuthoringAppSession({
               : { source: readyArtifact, value: nextTheme },
           );
         }
-        if (shouldAutosave) scheduleAutosave();
       });
     },
-    [readyArtifact, scheduleAutosave],
+    [readyArtifact],
   );
 
   useEffect(() => {
@@ -388,45 +630,206 @@ function ScaffoldAuthoringAppSession({
 
   const handlePreviewToggle = useCallback(() => {
     if (preview) {
+      const remount = prepareCourseDocumentAuthoringMount(
+        readLatestContent(),
+        authoringEnvironment,
+        productAccess,
+      );
+      if (
+        remount.status === "invalid" ||
+        remount.status === "requires-scaffold-plus" ||
+        remount.status === "unsupported-core-format"
+      ) {
+        setPreviewStateStatus("error");
+        return;
+      }
+      setAuthoringMountState({ source: readyArtifact, mount: remount.mount });
       setPreviewState(false, null, null);
       setPreviewStateStatus("idle");
       return;
     }
 
-    if (!editor) return;
+    if (!editor || !activeAuthoringMount) return;
+
+    if (invalidWorkingStateRef.current.value) {
+      setPreviewStateStatus("error");
+      return;
+    }
 
     setPreviewStateStatus("loading");
-    const learnerAppLoad = loadScaffoldLearnerApp();
-    void Promise.all([learnerAppLoad, persist(toJsonDocument(readLatestContent(editor)), title)])
-      .then(async ([, bundle]) => {
+    const currentContent = toJsonDocument(readLatestContent());
+    void Promise.resolve()
+      .then(async () => {
+        const mountState = getCourseDocumentAuthoringMountState(activeAuthoringMount);
+        const readiness = checkLearnerProjectionReadiness({
+          workingDocument: currentContent,
+          capabilities:
+            getCourseDocumentAuthoringEnvironmentState(authoringEnvironment).capabilities,
+          authoringSchema: getCourseDocumentAuthoringEnvironmentState(authoringEnvironment).schema,
+          expectedRequiresScaffoldPlus: mountState.expectedRequiresScaffoldPlus,
+          productAccess: mountState.productAccess,
+        });
+        const publication = projectLearnerPublication(
+          readiness,
+          application.capabilities.blocks.registry,
+        );
+        switch (publication.status) {
+          case "unavailable-content":
+            setPreviewUnavailableContent(publication.unavailableContent);
+            setPreviewStateStatus("unavailable-content");
+            return;
+          case "invalid":
+          case "unsupported-core-format":
+            setPreviewUnavailableContent([]);
+            setPreviewStateStatus("error");
+            return;
+          case "requires-scaffold-plus":
+            setPreviewUnavailableContent([]);
+            setPreviewStateStatus("requires-scaffold-plus");
+            return;
+          case "supported":
+            break;
+        }
+        if (publication.warnings.length > 0) {
+          setPreviewUnavailableContent([]);
+          setPreviewStateStatus("error");
+          return;
+        }
+        validateLearnerPublicationPayloadSize(publication);
+        await loadScaffoldLearnerApp();
         const nextContent = {
-          assessmentGroups: bundle.assessmentGroups,
-          assessmentTargets: bundle.assessmentTargets,
-          learnerContent: bundle.learnerContent,
+          assessmentGroups: publication.assessmentGroups,
+          assessmentTargets: publication.assessmentTargets,
+          learnerContent: publication.learnerContent,
         };
         const resolvedServices = createPreviewServices
           ? await createPreviewServices(nextContent)
           : { media: services.media ?? null };
         const nextServices = withoutLearningEventCapability(resolvedServices);
-        onAuthoringEditorChange?.(null);
         latestEditorRef.current = null;
         setEditor(null);
         setPreviewState(true, nextContent, nextServices);
+        setPreviewUnavailableContent([]);
         setPreviewStateStatus("idle");
       })
       .catch(() => {
         setPreviewStateStatus("error");
       });
   }, [
+    application,
+    activeAuthoringMount,
+    authoringEnvironment,
     editor,
     createPreviewServices,
-    onAuthoringEditorChange,
-    persist,
     preview,
+    productAccess,
     readLatestContent,
+    readyArtifact,
     setPreviewState,
     services.media,
-    title,
+  ]);
+
+  const publishNow = useCallback(async (): Promise<boolean> => {
+    if (!publicationStatus || !activeAuthoringMount) {
+      setPublishActionState("loading");
+      return false;
+    }
+    if (invalidWorkingStateRef.current.value) {
+      setPublishActionState("invalid");
+      return false;
+    }
+    if (saveMachineRef.current.isBusy()) {
+      setPublishActionState("unsaved");
+      return false;
+    }
+
+    const lifecycle = publicationLifecycleRef.current;
+    if (
+      lifecycle.savedGeneration === null ||
+      lifecycle.savedGeneration !== lifecycle.generation ||
+      lifecycle.savedRevision === null
+    ) {
+      setPublishActionState("unsaved");
+      return false;
+    }
+    if (lifecycle.savedRevision !== publicationStatus.currentArtifactRevision) {
+      setPublishActionState("stale-artifact-revision");
+      return false;
+    }
+
+    const source = lifecycle.source;
+    const generation = lifecycle.generation;
+    const sourceArtifactRevision = lifecycle.savedRevision;
+    const currentContent = toJsonDocument(readLatestContent());
+    const mountState = getCourseDocumentAuthoringMountState(activeAuthoringMount);
+    const environmentState = getCourseDocumentAuthoringEnvironmentState(authoringEnvironment);
+    const readiness = checkLearnerProjectionReadiness({
+      workingDocument: currentContent,
+      capabilities: environmentState.capabilities,
+      authoringSchema: environmentState.schema,
+      expectedRequiresScaffoldPlus: mountState.expectedRequiresScaffoldPlus,
+      productAccess: mountState.productAccess,
+    });
+    const projection = projectLearnerPublication(
+      readiness,
+      application.capabilities.blocks.registry,
+    );
+    if (projection.status !== "supported") {
+      setPublishActionState(publicationRefusalState(projection.status));
+      return false;
+    }
+    if (projection.warnings.length > 0) {
+      setPublishActionState("projection-warning");
+      return false;
+    }
+
+    try {
+      validateLearnerPublicationPayloadSize(projection);
+    } catch {
+      setPublishActionState("payload-too-large");
+      return false;
+    }
+
+    const courseAttrs = CourseDocumentAttrsSchema.parse(currentContent.content?.[0]?.attrs);
+    const payload: LearnerPublicationPayload = {
+      sourceArtifactRevision,
+      artifact: {
+        id: readyArtifact!.id,
+        title: titleRef.current,
+        mode: readyArtifact!.mode,
+        requiresScaffoldPlus: courseAttrs.requiresScaffoldPlus,
+      },
+      learnerContent: projection.learnerContent,
+      assessmentTargets: projection.assessmentTargets,
+      assessmentGroups: projection.assessmentGroups,
+    };
+
+    setPublishActionState("publishing");
+    try {
+      const status = await services.learnerPublication.publish(payload);
+      setPublicationStatus(status);
+      if (
+        publicationLifecycleRef.current.source === source &&
+        publicationLifecycleRef.current.generation === generation &&
+        !invalidWorkingStateRef.current.value
+      ) {
+        setPublishActionState(null);
+      } else {
+        setPublishActionState("unsaved");
+      }
+      return status.publishedArtifactRevision === sourceArtifactRevision;
+    } catch (error) {
+      setPublishActionState(readPublicationPortErrorCode(error) ?? "error");
+      return false;
+    }
+  }, [
+    activeAuthoringMount,
+    application.capabilities.blocks.registry,
+    authoringEnvironment,
+    publicationStatus,
+    readLatestContent,
+    readyArtifact,
+    services.learnerPublication,
   ]);
 
   const setResolvedAgentOpen = useCallback(
@@ -470,15 +873,25 @@ function ScaffoldAuthoringAppSession({
     [],
   );
 
-  const colorModeActionLabel = `Switch authoring application to ${
-    applicationColorMode === "light" ? "dark" : "light"
-  } mode`;
-  const colorModeTooltip = `Use ${applicationColorMode === "light" ? "dark" : "light"} mode`;
+  const publishState =
+    publishActionState ??
+    derivePublishState({
+      invalidWorkingState: invalidWorkingStateRef.current.value,
+      lifecycle: publicationLifecycleRef.current,
+      saveInProgress: saveMachineRef.current.isBusy(),
+      status: publicationStatus,
+    });
+  const hasUnpublishedChanges = publicationStatus
+    ? publicationStatus.publishedArtifactRevision !== publicationStatus.currentArtifactRevision
+    : false;
 
   const appHeaderActions = (
     <div className="sc-scaffold-authoring-actions">
       {headerActions?.({
+        hasUnpublishedChanges,
         preview,
+        publishNow,
+        publishState,
         saveNow,
         saveState,
         title,
@@ -494,18 +907,7 @@ function ScaffoldAuthoringAppSession({
           }}
         />
       ) : null}
-      <AuthoringHeaderIconButton
-        onClick={toggleApplicationColorMode}
-        aria-pressed={applicationColorMode === "dark"}
-        aria-label={colorModeActionLabel}
-        tooltip={colorModeTooltip}
-      >
-        {applicationColorMode === "light" ? (
-          <Moon size={iconSm} aria-hidden />
-        ) : (
-          <Sun size={iconSm} aria-hidden />
-        )}
-      </AuthoringHeaderIconButton>
+      <AuthoringColorModeButton mode={applicationColorMode} onToggle={toggleApplicationColorMode} />
       {!preview ? (
         <button
           ref={outlineToggleRef}
@@ -558,6 +960,12 @@ function ScaffoldAuthoringAppSession({
       {previewState === "error" ? (
         <span role="alert">Preview could not be prepared. Try again.</span>
       ) : null}
+      {previewState === "unavailable-content" ? (
+        <span role="alert">{formatUnavailablePreviewMessage(previewUnavailableContent)}</span>
+      ) : null}
+      {previewState === "requires-scaffold-plus" ? (
+        <span role="alert">Preview requires Scaffold Plus.</span>
+      ) : null}
     </div>
   );
 
@@ -568,17 +976,36 @@ function ScaffoldAuthoringAppSession({
             artifactId: readyArtifact.id,
             title,
             mode: readyArtifact.mode,
-            learnerContent: previewContent.learnerContent,
+            publication: {
+              status: "supported" as const,
+              learnerContent: previewContent.learnerContent,
+            },
           },
           content: previewContent,
         }
       : null;
-  const authoringUnavailableMessage =
-    preparedArtifact.status === "error"
-      ? preparedArtifact.message
-      : preparedArtifact.status === "uninitialized"
-        ? "Scaffold artifact is missing document content."
-        : null;
+  const authoringUnavailableState =
+    preparedArtifact.status === "requires-scaffold-plus"
+      ? {
+          title: "Scaffold Plus is required",
+          description: "This course requires Scaffold Plus.",
+        }
+      : preparedArtifact.status === "invalid"
+        ? {
+            title: "This document couldn’t be opened",
+            description: "The saved course structure is invalid.",
+          }
+        : preparedArtifact.status === "unsupported-core-format"
+          ? {
+              title: "This document couldn’t be opened",
+              description: "This document uses a Scaffold format this editor does not support.",
+            }
+          : preparedArtifact.status === "uninitialized"
+            ? {
+                title: "This document couldn’t be opened",
+                description: "This document does not contain Scaffold content.",
+              }
+            : null;
 
   return (
     <AppThemeProvider appearance={applicationColorMode}>
@@ -590,6 +1017,9 @@ function ScaffoldAuthoringAppSession({
               setTitleForCurrentArtifact(nextTitle);
               titleRef.current = nextTitle;
               if (!readyArtifact) return;
+              publicationLifecycleRef.current.generation += 1;
+              setPublishActionState(null);
+              refreshPublicationLifecycleView();
               scheduleAutosave();
             }}
             brandSurface={applicationColorMode}
@@ -603,31 +1033,32 @@ function ScaffoldAuthoringAppSession({
               data-preview-mode={activePreviewContent?.bootstrap.mode}
             >
               <ScaffoldServicesProvider ports={providerPorts}>
-                {authoringUnavailableMessage && !readyArtifact ? (
-                  <ScaffoldAuthoringUnavailable message={authoringUnavailableMessage} />
+                {authoringUnavailableState && !readyArtifact ? (
+                  <ScaffoldAuthoringUnavailable {...authoringUnavailableState} />
                 ) : activePreviewContent && previewServices ? (
-                  <Suspense fallback={<div role="status">Preparing preview...</div>}>
+                  <Suspense fallback={<AppShellState kind="loading" title="Preparing preview" />}>
                     <LazyScaffoldLearnerApp
                       composition={application.runtime}
                       bootstrap={activePreviewContent.bootstrap}
                       hostColorMode={applicationColorMode}
+                      productAccess={productAccess}
                       slideshowSizing="contained"
                       services={previewServices}
                     />
                   </Suspense>
-                ) : readyArtifact ? (
+                ) : readyArtifact && activeAuthoringMount ? (
                   <ContentAuthorHost
-                    composition={application.authoring}
-                    agentIntegration={agentIntegration}
-                    artifactId={resolvedArtifactId}
-                    content={toJsonDocument(latestContentRef.current.value)}
+                    agentIntegration={ScaffoldUnavailableAgentIntegration}
                     {...(outlineOpen
                       ? { authoringNavigatorDock: renderAuthoringNavigatorDock }
                       : {})}
+                    artifactId={resolvedArtifactId}
+                    mount={activeAuthoringMount}
                     courseAppearance={applicationColorMode}
-                    editable
                     onChange={handleEditorChange}
                     onEditorReady={handleEditorReady}
+                    onDocumentError={handleDocumentError}
+                    onUpdate={handleCanonicalUpdate}
                     agentOpen={resolvedAgentOpen}
                     onAgentClose={handleAgentClose}
                     scrollModel={scrollModel}
@@ -644,13 +1075,86 @@ function ScaffoldAuthoringAppSession({
   );
 }
 
-function ScaffoldAuthoringUnavailable({ message }: { message: string }) {
+function ScaffoldAuthoringUnavailable({
+  description,
+  title,
+}: {
+  description: string;
+  title: string;
+}) {
   return (
-    <div role="alert" data-testid="scaffold-authoring-unavailable">
-      <strong>Scaffold document could not be loaded.</strong>
-      <span>{message}</span>
-    </div>
+    <AppShellState
+      description={description}
+      kind="error"
+      testId="scaffold-authoring-unavailable"
+      title={title}
+    />
   );
+}
+
+function derivePublishState({
+  invalidWorkingState,
+  lifecycle,
+  saveInProgress,
+  status,
+}: {
+  invalidWorkingState: boolean;
+  lifecycle: {
+    generation: number;
+    savedGeneration: number | null;
+    savedRevision: ArtifactRevision | null;
+  };
+  saveInProgress: boolean;
+  status: LearnerPublicationStatus | null;
+}): ScaffoldAuthoringPublishState {
+  if (invalidWorkingState) return "invalid";
+  if (!status) return "loading";
+  if (saveInProgress) return "unsaved";
+  if (
+    lifecycle.savedGeneration === null ||
+    lifecycle.savedGeneration !== lifecycle.generation ||
+    lifecycle.savedRevision === null
+  ) {
+    return "unsaved";
+  }
+  if (lifecycle.savedRevision !== status.currentArtifactRevision) {
+    return "stale-artifact-revision";
+  }
+  if (status.publishedArtifactRevision === null) return "not-published";
+  return status.publishedArtifactRevision === status.currentArtifactRevision
+    ? "published"
+    : "unpublished";
+}
+
+function publicationRefusalState(
+  status: "unavailable-content" | "invalid" | "unsupported-core-format" | "requires-scaffold-plus",
+): ScaffoldAuthoringPublishState {
+  return status;
+}
+
+function readPublicationPortErrorCode(error: unknown): LearnerPublicationPortErrorCode | null {
+  if (!error || typeof error !== "object") return null;
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(error, "code");
+    const code =
+      descriptor?.get === undefined && descriptor?.set === undefined ? descriptor?.value : null;
+    return code === "stale-artifact-revision" || code === "forbidden" || code === "invalid-payload"
+      ? code
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatUnavailablePreviewMessage(content: readonly UnavailableContentRef[]): string {
+  const kinds = ["block", "layout", "surface"] as const;
+  const parts = kinds.flatMap((kind) => {
+    const count = content.filter((item) => item.kind === kind).length;
+    return count === 0
+      ? []
+      : [`${count} ${kind} ${count === 1 ? "capability is" : "capabilities are"} not installed`];
+  });
+  return `Preview unavailable: ${parts.join(", ")}.`;
 }
 
 function readPersistedCourseTheme(editor: TiptapEditor): PersistedCourseTheme | null {

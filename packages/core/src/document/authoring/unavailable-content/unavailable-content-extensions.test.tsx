@@ -3,7 +3,7 @@
 import { Editor, getSchema, type JSONContent } from "@tiptap/core";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { EditorContent } from "@tiptap/react";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
@@ -78,7 +78,7 @@ describe("unavailable content authoring extensions", () => {
     expect(() => checkedAuthoringDocument(document)).toThrow();
   });
 
-  it("renders one safe generic presentation without exposing the owned original", async () => {
+  it("renders actionable user-facing copy without exposing internal or owned data", async () => {
     const editor = makeAuthoringEditor(blockDocument());
 
     render(createElement(EditorContent, { editor }));
@@ -86,26 +86,61 @@ describe("unavailable content authoring extensions", () => {
     await waitFor(() => {
       const view = document.body.querySelector("[data-unavailable-content-kind='block']");
       expect(view).not.toBeNull();
-      expect(view?.textContent).toContain("Unavailable Block");
-      expect(view?.textContent).toContain(SAFE_CAPABILITY_ID);
+      expect(view).toHaveClass("sc-app-unavailable-content");
+      expect(view?.textContent).toContain("Plus safe capability");
+      expect(view?.textContent).toContain(
+        "This block isn’t available in this application. You can keep it or delete it.",
+      );
+      expect(view?.textContent).not.toContain(SAFE_CAPABILITY_ID);
     });
 
+    expect(
+      screen.getByRole("button", { name: "Delete unavailable block: Plus safe capability" }),
+    ).toHaveClass("sc-button", "sc-app-unavailable-content__delete");
     expect(document.body.textContent).not.toContain(PRIVATE_TEXT);
     expect(document.body.innerHTML).not.toContain(PRIVATE_TEXT);
     expect(editor.getHTML()).not.toContain(PRIVATE_TEXT);
     expect(editor.getHTML()).not.toContain("original");
   });
 
-  it("selects and deliberately deletes one compatibility item as an atomic node", () => {
-    const editor = makeAuthoringEditor(blockDocument());
+  it("selects an unavailable item through its rendered placeholder", async () => {
+    const editor = makeAuthoringEditor(blockAndParagraphDocument());
     const position = firstNodePosition(editor, "unavailable_block");
-
+    const textPosition = firstNodePosition(editor, "paragraph") + 1;
     editor.view.dispatch(
-      editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, position)),
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, textPosition)),
     );
 
-    expect(editor.state.selection).toBeInstanceOf(NodeSelection);
-    expect(editor.commands.deleteSelection()).toBe(true);
+    render(createElement(EditorContent, { editor }));
+
+    const placeholder = await waitFor(() => {
+      const element = document.body.querySelector<HTMLElement>(
+        "[data-unavailable-content-kind='block']",
+      );
+      expect(element).not.toBeNull();
+      return element!;
+    });
+    expect(placeholder).not.toHaveAttribute("data-selected");
+    fireEvent.mouseDown(placeholder, { button: 0 });
+
+    await waitFor(() => {
+      expect(editor.state.selection).toBeInstanceOf(NodeSelection);
+      expect(editor.state.selection.from).toBe(position);
+      expect(placeholder).toHaveAttribute("data-selected", "true");
+    });
+  });
+
+  it("deletes an unavailable item through its rendered placeholder", async () => {
+    const editor = makeAuthoringEditor(blockDocument());
+
+    render(createElement(EditorContent, { editor }));
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Delete unavailable block: Plus safe capability",
+      }),
+    );
+
     expect(nodeTypes(editor)).not.toContain("unavailable_block");
   });
 

@@ -1,6 +1,6 @@
 import {
   CaretDownIcon as CaretDown,
-  InfoIcon as Info,
+  DotsThreeIcon as DotsThree,
   TrashIcon as Trash,
 } from "@phosphor-icons/react";
 import {
@@ -28,6 +28,15 @@ import {
   setAssessmentAttr,
 } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
 import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
+import {
+  createAuthoringContainedReorderProjection,
+  resolveAuthoringNodeViewSiblingElements,
+} from "@/editor/movement/view/authoring-contained-reorder-projection";
+import {
+  authoringMovementSnapshotChromeAttributes,
+  type AuthoringContainedMovementProjection,
+  type AuthoringContainedMovementStrategy,
+} from "@/editor/movement/view/authoring-movement-presentation";
 import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
@@ -59,12 +68,18 @@ import {
 import {
   addCategoriseCategory,
   addCategoriseItem,
+  applyCategoriseItemMovement,
+  canApplyCategoriseItemMovement,
   canDeleteCategoriseCategory,
   canDeleteCategoriseItem,
+  canNavigateCategoriseItemMovement,
+  canTargetCategoriseItemMovement,
   deleteCategoriseCategory,
   deleteCategoriseItem,
+  describeCategoriseItemMovementDestination,
   reassignCategoriseItem,
 } from "./commands";
+import { createCategoriseItemAuthoringReorderProjection } from "./categorise-authoring-reorder-projection";
 import "./Categorise.css";
 
 export {
@@ -81,6 +96,19 @@ export const CategoriseBinNode = createCategoriseBinNode({
 
 function CategoriseBinNodeView(props: NodeViewProps) {
   const presentationRef = useRef<HTMLDivElement | null>(null);
+  const reorderProjection = useMemo(
+    () =>
+      createAuthoringContainedReorderProjection({
+        axis: "vertical",
+        getSiblingElements: (sourceElement) =>
+          resolveAuthoringNodeViewSiblingElements(
+            sourceElement,
+            (element) => element.getAttribute("data-node") === "categorise-bin",
+          ),
+        getSourceElement: () => presentationRef.current,
+      }),
+    [],
+  );
   const isEditable = useCategoriseEditorEditable(props.editor);
   const rawPos = safeGetPos(props.getPos);
   const pos = typeof rawPos === "number" ? rawPos : null;
@@ -128,6 +156,7 @@ function CategoriseBinNodeView(props: NodeViewProps) {
             getPresentationElement={() => presentationRef.current}
             getSourcePos={() => safeGetPos(props.getPos)}
             label={`category ${binPosition.index}, ${categoryLabel}`}
+            projection={reorderProjection}
             sourceKey={categoryId}
             sourcePos={pos ?? undefined}
           />
@@ -135,6 +164,7 @@ function CategoriseBinNodeView(props: NodeViewProps) {
         <NodeViewContent className="sc-course-categorise__bin-content" />
         {isEditable && (
           <AssessmentChoiceAuthoringAction
+            className="sc-course-categorise__delete-category"
             disabled={deleteUnavailable}
             onClick={() => {
               deleteBin();
@@ -180,7 +210,7 @@ function CategoriseBinsGroupNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper data-slot="categorise-bins-group" className="sc-course-categorise__bins">
-      <NodeViewContent className="sc-course-categorise__bin-grid" />
+      <NodeViewContent className="sc-course-categorise__bin-grid sc-course-categorise__bin-grid--authoring" />
       {isEditable && (
         <AssessmentChoiceAddButton
           label="Add category"
@@ -229,6 +259,22 @@ function CategoriseItemNodeView(props: NodeViewProps) {
 
 function CategoriseEditableItemNodeView(props: NodeViewProps) {
   const presentationRef = useRef<HTMLDivElement | null>(null);
+  const reorderProjection = useMemo(
+    () => createCategoriseItemAuthoringReorderProjection(() => presentationRef.current),
+    [],
+  );
+  const movementStrategy = useMemo<AuthoringContainedMovementStrategy>(
+    () => ({
+      apply: applyCategoriseItemMovement,
+      canApply: canApplyCategoriseItemMovement,
+      canNavigateKeyboard: canNavigateCategoriseItemMovement,
+      canTarget: canTargetCategoriseItemMovement,
+      describeDestination: (editor, source, intent) =>
+        describeCategoriseItemMovementDestination(editor, source, intent),
+      keyboardNavigation: "spatial",
+    }),
+    [],
+  );
   const itemId = String(props.node.attrs["id"] ?? "");
   const pos = safeGetPos(props.getPos);
   const popoverId = useId();
@@ -346,41 +392,65 @@ function CategoriseEditableItemNodeView(props: NodeViewProps) {
           getPresentationElement={() => presentationRef.current}
           getSourcePos={() => safeGetPos(props.getPos)}
           label={`item ${itemIndex} in category ${categoryIndex}`}
+          projection={reorderProjection}
           sourceKey={itemId}
           sourcePos={pos}
+          strategy={movementStrategy}
           className="sc-app-contained-movement-handle--row-offset"
         />
         <NodeViewContent className="sc-course-categorise__item-content" />
-        <CategoriseAuthoringCategorySelect
-          categories={categoryOptions.options}
-          itemLabel={itemLabel}
-          value={categoryOptions.currentCategoryId}
-          onValueChange={(categoryId) => {
-            const currentPos = currentNodeViewPos(props.editor, props.getPos, "categorise_item");
-            if (currentPos !== null) reassignCategoriseItem(props.editor, currentPos, categoryId);
-          }}
-        />
         <EditableOverlayPopover.Root>
           <EditableOverlayPopover.Trigger asChild>
             <AssessmentChoiceAuthoringAction
               active={hasFeedback}
-              intent="feedback"
-              label={
-                hasFeedback
-                  ? `Edit feedback for item ‘${itemLabel}’`
-                  : `Add feedback for item ‘${itemLabel}’`
-              }
+              className="sc-course-categorise__item-options-trigger"
+              intent="options"
+              label={`Item options for ‘${itemLabel}’`}
             >
-              <Info size={iconSm} weight={hasFeedback ? "fill" : "regular"} />
+              <DotsThree size={iconSm} weight="bold" />
             </AssessmentChoiceAuthoringAction>
           </EditableOverlayPopover.Trigger>
           <EditableOverlayPopover.Portal>
             <EditableOverlayPopover.Content
               align="start"
-              description="Shown to learners after they answer."
-              icon={<Info size={iconSm} weight="fill" />}
+              description="Move this answer, edit its feedback or remove it."
+              footerStart={
+                <div className="sc-course-categorise__item-options-move">
+                  <span className="sc-course-categorise__item-options-label">Move to</span>
+                  <CategoriseAuthoringCategorySelect
+                    categories={categoryOptions.options}
+                    itemLabel={itemLabel}
+                    value={categoryOptions.currentCategoryId}
+                    onValueChange={(categoryId) => {
+                      const currentPos = currentNodeViewPos(
+                        props.editor,
+                        props.getPos,
+                        "categorise_item",
+                      );
+                      if (currentPos !== null) {
+                        reassignCategoriseItem(props.editor, currentPos, categoryId);
+                      }
+                    }}
+                  />
+                </div>
+              }
+              footerEnd={
+                <EditableOverlayPopover.TextAction
+                  aria-label="Delete item"
+                  disabled={deleteUnavailable}
+                  onClick={() => {
+                    deleteItem();
+                  }}
+                  title={deleteUnavailable ? "Categorise requires at least one item." : undefined}
+                  tone="danger"
+                >
+                  <Trash size={iconSm} aria-hidden />
+                  Delete item
+                </EditableOverlayPopover.TextAction>
+              }
+              icon={<DotsThree size={iconSm} weight="bold" />}
               side="bottom"
-              title="Feedback"
+              title="Item options"
               tone="feedback"
               editor={{
                 ariaLabel: "Feedback editor",
@@ -397,19 +467,6 @@ function CategoriseEditableItemNodeView(props: NodeViewProps) {
             />
           </EditableOverlayPopover.Portal>
         </EditableOverlayPopover.Root>
-        <AssessmentChoiceAuthoringAction
-          disabled={deleteUnavailable}
-          onClick={() => {
-            deleteItem();
-          }}
-          label={`Delete item ${itemIndex} from category ${categoryIndex}`}
-          intent="delete"
-          {...(deleteUnavailable
-            ? { unavailableReason: "Categorise requires at least one item." }
-            : {})}
-        >
-          <Trash size={iconSm} />
-        </AssessmentChoiceAuthoringAction>
       </div>
     </NodeViewWrapper>
   );
@@ -485,12 +542,14 @@ function CategoriseAuthoringMovementAction({
   getPresentationElement,
   getSourcePos,
   label,
+  projection,
   sourceKey,
   sourcePos,
 }: {
   getPresentationElement: () => HTMLElement | null;
   getSourcePos: () => number | null | undefined;
   label: string;
+  projection: AuthoringContainedMovementProjection;
   sourceKey: string;
   sourcePos: number | null | undefined;
 }) {
@@ -500,6 +559,7 @@ function CategoriseAuthoringMovementAction({
       getSourcePos={getSourcePos}
       className="sc-course-categorise__move-action"
       label={label}
+      projection={projection}
       sourceKey={sourceKey}
       sourcePos={sourcePos}
     />
@@ -524,6 +584,7 @@ function CategoriseAuthoringCategorySelect({
   return (
     <Select.Root value={value} onValueChange={onValueChange}>
       <Select.Trigger
+        {...authoringMovementSnapshotChromeAttributes()}
         aria-label={`Move ‘${itemLabel}’ to category. Current category: ‘${currentLabel}’`}
         className="sc-course-categorise__category-select"
         contentEditable={false}

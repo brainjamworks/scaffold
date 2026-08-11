@@ -5,8 +5,10 @@ import { page } from "vite-plus/test/browser/context";
 import "@/styles/globals.css";
 import "@/theme/app/AppThemeProvider.css";
 import "@/theme/course/designs/scaffold-flow/v1/theme.css";
+import "@/editor/movement/view/movement-handles.css";
 
 import {
+  AssessmentChoiceAddButton,
   AssessmentChoiceAuthoringAction,
   AssessmentChoiceAuthoringRow,
 } from "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
@@ -127,7 +129,71 @@ describe("assessment choice row ownership and geometry", () => {
     expect(row.querySelector("[class^='sc-app-']")).toBeNull();
   });
 
-  it("keeps authoring and runtime surface roundness in parity while radios stay circular", async () => {
+  it("matches the add-choice row height and aligns its plus with the movement axis", async () => {
+    host = document.createElement("section");
+    host.className = "sc-course sc-course-theme-scaffold-flow-v1 radix-themes light";
+    host.style.cssText = [
+      "width: 420px",
+      "--gray-1: rgb(255 255 255)",
+      "--gray-11: rgb(60 60 60)",
+      "--gray-12: rgb(20 20 20)",
+      "--gray-a6: rgb(190 190 190)",
+      "--gray-a7: rgb(160 160 160)",
+      "--accent-9: rgb(79 70 229)",
+      "--radius-2: 4px",
+      "--radius-3: 8px",
+      "--radius-full: 8px",
+      "--space-1: 4px",
+      "--space-3: 12px",
+      "--space-4: 16px",
+      "--sc-course-author-stroke-width: 1px",
+    ].join(";");
+    document.body.append(host);
+
+    root = createRoot(host);
+    root.render(
+      <>
+        <AssessmentChoiceAuthoringRow
+          correct={false}
+          correctnessLabel="Toggle whether Alpha is correct"
+          onToggleCorrect={() => undefined}
+          movementControl={
+            <AssessmentChoiceAuthoringAction
+              className={[
+                "sc-app-contained-movement-handle",
+                "sc-app-compact-movement-handle",
+                "sc-app-contained-movement-handle--row-offset",
+              ].join(" ")}
+              intent="move"
+              label="Move choice"
+            >
+              m
+            </AssessmentChoiceAuthoringAction>
+          }
+          deleteAction={{ label: "Delete choice 1", onAction: () => undefined }}
+        >
+          Alpha
+        </AssessmentChoiceAuthoringRow>
+        <AssessmentChoiceAddButton />
+      </>,
+    );
+
+    await waitForCondition(() => host?.querySelector(".sc-course-assessment-choice-add"));
+    const row = requireElement<HTMLElement>(host, ".sc-course-assessment-choice--authoring");
+    const movement = requireElement<HTMLElement>(row, ".sc-app-contained-movement-handle");
+    const add = requireElement<HTMLElement>(host, ".sc-course-assessment-choice-add");
+    const plus = requireElement<SVGElement>(add, "svg");
+    const movementRect = movement.getBoundingClientRect();
+    const plusRect = plus.getBoundingClientRect();
+    const centreDelta = Math.abs(
+      movementRect.left + movementRect.width / 2 - (plusRect.left + plusRect.width / 2),
+    );
+
+    expect(add.getBoundingClientRect().height).toBe(row.getBoundingClientRect().height);
+    expect(centreDelta).toBeLessThanOrEqual(0.5);
+  });
+
+  it("keeps authoring and runtime surface geometry in parity while radios stay circular", async () => {
     host = document.createElement("section");
     host.className = "sc-course sc-course-theme-scaffold-flow-v1 radix-themes light";
     host.style.cssText = [
@@ -182,6 +248,8 @@ describe("assessment choice row ownership and geometry", () => {
       '.sc-course-assessment-choice__indicator[data-shape="radio"]',
     );
 
+    expect(authoring.getBoundingClientRect().height).toBe(54);
+    expect(runtime.getBoundingClientRect().height).toBe(54);
     expect(getComputedStyle(authoring).borderRadius).toBe(getComputedStyle(runtime).borderRadius);
     expect(getComputedStyle(radioIndicator).borderRadius).toBe("50%");
 

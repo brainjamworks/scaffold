@@ -257,7 +257,7 @@ function makeBoundedRuntimeEditor(
 
 function testCapabilities(blockDefinitions: readonly BlockDefinition[]) {
   return resolveScaffoldCapabilities({
-    blockDefinitions,
+    blockCapabilities: blockDefinitions.map((definition) => ({ definition })),
     layoutDefinitions: [],
     surfaceDefinitions: [],
   });

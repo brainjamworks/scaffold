@@ -36,4 +36,19 @@ describe("Radio primitives", () => {
     ).toBe(true);
     expect(screen.getByRole("radio").classList.contains("custom-radio")).toBe(true);
   });
+
+  it("renders custom item content without the default indicator when requested", () => {
+    render(
+      <RadioGroup aria-label="Resource kind" value="video">
+        <RadioItem value="video" showIndicator={false}>
+          <span data-testid="video-icon" />
+        </RadioItem>
+      </RadioGroup>,
+    );
+
+    const item = screen.getByRole("radio", { name: "" });
+
+    expect(screen.getByTestId("video-icon").parentElement).toBe(item);
+    expect(item.querySelector(".sc-radio-indicator")).toBeNull();
+  });
 });

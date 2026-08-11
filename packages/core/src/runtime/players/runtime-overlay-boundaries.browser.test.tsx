@@ -9,9 +9,11 @@ import { projectCourseStructure } from "@/document/model/course-structure";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
 import { PagePlayer } from "@/runtime/players/page/PagePlayer";
 import { SlideshowPlayer } from "@/runtime/players/slideshow/SlideshowPlayer";
+import { checkRuntimeDocumentReadiness } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import "@/styles/globals.css";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
+const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
 
 const PAGE_CASES = [
   { name: "wide", width: 1120, height: 760 },
@@ -334,6 +336,14 @@ async function createForeignOwner(width: number, height: number): Promise<Foreig
 }
 
 async function mountPage(owner: ForeignOwner): Promise<MountedRuntime> {
+  const readiness = checkRuntimeDocumentReadiness(
+    runtimeHintDocument("page", "runtime-page"),
+    runtimeComposition,
+    coreProductAccess,
+  );
+  if (readiness.status !== "supported") {
+    throw new Error(`Expected a prepared Page fixture, received ${readiness.status}.`);
+  }
   let editor: TiptapEditor | null = null;
   const host = owner.document.createElement("div");
   host.style.cssText = "margin-top: 320px; width: 100%;";
@@ -343,8 +353,7 @@ async function mountPage(owner: ForeignOwner): Promise<MountedRuntime> {
     createAssessmentRuntimeTestRoot({
       children: (
         <PagePlayer
-          composition={runtimeComposition}
-          initialContent={runtimeHintDocument("page", "runtime-page")}
+          preparedDocument={readiness.preparedDocument}
           surfaceId="runtime-page"
           onRendererReady={(readyEditor) => {
             editor = readyEditor;
@@ -374,13 +383,20 @@ async function mountSlideshow(owner: ForeignOwner): Promise<MountedRuntime> {
   if (!structure || structure.mode !== "slideshow") {
     throw new Error("Expected a projected Slideshow fixture.");
   }
+  const readiness = checkRuntimeDocumentReadiness(
+    initialContent,
+    runtimeComposition,
+    coreProductAccess,
+  );
+  if (readiness.status !== "supported") {
+    throw new Error(`Expected a prepared Slideshow fixture, received ${readiness.status}.`);
+  }
   root.render(
     createAssessmentRuntimeTestRoot({
       children: (
         <SlideshowPlayer
-          composition={runtimeComposition}
           artifactId="runtime-boundary-contract"
-          initialContent={initialContent}
+          preparedDocument={readiness.preparedDocument}
           structure={structure}
           onRendererReady={(readyEditor) => {
             editor = readyEditor;

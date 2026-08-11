@@ -11,7 +11,7 @@ import {
   FillBlanksPrivateAssessmentSchema,
   type FillBlankPrivateAssessmentEntry,
 } from "@scaffold/contracts";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 import { createFillBlankAttrs } from "./fill-blank-shared";
 
@@ -113,7 +113,7 @@ export function repairFillBlanksInTransaction(state: EditorState, tr: Transactio
       const parsed = FillBlankAttrsSchema.safeParse(child.attrs);
       const originalId = parsed.success ? parsed.data.id.trim() : "";
       const canKeepId = originalId.length > 0 && !seen.has(originalId);
-      const blankId = canKeepId ? originalId : createStableId();
+      const blankId = canKeepId ? originalId : createEmbeddedNodeId();
       const privateBlank = canKeepId
         ? assessment.blanksById[originalId]
         : originalId.length === 0

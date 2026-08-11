@@ -12,7 +12,7 @@ describeLayoutContract({
   layoutDefinitions: builtInLayoutRegistry,
   layoutAuthoringViews: builtInLayoutAuthoringViewRegistry,
   layoutId: "paginated",
-  expectedDescendantClasses: ["sc-paginated-layout__nav"],
+  expectedDescendantClasses: ["sc-course-paginated__nav"],
 });
 
 it("declares bounded fill with section handoff", () => {

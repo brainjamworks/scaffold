@@ -2,11 +2,11 @@ import { CopyIcon as Copy } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/react";
 
 import { duplicateNodeChecked } from "@/document/model/commands/checked-transactions";
-import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import type { BlockDuplicationLookup } from "@/document/model/identity/clone-with-new-ids";
 import { MenuIconButton } from "@/editor/shell/bubbles/interaction/menu-controls/MenuControls";
 
 interface DuplicateBlockProps {
-  blockDefinitions: BlockDefinitionLookup;
+  blockDuplications: BlockDuplicationLookup;
   editor: Editor;
   pos?: number | null;
 }
@@ -15,7 +15,7 @@ interface DuplicateBlockProps {
  * Stable ids in the clone are regenerated so the duplicate has its own
  * authored identity and nested component references remain coherent.
  */
-export function DuplicateBlock({ blockDefinitions, editor, pos }: DuplicateBlockProps) {
+export function DuplicateBlock({ blockDuplications, editor, pos }: DuplicateBlockProps) {
   const handleClick = () => {
     if (pos === null || pos === undefined) return;
 
@@ -23,8 +23,8 @@ export function DuplicateBlock({ blockDefinitions, editor, pos }: DuplicateBlock
     const result = duplicateNodeChecked({
       tr: editor.state.tr,
       pos,
-      regenerateStableIds: true,
-      blockDefinitions,
+      regenerateNodeIds: true,
+      blockDuplications,
     });
     if (result.ok) {
       editor.view.dispatch(result.tr.scrollIntoView());

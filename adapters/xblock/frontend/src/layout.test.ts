@@ -127,6 +127,14 @@ describe("XBlockStudioApp mounted configuration", () => {
   it("mounts the exact module-stable complete Core application", () => {
     const data = {
       view: "studio" as const,
+      artifactAccess: {
+        status: "supported" as const,
+        artifact: {
+          id: "xblock-studio-artifact",
+          title: "Studio content",
+          mode: "page" as const,
+        },
+      },
       artifact: ScaffoldArtifactSchema.parse(
         createScaffoldArtifact({
           id: "xblock-studio-artifact",
@@ -136,6 +144,15 @@ describe("XBlockStudioApp mounted configuration", () => {
         }),
       ),
       initialLearnerState: {},
+      learnerPublication: {
+        status: "invalid",
+        issues: [{ code: "studio", message: "Not a learner view.", path: [] }],
+      },
+      publicationStatus: {
+        currentArtifactRevision: "revision-2",
+        publishedArtifactRevision: "revision-1",
+        publishedAt: "2026-08-09T10:00:00Z",
+      },
     } satisfies ScaffoldXBlockInnerInitPayload;
     const bridge = createBridgeStub();
 
@@ -150,6 +167,20 @@ describe("XBlockStudioApp mounted configuration", () => {
     expect(studioMountMocks.authoringEntryProps[1]?.application).toBe(
       studioMountMocks.applications[0],
     );
+    const actions = studioMountMocks.authoringEntryProps[0]?.headerActions?.({
+      hasUnpublishedChanges: true,
+      preview: false,
+      publishNow: vi.fn(async () => true),
+      publishState: "unpublished",
+      saveNow: vi.fn(async () => true),
+      saveState: "idle",
+      title: "Studio content",
+    });
+    const actionsMarkup = renderToStaticMarkup(createElement("div", null, actions));
+    expect(actionsMarkup).toContain(">Publish</button>");
+    expect(actionsMarkup).toContain("Unpublished changes");
+    expect(actionsMarkup).toContain(">Save</button>");
+    expect(actionsMarkup).toContain(">Done</button>");
   });
 });
 

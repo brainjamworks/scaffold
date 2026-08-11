@@ -1,6 +1,7 @@
 import { AnswerRevealSchema } from "@scaffold/contracts";
 import { AssessmentProblemCommandOutcomeSchema } from "@scaffold/core/ports";
 import type {
+  LearnerPublicationStatus,
   ScaffoldAuthoringEntryHostServices,
   ScaffoldLearnerHostServices,
   ScaffoldResolvedMediaMap,
@@ -11,15 +12,20 @@ import {
   createXBlockRuntimePorts,
   unwrapXBlockHandlerResponse,
 } from "./ports";
+import { createXBlockLearnerPublicationPort } from "./learner-publication-port";
 import type { XBlockInnerBridge } from "./xblock-inner-bridge";
 
-interface XBlockAuthoringServiceOptions {
+interface XBlockResolvedMediaOptions {
   resolvedMedia?: ScaffoldResolvedMediaMap | null | undefined;
+}
+
+interface XBlockAuthoringServiceOptions extends XBlockResolvedMediaOptions {
+  publicationStatus: LearnerPublicationStatus;
 }
 
 export function createXBlockAuthoringHostServices(
   bridge: XBlockInnerBridge,
-  options: XBlockAuthoringServiceOptions = {},
+  options: XBlockAuthoringServiceOptions,
 ): ScaffoldAuthoringEntryHostServices {
   const runtimePorts = createXBlockRuntimePorts(bridge, {
     mediaContext: "authoring",
@@ -28,6 +34,7 @@ export function createXBlockAuthoringHostServices(
 
   return {
     artifactPersistence: createXBlockArtifactPersistence(bridge),
+    learnerPublication: createXBlockLearnerPublicationPort(bridge, options.publicationStatus),
     artifactCreation: {
       createArtifactMetadata: async (input) => {
         const response = await bridge.request<{ artifact?: unknown }>(
@@ -44,6 +51,7 @@ export function createXBlockAuthoringHostServices(
 function readCreatedArtifactMetadata(value: unknown): {
   id: string;
   title?: string | undefined;
+  requiresScaffoldPlus: false;
 } {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("XBlock artifact creation returned invalid metadata.");
@@ -56,12 +64,14 @@ function readCreatedArtifactMetadata(value: unknown): {
   }
 
   const title = artifact["title"];
-  return typeof title === "string" && title.length > 0 ? { id, title } : { id };
+  return typeof title === "string" && title.length > 0
+    ? { id, title, requiresScaffoldPlus: false }
+    : { id, requiresScaffoldPlus: false };
 }
 
 export function createXBlockPreviewLearnerServices(
   bridge: XBlockInnerBridge,
-  options: XBlockAuthoringServiceOptions = {},
+  options: XBlockResolvedMediaOptions = {},
 ): ScaffoldLearnerHostServices {
   const runtimePorts = createXBlockRuntimePorts(bridge, {
     mediaContext: "preview",

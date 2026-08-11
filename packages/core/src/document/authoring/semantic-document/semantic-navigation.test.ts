@@ -159,13 +159,14 @@ describe("semantic navigation", () => {
     const [firstRelationship] = requireLocation(session.controller, staleTargetId).activationPath;
     if (!firstRelationship) throw new Error("expected an activation relationship");
     const started = deferred<void>();
-    const waiting = deferred<"revealed">();
-    session.controller.containerAdapters.register(
-      adapter(firstRelationship.ownerId, () => {
-        started.resolve(undefined);
-        return waiting.promise;
-      }),
-    );
+    session.controller.containerAdapters.register({
+      ownerId: firstRelationship.ownerId,
+      reveal: (_childId, _reason, signal) =>
+        new Promise((resolve) => {
+          started.resolve(undefined);
+          signal?.addEventListener("abort", () => resolve("child-unavailable"), { once: true });
+        }),
+    });
 
     const staleRequest = session.controller.select(staleTargetId, {
       origin: "document-outline",
@@ -174,7 +175,6 @@ describe("semantic navigation", () => {
     await expect(
       session.controller.select(currentTargetId, { origin: "document-outline" }),
     ).resolves.toEqual({ kind: "reached", id: currentTargetId });
-    waiting.resolve("revealed");
 
     await expect(staleRequest).resolves.toEqual({ kind: "interrupted", id: staleTargetId });
     expect(session.controller.getSnapshot().selectedId).toBe(currentTargetId);
@@ -205,7 +205,7 @@ describe("semantic navigation", () => {
   });
 
   it("presents a Course Section through its current first Surface mapping", async () => {
-    const session = makeSession("sectioned-slideshow");
+    const session = makeSession("slideshow");
     const sectionId = session.fixture.courseSectionId;
     if (!sectionId) throw new Error("expected Course Section");
 
@@ -225,7 +225,7 @@ describe("semantic navigation", () => {
 });
 
 function makeSession(
-  kind: "page" | "sectioned-slideshow" = "page",
+  kind: "page" | "slideshow" = "page",
 ): ReturnType<typeof createSession> {
   const fixture = createRepresentativeSemanticDocumentFixture({ kind });
   return createSession(fixture);

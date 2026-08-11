@@ -161,6 +161,31 @@ describe("movement target discovery", () => {
     expect(result.descriptors[0]?.axis).toBe("horizontal");
   });
 
+  it("lets a contained owner widen target eligibility without feature knowledge", () => {
+    const harness = makeEditor([containedGroup(["a", "b"]), containedGroup(["outside"])]);
+    const sourcePos = nodePos(harness.editor, CONTAINED_ITEM, "a");
+    const source = resolveMovementNodeContext(harness.editor.state.doc, sourcePos)!;
+    const canTargetContained = vi.fn(
+      (sourceContext: typeof source, targetContext: typeof source) =>
+        sourceContext.nodeType === targetContext.nodeType &&
+        sourceContext.pos !== targetContext.pos,
+    );
+
+    const result = discoverMovementTargetDescriptors({
+      blockDefinitions,
+      canTargetContained,
+      documentRevision: 2,
+      source: { context: source, kind: "contained" },
+      view: harness.editor.view,
+    });
+
+    expect(result.descriptors.map((descriptor) => descriptor.context.node.attrs["id"])).toEqual([
+      "b",
+      "outside",
+    ]);
+    expect(canTargetContained).toHaveBeenCalled();
+  });
+
   it("keeps repeated snapshot queries free of discovery, nodeDOM, posAtCoords, and rect reads", () => {
     const harness = makeEditor([
       { type: TEST_BLOCK, attrs: { id: "source-a" } },

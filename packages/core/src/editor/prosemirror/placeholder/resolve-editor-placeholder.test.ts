@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { CircleIcon } from "@phosphor-icons/react";
-import { Editor } from "@tiptap/core";
+import { Editor, Node } from "@tiptap/core";
 import { NodeViewContent } from "@tiptap/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
@@ -11,12 +11,75 @@ import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/
 import {
   createScaffoldApplication,
   defineScaffoldExtensionPack,
+  type BlockCapability,
   type LayoutCapability,
 } from "@/composition/application/create-scaffold-application";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 describe("editor placeholder resolver", () => {
+  it("resolves a host Block paragraph placeholder from the editor composition", () => {
+    const nodeType = "host_placeholder_block";
+    const placeholder = "Write the host-only Block content";
+    const createNode = () =>
+      Node.create({
+        name: nodeType,
+        group: "block",
+        content: "paragraph",
+        renderHTML: () => ["div", { "data-host-placeholder-block": "" }, 0],
+      });
+    const capability: BlockCapability = {
+      definition: {
+        nodeType,
+        placeholders: { paragraph: placeholder },
+      },
+      authoringExtension: createNode(),
+      runtimeExtension: createNode(),
+    };
+    const application = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "host-block-placeholder-pack",
+          blocks: [capability],
+        }),
+      ],
+    });
+    const editor = new Editor({
+      extensions: createCourseDocumentAuthoringExtensions({
+        editable: true,
+        composition: application.authoring,
+      }),
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "courseDocument",
+            content: [
+              {
+                type: "surface",
+                attrs: { id: createEmbeddedNodeId(), variant: "page-default" },
+                content: [
+                  {
+                    type: nodeType,
+                    attrs: { id: createEmbeddedNodeId() },
+                    content: [{ type: "paragraph" }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    document.body.append(editor.view.dom);
+
+    expect(editor.view.dom.querySelector(`p[data-placeholder="${placeholder}"]`)).not.toBeNull();
+
+    editor.destroy();
+  });
+
   it("resolves a host Layout paragraph placeholder from the editor composition", () => {
     const layoutId = "host-placeholder-layout";
     const placeholder = "Write the host-only layout paragraph";

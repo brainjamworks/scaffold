@@ -9,7 +9,6 @@ import {
   replaceRangeWithNodeChecked,
   type CheckedMutationIssue,
 } from "@/document/model/commands/checked-transactions";
-import { validateBoundedContainerStructure } from "@/editor/bounded-containers/model/bounded-container-structure-policy";
 import { materializeCatalogNodeHorizontalAlignment } from "@/editor/interactions/alignment/alignment-insertion";
 import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-variant-registry";
 
@@ -117,8 +116,6 @@ function createInsertActionNodeChecked({
   try {
     const node = schema.nodeFromJSON(contentOverride ?? action.content());
     node.check();
-    const validationIssue = action.validateNode?.(node);
-    if (validationIssue) return { ok: false, issue: validationIssue };
     return { ok: true, item: action, node };
   } catch (error) {
     return {
@@ -197,9 +194,6 @@ export function insertCatalogItemChecked(
     to: placement.range.to,
   });
   if (!result.ok) return false;
-  if (!validateBoundedContainerStructure(result.tr.doc, blockDefinitions, layoutDefinitions).ok) {
-    return false;
-  }
   if (result.tr.doc.eq(editor.state.doc)) return false;
 
   setSelectionNearInsertedNode(result.tr, placement.range.from);

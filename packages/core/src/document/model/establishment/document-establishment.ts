@@ -1,5 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 
+import type { RequiresScaffoldPlusResult } from "@/host/contracts/product-access";
+
 export type UnavailableCapabilityKind = "block" | "layout" | "surface";
 
 export interface EstablishedDocumentFormat {
@@ -27,11 +29,31 @@ export type AuthoringDocumentEstablishmentResult =
       readonly workingDocument: JSONContent;
       readonly format: EstablishedDocumentFormat;
       readonly unavailableContent: readonly [];
+      readonly requiresScaffoldPlus: boolean;
     }
   | {
       readonly status: "unavailable";
       readonly workingDocument: JSONContent;
       readonly format: EstablishedDocumentFormat;
+      readonly unavailableContent: readonly UnavailableContentRef[];
+      readonly requiresScaffoldPlus: boolean;
+    }
+  | {
+      readonly status: "invalid";
+      readonly issues: readonly DocumentEstablishmentIssue[];
+    }
+  | {
+      readonly status: "unsupported-core-format";
+      readonly documentVersion: number;
+      readonly supportedVersion: number;
+      readonly message: string;
+    }
+  | RequiresScaffoldPlusResult;
+
+export type AuthoringDocumentCanonicalizationResult =
+  | {
+      readonly status: "ready";
+      readonly canonicalDocument: JSONContent;
       readonly unavailableContent: readonly UnavailableContentRef[];
     }
   | {
@@ -43,18 +65,8 @@ export type AuthoringDocumentEstablishmentResult =
       readonly documentVersion: number;
       readonly supportedVersion: number;
       readonly message: string;
-    };
-
-export type AuthoringDocumentCanonicalizationResult =
-  | {
-      readonly status: "ready";
-      readonly canonicalDocument: JSONContent;
-      readonly unavailableContent: readonly UnavailableContentRef[];
     }
-  | {
-      readonly status: "invalid";
-      readonly issues: readonly DocumentEstablishmentIssue[];
-    };
+  | RequiresScaffoldPlusResult;
 
 export type LearnerProjectionReadinessResult =
   | {
@@ -74,4 +86,5 @@ export type LearnerProjectionReadinessResult =
       readonly documentVersion: number;
       readonly supportedVersion: number;
       readonly message: string;
-    };
+    }
+  | RequiresScaffoldPlusResult;

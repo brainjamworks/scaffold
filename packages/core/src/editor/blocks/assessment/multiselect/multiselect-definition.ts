@@ -5,9 +5,8 @@ import {
   assessmentShellPlaceholders,
   selectableChoicePlaceholders,
 } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
-import { rewriteMultiselectCopiedContent } from "@/editor/blocks/assessment/shared/identity/copy-identity";
 import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import {
   defineConfiguration,
@@ -130,7 +129,6 @@ function applyMultiselectSettings({ attr, schema, target, tr, value }: SettingsS
 export const multiselectBlockDefinition = defineBlock({
   nodeType: "multiselect",
   title: "Multi-select",
-  rewriteCopiedContent: rewriteMultiselectCopiedContent,
   boundedPlacement: "fill",
   configuration: multiselectConfiguration,
   placeholders: {
@@ -163,14 +161,14 @@ export const multiselectBlockDefinition = defineBlock({
     icon: ListChecks,
     keywords: ["checkbox", "question", "multi"],
     content: () => {
-      const firstChoiceId = createStableId();
-      const secondChoiceId = createStableId();
-      const thirdChoiceId = createStableId();
+      const firstChoiceId = createEmbeddedNodeId();
+      const secondChoiceId = createEmbeddedNodeId();
+      const thirdChoiceId = createEmbeddedNodeId();
 
       return {
         type: "multiselect",
         attrs: {
-          id: createStableId(),
+          id: createEmbeddedNodeId(),
           assessment: MultiselectPrivateAssessmentSchema.parse({
             correctOptionIds: [firstChoiceId, secondChoiceId],
           }),

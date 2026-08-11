@@ -3,7 +3,6 @@ import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model";
 
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { getLayoutKindFromAttrs } from "@/editor/arrangements/layout/model/layout-definition";
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 
 import { STRUCTURAL_INSERTION_PARENT_TYPES } from "./structural-insertion-parent-types";
 
@@ -137,16 +136,17 @@ function resolveOwnerPlaceholder(
     depth: number;
   },
 ): string | undefined {
+  const capabilities = getScaffoldCapabilitiesForEditor(context.editor);
+
   for (let ownerDepth = placeholderDepth; ownerDepth >= 0; ownerDepth -= 1) {
     const owner = context.$pos.node(ownerDepth);
-    const placeholders = builtInBlockRegistry.getByNodeType(owner.type.name)?.placeholders;
+    const placeholders = capabilities.blocks.registry.getByNodeType(owner.type.name)?.placeholders;
     const value = placeholders?.[placeholderNodeType];
     const blockPlaceholder = typeof value === "function" ? value(context) : value;
     if (blockPlaceholder !== undefined) return blockPlaceholder;
 
     if (owner.type.name === "layout") {
       const layoutKind = getLayoutKindFromAttrs(owner.attrs);
-      const capabilities = getScaffoldCapabilitiesForEditor(context.editor);
       const layoutPlaceholder = layoutKind
         ? capabilities.layouts.registry.resolvePlaceholder(layoutKind, placeholderNodeType, context)
         : undefined;

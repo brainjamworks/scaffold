@@ -133,7 +133,7 @@ describe("layout runtime nodes", () => {
       const sectionElement = document.body.querySelector(
         '[data-node="section"][data-definition="tabs"]',
       );
-      const panelElement = sectionElement?.querySelector(".sc-tabs__panel");
+      const panelElement = sectionElement?.querySelector(".sc-course-tabs__panel");
 
       expect(layoutElement?.getAttribute("data-bounded-placement")).toBe("fill");
       expect(layoutElement?.getAttribute("data-runtime-frame")).toBe("layout");
@@ -225,104 +225,6 @@ describe("layout runtime nodes", () => {
     }
   });
 
-  it("keeps process-flow runtime configuration on variant-owned elements", async () => {
-    const editor = new Editor({
-      editable: false,
-      extensions: [
-        createTestNodeIdentityExtension(),
-        DocumentNode,
-        StarterKit.configure({
-          document: false,
-          undoRedo: false,
-          paragraph: false,
-        }),
-        ExtendedParagraph,
-        CourseDocumentNode,
-        createCourseSectionNode(),
-        SurfaceNode,
-        RegionNode,
-        GridRuntimeNode,
-        CellRuntimeNode,
-        LayoutRuntimeNode,
-        SectionRuntimeNode,
-      ],
-      content: {
-        type: "doc",
-        content: [
-          {
-            type: "courseDocument",
-            attrs: { mode: "page" },
-            content: [
-              {
-                type: "surface",
-                attrs: {
-                  id: "surfaceRun03",
-                  variant: "page-default",
-                },
-                content: [
-                  {
-                    type: "layout",
-                    attrs: {
-                      id: "layoutRun003",
-                      variant: "process-flow",
-                      options: {
-                        orientation: "vertical",
-                        showConnectors: true,
-                        showNumbers: true,
-                      },
-                    },
-                    content: [
-                      runtimeProcessFlowSection("processFl001", "Step one"),
-                      runtimeProcessFlowSection("processFl002", "Step two"),
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    });
-
-    try {
-      render(createElement(EditorContent, { editor }));
-
-      await waitFor(() => {
-        expect(
-          document.body.querySelector('[data-node="layout"][data-definition="process-flow"]'),
-        ).not.toBeNull();
-      });
-
-      const layoutElement = document.body.querySelector(
-        '[data-node="layout"][data-definition="process-flow"]',
-      );
-      const surfaceElement = layoutElement?.querySelector(":scope > .sc-process-flow");
-      const sectionElements = Array.from(
-        document.body.querySelectorAll('[data-node="section"][data-definition="process-flow"]'),
-      );
-      const trackElement = layoutElement?.querySelector(".sc-process-flow__track");
-      const contentElements = Array.from(
-        layoutElement?.querySelectorAll(".sc-process-flow__content") ?? [],
-      );
-
-      expect(layoutElement?.getAttribute("data-runtime-frame")).toBe("layout");
-      expect(layoutElement?.classList.contains("sc-process-flow")).toBe(false);
-      expect(surfaceElement).not.toBeNull();
-      expect(layoutElement?.getAttribute("data-orientation")).toBeNull();
-      expect(layoutElement?.getAttribute("data-show-connectors")).toBeNull();
-      expect(layoutElement?.getAttribute("data-show-numbers")).toBeNull();
-      expect(trackElement?.getAttribute("data-orientation")).toBe("vertical");
-      expect(trackElement?.getAttribute("data-show-connectors")).toBe("true");
-      expect(trackElement?.getAttribute("data-show-numbers")).toBe("true");
-      expect(sectionElements[0]?.getAttribute("data-is-last")).toBeNull();
-      expect(sectionElements[1]?.getAttribute("data-is-last")).toBeNull();
-      expect(contentElements[0]?.getAttribute("data-is-last")).toBeNull();
-      expect(contentElements[1]?.getAttribute("data-is-last")).toBe("true");
-    } finally {
-      editor.destroy();
-    }
-  });
-
   it("dispatches accordion and paginated variants to their runtime views", async () => {
     const editor = new Editor({
       editable: false,
@@ -371,12 +273,12 @@ describe("layout runtime nodes", () => {
       render(createElement(EditorContent, { editor }));
 
       await waitFor(() => {
-        expect(document.body.querySelector(".sc-accordion-layout")).not.toBeNull();
-        expect(document.body.querySelector(".sc-paginated-layout")).not.toBeNull();
+        expect(document.body.querySelector(".sc-course-accordion")).not.toBeNull();
+        expect(document.body.querySelector(".sc-course-paginated")).not.toBeNull();
       });
 
-      expect(document.body.querySelector(".sc-accordion-section")).not.toBeNull();
-      expect(document.body.querySelector(".sc-paginated-layout__section")).not.toBeNull();
+      expect(document.body.querySelector(".sc-course-accordion__section")).not.toBeNull();
+      expect(document.body.querySelector(".sc-course-paginated__section")).not.toBeNull();
     } finally {
       editor.destroy();
     }
@@ -450,7 +352,7 @@ describe("layout runtime nodes", () => {
       });
 
       expect(document.body.textContent).toContain("Unknown layout content");
-      expect(document.body.querySelector(".sc-tabs, .sc-accordion-layout")).toBeNull();
+      expect(document.body.querySelector(".sc-course-tabs, .sc-course-accordion")).toBeNull();
     } finally {
       editor.destroy();
     }
@@ -470,22 +372,6 @@ function runtimeTabSection(id: string, label: string) {
       {
         type: "paragraph",
         content: [{ type: "text", text: `${label} content` }],
-      },
-    ],
-  };
-}
-
-function runtimeProcessFlowSection(id: string, text: string) {
-  return {
-    type: "section",
-    attrs: {
-      id,
-      role: "flow-step",
-    },
-    content: [
-      {
-        type: "paragraph",
-        content: [{ type: "text", text }],
       },
     ],
   };

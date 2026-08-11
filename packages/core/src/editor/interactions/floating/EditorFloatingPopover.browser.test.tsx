@@ -22,6 +22,7 @@ import {
 } from "@/editor/arrangements/layout/authoring/layout-nodes";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { createTiptapResizableReactNodeView } from "@/editor/frame/authoring/tiptap-resizable-react-node-view";
 import { courseBlockAuthoringFrameAttributes } from "@/editor/interactions/dom/authoring-frame";
 import { authoringInteractionRootAttributes } from "@/editor/interactions/dom/authoring-root";
@@ -110,6 +111,7 @@ const ResizablePopoverBlockNode = Node.create({
   addNodeView() {
     return createTiptapResizableReactNodeView(ResizablePopoverBlock, {
       blockDefinitions: testBlockRegistry,
+      layoutDefinitions: builtInLayoutRegistry,
       frame: {
         resizable: true,
         resizeMode: "responsive",

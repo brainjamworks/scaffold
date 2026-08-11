@@ -2,7 +2,6 @@ import type { NodeViewRenderer } from "@tiptap/core";
 import { type ReactNodeViewProps } from "@tiptap/react";
 import { Suspense, lazy, type ComponentType } from "react";
 
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { BlockAuthoringFrame } from "./BlockAuthoringFrame";
 
 import {
@@ -12,7 +11,7 @@ import {
 
 export interface LazyAuthoringBlockNodeViewOptions<T = HTMLElement> extends Omit<
   AuthoringBlockNodeViewOptions,
-  "blockDefinitions"
+  "layoutDefinitions"
 > {
   fallback: ComponentType<ReactNodeViewProps<T>>;
   loadView: () => Promise<{
@@ -50,7 +49,6 @@ export function createLazyAuthoringBlockNodeView<T = HTMLElement>({
   LazyAuthoringBlockNodeView.displayName = "LazyAuthoringBlockNodeView";
 
   return createAuthoringBlockNodeView(LazyAuthoringBlockNodeView, {
-    blockDefinitions: builtInBlockRegistry,
     ...nodeViewOptions,
   });
 }

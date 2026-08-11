@@ -17,8 +17,7 @@ const schema = new Schema({
     doc: { content: "courseDocument" },
     text: {},
     courseDocument: {
-      content:
-        "(surface | unavailable_surface)+ | (courseSection (surface | unavailable_surface)+)+",
+      content: "(surface | unavailable_surface | courseSection)+",
       attrs: { mode: { default: "page" } },
     },
     courseSection: {
@@ -60,7 +59,7 @@ describe("projectAuthoringCourseStructure", () => {
     });
   });
 
-  it("preserves supported and unavailable Surface order in an unsectioned Slideshow", () => {
+  it("rejects an unsectioned Slideshow", () => {
     expect(
       projectAuthoringCourseStructure(
         documentNode("slideshow", [
@@ -68,11 +67,7 @@ describe("projectAuthoringCourseStructure", () => {
           unavailableSurface(IDS.secondUnavailable),
         ]),
       ),
-    ).toMatchObject({
-      kind: "unsectioned-slideshow",
-      mode: "slideshow",
-      surfaceIds: [IDS.firstSurface, IDS.secondUnavailable],
-    });
+    ).toBeNull();
   });
 
   it("preserves Course Section membership for unavailable Surfaces", () => {
@@ -87,7 +82,7 @@ describe("projectAuthoringCourseStructure", () => {
         ]),
       ),
     ).toMatchObject({
-      kind: "sectioned-slideshow",
+      kind: "slideshow",
       mode: "slideshow",
       surfaceIds: [IDS.pageUnavailable, IDS.firstSurface, IDS.secondUnavailable],
       courseSections: [

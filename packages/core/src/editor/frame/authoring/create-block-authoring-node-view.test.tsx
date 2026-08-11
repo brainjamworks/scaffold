@@ -7,6 +7,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
+import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
 import { AUTHORING_FRAME_ATTR } from "@/editor/interactions/dom/authoring-frame";
 import { AUTHORING_FRAME_WRAPPER_ATTR } from "@/editor/interactions/dom/authoring-chrome";
@@ -14,6 +16,7 @@ import { createBlockAuthoringNodeView } from "./create-block-authoring-node-view
 import { defineBlock } from "@/editor/blocks/block-definition";
 
 const TEST_PLAIN_NODE_TYPE = "test_block_authoring_plain_frame_block";
+const testCapabilities = createScaffoldApplication().capabilities;
 
 const plainBlockDefinition = defineBlock({
   nodeType: TEST_PLAIN_NODE_TYPE,
@@ -122,6 +125,7 @@ describe("createBlockAuthoringNodeView", () => {
         StarterKit.configure({
           undoRedo: false,
         }),
+        createScaffoldCapabilitiesStorageExtension(testCapabilities),
         AuthoringRegionTestNode,
         PlainAuthoringFrameTestNode,
       ],

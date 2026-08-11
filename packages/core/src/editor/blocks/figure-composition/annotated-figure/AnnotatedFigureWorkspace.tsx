@@ -3,7 +3,6 @@ import {
   CaretUpIcon as CaretUp,
   XIcon as X,
 } from "@phosphor-icons/react";
-import { IconButton, TextField } from "@radix-ui/themes";
 import type { Editor, Extensions } from "@tiptap/core";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
@@ -140,13 +139,11 @@ export function AnnotatedFigureWorkspace({
                         role="group"
                         aria-label={`Reorder and delete workspace annotation ${annotation.number}`}
                       >
-                        <IconButton
+                        <WorkspaceDialog.RowAction
                           type="button"
                           className="sc-app-annotated-figure-workspace__row-action"
                           disabled={!previous}
                           aria-label={`Move workspace annotation ${annotation.number} previous`}
-                          size="2"
-                          variant="ghost"
                           onClick={() => {
                             if (previous) {
                               onMoveAnnotation(annotation.id, "previous", previous.id);
@@ -154,35 +151,31 @@ export function AnnotatedFigureWorkspace({
                           }}
                         >
                           <CaretUp size={16} aria-hidden />
-                        </IconButton>
-                        <IconButton
+                        </WorkspaceDialog.RowAction>
+                        <WorkspaceDialog.RowAction
                           type="button"
                           className="sc-app-annotated-figure-workspace__row-action"
                           disabled={!next}
                           aria-label={`Move workspace annotation ${annotation.number} next`}
-                          size="2"
-                          variant="ghost"
                           onClick={() => {
                             if (next) onMoveAnnotation(annotation.id, "next", next.id);
                           }}
                         >
                           <CaretDown size={16} aria-hidden />
-                        </IconButton>
-                        <IconButton
+                        </WorkspaceDialog.RowAction>
+                        <WorkspaceDialog.RowAction
                           type="button"
                           className="sc-app-annotated-figure-workspace__row-delete"
                           aria-label={`Delete workspace annotation ${annotation.number}`}
                           onClick={() => onDeleteAnnotation(annotation.id)}
-                          size="2"
-                          variant="ghost"
                         >
                           <X size={16} aria-hidden />
-                        </IconButton>
+                        </WorkspaceDialog.RowAction>
                       </div>
                     </MediaWorkspace.ItemHeader>
                     {selected && captionTarget ? (
                       <div className="sc-app-annotated-figure-workspace__caption-editor">
-                        <TextField.Root
+                        <WorkspaceDialog.TextField
                           aria-label={`Annotation ${annotation.number} title`}
                           className="sc-app-annotated-figure-workspace__title-field"
                           maxLength={120}

@@ -44,6 +44,8 @@
 
   .sc-course-roadmap__milestone {
     z-index: 1;
+    margin: 0;
+    padding: 0;
   }
 
   .sc-course-roadmap__milestone-shell {
@@ -78,6 +80,11 @@
   }
 
   .sc-course-roadmap[data-orientation="vertical"] .sc-course-roadmap__milestones {
+    flex-direction: column;
+  }
+
+  .sc-course-roadmap[data-orientation="vertical"] .sc-course-roadmap__track {
+    display: flex;
     flex-direction: column;
   }
 

@@ -1,6 +1,10 @@
-import type { ScaffoldAuthoringEntryHostServices } from "@scaffold/core/ports";
+import type {
+  LearnerPublicationStatus,
+  ScaffoldAuthoringEntryHostServices,
+} from "@scaffold/core/ports";
 
 import { createMoodleArtifactPersistence } from "./artifact-persistence-port";
+import { createMoodleLearnerPublicationPort } from "./learner-publication-port";
 import { createMoodleRuntimePorts } from "./ports";
 
 interface MoodleArtifactMetadata {
@@ -11,13 +15,18 @@ interface MoodleArtifactMetadata {
 export function createMoodleAuthoringHostServices(
   cmid: number,
   metadata: MoodleArtifactMetadata,
+  publicationStatus: LearnerPublicationStatus,
 ): ScaffoldAuthoringEntryHostServices {
   const runtimePorts = createMoodleRuntimePorts(cmid);
 
   return {
     artifactPersistence: createMoodleArtifactPersistence(cmid),
+    learnerPublication: createMoodleLearnerPublicationPort(cmid, publicationStatus),
     artifactCreation: {
-      createArtifactMetadata: async () => metadata,
+      createArtifactMetadata: async () => ({
+        ...metadata,
+        requiresScaffoldPlus: false,
+      }),
     },
     ...(runtimePorts.media ? { media: runtimePorts.media } : {}),
   };

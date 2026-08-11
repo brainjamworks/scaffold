@@ -4,11 +4,14 @@ import { act, cleanup, render, screen, waitFor, within } from "@testing-library/
 import userEvent from "@testing-library/user-event";
 import { Editor, Extension, Node, type JSONContent } from "@tiptap/core";
 import UniqueID from "@tiptap/extension-unique-id";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import type { EmbeddedNodeId } from "@scaffold/contracts";
+import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
 import type { CourseStructureCommand } from "@/document/model/course-structure";
@@ -26,6 +29,7 @@ import { SlideCoverSubtitleNode } from "@/editor/surfaces/model/nodes/slide-cove
 import { SlideTitleNode } from "@/editor/surfaces/model/nodes/slide-title";
 import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
+import type { SurfaceVariantDefinition } from "@/editor/surfaces/model/surface-variant-definition";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
@@ -36,6 +40,34 @@ import { createSurfaceCreationCatalog } from "./surface-creation-catalog";
 import { insertSurfaceTemplateAfterSurface } from "./surface-template-insertion";
 
 const surfaceVariants = createSurfaceVariantRegistry(builtInSurfaceVariantDefinitions);
+const CONTRIBUTED_REGION_ID = EmbeddedNodeIdSchema.parse("contribreg01");
+const contributedSurfaceDefinition: SurfaceVariantDefinition = {
+  id: "contributed-identity-test",
+  modes: ["slideshow"],
+  title: "Contributed identity test",
+  description: "A contributed Surface used to verify atomic template identity.",
+  createSurface: ({ surfaceId }) => ({
+    type: "surface",
+    attrs: { id: surfaceId, variant: "contributed-identity-test" },
+    content: [
+      {
+        type: "region",
+        attrs: { id: CONTRIBUTED_REGION_ID, role: "main" },
+        content: [{ type: "paragraph" }],
+      },
+    ],
+  }),
+};
+const surfaceVariantsWithContribution = createSurfaceVariantRegistry([
+  ...builtInSurfaceVariantDefinitions,
+  contributedSurfaceDefinition,
+]);
+const coreCapabilities = createCoreScaffoldAuthoringComposition().capabilities;
+const testCapabilities = Object.freeze({
+  blocks: coreCapabilities.blocks,
+  layouts: coreCapabilities.layouts,
+  surfaces: Object.freeze({ registry: surfaceVariants }),
+});
 const FIRST_SURFACE_ID = createEmbeddedNodeId();
 const SECOND_SURFACE_ID = createEmbeddedNodeId();
 const THIRD_SURFACE_ID = createEmbeddedNodeId();
@@ -66,65 +98,83 @@ afterEach(async () => {
 });
 
 describe("SurfaceTemplatePickerHost", () => {
-  it("groups labelled cards in explicit catalogue order", async () => {
-    const { dialog } = await renderOpenPicker();
-    const titleGroup = within(dialog).getByRole("region", { name: "Title layouts" });
-    const contentGroup = within(dialog).getByRole("region", { name: "Content layouts" });
-    const imageGroup = within(dialog).getByRole("region", { name: "Image layouts" });
+  it("organises layouts by category around one selected preview", async () => {
+    const { dialog, user } = await renderOpenPicker();
+    expect(
+      within(dialog).getByText("Choose a layout for the slide you want to add."),
+    ).toBeInTheDocument();
+    const titleTab = within(dialog).getByRole("tab", { name: "Title layouts" });
+    const contentTab = within(dialog).getByRole("tab", { name: "Content layouts" });
+    const imageTab = within(dialog).getByRole("tab", { name: "Image layouts" });
 
-    expect(within(titleGroup).getAllByRole("button")).toEqual([
-      within(titleGroup).getByRole("button", { name: "Cover" }),
-      within(titleGroup).getByRole("button", { name: "Module cover" }),
-      within(titleGroup).getByRole("button", { name: "Image cover" }),
-      within(titleGroup).getByRole("button", { name: "Image band" }),
+    expect(titleTab).toHaveAttribute("aria-selected", "true");
+    expect(contentTab).toHaveAttribute("aria-selected", "false");
+    expect(imageTab).toHaveAttribute("aria-selected", "false");
+
+    const titleChoices = within(dialog).getByRole("radiogroup", { name: "Title layouts" });
+    expect(within(titleChoices).getAllByRole("radio")).toEqual([
+      within(titleChoices).getByRole("radio", { name: "Cover" }),
+      within(titleChoices).getByRole("radio", { name: "Module cover" }),
+      within(titleChoices).getByRole("radio", { name: "Image cover" }),
+      within(titleChoices).getByRole("radio", { name: "Image band" }),
     ]);
-    expect(within(contentGroup).getAllByRole("button")).toEqual([
-      within(contentGroup).getByRole("button", { name: "Content" }),
-      within(contentGroup).getByRole("button", { name: "Two columns" }),
-      within(contentGroup).getByRole("button", { name: "Three columns" }),
-      within(contentGroup).getByRole("button", { name: "Two stacked" }),
-      within(contentGroup).getByRole("button", { name: "Side title" }),
-      within(contentGroup).getByRole("button", { name: "Centred stage" }),
-      within(contentGroup).getByRole("button", { name: "Editorial" }),
-    ]);
-    expect(within(imageGroup).getAllByRole("button")).toEqual([
-      within(imageGroup).getByRole("button", { name: "Image + content split" }),
-      within(imageGroup).getByRole("button", { name: "Image + content stacked" }),
-      within(imageGroup).getByRole("button", { name: "Full-bleed image" }),
-      within(imageGroup).getByRole("button", { name: "Image backdrop + inset panel" }),
-      within(imageGroup).getByRole("button", { name: "Diptych" }),
-      within(imageGroup).getByRole("button", { name: "Triptych" }),
-    ]);
+    expect(within(titleChoices).getByRole("radio", { name: "Cover" })).toBeChecked();
+    expect(within(dialog).getByRole("heading", { name: "Cover", level: 2 })).toBeInTheDocument();
     expect(
       within(dialog).getByText("Opening slide with a title and short description."),
     ).toBeInTheDocument();
+
+    await user.click(contentTab);
+
+    expect(contentTab).toHaveAttribute("aria-selected", "true");
+    const contentChoices = within(dialog).getByRole("radiogroup", { name: "Content layouts" });
+    expect(within(contentChoices).getAllByRole("radio")).toEqual([
+      within(contentChoices).getByRole("radio", { name: "Content" }),
+      within(contentChoices).getByRole("radio", { name: "Two columns" }),
+      within(contentChoices).getByRole("radio", { name: "Three columns" }),
+      within(contentChoices).getByRole("radio", { name: "Two stacked" }),
+      within(contentChoices).getByRole("radio", { name: "Side title" }),
+      within(contentChoices).getByRole("radio", { name: "Centred stage" }),
+      within(contentChoices).getByRole("radio", { name: "Editorial" }),
+    ]);
+    expect(within(contentChoices).getByRole("radio", { name: "Content" })).toBeChecked();
+    expect(within(dialog).getByRole("heading", { name: "Content", level: 2 })).toBeInTheDocument();
   });
 
-  it("renders recursive preview metadata as aria-hidden abstract geometry", async () => {
-    await renderOpenPicker();
-    const preview = globalThis.document.body.querySelector(
-      '[data-surface-template-preview="slide-image-cover"]',
+  it("renders the same theme-aware miniature slide in the rail and stage", async () => {
+    await renderOpenPicker({ courseAppearance: "dark" });
+    const previews = globalThis.document.body.querySelectorAll(
+      '[data-surface-template-preview="slide-cover"]',
     );
 
-    expect(preview?.getAttribute("aria-hidden")).toBe("true");
-    expect(
-      Array.from(preview?.querySelectorAll("[data-surface-template-preview-node]") ?? [], (node) =>
-        node.getAttribute("data-surface-template-preview-node"),
-      ),
-    ).toEqual(["row", "column", "slot", "slot", "slot"]);
+    expect(previews).toHaveLength(2);
+    for (const preview of previews) {
+      expect(preview.getAttribute("aria-hidden")).toBe("true");
+      expect(preview.querySelector(".sc-course")).toHaveClass("dark");
+      expect(preview.querySelector('[data-preview-content="title"]')).toHaveTextContent(
+        "A clear idea",
+      );
+      expect(preview.querySelector('[data-preview-content="label"]')).toHaveTextContent(
+        "Learning moment",
+      );
+    }
   });
 
-  it("activates a card by keyboard, closes after insertion, and restores editor focus", async () => {
+  it("selects a layout and confirms insertion by keyboard before restoring editor focus", async () => {
     const { dialog, editor, user } = await renderOpenPicker();
-    const contentCard = within(dialog).getByRole("button", { name: "Content" });
+    await user.click(within(dialog).getByRole("tab", { name: "Content layouts" }));
+    const twoColumns = within(dialog).getByRole("radio", { name: "Two columns" });
 
-    contentCard.focus();
+    twoColumns.focus();
+    await user.keyboard(" ");
+    expect(twoColumns).toBeChecked();
+    within(dialog).getByRole("button", { name: "Add Two columns slide" }).focus();
     await user.keyboard("{Enter}");
 
     await waitFor(() => {
-      expect(screen.queryByRole("dialog", { name: "Choose slide template" })).toBeNull();
+      expect(screen.queryByRole("dialog", { name: "Choose a slide layout" })).toBeNull();
     });
-    expect(readSurfaceVariants(editor.getJSON())).toEqual(["slide-cover", "slide-content"]);
+    expect(readSurfaceVariants(editor.getJSON())).toEqual(["slide-cover", "slide-two-columns"]);
     await waitFor(() => expect(editor.view.hasFocus()).toBe(true));
   });
 
@@ -139,9 +189,9 @@ describe("SurfaceTemplatePickerHost", () => {
       );
     });
 
-    await user.click(within(dialog).getByRole("button", { name: "Cover" }));
+    await user.click(within(dialog).getByRole("button", { name: "Add Cover slide" }));
 
-    expect(screen.getByRole("dialog", { name: "Choose slide template" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Choose a slide layout" })).toBeInTheDocument();
     expect(readSurfaceVariants(editor.getJSON())).toEqual(["slide-cover"]);
   });
 
@@ -151,7 +201,8 @@ describe("SurfaceTemplatePickerHost", () => {
       surfaceIds: [FIRST_SURFACE_ID, SECOND_SURFACE_ID],
     });
 
-    await user.click(within(dialog).getByRole("button", { name: "Content" }));
+    await user.click(within(dialog).getByRole("tab", { name: "Content layouts" }));
+    await user.click(within(dialog).getByRole("button", { name: "Add Content slide" }));
 
     expect(readSurfaceVariants(editor.getJSON())).toEqual([
       "slide-cover",
@@ -244,6 +295,69 @@ describe("SurfaceTemplatePickerHost", () => {
     expect(changedTransactions).toBe(3);
   });
 
+  it.each(surfaceVariantsWithContribution.forMode("slideshow").map(({ id }) => [id] as const))(
+    "completes document-unique identity before inserting registered template %s",
+    (variantId) => {
+      const editor = createEditor([FIRST_SURFACE_ID]);
+
+      expect(
+        insertSurfaceTemplateAfterSurface(editor, surfaceVariantsWithContribution, {
+          afterSurfaceId: FIRST_SURFACE_ID,
+          variantId,
+        }),
+      ).toBe(true);
+
+      const insertedSurface = editor.state.doc.firstChild?.child(2);
+      expect(insertedSurface?.attrs["variant"]).toBe(variantId);
+      expectSchemaIdNodesToHaveDocumentUniqueIdentity(editor, insertedSurface);
+      if (variantId === contributedSurfaceDefinition.id) {
+        expect(insertedSurface?.firstChild?.attrs["id"]).toBe(CONTRIBUTED_REGION_ID);
+      }
+    },
+  );
+
+  it.each([
+    ["malformed", "not-an-id"],
+    ["duplicate", FIRST_SURFACE_ID],
+  ] as const)("refuses a %s explicit factory ID without mutating the document", (_case, id) => {
+    const definitionId = `invalid-${_case}-identity-test`;
+    const invalidSurfaceVariants = createSurfaceVariantRegistry([
+      ...builtInSurfaceVariantDefinitions,
+      {
+        id: definitionId,
+        modes: ["slideshow"],
+        title: "Invalid identity test",
+        description: "An invalid contributed Surface used to verify refusal.",
+        createSurface: ({ surfaceId }) => ({
+          type: "surface",
+          attrs: { id: surfaceId, variant: definitionId },
+          content: [
+            {
+              type: "region",
+              attrs: { id, role: "main" },
+              content: [{ type: "paragraph" }],
+            },
+          ],
+        }),
+      },
+    ]);
+    const editor = createEditor([FIRST_SURFACE_ID]);
+    const before = editor.getJSON();
+    let changedTransactions = 0;
+    editor.on("transaction", ({ transaction }) => {
+      if (transaction.docChanged) changedTransactions += 1;
+    });
+
+    expect(
+      insertSurfaceTemplateAfterSurface(editor, invalidSurfaceVariants, {
+        afterSurfaceId: FIRST_SURFACE_ID,
+        variantId: definitionId,
+      }),
+    ).toBe(false);
+    expect(editor.getJSON()).toEqual(before);
+    expect(changedTransactions).toBe(0);
+  });
+
   it("uses the variant ID for repeated insertion while allocating distinct stable instance IDs", () => {
     const editor = createEditor([FIRST_SURFACE_ID]);
 
@@ -325,22 +439,25 @@ describe("SurfaceTemplatePickerHost", () => {
       },
     ]);
 
-    const { dialog } = await renderOpenPicker({ surfaceVariants: expandedSurfaceVariants });
-    const contentGroup = within(dialog).getByRole("region", { name: "Content layouts" });
+    const { dialog, user } = await renderOpenPicker({ surfaceVariants: expandedSurfaceVariants });
+    await user.click(within(dialog).getByRole("tab", { name: "Content layouts" }));
+    const contentChoices = within(dialog).getByRole("radiogroup", { name: "Content layouts" });
 
-    const buttons = within(contentGroup).getAllByRole("button");
-    expect(buttons.at(-1)).toBe(
-      within(contentGroup).getByRole("button", { name: "Later content layout" }),
+    const choices = within(contentChoices).getAllByRole("radio");
+    expect(choices.at(-1)).toBe(
+      within(contentChoices).getByRole("radio", { name: "Later content layout" }),
     );
   });
 });
 
 async function renderOpenPicker({
   afterSurfaceId = FIRST_SURFACE_ID,
+  courseAppearance = "light",
   surfaceIds = [FIRST_SURFACE_ID],
   surfaceVariants: pickerSurfaceVariants = surfaceVariants,
 }: {
   afterSurfaceId?: string;
+  courseAppearance?: "light" | "dark";
   surfaceIds?: readonly EmbeddedNodeId[];
   surfaceVariants?: typeof surfaceVariants;
 } = {}) {
@@ -352,6 +469,7 @@ async function renderOpenPicker({
 
   render(
     createElement(SurfaceTemplatePicker, {
+      courseAppearance,
       editor,
       surfaceCreationCatalog: createSurfaceCreationCatalog(pickerSurfaceVariants),
       surfaceVariants: pickerSurfaceVariants,
@@ -365,7 +483,7 @@ async function renderOpenPicker({
       }),
     );
   });
-  const dialog = await screen.findByRole("dialog", { name: "Choose slide template" });
+  const dialog = await screen.findByRole("dialog", { name: "Choose a slide layout" });
 
   return { dialog, editor, user };
 }
@@ -406,6 +524,7 @@ function createEditorForDocument(
     element,
     extensions: [
       DocumentNode,
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
       StarterKit.configure({
         document: false,
         heading: false,
@@ -434,7 +553,10 @@ function createEditorForDocument(
 
 function slideshowDocument(surfaceIds: readonly EmbeddedNodeId[]): JSONContent {
   return slideshowDocumentWithChildren(
-    surfaceIds.map((surfaceId) => slideCoverSurfaceDefinition.createSurface({ surfaceId })),
+    [
+      courseSection(createEmbeddedNodeId() as EmbeddedNodeId, "Introduction"),
+      ...surfaceIds.map((surfaceId) => slideCoverSurfaceDefinition.createSurface({ surfaceId })),
+    ],
   );
 }
 
@@ -471,8 +593,39 @@ function readSurfaceVariants(document: JSONContent): unknown[] {
 }
 
 function readSurfaces(document: JSONContent) {
-  return (document.content?.[0]?.content ?? []).map((surface) => ({
-    id: surface.attrs?.["id"],
-    variant: surface.attrs?.["variant"],
-  }));
+  return (document.content?.[0]?.content ?? [])
+    .filter((node) => node.type === "surface")
+    .map((surface) => ({
+      id: surface.attrs?.["id"],
+      variant: surface.attrs?.["variant"],
+    }));
+}
+
+function expectSchemaIdNodesToHaveDocumentUniqueIdentity(
+  editor: Editor,
+  subtree: ProseMirrorNode | undefined,
+): void {
+  expect(subtree).toBeDefined();
+  if (!subtree) return;
+
+  const documentIdCounts = new Map<string, number>();
+  editor.state.doc.descendants((node) => {
+    const parsed = EmbeddedNodeIdSchema.safeParse(node.attrs["id"]);
+    if (parsed.success) {
+      documentIdCounts.set(parsed.data, (documentIdCounts.get(parsed.data) ?? 0) + 1);
+    }
+    return true;
+  });
+
+  const identityNodes = [subtree];
+  subtree.descendants((node) => {
+    identityNodes.push(node);
+    return true;
+  });
+  for (const node of identityNodes) {
+    if (!Object.hasOwn(node.type.spec.attrs ?? {}, "id")) continue;
+    const parsed = EmbeddedNodeIdSchema.safeParse(node.attrs["id"]);
+    expect(parsed.success, `expected ${node.type.name} to have a valid ID`).toBe(true);
+    if (parsed.success) expect(documentIdCounts.get(parsed.data)).toBe(1);
+  }
 }

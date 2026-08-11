@@ -1,5 +1,3 @@
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-
 import type {
   BlockDefinition,
   BlockInsertVariantDefinition,
@@ -11,10 +9,6 @@ export function createBlockInsertAction(definition: BlockDefinition): InsertActi
   if (!definition.insert) return null;
 
   const insert = definition.insert;
-  const composedValidateNode = composeInsertValidators(
-    insert.validateNode,
-    definition.configuration ? createConfigurationNodeValidator(definition, insert.id) : undefined,
-  );
 
   return {
     id: insert.id,
@@ -26,7 +20,6 @@ export function createBlockInsertAction(definition: BlockDefinition): InsertActi
     ...(insert.keywords ? { keywords: insert.keywords } : {}),
     ...(definition.boundedPlacement ? { boundedPlacement: definition.boundedPlacement } : {}),
     content: insert.content,
-    ...(composedValidateNode ? { validateNode: composedValidateNode } : {}),
   };
 }
 
@@ -51,12 +44,6 @@ function createBlockInsertVariantAction(
   primary: InsertAction,
   variant: BlockInsertVariantDefinition,
 ): InsertAction {
-  const composedValidateNode = composeInsertValidators(
-    definition.insert?.validateNode,
-    variant.validateNode,
-    definition.configuration ? createConfigurationNodeValidator(definition, variant.id) : undefined,
-  );
-
   return {
     id: variant.id,
     nodeType: definition.nodeType,
@@ -68,49 +55,5 @@ function createBlockInsertVariantAction(
     ...(variant.keywords ? { keywords: variant.keywords } : {}),
     ...(definition.boundedPlacement ? { boundedPlacement: definition.boundedPlacement } : {}),
     content: variant.content,
-    ...(composedValidateNode ? { validateNode: composedValidateNode } : {}),
-  };
-}
-
-function createConfigurationNodeValidator(
-  definition: BlockDefinition,
-  insertId: string,
-): NonNullable<InsertAction["validateNode"]> {
-  const configuration = definition.configuration;
-
-  return (node: ProseMirrorNode) => {
-    if (!configuration) return null;
-    if (node.type.name !== definition.nodeType) {
-      return {
-        code: "invalid_catalog_content",
-        message: `Insert action "${insertId}" produced "${node.type.name}", not "${definition.nodeType}".`,
-      };
-    }
-
-    const parsed = configuration.schema.safeParse(node.attrs[configuration.attr]);
-    if (parsed.success) return null;
-
-    return {
-      code: "invalid_catalog_content",
-      field: configuration.attr,
-      message: `Insert action "${insertId}" produced invalid "${configuration.attr}" attrs for "${definition.nodeType}".`,
-    };
-  };
-}
-
-function composeInsertValidators(
-  ...validators: Array<InsertAction["validateNode"] | undefined>
-): InsertAction["validateNode"] | undefined {
-  const active = validators.filter(
-    (validator): validator is NonNullable<InsertAction["validateNode"]> => Boolean(validator),
-  );
-  if (active.length === 0) return undefined;
-
-  return (node) => {
-    for (const validator of active) {
-      const issue = validator(node);
-      if (issue) return issue;
-    }
-    return null;
   };
 }

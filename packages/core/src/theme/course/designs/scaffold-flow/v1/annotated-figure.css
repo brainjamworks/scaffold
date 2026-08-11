@@ -185,3 +185,132 @@
   inline-size: 100%;
   max-block-size: min(18rem, var(--sc-overlay-available-block-size, 18rem));
 }
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__empty-action {
+  min-height: 2.75rem;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: var(--sc-course-author-stroke-width) dashed var(--gray-a6);
+  border-radius: var(--radius-3);
+  background: var(--gray-a2);
+  color: var(--gray-11);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-2);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__image-toolbar,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__annotation-actions {
+  gap: var(--space-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__image-action {
+  border: var(--sc-course-author-stroke-width) solid var(--gray-a7);
+  border-radius: max(var(--radius-3), var(--radius-full));
+  background: color-mix(in srgb, var(--gray-1) 82%, transparent);
+  color: var(--gray-12);
+  opacity: 1;
+  backdrop-filter: blur(4px);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__pin-remove {
+  border-radius: max(var(--radius-2), var(--radius-full));
+  background: var(--gray-12);
+  color: var(--gray-1);
+  opacity: 0.86;
+  transition: opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(
+    .sc-course-annotated-figure__annotation-action,
+    .sc-course-annotated-figure__annotation-remove
+  ) {
+  color: var(--gray-11);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-annotated-figure__annotation-action:disabled {
+  color: var(--gray-9);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__title-field {
+  font-weight: var(--font-weight-bold);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-annotated-figure__caption-field:focus-visible,
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(
+    .sc-course-annotated-figure__empty-action,
+    .sc-course-annotated-figure__image-action,
+    .sc-course-annotated-figure__pin-remove,
+    .sc-course-annotated-figure__annotation-action,
+    .sc-course-annotated-figure__annotation-remove
+  ):focus-visible {
+  outline: 2px solid var(--accent-8);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-annotated-figure__annotation-remove:focus-visible {
+  background: var(--sc-course-state-error-background);
+  color: var(--sc-course-state-error-text);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-annotated-figure__pin:hover
+  .sc-course-annotated-figure__pin-remove,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__pin-remove:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-annotated-figure__empty-action:hover:not(:disabled),
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-annotated-figure__image-action:hover:not(:disabled) {
+    border-color: var(--accent-a8);
+    background: var(--accent-a3);
+    color: var(--accent-11);
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-annotated-figure__annotation-remove:hover:not(:disabled) {
+    background: var(--sc-course-state-error-background);
+    color: var(--sc-course-state-error-text);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    :is(.sc-course-annotated-figure__empty-action, .sc-course-annotated-figure__pin-remove) {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    :is(
+      .sc-course-annotated-figure__empty-action,
+      .sc-course-annotated-figure__image-action,
+      .sc-course-annotated-figure__pin-remove,
+      .sc-course-annotated-figure__annotation-action,
+      .sc-course-annotated-figure__annotation-remove
+    ) {
+    border-color: ButtonText;
+    background: ButtonFace;
+    color: ButtonText;
+    forced-color-adjust: auto;
+  }
+}

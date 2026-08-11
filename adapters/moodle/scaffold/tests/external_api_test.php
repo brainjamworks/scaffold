@@ -20,9 +20,11 @@ use mod_scaffold\external\accept_learning_event;
 use mod_scaffold\external\finish_quiz_attempt;
 use mod_scaffold\external\get_payload;
 use mod_scaffold\external\load_learner_activity;
+use mod_scaffold\external\publish_content;
 use mod_scaffold\external\reveal_hint;
 use mod_scaffold\external\reveal_quiz_answers;
 use mod_scaffold\external\save_learner_activity;
+use mod_scaffold\external\save_content;
 use mod_scaffold\external\start_quiz_attempt;
 use mod_scaffold\external\submit_quiz_question;
 use mod_scaffold\event\statement_received;
@@ -200,10 +202,30 @@ final class external_api_test extends \advanced_testcase {
                 ['cmid', 'purpose'],
                 [
                     'success',
+                    'artifactAccessJson',
                     'artifactJson',
+                    'publicationStatusJson',
+                    'learnerPublicationJson',
                     'assessmentSnapshotJson',
                     'learnerActivitySnapshotJson',
                 ],
+            ],
+            'save content' => [
+                save_content::class,
+                ['cmid', 'artifactjson'],
+                ['success', 'artifactRevision'],
+            ],
+            'publish content' => [
+                publish_content::class,
+                [
+                    'cmid',
+                    'sourceartifactrevision',
+                    'artifactmetadatajson',
+                    'learnercontentjson',
+                    'assessmenttargetsjson',
+                    'assessmentgroupsjson',
+                ],
+                ['success', 'publicationStatusJson'],
             ],
             'load learner activity' => [
                 load_learner_activity::class,
@@ -523,6 +545,59 @@ final class external_api_test extends \advanced_testcase {
         get_payload::execute($cmid, 'unknown');
     }
 
+    /**
+     * Save and Publish remain distinct protected external actions.
+     */
+    public function test_save_and_publish_are_separate_edit_capability_actions(): void {
+        global $DB;
+
+        $this->resetAfterTest(true);
+        [$cmid, $learner, $scaffoldid, $course] = $this->create_activity(
+            'after_each_answer',
+            false,
+        );
+        $author = $this->getDataGenerator()->create_user();
+        $this->enrol_as($author, $course, 'editingteacher');
+        $this->setUser($author);
+        $stored = $DB->get_record('scaffold', ['id' => $scaffoldid], '*', MUST_EXIST);
+        $artifact = json_decode($stored->artifactjson, true, 512, JSON_THROW_ON_ERROR);
+        $artifact['title'] = 'Explicitly published title';
+
+        $saved = save_content::execute($cmid, json_encode($artifact, JSON_THROW_ON_ERROR));
+        $afterSave = $DB->get_record('scaffold', ['id' => $scaffoldid], '*', MUST_EXIST);
+        $this->assertSame('External API fixture', $afterSave->name);
+        $this->assertSame($stored->learnercontentjson, $afterSave->learnercontentjson);
+
+        $published = publish_content::execute(
+            $cmid,
+            $saved['artifactRevision'],
+            json_encode([
+                'id' => 'moodle-cm-' . $cmid,
+                'title' => 'Explicitly published title',
+                'mode' => 'page',
+                'requiresScaffoldPlus' => false,
+            ], JSON_THROW_ON_ERROR),
+            json_encode($this->learner_content(), JSON_THROW_ON_ERROR),
+            $afterSave->assessmenttargetsjson,
+            $afterSave->assessmentgroupsjson,
+        );
+        $status = $this->decode($published['publicationStatusJson']);
+        $this->assertSame($saved['artifactRevision'], $status->publishedArtifactRevision);
+        $afterPublish = $DB->get_record('scaffold', ['id' => $scaffoldid], '*', MUST_EXIST);
+        $this->assertSame('Explicitly published title', $afterPublish->name);
+
+        $this->setUser($learner);
+        $this->expectException(\required_capability_exception::class);
+        publish_content::execute(
+            $cmid,
+            $saved['artifactRevision'],
+            '{}',
+            '{}',
+            '[]',
+            '[]',
+        );
+    }
+
     public function test_external_parameter_and_capability_failures_propagate(): void {
         $this->resetAfterTest(true);
         [$cmid, , , $course] = $this->create_activity('after_each_answer', true);
@@ -631,10 +706,22 @@ final class external_api_test extends \advanced_testcase {
             json_encode($artifact, JSON_THROW_ON_ERROR),
             ['id' => $scaffoldid],
         );
+        $publication = [
+            'publicationVersion' => 1,
+            'sourceArtifactRevision' => 'published-revision',
+            'publishedAt' => '2026-08-09T10:00:00Z',
+            'artifact' => [
+                'id' => 'moodle-cm-' . $cmid,
+                'title' => 'External API fixture',
+                'mode' => 'page',
+                'requiresScaffoldPlus' => false,
+            ],
+            'learnerContent' => $this->learner_content(),
+        ];
         $DB->set_field(
             'scaffold',
             'learnercontentjson',
-            json_encode($this->learner_content(), JSON_THROW_ON_ERROR),
+            json_encode($publication, JSON_THROW_ON_ERROR),
             ['id' => $scaffoldid],
         );
         $DB->set_field(
@@ -809,7 +896,11 @@ final class external_api_test extends \advanced_testcase {
             'type' => 'doc',
             'content' => [[
                 'type' => 'courseDocument',
-                'attrs' => ['mode' => 'page'],
+                'attrs' => [
+                    'mode' => 'page',
+                    'schemaVersion' => 4,
+                    'requiresScaffoldPlus' => false,
+                ],
                 'content' => [[
                     'type' => 'surface',
                     'content' => [

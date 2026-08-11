@@ -2,11 +2,11 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { defineLayout } from "@/editor/arrangements/layout/model/layout-definition";
 import { accordionLayoutDefinition } from "@/editor/arrangements/layout/accordion/accordion-definition";
-import { processFlowLayoutDefinition } from "@/editor/arrangements/layout/process-flow/process-flow-definition";
 import { tabsLayoutDefinition } from "@/editor/arrangements/layout/tabs/tabs-definition";
 import { fillBlanksBlockDefinition } from "@/editor/blocks/assessment/fill-blanks/fill-blanks-definition";
 import { galleryDefinition } from "@/editor/blocks/figure-composition/gallery/gallery-definition";
 import { flashcardBlockDefinition } from "@/editor/blocks/presentation/flashcard/flashcard-definition";
+import { processFlowBlockDefinition } from "@/editor/blocks/presentation/process-flow/process-flow-definition";
 import { roadmapBlockDefinition } from "@/editor/blocks/presentation/roadmap/roadmap-definition";
 import { timelineBlockDefinition } from "@/editor/blocks/presentation/timeline/timeline-definition";
 import type { QuickMenuDefinition } from "@/editor/configuration/quick-menu";
@@ -20,7 +20,6 @@ interface IconBubbleMenuContract {
 
 const layoutDefinitions = [
   defineLayout(accordionLayoutDefinition),
-  defineLayout(processFlowLayoutDefinition),
   defineLayout(tabsLayoutDefinition),
 ];
 
@@ -28,6 +27,7 @@ const blockDefinitions = [
   fillBlanksBlockDefinition,
   galleryDefinition,
   flashcardBlockDefinition,
+  processFlowBlockDefinition,
   roadmapBlockDefinition,
   timelineBlockDefinition,
 ];

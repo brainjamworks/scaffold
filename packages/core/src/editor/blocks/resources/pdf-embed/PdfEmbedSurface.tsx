@@ -6,7 +6,6 @@ import {
   PlusIcon as Plus,
   WarningCircleIcon as WarningCircle,
 } from "@phosphor-icons/react";
-import { Button, IconButton } from "@radix-ui/themes";
 import type { PdfEmbedData } from "@scaffold/contracts";
 import {
   Suspense,
@@ -28,6 +27,7 @@ import {
   mediaUnavailableMessage,
 } from "@/editor/media/accessibility/media-accessibility";
 import { BOUNDED_PLACEMENT_ATTR } from "@/editor/frame/model/bounded-placement";
+import { CourseButton, CourseIconButton } from "@/ui/components/course/CourseActions/CourseActions";
 
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?worker&url";
 
@@ -356,17 +356,17 @@ export function PdfEmbedSurface({
       </div>
       <div className="sc-course-pdf-embed__chrome" contentEditable={false}>
         <div className="sc-course-pdf-embed__nav">
-          <IconButton
+          <CourseIconButton
             type="button"
             onClick={() => goToPage(pageNumber - 1)}
             disabled={pageNumber <= 1 || numPages === null}
             className="sc-course-pdf-embed__nav-button"
             aria-label="Previous page"
-            size="3"
-            variant="soft"
+            size="large"
+            emphasis="muted"
           >
             <CaretLeft size={16} weight="bold" aria-hidden />
-          </IconButton>
+          </CourseIconButton>
           <div
             id={pagerId}
             className="sc-course-pdf-embed__pager"
@@ -384,17 +384,17 @@ export function PdfEmbedSurface({
               <span className="sc-course-pdf-embed__page-stat">-</span>
             )}
           </div>
-          <IconButton
+          <CourseIconButton
             type="button"
             onClick={() => goToPage(pageNumber + 1)}
             disabled={numPages === null || pageNumber >= numPages}
             className="sc-course-pdf-embed__nav-button"
             aria-label="Next page"
-            size="3"
-            variant="soft"
+            size="large"
+            emphasis="muted"
           >
             <CaretRight size={16} weight="bold" aria-hidden />
-          </IconButton>
+          </CourseIconButton>
         </div>
         <div
           className="sc-course-pdf-embed__zoom"
@@ -402,7 +402,7 @@ export function PdfEmbedSurface({
           aria-label="PDF zoom controls"
           aria-describedby={zoomStatusId}
         >
-          <IconButton
+          <CourseIconButton
             type="button"
             onClick={() => {
               if (zoomOutScale !== null) setZoom(zoomOutScale);
@@ -410,23 +410,23 @@ export function PdfEmbedSurface({
             disabled={!showStats || zoomOutScale === null}
             className="sc-course-pdf-embed__zoom-button"
             aria-label="Zoom out"
-            size="3"
-            variant="soft"
+            size="large"
+            emphasis="muted"
           >
             <Minus size={16} weight="bold" aria-hidden />
-          </IconButton>
-          <Button
+          </CourseIconButton>
+          <CourseButton
             type="button"
             onClick={() => setZoom("fit")}
             disabled={!showStats || zoom === "fit"}
             className="sc-course-pdf-embed__zoom-value"
             aria-label={zoom === "fit" ? "PDF zoom set to fit" : `Zoom ${zoomLabel}. Reset to fit`}
-            size="3"
-            variant="soft"
+            size="large"
+            emphasis="muted"
           >
             {zoomLabel}
-          </Button>
-          <IconButton
+          </CourseButton>
+          <CourseIconButton
             type="button"
             onClick={() => {
               if (zoomInScale !== null) setZoom(zoomInScale);
@@ -434,11 +434,11 @@ export function PdfEmbedSurface({
             disabled={!showStats || zoomInScale === null}
             className="sc-course-pdf-embed__zoom-button"
             aria-label="Zoom in"
-            size="3"
-            variant="soft"
+            size="large"
+            emphasis="muted"
           >
             <Plus size={16} weight="bold" aria-hidden />
-          </IconButton>
+          </CourseIconButton>
         </div>
         <span
           id={zoomStatusId}
@@ -453,7 +453,12 @@ export function PdfEmbedSurface({
         <div className="sc-course-pdf-embed__chrome-end">
           {replaceAction}
           {fileUrl ? (
-            <Button asChild className="sc-course-pdf-embed__open" size="3" variant="soft">
+            <CourseButton
+              asChild
+              className="sc-course-pdf-embed__open"
+              size="large"
+              emphasis="muted"
+            >
               <a
                 href={fileUrl}
                 target="_blank"
@@ -464,7 +469,7 @@ export function PdfEmbedSurface({
                 <ArrowSquareOut size={16} weight="bold" aria-hidden />
                 <span>Open</span>
               </a>
-            </Button>
+            </CourseButton>
           ) : null}
         </div>
       </div>

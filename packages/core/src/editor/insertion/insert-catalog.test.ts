@@ -1,9 +1,6 @@
 import { TextT } from "@phosphor-icons/react";
-import { Schema } from "@tiptap/pm/model";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { z } from "zod";
 
-import { validateCatalogNodeAttrs } from "./catalog-validation";
 import type { InsertAction } from "./insert-action";
 import { createInsertCatalog } from "./insert-catalog";
 
@@ -89,12 +86,10 @@ describe("createInsertCatalog", () => {
 
   it("owns immutable snapshots without recursively freezing embedded values", () => {
     const content = vi.fn(() => ({ type: "example_block" }));
-    const validator = vi.fn(() => null);
     const sourceKeywords = ["example"];
     const source = {
       ...action("example", {
         content,
-        validateNode: validator,
         keywords: sourceKeywords,
       }),
     };
@@ -113,7 +108,6 @@ describe("createInsertCatalog", () => {
     expect(Object.isFrozen(catalog.actions[0])).toBe(true);
     expect(Object.isFrozen(catalog.actions[0]?.keywords)).toBe(true);
     expect(Object.isFrozen(content)).toBe(false);
-    expect(Object.isFrozen(validator)).toBe(false);
     expect(Object.isFrozen(TextT)).toBe(false);
     expect(catalog.actions[0]?.content()).toEqual({ type: "example_block" });
   });
@@ -140,54 +134,5 @@ describe("createInsertCatalog", () => {
     const catalog = createInsertCatalog([action("local-key-owner", { keywords: localKeys })]);
 
     expect(catalog.getById("local-key-owner")?.keywords).toEqual(localKeys);
-  });
-});
-
-describe("validateCatalogNodeAttrs", () => {
-  const schema = new Schema({
-    nodes: {
-      doc: { content: "example_block" },
-      text: {},
-      example_block: {
-        attrs: { data: { default: null } },
-        toDOM: () => ["div", 0],
-      },
-    },
-  });
-
-  it("returns a structured issue for invalid node attrs", () => {
-    const validate = validateCatalogNodeAttrs([
-      {
-        nodeType: "example_block",
-        schema: z.object({ data: z.object({ value: z.string() }) }),
-        field: "data",
-        message: "Example data is invalid.",
-      },
-    ]);
-    const node = schema.nodeFromJSON({
-      type: "example_block",
-      attrs: { data: { value: 42 } },
-    });
-
-    expect(validate(node)).toEqual({
-      code: "invalid_catalog_content",
-      field: "data",
-      message: "Example data is invalid.",
-    });
-  });
-
-  it("accepts valid attrs and checks descendants", () => {
-    const validate = validateCatalogNodeAttrs([
-      {
-        nodeType: "example_block",
-        schema: z.object({ data: z.object({ value: z.string() }) }),
-      },
-    ]);
-    const node = schema.nodeFromJSON({
-      type: "example_block",
-      attrs: { data: { value: "valid" } },
-    });
-
-    expect(validate(node)).toBeNull();
   });
 });

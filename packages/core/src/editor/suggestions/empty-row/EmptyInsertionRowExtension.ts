@@ -4,13 +4,14 @@ import { Plugin, PluginKey, Selection, type Transaction } from "@tiptap/pm/state
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import {
   InteractionTargetKind,
   type InteractionTargetRef,
 } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { publishInteractionOwnerSnapshot } from "@/editor/interactions/targets/prosemirror/facade/interaction-owner-snapshot-publisher";
 import { STRUCTURAL_INSERTION_PARENT_TYPES } from "@/editor/prosemirror/placeholder/structural-insertion-parent-types";
-import { allowsBoundedContainerRootInsertionAtPosition } from "@/editor/bounded-containers/model/bounded-container-structure-policy";
+import { allowsBoundedContainerRootInsertionAtPosition } from "@/editor/bounded-containers/model/bounded-container-placement";
 import { allowsSurfaceRootInsertion } from "@/editor/surfaces/model/policies/surface-root-insertion-policy";
 import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-variant-registry";
 
@@ -79,6 +80,7 @@ function isGridOrCellInsertionConflict(target: InteractionTargetRef | null): boo
 export function resolveEmptyInsertionTarget(
   state: EditorState,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
   surfaceVariants: SurfaceVariantLookup,
 ): EmptyInsertionTarget | null {
   const { selection } = state;
@@ -101,6 +103,7 @@ export function resolveEmptyInsertionTarget(
     !allowsBoundedContainerRootInsertionAtPosition({
       blockDefinitions,
       doc: state.doc,
+      layoutDefinitions,
       pos: insertionParentPos,
     })
   ) {
@@ -116,9 +119,11 @@ export function resolveEmptyInsertionTarget(
 
 export function createEmptyInsertionRowExtension({
   blockDefinitions,
+  layoutDefinitions,
   surfaceVariants,
 }: {
   blockDefinitions: BlockDefinitionLookup;
+  layoutDefinitions: LayoutRegistry;
   surfaceVariants: SurfaceVariantLookup;
 }) {
   return Extension.create({
@@ -149,6 +154,7 @@ export function createEmptyInsertionRowExtension({
                 editorView,
                 event,
                 blockDefinitions,
+                layoutDefinitions,
                 surfaceVariants,
               );
               if (!tr) return;
@@ -172,7 +178,12 @@ export function createEmptyInsertionRowExtension({
               if (!editor.isEditable) return null;
               if (!shouldShowEmptyInsertionRowChrome(editor, state, blockDefinitions)) return null;
 
-              const target = resolveEmptyInsertionTarget(state, blockDefinitions, surfaceVariants);
+              const target = resolveEmptyInsertionTarget(
+                state,
+                blockDefinitions,
+                layoutDefinitions,
+                surfaceVariants,
+              );
               if (!target) return null;
 
               return DecorationSet.create(state.doc, [
@@ -202,6 +213,7 @@ export function createEmptyInsertionRowExtension({
               const tr = removeActiveEmptyInsertionLine(
                 view.state,
                 blockDefinitions,
+                layoutDefinitions,
                 surfaceVariants,
               );
               if (!tr) return false;
@@ -230,6 +242,7 @@ function insertEmptyParagraphForBlankParentClick(
   view: Editor["view"],
   event: MouseEvent,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
   surfaceVariants: SurfaceVariantLookup,
 ): Transaction | null {
   if (!editor.isEditable) return null;
@@ -245,6 +258,7 @@ function insertEmptyParagraphForBlankParentClick(
     !allowsBoundedContainerRootInsertionAtPosition({
       blockDefinitions,
       doc: view.state.doc,
+      layoutDefinitions,
       pos: parentContext.pos,
     })
   ) {
@@ -286,9 +300,15 @@ function insertEmptyParagraphForBlankParentClick(
 function removeActiveEmptyInsertionLine(
   state: EditorState,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
   surfaceVariants: SurfaceVariantLookup,
 ): Transaction | null {
-  const target = resolveEmptyInsertionTarget(state, blockDefinitions, surfaceVariants);
+  const target = resolveEmptyInsertionTarget(
+    state,
+    blockDefinitions,
+    layoutDefinitions,
+    surfaceVariants,
+  );
   if (!target) return null;
 
   const { $from } = state.selection;

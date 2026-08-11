@@ -1,7 +1,7 @@
 import { LinkSimpleIcon as LinkSimple } from "@phosphor-icons/react";
 import { ResourceLinkDataSchema, ResourceLinkKindSchema } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 
@@ -68,7 +68,7 @@ export const resourceLinkBlockDefinition = defineBlock({
     content: () => ({
       type: "resource_link",
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyResourceLinkData(),
       },
       content: [

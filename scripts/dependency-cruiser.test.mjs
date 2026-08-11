@@ -476,6 +476,83 @@ test("reports transitive and type-only runtime leaks with native dependency path
   assert.match(output, /editor\/selection\/native-drag-guard\.ts/);
 });
 
+test("keeps authoring compatibility implementation unreachable from non-authoring lanes", async (t) => {
+  const fixtureRoot = await createFixture(t, {
+    "packages/core/src/document/authoring/unavailable-content/UnavailableContentNodeView.tsx":
+      "export const UnavailableContentNodeView = true;\n",
+    "packages/core/src/composition/authoring/create-authoring-composition.ts":
+      "export const authoringComposition = true;\n",
+    "packages/core/src/runtime/app/runtime-leak.ts":
+      'export { UnavailableContentNodeView } from "../../document/authoring/unavailable-content/UnavailableContentNodeView";\n',
+    "packages/core/src/host/ports/compatibility-leak.ts":
+      'export { authoringComposition } from "../../composition/authoring/create-authoring-composition";\n',
+    "packages/core/src/format/format-leak.ts":
+      'export { UnavailableContentNodeView } from "../document/authoring/unavailable-content/UnavailableContentNodeView";\n',
+    "adapters/xblock/frontend/src/compatibility-leak.ts":
+      'export { authoringComposition } from "../../../../packages/core/src/composition/authoring/create-authoring-composition";\n',
+  });
+
+  const result = cruise(fixtureRoot, "err-long", ["packages/core/src", "adapters/xblock"]);
+  const output = `${result.stdout}\n${result.stderr}`;
+
+  assert.notEqual(result.status, 0, output);
+  assert.equal(
+    output.match(/core-non-authoring-lanes-do-not-reach-authoring-compatibility/g)?.length,
+    3,
+    output,
+  );
+  assert.equal(
+    output.match(/adapters-do-not-import-authoring-compatibility-internals/g)?.length,
+    1,
+    output,
+  );
+});
+
+test("keeps learner adapters off Core authoring while allowing authoring adapters", async (t) => {
+  const fixtureRoot = await createFixture(t, {
+    "packages/core/src/entrypoints/authoring.ts": "export const authoringValue = true;\n",
+    "adapters/moodle/frontend/src/inner/moodle-inner-entry.tsx":
+      'export { mountAuthoring } from "../mount";\n',
+    "adapters/moodle/frontend/src/inner/moodle-learner-inner-entry.tsx":
+      'export { mountLearner } from "../mount-learner";\n',
+    "adapters/moodle/frontend/src/mount.tsx":
+      'export { authoringValue as mountAuthoring } from "./MoodleApp";\n',
+    "adapters/moodle/frontend/src/mount-learner.tsx":
+      'export { authoringValue as mountLearner } from "./MoodleApp";\n',
+    "adapters/moodle/frontend/src/MoodleApp.tsx":
+      'import { authoringValue } from "@scaffold/core/authoring";\nexport { authoringValue };\n',
+    "adapters/xblock/frontend/src/inner/student-inner-entry.tsx":
+      'export { mountStudent } from "./mount-student";\n',
+    "adapters/xblock/frontend/src/inner/mount-student.tsx":
+      'import { authoringValue } from "@scaffold/core/authoring";\nexport const mountStudent = authoringValue;\n',
+    "adapters/xblock/frontend/src/student-entry.ts":
+      'import { authoringValue } from "@scaffold/core/authoring";\nexport { authoringValue };\n',
+    "adapters/xblock/frontend/src/inner/studio-inner-entry.tsx":
+      'export { mountStudio } from "./mount-studio";\n',
+    "adapters/xblock/frontend/src/inner/mount-studio.tsx":
+      'export { authoringValue as mountStudio } from "./XBlockStudioApp";\n',
+    "adapters/xblock/frontend/src/inner/XBlockStudioApp.tsx":
+      'import { authoringValue } from "@scaffold/core/authoring";\nexport { authoringValue };\n',
+  });
+
+  const authoringResult = cruise(fixtureRoot, "err-long", [
+    "packages/core/src",
+    "adapters/moodle/frontend/src/inner/moodle-inner-entry.tsx",
+    "adapters/xblock/frontend/src/inner/studio-inner-entry.tsx",
+  ]);
+  assert.equal(authoringResult.status, 0, authoringResult.stderr || authoringResult.stdout);
+
+  const result = cruise(fixtureRoot, "err-long", ["packages/core/src", "adapters"]);
+  const output = `${result.stdout}\n${result.stderr}`;
+
+  assert.notEqual(result.status, 0, output);
+  assert.equal(
+    output.match(/adapter-learner-entrypoints-do-not-reach-core-authoring/g)?.length,
+    3,
+    output,
+  );
+});
+
 test("rejects runtime and authoring movement ownership crossings", async (t) => {
   const fixtureRoot = await createFixture(t, {
     "packages/core/src/runtime/app/root.ts": [

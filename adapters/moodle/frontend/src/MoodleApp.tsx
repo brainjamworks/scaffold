@@ -1,85 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import {
-  AssessmentLearnerSnapshotSchema,
-  LearnerActivitySnapshotSchema,
-} from "@scaffold/contracts";
-import { ScaffoldAuthoringEntry } from "@scaffold/core/authoring";
+  ScaffoldAuthoringEntry,
+  type ScaffoldAuthoringHeaderActionsContext,
+} from "@scaffold/core/authoring";
 import { createScaffoldApplication } from "@scaffold/core/extensions";
-import { ContentRuntimeHost } from "@scaffold/core/runtime";
-import { ScaffoldArtifactSchema, prepareScaffoldArtifactForAuthoring } from "@scaffold/core/format";
+import type { LearnerPublicationStatus, ScaffoldAuthoringArtifact } from "@scaffold/core/ports";
+import type { ScaffoldArtifact } from "@scaffold/core/format";
 
-import { moodleCall, parseJsonField, type MoodleAjaxResponse } from "./api";
 import { createMoodleAuthoringHostServices } from "./authoring-ports";
-import type { MoodleApplicationConfig, MoodlePayload } from "./types";
+import { MoodleLearnerApp } from "./MoodleLearnerApp";
+import { useMoodlePayload } from "./moodle-payload";
+import type { MoodleApplicationConfig, MoodleArtifactAccess, MoodlePayload } from "./types";
 
 const scaffoldApplication = createScaffoldApplication();
-
-interface PayloadResponse extends MoodleAjaxResponse {
-  artifactJson?: unknown;
-  assessmentSnapshotJson?: unknown;
-  learnerActivitySnapshotJson?: unknown;
-}
+const freeProductAccess = Object.freeze({ scaffoldPlusAuthorized: false });
 
 interface MoodleAppProps {
   config: MoodleApplicationConfig;
 }
 
-type MoodleReadyArtifact = Extract<
-  ReturnType<typeof prepareScaffoldArtifactForAuthoring>,
-  { status: "ready" }
->["artifact"];
 export function MoodleApp({ config }: MoodleAppProps) {
-  const [payload, setPayload] = useState<MoodlePayload | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const surface = config.surface;
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadPayload() {
-      try {
-        const response = await moodleCall<PayloadResponse>("mod_scaffold_get_payload", {
-          cmid: config.cmid,
-          purpose: surface,
-        });
-        if (cancelled) return;
-        const artifact = parseJsonField(response.artifactJson, null);
-        const parsedArtifact = ScaffoldArtifactSchema.safeParse(artifact);
-        if (!parsedArtifact.success) {
-          throw new Error(parsedArtifact.error.message);
-        }
-        const assessmentSnapshot =
-          surface === "learner"
-            ? AssessmentLearnerSnapshotSchema.parse(
-                parseJsonField(response.assessmentSnapshotJson, null),
-              )
-            : undefined;
-        const learnerActivitySnapshot =
-          surface === "learner"
-            ? LearnerActivitySnapshotSchema.parse(
-                parseJsonField(response.learnerActivitySnapshotJson, null),
-              )
-            : undefined;
-        setPayload({
-          artifact: parsedArtifact.data,
-          ...(assessmentSnapshot === undefined ? {} : { assessmentSnapshot }),
-          ...(learnerActivitySnapshot === undefined ? {} : { learnerActivitySnapshot }),
-        });
-      } catch (error) {
-        if (cancelled) return;
-        setLoadError(
-          error instanceof Error ? error.message : "Scaffold content could not be loaded.",
-        );
-      }
-    }
-
-    void loadPayload();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [config.cmid, surface]);
+  const { payload, loadError } = useMoodlePayload(config);
 
   if (loadError) {
     return (
@@ -107,74 +49,97 @@ interface LoadedMoodleAppProps {
 }
 
 function LoadedMoodleApp({ config, payload }: LoadedMoodleAppProps) {
-  const prepared = useMemo(
-    () => prepareScaffoldArtifactForAuthoring(payload.artifact),
-    [payload.artifact],
-  );
-  if (prepared.status === "error") {
-    return (
-      <div className="sc-moodle-root sc-moodle-error" role="alert">
-        <strong>Scaffold document could not be loaded.</strong>
-        <span>{prepared.message}</span>
-      </div>
-    );
-  }
-
   if (config.surface === "learner") {
-    if (prepared.status === "uninitialized") {
+    if (!payload.learnerPublication) {
       return (
         <div className="sc-moodle-root sc-moodle-error" role="alert">
           <strong>Scaffold document could not be loaded.</strong>
-          <span>Scaffold content has not been created yet.</span>
+          <span>Learner publication is unavailable.</span>
         </div>
       );
     }
-
     return (
-      <div className="sc-moodle-root sc-moodle-student-shell">
-        <ContentRuntimeHost
-          composition={scaffoldApplication.runtime}
-          artifactId={payload.artifact.id}
-          initialAssessmentSnapshot={payload.assessmentSnapshot}
-          initialLearnerActivitySnapshot={payload.learnerActivitySnapshot}
-          initialContent={prepared.artifact.content}
-        />
-      </div>
+      <MoodleLearnerApp
+        artifact={payload.artifactAccess.artifact}
+        cmid={config.cmid}
+        productAccess={freeProductAccess}
+        publication={payload.learnerPublication}
+        wwwroot={config.wwwroot}
+        {...(payload.assessmentSnapshot === undefined
+          ? {}
+          : { assessmentSnapshot: payload.assessmentSnapshot })}
+        {...(payload.learnerActivitySnapshot === undefined
+          ? {}
+          : { learnerActivitySnapshot: payload.learnerActivitySnapshot })}
+      />
     );
+  }
+
+  if (payload.artifactAccess.status !== "supported") {
+    return <MoodleArtifactUnavailable status={payload.artifactAccess.status} />;
+  }
+
+  return <LoadedMoodleAuthoringApp config={config} payload={payload} />;
+}
+
+function LoadedMoodleAuthoringApp({
+  config,
+  payload,
+}: {
+  config: Extract<MoodleApplicationConfig, { surface: "authoring" }>;
+  payload: MoodlePayload;
+}) {
+  if (!payload.artifact || !payload.publicationStatus) {
+    throw new Error("Supported authoring payload must include an artifact and publication status.");
   }
 
   return (
     <MoodleAuthoringApp
-      artifact={prepared.status === "uninitialized" ? null : prepared.artifact}
+      artifact={toAuthoringArtifact(payload.artifact)}
       cmid={config.cmid}
       metadata={{ id: payload.artifact.id, title: payload.artifact.title }}
+      publicationStatus={payload.publicationStatus}
       returnUrl={config.returnUrl}
     />
   );
 }
 
 interface MoodleAuthoringAppProps {
-  artifact: MoodleReadyArtifact | null;
+  artifact: ScaffoldAuthoringArtifact | null;
   cmid: number;
   metadata: { id: string; title: string };
+  publicationStatus: LearnerPublicationStatus;
   returnUrl: string;
 }
 
-function MoodleAuthoringApp({ artifact, cmid, metadata, returnUrl }: MoodleAuthoringAppProps) {
+function toAuthoringArtifact(artifact: ScaffoldArtifact): ScaffoldAuthoringArtifact | null {
+  return artifact.content === null ? null : { ...artifact, content: artifact.content };
+}
+
+function MoodleAuthoringApp({
+  artifact,
+  cmid,
+  metadata,
+  publicationStatus,
+  returnUrl,
+}: MoodleAuthoringAppProps) {
   const services = useMemo(
-    () => createMoodleAuthoringHostServices(cmid, metadata),
-    [cmid, metadata],
+    () => createMoodleAuthoringHostServices(cmid, metadata, publicationStatus),
+    [cmid, metadata, publicationStatus],
   );
 
   const entry = (
     <ScaffoldAuthoringEntry
       application={scaffoldApplication}
       artifact={artifact}
+      productAccess={freeProductAccess}
       services={services}
       className="sc-moodle-root sc-moodle-author-shell"
       mainClassName="sc-moodle-editor-scroll"
       scrollModel="contained"
-      headerActions={() => <MoodleReturnLink returnUrl={returnUrl} />}
+      headerActions={(context) => (
+        <MoodleAuthoringActions context={context} returnUrl={returnUrl} />
+      )}
     />
   );
 
@@ -188,6 +153,79 @@ function MoodleAuthoringApp({ artifact, cmid, metadata, returnUrl }: MoodleAutho
         <MoodleReturnLink returnUrl={returnUrl} />
       </nav>
       {entry}
+    </div>
+  );
+}
+
+function MoodleAuthoringActions({
+  context,
+  returnUrl,
+}: {
+  context: ScaffoldAuthoringHeaderActionsContext;
+  returnUrl: string;
+}) {
+  const disabled = [
+    "loading",
+    "publishing",
+    "unsaved",
+    "invalid",
+    "unavailable-content",
+    "requires-scaffold-plus",
+    "unsupported-core-format",
+    "projection-warning",
+    "payload-too-large",
+  ].includes(context.publishState);
+  return (
+    <>
+      <MoodleReturnLink returnUrl={returnUrl} />
+      <button
+        type="button"
+        className="sc-scaffold-authoring-action sc-moodle-publish-button"
+        disabled={disabled}
+        onClick={() => {
+          void context.publishNow();
+        }}
+      >
+        Publish
+      </button>
+      <span className="sc-moodle-publication-state" aria-live="polite">
+        {moodlePublicationStateCopy(context.publishState)}
+      </span>
+    </>
+  );
+}
+
+function moodlePublicationStateCopy(
+  state: ScaffoldAuthoringHeaderActionsContext["publishState"],
+): string {
+  if (state === "not-published") return "Not published";
+  if (state === "published") return "Published";
+  if (state === "unpublished") return "Unpublished changes";
+  if (state === "unsaved") return "Save before publishing";
+  if (state === "publishing") return "Publishing…";
+  if (state === "loading") return "Loading publication status";
+  if (state === "forbidden") return "Publishing is not permitted";
+  if (state === "stale-artifact-revision") return "Save changed; publish the latest revision";
+  if (state === "invalid") return "Fix invalid content before publishing";
+  return "Publish failed";
+}
+
+function MoodleArtifactUnavailable({
+  status,
+}: {
+  status: Exclude<MoodleArtifactAccess["status"], "supported">;
+}) {
+  const message =
+    status === "requires-scaffold-plus"
+      ? "This course requires Scaffold Plus."
+      : status === "unsupported-core-format"
+        ? "This course was created by a newer version of Scaffold."
+        : "The Scaffold document is invalid.";
+
+  return (
+    <div className="sc-moodle-root sc-moodle-error" role="alert">
+      <strong>Scaffold content could not be opened.</strong>
+      <span>{message}</span>
     </div>
   );
 }

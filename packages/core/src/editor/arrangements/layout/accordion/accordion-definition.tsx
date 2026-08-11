@@ -84,8 +84,10 @@ export const accordionLayoutDefinition = {
       {
         kind: "boolean",
         name: "allowMultiple",
-        label: "Multiple open",
+        label: "Allow multiple sections open",
+        description: "Turn this off to keep only one section open at a time.",
         icon: Stack,
+        presentation: "switch",
         placement: {
           quickMenu: { presentation: "icon-toggle" },
           sheet: { section: "accordion" },

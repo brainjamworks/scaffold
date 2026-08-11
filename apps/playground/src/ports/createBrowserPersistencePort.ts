@@ -1,6 +1,6 @@
 import type {
   ArtifactPersistencePort,
-  ArtifactSaveBundle,
+  ArtifactSavePayload,
   ArtifactSaveResult,
 } from "@scaffold/core/ports";
 
@@ -19,8 +19,9 @@ import { ARTIFACT_STORE, getBrowserStorageDb, type StoredArtifact } from "./brow
  * - localStorage is sync and string-only; IDB takes the structured-clone
  *   path which is faster on large JSON and doesn't block the main thread.
  *
- * If IndexedDB is unavailable (SSR, some headless test runners), every
- * method becomes a no-op so the rest of the surface still mounts.
+ * A successful Save always returns the revision written with the canonical
+ * draft. If IndexedDB is unavailable, Save fails rather than claiming a
+ * revision that the publication port cannot subsequently verify.
  */
 
 const DEFAULT_SAVE_LATENCY_MS = 120;
@@ -47,20 +48,25 @@ export function createBrowserPersistencePort(
   const latencyMs = options.saveLatencyMs ?? DEFAULT_SAVE_LATENCY_MS;
 
   return {
-    async saveArtifact(bundle: ArtifactSaveBundle): Promise<ArtifactSaveResult | void> {
+    async saveArtifact(payload: ArtifactSavePayload): Promise<ArtifactSaveResult> {
       const db = await getBrowserStorageDb();
-      if (!db) return;
+      if (!db) {
+        throw new Error("Browser persistence: IndexedDB is unavailable");
+      }
+
+      const artifactRevision = crypto.randomUUID();
 
       const stored: StoredArtifact = {
-        artifact: bundle.artifact,
+        artifact: payload.artifact,
+        artifactRevision,
         savedAt: new Date().toISOString(),
       };
 
       try {
-        await db.put(ARTIFACT_STORE, stored, bundle.artifact.id);
+        await db.put(ARTIFACT_STORE, stored, payload.artifact.id);
       } catch (error) {
         throw new Error(
-          `Browser persistence: could not write artifact ${bundle.artifact.id}: ${stringifyError(error)}`,
+          `Browser persistence: could not write artifact ${payload.artifact.id}: ${stringifyError(error)}`,
         );
       }
 
@@ -68,7 +74,10 @@ export function createBrowserPersistencePort(
         await new Promise((resolve) => setTimeout(resolve, latencyMs));
       }
 
-      return { artifact: { title: bundle.artifact.title } };
+      return {
+        artifact: { title: payload.artifact.title },
+        artifactRevision,
+      };
     },
 
     async loadArtifact(artifactId: string): Promise<StoredArtifact | null> {

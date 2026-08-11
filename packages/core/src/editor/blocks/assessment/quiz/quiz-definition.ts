@@ -2,7 +2,7 @@ import { ListChecksIcon as ListChecks } from "@phosphor-icons/react";
 import { QuizSettingsSchema } from "@scaffold/contracts";
 
 import { ASSESSMENT_QUESTION_CONTENT } from "@/document/model/content-model/content-groups";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { emptyQuizSettings } from "./quiz-shared";
@@ -154,7 +154,7 @@ export const quizBlockDefinition = defineBlock({
     content: () => ({
       type: "quiz",
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         settings: emptyQuizSettings(),
       },
     }),

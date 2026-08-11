@@ -20,7 +20,7 @@ import {
   richTextDocumentToAssessmentFeedback,
   setAssessmentAttr,
 } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
@@ -38,6 +38,10 @@ import {
 import "@/editor/blocks/assessment/shared/chrome/assessment-feedback-popover.css";
 import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
+import {
+  createAuthoringContainedReorderProjection,
+  resolveAuthoringNodeViewSiblingElements,
+} from "@/editor/movement/view/authoring-contained-reorder-projection";
 import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
@@ -138,6 +142,19 @@ export const DropdownChoicesGroupNode = createDropdownChoicesGroupNode({
 
 function DropdownChoiceNodeView(props: NodeViewProps) {
   const presentationRef = useRef<HTMLDivElement | null>(null);
+  const reorderProjection = useMemo(
+    () =>
+      createAuthoringContainedReorderProjection({
+        axis: "vertical",
+        getSiblingElements: (sourceElement) =>
+          resolveAuthoringNodeViewSiblingElements(
+            sourceElement,
+            (element) => element.getAttribute("data-node") === "dropdown-choice",
+          ),
+        getSourceElement: () => presentationRef.current,
+      }),
+    [],
+  );
   const attrs = dropdownChoiceAttrsFromNode(props.node.attrs);
   const popoverId = useId();
   const richTextPluginKey = useMemo(
@@ -290,6 +307,7 @@ function DropdownChoiceNodeView(props: NodeViewProps) {
             getPresentationElement={() => presentationRef.current}
             getSourcePos={() => safeGetPos(props.getPos)}
             label="choice"
+            projection={reorderProjection}
             sourceKey={attrs.id}
             sourcePos={pos}
             className="sc-app-contained-movement-handle--row-offset"
@@ -351,7 +369,7 @@ function DropdownChoicesGroupNodeView(props: NodeViewProps) {
       .focus()
       .insertContentAt(insertAt, {
         type: "dropdown_choice",
-        attrs: { id: createStableId() },
+        attrs: { id: createEmbeddedNodeId() },
         content: [
           {
             type: "dropdown_choice_label",

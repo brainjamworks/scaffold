@@ -2,10 +2,7 @@ import { FilePdfIcon as FilePdf } from "@phosphor-icons/react";
 import { useEditorState, type NodeViewProps } from "@tiptap/react";
 import { PdfEmbedDataSchema, type PdfEmbedData, type PdfEmbedSource } from "@scaffold/contracts";
 
-import {
-  nodeViewUiKey,
-  usePickerOpen,
-} from "@/editor/media/authoring/picker/file-picker-open-state";
+import { nodeViewUiStateKey, useNodeViewOpenState } from "@/editor/prosemirror/node-view-ui-state";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
 import { MediaReplaceButton } from "@/ui/components/app/MediaReplaceButton/MediaReplaceButton";
@@ -46,12 +43,12 @@ export function PdfEmbedAuthoringView(props: NodeViewProps) {
     props.updateAttributes({ data: normalizeData({ ...data, ...patch }) });
   };
 
-  const pickerKey = nodeViewUiKey({
+  const pickerKey = nodeViewUiStateKey({
     owner: "pdf-embed",
     surface: "file-picker",
     id: props.node.attrs["id"],
   });
-  const [pickerOpen, setPickerOpen] = usePickerOpen(pickerKey);
+  const [pickerOpen, setPickerOpen] = useNodeViewOpenState(pickerKey);
 
   const handlePickerResolved = (result: FilePickerResult) => {
     const next = pickerResultToSource(result);

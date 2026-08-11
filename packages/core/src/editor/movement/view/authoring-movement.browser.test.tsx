@@ -46,6 +46,7 @@ import "@/styles/globals.css";
 
 import { ContainedMovementHandle } from "./ContainedMovementHandle";
 import { EditorMovementLayer } from "./EditorMovementLayer";
+import { AUTHORING_CONTAINED_REORDER_PROJECTION_ATTR } from "./authoring-contained-reorder-projection";
 import {
   AuthoringMovementSnapshotPreview,
   captureAuthoringMovementSnapshot,
@@ -592,7 +593,10 @@ describe("authoring movement shared drag", () => {
       () => timeline.querySelector("[data-timeline-event]"),
       () => `Timeline authoring events; rendered timeline HTML is ${timeline.innerHTML}`,
     );
-    const firstEvent = requiredElement<HTMLElement>(timeline, "[data-timeline-event]");
+    const events = Array.from(timeline.querySelectorAll<HTMLElement>("[data-timeline-event]"));
+    const firstEvent = events[0];
+    const secondEvent = events[1];
+    if (!firstEvent || !secondEvent) throw new Error("Timeline reorder requires two events");
     const handle = requiredElement<HTMLButtonElement>(
       firstEvent,
       "[data-contained-movement-handle]",
@@ -600,24 +604,49 @@ describe("authoring movement shared drag", () => {
     const activationId = handle.getAttribute("data-authoring-movement-activation-id");
     expect(activationId).toBeTruthy();
     const before = timelineItemTexts(harness.editor);
+    let documentWrites = 0;
+    const countDocumentWrite = ({ transaction }: { transaction: { docChanged: boolean } }) => {
+      if (transaction.docChanged) documentWrites += 1;
+    };
+    harness.editor.on("transaction", countDocumentWrite);
 
     handle.focus({ preventScroll: true });
     await userEvent.keyboard(" ");
     await waitFor(() => harness.overlay());
     expect(describedText(handle)).toContain("Arrow Left or Arrow Right");
+    const firstCard = requiredElement<HTMLElement>(firstEvent, "[data-timeline-card]");
+    const firstCardContent = requiredElement<HTMLElement>(
+      firstCard,
+      ".sc-course-timeline__content",
+    );
+    expect(getComputedStyle(firstCard).visibility).toBe("visible");
+    expect(getComputedStyle(firstCardContent).visibility).toBe("hidden");
+    const firstLeft = firstEvent.getBoundingClientRect().left;
+    const firstCardLeft = firstCard.getBoundingClientRect().left;
+    const secondLeft = secondEvent.getBoundingClientRect().left;
 
     await userEvent.keyboard("{ArrowDown}");
     expect(harness.indicator()).toBeNull();
     expect(timelineItemTexts(harness.editor)).toEqual(before);
 
     await userEvent.keyboard("{ArrowRight}");
-    await waitFor(() => harness.indicator());
+    await waitFor(
+      () =>
+        firstEvent.getBoundingClientRect().left > firstLeft + 8 &&
+        secondEvent.getBoundingClientRect().left < secondLeft - 8,
+      () => "Timeline events to project their local order",
+    );
+    expect(Array.from(timeline.querySelectorAll("[data-timeline-event]"))).toEqual(events);
+    expect(firstCard.getBoundingClientRect().left).toBeGreaterThan(firstCardLeft + 8);
+    expect(harness.indicator()).toBeNull();
     expect(timelineItemTexts(harness.editor)).toEqual(before);
+    expect(documentWrites).toBe(0);
     expect(harness.movementStatus().textContent).toContain("Destination position 2 of 3");
 
     await userEvent.keyboard(" ");
     await harness.waitForIdle();
     expect(timelineItemTexts(harness.editor)).toEqual([before[1], before[0], before[2]]);
+    expect(documentWrites).toBe(1);
     expect(harness.movementStatus().textContent).toContain("Moved timeline event right");
     await waitFor(
       () =>
@@ -629,19 +658,104 @@ describe("authoring movement shared drag", () => {
       "data-authoring-movement-activation-id",
       activationId,
     );
+    harness.editor.off("transaction", countDocumentWrite);
+  });
+
+  it("projects a vertical Timeline locally during pointer drag and commits once on drop", async () => {
+    await page.viewport(1100, 800);
+    const harness = await mountMovementHarness({ timelinePresentation: "vertical" });
+    mounted.push(harness);
+    const timeline = requiredElement<HTMLElement>(harness.ownerRoot, '[data-node="timeline"]');
+    timeline.scrollIntoView({ block: "center" });
+    await animationFrames(2);
+    const events = Array.from(timeline.querySelectorAll<HTMLElement>("[data-timeline-event]"));
+    const firstEvent = events[0];
+    const secondEvent = events[1];
+    if (!firstEvent || !secondEvent) throw new Error("Timeline reorder requires two events");
+    const firstTop = firstEvent.getBoundingClientRect().top;
+    const secondRect = secondEvent.getBoundingClientRect();
+    const before = timelineItemTexts(harness.editor);
+    let documentWrites = 0;
+    const countDocumentWrite = ({ transaction }: { transaction: { docChanged: boolean } }) => {
+      if (transaction.docChanged) documentWrites += 1;
+    };
+    harness.editor.on("transaction", countDocumentWrite);
+    const destination = {
+      x: secondRect.left + secondRect.width / 2,
+      y: secondRect.top + secondRect.height * 0.75,
+    };
+
+    await startPointerDrag(
+      requiredElement<HTMLButtonElement>(firstEvent, "[data-contained-movement-handle]"),
+      destination,
+    );
+    await waitFor(
+      () => firstEvent.getBoundingClientRect().top > firstTop + 8,
+      () => "vertical Timeline events to project their local order",
+    );
+
+    expect(Array.from(timeline.querySelectorAll("[data-timeline-event]"))).toEqual(events);
+    expect(harness.indicator()).toBeNull();
+    expect(timelineItemTexts(harness.editor)).toEqual(before);
+    expect(documentWrites).toBe(0);
+
+    await finishPointerDrag(destination);
+    await harness.waitForIdle();
+
+    expect(timelineItemTexts(harness.editor)).toEqual([before[1], before[0], before[2]]);
+    expect(documentWrites).toBe(1);
+    harness.editor.off("transaction", countDocumentWrite);
+  });
+
+  it("restores Timeline order and focus when a projected drag is cancelled", async () => {
+    await page.viewport(1100, 800);
+    const harness = await mountMovementHarness();
+    mounted.push(harness);
+    const timeline = requiredElement<HTMLElement>(harness.ownerRoot, '[data-node="timeline"]');
+    const events = Array.from(timeline.querySelectorAll<HTMLElement>("[data-timeline-event]"));
+    const firstEvent = events[0];
+    const secondEvent = events[1];
+    if (!firstEvent || !secondEvent) throw new Error("Timeline reorder requires two events");
+    const handle = requiredElement<HTMLButtonElement>(
+      firstEvent,
+      "[data-contained-movement-handle]",
+    );
+    const before = timelineItemTexts(harness.editor);
+
+    handle.focus({ preventScroll: true });
+    await userEvent.keyboard(" ");
+    await waitFor(() => harness.overlay());
+    const firstLeft = firstEvent.getBoundingClientRect().left;
+    const secondLeft = secondEvent.getBoundingClientRect().left;
+    await userEvent.keyboard("{ArrowRight}");
+    await waitFor(
+      () =>
+        firstEvent.getBoundingClientRect().left > firstLeft + 8 &&
+        secondEvent.getBoundingClientRect().left < secondLeft - 8,
+      () => "Timeline events to project before cancellation",
+    );
+
+    await userEvent.keyboard("{Escape}");
+    await harness.waitForIdle();
+
+    expectClose(firstEvent.getBoundingClientRect().left, firstLeft, 1);
+    expectClose(secondEvent.getBoundingClientRect().left, secondLeft, 1);
+    expect(timelineItemTexts(harness.editor)).toEqual(before);
+    expect(timeline.querySelector(`[${AUTHORING_CONTAINED_REORDER_PROJECTION_ATTR}]`)).toBeNull();
+    expect(document.activeElement).toBe(handle);
   });
 
   it("excludes Resource Link authoring chrome while retaining inert authored content", async () => {
     await page.viewport(1100, 800);
     const harness = await mountMovementHarness();
     mounted.push(harness);
-    await waitFor(
-      () => harness.ownerRoot.querySelector(".sc-resource-link__controls"),
-      () => `Resource Link authoring controls; owner HTML is ${harness.ownerRoot.innerHTML}`,
-    );
     const resourceElement = requiredElement<HTMLElement>(
       harness.ownerRoot,
       '[data-node="resource_link"]',
+    );
+    await waitFor(
+      () => resourceElement.querySelector("[data-authoring-movement-snapshot-chrome]"),
+      () => `Resource Link authoring controls; owner HTML is ${harness.ownerRoot.innerHTML}`,
     );
     resourceElement.scrollIntoView({ block: "center" });
     await animationFrames(2);
@@ -664,12 +778,12 @@ describe("authoring movement shared drag", () => {
       "[data-authoring-movement-snapshot]",
     );
 
-    expect(snapshot.querySelector(".sc-resource-link__controls")).toBeNull();
+    expect(snapshot.querySelector("[data-authoring-movement-snapshot-chrome]")).toBeNull();
     expect(snapshot.querySelector('input[placeholder="https://..."]')).toBeNull();
     expect(snapshot.querySelector('[role="radiogroup"][aria-label="Resource kind"]')).toBeNull();
     expect(snapshot.textContent).toContain("Course guide");
     expect(snapshot.textContent).toContain("Read before starting the course");
-    expect(requiredElement(snapshot, ".sc-resource-link__title")).toHaveAttribute(
+    expect(requiredElement(snapshot, '[data-slot="resource-link-title"]')).toHaveAttribute(
       "contenteditable",
       "false",
     );
@@ -681,8 +795,10 @@ describe("authoring movement shared drag", () => {
 });
 
 async function mountMovementHarness({
+  timelinePresentation = "carousel",
   withOpenOverlay = false,
 }: {
+  timelinePresentation?: "carousel" | "vertical";
   withOpenOverlay?: boolean;
 } = {}): Promise<MovementBrowserHarness> {
   const host = document.createElement("div");
@@ -733,7 +849,7 @@ async function mountMovementHarness({
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       createScaffoldInteractionOwnerExtension(blockRegistry),
     ],
-    content: movementDocument(),
+    content: movementDocument(timelinePresentation),
   });
   const sourcePos = nodePos(editor, "a");
   const coordinateSpace = createViewportCoordinateSpace({
@@ -821,7 +937,7 @@ async function mountMovementHarness({
   return harness;
 }
 
-function movementDocument(): JSONContent {
+function movementDocument(timelinePresentation: "carousel" | "vertical" = "carousel"): JSONContent {
   return {
     type: "doc",
     content: [
@@ -830,7 +946,7 @@ function movementDocument(): JSONContent {
         content: [
           surface("surface00001", testBlocks(["a", "a2"])),
           surface("surface00002", [
-            createTimelineContent({ presentation: "carousel" }),
+            createTimelineContent({ presentation: timelinePresentation }),
             resourceLinkContent(),
           ]),
           surface("surface00003", testBlocks(["c", "c2"])),

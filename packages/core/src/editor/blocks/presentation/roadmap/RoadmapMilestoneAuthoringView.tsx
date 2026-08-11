@@ -6,17 +6,21 @@ import {
   useEditorState,
   type NodeViewProps,
 } from "@tiptap/react";
-import { useId, useRef } from "react";
+import { useId, useMemo, useRef } from "react";
 
 import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
-import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
+import {
+  authoringMovementSilhouetteSurfaceAttributes,
+  authoringMovementSnapshotChromeAttributes,
+} from "@/editor/movement/view/authoring-movement-presentation";
 import { IconPicker } from "@/editor/media/authoring/icon-picker/IconPicker";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { IconRenderer } from "@/ui/icons/IconRenderer";
 
 import { ROADMAP_MILESTONE_NODE, ROADMAP_NODE } from "./content";
 import { normalizeRoadmapData, parseRoadmapData } from "./RoadmapModel";
+import { createRoadmapAuthoringReorderProjection } from "./roadmap-authoring-reorder-projection";
 import {
   MARKER_ICON_FALLBACK,
   courseStateForRoadmapStatus,
@@ -54,6 +58,14 @@ export function RoadmapMilestoneAuthoringView(props: NodeViewProps) {
     selector: () => resolveRoadmapDataAttribute(props),
   });
   const roadmapData = parseRoadmapData(roadmapDataAttribute);
+  const reorderProjection = useMemo(
+    () =>
+      createRoadmapAuthoringReorderProjection(
+        () => presentationRef.current,
+        roadmapData.orientation,
+      ),
+    [roadmapData.orientation],
+  );
   const status = readMilestoneStatus(props.node);
   const courseState = courseStateForRoadmapStatus(status);
   const milestoneId = readRequiredRoadmapMilestoneId(props.node.attrs["id"]);
@@ -90,12 +102,17 @@ export function RoadmapMilestoneAuthoringView(props: NodeViewProps) {
       {...containedMovementTargetAttributes()}
       className="sc-course-roadmap__milestone"
     >
-      <div className="sc-course-roadmap__milestone-shell">
+      <div
+        {...authoringMovementSilhouetteSurfaceAttributes()}
+        className="sc-course-roadmap__milestone-shell"
+      >
         {editable ? (
           <div contentEditable={false} className="sc-app-roadmap-milestone-chrome">
             <ContainedMovementHandle
+              axis={roadmapData.orientation}
               getPresentationElement={() => presentationRef.current}
               label="roadmap milestone"
+              projection={reorderProjection}
               sourcePos={sourcePos}
               getSourcePos={() => readNodePos(props) ?? null}
               sourceKey={milestoneId}
@@ -107,7 +124,7 @@ export function RoadmapMilestoneAuthoringView(props: NodeViewProps) {
               aria-describedby={!canDelete ? deleteExplanationId : undefined}
               aria-label={`Delete milestone ${index}`}
               onClick={deleteMilestone}
-              className="sc-app-roadmap-delete"
+              className="sc-app-roadmap-delete sc-course-roadmap__delete"
             >
               <Trash size={14} aria-hidden />
               {!canDelete ? (

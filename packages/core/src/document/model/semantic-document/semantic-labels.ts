@@ -2,6 +2,16 @@ import type { SemanticItemKind } from "./semantic-document-snapshot";
 
 export const MAX_SEMANTIC_LABEL_LENGTH = 80;
 
+export function normalizeAuthoredSemanticLabel(value: string): string | null {
+  return normalizeWhitespace(value) || null;
+}
+
+export function readAuthoredSemanticLabel(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = normalizeAuthoredSemanticLabel(value);
+  return normalized && normalized.length <= MAX_SEMANTIC_LABEL_LENGTH ? normalized : null;
+}
+
 export function normalizeSemanticLabel(value: string | undefined, fallback: string): string {
   const normalized = normalizeWhitespace(value);
   const selected = normalized || normalizeWhitespace(fallback) || "Item";

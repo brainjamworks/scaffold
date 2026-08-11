@@ -1,0 +1,78 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-layout-chrome__add {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: var(--sc-course-author-stroke-width) dashed var(--gray-a7);
+  background: transparent;
+  color: var(--gray-11);
+  font-family: var(--default-font-family);
+  font-size: calc(var(--font-size-2) * var(--sc-course-author-text-scale));
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-2);
+  cursor: pointer;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-layout-chrome__add-icon {
+  display: inline-flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: var(--sc-course-author-stroke-width) dashed currentColor;
+  border-radius: max(var(--radius-2), var(--radius-full));
+  color: inherit;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-layout-chrome__options {
+  display: inline-flex;
+  width: 1.5rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: max(var(--radius-2), var(--radius-full));
+  background: transparent;
+  color: var(--gray-11);
+  cursor: pointer;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-layout-chrome__options::before {
+  content: "";
+  position: absolute;
+  inset: -0.625rem;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-layout-chrome__add:focus-visible,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-layout-chrome__options:focus-visible {
+  outline: 2px solid var(--accent-9);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-layout-chrome__add,
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-layout-chrome__options > svg {
+    transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-layout-chrome__add:active:not(:focus-visible) {
+    transform: scale(0.97);
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-layout-chrome__options:active:not(:focus-visible)
+    > svg {
+    transform: scale(0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-layout-chrome__add,
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-layout-chrome__options > svg {
+    transition: none;
+  }
+}

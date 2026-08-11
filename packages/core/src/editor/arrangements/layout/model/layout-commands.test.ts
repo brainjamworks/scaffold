@@ -4,7 +4,7 @@ import { Editor, Node, type JSONContent } from "@tiptap/core";
 import { TabsIcon as Tabs } from "@phosphor-icons/react";
 import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
@@ -86,6 +86,10 @@ const testLayoutRegistry = createLayoutRegistry([
   missingIdsLayoutDefinition,
   placeholderLayoutDefinition,
 ]);
+const EMPTY_BLOCK_DUPLICATIONS = Object.freeze({
+  getByNodeType: () => undefined,
+  hasNodeType: (nodeType: string) => nodeType === "test_block",
+});
 
 const TestBlockNode = Node.create({
   name: "test_block",
@@ -101,6 +105,7 @@ const TestBlockNode = Node.create({
           typeof attrs.id === "string" ? { "data-id": attrs.id } : {},
       },
       horizontalAlignment: { default: "left" },
+      data: { default: null },
     };
   },
 
@@ -414,7 +419,13 @@ describe("bounded Section vertical position commands", () => {
     const sectionPos = nodePos(editor, "section", "section-a");
 
     expect(
-      setLayoutSectionVerticalPositionAt(editor, sectionPos, "middle", builtInBlockRegistry),
+      setLayoutSectionVerticalPositionAt(
+        editor,
+        sectionPos,
+        "middle",
+        builtInBlockRegistry,
+        testLayoutRegistry,
+      ),
     ).toBe(true);
     expect(editor.state.doc.nodeAt(sectionPos)?.attrs).toMatchObject({
       id: "section-a",
@@ -432,6 +443,7 @@ describe("bounded Section vertical position commands", () => {
       sectionPos,
       "bottom",
       builtInBlockRegistry,
+      testLayoutRegistry,
     );
     expect(tr?.doc.nodeAt(sectionPos)?.attrs["verticalPosition"]).toBe("bottom");
     expect(editor.state.doc.nodeAt(sectionPos)?.attrs["verticalPosition"]).toBe("middle");
@@ -450,17 +462,30 @@ describe("bounded Section vertical position commands", () => {
     const sectionPos = nodePos(editor, "section", "section-a");
 
     expect(
-      setLayoutSectionVerticalPositionAt(editor, sectionPos, "middle", builtInBlockRegistry),
+      setLayoutSectionVerticalPositionAt(
+        editor,
+        sectionPos,
+        "middle",
+        builtInBlockRegistry,
+        testLayoutRegistry,
+      ),
     ).toBe(false);
-    expect(setLayoutSectionVerticalPositionAt(editor, 999, "middle", builtInBlockRegistry)).toBe(
-      false,
-    );
+    expect(
+      setLayoutSectionVerticalPositionAt(
+        editor,
+        999,
+        "middle",
+        builtInBlockRegistry,
+        testLayoutRegistry,
+      ),
+    ).toBe(false);
     expect(
       setLayoutSectionVerticalPositionAt(
         editor,
         sectionPos,
         "stretch" as never,
         builtInBlockRegistry,
+        testLayoutRegistry,
       ),
     ).toBe(false);
 
@@ -483,6 +508,7 @@ describe("bounded Section vertical position commands", () => {
         nodePos(boundedEditor, "section", "section-b"),
         "top",
         builtInBlockRegistry,
+        testLayoutRegistry,
       ),
     ).toBe(false);
 
@@ -736,7 +762,7 @@ describe("layout section reorder commands", () => {
     ]);
 
     expect(
-      duplicateLayoutAt(editor, nodePos(editor, "layout", "layout-a"), builtInBlockRegistry),
+      duplicateLayoutAt(editor, nodePos(editor, "layout", "layout-a"), EMPTY_BLOCK_DUPLICATIONS),
     ).toBe(true);
 
     const children = surfaceChildren(editor);
@@ -762,7 +788,7 @@ describe("layout section reorder commands", () => {
       duplicateLayoutSectionAt(
         editor,
         nodePos(editor, "section", "section-a"),
-        builtInBlockRegistry,
+        EMPTY_BLOCK_DUPLICATIONS,
       ),
     ).toBe(true);
 
@@ -771,6 +797,82 @@ describe("layout section reorder commands", () => {
     expect(sections[0]?.attrs?.["id"]).toBe("section-a");
     expect(sections[1]?.attrs?.["id"]).not.toBe("section-a");
     expect(sections[2]?.attrs?.["id"]).toBe("section-b");
+
+    editor.destroy();
+  });
+
+  it("duplicates a nested Block through the supplied mounted capability operation once", () => {
+    const editor = makeCourseEditor([
+      layout([
+        section("section-a", [
+          {
+            type: "test_block",
+            attrs: { id: "block-a", data: { nodeRef: "block-a" } },
+          },
+        ]),
+      ]),
+    ]);
+    const duplication = vi.fn(({ content, nodeIdChanges }) => ({
+      ...content,
+      attrs: {
+        ...content.attrs,
+        data: {
+          nodeRef: nodeIdChanges.get(content.attrs?.["data"]?.nodeRef),
+          repairedBy: "mounted-capability",
+        },
+      },
+    }));
+    const blockDuplications = Object.freeze({
+      getByNodeType: (nodeType: string) => (nodeType === "test_block" ? duplication : undefined),
+      hasNodeType: (nodeType: string) => nodeType === "test_block",
+    });
+
+    expect(duplicateLayoutAt(editor, nodePos(editor, "layout"), blockDuplications)).toBe(true);
+
+    const layouts = surfaceChildren(editor).filter((node) => node.type === "layout");
+    const clonedBlock = layouts[1]?.content?.[0]?.content?.[0];
+    expect(duplication).toHaveBeenCalledOnce();
+    expect(clonedBlock?.attrs?.["id"]).not.toBe("block-a");
+    expect(clonedBlock?.attrs?.["data"]).toEqual({
+      nodeRef: clonedBlock?.attrs?.["id"],
+      repairedBy: "mounted-capability",
+    });
+
+    editor.destroy();
+  });
+
+  it("duplicates a nested Block through the mounted capability when duplicating one Section", () => {
+    const editor = makeCourseEditor([
+      layout([
+        section("section-a", [
+          {
+            type: "test_block",
+            attrs: { id: "block-a", data: { nodeRef: "block-a" } },
+          },
+        ]),
+        section("section-b", [block("b")]),
+      ]),
+    ]);
+    const duplication = vi.fn(({ content, nodeIdChanges }) => ({
+      ...content,
+      attrs: {
+        ...content.attrs,
+        data: { nodeRef: nodeIdChanges.get(content.attrs?.["data"]?.nodeRef) },
+      },
+    }));
+    const blockDuplications = Object.freeze({
+      getByNodeType: (nodeType: string) => (nodeType === "test_block" ? duplication : undefined),
+      hasNodeType: (nodeType: string) => nodeType === "test_block",
+    });
+
+    expect(
+      duplicateLayoutSectionAt(editor, nodePos(editor, "section", "section-a"), blockDuplications),
+    ).toBe(true);
+
+    const clonedBlock = layoutAt(editor).content?.[1]?.content?.[0];
+    expect(duplication).toHaveBeenCalledOnce();
+    expect(clonedBlock?.attrs?.["id"]).not.toBe("block-a");
+    expect(clonedBlock?.attrs?.["data"]?.nodeRef).toBe(clonedBlock?.attrs?.["id"]);
 
     editor.destroy();
   });

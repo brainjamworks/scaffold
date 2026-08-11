@@ -15,11 +15,11 @@ describe("built-in block definitions", () => {
     }
   });
 
-  it("constructs the registry from 34 explicit unique node types", () => {
+  it("constructs the registry from 35 explicit unique node types", () => {
     const nodeTypes = builtInBlockDefinitions.map((definition) => definition.nodeType);
 
-    expect(builtInBlockDefinitions).toHaveLength(34);
-    expect(new Set(nodeTypes)).toHaveLength(34);
+    expect(builtInBlockDefinitions).toHaveLength(35);
+    expect(new Set(nodeTypes)).toHaveLength(35);
     expect(builtInBlockRegistry.definitions).toEqual(builtInBlockDefinitions);
     for (const definition of builtInBlockDefinitions) {
       expect(builtInBlockRegistry.getByNodeType(definition.nodeType)).toBe(definition);
@@ -53,14 +53,14 @@ describe("built-in block definitions", () => {
       expect(definition).not.toHaveProperty("id");
       expect(definition.insert?.id).toBeTypeOf("string");
     }
-    expect(new Set(insertIds)).toHaveLength(34);
+    expect(new Set(insertIds)).toHaveLength(35);
   });
 
   it("keeps authoring and runtime lanes in exact parent-node parity with the definition list", () => {
     const definitionNodeTypes = builtInBlockDefinitions.map((definition) => definition.nodeType);
 
-    expect(builtInBlockAuthoringBindings).toHaveLength(34);
-    expect(builtInBlockRuntimeBindings).toHaveLength(34);
+    expect(builtInBlockAuthoringBindings).toHaveLength(35);
+    expect(builtInBlockRuntimeBindings).toHaveLength(35);
     expect(builtInBlockAuthoringBindings.map(({ nodeType }) => nodeType)).toEqual(
       definitionNodeTypes,
     );

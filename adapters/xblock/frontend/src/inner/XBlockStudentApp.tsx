@@ -1,12 +1,12 @@
-import { createCoreScaffoldRuntimeComposition, ScaffoldLearnerApp } from "@scaffold/core/runtime";
+import { ScaffoldLearnerApp, createCoreScaffoldRuntimeComposition } from "@scaffold/core/runtime";
 import { useMemo } from "react";
 
 import type { ScaffoldXBlockInnerInitPayload } from "../types";
 import type { XBlockInnerBridge } from "./xblock-inner-bridge";
-import { prepareXBlockArtifact } from "./xblock-content";
 import { createXBlockLearnerHostServices } from "./ports";
 
-const scaffoldRuntimeComposition = createCoreScaffoldRuntimeComposition();
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
+const freeProductAccess = Object.freeze({ scaffoldPlusAuthorized: false });
 
 interface XBlockStudentAppProps {
   data: ScaffoldXBlockInnerInitPayload;
@@ -14,45 +14,32 @@ interface XBlockStudentAppProps {
 }
 
 export function XBlockStudentApp({ data, bridge }: XBlockStudentAppProps) {
-  const artifactState = useMemo(() => prepareXBlockArtifact(data.artifact), [data.artifact]);
+  if (data.artifactAccess.status !== "supported" || !data.artifact) {
+    throw new Error("Supported XBlock learner payload must include an artifact.");
+  }
+  const artifact = data.artifact;
   const services = useMemo(
     () =>
       createXBlockLearnerHostServices(bridge, {
         mediaContext: data.mediaContext ?? "runtime",
         resolvedMedia: data.resolvedMedia,
         rootActivityId: `https://scaffold.ac/xapi/activities/openedx/${encodeURIComponent(
-          data.artifact.id,
+          artifact.id,
         )}`,
       }),
-    [bridge, data.artifact.id, data.mediaContext, data.resolvedMedia],
+    [artifact.id, bridge, data.mediaContext, data.resolvedMedia],
   );
-
-  if (artifactState.status === "error") {
-    return (
-      <div className="sc-xblock-root sc-xblock-error" role="alert">
-        <strong>Scaffold document could not be loaded.</strong>
-        <span>{artifactState.message}</span>
-      </div>
-    );
-  }
-  if (artifactState.status === "empty") {
-    return (
-      <div className="sc-xblock-root sc-xblock-error" role="alert">
-        <strong>Scaffold document could not be loaded.</strong>
-        <span>Scaffold content has not been created yet.</span>
-      </div>
-    );
-  }
 
   return (
     <div className="sc-xblock-root sc-xblock-student-shell">
       <ScaffoldLearnerApp
-        composition={scaffoldRuntimeComposition}
+        composition={runtimeComposition}
+        productAccess={freeProductAccess}
         bootstrap={{
-          artifactId: artifactState.artifact.id,
-          title: artifactState.artifact.title,
-          mode: artifactState.artifact.mode,
-          learnerContent: artifactState.artifact.content,
+          artifactId: artifact.id,
+          title: artifact.title,
+          mode: artifact.mode,
+          publication: data.learnerPublication,
           initialLearnerState: data.initialLearnerState,
         }}
         services={services}

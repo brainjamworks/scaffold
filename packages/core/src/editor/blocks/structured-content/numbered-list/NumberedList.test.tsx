@@ -265,7 +265,10 @@ it("persists an author-selected item state into learner runtime", async () => {
     expect(authoring.json().content?.[0]?.content?.[1]?.attrs?.["status"]).toBe("inProgress");
   });
 
-  const learnerContent = projectLearnerDocument(authoring.json(), builtInBlockRegistry).document;
+  const learnerContent = projectLearnerDocument(
+    { status: "supported", canonicalDocument: authoring.json() },
+    builtInBlockRegistry,
+  ).document;
   authoring.destroy();
   cleanup();
   const runtime = makeDisposableNumberedListEditor(learnerContent, { runtime: true });

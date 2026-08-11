@@ -10,6 +10,8 @@ import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 
+import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import {
   assessmentProblemOutcome,
   createAssessmentRuntimeTestRoot,
@@ -41,6 +43,7 @@ import { DropdownRuntimeExtension } from "./dropdown-runtime-extension";
 import { dropdownBlockDefinition } from "./dropdown-definition";
 
 const canonicalAssessmentResult = { feedback: null, items: {} };
+const testCapabilities = createScaffoldApplication().capabilities;
 
 const BoundedRegionTestNode = TiptapNode.create({
   name: "region",
@@ -62,6 +65,7 @@ function makeEditor(editable = true) {
     editable,
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([dropdownBlockDefinition.nodeType]),
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),

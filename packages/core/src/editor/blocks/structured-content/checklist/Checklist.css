@@ -43,8 +43,23 @@
   }
 
   .sc-course-checklist__item-shell {
+    --sc-course-checklist-row-control-size: 2.75rem;
+
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: start;
+  }
+
+  .sc-course-checklist__control-slot {
+    display: grid;
+    min-height: var(--sc-course-checklist-row-control-size);
+    place-items: center;
+  }
+
+  .sc-course-checklist__item-text {
+    padding-block-start: max(
+      0px,
+      calc((var(--sc-course-checklist-row-control-size) - 1lh) / 2)
+    );
   }
 }

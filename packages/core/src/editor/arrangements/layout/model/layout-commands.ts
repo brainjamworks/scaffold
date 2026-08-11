@@ -3,9 +3,12 @@ import type { Schema, Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Fragment } from "@tiptap/pm/model";
 import type { Transaction } from "@tiptap/pm/state";
 
-import { isActiveBoundedContainerAtPosition } from "@/editor/bounded-containers/model/bounded-container-structure-policy";
+import { isActiveBoundedContainerAtPosition } from "@/editor/bounded-containers/model/bounded-container-placement";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
-import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-new-ids";
+import {
+  cloneJsonWithNewStableIds,
+  type BlockDuplicationLookup,
+} from "@/document/model/identity/clone-with-new-ids";
 import { isValidDocPos } from "@/editor/prosemirror/position/document-position";
 import {
   setNonDestructiveSelectionNearInTransaction,
@@ -89,7 +92,7 @@ export function appendLayoutSectionAt(
 export function duplicateLayoutAt(
   editor: Editor,
   layoutPos: number,
-  blockDefinitions: BlockDefinitionLookup,
+  blockDuplications: BlockDuplicationLookup,
 ): boolean {
   if (!isValidDocPos(editor.state.doc, layoutPos)) return false;
   const layout = editor.state.doc.nodeAt(layoutPos);
@@ -97,7 +100,7 @@ export function duplicateLayoutAt(
 
   try {
     const clone = editor.state.schema.nodeFromJSON(
-      cloneJsonWithNewStableIds(layout.toJSON(), { blockDefinitions }),
+      cloneJsonWithNewStableIds(layout.toJSON(), { blockDuplications }),
     );
     const insertPos = layoutPos + layout.nodeSize;
     const tr = editor.state.tr.insert(insertPos, clone);
@@ -124,7 +127,7 @@ export function deleteLayoutAt(editor: Editor, layoutPos: number): boolean {
 export function duplicateLayoutSectionAt(
   editor: Editor,
   sectionPos: number,
-  blockDefinitions: BlockDefinitionLookup,
+  blockDuplications: BlockDuplicationLookup,
 ): boolean {
   if (!isValidDocPos(editor.state.doc, sectionPos)) return false;
   const section = editor.state.doc.nodeAt(sectionPos);
@@ -132,7 +135,7 @@ export function duplicateLayoutSectionAt(
 
   try {
     const clone = editor.state.schema.nodeFromJSON(
-      cloneJsonWithNewStableIds(section.toJSON(), { blockDefinitions }),
+      cloneJsonWithNewStableIds(section.toJSON(), { blockDuplications }),
     );
     const insertPos = sectionPos + section.nodeSize;
     const tr = editor.state.tr.insert(insertPos, clone);
@@ -167,12 +170,14 @@ export function setLayoutSectionVerticalPositionAt(
   sectionPos: number,
   value: VerticalContentPosition,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
 ): boolean {
   const tr = setLayoutSectionVerticalPositionInTransaction(
     editor.state.tr,
     sectionPos,
     value,
     blockDefinitions,
+    layoutDefinitions,
   );
   if (!tr) return false;
   return dispatchChecked(editor, tr);
@@ -183,6 +188,7 @@ export function setLayoutSectionVerticalPositionInTransaction(
   sectionPos: number,
   value: VerticalContentPosition,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
 ): Transaction | null {
   if (!isValidDocPos(tr.doc, sectionPos)) return null;
   const section = tr.doc.nodeAt(sectionPos);
@@ -192,6 +198,7 @@ export function setLayoutSectionVerticalPositionInTransaction(
       blockDefinitions,
       containerType: "section",
       doc: tr.doc,
+      layoutDefinitions,
       pos: sectionPos,
     })
   ) {

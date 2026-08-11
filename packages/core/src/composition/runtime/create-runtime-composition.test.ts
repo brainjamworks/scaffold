@@ -111,6 +111,10 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     ]);
     expect(schema.nodes["courseSection"]?.spec.attrs?.["id"]).toBeDefined();
     expect(schema.nodes["courseSection"]?.spec.attrs?.["title"]).toBeDefined();
+    for (const [nodeType, nodeSchema] of Object.entries(schema.nodes)) {
+      if (nodeType === "text") continue;
+      expect(nodeSchema.spec.attrs?.["semanticLabel"]?.default, nodeType).toBeNull();
+    }
   });
 
   it("does not own a parallel Course Structure validator", () => {
@@ -252,7 +256,7 @@ describe("createCourseDocumentRuntimeExtensions", () => {
       await waitFor(() => {
         expect(
           document.body.querySelector(
-            '[data-runtime-frame="layout"][data-definition="tabs"] .sc-tabs',
+            '[data-runtime-frame="layout"][data-definition="tabs"] .sc-course-tabs',
           ),
         ).not.toBeNull();
       });
@@ -310,6 +314,7 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     const extensions = createCourseDocumentRuntimeExtensions({ composition: application.runtime });
     const schema = getSchema(extensions);
     const uniqueId = extensions.find(({ name }) => name === "uniqueID");
+    const semanticLabel = extensions.find(({ name }) => name === "semanticLabel");
     const frame = extensions.find(({ name }) => name === "runtimeBlockFrameAttributes");
 
     expect(
@@ -320,10 +325,23 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     ).toHaveLength(1);
     expect(extensions).not.toContain(capability.authoringExtension);
     expect(uniqueId?.options["types"]).toBe("all");
+    expect(semanticLabel).toBeDefined();
     expect(schema.nodes["paragraph"]?.spec.attrs?.["id"]).toBeDefined();
+    expect(schema.nodes["paragraph"]?.spec.attrs?.["semanticLabel"]?.default).toBeNull();
     expect(
       schema.nodes[`${capability.definition.nodeType}_child`]?.spec.attrs?.["id"],
     ).toBeDefined();
+    expect(
+      schema.nodes[capability.definition.nodeType]?.spec.attrs?.["semanticLabel"]?.default,
+    ).toBeNull();
+    expect(
+      schema.nodes[`${capability.definition.nodeType}_child`]?.spec.attrs?.["semanticLabel"]
+        ?.default,
+    ).toBeNull();
+    for (const [nodeType, nodeSchema] of Object.entries(schema.nodes)) {
+      if (nodeType === "text") continue;
+      expect(nodeSchema.spec.attrs?.["semanticLabel"]?.default, nodeType).toBeNull();
+    }
     expect(schema.nodes["doc"]?.spec.attrs?.["id"]).toBeUndefined();
     expect(schema.nodes["text"]?.spec.attrs?.["id"]).toBeUndefined();
     expect(schema.marks["bold"]?.spec.attrs?.["id"]).toBeUndefined();

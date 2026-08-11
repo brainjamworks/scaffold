@@ -5,7 +5,6 @@ import {
 } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/core";
 
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type {
   FloatingControl,
@@ -113,9 +112,6 @@ export function createGridFloatingAuthoringControls(blockDefinitions: BlockDefin
     gridCellMenuFloatingControl,
   ] as const;
 }
-
-export const GRID_FLOATING_AUTHORING_CONTROLS =
-  createGridFloatingAuthoringControls(builtInBlockRegistry);
 
 function resolveActiveCellDescriptor(
   editor: Editor,

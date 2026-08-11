@@ -8,7 +8,7 @@ import type {
   CheckedMutationIssue,
   CheckedMutationResult,
 } from "@/document/model/commands/checked-transactions";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import {
   insertDirectChildSettingsItemChecked,
   readDirectChildSettingsItems,
@@ -142,7 +142,7 @@ export function DirectChildCollectionField({
             insertDirectChildSettingsItemChecked({
               tr,
               ...currentTarget,
-              childId: createStableId(),
+              childId: createEmbeddedNodeId(),
               value: descriptor.initialValue,
             }),
           )

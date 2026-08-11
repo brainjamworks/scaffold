@@ -3,7 +3,7 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Extension, Node, type Editor as TiptapEditor, type JSONContent } from "@tiptap/core";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
   createScaffoldApplication,
@@ -18,18 +18,75 @@ import { calloutBlockDefinition } from "@/editor/blocks/presentation/callout/cal
 import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
 import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
 import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
 import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRuntimeFrame";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
-import { CourseDocumentRuntimeRenderer } from "./CourseDocumentRuntimeRenderer";
+import {
+  checkRuntimeDocumentReadiness,
+  CourseDocumentRuntimeRenderer as PublicCourseDocumentRuntimeRenderer,
+  type CourseDocumentRuntimeRendererProps,
+} from "./CourseDocumentRuntimeRenderer";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
+const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
+const plusProductAccess = { scaffoldPlusAuthorized: true } as const;
 
 const calloutInsertCatalog = createInsertCatalog(
   createBlockInsertActions([calloutBlockDefinition]),
 );
+const documentEstablishmentCalls = vi.hoisted(() => vi.fn());
+
+vi.mock("@/document/model/establishment/establish-authoring-document", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("@/document/model/establishment/establish-authoring-document")
+    >();
+  return {
+    ...actual,
+    establishAuthoringDocument: (...args: Parameters<typeof actual.establishAuthoringDocument>) => {
+      documentEstablishmentCalls(...args);
+      return actual.establishAuthoringDocument(...args);
+    },
+  };
+});
+
+function CourseDocumentRuntimeRenderer(
+  props: Omit<CourseDocumentRuntimeRendererProps, "productAccess"> & {
+    productAccess?: CourseDocumentRuntimeRendererProps["productAccess"];
+  },
+) {
+  if (props.initialContent) normalizeRuntimeFixtureIds(props.initialContent);
+  return (
+    <PublicCourseDocumentRuntimeRenderer
+      {...props}
+      productAccess={props.productAccess ?? coreProductAccess}
+    />
+  );
+}
+
+function normalizeRuntimeFixtureIds(content: JSONContent): void {
+  const seen = new Set<string>();
+  const stack = [content];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node.type !== "doc" && node.type !== "text") {
+      const id = node.attrs?.id;
+      if (!EmbeddedNodeIdSchema.safeParse(id).success || seen.has(String(id))) {
+        node.attrs = { ...node.attrs, id: createEmbeddedNodeId() };
+      }
+      seen.add(String(node.attrs?.id));
+    }
+    stack.push(...(node.content ?? []));
+  }
+}
+
+beforeEach(() => {
+  documentEstablishmentCalls.mockClear();
+});
 
 afterEach(() => {
   cleanup();
@@ -131,14 +188,14 @@ function tabsDocumentContent(): JSONContent {
     {
       type: "layout",
       attrs: {
-        id: "shared-layout",
+        id: "layout000001",
         variant: "tabs",
         options: { label: "Topics", variant: "default" },
       },
       content: [
         {
           type: "section",
-          attrs: { id: "first-topic", role: "tab-panel", verticalPosition: "top" },
+          attrs: { id: "section00011", role: "tab-panel", verticalPosition: "top" },
           content: [
             {
               type: "paragraph",
@@ -154,7 +211,7 @@ function tabsDocumentContent(): JSONContent {
         },
         {
           type: "section",
-          attrs: { id: "second-topic", role: "tab-panel", verticalPosition: "top" },
+          attrs: { id: "section00012", role: "tab-panel", verticalPosition: "top" },
           content: [paragraph("Second topic")],
         },
       ],
@@ -175,15 +232,216 @@ function surfaceById(surfaceId: string): HTMLElement {
 }
 
 describe("CourseDocumentRuntimeRenderer", () => {
-  it("publishes named read-only document semantics without flattening nested controls", async () => {
-    const user = userEvent.setup();
+  it("establishes a direct raw document exactly once before constructing Tiptap", async () => {
+    const content = pageDocumentContent();
+    normalizeRuntimeFixtureIds(content);
+    const onReady = vi.fn();
+
+    render(
+      <PublicCourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
+        initialContent={content}
+        onReady={onReady}
+        productAccess={coreProductAccess}
+      />,
+    );
+
+    expect(await screen.findByTestId("course-document-runtime-renderer")).toBeInTheDocument();
+    expect(onReady).toHaveBeenCalledTimes(1);
+    expect(documentEstablishmentCalls).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a Plus-required learner document before constructing Tiptap", () => {
+    const content = pageDocumentContent();
+    content.content![0]!.attrs!["requiresScaffoldPlus"] = true;
+    const onReady = vi.fn();
+
+    expect(checkRuntimeDocumentReadiness(content, runtimeComposition, coreProductAccess)).toEqual({
+      status: "requires-scaffold-plus",
+    });
+
+    render(
+      <PublicCourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
+        initialContent={content}
+        onReady={onReady}
+        productAccess={coreProductAccess}
+      />,
+    );
+
+    expect(onReady).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
+  });
+
+  it("renders a Plus-required learner document after product access succeeds", async () => {
+    const content = pageDocumentContent();
+    content.content![0]!.attrs!["requiresScaffoldPlus"] = true;
+    normalizeRuntimeFixtureIds(content);
+
+    const readiness = checkRuntimeDocumentReadiness(content, runtimeComposition, plusProductAccess);
+    if (readiness.status !== "supported") {
+      throw new Error(`Expected supported runtime content: ${JSON.stringify(readiness)}`);
+    }
+
+    render(
+      <PublicCourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
+        initialContent={content}
+        productAccess={plusProductAccess}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByText("Page content")).toBeInTheDocument());
+  });
+
+  it.each([
+    {
+      name: "future format",
+      mutate: (content: JSONContent) => {
+        content.content![0]!.attrs!.schemaVersion = SCAFFOLD_DOCUMENT_FORMAT_VERSION + 1;
+      },
+    },
+    {
+      name: "invalid Course attrs",
+      mutate: (content: JSONContent) => {
+        delete content.content![0]!.attrs!.theme;
+      },
+    },
+    {
+      name: "missing mounted ID",
+      mutate: (content: JSONContent) => {
+        delete content.content![0]!.content![0]!.attrs!.id;
+      },
+    },
+  ])("does not construct Tiptap for $name", ({ mutate }) => {
+    const content = pageDocumentContent();
+    mutate(content);
+    const onReady = vi.fn();
+
+    render(
+      <PublicCourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
+        initialContent={content}
+        onReady={onReady}
+        productAccess={coreProductAccess}
+      />,
+    );
+
+    expect(onReady).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
+  });
+
+  it("does not construct Tiptap for compatibility working JSON", () => {
+    const content = pageDocumentContent();
+    content.content![0]!.content![0]!.content = [
+      {
+        type: "unavailable_block",
+        attrs: {
+          id: "plusblock001",
+          capabilityId: "plus_private_block",
+          original: {
+            type: "plus_private_block",
+            attrs: { id: "plusblock001", private: "must-not-render" },
+          },
+        },
+      },
+    ];
     const onReady = vi.fn();
 
     render(
       <CourseDocumentRuntimeRenderer
         composition={runtimeComposition}
+        initialContent={content}
+        onReady={onReady}
+      />,
+    );
+
+    expect(onReady).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
+    expect(document.body).not.toHaveTextContent("must-not-render");
+  });
+
+  it("refuses a throwing accessor without reading it before bounded establishment", () => {
+    let invoked = false;
+    const content = Object.defineProperty({}, "type", {
+      enumerable: true,
+      get() {
+        invoked = true;
+        throw new Error("hostile accessor");
+      },
+    }) as JSONContent;
+
+    expect(() =>
+      checkRuntimeDocumentReadiness(content, runtimeComposition, coreProductAccess),
+    ).not.toThrow();
+    expect(checkRuntimeDocumentReadiness(content, runtimeComposition, coreProductAccess)).toEqual({
+      status: "invalid-learner-content",
+      issues: expect.any(Array),
+    });
+    expect(invoked).toBe(false);
+  });
+
+  it("refuses a throwing property-read Proxy before renderer or onReady work", () => {
+    const content = new Proxy(
+      { type: "doc" },
+      {
+        get() {
+          throw new Error("hostile read trap");
+        },
+      },
+    ) as JSONContent;
+    const onReady = vi.fn();
+
+    expect(() =>
+      render(
+        <PublicCourseDocumentRuntimeRenderer
+          composition={runtimeComposition}
+          initialContent={content}
+          onReady={onReady}
+          productAccess={coreProductAccess}
+        />,
+      ),
+    ).not.toThrow();
+    expect(onReady).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
+  });
+
+  it("does not construct Tiptap for unknown learner nodes", () => {
+    const content = pageDocumentContent();
+    content.content![0]!.content![0]!.content = [
+      { type: "plus_private_block", attrs: { id: "plusblock001" } },
+    ];
+    const onReady = vi.fn();
+
+    render(
+      <CourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
+        initialContent={content}
+        onReady={onReady}
+      />,
+    );
+
+    expect(onReady).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
+  });
+
+  it("publishes named read-only document semantics without flattening nested controls", async () => {
+    const user = userEvent.setup();
+    const onReady = vi.fn();
+    const content = tabsDocumentContent();
+    normalizeRuntimeFixtureIds(content);
+
+    const readiness = checkRuntimeDocumentReadiness(content, runtimeComposition, coreProductAccess);
+    expect(readiness.status).toBe("supported");
+    if (readiness.status !== "supported") throw new Error("Expected supported runtime content.");
+    expect(readiness.preparedDocument.content).toEqual(content);
+    expect(readiness.preparedDocument.composition).toBe(runtimeComposition);
+
+    render(
+      <CourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
         artifactId="artifact-accessibility"
-        initialContent={tabsDocumentContent()}
+        initialContent={content}
         onReady={onReady}
       />,
     );
@@ -582,7 +840,7 @@ describe("CourseDocumentRuntimeRenderer", () => {
     const runtimeText = requiredElement(runtime, '[data-text-align="right"]');
     const runtimeFrame = requiredElement(
       runtime,
-      '[data-runtime-frame="block"][data-id="callout-alignment"]',
+      '[data-runtime-frame="block"][data-id="callout00002"]',
     );
 
     expect(runtimeRegion.getAttribute("data-vertical-content-position")).toBe("bottom");
@@ -608,6 +866,7 @@ function alignmentParityDocumentContent(): JSONContent {
         type: "courseDocument",
         attrs: {
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+          requiresScaffoldPlus: false,
           mode: "page",
           surfaceSize: "fluid",
           overflowMode: "grow",
@@ -627,7 +886,7 @@ function alignmentParityDocumentContent(): JSONContent {
                     ...callout,
                     attrs: {
                       ...callout.attrs,
-                      id: "callout-alignment",
+                      id: "callout00002",
                       frame: { align: "center", widthMode: "percent", widthPercent: 60 },
                     },
                   },
@@ -707,7 +966,7 @@ function requiredElement(root: HTMLElement, selector: string): HTMLElement {
 
 function privateRuntimeBlockCapability(nodeType: string): BlockCapability {
   return {
-    definition: { nodeType },
+    definition: { nodeType, title: `Private ${nodeType}` },
     authoringExtension: Extension.create({
       name: `${nodeType}_authoring_bundle`,
       addExtensions: () => [Node.create({ name: nodeType, group: "block", atom: true })],

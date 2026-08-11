@@ -4,9 +4,7 @@ import type { BridgeHandlerResponse } from "./handler-response";
 import type { XBlockInnerBridge } from "./xblock-inner-bridge";
 
 type SaveContentResponse = BridgeHandlerResponse & {
-  artifact?: {
-    title?: unknown;
-  };
+  artifactRevision?: unknown;
 };
 
 export function createXBlockArtifactPersistence(
@@ -16,14 +14,16 @@ export function createXBlockArtifactPersistence(
     saveArtifact: async (bundle): Promise<ArtifactSaveResult> => {
       const response = await bridge.request<SaveContentResponse>("persistence.saveArtifact", {
         artifact: bundle.artifact,
-        learnerContent: bundle.learnerContent,
-        assessmentTargets: bundle.assessmentTargets,
-        assessmentGroups: bundle.assessmentGroups,
       });
-
-      return typeof response.artifact?.title === "string" && response.artifact.title
-        ? { artifact: { title: response.artifact.title } }
-        : {};
+      if (response.success === false) {
+        throw new Error(
+          typeof response.error === "string" ? response.error : "XBlock Save was refused",
+        );
+      }
+      if (typeof response.artifactRevision !== "string" || !response.artifactRevision) {
+        throw new Error("XBlock Save response did not include an artifact revision");
+      }
+      return { artifactRevision: response.artifactRevision };
     },
   };
 }

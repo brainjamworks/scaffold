@@ -276,7 +276,7 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                   );
                 })}
               </svg>
-              <div className="sc-course-matching__column">
+              <div className="sc-course-matching__column sc-course-matching__column--items">
                 <div className="sc-course-matching__header">Items</div>
                 <div className="sc-course-matching__runtime-list">
                   {pairs.map((pair, idx) => {
@@ -307,7 +307,7 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                 </div>
               </div>
 
-              <div className="sc-course-matching__column">
+              <div className="sc-course-matching__column sc-course-matching__column--targets">
                 <div className="sc-course-matching__header">Matches</div>
                 <div className="sc-course-matching__runtime-list">
                   {orderedTargets.map((target, idx) => {

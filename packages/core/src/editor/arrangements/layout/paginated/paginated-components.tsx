@@ -1,5 +1,5 @@
 import { CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight } from "@phosphor-icons/react";
-import type { KeyboardEvent, ReactNode } from "react";
+import { useEffect, type KeyboardEvent, type ReactNode } from "react";
 
 import { createAriaElementId } from "@/ui/accessibility/aria-element-id";
 import { iconSm } from "@/ui/tokens/icon-sizes";
@@ -139,11 +139,34 @@ export function PaginatedLayoutShell({
   const currentIndex = activePageIndex(activeId, pages);
   const previousPage = pageForOffset(activeId, pages, -1);
   const nextPage = pageForOffset(activeId, pages, 1);
+  const pageAnnouncement = `Page ${pages.length > 0 ? currentIndex + 1 : 0} of ${pages.length}`;
+
+  useEffect(() => {
+    if (!activeId) return;
+    const activeButton = document.getElementById(paginatedPageButtonId(layoutId, activeId));
+    const lane = activeButton?.closest<HTMLElement>("[data-course-paginated-lane]");
+    if (!(activeButton instanceof HTMLButtonElement) || !lane) return;
+
+    const laneRect = lane.getBoundingClientRect();
+    const buttonRect = activeButton.getBoundingClientRect();
+    const left =
+      buttonRect.left < laneRect.left
+        ? buttonRect.left - laneRect.left
+        : buttonRect.right > laneRect.right
+          ? buttonRect.right - laneRect.right
+          : 0;
+    if (left !== 0) lane.scrollBy({ behavior: "auto", left });
+  }, [activeId, layoutId]);
 
   return (
     <>
-      <div className="sc-paginated-layout__viewport">{children}</div>
-      <nav aria-label="Pages" contentEditable={false} className="sc-paginated-layout__nav">
+      <div className="sc-course-paginated__viewport">{children}</div>
+      <nav
+        aria-label="Pages"
+        contentEditable={false}
+        data-course-paginated-nav=""
+        className="sc-course-paginated__nav"
+      >
         <button
           type="button"
           aria-label="Previous page"
@@ -151,34 +174,36 @@ export function PaginatedLayoutShell({
           onClick={() => {
             if (previousPage) onActivate(previousPage.id);
           }}
-          className="sc-paginated-layout__step"
+          className="sc-course-paginated__step sc-course-paginated__step--previous"
         >
           <CaretLeft size={iconSm} aria-hidden />
         </button>
-        <ol className="sc-paginated-layout__pages">
-          {pages.map((page) => (
-            <li key={page.id} className="sc-paginated-layout__page-item">
-              <PaginatedPageButton
-                isActive={page.id === activeId}
-                layoutId={layoutId}
-                onActivate={() => onActivate(page.id)}
-                onKeyDown={(event) => {
-                  const next = nextPageForKey({
-                    key: event.key,
-                    pageId: page.id,
-                    pages,
-                  });
-                  if (!next) return;
-                  event.preventDefault();
-                  onActivate(next.id);
-                  focusPaginatedPageButton(layoutId, next.id);
-                }}
-                page={page}
-              />
-            </li>
-          ))}
-        </ol>
-        {footer}
+        <div data-course-paginated-lane="" className="sc-course-paginated__lane">
+          <ol className="sc-course-paginated__pages">
+            {pages.map((page) => (
+              <li key={page.id} className="sc-course-paginated__page-item">
+                <PaginatedPageButton
+                  isActive={page.id === activeId}
+                  layoutId={layoutId}
+                  onActivate={() => onActivate(page.id)}
+                  onKeyDown={(event) => {
+                    const next = nextPageForKey({
+                      key: event.key,
+                      pageId: page.id,
+                      pages,
+                    });
+                    if (!next) return;
+                    event.preventDefault();
+                    onActivate(next.id);
+                    focusPaginatedPageButton(layoutId, next.id);
+                  }}
+                  page={page}
+                />
+              </li>
+            ))}
+          </ol>
+          {footer}
+        </div>
         <button
           type="button"
           aria-label="Next page"
@@ -186,12 +211,15 @@ export function PaginatedLayoutShell({
           onClick={() => {
             if (nextPage) onActivate(nextPage.id);
           }}
-          className="sc-paginated-layout__step"
+          className="sc-course-paginated__step sc-course-paginated__step--next"
         >
           <CaretRight size={iconSm} aria-hidden />
         </button>
-        <span className="sc-paginated-layout__count">
+        <span aria-hidden className="sc-course-paginated__count">
           {pages.length > 0 ? currentIndex + 1 : 0}/{pages.length}
+        </span>
+        <span role="status" aria-live="polite" aria-atomic="true" className="sc-sr-only">
+          {pageAnnouncement}
         </span>
       </nav>
     </>
@@ -221,9 +249,10 @@ export function PaginatedPageButton({
       data-state={isActive ? "active" : "inactive"}
       onClick={onActivate}
       onKeyDown={onKeyDown}
-      className="sc-paginated-layout__page"
+      data-course-paginated-page=""
+      className="sc-course-paginated__page"
     >
-      <span aria-hidden className="sc-paginated-layout__page-label">
+      <span aria-hidden className="sc-course-paginated__page-label">
         {page.index + 1}
       </span>
     </button>

@@ -40,7 +40,9 @@ const browserUsedMethods = [
       "frontend/src/assessment-port.ts",
       "frontend/src/authoring-ports.ts",
       "frontend/src/learner-activity-port.ts",
+      "frontend/src/learner-publication-port.ts",
       "frontend/src/media-port.ts",
+      "frontend/src/moodle-payload.ts",
       "frontend/src/ports.ts",
       "frontend/src/learning-event-port.ts",
     ].flatMap((path) =>
@@ -66,9 +68,11 @@ describe("Moodle bridge protocol", () => {
     expect(browserUsedMethods).toEqual(registeredAjaxMethods);
   });
 
-  it("keeps grade-item publication status in the content-save contract", () => {
+  it("keeps Save canonical-only and returns its opaque revision", () => {
     const saveContentSource = readAdapterFile("scaffold/classes/external/save_content.php");
-    expect(saveContentSource.match(/'gradeItemPublication'/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(saveContentSource.match(/'artifactRevision'/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(saveContentSource).not.toContain("gradeItemPublication");
+    expect(saveContentSource).not.toContain("learnercontentjson");
   });
 
   it("allows exactly the registered browser method surface", () => {

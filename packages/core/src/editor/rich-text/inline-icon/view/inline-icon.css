@@ -22,6 +22,11 @@
     --sc-inline-icon-size: 2em;
   }
 
+  .sc-inline-icon[data-icon-size="sm"],
+  .sc-inline-icon-static[data-icon-size="sm"] {
+    vertical-align: text-bottom;
+  }
+
   .sc-inline-icon[data-icon-size="lg"],
   .sc-inline-icon-static[data-icon-size="lg"] {
     --sc-inline-icon-size: 3em;

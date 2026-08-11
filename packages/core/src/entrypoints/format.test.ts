@@ -3,40 +3,31 @@ import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 import * as format from "@scaffold/core/format";
 // @ts-expect-error Authoring mutation commands are not part of the trusted format read seam.
 import type { CourseStructureCommand } from "@scaffold/core/format";
+// @ts-expect-error Authoring compatibility node implementations are private to Core authoring.
+import type { UnavailableContentNodeView } from "@scaffold/core/format";
+// @ts-expect-error Authoring establishment results remain inside Core authoring preparation.
+import type { AuthoringDocumentEstablishmentResult } from "@scaffold/core/format";
 import type {
-  AuthoringDocumentCanonicalizationResult,
-  AuthoringDocumentEstablishmentResult,
   CourseSectionId,
   CourseDocumentAttrs,
   ScaffoldArtifact,
   ScaffoldDocumentContent,
-  ScaffoldUninitializedAuthoringBootstrap,
   CourseMode,
   CreateScaffoldArtifactInput,
   CreateScaffoldDocumentContentInput,
-  DocumentEstablishmentIssue,
-  EstablishedDocumentFormat,
-  LearnerProjectionReadinessResult,
   OverflowMode,
-  PreparedScaffoldArtifact,
-  PreparedScaffoldArtifactValue,
   ProjectedCourseSection,
   ProjectedCourseStructure,
   ProjectedCourseSurface,
   ProjectedPageCourseStructure,
-  ProjectedSectionedSlideshowCourseStructure,
   ProjectedSlideshowCourseStructure,
-  ProjectedUnsectionedSlideshowCourseStructure,
   SurfaceAttrs,
   SurfaceBackground,
   SurfaceId,
   SurfaceSize,
-  UnavailableCapabilityKind,
-  UnavailableContentRef,
 } from "@scaffold/core/format";
 
 type FormatTypeSurface = {
-  authoringCanonicalization: AuthoringDocumentCanonicalizationResult;
   authoringEstablishment: AuthoringDocumentEstablishmentResult;
   artifact: ScaffoldArtifact;
   artifactInput: CreateScaffoldArtifactInput;
@@ -44,28 +35,19 @@ type FormatTypeSurface = {
   contentInput: CreateScaffoldDocumentContentInput;
   courseSectionId: CourseSectionId;
   documentAttrs: CourseDocumentAttrs;
-  establishmentIssue: DocumentEstablishmentIssue;
-  establishedFormat: EstablishedDocumentFormat;
-  learnerReadiness: LearnerProjectionReadinessResult;
   mode: CourseMode;
   overflowMode: OverflowMode;
-  preparedArtifact: PreparedScaffoldArtifact;
-  preparedArtifactValue: PreparedScaffoldArtifactValue;
   projectedCourseSection: ProjectedCourseSection;
   projectedCourseStructure: ProjectedCourseStructure;
   projectedCourseSurface: ProjectedCourseSurface;
   projectedPageCourseStructure: ProjectedPageCourseStructure;
-  projectedSectionedSlideshowCourseStructure: ProjectedSectionedSlideshowCourseStructure;
   projectedSlideshowCourseStructure: ProjectedSlideshowCourseStructure;
-  projectedUnsectionedSlideshowCourseStructure: ProjectedUnsectionedSlideshowCourseStructure;
   surfaceAttrs: SurfaceAttrs;
   surfaceBackground: SurfaceBackground;
   surfaceId: SurfaceId;
   surfaceSize: SurfaceSize;
-  unavailableCapabilityKind: UnavailableCapabilityKind;
-  unavailableContentRef: UnavailableContentRef;
-  uninitializedBootstrap: ScaffoldUninitializedAuthoringBootstrap;
   mutationViolation: CourseStructureCommand;
+  compatibilityPresentationViolation: UnavailableContentNodeView;
 };
 
 describe("@scaffold/core/format", () => {
@@ -81,9 +63,9 @@ describe("@scaffold/core/format", () => {
       "SurfaceSizeSchema",
       "createScaffoldArtifact",
       "createScaffoldDocumentContent",
-      "prepareScaffoldArtifactForAuthoring",
       "projectCourseStructure",
       "readCourseDocumentAttrs",
+      "readCourseDocumentFormatVersion",
       "readCourseDocumentMode",
     ]);
     expect(Object.values(format).every((value) => value !== undefined)).toBe(true);
@@ -105,5 +87,10 @@ describe("@scaffold/core/format", () => {
       surfaceIds: ["surface-page"],
     });
     expect(format).not.toHaveProperty("applyCourseStructureCommand");
+  });
+
+  it("keeps authoring preparation and compatibility working state off the format seam", () => {
+    expect(format).not.toHaveProperty("prepareScaffoldArtifactForAuthoring");
+    expect(format).not.toHaveProperty("prepareCourseDocumentAuthoringMount");
   });
 });

@@ -158,7 +158,7 @@ export interface RepresentativeSemanticDocumentFixture {
 }
 
 export function createRepresentativeSemanticDocumentFixture(input: {
-  readonly kind: "page" | "unsectioned-slideshow" | "sectioned-slideshow";
+  readonly kind: "page" | "slideshow";
 }): RepresentativeSemanticDocumentFixture {
   const callbackCounts: SemanticFixtureCallbackCounts = {
     layoutSection: 0,
@@ -170,7 +170,7 @@ export function createRepresentativeSemanticDocumentFixture(input: {
   const surfaces = Array.from({ length: surfaceCount }, (_, index) =>
     representativeSurface(index + 1),
   );
-  const courseSectionId = input.kind === "sectioned-slideshow" ? makeNodeId("cs", 1) : null;
+  const courseSectionId = input.kind === "slideshow" ? makeNodeId("cs", 1) : null;
   const courseChildren = [
     ...(courseSectionId
       ? [schema.node("courseSection", { id: courseSectionId, title: "Practice" })]
@@ -249,7 +249,10 @@ export function createScaleSemanticDocumentFixture(input: {
     const region = schema.node("region", { id: makeNodeId("rg", ordinal), role: "main" }, [layout]);
     return schema.node("surface", { id: surfaceId, variant: "scale-surface" }, [region]);
   });
-  const doc = documentNode("slideshow", surfaces);
+  const doc = documentNode("slideshow", [
+    schema.node("courseSection", { id: makeNodeId("cs", 1), title: "Scale" }),
+    ...surfaces,
+  ]);
 
   return {
     doc,

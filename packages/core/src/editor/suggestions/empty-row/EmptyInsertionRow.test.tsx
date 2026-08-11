@@ -8,6 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import {
   createScaffoldApplication,
   defineScaffoldExtensionPack,
@@ -31,7 +32,12 @@ import {
 const resolveEmptyInsertionTarget = (
   state: Parameters<typeof resolveEmptyInsertionTargetWithLookup>[0],
 ) =>
-  resolveEmptyInsertionTargetWithLookup(state, builtInBlockRegistry, builtInSurfaceVariantRegistry);
+  resolveEmptyInsertionTargetWithLookup(
+    state,
+    builtInBlockRegistry,
+    builtInLayoutRegistry,
+    builtInSurfaceVariantRegistry,
+  );
 
 const ownedEditors = new Map<Editor, HTMLElement | null>();
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();

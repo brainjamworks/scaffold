@@ -140,7 +140,7 @@ export function AccordionLayoutShell({
       data-scaffold-accordion=""
       data-scaffold-accordion-multiple={options.allowMultiple ? "true" : undefined}
       data-variant={options.variant}
-      className="sc-accordion"
+      className="sc-course-accordion__root"
     >
       {children}
       {footer}
@@ -160,7 +160,7 @@ export function AccordionSectionFrame({
   state?: "open" | "closed";
 }) {
   return (
-    <div data-state={state} className="sc-accordion-section__frame">
+    <div data-state={state} className="sc-course-accordion__section-frame">
       {before}
       {children}
       {after}

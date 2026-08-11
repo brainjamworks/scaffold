@@ -7,9 +7,12 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
-import { LAYOUT_FLOATING_AUTHORING_CONTROLS } from "@/editor/arrangements/layout/authoring/layout-floating-controls";
+import { createLayoutFloatingAuthoringControls } from "@/editor/arrangements/layout/authoring/layout-floating-controls";
 import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import {
+  builtInBlockCapabilityRegistrations,
+  builtInBlockRegistry,
+} from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { builtInSurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-views";
 import { AUTHORING_INTERACTION_ROOT_ATTR } from "@/editor/interactions/dom/authoring-root";
@@ -45,7 +48,7 @@ const TestLayoutNode = Node.create({
   },
 });
 const testCapabilities = resolveScaffoldCapabilities({
-  blockDefinitions: builtInBlockRegistry.definitions,
+  blockCapabilities: builtInBlockCapabilityRegistrations,
   layoutDefinitions: builtInLayoutDefinitions,
   surfaceDefinitions: [],
 });
@@ -194,7 +197,9 @@ describe("AuthoringContentChrome", () => {
         pos: 0,
       }),
     ).toBe(true);
-    expect(LAYOUT_FLOATING_AUTHORING_CONTROLS[0].resolveState(editor)).toMatchObject({
+    expect(
+      createLayoutFloatingAuthoringControls(builtInBlockRegistry)[0].resolveState(editor),
+    ).toMatchObject({
       target: {
         id: "layout-content-only",
         kind: InteractionTargetKind.Layout,

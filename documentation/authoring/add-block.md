@@ -1,11 +1,12 @@
 # Add A Block
 
-```sh
-vp exec node scripts/create-block.mjs --name MyBlock --recipe content
-```
+Scaffold intentionally does not generate Block files. Use this guide as the
+implementation checklist and copy only the relevant shape from a blessed
+example. This keeps new Blocks aligned with the current application,
+composition and capability architecture rather than a parallel template
+implementation.
 
-Use the scaffolder first. Do not create a block folder by hand unless the scaffolder cannot represent the intended recipe.
-Choose the content shape before generating the block. Blocks own authored
+Choose the content shape before creating the Block. Blocks own authored
 content or one atomic widget; layouts own repeated regions that can contain
 other blocks.
 
@@ -30,7 +31,8 @@ NodeViews around `text_content+` child nodes.
 | `shell-widget`         | The block is an assessment shell with one opaque atomic widget child for the interactive surface.                                               | Image Hotspot: `packages/core/src/editor/blocks/assessment/image-hotspot` |
 | `media-widget`         | The block is one visible atomic/media widget with structured data and no assessment projection.                                                 | `packages/core/src/editor/blocks/media/image`                             |
 
-These recipe names are canonical. Use the same names in plans, docs, review comments, and generated tests.
+These recipe names are canonical. Use the same names in plans, docs, review
+comments, and contract tests.
 
 ## Catalog Category
 
@@ -61,30 +63,32 @@ progress without an assessment answer key, use `activity`.
 
 ## Required Shape
 
-Generated block definitions and lane composition must stay explicit. A
-definition is a pure value: importing it must not mutate a registry, lane list,
-or insert catalog.
+Block definitions and lane composition must stay explicit. A definition is a
+pure value: importing it must not mutate a registry, lane list, or insert
+catalog.
 
 ```txt
-pure block definitions
+pure block definition + optional operational capabilities
         |
-        +--> builtInBlockDefinitions --> immutable lookup by nodeType
-        +--> authoring extension list --> authoring composition
-        +--> runtime extension list   --> runtime composition
+        +--> builtInBlockCapabilityRegistrations
+                +--> builtInBlockDefinitions --> immutable lookup by nodeType
+                +--> builtInBlockAuthoringBindings --> authoring composition
+                +--> builtInBlockRuntimeBindings   --> runtime composition
 
 definition.insert + explicit non-block actions
         |
         +--> builtInInsertCatalog
 ```
 
-- Declare metadata through one pure `defineBlock(...)` definition and import it
-  into `built-in-block-definitions.ts`.
-- Export learner-safe runtime and authoring extension bundles, then add them to
-  the arrays returned by `createRuntimeBlockExtensions(...)` in
-  `runtime-block-extensions.ts` and `createAuthoringBlockExtensions(...)` in
-  `authoring-block-extensions.ts`. Include the parent node and private child
-  nodes such as title, item, prompt, term, definition, canvas, or group nodes in
-  dependency order inside each bundle.
+- Declare metadata through one pure `defineBlock(...)` definition and add its
+  registration to `builtInBlockCapabilityRegistrations`. Add an operational
+  capability such as duplication repair only when the Block owns private
+  references that require it; do not put that operation on the definition.
+- Export learner-safe runtime and authoring extension bundles, then add bindings
+  for them to `builtInBlockRuntimeBindings` in `runtime-block-extensions.ts` and
+  `builtInBlockAuthoringBindings` in `authoring-block-extensions.ts`. Include
+  the parent node and private child nodes such as title, item, prompt, term,
+  definition, canvas, or group nodes in dependency order inside each bundle.
 - Let `built-in-insert-catalog.ts` derive block actions from
   `builtInBlockDefinitions`; do not add import-time or mutable insertion setup.
 - Do not add a course block or its private child nodes to the document
@@ -96,9 +100,10 @@ definition.insert + explicit non-block actions
   adaptation role; `schemas/` and `configuration/` are not blanket shared
   owners.
 - Derive TypeScript types with `z.infer`; do not hand-write sibling payload types.
-- Use `stableNodeIdAttribute()` on the parent node and `createStableId()` for
-  inserted top-level block ids.
-- Use `describeBlockContract(...)` in the generated test.
+- Let the globally mounted Tiptap UniqueID extension own `attrs.id` for every
+  persisted node except `doc` and `text`. When insertion or fixture JSON
+  supplies a node id explicitly, generate it with `createEmbeddedNodeId()`.
+- Use `describeBlockContract(...)` in the Block's contract test.
 - Keep the block `index.tsx` as a side-effect-free convenience barrel. It may
   be exported from `packages/core/src/editor/blocks/index.ts`, but that is not
   construction. Runtime composition must use the block runtime extension
@@ -145,7 +150,9 @@ packages/core/src/editor/blocks/<Block>/
 
 `<block>-definition.ts` owns pure shared metadata: frame metadata,
 placeholders, identity, insert metadata, settings configuration, and
-assessment/activity capability metadata.
+assessment/activity capability metadata. Operational policies such as private
+reference repair belong to the capability registration, not the definition or
+Tiptap node type.
 
 `<block>-runtime-extension.tsx` owns learner-safe NodeView wiring. It must be
 safe for `CourseDocumentViewer` and LMS learner bundles to import.
@@ -181,12 +188,12 @@ example.
 
 Attr ownership must follow the shared model:
 
-| Need                  | Attr/Structure                     |
-| --------------------- | ---------------------------------- |
-| Stable block identity | `attrs.id` from `createStableId()` |
-| Rich authored content | ProseMirror child nodes            |
-| Assessment settings   | `attrs.settings`                   |
-| Atomic/widget payload | `attrs.data`                       |
+| Need                  | Attr/Structure                                                                     |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| Stable block identity | Global UniqueID-owned `attrs.id`; explicit node JSON uses `createEmbeddedNodeId()` |
+| Rich authored content | ProseMirror child nodes                                                            |
+| Assessment settings   | `attrs.settings`                                                                   |
+| Atomic/widget payload | `attrs.data`                                                                       |
 
 Configuration schema ownership:
 
@@ -215,9 +222,9 @@ selection, bubble menus, and frame state.
 
 Do not keep learner preview behavior in the authoring NodeView behind
 `editor.isEditable` or `editable=false`. The preview/learner path must use the
-runtime extension. If a generated scaffold still has an explicit implementation
-gap, use a throwing function until it is implemented; do not leave passive
-comment markers such as TODO, FIXME, or placeholder prose in source.
+runtime extension. If an implementation still has an explicit gap, use a
+throwing function until it is implemented; do not leave passive comment markers
+such as TODO, FIXME, or placeholder prose in source.
 
 ## Assessment Component Recipe
 
@@ -235,7 +242,7 @@ Learner feedback and correctness display must come from runtime feedback/reveal 
 
 ## Commands
 
-After generating the block, run the generated contract test:
+After implementing the Block, run its contract test:
 
 ```sh
 vp run @scaffold/core#test -- MyBlock.test.ts
@@ -265,7 +272,8 @@ facets render without console errors.
 
 ## Bans
 
-- Do not add fake future hooks, unused definition slots, or generated files for recipes that do not need them.
+- Do not add fake future hooks, unused definition slots, or files that the
+  selected recipe does not need.
 - Do not create fake layout or section blocks from block recipes.
 - Do not add block extensions to the document composers. Base composers are for
   base editor infrastructure only.

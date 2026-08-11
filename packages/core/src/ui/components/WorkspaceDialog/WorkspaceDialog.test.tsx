@@ -76,6 +76,17 @@ function ToolbarWorkspaceDialog({ onAdd }: { onAdd: () => void }) {
   );
 }
 
+function WorkspaceRowControls() {
+  return (
+    <>
+      <WorkspaceDialog.RowAction aria-label="Move annotation up">
+        <span aria-hidden>up</span>
+      </WorkspaceDialog.RowAction>
+      <WorkspaceDialog.TextField aria-label="Annotation title" defaultValue="Source" />
+    </>
+  );
+}
+
 function ContainedEditorWorkspaceDialog() {
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -120,6 +131,19 @@ function BoundaryProbe({
 }
 
 describe("WorkspaceDialog", () => {
+  it("owns row actions and fields used by external editor workspaces", () => {
+    render(<WorkspaceRowControls />);
+
+    expect(screen.getByRole("button", { name: "Move annotation up" })).toHaveClass(
+      "sc-workspace-dialog-row-action",
+    );
+    expect(
+      screen
+        .getByRole("textbox", { name: "Annotation title" })
+        .closest(".sc-workspace-dialog-text-field"),
+    ).not.toBeNull();
+  });
+
   it("exposes an accessible controlled modal composition", async () => {
     render(<ControlledWorkspaceDialog />);
 

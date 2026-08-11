@@ -3,6 +3,8 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vite-plus/test";
 
+import { deriveSettingsSheetDefinition } from "@/editor/configuration/settings-sheet-derivation";
+
 import {
   AccordionLayoutShell,
   AccordionSectionFrame,
@@ -16,8 +18,25 @@ import {
   readAccordionSections,
   readRequiredAccordionNodeId,
 } from "./accordion-components";
+import { accordionLayoutDefinition } from "./accordion-definition";
 
 describe("accordion shared components", () => {
+  it("exposes the multiple-open option clearly through the Accordion settings sheet", () => {
+    const settingsSheet = deriveSettingsSheetDefinition(
+      accordionLayoutDefinition.configuration,
+    );
+    const allowMultiple = settingsSheet?.sections
+      .flatMap((section) => section.items)
+      .find((item) => item.kind !== "directChildCollection" && item.name === "allowMultiple");
+
+    expect(allowMultiple).toMatchObject({
+      kind: "boolean",
+      label: "Allow multiple sections open",
+      description: "Turn this off to keep only one section open at a time.",
+      presentation: "switch",
+    });
+  });
+
   it("reads persisted options and falls back to defaults", () => {
     expect(
       readAccordionOptions({
@@ -134,7 +153,7 @@ describe("accordion shared components", () => {
     expect(screen.getByRole("group").getAttribute("data-variant")).toBe("borderless");
     expect(screen.getByRole("group").getAttribute("data-scaffold-accordion-multiple")).toBe("true");
     expect(screen.getByText("Add section")).toBeInTheDocument();
-    expect(container.querySelector(".sc-accordion")).not.toBeNull();
+    expect(container.querySelector(".sc-course-accordion__root")).not.toBeNull();
 
     cleanup();
 
@@ -147,6 +166,6 @@ describe("accordion shared components", () => {
     expect(screen.getByText("before")).toBeInTheDocument();
     expect(screen.getByText("after")).toBeInTheDocument();
     expect(screen.getByText("Section body")).toBeInTheDocument();
-    expect(section.container.querySelector(".sc-accordion-section__frame")).not.toBeNull();
+    expect(section.container.querySelector(".sc-course-accordion__section-frame")).not.toBeNull();
   });
 });

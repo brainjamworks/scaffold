@@ -5,6 +5,7 @@ import { BubbleMenu } from "@tiptap/react/menus";
 import { useCallback, useEffect, useLayoutEffect, useRef, type ComponentProps } from "react";
 
 import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import { isEditorResizeGestureActive } from "@/editor/interactions/gesture/editor-resize-gesture";
 import {
@@ -273,7 +274,11 @@ export function BlockInteractionBubbleMenuContent({
 
   return (
     <>
-      <DuplicateBlock blockDefinitions={blockDefinitions} editor={editor} pos={pos} />
+      <DuplicateBlock
+        blockDuplications={getScaffoldCapabilitiesForEditor(editor).blocks.duplication}
+        editor={editor}
+        pos={pos}
+      />
       <DeleteBlock editor={editor} pos={pos} />
       {descriptor.capabilities.supportsResize ? (
         <>

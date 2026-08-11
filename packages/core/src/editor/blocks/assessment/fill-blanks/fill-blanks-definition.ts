@@ -1,9 +1,8 @@
 import { BracketsCurlyIcon as BracketsCurly } from "@phosphor-icons/react";
 
 import { assessmentShellPlaceholders } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
-import { rewriteFillBlanksCopiedContent } from "@/editor/blocks/assessment/shared/identity/copy-identity";
 import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import type { ConfigurationControlDescriptor } from "@/editor/configuration/definition";
 import {
@@ -72,7 +71,7 @@ const fillBlanksConfiguration = createAssessmentConfiguration({
 });
 
 function blankNode(answer: string) {
-  const id = createStableId();
+  const id = createEmbeddedNodeId();
   return {
     type: "fill_blank",
     attrs: {
@@ -107,7 +106,6 @@ function fillBlanksAuthoringControls({
 export const fillBlanksBlockDefinition = defineBlock({
   nodeType: "fill_blanks",
   title: "Fill in the blanks",
-  rewriteCopiedContent: rewriteFillBlanksCopiedContent,
   boundedPlacement: "fill",
   authoringControls: {
     controls: fillBlanksAuthoringControls,
@@ -147,7 +145,7 @@ export const fillBlanksBlockDefinition = defineBlock({
       return {
         type: "fill_blanks",
         attrs: {
-          id: createStableId(),
+          id: createEmbeddedNodeId(),
           assessment: FillBlanksPrivateAssessmentSchema.parse({
             blanksById: {
               [blank.attrs.id]: blank.assessmentEntry,

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 
-import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
+import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor.test-harness";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { createInteractionOwnerCommandPorts } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-command-ports";
 import { createScaffoldDocumentContent } from "@/format/artifact";

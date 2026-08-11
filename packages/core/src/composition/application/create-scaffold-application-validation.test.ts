@@ -406,6 +406,21 @@ describe("createScaffoldApplication", () => {
     },
   );
 
+  it("rejects a Block capability whose duplication operation is not callable", () => {
+    const nodeType = "malformed_duplication";
+    const capability = testBlockCapability(nodeType, {
+      duplication: "not callable" as unknown as NonNullable<BlockCapability["duplication"]>,
+    });
+    const pack = defineScaffoldExtensionPack({
+      id: "malformed-duplication-host",
+      blocks: [capability],
+    });
+
+    expect(() => createScaffoldApplication({ packs: [pack] })).toThrow(
+      `Block capability "${nodeType}" duplication operation must be callable.`,
+    );
+  });
+
   it.each(["authoring", "runtime"] as const)(
     "rejects a Block capability whose %s bundle lacks its persisted root Node",
     (lane) => {
@@ -616,7 +631,7 @@ describe("createScaffoldApplication", () => {
     expect(() =>
       createBlockCapabilitiesFromBindings({
         owner: "Core",
-        definitions: [{ nodeType: "joined", title: "Joined" }],
+        registrations: [{ definition: { nodeType: "joined", title: "Joined" } }],
         authoringBindings: testCase.authoringBindings,
         runtimeBindings: testCase.runtimeBindings,
       }),

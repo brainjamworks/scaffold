@@ -26,7 +26,7 @@ const BLOCK = "v2_keyboard_workflow_block";
 
 const testBlockRegistry = createBlockRegistry([defineBlock({ nodeType: BLOCK })]);
 const testCapabilities = resolveScaffoldCapabilities({
-  blockDefinitions: testBlockRegistry.definitions,
+  blockCapabilities: testBlockRegistry.definitions.map((definition) => ({ definition })),
   layoutDefinitions: [],
   surfaceDefinitions: [],
 });

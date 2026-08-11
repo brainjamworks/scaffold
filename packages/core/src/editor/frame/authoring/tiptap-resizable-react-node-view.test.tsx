@@ -22,6 +22,7 @@ import {
 import { courseBlockAuthoringFrameAttributes } from "../../interactions/dom/authoring-frame";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { InteractionOwnerCommandKind } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-command-model";
@@ -154,6 +155,7 @@ const TestResizableNode = Node.create({
   addNodeView() {
     return createTiptapResizableReactNodeView(TestResizableBlock, {
       blockDefinitions: testBlockRegistry,
+      layoutDefinitions: builtInLayoutRegistry,
       frame: {
         preserveAspectRatio: true,
         resizable: true,
@@ -188,6 +190,7 @@ const TestFixedFrameNode = Node.create({
   addNodeView() {
     return createTiptapResizableReactNodeView(TestResizableBlock, {
       blockDefinitions: testBlockRegistry,
+      layoutDefinitions: builtInLayoutRegistry,
       frame: {
         resizable: false,
       },
@@ -226,6 +229,7 @@ const TestTargetDisabledResizeNode = Node.create({
   addNodeView() {
     return createTiptapResizableReactNodeView(TestTargetDisabledBlock, {
       blockDefinitions: testBlockRegistry,
+      layoutDefinitions: builtInLayoutRegistry,
       frame: {
         preserveAspectRatio: true,
         resizable: true,
@@ -269,6 +273,7 @@ const TestExplicitSurfaceResizeNode = Node.create({
   addNodeView() {
     return createTiptapResizableReactNodeView(TestExplicitSurfaceBlock, {
       blockDefinitions: testBlockRegistry,
+      layoutDefinitions: builtInLayoutRegistry,
       frame: {
         resizable: true,
         resizeMode: "responsive",

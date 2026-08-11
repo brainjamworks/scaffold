@@ -3,29 +3,44 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { ScaffoldApplication } from "@scaffold/core/extensions";
+import type { ScaffoldLearnerPublication } from "@scaffold/core/ports";
 import type { ScaffoldLearnerAppProps } from "@scaffold/core/runtime";
 
-import { installWheelScrollForwarding, readDocumentHeight } from "./mount-inner-lifecycle";
+import {
+  installWheelScrollForwarding,
+  mountXBlockInner,
+  readDocumentHeight,
+} from "./mount-inner-lifecycle";
 import { createScaffoldArtifact, ScaffoldArtifactSchema } from "@scaffold/core/format";
 import type { ScaffoldXBlockInnerInitPayload } from "../types";
 import { XBlockStudentApp } from "./XBlockStudentApp";
 import type { XBlockInnerBridge } from "./xblock-inner-bridge";
+import { createXBlockBridgeLifecycleMessage } from "../bridge/protocol";
 
 const studentMountMocks = vi.hoisted(() => ({
+  applications: [] as ScaffoldApplication[],
   learnerAppProps: [] as ScaffoldLearnerAppProps[],
-  runtimeCompositions: [] as ScaffoldLearnerAppProps["composition"][],
 }));
+
+vi.mock("@scaffold/core/extensions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@scaffold/core/extensions")>();
+
+  return {
+    ...actual,
+    createScaffoldApplication: () => {
+      const application = actual.createScaffoldApplication();
+      studentMountMocks.applications.push(application);
+      return application;
+    },
+  };
+});
 
 vi.mock("@scaffold/core/runtime", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@scaffold/core/runtime")>();
 
   return {
     ...actual,
-    createCoreScaffoldRuntimeComposition: () => {
-      const composition = actual.createCoreScaffoldRuntimeComposition();
-      studentMountMocks.runtimeCompositions.push(composition);
-      return composition;
-    },
     ScaffoldLearnerApp: (props: ScaffoldLearnerAppProps) => {
       studentMountMocks.learnerAppProps.push(props);
       return null;
@@ -34,9 +49,22 @@ vi.mock("@scaffold/core/runtime", async (importOriginal) => {
 });
 
 describe("XBlockStudentApp mounted configuration", () => {
-  it("mounts the exact module-stable Core runtime composition", () => {
+  beforeEach(() => {
+    studentMountMocks.applications.length = 0;
+    studentMountMocks.learnerAppProps.length = 0;
+  });
+
+  it("mounts the exact module-stable application runtime composition", () => {
     const data = {
       view: "student" as const,
+      artifactAccess: {
+        status: "supported" as const,
+        artifact: {
+          id: "xblock-student-artifact",
+          title: "Student content",
+          mode: "page" as const,
+        },
+      },
       artifact: ScaffoldArtifactSchema.parse(
         createScaffoldArtifact({
           id: "xblock-student-artifact",
@@ -46,19 +74,120 @@ describe("XBlockStudentApp mounted configuration", () => {
         }),
       ),
       initialLearnerState: {},
+      learnerPublication: {
+        status: "supported",
+        learnerContent: ScaffoldArtifactSchema.parse(
+          createScaffoldArtifact({ id: "usage-v1", title: "Scaffold", mode: "page" }),
+        ).content!,
+      },
     } satisfies ScaffoldXBlockInnerInitPayload;
     const bridge = createBridgeStub();
 
     renderToStaticMarkup(createElement(XBlockStudentApp, { data, bridge }));
     renderToStaticMarkup(createElement(XBlockStudentApp, { data, bridge }));
 
-    expect(studentMountMocks.runtimeCompositions).toHaveLength(1);
+    expect(studentMountMocks.applications).toHaveLength(0);
     expect(studentMountMocks.learnerAppProps).toHaveLength(2);
-    expect(studentMountMocks.learnerAppProps[0]?.composition).toBe(
-      studentMountMocks.runtimeCompositions[0],
-    );
     expect(studentMountMocks.learnerAppProps[1]?.composition).toBe(
-      studentMountMocks.runtimeCompositions[0],
+      studentMountMocks.learnerAppProps[0]?.composition,
+    );
+    expect(studentMountMocks.learnerAppProps[0]?.bootstrap.publication).toBe(
+      data.learnerPublication,
+    );
+    expect(studentMountMocks.learnerAppProps[0]?.productAccess).toEqual({
+      scaffoldPlusAuthorized: false,
+    });
+  });
+
+  it.each([
+    {
+      status: "unavailable-content",
+      unavailableContent: [
+        {
+          kind: "block",
+          capabilityId: "plus_private_block",
+          stableId: "plusblock001",
+          path: ["content", 0],
+        },
+      ],
+    },
+    {
+      status: "invalid",
+      issues: [{ code: "invalid_document", message: "Invalid document.", path: [] }],
+    },
+    {
+      status: "unsupported-core-format",
+      documentVersion: 5,
+      supportedVersion: 4,
+      message: "Future format.",
+    },
+  ] satisfies ScaffoldLearnerPublication[])(
+    "passes the $status learner refusal through without authoring bootstrap",
+    (learnerPublication) => {
+      const data = {
+        view: "student" as const,
+        artifactAccess: {
+          status: "supported" as const,
+          artifact: { id: "usage-v1", title: "Scaffold", mode: "page" as const },
+        },
+        artifact: ScaffoldArtifactSchema.parse(
+          createScaffoldArtifact({ id: "usage-v1", title: "Scaffold", mode: "page" }),
+        ),
+        initialLearnerState: {},
+        learnerPublication,
+      } satisfies ScaffoldXBlockInnerInitPayload;
+
+      renderToStaticMarkup(createElement(XBlockStudentApp, { data, bridge: createBridgeStub() }));
+
+      expect(studentMountMocks.applications).toHaveLength(0);
+      expect(studentMountMocks.learnerAppProps).toHaveLength(1);
+      expect(studentMountMocks.learnerAppProps[0]?.bootstrap.publication).toBe(learnerPublication);
+    },
+  );
+});
+
+describe("mountXBlockInner product refusal", () => {
+  it("renders the safe Plus refusal without invoking the application mount", () => {
+    document.body.innerHTML = '<div id="scaffold-xblock-inner-root"></div>';
+    window.history.replaceState(
+      {},
+      "",
+      "?sessionId=session-1&parentOrigin=https%3A%2F%2Fstudio.example",
+    );
+    const mount = vi.fn();
+    const addDocumentListener = document.addEventListener.bind(document);
+    const addEventListener = vi
+      .spyOn(document, "addEventListener")
+      .mockImplementation((type, listener, options) => {
+        if (type !== "wheel") addDocumentListener(type, listener, options);
+      });
+
+    mountXBlockInner({ view: "studio", mount });
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        origin: "https://studio.example",
+        source: window.parent,
+        data: createXBlockBridgeLifecycleMessage({
+          sessionId: "session-1",
+          type: "outer.init",
+          payload: {
+            view: "studio",
+            artifactAccess: {
+              status: "requires-scaffold-plus",
+              artifact: { id: "usage-v1", title: "Scaffold", mode: "page" },
+            },
+            artifact: null,
+            initialLearnerState: {},
+            learnerPublication: { status: "requires-scaffold-plus" },
+          },
+        }),
+      }),
+    );
+    addEventListener.mockRestore();
+
+    expect(mount).not.toHaveBeenCalled();
+    expect(document.getElementById("scaffold-xblock-inner-root")?.textContent).toContain(
+      "This course requires Scaffold Plus.",
     );
   });
 });

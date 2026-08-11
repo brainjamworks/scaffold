@@ -86,6 +86,58 @@ describe("paginated layout shared components", () => {
     expect(onActivate).toHaveBeenCalledWith("page-b");
   });
 
+  it("contains long pagination in a scroll lane and announces active page changes", () => {
+    const pages = Array.from({ length: 10 }, (_, index) => ({
+      id: `page-${index + 1}`,
+      index,
+      label: `Page ${index + 1}`,
+    }));
+    const { rerender } = render(
+      <PaginatedLayoutShell
+        activeId="page-1"
+        footer={<button type="button">Add page</button>}
+        layoutId="layout-long"
+        onActivate={vi.fn()}
+        pages={pages}
+      >
+        <p>Current page</p>
+      </PaginatedLayoutShell>,
+    );
+
+    const nav = screen.getByRole("navigation", { name: "Pages" });
+    const lane = nav.querySelector<HTMLElement>("[data-course-paginated-lane]");
+    expect(lane).not.toBeNull();
+    expect(lane).toContainElement(screen.getByRole("button", { name: "Page 10" }));
+    expect(lane).toContainElement(screen.getByRole("button", { name: "Add page" }));
+    expect(lane).not.toContainElement(screen.getByRole("button", { name: "Previous page" }));
+    expect(lane).not.toContainElement(screen.getByRole("button", { name: "Next page" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Page 1 of 10");
+    const scrollBy = vi.fn();
+    lane!.scrollBy = scrollBy;
+    vi.spyOn(lane!, "getBoundingClientRect").mockReturnValue(
+      DOMRect.fromRect({ x: 0, width: 100, height: 44 }),
+    );
+    vi.spyOn(
+      screen.getByRole("button", { name: "Page 10" }),
+      "getBoundingClientRect",
+    ).mockReturnValue(DOMRect.fromRect({ x: 120, width: 44, height: 44 }));
+
+    rerender(
+      <PaginatedLayoutShell
+        activeId="page-10"
+        footer={<button type="button">Add page</button>}
+        layoutId="layout-long"
+        onActivate={vi.fn()}
+        pages={pages}
+      >
+        <p>Current page</p>
+      </PaginatedLayoutShell>,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Page 10 of 10");
+    expect(scrollBy).toHaveBeenCalledWith({ behavior: "auto", left: 64 });
+  });
+
   it("requires stable node ids", () => {
     expect(readRequiredPaginatedNodeId("layout-1", "layout")).toBe("layout-1");
     expect(() => readRequiredPaginatedNodeId("", "section")).toThrow(

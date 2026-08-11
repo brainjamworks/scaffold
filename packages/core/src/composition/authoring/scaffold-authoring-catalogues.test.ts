@@ -90,25 +90,28 @@ function createTestCapabilities({
   }),
 }: TestCapabilitiesOptions = {}) {
   return resolveScaffoldCapabilities({
-    blockDefinitions: [
+    blockCapabilities: [
       {
-        nodeType: "host_block",
-        insert: {
-          id: "host-block",
+        definition: {
+          nodeType: "host_block",
           title: "Host Block",
-          description: "A host Block",
-          icon: CircleIcon,
-          category: "content",
-          keywords: ["host"],
-          content: blockContent,
-          variants: [
-            {
-              id: "host-block-variant",
-              title: "Host Block Variant",
-              description: "A host Block variant",
-              content: () => ({ type: "host_block", attrs: { variant: true } }),
-            },
-          ],
+          insert: {
+            id: "host-block",
+            title: "Host Block",
+            description: "A host Block",
+            icon: CircleIcon,
+            category: "content",
+            keywords: ["host"],
+            content: blockContent,
+            variants: [
+              {
+                id: "host-block-variant",
+                title: "Host Block Variant",
+                description: "A host Block variant",
+                content: () => ({ type: "host_block", attrs: { variant: true } }),
+              },
+            ],
+          },
         },
       },
     ],

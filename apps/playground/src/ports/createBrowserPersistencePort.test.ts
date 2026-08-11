@@ -3,21 +3,18 @@ import "fake-indexeddb/auto";
 
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 
-import type { ArtifactSaveBundle } from "@scaffold/core/ports";
+import type { ArtifactSavePayload } from "@scaffold/core/ports";
 
 import { createBrowserPersistencePort } from "./createBrowserPersistencePort";
 import { resetBrowserStorage } from "./browserStorageDb";
 
-const sampleBundle = (overrides: Partial<ArtifactSaveBundle> = {}): ArtifactSaveBundle => ({
+const samplePayload = (overrides: Partial<ArtifactSavePayload> = {}): ArtifactSavePayload => ({
   artifact: {
     id: "artifact-1",
     title: "Untitled",
     mode: "page",
     content: { type: "doc", content: [] },
   },
-  learnerContent: { type: "doc", content: [] },
-  assessmentTargets: [],
-  assessmentGroups: [],
   ...overrides,
 });
 
@@ -33,19 +30,23 @@ describe("createBrowserPersistencePort", () => {
   it("persists a saved artifact and reads it back", async () => {
     const port = createBrowserPersistencePort({ saveLatencyMs: 0 });
     const result = await port.saveArtifact(
-      sampleBundle({
+      samplePayload({
         artifact: {
-          ...sampleBundle().artifact,
+          ...samplePayload().artifact,
           title: "Page one",
         },
       }),
     );
-    expect(result).toEqual({ artifact: { title: "Page one" } });
+    expect(result).toEqual({
+      artifact: { title: "Page one" },
+      artifactRevision: expect.any(String),
+    });
 
     const loaded = await port.loadArtifact("artifact-1");
     expect(loaded).not.toBeNull();
     expect(loaded?.artifact.title).toBe("Page one");
     expect(loaded?.artifact.id).toBe("artifact-1");
+    expect(loaded?.artifactRevision).toBe(result.artifactRevision);
     expect(loaded?.savedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
@@ -57,30 +58,32 @@ describe("createBrowserPersistencePort", () => {
 
   it("overwrites the same artifact id on subsequent saves", async () => {
     const port = createBrowserPersistencePort({ saveLatencyMs: 0 });
-    await port.saveArtifact(
-      sampleBundle({
-        artifact: { ...sampleBundle().artifact, title: "First" },
+    const first = await port.saveArtifact(
+      samplePayload({
+        artifact: { ...samplePayload().artifact, title: "First" },
       }),
     );
-    await port.saveArtifact(
-      sampleBundle({
-        artifact: { ...sampleBundle().artifact, title: "Second" },
+    const second = await port.saveArtifact(
+      samplePayload({
+        artifact: { ...samplePayload().artifact, title: "Second" },
       }),
     );
     const loaded = await port.loadArtifact("artifact-1");
     expect(loaded?.artifact.title).toBe("Second");
+    expect(second.artifactRevision).not.toBe(first.artifactRevision);
+    expect(loaded?.artifactRevision).toBe(second.artifactRevision);
   });
 
   it("clearArtifact removes a single artifact and leaves others intact", async () => {
     const port = createBrowserPersistencePort({ saveLatencyMs: 0 });
     await port.saveArtifact(
-      sampleBundle({
-        artifact: { ...sampleBundle().artifact, id: "artifact-1" },
+      samplePayload({
+        artifact: { ...samplePayload().artifact, id: "artifact-1" },
       }),
     );
     await port.saveArtifact(
-      sampleBundle({
-        artifact: { ...sampleBundle().artifact, id: "artifact-2" },
+      samplePayload({
+        artifact: { ...samplePayload().artifact, id: "artifact-2" },
       }),
     );
     await port.clearArtifact("artifact-1");
@@ -91,7 +94,7 @@ describe("createBrowserPersistencePort", () => {
   it("applies synthetic latency when configured", async () => {
     const port = createBrowserPersistencePort({ saveLatencyMs: 50 });
     const start = Date.now();
-    await port.saveArtifact(sampleBundle());
+    await port.saveArtifact(samplePayload());
     const elapsed = Date.now() - start;
     expect(elapsed).toBeGreaterThanOrEqual(45);
   });

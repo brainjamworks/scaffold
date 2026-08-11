@@ -2,8 +2,11 @@ import type { NodeViewRenderer } from "@tiptap/core";
 import { ReactNodeViewRenderer, type ReactNodeViewProps } from "@tiptap/react";
 import { Suspense, lazy, type ComponentType, type ReactElement } from "react";
 
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import { resolveActiveBoundedPlacementForNodeView } from "@/editor/bounded-containers/model/bounded-container-structure-policy";
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
+import {
+  mayHaveBoundedContainerParentForNodeView,
+  resolveActiveBoundedPlacementForNodeView,
+} from "@/editor/bounded-containers/model/bounded-container-placement";
 import type { BlockDefinition } from "@/editor/blocks/block-definition";
 
 import { BlockAuthoringFrame } from "./BlockAuthoringFrame";
@@ -29,7 +32,7 @@ export type BlockAuthoringViewDefinition<T = HTMLElement> =
 
 export interface CreateBlockAuthoringNodeViewOptions<T = HTMLElement> extends Omit<
   TiptapResizableReactNodeViewOptions,
-  "blockDefinitions" | "frame" | "react"
+  "blockDefinitions" | "frame" | "layoutDefinitions" | "react"
 > {
   className?: string;
   definition: BlockDefinition;
@@ -45,14 +48,29 @@ export function createBlockAuthoringNodeView<T = HTMLElement>({
   const resolvedNodeType = definition.nodeType;
   const frameDefinition = definition.frame;
   const renderView = createViewRenderer(view);
+  const ownerDefinitionLookup = Object.freeze({
+    getByNodeType: (nodeType: string) =>
+      nodeType === definition.nodeType ? definition : undefined,
+  });
 
   function GeneratedAuthoringNodeView(props: ReactNodeViewProps<T>) {
-    const activeBoundedPlacement = resolveActiveBoundedPlacementForNodeView({
-      blockDefinitions: builtInBlockRegistry,
-      capability: definition.boundedPlacement,
-      doc: props.editor.state.doc,
-      getPos: props.getPos,
-    });
+    const capabilities =
+      definition.boundedPlacement &&
+      mayHaveBoundedContainerParentForNodeView({
+        doc: props.editor.state.doc,
+        getPos: props.getPos,
+      })
+      ? getScaffoldCapabilitiesForEditor(props.editor)
+      : null;
+    const activeBoundedPlacement = capabilities
+      ? resolveActiveBoundedPlacementForNodeView({
+          blockDefinitions: capabilities.blocks.registry,
+          capability: definition.boundedPlacement,
+          doc: props.editor.state.doc,
+          getPos: props.getPos,
+          layoutDefinitions: capabilities.layouts.registry,
+        })
+      : undefined;
 
     return (
       <BlockAuthoringFrame
@@ -71,8 +89,8 @@ export function createBlockAuthoringNodeView<T = HTMLElement>({
 
   if (frameDefinition?.resizable) {
     return createTiptapResizableReactNodeView(GeneratedAuthoringNodeView, {
-      blockDefinitions: builtInBlockRegistry,
       ...resizableOptions,
+      blockDefinitions: ownerDefinitionLookup,
       ...(definition.boundedPlacement ? { boundedPlacement: definition.boundedPlacement } : {}),
       frame: frameDefinition,
     });

@@ -15,11 +15,16 @@ import {
 } from "@tiptap/react";
 import type { ComponentType } from "react";
 
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import "./resize/resize-frame.css";
 
-import { resolveActiveBoundedPlacementForNodeView } from "@/editor/bounded-containers/model/bounded-container-structure-policy";
+import {
+  mayHaveBoundedContainerParentForNodeView,
+  resolveActiveBoundedPlacementForNodeView,
+} from "@/editor/bounded-containers/model/bounded-container-placement";
 import type { BlockFrameDefinition } from "@/editor/blocks/block-definition";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 
 import type { BoundedPlacement } from "../model/bounded-placement";
 import { resizeBlockFrame, setBlockFrameAt } from "../model/block-frame";
@@ -46,6 +51,7 @@ export interface TiptapResizableReactNodeViewOptions {
   boundedPlacement?: BoundedPlacement;
   directions?: ResizableNodeViewDirection[];
   frame?: BlockFrameDefinition;
+  layoutDefinitions?: LayoutRegistry;
   min?: Partial<ResizableNodeDimensions>;
   react?: Partial<ReactNodeViewRendererOptions>;
 }
@@ -77,6 +83,7 @@ class ScaffoldResizableReactNodeView<T = HTMLElement> implements NodeView {
   private readonly boundedPlacementCapability: BoundedPlacement | undefined;
   private readonly blockDefinitions: BlockDefinitionLookup;
   private readonly frameDefinition: BlockFrameDefinition | undefined;
+  private readonly layoutDefinitions: LayoutRegistry | undefined;
   private cancelPendingFrameSync: (() => void) | null = null;
   private readonly reactNodeView: ReactNodeView<T>;
   private readonly resizable: ResizableNodeView;
@@ -90,6 +97,7 @@ class ScaffoldResizableReactNodeView<T = HTMLElement> implements NodeView {
   ) {
     this.currentNode = props.node;
     this.blockDefinitions = options.blockDefinitions;
+    this.layoutDefinitions = options.layoutDefinitions;
     this.editorHasFocus = props.editor.view.hasFocus();
     this.boundedPlacementCapability = options.boundedPlacement;
     this.frameDefinition = options.frame;
@@ -251,11 +259,33 @@ class ScaffoldResizableReactNodeView<T = HTMLElement> implements NodeView {
   }
 
   private syncBoundedPlacement(): void {
+    if (
+      !this.boundedPlacementCapability ||
+      !mayHaveBoundedContainerParentForNodeView({
+        doc: this.props.editor.state.doc,
+        getPos: this.props.getPos,
+      })
+    ) {
+      applyResizableNodeViewDomDefaults({
+        dom: this.resizable.dom,
+        wrapper: this.resizable.wrapper,
+      });
+      return;
+    }
+
+    let placementBlockDefinitions = this.blockDefinitions;
+    let placementLayoutDefinitions = this.layoutDefinitions;
+    if (!placementLayoutDefinitions) {
+      const capabilities = getScaffoldCapabilitiesForEditor(this.props.editor);
+      placementBlockDefinitions = capabilities.blocks.registry;
+      placementLayoutDefinitions = capabilities.layouts.registry;
+    }
     const activeBoundedPlacement = resolveActiveBoundedPlacementForNodeView({
-      blockDefinitions: this.blockDefinitions,
+      blockDefinitions: placementBlockDefinitions,
       capability: this.boundedPlacementCapability,
       doc: this.props.editor.state.doc,
       getPos: this.props.getPos,
+      layoutDefinitions: placementLayoutDefinitions,
     });
     applyResizableNodeViewDomDefaults({
       ...(activeBoundedPlacement ? { boundedPlacement: activeBoundedPlacement } : {}),

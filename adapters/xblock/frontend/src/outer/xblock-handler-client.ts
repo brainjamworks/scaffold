@@ -22,6 +22,9 @@ export async function handleXBlockBridgeRequest(
     case "persistence.saveArtifact":
       return xblockPost(context.runtime, context.element, "save_content", request.payload);
 
+    case "publication.publish":
+      return xblockPost(context.runtime, context.element, "publish_content", request.payload);
+
     case "media.resolve":
       return xblockPost(context.runtime, context.element, "resolve_media", request.payload);
 

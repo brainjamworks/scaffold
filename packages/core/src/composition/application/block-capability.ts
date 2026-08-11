@@ -1,25 +1,27 @@
 import { flattenExtensions, type AnyExtension } from "@tiptap/core";
 
 import type { BlockAuthoringBinding } from "@/editor/blocks/authoring-block-extensions";
-import type { BlockDefinition } from "@/editor/blocks/block-definition";
 import type { BlockRuntimeBinding } from "@/editor/blocks/runtime-block-extensions";
+import type { ResolvableBlockCapability } from "@/composition/model/resolved-scaffold-capabilities";
 
-export interface BlockCapability {
-  readonly definition: BlockDefinition;
+export interface BlockCapability extends ResolvableBlockCapability {
   readonly authoringExtension: AnyExtension;
   readonly runtimeExtension: AnyExtension;
 }
 
 export function createBlockCapabilitiesFromBindings(input: {
   readonly owner: string;
-  readonly definitions: readonly BlockDefinition[];
+  readonly registrations: readonly ResolvableBlockCapability[];
   readonly authoringBindings: readonly BlockAuthoringBinding[];
   readonly runtimeBindings: readonly BlockRuntimeBinding[];
 }): readonly BlockCapability[] {
   const authoringByNodeType = indexBindings(input.owner, "authoring", input.authoringBindings);
   const runtimeByNodeType = indexBindings(input.owner, "runtime", input.runtimeBindings);
-  const definitionNodeTypes = new Set(input.definitions.map(({ nodeType }) => nodeType));
-  const capabilities = input.definitions.map((definition) => {
+  const definitionNodeTypes = new Set(
+    input.registrations.map(({ definition }) => definition.nodeType),
+  );
+  const capabilities = input.registrations.map((registration) => {
+    const { definition } = registration;
     const authoringExtension = authoringByNodeType.get(definition.nodeType);
     if (!authoringExtension) {
       throw new Error(
@@ -34,7 +36,7 @@ export function createBlockCapabilitiesFromBindings(input: {
       );
     }
 
-    return Object.freeze({ definition, authoringExtension, runtimeExtension });
+    return Object.freeze({ ...registration, authoringExtension, runtimeExtension });
   });
 
   rejectExtraBindings(input.owner, "authoring", input.authoringBindings, definitionNodeTypes);
@@ -54,6 +56,9 @@ export function validateBlockCapability(capability: BlockCapability): void {
   }
   if (!capability.runtimeExtension) {
     throw new Error(`Block capability "${nodeType}" is missing its runtime extension bundle.`);
+  }
+  if (capability.duplication !== undefined && typeof capability.duplication !== "function") {
+    throw new Error(`Block capability "${nodeType}" duplication operation must be callable.`);
   }
 
   validateBundleRoot(nodeType, "authoring", capability.authoringExtension);

@@ -29,6 +29,7 @@ export function renderBlock(
     data,
     defaultMediaContext: "authoring",
   });
+  const accessAllowed = data.artifactAccess.status === "supported";
 
   createIsolatedScaffoldFrame({
     container: mountElement,
@@ -37,7 +38,20 @@ export function renderBlock(
     title: "Scaffold editor",
     initPayload,
     onRequest(request, frame) {
-      void respondToRequest(request, frame, runtime, handlerElement, data.artifact.id);
+      if (!accessAllowed) {
+        frame.sendFailureResponse({
+          requestId: request.requestId,
+          error: toBridgeError(new Error("Scaffold content access is unavailable.")),
+        });
+        return;
+      }
+      void respondToRequest(
+        request,
+        frame,
+        runtime,
+        handlerElement,
+        data.artifactAccess.artifact.id,
+      );
     },
   });
 }

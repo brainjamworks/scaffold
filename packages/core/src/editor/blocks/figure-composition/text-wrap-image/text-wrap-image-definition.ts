@@ -6,7 +6,7 @@ import {
   TextWrapImageSizeSchema,
 } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { TEXT_WRAP_IMAGE_BODY_NODE, TEXT_WRAP_IMAGE_NODE, emptyTextWrapImageData } from "./content";
@@ -101,7 +101,7 @@ export const textWrapImageDefinition = defineBlock({
     content: () => ({
       type: TEXT_WRAP_IMAGE_NODE,
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyTextWrapImageData(),
       },
       content: [

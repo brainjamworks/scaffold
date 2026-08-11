@@ -128,6 +128,88 @@ describe("authoring semantic navigation environment", () => {
     expect(shellScrollBy).toHaveBeenCalledWith({ behavior: "smooth", left: 0, top: 75 });
   });
 
+  it("centres through every bounded viewport from inner to outer using live geometry", async () => {
+    const shell = document.createElement("div");
+    shell.className = "sc-editor-shell";
+    shell.dataset["scrollModel"] = "contained";
+    document.body.append(shell);
+    const harness = createHarness({ parent: shell });
+    const outerViewport = document.createElement("div");
+    const innerViewport = document.createElement("div");
+    outerViewport.dataset["boundedScroll"] = "";
+    innerViewport.dataset["boundedScroll"] = "";
+    outerViewport.append(innerViewport);
+    innerViewport.append(harness.frame);
+    harness.root.append(outerViewport);
+
+    let frameTop = 700;
+    const order: string[] = [];
+    harness.frame.getBoundingClientRect = () => rect({ top: frameTop, bottom: frameTop + 60 });
+    innerViewport.getBoundingClientRect = () => rect({ top: 500, bottom: 700 });
+    outerViewport.getBoundingClientRect = () => rect({ top: 100, bottom: 500 });
+    shell.getBoundingClientRect = () => rect({ top: 0, bottom: 400 });
+    setScrollableMetrics(innerViewport, { clientHeight: 200, scrollHeight: 300, scrollTop: 20 });
+    setScrollableMetrics(outerViewport, { clientHeight: 400, scrollHeight: 700, scrollTop: 0 });
+    setScrollableMetrics(shell, { clientHeight: 400, scrollHeight: 1_000, scrollTop: 0 });
+    const innerScrollBy = installScrollBy(innerViewport, "inner", order, (actualTop) => {
+      frameTop -= actualTop;
+    });
+    const outerScrollBy = installScrollBy(outerViewport, "outer", order, (actualTop) => {
+      frameTop -= actualTop;
+    });
+    const shellScrollBy = installScrollBy(shell, "shell", order, (actualTop) => {
+      frameTop -= actualTop;
+    });
+    const initiatingControl = document.createElement("button");
+    document.body.prepend(initiatingControl);
+    initiatingControl.focus();
+
+    await harness.environment.bringIntoView(
+      harness.snapshot.locationById.get(TARGET_ID)!,
+      "smooth",
+    );
+
+    expect(order).toEqual(["inner", "outer", "shell"]);
+    expect(innerScrollBy).toHaveBeenCalledWith({ behavior: "smooth", left: 0, top: 130 });
+    expect(outerScrollBy).toHaveBeenCalledWith({ behavior: "smooth", left: 0, top: 350 });
+    expect(shellScrollBy).toHaveBeenCalledWith({ behavior: "smooth", left: 0, top: 150 });
+    expect(document.activeElement).toBe(initiatingControl);
+  });
+
+  it("centres an authoring frame larger than its bounded viewport by its midpoint", async () => {
+    const harness = createHarness();
+    const boundedViewport = document.createElement("div");
+    boundedViewport.dataset["boundedScroll"] = "";
+    boundedViewport.append(harness.frame);
+    harness.root.append(boundedViewport);
+    boundedViewport.getBoundingClientRect = () => rect({ top: 100, bottom: 300 });
+    harness.frame.getBoundingClientRect = () => rect({ top: 50, bottom: 550 });
+    setScrollableMetrics(boundedViewport, {
+      clientHeight: 200,
+      scrollHeight: 1_000,
+      scrollTop: 100,
+    });
+    const boundedScrollBy = vi.fn(({ top = 0 }: ScrollToOptions) => {
+      boundedViewport.scrollTop += top;
+    });
+    Object.defineProperty(boundedViewport, "scrollBy", {
+      configurable: true,
+      value: boundedScrollBy,
+    });
+    const pageScrollBy = vi.fn();
+    Object.defineProperty(harness.window, "scrollBy", {
+      configurable: true,
+      value: pageScrollBy,
+    });
+
+    await harness.environment.bringIntoView(
+      harness.snapshot.locationById.get(TARGET_ID)!,
+      "instant",
+    );
+
+    expect(boundedScrollBy).toHaveBeenCalledWith({ behavior: "auto", left: 0, top: 100 });
+  });
+
   it("rejects a target whose canonical authoring frame is unavailable", async () => {
     const harness = createHarness();
     harness.frame.remove();
@@ -233,4 +315,38 @@ function rect({ top, bottom }: { top: number; bottom: number }): DOMRect {
     y: top,
     toJSON: () => ({}),
   } as DOMRect;
+}
+
+function setScrollableMetrics(
+  element: HTMLElement,
+  metrics: { clientHeight: number; scrollHeight: number; scrollTop: number },
+): void {
+  Object.defineProperties(element, {
+    clientHeight: { configurable: true, value: metrics.clientHeight },
+    scrollHeight: { configurable: true, value: metrics.scrollHeight },
+    scrollTop: { configurable: true, value: metrics.scrollTop, writable: true },
+  });
+}
+
+function installScrollBy(
+  element: HTMLElement,
+  label: string,
+  order: string[],
+  onScroll: (actualTop: number) => void,
+) {
+  const scrollBy = vi.fn(({ top = 0 }: ScrollToOptions) => {
+    order.push(label);
+    queueMicrotask(() => {
+      const nextTop = Math.max(
+        0,
+        Math.min(element.scrollTop + top, element.scrollHeight - element.clientHeight),
+      );
+      const actualTop = nextTop - element.scrollTop;
+      element.scrollTop = nextTop;
+      onScroll(actualTop);
+      element.dispatchEvent(new Event("scrollend"));
+    });
+  });
+  Object.defineProperty(element, "scrollBy", { configurable: true, value: scrollBy });
+  return scrollBy;
 }

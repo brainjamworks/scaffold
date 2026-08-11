@@ -8,7 +8,10 @@ import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import "@/editor/suggestions/insert/ghost-add.css";
 import { StructureMovementHandle } from "@/editor/movement/view/StructureMovementHandle";
 import type { MovementTargetAxis } from "@/editor/movement/model/movement-target";
-import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
+import {
+  authoringMovementSnapshotChromeAttributes,
+  type AuthoringContainedMovementProjection,
+} from "@/editor/movement/view/authoring-movement-presentation";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import {
   AuthoringChromeKind,
@@ -41,14 +44,8 @@ interface LayoutAddGhostProps extends LayoutNodeChromeProps {
   className?: string;
   label: string;
   onSectionAdded?: (input: { layoutPos: number; sectionId?: string; sectionIndex: number }) => void;
-  presentation?:
-    | "inline"
-    | "full-width"
-    | "flow-item"
-    | "icon"
-    | "tab"
-    | "tab-pills"
-    | "tab-underline";
+  presentation?: "inline" | "full-width" | "flow-item" | "icon";
+  chromePresentation?: CourseLayoutChromePresentation;
 }
 
 interface SectionMovementHandleProps {
@@ -58,6 +55,7 @@ interface SectionMovementHandleProps {
   getPresentationElement: () => HTMLElement | null;
   getPos?: (() => number | undefined) | boolean;
   layoutPos?: number | null;
+  projection?: AuthoringContainedMovementProjection;
   sectionIndex?: number;
   sectionId?: unknown;
 }
@@ -70,7 +68,28 @@ interface SectionActionTriggerProps {
   layoutPos?: number | null;
   sectionIndex?: number;
   sectionId?: unknown;
+  chromePresentation?: CourseLayoutChromePresentation;
 }
+
+export interface CourseLayoutChromePresentation {
+  add: {
+    rootClassName: string;
+    iconClassName: string;
+  };
+  options: {
+    rootClassName: string;
+  };
+}
+
+export const courseLayoutChromePresentation: CourseLayoutChromePresentation = {
+  add: {
+    rootClassName: "sc-course-layout-chrome__add",
+    iconClassName: "sc-course-layout-chrome__add-icon",
+  },
+  options: {
+    rootClassName: "sc-course-layout-chrome__options",
+  },
+};
 
 export interface SectionTargetInput {
   editor: Editor;
@@ -120,6 +139,7 @@ export function LayoutAddGhost({
   layoutId,
   onSectionAdded,
   presentation = "inline",
+  chromePresentation,
 }: LayoutAddGhostProps) {
   const anchorId = createLayoutArrangementAnchorId("layout-add-section", layoutId);
   const Component = asChild ? Slot.Slot : "button";
@@ -164,16 +184,13 @@ export function LayoutAddGhost({
       className={cn(
         // Visual contract: border, hover, focus, transition, font.
         // Defined in editor/suggestions/insert/ghost-add.css.
-        "sc-app-block-add",
+        chromePresentation?.add.rootClassName ?? "sc-app-block-add",
         // Geometry / placement per presentation. No visual rules here.
-        "sc-layout-add-ghost",
-        presentation === "inline" && "sc-layout-add-ghost--inline",
-        presentation === "full-width" && "sc-layout-add-ghost--full-width",
-        presentation === "flow-item" && "sc-layout-add-ghost--flow-item",
-        presentation === "icon" && "sc-layout-add-ghost--icon",
-        presentation === "tab" && "sc-layout-add-ghost--tab",
-        presentation === "tab-pills" && "sc-layout-add-ghost--tab-pills",
-        presentation === "tab-underline" && "sc-layout-add-ghost--tab-underline",
+        !chromePresentation && "sc-layout-add-ghost",
+        !chromePresentation && presentation === "inline" && "sc-layout-add-ghost--inline",
+        !chromePresentation && presentation === "full-width" && "sc-layout-add-ghost--full-width",
+        !chromePresentation && presentation === "flow-item" && "sc-layout-add-ghost--flow-item",
+        !chromePresentation && presentation === "icon" && "sc-layout-add-ghost--icon",
         className,
       )}
     >
@@ -182,7 +199,7 @@ export function LayoutAddGhost({
           <span
             aria-hidden
             className={cn(
-              "sc-app-block-add__icon",
+              chromePresentation?.add.iconClassName ?? "sc-app-block-add__icon",
               presentation === "flow-item" && "sc-layout-add-ghost__icon--flow-item",
             )}
           >
@@ -202,6 +219,7 @@ export function SectionMovementHandle({
   getPresentationElement,
   getPos,
   layoutPos,
+  projection,
   sectionIndex,
   sectionId,
 }: SectionMovementHandleProps) {
@@ -217,6 +235,7 @@ export function SectionMovementHandle({
       axis={axis}
       getPresentationElement={getPresentationElement}
       label="section"
+      {...(projection ? { projection } : {})}
       variant="bare"
       sourcePos={sectionPos}
       getSourcePos={() =>
@@ -254,6 +273,7 @@ export function SectionActionTrigger({
   layoutPos,
   sectionIndex,
   sectionId,
+  chromePresentation,
 }: SectionActionTriggerProps) {
   const anchorId = createLayoutArrangementAnchorId("section-menu", sectionId);
 
@@ -283,7 +303,10 @@ export function SectionActionTrigger({
       aria-label="Section options"
       onMouseDown={(event) => event.preventDefault()}
       onClick={openSectionMenu}
-      className={cn("sc-layout-section-action-trigger", className)}
+      className={cn(
+        chromePresentation?.options.rootClassName ?? "sc-layout-section-action-trigger",
+        className,
+      )}
     >
       <DotsThree size={iconXs} />
     </button>

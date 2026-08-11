@@ -1,6 +1,6 @@
 import type { Icon } from "@phosphor-icons/react";
 import { Schema } from "@tiptap/pm/model";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
@@ -110,32 +110,5 @@ describe("Agent host createCatalogNodeChecked", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.node.textContent).toBe("Overridden content");
-  });
-
-  it("returns a custom action validation failure", () => {
-    const validateNode = vi.fn(() => ({
-      code: "private_action_rejected",
-      message: "The private action rejected this node.",
-    }));
-    const validatedAction: InsertAction = {
-      ...plusAction,
-      id: "validated-plus-private-block",
-      validateNode,
-    };
-
-    const result = createCatalogNodeChecked({
-      catalog: createInsertCatalog([validatedAction]),
-      schema,
-      actionId: validatedAction.id,
-    });
-
-    expect(validateNode).toHaveBeenCalledOnce();
-    expect(result).toEqual({
-      ok: false,
-      issue: {
-        code: "private_action_rejected",
-        message: "The private action rejected this node.",
-      },
-    });
   });
 });

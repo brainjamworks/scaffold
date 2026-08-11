@@ -7,11 +7,6 @@ import {
   accordionSectionFrame,
 } from "../accordion/accordion-views";
 import {
-  ProcessFlowLayoutView,
-  ProcessFlowSectionView,
-  processFlowSectionFrame,
-} from "../process-flow/process-flow-views";
-import {
   PaginatedLayoutView,
   PaginatedSectionView,
   paginatedSectionFrame,
@@ -30,12 +25,6 @@ export const builtInLayoutAuthoringViews = Object.freeze([
     layout: PaginatedLayoutView,
     section: PaginatedSectionView,
     sectionFrame: paginatedSectionFrame,
-  },
-  {
-    id: "process-flow",
-    layout: ProcessFlowLayoutView,
-    section: ProcessFlowSectionView,
-    sectionFrame: processFlowSectionFrame,
   },
   {
     id: "tabs",

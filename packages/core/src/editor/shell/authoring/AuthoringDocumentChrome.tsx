@@ -4,23 +4,23 @@ import type { ReactNode } from "react";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import type { OverlayBoundaryKind } from "@/ui/overlays/portal-host-context";
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import { CourseSectionStartDialog } from "@/editor/course-sections/authoring/CourseSectionStartDialog";
 import { BlockStrip } from "@/editor/shell/chrome/BlockStrip";
 import { SURFACE_FLOATING_AUTHORING_CONTROLS } from "@/editor/surfaces/authoring/chrome/surface-floating-controls";
-import { builtInSurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-views";
+import type { SurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
 import { SurfaceTemplatePicker } from "@/editor/surfaces/authoring/SurfaceTemplatePickerHost";
-import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 
 import { AuthoringContentChrome } from "./AuthoringContentChrome";
 
 export interface AuthoringDocumentChromeProps {
   children: ReactNode;
+  courseAppearance?: ScaffoldColorMode;
   editable: boolean;
   editor: Editor;
   overlayCollisionBoundary?: Element | null;
   overlayContainer?: Element | null;
   overlayKind?: OverlayBoundaryKind;
+  surfaceAuthoringChrome: SurfaceAuthoringChromeResolver;
 }
 
 export function AuthoringDocumentBlockStrip({ editor }: { editor: Editor }) {
@@ -38,12 +38,19 @@ export function AuthoringDocumentBlockStrip({ editor }: { editor: Editor }) {
   );
 }
 
-export function AuthoringDocumentSurfaceTemplatePickerHost({ editor }: { editor: Editor }) {
+export function AuthoringDocumentSurfaceTemplatePickerHost({
+  courseAppearance = "light",
+  editor,
+}: {
+  courseAppearance?: ScaffoldColorMode;
+  editor: Editor;
+}) {
   const { surfaceCreation } = getScaffoldAuthoringCataloguesForEditor(editor);
   const { surfaces } = getScaffoldCapabilitiesForEditor(editor);
 
   return (
     <SurfaceTemplatePicker
+      courseAppearance={courseAppearance}
       editor={editor}
       surfaceCreationCatalog={surfaceCreation}
       surfaceVariants={surfaces.registry}
@@ -51,29 +58,28 @@ export function AuthoringDocumentSurfaceTemplatePickerHost({ editor }: { editor:
   );
 }
 
-export function AuthoringDocumentCourseSectionStartDialogHost({ editor }: { editor: Editor }) {
-  return <CourseSectionStartDialog editor={editor} />;
-}
-
 export function AuthoringDocumentChrome({
   children,
+  courseAppearance = "light",
   editable,
   editor,
   overlayCollisionBoundary,
   overlayContainer,
   overlayKind,
+  surfaceAuthoringChrome,
 }: AuthoringDocumentChromeProps) {
   const canShowAuthoringChrome = editable && editor.isEditable;
+  const capabilities = getScaffoldCapabilitiesForEditor(editor);
 
   return (
     <>
       <AuthoringContentChrome
         additionalFloatingControls={SURFACE_FLOATING_AUTHORING_CONTROLS}
-        blockDefinitions={builtInBlockRegistry}
+        blockDefinitions={capabilities.blocks.registry}
         editable={editable}
         editor={editor}
-        surfaceAuthoringChrome={builtInSurfaceAuthoringChromeResolver}
-        surfaceVariants={builtInSurfaceVariantRegistry}
+        surfaceAuthoringChrome={surfaceAuthoringChrome}
+        surfaceVariants={capabilities.surfaces.registry}
         {...(overlayCollisionBoundary !== undefined ? { overlayCollisionBoundary } : {})}
         {...(overlayContainer !== undefined ? { overlayContainer } : {})}
         {...(overlayKind !== undefined ? { overlayKind } : {})}
@@ -81,10 +87,10 @@ export function AuthoringDocumentChrome({
         {children}
       </AuthoringContentChrome>
       {canShowAuthoringChrome ? (
-        <>
-          <AuthoringDocumentSurfaceTemplatePickerHost editor={editor} />
-          <AuthoringDocumentCourseSectionStartDialogHost editor={editor} />
-        </>
+        <AuthoringDocumentSurfaceTemplatePickerHost
+          courseAppearance={courseAppearance}
+          editor={editor}
+        />
       ) : null}
     </>
   );

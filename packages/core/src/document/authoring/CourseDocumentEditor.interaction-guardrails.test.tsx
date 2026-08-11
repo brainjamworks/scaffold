@@ -7,9 +7,10 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
-import { CourseDocumentEditor } from "./CourseDocumentEditor";
+import { CourseDocumentEditor } from "./CourseDocumentEditor.test-harness";
 
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
@@ -93,6 +94,7 @@ function pageDocument(surfaceAttrs: Record<string, unknown>): JSONContent {
       {
         type: "courseDocument",
         attrs: {
+          id: createEmbeddedNodeId(),
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
           mode: "page",
           surfaceSize: "fluid",
@@ -106,6 +108,7 @@ function pageDocument(surfaceAttrs: Record<string, unknown>): JSONContent {
             content: [
               {
                 type: "paragraph",
+                attrs: { id: createEmbeddedNodeId() },
                 content: [{ type: "text", text: "Authored page text" }],
               },
             ],
@@ -123,6 +126,7 @@ function slideshowDocument(surfaces: Array<Record<string, unknown>>): JSONConten
       {
         type: "courseDocument",
         attrs: {
+          id: createEmbeddedNodeId(),
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
           mode: "slideshow",
           surfaceSize: "16x9",
@@ -135,14 +139,16 @@ function slideshowDocument(surfaces: Array<Record<string, unknown>>): JSONConten
           content: [
             {
               type: "heading",
-              attrs: { level: 1 },
+              attrs: { id: createEmbeddedNodeId(), level: 1 },
               content: [{ type: "text", text: `Slide title ${index + 1}` }],
             },
             {
               type: "slide_cover_subtitle",
+              attrs: { id: createEmbeddedNodeId() },
               content: [
                 {
                   type: "paragraph",
+                  attrs: { id: createEmbeddedNodeId() },
                   content: [{ type: "text", text: `Slide text ${index + 1}` }],
                 },
               ],

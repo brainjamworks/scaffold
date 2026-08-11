@@ -1,11 +1,17 @@
-import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
+import type { Editor as TiptapEditor } from "@tiptap/core";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import type { ScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import type { ScaffoldLearnerPublication } from "@/host/contracts";
+import type { ScaffoldProductAccess } from "@/host/contracts/product-access";
 import { CourseDocumentAttrsSchema } from "@/schemas/course-document";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 import { useLearnerColorMode } from "@/theme/state/learner-color-mode";
+import {
+  prepareRuntimeLearnerPublication,
+  type PreparedRuntimeDocument,
+} from "../renderer/CourseDocumentRuntimeRenderer";
 
 import { AssessmentRuntimeProvider } from "../assessment/AssessmentRuntimeProvider";
 import {
@@ -30,7 +36,8 @@ export interface ContentRuntimeHostProps {
   hostColorMode?: ScaffoldColorMode;
   initialAssessmentSnapshot?: unknown;
   initialLearnerActivitySnapshot?: unknown;
-  initialContent: JSONContent | null;
+  publication: ScaffoldLearnerPublication;
+  productAccess: ScaffoldProductAccess;
   slideshowSizing?: SlideshowPlayerSizing;
   onEditorReady?: (editor: TiptapEditor) => void;
 }
@@ -41,21 +48,33 @@ export function ContentRuntimeHost({
   courseTitle,
   initialAssessmentSnapshot,
   initialLearnerActivitySnapshot,
-  initialContent,
+  publication,
+  productAccess,
   hostColorMode,
   slideshowSizing,
   onEditorReady,
 }: ContentRuntimeHostProps) {
   const colorMode = useLearnerColorMode(hostColorMode);
   const runtimeArtifactId = artifactId ?? null;
-  const playerSelection = useMemo(
-    () => (initialContent ? selectRuntimePlayer(initialContent) : null),
-    [initialContent],
+  const readiness = useMemo(
+    () => prepareRuntimeLearnerPublication(publication, composition, productAccess),
+    [composition, productAccess, publication],
   );
-  if (!initialContent) {
+  const playerSelection = useMemo(
+    () =>
+      readiness.status === "supported"
+        ? selectRuntimePlayer(readiness.preparedDocument.content)
+        : null,
+    [readiness],
+  );
+  if (readiness.status !== "supported") {
     return (
       <div className="sc-content-runtime-host" data-testid="scaffold-runtime-host">
-        <ContentRuntimeUnavailable reason="missing-initial-content" />
+        <ContentRuntimeUnavailable
+          reason={
+            readiness.status === "missing-content" ? "missing-initial-content" : readiness.status
+          }
+        />
       </div>
     );
   }
@@ -67,7 +86,9 @@ export function ContentRuntimeHost({
       </div>
     );
   }
-  const courseDocumentAttrs = CourseDocumentAttrsSchema.parse(initialContent.content?.[0]?.attrs);
+  const courseDocumentAttrs = CourseDocumentAttrsSchema.parse(
+    readiness.preparedDocument.content.content?.[0]?.attrs,
+  );
 
   return (
     <ScaffoldArtifactIdentityProvider artifactId={runtimeArtifactId}>
@@ -96,8 +117,7 @@ export function ContentRuntimeHost({
               >
                 <LearnerActivityReadinessGate>
                   <HydratedRuntimePlayer
-                    composition={composition}
-                    initialContent={initialContent}
+                    preparedDocument={readiness.preparedDocument}
                     playerSelection={playerSelection}
                     runtimeArtifactId={runtimeArtifactId}
                     {...(onEditorReady ? { onEditorReady } : {})}
@@ -114,18 +134,16 @@ export function ContentRuntimeHost({
 }
 
 interface HydratedRuntimePlayerProps {
-  readonly composition: ScaffoldRuntimeComposition;
-  readonly initialContent: JSONContent;
   readonly onEditorReady?: (editor: TiptapEditor) => void;
+  readonly preparedDocument: PreparedRuntimeDocument;
   readonly playerSelection: RuntimePlayerSelection;
   readonly runtimeArtifactId: string | null;
   readonly slideshowSizing?: SlideshowPlayerSizing;
 }
 
 function HydratedRuntimePlayer({
-  composition,
-  initialContent,
   onEditorReady,
+  preparedDocument,
   playerSelection,
   runtimeArtifactId,
   slideshowSizing,
@@ -193,16 +211,14 @@ function HydratedRuntimePlayer({
     playerSelection.player === "page" ? (
       <PagePlayer
         artifactId={runtimeArtifactId}
-        composition={composition}
-        initialContent={initialContent}
+        preparedDocument={preparedDocument}
         onRendererReady={handleRendererReady}
         surfaceId={playerSelection.structure.surfaceIds[0]}
       />
     ) : (
       <SlideshowPlayer
         artifactId={runtimeArtifactId}
-        composition={composition}
-        initialContent={initialContent}
+        preparedDocument={preparedDocument}
         onActiveSurfaceChange={recordSurfaceExperienced}
         onRendererReady={handleRendererReady}
         structure={playerSelection.structure}
@@ -215,7 +231,14 @@ function HydratedRuntimePlayer({
 function ContentRuntimeUnavailable({
   reason,
 }: {
-  reason: "invalid-course-structure" | "missing-initial-content";
+  reason:
+    | "invalid-course-structure"
+    | "invalid-learner-content"
+    | "missing-initial-content"
+    | "not-published"
+    | "requires-scaffold-plus"
+    | "unsupported-core-format"
+    | "unavailable-content";
 }) {
   return (
     <div

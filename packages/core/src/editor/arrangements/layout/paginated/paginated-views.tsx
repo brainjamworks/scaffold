@@ -12,6 +12,7 @@ import { projectInteractionContextOwners } from "@/editor/interactions/targets/p
 import { layoutSectionPositionAt } from "../model/layout-arrangement-helpers";
 import {
   activateLayoutInteractionTarget,
+  courseLayoutChromePresentation,
   LayoutAddGhost,
   SectionActionTrigger,
 } from "../authoring/layout-chrome";
@@ -28,6 +29,7 @@ import type {
 import {
   PaginatedLayoutShell,
   normalizeActivePageId,
+  paginatedPagePanelId,
   paginatedPanelAttributes,
   readPaginatedPages,
   readRequiredPaginatedNodeId,
@@ -80,6 +82,7 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
 
   useLayoutSemanticContainerAdapter({
     editor: props.editor,
+    getPos: props.getPos,
     layoutId,
     node: props.node,
     isVisible: (childId) => {
@@ -89,6 +92,7 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
       return normalizeActivePageId(storedActiveId, readPaginatedPages(props.node)) === childId;
     },
     revealChild: (childId) => setActivePage(layoutId, childId),
+    visibilityElementId: (childId) => paginatedPagePanelId(layoutId, childId),
   });
 
   useEffect(() => {
@@ -110,7 +114,7 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
   ]);
 
   return (
-    <div className="sc-paginated-layout sc-paginated-layout--authoring">
+    <div className="sc-course-paginated sc-course-paginated--authoring">
       <PaginatedLayoutShell
         activeId={activeId}
         layoutId={layoutId}
@@ -125,6 +129,7 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
         footer={
           props.editable && props.definition?.section ? (
             <LayoutAddGhost
+              chromePresentation={courseLayoutChromePresentation}
               editor={props.editor}
               getPos={props.getPos}
               label={addLabel}
@@ -134,12 +139,12 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
                 activateLayout();
               }}
               presentation="icon"
-              className="sc-paginated-layout__add"
+              className="sc-course-paginated__add"
             />
           ) : null
         }
       >
-        <NodeViewContent className="sc-paginated-layout__content" />
+        <NodeViewContent className="sc-course-paginated__content" />
       </PaginatedLayoutShell>
     </div>
   );
@@ -178,22 +183,23 @@ export function PaginatedSectionView(props: SectionComponentProps) {
         pageId: liveState.pageId,
         isActive,
       })}
-      className="sc-paginated-layout__panel"
+      className="sc-course-paginated__panel"
     >
       {props.editable && layoutPos !== null ? (
         <SectionActionTrigger
           blockDefinitions={props.blockDefinitions}
+          chromePresentation={courseLayoutChromePresentation}
           editor={props.editor}
           layoutPos={layoutPos}
           sectionId={liveState.pageId}
           sectionIndex={pageIndex}
-          className="sc-paginated-layout__action"
+          className="sc-course-paginated__action"
         />
       ) : null}
       <div data-bounded-scroll-frame="">
         <NodeViewContent
           data-bounded-scroll=""
-          className="sc-layout-section__content sc-paginated-layout__page-content"
+          className="sc-layout-section__content sc-course-paginated__page-content"
         />
         <BoundedScrollHint editable={props.editable} />
       </div>
@@ -203,7 +209,7 @@ export function PaginatedSectionView(props: SectionComponentProps) {
 
 export function paginatedSectionFrame(_props: SectionComponentProps): SectionFrameProps {
   return {
-    className: "sc-paginated-layout__section",
+    className: "sc-course-paginated__section",
   };
 }
 

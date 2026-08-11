@@ -3,29 +3,20 @@ import type { JSONContent } from "@tiptap/core";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import {
   cloneCourseDocumentJSON,
-  migrateCourseDocumentJSON,
+  findCourseDocument,
   readCourseDocumentFormatVersion,
-  type CourseDocumentMigrationResult,
 } from "@/document/model/validation";
-import { findCourseDocument } from "@/document/model/validation/migrations/helpers";
 
 import type {
   DocumentEstablishmentIssue,
   EstablishedDocumentFormat,
 } from "./document-establishment";
 
-type CourseDocumentMigrationOperation = (content: unknown) => CourseDocumentMigrationResult;
-
 export type DocumentFormatEstablishmentResult =
   | {
       readonly status: "current";
       readonly canonicalDocument: JSONContent;
       readonly format: EstablishedDocumentFormat & { readonly migrated: false };
-    }
-  | {
-      readonly status: "migrated";
-      readonly canonicalDocument: JSONContent;
-      readonly format: EstablishedDocumentFormat & { readonly migrated: true };
     }
   | {
       readonly status: "invalid";
@@ -40,7 +31,6 @@ export type DocumentFormatEstablishmentResult =
 
 export function establishDocumentFormat(
   content: unknown,
-  migrate: CourseDocumentMigrationOperation = migrateCourseDocumentJSON,
 ): DocumentFormatEstablishmentResult {
   const canonicalDocument = cloneCourseDocumentJSON(content);
   if (!canonicalDocument) {
@@ -60,39 +50,23 @@ export function establishDocumentFormat(
     );
   }
 
-  if (fromVersion > SCAFFOLD_DOCUMENT_FORMAT_VERSION) {
+  if (fromVersion !== SCAFFOLD_DOCUMENT_FORMAT_VERSION) {
+    const age = fromVersion < SCAFFOLD_DOCUMENT_FORMAT_VERSION ? "older" : "newer";
     return {
       status: "unsupported-core-format",
       documentVersion: fromVersion,
       supportedVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
-      message: `Scaffold document format v${fromVersion} is newer than this runtime supports.`,
+      message: `Scaffold document format v${fromVersion} is ${age} than this runtime supports.`,
     };
-  }
-
-  if (fromVersion === SCAFFOLD_DOCUMENT_FORMAT_VERSION) {
-    return {
-      status: "current",
-      canonicalDocument,
-      format: {
-        fromVersion,
-        currentVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
-        migrated: false,
-      },
-    };
-  }
-
-  const migration = migrate(canonicalDocument);
-  if (!migration.ok) {
-    return invalidFormat(migration.code, migration.message, courseDocumentPath(canonicalDocument));
   }
 
   return {
-    status: "migrated",
-    canonicalDocument: migration.document,
+    status: "current",
+    canonicalDocument,
     format: {
-      fromVersion: migration.fromVersion,
-      currentVersion: migration.toVersion,
-      migrated: true,
+      fromVersion,
+      currentVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+      migrated: false,
     },
   };
 }
@@ -108,9 +82,4 @@ function invalidFormat(
 function courseDocumentVersionPath(content: JSONContent): readonly (string | number)[] {
   const courseDocument = findCourseDocument(content);
   return courseDocument ? ["content", courseDocument.index, "attrs", "schemaVersion"] : [];
-}
-
-function courseDocumentPath(content: JSONContent): readonly (string | number)[] {
-  const courseDocument = findCourseDocument(content);
-  return courseDocument ? ["content", courseDocument.index] : [];
 }

@@ -27,8 +27,9 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choice {
+  min-height: 3.375rem;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-4);
   border: var(--sc-course-author-stroke-width) solid var(--gray-a6);
   border-radius: var(--radius-3);
   background: var(--gray-1);
@@ -208,9 +209,10 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choice-add {
+  min-height: 3.375rem;
   justify-content: flex-start;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-1) var(--space-3);
   border: var(--sc-course-author-stroke-width) dashed var(--gray-a7);
   border-radius: max(var(--radius-3), var(--radius-full));
   background: transparent;

@@ -1,6 +1,7 @@
 import { type Editor } from "@tiptap/react";
 import { useMemo } from "react";
 
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import {
   createAlignmentTargetPort,
@@ -31,9 +32,10 @@ export function BubbleMenus({
   surfaceAuthoringChrome,
   surfaceVariants,
 }: BubbleMenusProps) {
+  const layoutDefinitions = getScaffoldCapabilitiesForEditor(editor).layouts.registry;
   const alignmentTargetPort: AlignmentTargetPort = useMemo(
-    () => createAlignmentTargetPort({ blockDefinitions, surfaceVariants }),
-    [blockDefinitions, surfaceVariants],
+    () => createAlignmentTargetPort({ blockDefinitions, layoutDefinitions, surfaceVariants }),
+    [blockDefinitions, layoutDefinitions, surfaceVariants],
   );
   const structuralRenderers = useMemo(
     () =>

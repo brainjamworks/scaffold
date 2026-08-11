@@ -11,6 +11,8 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
 
+import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { AUTHORING_FRAME_ATTR } from "@/editor/interactions/dom/authoring-frame";
@@ -35,6 +37,8 @@ import { multiselectBlockDefinition } from "./multiselect-definition";
 import { MultiselectAuthoringExtension } from "./multiselect-authoring-extension";
 import { MultiselectRuntimeExtension } from "./multiselect-runtime-extension";
 import { hasMultiselectResponse, projectMultiselectInteraction } from "./assessment";
+
+const testCapabilities = createScaffoldApplication().capabilities;
 
 const BoundedRegionTestNode = TiptapNode.create({
   name: "region",
@@ -61,6 +65,7 @@ function makeEditor() {
   return new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([multiselectBlockDefinition.nodeType]),
@@ -86,6 +91,7 @@ function makeRuntimeEditor() {
     editable: false,
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([multiselectBlockDefinition.nodeType]),

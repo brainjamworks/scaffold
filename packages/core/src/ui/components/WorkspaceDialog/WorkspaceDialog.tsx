@@ -1,5 +1,6 @@
 import { XIcon as X } from "@phosphor-icons/react";
 import { FocusScope } from "@radix-ui/react-focus-scope";
+import { IconButton as RadixIconButton, TextField as RadixTextField } from "@radix-ui/themes";
 import { inertOthers } from "aria-hidden";
 import {
   forwardRef,
@@ -246,6 +247,51 @@ const ToolbarSeparator = forwardRef<
   );
 });
 
+interface WorkspaceDialogRowActionProps extends Omit<
+  ComponentPropsWithoutRef<typeof RadixIconButton>,
+  "className" | "color" | "highContrast" | "radius" | "size" | "variant"
+> {
+  className?: string;
+}
+
+/** Compact action rendered in an App-owned workspace management row. */
+const RowAction = forwardRef<ComponentRef<typeof RadixIconButton>, WorkspaceDialogRowActionProps>(
+  function RowAction({ className, ...buttonProps }, ref) {
+    return (
+      <RadixIconButton
+        ref={ref}
+        {...buttonProps}
+        className={cn("sc-workspace-dialog-row-action", className)}
+        size="2"
+        variant="ghost"
+      />
+    );
+  },
+);
+
+interface WorkspaceDialogTextFieldProps extends Omit<
+  ComponentPropsWithoutRef<typeof RadixTextField.Root>,
+  "className" | "color" | "highContrast" | "radius" | "size" | "variant"
+> {
+  className?: string;
+}
+
+/** Text field rendered in App-owned workspace management chrome. */
+const TextField = forwardRef<
+  ComponentRef<typeof RadixTextField.Root>,
+  WorkspaceDialogTextFieldProps
+>(function TextField({ className, ...fieldProps }, ref) {
+  return (
+    <RadixTextField.Root
+      ref={ref}
+      {...fieldProps}
+      className={cn("sc-workspace-dialog-text-field", className)}
+      size="2"
+      variant="surface"
+    />
+  );
+});
+
 const Title = forwardRef<
   ComponentRef<typeof Dialog.Title>,
   ComponentPropsWithoutRef<typeof Dialog.Title>
@@ -316,6 +362,8 @@ export const WorkspaceDialog = {
   ToolbarGroup,
   ToolbarButton,
   ToolbarSeparator,
+  RowAction,
+  TextField,
   Title,
   Description,
   Body,

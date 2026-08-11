@@ -6,7 +6,7 @@ import {
   allowsBoundedContainerRootInsertionAtPosition,
   isActiveBoundedContainerAtPosition,
   type BoundedContainerType,
-} from "@/editor/bounded-containers/model/bounded-container-structure-policy";
+} from "@/editor/bounded-containers/model/bounded-container-placement";
 import { allowsSurfaceRootInsertionAtPosition } from "@/editor/surfaces/model/policies/surface-root-insertion-policy";
 import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-variant-registry";
 

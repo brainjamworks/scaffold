@@ -1,7 +1,7 @@
 import { CheckSquareIcon as CheckSquare } from "@phosphor-icons/react";
 import { ChecklistDataSchema } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 
@@ -65,12 +65,12 @@ export const checklistBlockDefinition = defineBlock({
     content: () => ({
       type: CHECKLIST_NODE,
       attrs: {
-        id: createStableId(),
+        id: createEmbeddedNodeId(),
         data: emptyChecklistData(),
       },
       content: DEFAULT_ITEMS.map((body) => ({
         type: CHECKLIST_ITEM_NODE,
-        attrs: { id: createStableId() },
+        attrs: { id: createEmbeddedNodeId() },
         content: checklistItemContent(body),
       })),
     }),

@@ -1,17 +1,36 @@
 import { XIcon as X } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/core";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { SemanticHierarchyViewController } from "@/document/authoring/semantic-document/semantic-hierarchy-view-controller";
 import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document/semantic-document-storage";
+import { setSemanticLabelChecked } from "@/document/model/commands/semantic-label";
+import { readAuthoredSemanticLabel } from "@/document/model/semantic-document/semantic-labels";
 import {
   registerAuthoringInteractionHost,
   resolveAuthoringInteractionRoot,
 } from "@/editor/interactions/dom/authoring-root";
+import { createViewportCoordinateSpace } from "@/editor/interactions/drag/dom/dom-coordinate-space";
+import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
+import { getInteractionFacadeStoreForEditor } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-storage";
+import { InteractionDragEnvironmentProvider } from "@/editor/interactions/drag/react/interaction-drag-environment";
+import { createAuthoringNodeTarget } from "@/editor/prosemirror/authoring-target";
+import {
+  deleteSurface,
+  duplicateSurface,
+} from "@/editor/surfaces/authoring/commands/surface-document-commands";
 import { IconButton } from "@/ui/components/IconButton/IconButton";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
+import { useOverlayBoundary } from "@/ui/overlays/portal-host-context";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 
-import { DocumentOutline, DocumentOutlineRowViewport } from "./DocumentOutline";
+import {
+  DocumentOutline,
+  DocumentOutlineRowViewport,
+  type DocumentOutlineAuthoringPort,
+} from "./DocumentOutline";
+import { createCourseOutlineStructureAuthoringPort } from "./course-outline-structure-authoring";
+import type { CourseNavigatorSurfaceActionPort } from "./course-navigator/CourseNavigator";
 
 export interface DocumentOutlineHostProps {
   readonly editor: Editor;
@@ -19,9 +38,27 @@ export interface DocumentOutlineHostProps {
 }
 
 export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProps) {
+  const applicationOverlayBoundary = useOverlayBoundary();
   const controller = getSemanticDocumentControllerForEditor(editor);
+  const authoring = useMemo(() => createDocumentOutlineAuthoringPort(editor), [editor]);
+  const structureAuthoring = useMemo(
+    () => createCourseOutlineStructureAuthoringPort(editor),
+    [editor],
+  );
+  const surfaceActions = useMemo(() => createCourseNavigatorSurfaceActionPort(editor), [editor]);
   const viewport = useMemo(() => new DocumentOutlineRowViewport(), []);
   const [host, setHost] = useState<HTMLElement | null>(null);
+  const [dragRoot, setDragRoot] = useState<HTMLDivElement | null>(null);
+  const coordinateSpace = useMemo(
+    () =>
+      dragRoot
+        ? createViewportCoordinateSpace({
+            getRoot: () => dragRoot,
+            ownerDocument: dragRoot.ownerDocument,
+          })
+        : null,
+    [dragRoot],
+  );
   const [viewController, setViewController] = useState<SemanticHierarchyViewController | null>(
     null,
   );
@@ -55,7 +92,7 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
       data-testid="authoring-outline-dock"
     >
       <header className="sc-authoring-outline-dock-header">
-        <h2 className="sc-authoring-outline-dock-title">Document Outline</h2>
+        <h2 className="sc-authoring-outline-dock-title">Course Outline</h2>
         <IconButton
           aria-label="Close Document Outline"
           size="md"
@@ -66,15 +103,109 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
           <X aria-hidden size={iconSm} />
         </IconButton>
       </header>
-      <div className="sc-authoring-outline-dock-scroll">
-        {viewController ? (
-          <DocumentOutline
-            controller={controller}
-            viewController={viewController}
-            viewport={viewport}
-          />
-        ) : null}
+      <div ref={setDragRoot} className="sc-authoring-outline-dock-scroll">
+        <OverlayBoundary container={host} collisionBoundary={host} kind="viewport">
+          <OutlineDragEnvironment coordinateRoot={dragRoot} coordinateSpace={coordinateSpace}>
+            {viewController ? (
+              <DocumentOutline
+                sectionDialogOverlayBoundary={
+                  applicationOverlayBoundary.status === "unscoped"
+                    ? undefined
+                    : applicationOverlayBoundary
+                }
+                authoring={authoring}
+                controller={controller}
+                structureAuthoring={structureAuthoring}
+                surfaceActions={surfaceActions}
+                viewController={viewController}
+                viewport={viewport}
+              />
+            ) : null}
+          </OutlineDragEnvironment>
+        </OverlayBoundary>
       </div>
     </aside>
   );
+}
+
+export function createCourseNavigatorSurfaceActionPort(
+  editor: Editor,
+): CourseNavigatorSurfaceActionPort {
+  return Object.freeze({
+    openSettings(surfaceId) {
+      if (editor.isDestroyed) return false;
+      return getInteractionFacadeStoreForEditor(editor)
+        .getState()
+        .commands.openSettings({ kind: InteractionTargetKind.Surface, id: surfaceId });
+    },
+    duplicateSurface(surfaceId) {
+      return !editor.isDestroyed && duplicateSurface(editor, surfaceId);
+    },
+    deleteSurface(surfaceId) {
+      return !editor.isDestroyed && deleteSurface(editor, surfaceId);
+    },
+  });
+}
+
+function OutlineDragEnvironment({
+  children,
+  coordinateRoot,
+  coordinateSpace,
+}: {
+  readonly children: ReactNode;
+  readonly coordinateRoot: HTMLDivElement | null;
+  readonly coordinateSpace: ReturnType<typeof createViewportCoordinateSpace> | null;
+}) {
+  const overlayBoundary = useOverlayBoundary();
+  const [settled, setSettled] = useState(false);
+
+  useEffect(() => {
+    setSettled(false);
+    if (overlayBoundary.status !== "ready" || !coordinateRoot || !coordinateSpace) return;
+    const frame = requestAnimationFrame(() => setSettled(true));
+    return () => cancelAnimationFrame(frame);
+  }, [coordinateRoot, coordinateSpace, overlayBoundary]);
+
+  if (!settled) return null;
+  return (
+    <InteractionDragEnvironmentProvider
+      coordinateRoot={coordinateRoot}
+      coordinateSpace={coordinateSpace}
+    >
+      {children}
+    </InteractionDragEnvironmentProvider>
+  );
+}
+
+export function createDocumentOutlineAuthoringPort(editor: Editor): DocumentOutlineAuthoringPort {
+  const port: DocumentOutlineAuthoringPort = {
+    read(item) {
+      if (editor.isDestroyed) {
+        return { ok: false, message: "The authoring editor is no longer available." };
+      }
+      const target = createAuthoringNodeTarget(editor, item);
+      const resolved = target.read();
+      if (!resolved) {
+        return {
+          ok: false,
+          message:
+            target.status === "missing"
+              ? "The authoring target no longer exists."
+              : "The authoring target identity is invalid.",
+        };
+      }
+      return {
+        ok: true,
+        value: readAuthoredSemanticLabel(resolved.node.attrs["semanticLabel"]),
+      };
+    },
+    write(item, value) {
+      const target = createAuthoringNodeTarget(editor, item);
+      const result = target.transact((tr, resolved) =>
+        setSemanticLabelChecked({ tr, target: resolved, value }),
+      );
+      return result.ok ? { ok: true } : { ok: false, message: result.issue.message };
+    },
+  };
+  return Object.freeze(port);
 }

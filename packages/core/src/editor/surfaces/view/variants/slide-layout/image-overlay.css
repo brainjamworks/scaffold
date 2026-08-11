@@ -31,10 +31,10 @@
   align-self: end;
   justify-self: start;
   max-width: 68%;
-  margin: 0 0 var(--sc-surface-inset) var(--sc-surface-inset);
-  padding: 1.25rem 1.5rem;
-  border-radius: var(--radius-md);
-  background: var(--color-background);
+  margin: 0 0 var(--sc-slide-full-bleed-title-panel-inset, 2rem)
+    var(--sc-slide-full-bleed-title-panel-inset, 2rem);
+  padding: var(--sc-slide-full-bleed-title-panel-padding-block, 1.25rem)
+    var(--sc-slide-full-bleed-title-panel-padding-inline, 1.5rem);
   pointer-events: auto;
 }
 
@@ -53,11 +53,10 @@
   z-index: 1;
   grid-row: 1;
   grid-column: 2;
-  height: calc(100% - (2 * var(--sc-surface-inset)));
-  margin: var(--sc-surface-inset);
-  padding: 1.5rem;
-  border-radius: var(--radius-md);
-  background: var(--color-background);
+  height: calc(100% - (2 * var(--sc-slide-image-backdrop-panel-inset, var(--sc-surface-inset))));
+  margin: var(--sc-slide-image-backdrop-panel-inset, var(--sc-surface-inset));
+  padding: var(--sc-slide-image-backdrop-panel-padding, 1.5rem);
+  gap: var(--sc-slide-image-backdrop-panel-gap, 1rem);
   pointer-events: auto;
 }
 

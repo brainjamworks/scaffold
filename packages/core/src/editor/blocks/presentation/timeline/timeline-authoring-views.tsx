@@ -6,13 +6,16 @@ import {
   useEditorState,
   type NodeViewProps,
 } from "@tiptap/react";
-import { useId, useRef } from "react";
+import { useId, useMemo, useRef } from "react";
 
 import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
 import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
-import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import {
+  authoringMovementSilhouetteSurfaceAttributes,
+  authoringMovementSnapshotChromeAttributes,
+} from "@/editor/movement/view/authoring-movement-presentation";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import type { MovementTargetAxis } from "@/editor/movement/model/movement-target";
 
@@ -24,6 +27,7 @@ import {
   readRequiredTimelineNodeId,
   type TimelineOptions,
 } from "./timeline-components";
+import { createTimelineAuthoringReorderProjection } from "./timeline-authoring-reorder-projection";
 
 export function TimelineAuthoringView(props: NodeViewProps) {
   const data = parseTimelineData(props.node.attrs["data"]);
@@ -54,6 +58,10 @@ export function TimelineItemAuthoringView(props: NodeViewProps) {
     editor: props.editor,
     selector: () => resolveTimelineMovementAxis(props),
   });
+  const reorderProjection = useMemo(
+    () => createTimelineAuthoringReorderProjection(() => presentationRef.current, movementAxis),
+    [movementAxis],
+  );
   const side = itemIndex % 2 === 0 ? "left" : "right";
   const itemPos = readNodePos(props);
   const sourcePos = typeof itemPos === "number" && Number.isFinite(itemPos) ? itemPos : null;
@@ -83,12 +91,14 @@ export function TimelineItemAuthoringView(props: NodeViewProps) {
       className={`sc-course-timeline__event sc-course-timeline__event--${side}`}
     >
       <TimelineEventCard
+        cardProps={authoringMovementSilhouetteSurfaceAttributes()}
         chrome={
           <>
             <ContainedMovementHandle
               axis={movementAxis}
               getPresentationElement={() => presentationRef.current}
               label="timeline event"
+              projection={reorderProjection}
               sourcePos={sourcePos}
               getSourcePos={() => readNodePos(props) ?? null}
               sourceKey={itemId}
@@ -142,7 +152,7 @@ function TimelineAddGhost({
       .focus()
       .insertContentAt(pos + node.nodeSize - 1, {
         ...createTimelineItem(itemCount),
-        attrs: { id: createStableId() },
+        attrs: { id: createEmbeddedNodeId() },
       })
       .run();
   };

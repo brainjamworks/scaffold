@@ -1,4 +1,5 @@
 import json
+import hashlib
 from datetime import datetime, timedelta, timezone
 
 from .assessment_migrations import (
@@ -25,6 +26,10 @@ class AssessmentStorageValidationError(ValueError):
 
 
 class LearnerActivityStorageValidationError(ValueError):
+    pass
+
+
+class PublicationStorageValidationError(ValueError):
     pass
 
 
@@ -100,14 +105,97 @@ def artifact_from_json(raw, artifact_id, title, default_mode):
         },
     )
     artifact["id"] = artifact_id
-    artifact["title"] = title
+    if not isinstance(artifact.get("title"), str) or not artifact["title"].strip():
+        artifact["title"] = title
     if "content" not in artifact:
         artifact["content"] = None
     return artifact
 
 
 def learner_content_from_json(raw):
-    return _parse_json_nullable_object(raw)
+    publication = learner_publication_envelope_from_json(raw)
+    return publication["learnerContent"] if publication is not None else None
+
+
+def artifact_revision(artifact):
+    encoded = json.dumps(artifact, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def learner_publication_envelope_from_json(raw):
+    if not raw:
+        return None
+    try:
+        publication = json.loads(raw)
+    except (TypeError, ValueError) as exc:
+        raise PublicationStorageValidationError(
+            "learner publication must contain valid JSON",
+        ) from exc
+    if publication is None:
+        return None
+    if not isinstance(publication, dict) or set(publication) != {
+        "publicationVersion",
+        "sourceArtifactRevision",
+        "publishedAt",
+        "artifact",
+        "learnerContent",
+    }:
+        raise PublicationStorageValidationError(
+            "learner publication envelope has invalid fields",
+        )
+    if publication["publicationVersion"] != 1:
+        raise PublicationStorageValidationError(
+            "learner publication envelope version is not supported",
+        )
+    if not isinstance(publication["sourceArtifactRevision"], str) or not publication[
+        "sourceArtifactRevision"
+    ]:
+        raise PublicationStorageValidationError(
+            "learner publication source revision is invalid",
+        )
+    _parse_publication_timestamp(publication["publishedAt"])
+    artifact = publication["artifact"]
+    if not isinstance(artifact, dict) or set(artifact) != {
+        "id",
+        "title",
+        "mode",
+        "requiresScaffoldPlus",
+    }:
+        raise PublicationStorageValidationError(
+            "learner publication artifact metadata is invalid",
+        )
+    if (
+        not isinstance(artifact["id"], str)
+        or not artifact["id"]
+        or not isinstance(artifact["title"], str)
+        or not artifact["title"].strip()
+        or artifact["mode"] not in {"page", "slideshow", "branching"}
+        or not isinstance(artifact["requiresScaffoldPlus"], bool)
+        or not isinstance(publication["learnerContent"], dict)
+    ):
+        raise PublicationStorageValidationError(
+            "learner publication envelope is invalid",
+        )
+    return publication
+
+
+def serialize_learner_publication_envelope(publication):
+    validated = learner_publication_envelope_from_json(json.dumps(publication))
+    return json.dumps(validated)
+
+
+def _parse_publication_timestamp(value):
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise PublicationStorageValidationError(
+            "learner publication timestamp is invalid",
+        ) from exc
+    if parsed.tzinfo is None:
+        raise PublicationStorageValidationError(
+            "learner publication timestamp must include a timezone",
+        )
+    return parsed.astimezone(timezone.utc)
 
 
 def assessment_bundle_from_json(targets_raw, groups_raw):

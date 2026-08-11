@@ -24,7 +24,7 @@ import {
 import { Button } from "@/ui/components/Button/Button";
 import { IconButton } from "@/ui/components/IconButton/IconButton";
 import * as ToolbarPrimitive from "@/ui/components/Toolbar/Toolbar";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";
 import { iconSm, iconXs } from "@/ui/tokens/icon-sizes";
 
 import {
@@ -149,7 +149,7 @@ export function DataGridEditor({
     if (disabled) return;
     onChange({
       ...value,
-      ...(value.rowIds ? { rowIds: [...value.rowIds, createStableId()] } : {}),
+      ...(value.rowIds ? { rowIds: [...value.rowIds, createEmbeddedDataId()] } : {}),
       rows: [...value.rows, value.headers.map(() => "")],
     });
   }
@@ -168,7 +168,7 @@ export function DataGridEditor({
     const nextColumnIndex = value.headers.length;
     onChange({
       ...value,
-      ...(value.columnIds ? { columnIds: [...value.columnIds, createStableId()] } : {}),
+      ...(value.columnIds ? { columnIds: [...value.columnIds, createEmbeddedDataId()] } : {}),
       ...(value.columnTypes ? { columnTypes: [...value.columnTypes, "text" as const] } : {}),
       headers: [...value.headers, `Column ${nextColumnIndex + 1}`],
       rows: value.rows.map((row) => [...row, ""]),
@@ -194,14 +194,14 @@ export function DataGridEditor({
     if (!headers || headers.length === 0) return;
     const nextRows = rows.length > 0 ? rows : [headers.map(() => "")];
     onChange({
-      ...(value.columnIds ? { columnIds: headers.map(() => createStableId()) } : {}),
+      ...(value.columnIds ? { columnIds: headers.map(() => createEmbeddedDataId()) } : {}),
       ...(value.columnTypes
         ? { columnTypes: inferDataGridColumnTypes(nextRows, headers.length) }
         : {}),
       headers,
       ...(value.rowIds
         ? {
-            rowIds: nextRows.map(() => createStableId()),
+            rowIds: nextRows.map(() => createEmbeddedDataId()),
           }
         : {}),
       rows: nextRows,

@@ -3,7 +3,8 @@ import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 import * as ports from "@scaffold/core/ports";
 import type {
   ArtifactPersistencePort,
-  ArtifactSaveBundle,
+  ArtifactRevision,
+  ArtifactSavePayload,
   ArtifactSaveResult,
   AssessmentCheckRequest,
   AssessmentPort,
@@ -45,6 +46,9 @@ import type {
   LearningEventTimestamp,
   LearningEventUuid,
   LearningEventVerb,
+  LearnerPublicationPayload,
+  LearnerPublicationPort,
+  LearnerPublicationStatus,
   Score,
   MediaPort,
   MediaUploadMeta,
@@ -72,7 +76,8 @@ type PortsTypeSurface = {
   artifactCreationMode: ScaffoldArtifactCreationMode;
   artifactCreationPort: ScaffoldArtifactCreationPort;
   artifactPersistencePort: ArtifactPersistencePort;
-  artifactSaveBundle: ArtifactSaveBundle;
+  artifactRevision: ArtifactRevision;
+  artifactSavePayload: ArtifactSavePayload;
   artifactSaveResult: ArtifactSaveResult;
   assessmentCheckRequest: AssessmentCheckRequest;
   assessmentPort: AssessmentPort;
@@ -108,6 +113,9 @@ type PortsTypeSurface = {
   learningEventTimestamp: LearningEventTimestamp;
   learningEventUuid: LearningEventUuid;
   learningEventVerb: LearningEventVerb;
+  learnerPublicationPayload: LearnerPublicationPayload;
+  learnerPublicationPort: LearnerPublicationPort;
+  learnerPublicationStatus: LearnerPublicationStatus;
   mediaContext: ScaffoldMediaContext;
   mediaPort: MediaPort;
   mediaUploadMeta: MediaUploadMeta;

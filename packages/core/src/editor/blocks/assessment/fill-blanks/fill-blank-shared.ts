@@ -6,7 +6,7 @@ import {
   type FillBlankAttrs,
   type FillBlankPrivateAssessmentEntry,
 } from "@scaffold/contracts";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 export const FILL_BLANK_NODE_TYPE = "fill_blank";
 
@@ -16,7 +16,7 @@ export interface FillBlankNodeOptions {
 
 export function createFillBlankAttrs(selectedText = ""): FillBlankAttrs {
   return FillBlankAttrsSchema.parse({
-    id: createStableId(),
+    id: createEmbeddedNodeId(),
     placeholder: selectedText ? "" : "",
   });
 }

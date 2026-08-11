@@ -70,7 +70,7 @@ import {
   ASSESSMENT_QUESTION_CONTENT,
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
 import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
@@ -436,20 +436,25 @@ const testAssessmentCapability = defineAssessmentCapability({
   },
 });
 
+const testAssessmentQuestionDuplication: NonNullable<BlockCapability["duplication"]> = ({
+  content,
+  nodeIdChanges,
+}) => {
+  const sourceRef = EmbeddedNodeIdSchema.safeParse(content.attrs?.["sourceRef"]);
+  return {
+    ...content,
+    attrs: {
+      ...content.attrs,
+      sourceRef: sourceRef.success
+        ? (nodeIdChanges.get(sourceRef.data) ?? sourceRef.data)
+        : content.attrs?.["sourceRef"],
+    },
+  };
+};
+
 const testAssessmentQuestionDefinition = defineBlock({
   nodeType: "test_assessment_question",
-  rewriteCopiedContent: ({ content, nodeIdChanges }) => {
-    const sourceRef = EmbeddedNodeIdSchema.safeParse(content.attrs?.["sourceRef"]);
-    return {
-      ...content,
-      attrs: {
-        ...content.attrs,
-        sourceRef: sourceRef.success
-          ? (nodeIdChanges.get(sourceRef.data) ?? sourceRef.data)
-          : content.attrs?.["sourceRef"],
-      },
-    };
-  },
+  title: "Test assessment question",
   configuration: createAssessmentConfiguration({
     schema: testAssessmentQuestionSettingsSchema,
     title: "Test quiz assessment question settings",
@@ -488,6 +493,7 @@ const testAssessmentQuestionDefinition = defineBlock({
 const testAssessmentQuestionCapability = blockCapability(
   testAssessmentQuestionDefinition,
   TestAssessmentQuestionNode,
+  testAssessmentQuestionDuplication,
 );
 const quizFixturePack = defineScaffoldExtensionPack({
   id: "quiz-test-fixture",
@@ -528,6 +534,7 @@ let plusQuizQuickActionTargetId: string | null = null;
 
 const plusAssessmentQuestionDefinition = defineBlock({
   nodeType: PLUS_ASSESSMENT_NODE_TYPE,
+  title: "Plus assessment question",
   authoringControls: {
     controls: ({ targetId }) => [
       {
@@ -556,13 +563,14 @@ const plusAssessmentQuestionDefinition = defineBlock({
     category: "assessment",
     content: () => ({
       type: PLUS_ASSESSMENT_NODE_TYPE,
-      attrs: { id: createStableId() },
+      attrs: { id: createEmbeddedNodeId() },
     }),
   },
 });
 
 const plusNonAssessmentQuestionDefinition = defineBlock({
   nodeType: PLUS_NON_ASSESSMENT_NODE_TYPE,
+  title: "Plus non-assessment question",
   insert: {
     id: "plus-quiz-non-assessment",
     title: "Plus non-assessment question",
@@ -575,6 +583,7 @@ const plusNonAssessmentQuestionDefinition = defineBlock({
 
 const plusSchemaIncompatibleQuestionDefinition = defineBlock({
   nodeType: PLUS_SCHEMA_INCOMPATIBLE_NODE_TYPE,
+  title: "Plus schema-incompatible question",
   capabilities: { assessment: testAssessmentCapability },
   insert: {
     id: "plus-quiz-schema-incompatible",
@@ -649,7 +658,9 @@ describe("quiz block skeleton", () => {
 
   it("resolves portable quiz child definitions from an explicit registry", () => {
     const nodeType = "isolated_portable_quiz_child";
-    const registry = createBlockRegistry([defineBlock({ nodeType })]);
+    const registry = createBlockRegistry([
+      defineBlock({ nodeType, title: "Isolated portable quiz child" }),
+    ]);
     const schema = new ProseMirrorSchema({
       nodes: {
         doc: { content: "quiz" },
@@ -2792,7 +2803,10 @@ describe("quiz block skeleton", () => {
       .closest("[data-quiz-view-id]") as HTMLElement | null;
     expect(quizShell?.getAttribute("data-active-question-id")).toBe("questn_00002");
     expect(
-      projectAssessmentDocument(editor.getJSON(), builtInBlockRegistry).groups[0]?.targetIds,
+      projectAssessmentDocument(
+        { status: "supported", canonicalDocument: editor.getJSON() },
+        builtInBlockRegistry,
+      ).groups[0]?.targetIds,
     ).toEqual(["questn_00002", "questn_00001"]);
     expect(
       quiz?.content?.map((child) => ("attrs" in child ? child.attrs?.["frame"] : undefined)),
@@ -3435,11 +3449,13 @@ function createDisposableQuizEditor({
 function blockCapability(
   definition: BlockCapability["definition"],
   extension: AnyExtension,
+  duplication?: BlockCapability["duplication"],
 ): BlockCapability {
   return {
     definition,
     authoringExtension: extension,
     runtimeExtension: extension,
+    ...(duplication ? { duplication } : {}),
   };
 }
 

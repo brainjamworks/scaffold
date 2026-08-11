@@ -15,8 +15,7 @@
   "type": "module",
   "scripts": {
     "chrome:shared": "bash scripts/start-shared-chrome.sh",
-    "create:block": "node scripts/create-block.mjs",
-    "create:layout": "node scripts/create-layout.mjs",
+    "qa:capture": "node scripts/capture-functional-scenario.mjs",
     "report:xblock-css": "node scripts/report-xblock-css.mjs"
   },
   "devDependencies": {

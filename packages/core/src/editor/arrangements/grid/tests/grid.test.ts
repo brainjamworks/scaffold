@@ -8,6 +8,7 @@ import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import {
   ARRANGEMENT_CONTENT,
   CELL_ARRANGEMENT_CONTENT,
@@ -17,6 +18,7 @@ import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { RESIZE_GESTURE_ACTIVE_ATTR } from "@/editor/interactions/gesture/editor-resize-gesture";
 import {
@@ -62,9 +64,15 @@ const testBlockRegistry = createBlockRegistry([
   ...builtInBlockRegistry.definitions,
   defineBlock({ nodeType: TEST_INNER_BLOCK }),
 ]);
+const testScaffoldCapabilities = Object.freeze({
+  blocks: Object.freeze({ registry: testBlockRegistry }),
+  layouts: Object.freeze({ registry: builtInLayoutRegistry }),
+  surfaces: Object.freeze({ registry: builtInSurfaceVariantRegistry }),
+});
 const { CellAuthoringNode, GridAuthoringNode } = createGridAuthoringNodes(testBlockRegistry);
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: testBlockRegistry,
+  layoutDefinitions: builtInLayoutRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
 });
 const gridStructuralRenderers = createStructuralInteractionBubbleRendererMap(
@@ -166,6 +174,7 @@ function makeCourseEditorWithSurfaceContent(content: JSONContent[], editable = t
         paragraph: false,
         undoRedo: false,
       }),
+      createScaffoldCapabilitiesStorageExtension(testScaffoldCapabilities),
       createTestNodeIdentityExtension(),
       ExtendedParagraph,
       CourseDocumentNode,

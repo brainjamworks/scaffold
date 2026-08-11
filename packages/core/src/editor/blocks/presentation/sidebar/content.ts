@@ -1,7 +1,7 @@
 import { SidebarDataSchema, type SidebarData } from "@scaffold/contracts";
 import type { JSONContent } from "@tiptap/core";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 export const SIDEBAR_BLOCK_ID = "sidebar";
 export const SIDEBAR_NODE = "sidebar";
@@ -17,7 +17,7 @@ export function createSidebarContent(options?: Partial<SidebarData>): JSONConten
   return {
     type: SIDEBAR_NODE,
     attrs: {
-      id: createStableId(),
+      id: createEmbeddedNodeId(),
       data: emptySidebarData(options),
     },
     content: [

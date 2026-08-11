@@ -3,7 +3,9 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   MAX_SEMANTIC_LABEL_LENGTH,
   disambiguateSemanticLabels,
+  normalizeAuthoredSemanticLabel,
   normalizeSemanticLabel,
+  readAuthoredSemanticLabel,
 } from "./semantic-labels";
 
 describe("semantic labels", () => {
@@ -20,6 +22,18 @@ describe("semantic labels", () => {
 
     expect(label).toHaveLength(MAX_SEMANTIC_LABEL_LENGTH);
     expect(label).toBe(`${"A".repeat(MAX_SEMANTIC_LABEL_LENGTH - 1)}…`);
+  });
+
+  it("normalizes authored overrides while preserving blank as an explicit reset", () => {
+    expect(normalizeAuthoredSemanticLabel("  Author\n  overview\t ")).toBe("Author overview");
+    expect(normalizeAuthoredSemanticLabel(" \n\t ")).toBeNull();
+  });
+
+  it("reads only usable persisted authored overrides", () => {
+    expect(readAuthoredSemanticLabel("  Author\n  overview\t ")).toBe("Author overview");
+    expect(readAuthoredSemanticLabel(null)).toBeNull();
+    expect(readAuthoredSemanticLabel({ label: "not a string" })).toBeNull();
+    expect(readAuthoredSemanticLabel("A".repeat(MAX_SEMANTIC_LABEL_LENGTH + 1))).toBeNull();
   });
 
   it("adds ordinals only to normalized sibling collisions", () => {

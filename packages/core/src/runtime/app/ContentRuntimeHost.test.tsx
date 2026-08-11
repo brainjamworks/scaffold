@@ -31,11 +31,82 @@ import {
   createSurfaceActivityId as createLearningEventSurfaceActivityId,
 } from "../learning-events/catalogue";
 
-import { ContentRuntimeHost } from "./ContentRuntimeHost";
+import {
+  ContentRuntimeHost as PublicContentRuntimeHost,
+  type ContentRuntimeHostProps,
+} from "./ContentRuntimeHost";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import type { LearningEventSession } from "../learning-events/session";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
+const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
+
+type TestContentRuntimeHostProps = Omit<
+  ContentRuntimeHostProps,
+  "productAccess" | "publication"
+> & {
+  readonly initialContent: JSONContent | null;
+  readonly productAccess?: ContentRuntimeHostProps["productAccess"];
+};
+
+const fixturePublications = new WeakMap<JSONContent, ContentRuntimeHostProps["publication"]>();
+
+function ContentRuntimeHost({
+  initialContent,
+  productAccess = coreProductAccess,
+  ...props
+}: TestContentRuntimeHostProps) {
+  let publication: ContentRuntimeHostProps["publication"];
+  if (initialContent) {
+    const cached = fixturePublications.get(initialContent);
+    if (cached) publication = cached;
+    else {
+      normalizeRuntimeFixtureIds(initialContent);
+      publication = { status: "supported", learnerContent: initialContent };
+      fixturePublications.set(initialContent, publication);
+    }
+  } else {
+    publication = {
+      status: "invalid",
+      issues: [{ code: "missing_content", message: "Learner publication is missing.", path: [] }],
+    };
+  }
+  return (
+    <PublicContentRuntimeHost {...props} productAccess={productAccess} publication={publication} />
+  );
+}
+
+function normalizeRuntimeFixtureIds(content: JSONContent): void {
+  const seen = new Set<string>();
+  const stack = [content];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node.type !== "doc" && node.type !== "text") {
+      const existingId = node.attrs?.id;
+      let id = EmbeddedNodeIdSchema.safeParse(existingId).success
+        ? String(existingId)
+        : runtimeFixtureId(String(existingId ?? node.type));
+      if (seen.has(id)) id = createEmbeddedNodeId();
+      node.attrs = { ...node.attrs, id };
+      seen.add(id);
+    }
+    stack.push(...(node.content ?? []));
+  }
+}
+
+function runtimeFixtureId(source: string): EmbeddedNodeId {
+  let hash = 2166136261;
+  for (const character of source) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  const prefix = source
+    .replace(/[^A-Za-z0-9_-]/g, "_")
+    .slice(0, 7)
+    .padEnd(7, "_");
+  const suffix = (hash >>> 0).toString(36).slice(-4).padStart(4, "0");
+  return EmbeddedNodeIdSchema.parse(`${prefix}_${suffix}`);
+}
 const DEFAULT_RUNTIME_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
 const FIRST_SLIDESHOW_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00002");
 const SECOND_SLIDESHOW_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00003");
@@ -49,6 +120,21 @@ const runtimeStoreFactories = vi.hoisted(() => ({
 }));
 
 const runtimePlayerSelectionCalls = vi.hoisted(() => vi.fn());
+const documentEstablishmentCalls = vi.hoisted(() => vi.fn());
+
+vi.mock("@/document/model/establishment/establish-authoring-document", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("@/document/model/establishment/establish-authoring-document")
+    >();
+  return {
+    ...actual,
+    establishAuthoringDocument: (...args: Parameters<typeof actual.establishAuthoringDocument>) => {
+      documentEstablishmentCalls(...args);
+      return actual.establishAuthoringDocument(...args);
+    },
+  };
+});
 
 vi.mock("../players/player-selection", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../players/player-selection")>();
@@ -101,6 +187,7 @@ beforeEach(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserverStub);
   runtimeStoreFactories.assessment.mockClear();
   runtimeStoreFactories.learnerActivity.mockClear();
+  documentEstablishmentCalls.mockClear();
   runtimePlayerSelectionCalls.mockClear();
 });
 
@@ -537,6 +624,14 @@ function runtimeImageHotspotBlock(): JSONContent {
         missFeedback: null,
         summaryFeedback: null,
       },
+      settings: {
+        feedbackMode: "on_submit",
+        isGraded: true,
+        showAnswer: true,
+        legend: "Select the target region",
+        points: 1,
+        maxAttempts: null,
+      },
     },
     content: assessmentShellContent({
       type: "image_hotspot_canvas",
@@ -868,7 +963,7 @@ describe("ContentRuntimeHost", () => {
       <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ContentRuntimeHost
           composition={runtimeComposition}
-          artifactId="artifact-sectioned-slideshow"
+          artifactId="artifact-slideshow"
           initialContent={sectionedRuntimeSlideshowContent()}
         />
       </ScaffoldServicesProvider>,
@@ -964,8 +1059,8 @@ describe("ContentRuntimeHost", () => {
       {
         id: createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
-          "layout-tabs",
-          "tab-one",
+          runtimeFixtureId("layout-tabs"),
+          runtimeFixtureId("tab-one"),
         ),
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.layoutKind]: "tabs",
@@ -976,8 +1071,8 @@ describe("ContentRuntimeHost", () => {
       {
         id: createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
-          "layout-tabs",
-          "tab-two",
+          runtimeFixtureId("layout-tabs"),
+          runtimeFixtureId("tab-two"),
         ),
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.layoutKind]: "tabs",
@@ -988,8 +1083,8 @@ describe("ContentRuntimeHost", () => {
       {
         id: createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
-          "layout-tabs",
-          "tab-one",
+          runtimeFixtureId("layout-tabs"),
+          runtimeFixtureId("tab-one"),
         ),
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.layoutKind]: "tabs",
@@ -1037,7 +1132,7 @@ describe("ContentRuntimeHost", () => {
         id: createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
           "layout-pages",
-          "page-one",
+          runtimeFixtureId("page-one"),
         ),
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.layoutKind]: "paginated",
@@ -1049,7 +1144,7 @@ describe("ContentRuntimeHost", () => {
         id: createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
           "layout-pages",
-          "page-two",
+          runtimeFixtureId("page-two"),
         ),
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.layoutKind]: "paginated",
@@ -1061,7 +1156,7 @@ describe("ContentRuntimeHost", () => {
         id: createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
           "layout-pages",
-          "page-one",
+          runtimeFixtureId("page-one"),
         ),
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.layoutKind]: "paginated",
@@ -1098,8 +1193,8 @@ describe("ContentRuntimeHost", () => {
       expect(layoutSectionIds()).toStrictEqual([
         createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
-          "layout-slide-one",
-          "tab-slide-one",
+          runtimeFixtureId("layout-slide-one"),
+          runtimeFixtureId("tab-slide-one"),
         ),
       ]),
     );
@@ -1110,13 +1205,13 @@ describe("ContentRuntimeHost", () => {
       expect(layoutSectionIds()).toStrictEqual([
         createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
-          "layout-slide-one",
-          "tab-slide-one",
+          runtimeFixtureId("layout-slide-one"),
+          runtimeFixtureId("tab-slide-one"),
         ),
         createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
-          "layout-slide-two",
-          "tab-slide-two",
+          runtimeFixtureId("layout-slide-two"),
+          runtimeFixtureId("tab-slide-two"),
         ),
       ]),
     );
@@ -1127,18 +1222,18 @@ describe("ContentRuntimeHost", () => {
       expect(layoutSectionIds()).toStrictEqual([
         createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
-          "layout-slide-one",
-          "tab-slide-one",
+          runtimeFixtureId("layout-slide-one"),
+          runtimeFixtureId("tab-slide-one"),
         ),
         createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
-          "layout-slide-two",
-          "tab-slide-two",
+          runtimeFixtureId("layout-slide-two"),
+          runtimeFixtureId("tab-slide-two"),
         ),
         createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
-          "layout-slide-one",
-          "tab-slide-one",
+          runtimeFixtureId("layout-slide-one"),
+          runtimeFixtureId("tab-slide-one"),
         ),
       ]),
     );
@@ -1166,11 +1261,11 @@ describe("ContentRuntimeHost", () => {
         );
 
     await waitFor(() => expect(layoutSectionEvents()).toHaveLength(1));
-    await user.click(screen.getByRole("button", { name: "Expand After class" }));
+    await user.click(screen.getByRole("button", { name: "After class" }));
     await waitFor(() => expect(layoutSectionEvents()).toHaveLength(2));
-    await user.click(screen.getByRole("button", { name: "Collapse Before class" }));
+    await user.click(screen.getByRole("button", { name: "Before class" }));
     expect(layoutSectionEvents()).toHaveLength(2);
-    await user.click(screen.getByRole("button", { name: "Expand Before class" }));
+    await user.click(screen.getByRole("button", { name: "Before class" }));
     await waitFor(() => expect(layoutSectionEvents()).toHaveLength(3));
 
     expect(
@@ -1182,8 +1277,8 @@ describe("ContentRuntimeHost", () => {
       {
         id: createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
-          "layout-accordion",
-          "accordion-one",
+          runtimeFixtureId("layout-accordion"),
+          runtimeFixtureId("accordion-one"),
         ),
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.layoutKind]: "accordion",
@@ -1194,8 +1289,8 @@ describe("ContentRuntimeHost", () => {
       {
         id: createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
-          "layout-accordion",
-          "accordion-two",
+          runtimeFixtureId("layout-accordion"),
+          runtimeFixtureId("accordion-two"),
         ),
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.layoutKind]: "accordion",
@@ -1206,8 +1301,8 @@ describe("ContentRuntimeHost", () => {
       {
         id: createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
-          "layout-accordion",
-          "accordion-one",
+          runtimeFixtureId("layout-accordion"),
+          runtimeFixtureId("accordion-one"),
         ),
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.layoutKind]: "accordion",
@@ -1244,8 +1339,8 @@ describe("ContentRuntimeHost", () => {
       expect(layoutSectionIds()).toStrictEqual([
         createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
-          "layout-accordion-one",
-          "accordion-slide-one-one",
+          runtimeFixtureId("layout-accordion-one"),
+          runtimeFixtureId("accordion-slide-one-one"),
         ),
       ]),
     );
@@ -1256,13 +1351,13 @@ describe("ContentRuntimeHost", () => {
       expect(layoutSectionIds()).toStrictEqual([
         createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
-          "layout-accordion-one",
-          "accordion-slide-one-one",
+          runtimeFixtureId("layout-accordion-one"),
+          runtimeFixtureId("accordion-slide-one-one"),
         ),
         createLearningEventLayoutSectionActivityId(
           port.rootActivityId,
-          "layout-accordion-two",
-          "accordion-slide-two-one",
+          runtimeFixtureId("layout-accordion-two"),
+          runtimeFixtureId("accordion-slide-two-one"),
         ),
       ]),
     );
@@ -1558,6 +1653,27 @@ describe("ContentRuntimeHost", () => {
     expect(screen.queryByTestId("course-document-editor")).toBeNull();
   });
 
+  it("establishes a supported learner publication once before mounting its player", async () => {
+    const onEditorReady = vi.fn();
+    const learnerContent = runtimeDocumentContent();
+    normalizeRuntimeFixtureIds(learnerContent);
+
+    render(
+      <PublicContentRuntimeHost
+        artifactId="artifact-single-establishment"
+        composition={runtimeComposition}
+        productAccess={coreProductAccess}
+        publication={{ status: "supported", learnerContent }}
+        onEditorReady={onEditorReady}
+      />,
+    );
+
+    expect(await screen.findByTestId("page-player")).toBeInTheDocument();
+    expect(screen.getByTestId("course-document-runtime-renderer")).toBeInTheDocument();
+    expect(onEditorReady).toHaveBeenCalledTimes(1);
+    expect(documentEstablishmentCalls).toHaveBeenCalledTimes(1);
+  });
+
   it("installs StudentGuard so runtime document changes are rejected", async () => {
     const onEditorReady = vi.fn();
 
@@ -1621,16 +1737,236 @@ describe("ContentRuntimeHost", () => {
       screen
         .getByTestId("scaffold-runtime-unavailable")
         .getAttribute("data-runtime-unavailable-reason"),
-    ).toBe("missing-initial-content");
+    ).toBe("invalid-learner-content");
     expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
     expect(onEditorReady).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      publication: {
+        status: "unavailable-content" as const,
+        unavailableContent: [
+          {
+            kind: "block" as const,
+            capabilityId: "plus_private_block",
+            stableId: "plusblock001",
+            path: ["content", 0] as const,
+          },
+        ],
+      },
+      reason: "unavailable-content",
+    },
+    {
+      publication: {
+        status: "invalid" as const,
+        issues: [{ code: "invalid", message: "Invalid publication.", path: [] }],
+      },
+      reason: "invalid-learner-content",
+    },
+    {
+      publication: {
+        status: "requires-scaffold-plus" as const,
+      },
+      reason: "requires-scaffold-plus",
+    },
+    {
+      publication: {
+        status: "unsupported-core-format" as const,
+        documentVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION + 1,
+        supportedVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        message: "Future format.",
+      },
+      reason: "unsupported-core-format",
+    },
+  ])(
+    "preserves typed $publication.status refusal before runtime construction",
+    ({ publication, reason }) => {
+      const onEditorReady = vi.fn();
+
+      render(
+        <PublicContentRuntimeHost
+          artifactId="artifact-refused-publication"
+          composition={runtimeComposition}
+          productAccess={coreProductAccess}
+          publication={publication}
+          onEditorReady={onEditorReady}
+        />,
+      );
+
+      expect(screen.getByTestId("scaffold-runtime-unavailable")).toHaveAttribute(
+        "data-runtime-unavailable-reason",
+        reason,
+      );
+      expect(runtimePlayerSelectionCalls).not.toHaveBeenCalled();
+      expect(onEditorReady).not.toHaveBeenCalled();
+    },
+  );
+
+  it("refuses a Plus-required learner document before player selection or Tiptap", () => {
+    const content = runtimeDocumentContent();
+    content.content![0]!.attrs!["requiresScaffoldPlus"] = true;
+    const onEditorReady = vi.fn();
+
+    render(
+      <PublicContentRuntimeHost
+        artifactId="artifact-plus-required"
+        composition={runtimeComposition}
+        productAccess={coreProductAccess}
+        publication={{ status: "supported", learnerContent: content }}
+        onEditorReady={onEditorReady}
+      />,
+    );
+
+    expect(screen.getByTestId("scaffold-runtime-unavailable")).toHaveAttribute(
+      "data-runtime-unavailable-reason",
+      "requires-scaffold-plus",
+    );
+    expect(runtimePlayerSelectionCalls).not.toHaveBeenCalled();
+    expect(onEditorReady).not.toHaveBeenCalled();
+  });
+
+  it("refuses future Core format before runtime player selection or Tiptap", () => {
+    const content = runtimeDocumentContent();
+    content.content![0]!.attrs!.schemaVersion = SCAFFOLD_DOCUMENT_FORMAT_VERSION + 1;
+    const onEditorReady = vi.fn();
+
+    render(
+      <PublicContentRuntimeHost
+        artifactId="artifact-future-format"
+        composition={runtimeComposition}
+        productAccess={coreProductAccess}
+        publication={{ status: "supported", learnerContent: content }}
+        onEditorReady={onEditorReady}
+      />,
+    );
+
+    expect(screen.getByTestId("scaffold-runtime-unavailable")).toHaveAttribute(
+      "data-runtime-unavailable-reason",
+      "unsupported-core-format",
+    );
+    expect(runtimePlayerSelectionCalls).not.toHaveBeenCalled();
+    expect(onEditorReady).not.toHaveBeenCalled();
+  });
+
+  it("refuses current-format invalid Course attrs before player selection or Tiptap", () => {
+    const content = runtimeDocumentContent();
+    delete content.content![0]!.attrs!.theme;
+    const onEditorReady = vi.fn();
+
+    render(
+      <PublicContentRuntimeHost
+        artifactId="artifact-invalid-course-attrs"
+        composition={runtimeComposition}
+        productAccess={coreProductAccess}
+        publication={{ status: "supported", learnerContent: content }}
+        onEditorReady={onEditorReady}
+      />,
+    );
+
+    expect(screen.getByTestId("scaffold-runtime-unavailable")).toHaveAttribute(
+      "data-runtime-unavailable-reason",
+      "invalid-learner-content",
+    );
+    expect(runtimePlayerSelectionCalls).not.toHaveBeenCalled();
+    expect(onEditorReady).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      name: "missing",
+      mutate: (content: JSONContent) => {
+        delete content.content![0]!.content![0]!.attrs!.id;
+      },
+    },
+    {
+      name: "duplicate",
+      mutate: (content: JSONContent) => {
+        content.content![0]!.content![0]!.attrs!.id = content.content![0]!.attrs!.id;
+      },
+    },
+  ])("refuses $name mounted IDs before player selection or Tiptap", ({ mutate }) => {
+    const content = runtimeDocumentContent();
+    mutate(content);
+    const onEditorReady = vi.fn();
+
+    render(
+      <PublicContentRuntimeHost
+        artifactId="artifact-invalid-identity"
+        composition={runtimeComposition}
+        productAccess={coreProductAccess}
+        publication={{ status: "supported", learnerContent: content }}
+        onEditorReady={onEditorReady}
+      />,
+    );
+
+    expect(screen.getByTestId("scaffold-runtime-unavailable")).toHaveAttribute(
+      "data-runtime-unavailable-reason",
+      "invalid-learner-content",
+    );
+    expect(runtimePlayerSelectionCalls).not.toHaveBeenCalled();
+    expect(onEditorReady).not.toHaveBeenCalled();
+  });
+
+  it("refuses compatibility working JSON before runtime player selection", () => {
+    const content = runtimeDocumentContent();
+    content.content![0]!.content![0]!.content = [
+      {
+        type: "unavailable_block",
+        attrs: {
+          id: "plusblock001",
+          capabilityId: "plus_private_block",
+          original: {
+            type: "plus_private_block",
+            attrs: { id: "plusblock001", private: "must-not-render" },
+          },
+        },
+      },
+    ];
+    const onEditorReady = vi.fn();
+
+    render(
+      <ContentRuntimeHost
+        artifactId="artifact-unavailable-working"
+        composition={runtimeComposition}
+        initialContent={content}
+        onEditorReady={onEditorReady}
+      />,
+    );
+
+    expect(screen.getByTestId("scaffold-runtime-unavailable")).toHaveAttribute(
+      "data-runtime-unavailable-reason",
+      "invalid-learner-content",
+    );
+    expect(runtimePlayerSelectionCalls).not.toHaveBeenCalled();
+    expect(onEditorReady).not.toHaveBeenCalled();
+    expect(document.body).not.toHaveTextContent("must-not-render");
+  });
+
+  it("refuses unknown learner nodes before runtime player selection", () => {
+    const content = runtimeDocumentContent();
+    content.content![0]!.content![0]!.content = [
+      { type: "plus_private_block", attrs: { id: "plusblock001" } },
+    ];
+
+    render(
+      <ContentRuntimeHost
+        artifactId="artifact-invalid-learner"
+        composition={runtimeComposition}
+        initialContent={content}
+      />,
+    );
+
+    expect(screen.getByTestId("scaffold-runtime-unavailable")).toHaveAttribute(
+      "data-runtime-unavailable-reason",
+      "invalid-learner-content",
+    );
+    expect(runtimePlayerSelectionCalls).not.toHaveBeenCalled();
   });
 
   it("reuses runtime player selection while the same initial content remains loaded", async () => {
     const initialContent = runtimeDocumentContent();
     const replacementContent = runtimeDocumentContent();
-    const callsFor = (content: JSONContent) =>
-      runtimePlayerSelectionCalls.mock.calls.filter(([candidate]) => candidate === content).length;
     const { rerender } = render(
       <StrictMode>
         <ContentRuntimeHost
@@ -1643,7 +1979,7 @@ describe("ContentRuntimeHost", () => {
     );
 
     expect(await screen.findByTestId("page-player")).toBeInTheDocument();
-    const initialSelectionCount = callsFor(initialContent);
+    const initialSelectionCount = runtimePlayerSelectionCalls.mock.calls.length;
     expect(initialSelectionCount).toBeGreaterThan(0);
 
     rerender(
@@ -1657,7 +1993,7 @@ describe("ContentRuntimeHost", () => {
       </StrictMode>,
     );
 
-    expect(callsFor(initialContent)).toBe(initialSelectionCount);
+    expect(runtimePlayerSelectionCalls).toHaveBeenCalledTimes(initialSelectionCount);
 
     rerender(
       <StrictMode>
@@ -1670,8 +2006,9 @@ describe("ContentRuntimeHost", () => {
       </StrictMode>,
     );
 
-    await waitFor(() => expect(callsFor(replacementContent)).toBeGreaterThan(0));
-    expect(callsFor(initialContent)).toBe(initialSelectionCount);
+    await waitFor(() =>
+      expect(runtimePlayerSelectionCalls.mock.calls.length).toBeGreaterThan(initialSelectionCount),
+    );
   });
 
   it("renders unavailable when canonical Course Structure cannot be projected", () => {
@@ -1703,7 +2040,7 @@ describe("ContentRuntimeHost", () => {
       screen
         .getByTestId("scaffold-runtime-unavailable")
         .getAttribute("data-runtime-unavailable-reason"),
-    ).toBe("invalid-course-structure");
+    ).toBe("invalid-learner-content");
     expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
   });
 
@@ -1738,7 +2075,7 @@ describe("ContentRuntimeHost", () => {
       screen
         .getByTestId("scaffold-runtime-unavailable")
         .getAttribute("data-runtime-unavailable-reason"),
-    ).toBe("invalid-course-structure");
+    ).toBe("invalid-learner-content");
     expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
   });
 

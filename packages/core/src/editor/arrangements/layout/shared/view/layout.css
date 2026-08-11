@@ -143,56 +143,6 @@
     padding: 0;
   }
 
-  .sc-layout-add-ghost--tab,
-  .sc-layout-add-ghost--tab-pills,
-  .sc-layout-add-ghost--tab-underline {
-    min-height: var(--spacing-touch-target);
-    white-space: nowrap;
-    opacity: 0.7;
-  }
-
-  .sc-layout-add-ghost--tab:hover,
-  .sc-layout-add-ghost--tab-pills:hover,
-  .sc-layout-add-ghost--tab-underline:hover {
-    opacity: 1;
-  }
-
-  .sc-layout-add-ghost--tab {
-    margin-bottom: -1px;
-    border-top: 0;
-    border-right: 0;
-    border-bottom-width: 2px;
-    border-left: 0;
-    border-radius: 0;
-    padding: 0.75rem 1rem;
-  }
-
-  .sc-layout-add-ghost--tab-pills {
-    border-radius: var(--radius-pill);
-    padding: 0.5rem 1rem;
-  }
-
-  .sc-layout-add-ghost--tab-underline {
-    position: relative;
-    border-top: 0;
-    border-right: 0;
-    border-bottom-width: 1px;
-    border-left: 0;
-    border-radius: 0;
-    padding: 0.75rem 1rem;
-  }
-
-  .sc-layout-add-ghost--tab-underline::after {
-    content: "";
-    position: absolute;
-    right: 1rem;
-    bottom: 0;
-    left: 1rem;
-    height: 0.125rem;
-    border-radius: var(--radius-pill);
-    background: transparent;
-  }
-
   .sc-layout-add-ghost__icon--flow-item {
     width: 1.5rem;
     height: 1.5rem;

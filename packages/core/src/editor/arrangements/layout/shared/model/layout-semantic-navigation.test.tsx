@@ -2,6 +2,7 @@
 
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { Editor, type JSONContent } from "@tiptap/core";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
@@ -25,6 +26,13 @@ import {
   GridAuthoringNode,
 } from "@/editor/arrangements/grid/authoring/grid-nodes";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
+import { accordionPanelId } from "@/editor/arrangements/layout/accordion/accordion-components";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
+import { paginatedPagePanelId } from "@/editor/arrangements/layout/paginated/paginated-components";
+import { tabPanelId } from "@/editor/arrangements/layout/tabs/tabs-components";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
@@ -38,6 +46,7 @@ import {
   getLayoutInteractionStoreState,
   type LayoutInteractionStoreState,
 } from "./layout-interaction-store";
+import { useLayoutSemanticContainerAdapter } from "./use-layout-semantic-container-adapter";
 
 const CASES = [
   {
@@ -107,9 +116,12 @@ describe("Layout semantic navigation", () => {
       const authoredDocument = editor.getJSON();
       const click = vi.fn();
       document.addEventListener("click", click);
+      const targetPanel = sectionPanel(testCase, targetId);
+      expect(targetPanel.hidden).toBe(true);
 
       await expect(adapter.reveal(targetId, "navigate")).resolves.toBe("revealed");
       expect(visibleSectionId(testCase, getLayoutInteractionStoreState(editor))).toBe(targetId);
+      expect(targetPanel.hidden).toBe(false);
       await expect(adapter.reveal(targetId, "navigate")).resolves.toBe("already-visible");
       expect(click).not.toHaveBeenCalled();
       expect(editor.getJSON()).toEqual(authoredDocument);
@@ -134,12 +146,94 @@ describe("Layout semantic navigation", () => {
       selectionOrigin: "component",
     });
   });
+
+  it("waits for the requested Section panel to commit visible before resolving", async () => {
+    const testCase = CASES[0];
+    const editor = makeEditor(testCase);
+    const controller = getSemanticDocumentControllerForEditor(editor);
+    const layoutId = testCase.layoutId as EmbeddedNodeId;
+    const targetId = testCase.sectionIds[1] as EmbeddedNodeId;
+    const layoutNode = findNode(editor.state.doc, layoutId);
+    let requested = false;
+    const visibilityState = { current: false };
+    const editorRendered = renderEditor(editor);
+    await waitFor(() => {
+      expect(document.getElementById(tabPanelId(layoutId, targetId))).toBeInstanceOf(HTMLElement);
+    });
+    const targetPanel = sectionPanel(testCase, targetId);
+    const outsideEditorDuplicate = document.createElement("div");
+    outsideEditorDuplicate.id = targetPanel.id;
+    document.body.prepend(outsideEditorDuplicate);
+    const rendered = render(
+      <ControlledSemanticAdapter
+        editor={editor}
+        layoutId={layoutId}
+        node={layoutNode}
+        onReveal={() => {
+          requested = true;
+        }}
+        visibilityState={visibilityState}
+        visibilityElementId={targetPanel.id}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(controller.containerAdapters.get(layoutId)).toBeDefined();
+    });
+    const adapter = controller.containerAdapters.get(layoutId);
+    if (!adapter) throw new Error("Missing controlled Layout adapter");
+    let result: string | undefined;
+    const reveal = Promise.resolve(adapter.reveal(targetId, "navigate")).then((value) => {
+      result = value;
+      return value;
+    });
+
+    await Promise.resolve();
+    expect(requested).toBe(true);
+    expect(result).toBeUndefined();
+
+    targetPanel.hidden = false;
+    await expect(reveal).resolves.toBe("revealed");
+    act(() => rendered.unmount());
+    act(() => editorRendered.unmount());
+  });
 });
 
 interface LayoutNavigationCase {
   readonly variant: "tabs" | "accordion" | "paginated";
   readonly layoutId: string;
   readonly sectionIds: readonly [string, string];
+}
+
+function ControlledSemanticAdapter({
+  editor,
+  layoutId,
+  node,
+  onReveal,
+  visibilityState,
+  visibilityElementId,
+}: {
+  editor: Editor;
+  layoutId: EmbeddedNodeId;
+  node: ProseMirrorNode;
+  onReveal: () => void;
+  visibilityState: { current: boolean };
+  visibilityElementId: string;
+}) {
+  useLayoutSemanticContainerAdapter({
+    editor,
+    getPos: () => findNodePositionById(editor.state.doc, layoutId),
+    isVisible: () => visibilityState.current,
+    layoutId,
+    node,
+    revealChild: () => {
+      visibilityState.current = true;
+      onReveal();
+    },
+    visibilityElementId: () => visibilityElementId,
+  });
+
+  return null;
 }
 
 function makeEditor(testCase: LayoutNavigationCase): Editor {
@@ -151,7 +245,11 @@ function makeEditor(testCase: LayoutNavigationCase): Editor {
   const capabilities = Object.freeze({
     blocks: Object.freeze({
       registry: builtInBlockRegistry,
-      duplication: Object.freeze({ getByNodeType: () => undefined }),
+      duplication: Object.freeze({
+        getByNodeType: () => undefined,
+        hasNodeType: (nodeType: string) =>
+          builtInBlockRegistry.getByNodeType(nodeType) !== undefined,
+      }),
     }),
     layouts: Object.freeze({ registry: builtInLayoutRegistry }),
     surfaces: Object.freeze({ registry: builtInSurfaceVariantRegistry }),
@@ -173,12 +271,35 @@ function makeEditor(testCase: LayoutNavigationCase): Editor {
       CellAuthoringNode,
       LayoutAuthoringNode,
       SectionAuthoringNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
     ],
     content: documentContent(testCase),
   });
   editors.push(editor);
   return editor;
+}
+
+function findNode(doc: ProseMirrorNode, nodeId: EmbeddedNodeId): ProseMirrorNode {
+  let found: ProseMirrorNode | null = null;
+  doc.descendants((node) => {
+    if (node.attrs["id"] !== nodeId) return true;
+    found = node;
+    return false;
+  });
+  if (!found) throw new Error(`Missing node ${nodeId}`);
+  return found;
+}
+
+function findNodePositionById(doc: ProseMirrorNode, nodeId: EmbeddedNodeId): number | undefined {
+  let found: number | undefined;
+  doc.descendants((node, position) => {
+    if (node.attrs["id"] !== nodeId) return true;
+    found = position;
+    return false;
+  });
+  return found;
 }
 
 function renderEditor(editor: Editor) {
@@ -216,13 +337,39 @@ function documentContent(testCase: LayoutNavigationCase): JSONContent {
                       defaultOpen: index === 0,
                     },
                   },
-                  content: [
-                    {
-                      type: "paragraph",
-                      attrs: { id: `${testCase.variant.slice(0, 3)}Txt00000${index + 1}` },
-                      content: [{ type: "text", text: index === 0 ? "First" : "Second" }],
-                    },
-                  ],
+                  content:
+                    testCase.variant === "accordion"
+                      ? [
+                          {
+                            type: "accordion_section_title",
+                            attrs: { id: `accTitle000${index + 1}` },
+                            content: [
+                              {
+                                type: "paragraph",
+                                attrs: { id: `accTPara00${index + 1}` },
+                                content: [{ type: "text", text: index === 0 ? "First" : "Second" }],
+                              },
+                            ],
+                          },
+                          {
+                            type: "accordion_section_panel",
+                            attrs: { id: `accPanel000${index + 1}` },
+                            content: [
+                              {
+                                type: "paragraph",
+                                attrs: { id: `accPPara00${index + 1}` },
+                                content: [{ type: "text", text: index === 0 ? "First" : "Second" }],
+                              },
+                            ],
+                          },
+                        ]
+                      : [
+                          {
+                            type: "paragraph",
+                            attrs: { id: `${testCase.variant.slice(0, 3)}Txt00000${index + 1}` },
+                            content: [{ type: "text", text: index === 0 ? "First" : "Second" }],
+                          },
+                        ],
                 })),
               },
             ],
@@ -240,6 +387,18 @@ function visibleSectionId(
   if (testCase.variant === "tabs") return state.activeTabByLayoutId[testCase.layoutId];
   if (testCase.variant === "paginated") return state.activePageByLayoutId[testCase.layoutId];
   return state.openAccordionSectionsByLayoutId[testCase.layoutId]?.[0];
+}
+
+function sectionPanel(testCase: LayoutNavigationCase, sectionId: string): HTMLElement {
+  const panelId =
+    testCase.variant === "tabs"
+      ? tabPanelId(testCase.layoutId, sectionId)
+      : testCase.variant === "paginated"
+        ? paginatedPagePanelId(testCase.layoutId, sectionId)
+        : accordionPanelId(testCase.layoutId, sectionId);
+  const panel = document.getElementById(panelId);
+  if (!(panel instanceof HTMLElement)) throw new Error(`Missing ${testCase.variant} panel`);
+  return panel;
 }
 
 function restoreProperty(

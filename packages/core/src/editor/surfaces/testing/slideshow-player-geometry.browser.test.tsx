@@ -23,6 +23,7 @@ import {
 } from "./slide-composition-browser-harness";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
+const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
 const OVERLAY_SURFACE_ID = createEmbeddedNodeId();
 
 const PLAYER_BOUNDS = [
@@ -161,6 +162,7 @@ describe("slideshow player geometry", () => {
         <SlideshowPlayer
           composition={runtimeComposition}
           initialContent={initialContent}
+          productAccess={coreProductAccess}
           structure={requireSlideshowStructure(initialContent)}
           onRendererReady={(readyEditor) => {
             editor = readyEditor;
@@ -227,6 +229,7 @@ describe("slideshow player geometry", () => {
         <SlideshowPlayer
           composition={runtimeComposition}
           initialContent={initialContent}
+          productAccess={coreProductAccess}
           structure={requireSlideshowStructure(initialContent)}
           onRendererReady={(readyEditor) => {
             editor = readyEditor;
@@ -326,6 +329,7 @@ describe("slideshow player geometry", () => {
         <SlideshowPlayer
           composition={runtimeComposition}
           initialContent={initialContent}
+          productAccess={coreProductAccess}
           structure={requireSlideshowStructure(initialContent)}
           sizing="embedded"
           onRendererReady={(readyEditor) => {
@@ -413,6 +417,7 @@ describe("slideshow player geometry", () => {
         <SlideshowPlayer
           composition={runtimeComposition}
           initialContent={initialContent}
+          productAccess={coreProductAccess}
           structure={requireSlideshowStructure(initialContent)}
           sizing="embedded"
         />
@@ -477,6 +482,7 @@ describe("slideshow player geometry", () => {
               composition={runtimeComposition}
               artifactId="artifact-slideshow-overlay-geometry"
               initialContent={initialContent}
+              productAccess={coreProductAccess}
               structure={requireSlideshowStructure(initialContent)}
               onRendererReady={(readyEditor) => {
                 editor = readyEditor;

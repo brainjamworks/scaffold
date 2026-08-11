@@ -2,9 +2,8 @@ import { ListBulletsIcon as ListBullets } from "@phosphor-icons/react";
 import { CategorisePrivateAssessmentSchema, CategoriseSettingsSchema } from "@scaffold/contracts";
 
 import { assessmentShellPlaceholders } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
-import { rewriteCategoriseCopiedContent } from "@/editor/blocks/assessment/shared/identity/copy-identity";
 import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import type { ConfigurationControlDescriptor } from "@/editor/configuration/definition";
 import { defineAssessmentCapability, defineBlock } from "@/editor/blocks/block-definition";
@@ -63,7 +62,7 @@ const categoriseConfiguration = createAssessmentConfiguration({
 function makeItem() {
   return {
     type: "categorise_item",
-    attrs: { id: createStableId() },
+    attrs: { id: createEmbeddedNodeId() },
     content: [{ type: "categorise_item_body", content: [{ type: "paragraph" }] }],
   };
 }
@@ -71,7 +70,7 @@ function makeItem() {
 function makeBin(items: ReturnType<typeof makeItem>[]) {
   return {
     type: "categorise_bin",
-    attrs: { id: createStableId() },
+    attrs: { id: createEmbeddedNodeId() },
     content: [
       { type: "categorise_bin_title", content: [{ type: "paragraph" }] },
       { type: "categorise_items_group", content: items },
@@ -82,7 +81,6 @@ function makeBin(items: ReturnType<typeof makeItem>[]) {
 export const categoriseBlockDefinition = defineBlock({
   nodeType: "categorise",
   title: "Categorise",
-  rewriteCopiedContent: rewriteCategoriseCopiedContent,
   boundedPlacement: "fill",
   configuration: categoriseConfiguration,
   placeholders: {
@@ -121,7 +119,7 @@ export const categoriseBlockDefinition = defineBlock({
       return {
         type: "categorise",
         attrs: {
-          id: createStableId(),
+          id: createEmbeddedNodeId(),
           assessment: CategorisePrivateAssessmentSchema.parse({}),
         },
         content: [
