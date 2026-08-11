@@ -38,7 +38,11 @@ import {
 import { cn } from "@/lib/cn";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { iconSm } from "@/ui/tokens/icon-sizes";
-import { AppNotificationsProvider } from "@/ui/components/app/AppNotifications/AppNotifications";
+import {
+  AppNotificationsProvider,
+  useAppNotifications,
+  type AppNotificationId,
+} from "@/ui/components/app/AppNotifications/AppNotifications";
 import { AppShellState } from "@/ui/components/app/AppShellState/AppShellState";
 import {
   createArtifactSavePayload,
@@ -48,6 +52,7 @@ import { projectLearnerPublication } from "@/authoring/publication/document-proj
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/ScaffoldUnavailableAgentIntegration";
 import { Header } from "@/editor/shell/chrome/Header";
+import { AuthoringPublishAction } from "@/editor/shell/chrome/AuthoringPublishAction";
 import { AuthoringColorModeButton } from "@/editor/shell/chrome/AuthoringColorModeButton";
 import { Toolbar } from "@/editor/shell/chrome/Toolbar";
 import type { EditorShellScrollModel } from "@/editor/shell/chrome/EditorShell";
@@ -73,6 +78,7 @@ import {
 } from "@/schemas/course-document";
 import { CourseThemePanel } from "@/theme/authoring/CourseThemePanel";
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
+import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 import { builtInCourseColourSystemRegistry } from "@/theme/course/colour-systems/registry";
 import { builtInCourseDesignThemeRegistry } from "@/theme/course/designs/registry";
 import { useAuthoringColorMode } from "@/theme/state/authoring-color-mode";
@@ -142,6 +148,18 @@ export interface ScaffoldAuthoringHeaderActionsContext {
   preview: boolean;
 }
 
+export interface ScaffoldAuthoringHostActionsContext {
+  saveState: ScaffoldAuthoringSaveState;
+  saveNow: () => Promise<boolean>;
+  title: string;
+  preview: boolean;
+}
+
+export interface ScaffoldAuthoringHostActionSlots {
+  beforePublish?: ReactNode;
+  afterPublish?: ReactNode;
+}
+
 type ScaffoldPreviewHostServices = Omit<ScaffoldLearnerHostServices, "learningEvents">;
 
 export type ScaffoldPreviewServicesFactory = (
@@ -167,6 +185,13 @@ export interface ScaffoldAuthoringAppProps {
    * Preview are rendered by this app shell.
    */
   headerActions?: (context: ScaffoldAuthoringHeaderActionsContext) => ReactNode;
+  /**
+   * Host-owned actions placed around Core's publication action. Publication
+   * state and commands intentionally remain private to the Core app shell.
+   */
+  hostHeaderActions?: (
+    context: ScaffoldAuthoringHostActionsContext,
+  ) => ScaffoldAuthoringHostActionSlots;
   agentOpen?: boolean;
   onAgentOpenChange?: (open: boolean) => void;
   onAgentClose?: () => void;
@@ -202,13 +227,43 @@ export function createScaffoldAuthoringAppEnvironment(application: ScaffoldAppli
   });
 }
 
-function ScaffoldAuthoringAppSession({
+function ScaffoldAuthoringAppSession(props: ScaffoldAuthoringAppEntryProps) {
+  const { mode: applicationColorMode, toggleMode: toggleApplicationColorMode } =
+    useAuthoringColorMode();
+  const [applicationElement, setApplicationElement] = useState<HTMLDivElement | null>(null);
+
+  return (
+    <AppThemeProvider appearance={applicationColorMode}>
+      <div ref={setApplicationElement} className={cn("sc-scaffold-authoring-app", props.className)}>
+        <AppNotificationsProvider appearance={applicationColorMode}>
+          <ScaffoldAuthoringAppSessionContent
+            {...props}
+            applicationColorMode={applicationColorMode}
+            applicationElement={applicationElement}
+            toggleApplicationColorMode={toggleApplicationColorMode}
+          />
+        </AppNotificationsProvider>
+      </div>
+    </AppThemeProvider>
+  );
+}
+
+interface ScaffoldAuthoringAppSessionContentProps extends ScaffoldAuthoringAppEntryProps {
+  readonly applicationColorMode: ScaffoldColorMode;
+  readonly applicationElement: HTMLDivElement | null;
+  readonly toggleApplicationColorMode: () => void;
+}
+
+function ScaffoldAuthoringAppSessionContent({
   application,
+  applicationColorMode,
+  applicationElement,
   artifact,
   initialSavedArtifactRevision,
   productAccess,
   services,
   headerActions,
+  hostHeaderActions,
   agentOpen = false,
   onAgentOpenChange,
   onAgentClose,
@@ -217,12 +272,11 @@ function ScaffoldAuthoringAppSession({
   onPreviewContentChange,
   createPreviewServices,
   scrollModel = "page",
-  className,
   mainClassName,
+  toggleApplicationColorMode,
   workspaceClassName,
-}: ScaffoldAuthoringAppEntryProps) {
-  const { mode: applicationColorMode, toggleMode: toggleApplicationColorMode } =
-    useAuthoringColorMode();
+}: ScaffoldAuthoringAppSessionContentProps) {
+  const appNotifications = useAppNotifications();
   const authoringEnvironment = useMemo(
     () => createScaffoldAuthoringAppEnvironment(application),
     [application],
@@ -284,8 +338,9 @@ function ScaffoldAuthoringAppSession({
   const [publicationStatus, setPublicationStatus] = useState<LearnerPublicationStatus | null>(null);
   const [publishActionState, setPublishActionState] =
     useState<ScaffoldAuthoringPublishState | null>(null);
-  const [applicationElement, setApplicationElement] = useState<HTMLDivElement | null>(null);
   const saveStateRef = useRef<ScaffoldAuthoringSaveState>("idle");
+  const publishInFlightRef = useRef(false);
+  const publicationNotificationIdRef = useRef<AppNotificationId | null>(null);
   const outlineToggleRef = useRef<HTMLButtonElement | null>(null);
   const hydratingRef = useRef(true);
   const latestEditorRef = useRef<TiptapEditor | null>(null);
@@ -356,6 +411,7 @@ function ScaffoldAuthoringAppSession({
   useEffect(() => {
     let cancelled = false;
     const source = contentSessionSource;
+    publicationNotificationIdRef.current = null;
     setPublicationStatus(null);
     setPublishActionState(null);
     void services.learnerPublication
@@ -730,7 +786,20 @@ function ScaffoldAuthoringAppSession({
     services.media,
   ]);
 
+  const notifyPublicationOutcome = useCallback(
+    (intent: "success" | "error", message: string) => {
+      const notificationId = publicationNotificationIdRef.current;
+      if (notificationId) {
+        appNotifications.update(notificationId, intent, message);
+        return;
+      }
+      publicationNotificationIdRef.current = appNotifications.notify(intent, message);
+    },
+    [appNotifications],
+  );
+
   const publishNow = useCallback(async (): Promise<boolean> => {
+    if (publishInFlightRef.current) return false;
     if (!publicationStatus || !activeAuthoringMount) {
       setPublishActionState("loading");
       return false;
@@ -805,6 +874,7 @@ function ScaffoldAuthoringAppSession({
       assessmentGroups: projection.assessmentGroups,
     };
 
+    publishInFlightRef.current = true;
     setPublishActionState("publishing");
     try {
       const status = await services.learnerPublication.publish(payload);
@@ -818,15 +888,24 @@ function ScaffoldAuthoringAppSession({
       } else {
         setPublishActionState("unsaved");
       }
-      return status.publishedArtifactRevision === sourceArtifactRevision;
+      const published = status.publishedArtifactRevision === sourceArtifactRevision;
+      notifyPublicationOutcome(
+        published ? "success" : "error",
+        published ? "Publication complete" : "Publication failed. Try again.",
+      );
+      return published;
     } catch (error) {
       setPublishActionState(readPublicationPortErrorCode(error) ?? "error");
+      notifyPublicationOutcome("error", "Publication failed. Try again.");
       return false;
+    } finally {
+      publishInFlightRef.current = false;
     }
   }, [
     activeAuthoringMount,
     application.capabilities.blocks.registry,
     authoringEnvironment,
+    notifyPublicationOutcome,
     publicationStatus,
     readLatestContent,
     readyArtifact,
@@ -885,18 +964,27 @@ function ScaffoldAuthoringAppSession({
   const hasUnpublishedChanges = publicationStatus
     ? publicationStatus.publishedArtifactRevision !== publicationStatus.currentArtifactRevision
     : false;
+  const hostActionSlots = hostHeaderActions?.({ preview, saveNow, saveState, title });
 
   const appHeaderActions = (
     <div className="sc-scaffold-authoring-actions">
-      {headerActions?.({
-        hasUnpublishedChanges,
-        preview,
-        publishNow,
-        publishState,
-        saveNow,
-        saveState,
-        title,
-      })}
+      {hostHeaderActions ? (
+        <>
+          {hostActionSlots?.beforePublish}
+          <AuthoringPublishAction onPublish={publishNow} publishState={publishState} />
+          {hostActionSlots?.afterPublish}
+        </>
+      ) : (
+        headerActions?.({
+          hasUnpublishedChanges,
+          preview,
+          publishNow,
+          publishState,
+          saveNow,
+          saveState,
+          title,
+        })
+      )}
       {courseTheme ? (
         <CourseThemePanel
           editor={editor}
@@ -1009,72 +1097,64 @@ function ScaffoldAuthoringAppSession({
             : null;
 
   return (
-    <AppThemeProvider appearance={applicationColorMode}>
-      <div ref={setApplicationElement} className={cn("sc-scaffold-authoring-app", className)}>
-        <AppNotificationsProvider appearance={applicationColorMode}>
-          <OverlayBoundary container={applicationElement} kind="viewport">
-            <Header
-              title={title}
-              onTitleChange={(nextTitle) => {
-                setTitleForCurrentArtifact(nextTitle);
-                titleRef.current = nextTitle;
-                if (!readyArtifact) return;
-                publicationLifecycleRef.current.generation += 1;
-                setPublishActionState(null);
-                refreshPublicationLifecycleView();
-                scheduleAutosave();
-              }}
-              brandSurface={applicationColorMode}
-              saveState={saveState}
-              actions={appHeaderActions}
-            />
+    <OverlayBoundary container={applicationElement} kind="viewport">
+      <Header
+        title={title}
+        onTitleChange={(nextTitle) => {
+          setTitleForCurrentArtifact(nextTitle);
+          titleRef.current = nextTitle;
+          if (!readyArtifact) return;
+          publicationLifecycleRef.current.generation += 1;
+          setPublishActionState(null);
+          refreshPublicationLifecycleView();
+          scheduleAutosave();
+        }}
+        brandSurface={applicationColorMode}
+        saveState={saveState}
+        actions={appHeaderActions}
+      />
 
-            <main className={cn("sc-scaffold-authoring-main", mainClassName)}>
-              <div
-                className={cn("sc-scaffold-authoring-workspace", workspaceClassName)}
-                data-preview-mode={activePreviewContent?.bootstrap.mode}
-              >
-                <ScaffoldServicesProvider ports={providerPorts}>
-                  {authoringUnavailableState && !readyArtifact ? (
-                    <ScaffoldAuthoringUnavailable {...authoringUnavailableState} />
-                  ) : activePreviewContent && previewServices ? (
-                    <Suspense fallback={<AppShellState kind="loading" title="Preparing preview" />}>
-                      <LazyScaffoldLearnerApp
-                        composition={application.runtime}
-                        bootstrap={activePreviewContent.bootstrap}
-                        hostColorMode={applicationColorMode}
-                        productAccess={productAccess}
-                        slideshowSizing="contained"
-                        services={previewServices}
-                      />
-                    </Suspense>
-                  ) : readyArtifact && activeAuthoringMount ? (
-                    <ContentAuthorHost
-                      agentIntegration={ScaffoldUnavailableAgentIntegration}
-                      {...(outlineOpen
-                        ? { authoringNavigatorDock: renderAuthoringNavigatorDock }
-                        : {})}
-                      artifactId={resolvedArtifactId}
-                      mount={activeAuthoringMount}
-                      courseAppearance={applicationColorMode}
-                      onChange={handleEditorChange}
-                      onEditorReady={handleEditorReady}
-                      onDocumentError={handleDocumentError}
-                      onUpdate={handleCanonicalUpdate}
-                      agentOpen={resolvedAgentOpen}
-                      onAgentClose={handleAgentClose}
-                      scrollModel={scrollModel}
-                      leftRail={renderLeftRail}
-                      rightRail={renderRightRail}
-                    />
-                  ) : null}
-                </ScaffoldServicesProvider>
-              </div>
-            </main>
-          </OverlayBoundary>
-        </AppNotificationsProvider>
-      </div>
-    </AppThemeProvider>
+      <main className={cn("sc-scaffold-authoring-main", mainClassName)}>
+        <div
+          className={cn("sc-scaffold-authoring-workspace", workspaceClassName)}
+          data-preview-mode={activePreviewContent?.bootstrap.mode}
+        >
+          <ScaffoldServicesProvider ports={providerPorts}>
+            {authoringUnavailableState && !readyArtifact ? (
+              <ScaffoldAuthoringUnavailable {...authoringUnavailableState} />
+            ) : activePreviewContent && previewServices ? (
+              <Suspense fallback={<AppShellState kind="loading" title="Preparing preview" />}>
+                <LazyScaffoldLearnerApp
+                  composition={application.runtime}
+                  bootstrap={activePreviewContent.bootstrap}
+                  hostColorMode={applicationColorMode}
+                  productAccess={productAccess}
+                  slideshowSizing="contained"
+                  services={previewServices}
+                />
+              </Suspense>
+            ) : readyArtifact && activeAuthoringMount ? (
+              <ContentAuthorHost
+                agentIntegration={ScaffoldUnavailableAgentIntegration}
+                {...(outlineOpen ? { authoringNavigatorDock: renderAuthoringNavigatorDock } : {})}
+                artifactId={resolvedArtifactId}
+                mount={activeAuthoringMount}
+                courseAppearance={applicationColorMode}
+                onChange={handleEditorChange}
+                onEditorReady={handleEditorReady}
+                onDocumentError={handleDocumentError}
+                onUpdate={handleCanonicalUpdate}
+                agentOpen={resolvedAgentOpen}
+                onAgentClose={handleAgentClose}
+                scrollModel={scrollModel}
+                leftRail={renderLeftRail}
+                rightRail={renderRightRail}
+              />
+            ) : null}
+          </ScaffoldServicesProvider>
+        </div>
+      </main>
+    </OverlayBoundary>
   );
 }
 
