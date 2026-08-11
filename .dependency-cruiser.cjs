@@ -59,6 +59,21 @@ const authoringOwnerPath = [
   "^packages/core/src/editor/surfaces/authoring/",
   "^packages/core/src/editor/selection/(?:native-drag-guard|selection-commands)\\.ts$",
 ];
+const authoringCompatibilityImplementationPath = [
+  "^packages/core/src/document/authoring/unavailable-content/",
+  "^packages/core/src/composition/authoring/",
+];
+const adapterLearnerEntrypointPath = [
+  "^adapters/moodle/frontend/src/inner/moodle-learner-inner-entry\\.[^/]+$",
+  "^adapters/xblock/frontend/src/(?:inner/student-inner-entry|student-entry)\\.[^/]+$",
+];
+const coreNonAuthoringCompatibilityConsumerPath = [
+  ...runtimeOwnerPath,
+  "^packages/core/src/entrypoints/(?:format|ports)\\.ts$",
+  "^packages/core/src/host/ports/",
+  "^packages/core/src/format/",
+  "^packages/core/src/document/model/",
+];
 const surfaceAuthoringBindingContractPath =
   "^packages/core/src/editor/surfaces/authoring/surface-authoring-view-registry\\.[^/]+$";
 const surfaceRuntimeBindingContractPath =
@@ -341,6 +356,44 @@ module.exports = {
           "^adapters/",
           ...reactDependencyPath,
         ],
+        reachable: true,
+      },
+    },
+    {
+      // Owner: unavailable-content compatibility is authoring working state only.
+      // Non-authoring lanes consume portable lifecycle results through public seams.
+      name: "core-non-authoring-lanes-do-not-reach-authoring-compatibility",
+      severity: "error",
+      from: {
+        path: coreNonAuthoringCompatibilityConsumerPath,
+      },
+      to: {
+        path: authoringCompatibilityImplementationPath,
+        reachable: true,
+      },
+    },
+    {
+      // Adapters consume authoring only through its public entrypoint; they never
+      // import compatibility presentation or authoring composition internals.
+      name: "adapters-do-not-import-authoring-compatibility-internals",
+      severity: "error",
+      from: {
+        path: "^adapters/",
+      },
+      to: {
+        path: authoringCompatibilityImplementationPath,
+      },
+    },
+    {
+      // Learner adapter entrypoints consume only runtime/publication seams.
+      // Their sibling authoring entrypoints retain the approved public authoring seam.
+      name: "adapter-learner-entrypoints-do-not-reach-core-authoring",
+      severity: "error",
+      from: {
+        path: adapterLearnerEntrypointPath,
+      },
+      to: {
+        path: "^packages/core/src/entrypoints/authoring\\.ts$",
         reachable: true,
       },
     },

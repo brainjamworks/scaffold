@@ -1,13 +1,14 @@
 # Add A Layout
 
-```sh
-vp exec node scripts/create-layout.mjs --name MyLayout --section-label "Section" --add-label "Add section"
-```
+Scaffold intentionally does not generate Layout files. Use this guide as the
+implementation checklist and copy only the relevant shape from a blessed
+example. This keeps new Layouts aligned with the current composition and view-
+binding architecture rather than a parallel template implementation.
 
-Use the scaffolder first. Layouts are structural arrangements, not blocks, so
-do not add block definitions for layout or section nodes. Layouts use one pure
-shared definition plus separate authoring and runtime view bindings.
-Choose the content shape before generating the layout. Layouts own repeated
+Layouts are structural arrangements, not blocks, so do not add block
+definitions for layout or section nodes. Layouts use one pure shared definition
+plus separate authoring and runtime view bindings.
+Choose the content shape before creating the Layout. Layouts own repeated
 regions that can contain other course blocks; blocks own repeated fields or
 atomic widgets.
 
@@ -50,8 +51,7 @@ The authoring insert catalog derives layout actions from
 `builtInLayoutDefinitions`. Importing a definition must not mutate a definition
 registry, view registry, or insert catalog.
 
-Generated layout folders keep learner-safe runtime views beside authoring
-views:
+Layout folders keep learner-safe runtime views beside authoring views:
 
 ```txt
 packages/core/src/editor/arrangements/layout/<layout>/
@@ -83,13 +83,14 @@ The shared ProseMirror node types stay `layout` and `section`. The layout kind i
 - Create layout content in `<layout>-content.ts`.
 - Put authoring views and native chrome in `<layout>-views.tsx`.
 - Put learner-safe views in `<layout>-runtime-views.tsx`.
-- Use `createStableId()` for the layout container id.
-- Use `createStableId()` for section item ids.
+- Let the globally mounted Tiptap UniqueID extension own `attrs.id` for layout
+  and section nodes. When layout content creation supplies those ids explicitly,
+  generate them with `createEmbeddedNodeId()`.
 - Store the layout kind in `layout.attrs.variant`; it must match `defineLayout.id`.
 - Put layout-level settings in `layout.attrs.options`.
 - Put section-level settings in `section.attrs.options`.
 - Put section creation in the owning layout definition.
-- Use `describeLayoutContract(...)` in the generated test.
+- Use `describeLayoutContract(...)` in the Layout's contract test.
 - Use plain layout NodeViews. Do not use the resizable block frame wrapper.
 - Do not add root document spacing in layout-local CSS. Layout/grid document
   rhythm is owned by the shared `[data-authoring-frame="layout"]` /
@@ -205,7 +206,7 @@ Do not add a generic section outline. Do not auto-open layout or section bubble 
 
 ## Commands
 
-After generating the layout, run the generated contract test:
+After implementing the Layout, run its contract test:
 
 ```sh
 vp run @scaffold/core#test -- my-layout.test.ts
