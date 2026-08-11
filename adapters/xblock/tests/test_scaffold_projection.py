@@ -87,6 +87,9 @@ assessment_projection_module = importlib.import_module(
     "scaffold_xblock.assessment_projection"
 )
 content_save_module = importlib.import_module("scaffold_xblock.validation.content_save")
+course_requirement_module = importlib.import_module(
+    "scaffold_xblock.validation.course_requirement"
+)
 media_store = importlib.import_module("scaffold_xblock.media_store")
 quiz_module = importlib.import_module("scaffold_xblock.quiz")
 scorebook_module = importlib.import_module("scaffold_xblock.scorebook")
@@ -306,7 +309,13 @@ def quiz_group(
     }
 
 
-def course_document(children=None, mode="page", surface_attrs=None):
+def course_document(
+    children=None,
+    mode="page",
+    surface_attrs=None,
+    schema_version=4,
+    requires_scaffold_plus=False,
+):
     attrs = {"id": "surface-1"}
     if surface_attrs is not None:
         attrs.update(surface_attrs)
@@ -317,7 +326,8 @@ def course_document(children=None, mode="page", surface_attrs=None):
             {
                 "type": "courseDocument",
                 "attrs": {
-                    "schemaVersion": 1,
+                    "schemaVersion": schema_version,
+                    "requiresScaffoldPlus": requires_scaffold_plus,
                     "mode": mode,
                     "surfaceSize": "fluid",
                     "overflowMode": "grow",
@@ -344,21 +354,64 @@ def save_payload(
     mode="page",
 ):
     content = content if content is not None else course_document(mode=mode)
-    return {
+    payload = {
         "artifact": {
             "id": artifact_id,
             "title": title,
             "mode": mode,
             "content": content,
-        },
-        "learnerContent": (
-            learner_content
-            if learner_content is not None
-            else course_document(mode=mode)
-        ),
-        "assessmentTargets": assessment_targets or [],
-        "assessmentGroups": assessment_groups or [],
+        }
     }
+    if learner_content is not None:
+        payload["learnerContent"] = learner_content
+    if assessment_targets is not None:
+        payload["assessmentTargets"] = assessment_targets
+    if assessment_groups is not None:
+        payload["assessmentGroups"] = assessment_groups
+    return payload
+
+
+def publication_payload(
+    block,
+    source_revision=None,
+    title="Published lesson",
+    learner_content=None,
+):
+    return {
+        "sourceArtifactRevision": (
+            source_revision
+            if source_revision is not None
+            else state_codecs.artifact_revision(block._artifact())
+        ),
+        "artifact": {
+            "id": block._artifact_id(),
+            "title": title,
+            "mode": "page",
+            "requiresScaffoldPlus": False,
+        },
+        "learnerContent": learner_content or course_document(),
+        "assessmentTargets": [],
+        "assessmentGroups": [],
+    }
+
+
+def learner_publication_json(artifact, learner_content=None):
+    learner_content = learner_content or artifact["content"]
+    course_attrs = learner_content["content"][0]["attrs"]
+    return json.dumps(
+        {
+            "publicationVersion": 1,
+            "sourceArtifactRevision": state_codecs.artifact_revision(artifact),
+            "publishedAt": "2026-08-10T12:00:00Z",
+            "artifact": {
+                "id": artifact["id"],
+                "title": artifact["title"],
+                "mode": artifact["mode"],
+                "requiresScaffoldPlus": course_attrs["requiresScaffoldPlus"],
+            },
+            "learnerContent": learner_content,
+        },
+    )
 
 
 class RuntimeStub:
@@ -424,19 +477,19 @@ class FragmentRecorder:
 def make_xblock(targets=None, groups=None, usage_id="usage-v1"):
     block = object.__new__(scaffold.ScaffoldXBlock)
     block.display_name = "Scaffold"
-    block.artifact_json = json.dumps(
-        {
-            "id": usage_id,
-            "title": "Scaffold",
-            "mode": "page",
-            "content": course_document(),
-        },
-    )
-    block.learner_content_json = json.dumps(course_document())
+    artifact = {
+        "id": usage_id,
+        "title": "Scaffold",
+        "mode": "page",
+        "content": course_document(),
+    }
+    block.artifact_json = json.dumps(artifact)
+    block.learner_content_json = learner_publication_json(artifact)
     block.assessment_targets_json = json.dumps(targets or [])
     block.assessment_groups_json = json.dumps(groups or [])
     block.assessment_snapshot_json = ""
     block.assessment_grade_changed_at = ""
+    block.assessment_grade_delivery_json = ""
     block.learner_activity_snapshot_json = ""
     block.attempts_count = 0
     block.current_score = 0.0
@@ -598,12 +651,16 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             artifact,
             {
                 "id": "usage-v1",
-                "title": "Scaffold",
+                "title": "Old title",
                 "mode": "page",
                 "content": None,
             },
         )
-        self.assertIsNone(state_codecs.learner_content_from_json("{bad json"))
+        with self.assertRaisesRegex(
+            state_codecs.PublicationStorageValidationError,
+            "valid JSON",
+        ):
+            state_codecs.learner_content_from_json("{bad json")
         snapshot = {
             "snapshotVersion": 1,
             "artifactId": "usage-v1",
@@ -1743,8 +1800,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         block = make_xblock()
         block._course_key = lambda: "course-v1:test"
         media_id = "images/scaffold-photo.png"
-        block.learner_content_json = json.dumps(
-            course_document(
+        learner_content = course_document(
                 [
                     {
                         "type": "image_block",
@@ -1756,7 +1812,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                         },
                     },
                 ],
-            ),
+            )
+        block.learner_content_json = learner_publication_json(
+            block._artifact(),
+            learner_content,
         )
         store = ContentStoreStub()
 
@@ -1799,8 +1858,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_student_fragment_skips_media_resolution_without_contentstore(self):
         block = make_xblock()
-        block.learner_content_json = json.dumps(
-            course_document(
+        learner_content = course_document(
                 [
                     {
                         "type": "image_block",
@@ -1812,7 +1870,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                         },
                     },
                 ],
-            ),
+            )
+        block.learner_content_json = learner_publication_json(
+            block._artifact(),
+            learner_content,
         )
 
         with patch.object(scaffold, "Fragment", FragmentRecorder), patch.object(
@@ -2427,16 +2488,177 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         _, payload = fragment.initialized[0]
         self.assertEqual(payload["mediaContext"], "preview")
 
-    def test_content_save_validation_returns_normalized_bundle(self):
-        target = single_select_target()
-        group = quiz_group(target_ids=["target_00001"])
-        payload = save_payload(
-            title="  Saved lesson  ",
-            assessment_targets=[target],
-            assessment_groups=[group],
+    def test_student_fragment_uses_only_stored_learner_publication(self):
+        block = make_xblock()
+        artifact = block._artifact()
+        artifact["content"] = course_document(
+            [{"type": "private_assessment", "attrs": {"answer": "never publish"}}],
+        )
+        learner_content = course_document([{"type": "paragraph"}])
+        block.artifact_json = json.dumps(artifact)
+        block.learner_content_json = learner_publication_json(
+            artifact,
+            learner_content,
         )
 
-        bundle = content_save_module.validate_content_save_bundle(
+        with patch.object(scaffold, "Fragment", FragmentRecorder), patch.object(
+            views_module,
+            "resource_string",
+            return_value="student bootstrap",
+        ):
+            fragment = block.student_view()
+
+        _, payload = fragment.initialized[0]
+        self.assertIsNone(payload["artifact"]["content"])
+        self.assertEqual(
+            payload["learnerPublication"],
+            {"status": "supported", "learnerContent": learner_content},
+        )
+        self.assertNotIn("never publish", json.dumps(payload, sort_keys=True))
+
+    def test_student_fragment_distinguishes_never_published_course(self):
+        block = make_xblock()
+        block.learner_content_json = ""
+        block.assessment_targets_json = json.dumps([single_select_target()])
+
+        with patch.object(scaffold, "Fragment", FragmentRecorder), patch.object(
+            views_module,
+            "resource_string",
+            return_value="student bootstrap",
+        ), patch.object(
+            block,
+            "_public_assessment_snapshot",
+        ) as assessment_snapshot:
+            fragment = block.student_view()
+
+        _, payload = fragment.initialized[0]
+        self.assertEqual(payload["artifactAccess"]["status"], "not-published")
+        self.assertEqual(payload["learnerPublication"], {"status": "not-published"})
+        self.assertIsNone(payload["artifact"])
+        self.assertNotIn("assessmentSnapshot", payload)
+        assessment_snapshot.assert_not_called()
+
+    def test_plus_required_active_publication_fails_closed_in_free_runtime(self):
+        block = make_xblock()
+        plus_content = course_document(requires_scaffold_plus=True)
+        block.learner_content_json = learner_publication_json(
+            block._artifact(),
+            plus_content,
+        )
+
+        with patch.object(scaffold, "Fragment", FragmentRecorder), patch.object(
+            views_module,
+            "resource_string",
+            return_value="student bootstrap",
+        ):
+            fragment = block.student_view()
+
+        _, payload = fragment.initialized[0]
+        self.assertEqual(
+            payload["artifactAccess"]["status"],
+            "requires-scaffold-plus",
+        )
+        self.assertEqual(
+            payload["learnerPublication"],
+            {"status": "requires-scaffold-plus"},
+        )
+        self.assertIsNone(payload["artifact"])
+        self.assertEqual(payload["resolvedMedia"], {})
+
+    def test_plus_required_draft_does_not_replace_supported_publication(self):
+        block = make_xblock()
+        artifact = block._artifact()
+        artifact["content"] = course_document(
+            [{"type": "private_assessment", "attrs": {"answer": "never expose"}}],
+            requires_scaffold_plus=True,
+        )
+        block.artifact_json = json.dumps(artifact)
+
+        with patch.object(scaffold, "Fragment", FragmentRecorder), patch.object(
+            views_module,
+            "resource_string",
+            return_value="bootstrap",
+        ), patch.object(
+            block,
+            "_learner_content",
+        ) as learner_content, patch.object(
+            block,
+            "_public_assessment_snapshot",
+        ) as assessment_snapshot, patch.object(
+            block,
+            "_learner_activity_snapshot",
+        ) as learner_activity_snapshot, patch.object(
+            views_module,
+            "resolved_media_urls_for_content",
+        ) as resolve_media:
+            student = block.student_view()
+            studio = block.studio_view()
+
+        student_payload = student.initialized[0][1]
+        studio_payload = studio.initialized[0][1]
+        self.assertEqual(student_payload["artifactAccess"]["status"], "supported")
+        self.assertEqual(
+            student_payload["learnerPublication"]["learnerContent"],
+            course_document(),
+        )
+        self.assertEqual(
+            studio_payload["artifactAccess"]["status"],
+            "requires-scaffold-plus",
+        )
+        self.assertIsNone(studio_payload["artifact"])
+        self.assertEqual(studio_payload["resolvedMedia"], {})
+        self.assertNotIn(
+            "never expose",
+            json.dumps(student_payload["learnerPublication"], sort_keys=True),
+        )
+        learner_content.assert_not_called()
+        assessment_snapshot.assert_called_once_with()
+        learner_activity_snapshot.assert_called_once_with()
+        resolve_media.assert_called_once_with(
+            course_document(),
+            block._course_key,
+        )
+
+    def test_future_format_precedes_plus_requirement_in_view_access(self):
+        block = make_xblock()
+        artifact = block._artifact()
+        artifact["content"] = course_document(
+            schema_version=5,
+            requires_scaffold_plus=True,
+        )
+        block.artifact_json = json.dumps(artifact)
+
+        with patch.object(scaffold, "Fragment", FragmentRecorder), patch.object(
+            views_module,
+            "resource_string",
+            return_value="studio bootstrap",
+        ):
+            fragment = block.studio_view()
+
+        access = fragment.initialized[0][1]["artifactAccess"]
+        self.assertEqual(access["status"], "unsupported-core-format")
+        self.assertEqual(access["documentVersion"], 5)
+        self.assertEqual(access["supportedVersion"], 4)
+
+    def test_course_requirement_classifier_distinguishes_invalid_and_old_formats(self):
+        artifact = make_xblock()._artifact()
+        artifact["content"] = course_document()
+        del artifact["content"]["content"][0]["attrs"]["requiresScaffoldPlus"]
+        self.assertEqual(
+            course_requirement_module.classify_artifact_access(artifact)["status"],
+            "invalid",
+        )
+
+        artifact["content"]["content"][0]["attrs"]["schemaVersion"] = 3
+        self.assertEqual(
+            course_requirement_module.classify_artifact_access(artifact)["status"],
+            "supported",
+        )
+
+    def test_artifact_save_validation_returns_normalized_payload(self):
+        payload = save_payload(title="  Saved lesson  ")
+
+        bundle = content_save_module.validate_artifact_save(
             payload,
             "usage-v1",
             scaffold.SCAFFOLD_MODES,
@@ -2444,9 +2666,6 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         self.assertEqual(bundle["title"], "Saved lesson")
         self.assertEqual(bundle["artifact"], payload["artifact"])
-        self.assertEqual(bundle["learner_content"], payload["learnerContent"])
-        self.assertEqual(bundle["assessment_targets"], [target])
-        self.assertEqual(bundle["assessment_groups"], [group])
 
     def test_content_save_validation_rejects_document_mode_mismatch(self):
         payload = save_payload(mode="slideshow", content=course_document(mode="page"))
@@ -2455,7 +2674,22 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             content_save_module.ContentSaveValidationError,
             "artifact.mode must match artifact.content courseDocument mode",
         ):
-            content_save_module.validate_content_save_bundle(
+            content_save_module.validate_artifact_save(
+                payload,
+                "usage-v1",
+                scaffold.SCAFFOLD_MODES,
+            )
+
+    def test_content_save_validation_rejects_plus_required_artifact(self):
+        payload = save_payload(
+            content=course_document(requires_scaffold_plus=True),
+        )
+
+        with self.assertRaisesRegex(
+            content_save_module.ContentSaveValidationError,
+            "requires Scaffold Plus",
+        ):
+            content_save_module.validate_artifact_save(
                 payload,
                 "usage-v1",
                 scaffold.SCAFFOLD_MODES,
@@ -2488,11 +2722,16 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                 },
             },
         )
-        self.assertEqual(block.display_name, "New lesson")
+        self.assertEqual(block.display_name, "  New lesson  ")
         self.assertEqual(json.loads(block.artifact_json), result["artifact"])
-        self.assertEqual(json.loads(block.learner_content_json), expected_content)
+        self.assertEqual(block.learner_content_json, "")
         self.assertEqual(json.loads(block.assessment_targets_json), [])
         self.assertEqual(json.loads(block.assessment_groups_json), [])
+        self.assertFalse(
+            result["artifact"]["content"]["content"][0]["attrs"][
+                "requiresScaffoldPlus"
+            ],
+        )
 
     def test_create_artifact_uses_page_default_surface_variant(self):
         block = make_xblock()
@@ -2551,7 +2790,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             {"success": False, "error": "artifact mode is invalid"},
         )
 
-    def test_save_content_persists_author_learner_and_target_contracts(self):
+    def test_save_content_persists_only_canonical_artifact(self):
         block = make_xblock()
         target = single_select_target()
         author_doc = course_document(
@@ -2566,19 +2805,23 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             ],
         )
         learner_doc = course_document([{"type": "paragraph"}])
-
-        result = block.save_content(
-            save_payload(
-                content=author_doc,
-                learner_content=learner_doc,
-                assessment_targets=[target],
-            ),
+        group = quiz_group(target_ids=["target_00001"])
+        stored_publication = learner_publication_json(
+            block._artifact(),
+            learner_doc,
         )
+        block.learner_content_json = stored_publication
+        block.assessment_targets_json = json.dumps([target])
+        block.assessment_groups_json = json.dumps([group])
 
+        result = block.save_content(save_payload(content=author_doc))
+
+        self.assertTrue(result["success"])
         self.assertEqual(
-            result,
-            {"success": True, "artifact": {"title": "Saved lesson"}},
+            result["artifactRevision"],
+            state_codecs.artifact_revision(block._artifact()),
         )
+        self.assertEqual(block.display_name, "Scaffold")
         saved_artifact = json.loads(block.artifact_json)
         self.assertEqual(
             saved_artifact,
@@ -2589,27 +2832,115 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                 "content": author_doc,
             },
         )
-        self.assertEqual(json.loads(block.learner_content_json), learner_doc)
+        self.assertEqual(block.learner_content_json, stored_publication)
         self.assertEqual(json.loads(block.assessment_targets_json), [target])
+        self.assertEqual(json.loads(block.assessment_groups_json), [group])
+
+    def test_publish_content_activates_one_matching_saved_revision(self):
+        block = make_xblock()
+        saved = block.save_content(save_payload(title="Published lesson"))
+        learner_content = course_document([{"type": "paragraph"}])
+        payload = publication_payload(
+            block,
+            source_revision=saved["artifactRevision"],
+            learner_content=learner_content,
+        )
+
+        result = block.publish_content(payload)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(
+            result["publicationStatus"]["publishedArtifactRevision"],
+            saved["artifactRevision"],
+        )
+        envelope = json.loads(block.learner_content_json)
+        self.assertEqual(envelope["publicationVersion"], 1)
+        self.assertEqual(envelope["sourceArtifactRevision"], saved["artifactRevision"])
+        self.assertEqual(envelope["artifact"]["title"], "Published lesson")
+        self.assertEqual(envelope["learnerContent"], learner_content)
+        self.assertEqual(block.display_name, "Published lesson")
+        self.assertEqual(json.loads(block.assessment_targets_json), [])
         self.assertEqual(json.loads(block.assessment_groups_json), [])
 
-    def test_save_content_persists_assessment_groups(self):
+    def test_publish_content_refuses_stale_revision_and_retains_active_fields(self):
         block = make_xblock()
-        targets = [single_select_target("target_00001")]
-        groups = [quiz_group(target_ids=["target_00001"])]
+        previous = {
+            "display_name": block.display_name,
+            "learner_content_json": block.learner_content_json,
+            "assessment_targets_json": block.assessment_targets_json,
+            "assessment_groups_json": block.assessment_groups_json,
+        }
+        stale_revision = state_codecs.artifact_revision(block._artifact())
+        block.save_content(save_payload(title="Newer draft"))
+
+        result = block.publish_content(
+            publication_payload(block, source_revision=stale_revision),
+        )
+
+        self.assertEqual(
+            result,
+            {"success": False, "error": "stale-artifact-revision"},
+        )
+        self.assertEqual(
+            {
+                "display_name": block.display_name,
+                "learner_content_json": block.learner_content_json,
+                "assessment_targets_json": block.assessment_targets_json,
+                "assessment_groups_json": block.assessment_groups_json,
+            },
+            previous,
+        )
+
+    def test_publish_content_requires_studio_write_access(self):
+        block = make_xblock()
+        block._has_studio_write_access = lambda: False
+
+        result = block.publish_content(publication_payload(block))
+
+        self.assertEqual(
+            result,
+            {"success": False, "error": "authoring permission required"},
+        )
+
+    def test_publication_assignment_failure_rolls_back_prior_fields(self):
+        class FaultingPublicationStore:
+            def __init__(self):
+                object.__setattr__(self, "first", "old-first")
+                object.__setattr__(self, "second", "old-second")
+                object.__setattr__(self, "fail_once", True)
+
+            def __setattr__(self, name, value):
+                if name == "second" and self.fail_once:
+                    object.__setattr__(self, "fail_once", False)
+                    raise RuntimeError("injected field assignment failure")
+                object.__setattr__(self, name, value)
+
+        store = FaultingPublicationStore()
+
+        with self.assertRaisesRegex(RuntimeError, "injected"):
+            scaffold._replace_active_publication(
+                store,
+                {"first": "new-first", "second": "new-second"},
+            )
+
+        self.assertEqual(store.first, "old-first")
+        self.assertEqual(store.second, "old-second")
+
+    def test_save_content_rejects_deleted_publication_fields(self):
+        block = make_xblock()
 
         result = block.save_content(
             save_payload(
-                assessment_targets=targets,
-                assessment_groups=groups,
+                learner_content=course_document(),
+                assessment_targets=[],
+                assessment_groups=[],
             ),
         )
 
         self.assertEqual(
             result,
-            {"success": True, "artifact": {"title": "Saved lesson"}},
+            {"success": False, "error": "save payload must contain only artifact"},
         )
-        self.assertEqual(json.loads(block.assessment_groups_json), groups)
 
     def test_save_content_requires_studio_write_access(self):
         block = make_xblock()
@@ -2624,7 +2955,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             {"success": False, "error": "authoring permission required"},
         )
 
-    def test_save_content_requires_projected_assessment_targets(self):
+    def test_save_content_rejects_partial_deleted_publication_payload(self):
         block = make_xblock()
 
         result = block.save_content(
@@ -2641,7 +2972,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         self.assertEqual(
             result,
-            {"success": False, "error": "assessmentTargets must be a JSON array"},
+            {"success": False, "error": "save payload must contain only artifact"},
         )
 
     def test_save_content_rejects_oversized_artifact(self):
@@ -2698,7 +3029,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         self.assertEqual(
             result,
-            {"success": False, "error": "assessmentGroups is too large to save"},
+            {"success": False, "error": "save payload must contain only artifact"},
         )
 
     def test_save_content_requires_assessment_groups_array(self):
@@ -2710,19 +3041,23 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         self.assertEqual(
             result,
-            {"success": False, "error": "assessmentGroups must be a JSON array"},
+            {"success": False, "error": "save payload must contain only artifact"},
         )
 
-    def test_save_content_requires_explicit_assessment_groups(self):
+    def test_save_content_does_not_require_publication_fields(self):
         block = make_xblock()
         payload = save_payload()
-        payload.pop("assessmentGroups")
 
         result = block.save_content(payload)
 
         self.assertEqual(
             result,
-            {"success": False, "error": "assessmentGroups must be a JSON array"},
+            {
+                "success": True,
+                "artifactRevision": state_codecs.artifact_revision(
+                    payload["artifact"],
+                ),
+            },
         )
 
     def test_save_content_rejects_old_and_future_assessment_contracts(self):
@@ -2759,9 +3094,9 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
     def test_rejected_content_saves_leave_all_content_fields_unchanged(self):
         rejected_payloads = []
 
-        missing_groups = save_payload(title="Rejected missing groups")
-        missing_groups.pop("assessmentGroups")
-        rejected_payloads.append(missing_groups)
+        deleted_field_payload = save_payload(title="Rejected deleted fields")
+        deleted_field_payload["learnerContent"] = course_document()
+        rejected_payloads.append(deleted_field_payload)
         rejected_payloads.append(save_payload(artifact_id="other-usage"))
         rejected_payloads.append(
             save_payload(learner_content={"type": "not-a-course-document"}),
@@ -2876,7 +3211,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                     ),
                 )
 
-                self.assertEqual(result, {"success": False, "error": error})
+                self.assertEqual(
+                    result,
+                    {"success": False, "error": "save payload must contain only artifact"},
+                )
                 self.assertEqual(json.loads(block.assessment_groups_json), [])
 
     def test_save_content_rejects_invalid_assessment_target_contract(self):
@@ -2892,7 +3230,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             result,
             {
                 "success": False,
-                "error": "assessmentTargets[0].assessment.kind must match interaction.kind",
+                "error": "save payload must contain only artifact",
             },
         )
         self.assertEqual(json.loads(block.assessment_targets_json), [])
@@ -2912,7 +3250,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                     result,
                     {
                         "success": False,
-                        "error": "assessmentTargets[0].assessment.kind is not supported",
+                        "error": "save payload must contain only artifact",
                     },
                 )
                 self.assertEqual(json.loads(block.assessment_targets_json), [])
@@ -2933,7 +3271,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             result,
             {
                 "success": False,
-                "error": "assessmentTargets[1].targetId must be unique",
+                "error": "save payload must contain only artifact",
             },
         )
         self.assertEqual(json.loads(block.assessment_targets_json), [])
@@ -3006,13 +3344,15 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_learner_activity_handlers_persist_and_load_strict_user_snapshot(self):
         block = make_xblock()
-        block.learner_content_json = json.dumps(
-            course_document(
+        learner_content = course_document(
                 [
                     {"type": "checklist", "attrs": {"id": "block_000001"}},
                     {"type": "flashcard", "attrs": {"id": "block_000002"}},
                 ],
-            ),
+            )
+        block.learner_content_json = learner_publication_json(
+            block._artifact(),
+            learner_content,
         )
         unrelated_record = {
             "activityKind": "checklist",
@@ -3054,10 +3394,12 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_learner_activity_handler_rejects_unauthorized_blocks_atomically(self):
         block = make_xblock()
-        block.learner_content_json = json.dumps(
-            course_document(
+        learner_content = course_document(
                 [{"type": "flashcard", "attrs": {"id": "block_000002"}}],
-            ),
+            )
+        block.learner_content_json = learner_publication_json(
+            block._artifact(),
+            learner_content,
         )
         original_storage = block.learner_activity_snapshot_json
 

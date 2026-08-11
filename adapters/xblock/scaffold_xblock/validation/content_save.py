@@ -1,19 +1,15 @@
 from ..payload import validate_save_payload_size
-from .assessment_groups import (
-    AssessmentGroupValidationError,
-    validate_assessment_groups,
-)
-from .assessment_targets import (
-    AssessmentTargetValidationError,
-    validate_assessment_targets,
-)
+from .course_requirement import classify_artifact_access
 
 
 class ContentSaveValidationError(ValueError):
     pass
 
 
-def validate_content_save_bundle(data, artifact_id, supported_modes):
+def validate_artifact_save(data, artifact_id, supported_modes):
+    if not isinstance(data, dict) or set(data) != {"artifact"}:
+        raise ContentSaveValidationError("save payload must contain only artifact")
+
     artifact = data.get("artifact") if isinstance(data, dict) else None
     if not isinstance(artifact, dict):
         raise ContentSaveValidationError("artifact must be a JSON object")
@@ -36,45 +32,15 @@ def validate_content_save_bundle(data, artifact_id, supported_modes):
         raise ContentSaveValidationError(
             "artifact.mode must match artifact.content courseDocument mode",
         )
+    artifact_access = classify_artifact_access(artifact)
+    if artifact_access["status"] == "requires-scaffold-plus":
+        raise ContentSaveValidationError("artifact.content requires Scaffold Plus")
+    if artifact_access["status"] != "supported":
+        raise ContentSaveValidationError("artifact.content format is not supported")
     _validate_payload_size("artifact", artifact)
-
-    learner_content = data.get("learnerContent") if isinstance(data, dict) else None
-    if not isinstance(learner_content, dict):
-        raise ContentSaveValidationError("learnerContent must be a JSON object")
-    if course_document_mode(learner_content) != mode:
-        raise ContentSaveValidationError(
-            "learnerContent must be a Scaffold document matching artifact.mode",
-        )
-    _validate_payload_size("learnerContent", learner_content)
-
-    assessment_targets = (
-        data.get("assessmentTargets") if isinstance(data, dict) else None
-    )
-    if not isinstance(assessment_targets, list):
-        raise ContentSaveValidationError("assessmentTargets must be a JSON array")
-
-    assessment_groups = (
-        data.get("assessmentGroups") if isinstance(data, dict) else None
-    )
-    if not isinstance(assessment_groups, list):
-        raise ContentSaveValidationError("assessmentGroups must be a JSON array")
-
-    _validate_payload_size("assessmentTargets", assessment_targets)
-    _validate_payload_size("assessmentGroups", assessment_groups)
-    try:
-        assessment_targets = validate_assessment_targets(assessment_targets)
-        assessment_groups = validate_assessment_groups(
-            assessment_groups,
-            assessment_targets,
-        )
-    except (AssessmentTargetValidationError, AssessmentGroupValidationError) as exc:
-        raise ContentSaveValidationError(str(exc)) from exc
 
     return {
         "artifact": artifact,
-        "learner_content": learner_content,
-        "assessment_targets": assessment_targets,
-        "assessment_groups": assessment_groups,
         "title": title.strip(),
     }
 

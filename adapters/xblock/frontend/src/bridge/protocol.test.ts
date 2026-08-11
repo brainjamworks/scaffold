@@ -18,6 +18,7 @@ describe("XBlock iframe bridge protocol", () => {
     expect(SCAFFOLD_XBLOCK_BRIDGE_REQUEST_TYPES).toEqual([
       "persistence.createArtifact",
       "persistence.saveArtifact",
+      "publication.publish",
       "media.resolve",
       "media.list",
       "media.upload",
@@ -68,6 +69,17 @@ describe("XBlock iframe bridge protocol", () => {
     const result = validateXBlockBridgeMessage(message);
 
     expect(result).toEqual({ ok: true, message });
+  });
+
+  it("accepts explicit publication request envelopes", () => {
+    const message = createXBlockBridgeRequest({
+      requestId: "request-publish",
+      sessionId: "session-1",
+      type: "publication.publish",
+      payload: { sourceArtifactRevision: "revision-1" },
+    });
+
+    expect(validateXBlockBridgeMessage(message)).toEqual({ ok: true, message });
   });
 
   it("accepts learner hint reveal request envelopes", () => {

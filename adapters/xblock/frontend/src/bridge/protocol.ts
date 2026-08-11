@@ -4,6 +4,7 @@ export const SCAFFOLD_XBLOCK_BRIDGE_PROTOCOL_VERSION = 2;
 export const SCAFFOLD_XBLOCK_BRIDGE_REQUEST_TYPES = [
   "persistence.createArtifact",
   "persistence.saveArtifact",
+  "publication.publish",
   "media.resolve",
   "media.list",
   "media.upload",

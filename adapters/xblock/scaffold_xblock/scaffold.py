@@ -53,6 +53,8 @@ from .scorebook import (
 )
 from .state import (
     AssessmentStorageValidationError,
+    PublicationStorageValidationError,
+    artifact_revision,
     artifact_from_json,
     assessment_bundle_from_json,
     assessment_grade_changed_at_is_newer,
@@ -61,18 +63,24 @@ from .state import (
     LearnerActivityStorageValidationError,
     learner_activity_snapshot_from_json,
     learner_content_from_json,
+    learner_publication_envelope_from_json,
     next_assessment_grade_changed_at,
     serialize_assessment_grade_delivery,
     serialize_assessment_snapshot,
     serialize_learner_activity_snapshot,
+    serialize_learner_publication_envelope,
 )
 from .validation.content_save import (
     ContentSaveValidationError,
-    validate_content_save_bundle,
+    validate_artifact_save,
 )
 from .validation.learning_event import (
     LearningEventValidationError,
     validate_learning_event_request,
+)
+from .validation.publication import (
+    PublicationValidationError,
+    validate_publication_payload,
 )
 from .views import add_scaffold_view_resources
 
@@ -163,6 +171,33 @@ class ScaffoldXBlock(ScorableXBlockMixin, XBlock):
 
     def _learner_content(self):
         return learner_content_from_json(self.learner_content_json)
+
+    def _learner_publication(self):
+        publication = learner_publication_envelope_from_json(
+            self.learner_content_json,
+        )
+        if (
+            publication is not None
+            and publication["artifact"]["id"] != self._artifact_id()
+        ):
+            raise PublicationStorageValidationError(
+                "learner publication artifact does not match XBlock",
+            )
+        return publication
+
+    def _publication_status(self):
+        publication = self._learner_publication()
+        return {
+            "currentArtifactRevision": artifact_revision(self._artifact()),
+            "publishedArtifactRevision": (
+                publication["sourceArtifactRevision"]
+                if publication is not None
+                else None
+            ),
+            "publishedAt": (
+                publication["publishedAt"] if publication is not None else None
+            ),
+        }
 
     def _assessment_targets(self):
         return self._assessment_bundle()["assessment_targets"]
@@ -263,11 +298,7 @@ class ScaffoldXBlock(ScorableXBlockMixin, XBlock):
             title=self.display_name,
             mode=mode,
         )
-        self.display_name = bundle["title"]
         self.artifact_json = json.dumps(bundle["artifact"])
-        self.learner_content_json = json.dumps(bundle["learner_content"])
-        self.assessment_targets_json = json.dumps(bundle["assessment_targets"])
-        self.assessment_groups_json = json.dumps(bundle["assessment_groups"])
         return {"success": True, "artifact": bundle["artifact"]}
 
     @XBlock.json_handler
@@ -276,7 +307,7 @@ class ScaffoldXBlock(ScorableXBlockMixin, XBlock):
             return {"success": False, "error": "authoring permission required"}
 
         try:
-            bundle = validate_content_save_bundle(
+            bundle = validate_artifact_save(
                 data,
                 self._artifact_id(),
                 SCAFFOLD_MODES,
@@ -284,12 +315,63 @@ class ScaffoldXBlock(ScorableXBlockMixin, XBlock):
         except ContentSaveValidationError as exc:
             return {"success": False, "error": str(exc)}
 
-        self.display_name = bundle["title"]
         self.artifact_json = json.dumps(bundle["artifact"])
-        self.learner_content_json = json.dumps(bundle["learner_content"])
-        self.assessment_targets_json = json.dumps(bundle["assessment_targets"])
-        self.assessment_groups_json = json.dumps(bundle["assessment_groups"])
-        return {"success": True, "artifact": {"title": self.display_name}}
+        return {
+            "success": True,
+            "artifactRevision": artifact_revision(bundle["artifact"]),
+        }
+
+    @XBlock.json_handler
+    def publish_content(self, data, suffix=""):
+        if not self._has_studio_write_access():
+            return {"success": False, "error": "authoring permission required"}
+
+        canonical_artifact = self._artifact()
+        current_revision = artifact_revision(canonical_artifact)
+        if not isinstance(data, dict) or data.get("sourceArtifactRevision") != current_revision:
+            return {"success": False, "error": "stale-artifact-revision"}
+
+        try:
+            bundle = validate_publication_payload(
+                data,
+                canonical_artifact,
+                self._artifact_id(),
+                SCAFFOLD_MODES,
+            )
+            published_at = utc_now_iso()
+            publication_json = serialize_learner_publication_envelope(
+                {
+                    "publicationVersion": 1,
+                    "sourceArtifactRevision": current_revision,
+                    "publishedAt": published_at,
+                    "artifact": bundle["artifact"],
+                    "learnerContent": bundle["learner_content"],
+                },
+            )
+            assessment_targets_json = json.dumps(bundle["assessment_targets"])
+            assessment_groups_json = json.dumps(bundle["assessment_groups"])
+        except (
+            PublicationStorageValidationError,
+            PublicationValidationError,
+            TypeError,
+            ValueError,
+        ) as exc:
+            return {"success": False, "error": "invalid-publication: %s" % exc}
+
+        try:
+            _replace_active_publication(
+                self,
+                {
+                    "display_name": bundle["artifact"]["title"],
+                    "learner_content_json": publication_json,
+                    "assessment_targets_json": assessment_targets_json,
+                    "assessment_groups_json": assessment_groups_json,
+                },
+            )
+        except Exception:  # pylint: disable=broad-except
+            log.exception("XBlock publication storage replacement failed")
+            return {"success": False, "error": "publication-write-failed"}
+        return {"success": True, "publicationStatus": self._publication_status()}
 
     @XBlock.json_handler
     def check_assessment(self, data, suffix=""):
@@ -966,6 +1048,19 @@ def _assessment_grade_delivery_attempt_matches(current, attempted):
     )
 
 
+def _replace_active_publication(block, replacements):
+    previous = {name: getattr(block, name) for name in replacements}
+    assigned = []
+    try:
+        for name, value in replacements.items():
+            setattr(block, name, value)
+            assigned.append(name)
+    except Exception:
+        for name in reversed(assigned):
+            setattr(block, name, previous[name])
+        raise
+
+
 def _learner_activity_block_ids(content):
     block_ids = set()
 
@@ -994,7 +1089,7 @@ def _create_empty_artifact_bundle(artifact_id, title, mode):
     artifact_title = (
         title.strip() if isinstance(title, str) and title.strip() else "Scaffold"
     )
-    return validate_content_save_bundle(
+    validated = validate_artifact_save(
         {
             "artifact": {
                 "id": artifact_id,
@@ -1002,13 +1097,16 @@ def _create_empty_artifact_bundle(artifact_id, title, mode):
                 "mode": mode,
                 "content": content,
             },
-            "learnerContent": content,
-            "assessmentTargets": [],
-            "assessmentGroups": [],
         },
         artifact_id,
         SCAFFOLD_CREATION_MODES,
     )
+    return {
+        **validated,
+        "learner_content": content,
+        "assessment_targets": [],
+        "assessment_groups": [],
+    }
 
 
 def _create_empty_course_document(mode):
@@ -1023,7 +1121,8 @@ def _create_empty_course_document(mode):
             {
                 "type": "courseDocument",
                 "attrs": {
-                    "schemaVersion": 1,
+                    "schemaVersion": 4,
+                    "requiresScaffoldPlus": False,
                     "mode": mode,
                     "surfaceSize": "fluid",
                     "overflowMode": "grow",

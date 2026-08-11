@@ -48,6 +48,32 @@ export function mountXBlockInner({ view, mount }: MountXBlockInnerOptions): void
         return;
       }
 
+      const accessStatus = payload.artifactAccess?.status;
+      if (
+        accessStatus !== "supported" &&
+        accessStatus !== "not-published" &&
+        accessStatus !== "requires-scaffold-plus" &&
+        accessStatus !== "invalid" &&
+        accessStatus !== "unsupported-core-format"
+      ) {
+        const message = "Scaffold artifact access is invalid.";
+        renderFatalError(root, message);
+        bridge.reportFatalError({ message });
+        return;
+      }
+      if (accessStatus !== "supported") {
+        mounted = true;
+        renderArtifactUnavailable(root, accessStatus);
+        reportHeight();
+        return;
+      }
+      if (!payload.artifact) {
+        const message = "Supported Scaffold payload is missing its artifact.";
+        renderFatalError(root, message);
+        bridge.reportFatalError({ message });
+        return;
+      }
+
       mounted = true;
       root.replaceChildren();
       mount(root, payload, bridge);
@@ -145,4 +171,19 @@ function renderFatalError(root: HTMLElement, message: string): void {
 
   alert.append(title, details);
   root.append(alert);
+}
+
+function renderArtifactUnavailable(
+  root: HTMLElement,
+  status: "not-published" | "requires-scaffold-plus" | "invalid" | "unsupported-core-format",
+): void {
+  const message =
+    status === "not-published"
+      ? "This course has not been published."
+      : status === "requires-scaffold-plus"
+        ? "This course requires Scaffold Plus."
+        : status === "unsupported-core-format"
+          ? "This course was created by a newer version of Scaffold."
+          : "The Scaffold document is invalid.";
+  renderFatalError(root, message);
 }

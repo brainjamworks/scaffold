@@ -2,6 +2,7 @@ import {
   ScaffoldAuthoringEntry,
   type ScaffoldAuthoringHeaderActionsContext,
 } from "@scaffold/core/authoring";
+import type { ScaffoldAuthoringArtifact } from "@scaffold/core/ports";
 import { createScaffoldApplication } from "@scaffold/core/extensions";
 import { useMemo } from "react";
 
@@ -11,10 +12,10 @@ import {
   createXBlockAuthoringHostServices,
   createXBlockPreviewLearnerServices,
 } from "./authoring-ports";
-import { prepareXBlockArtifact } from "./xblock-content";
 import { notifyXBlockDone, notifyXBlockSaveEnd, notifyXBlockSaveStart } from "./xblock-host";
 
 const scaffoldApplication = createScaffoldApplication();
+const freeProductAccess = Object.freeze({ scaffoldPlusAuthorized: false });
 
 interface XBlockStudioAppProps {
   data: ScaffoldXBlockInnerInitPayload;
@@ -22,13 +23,20 @@ interface XBlockStudioAppProps {
 }
 
 export function XBlockStudioApp({ data, bridge }: XBlockStudioAppProps) {
-  const artifactState = useMemo(() => prepareXBlockArtifact(data.artifact), [data.artifact]);
+  if (data.artifactAccess.status !== "supported" || !data.artifact || !data.publicationStatus) {
+    throw new Error(
+      "Supported XBlock Studio payload must include an artifact and publication status.",
+    );
+  }
+  const artifact: ScaffoldAuthoringArtifact | null =
+    data.artifact.content === null ? null : { ...data.artifact, content: data.artifact.content };
   const authoringServices = useMemo(
     () =>
       createXBlockAuthoringHostServices(bridge, {
+        publicationStatus: data.publicationStatus!,
         resolvedMedia: data.resolvedMedia,
       }),
-    [bridge, data.resolvedMedia],
+    [bridge, data.publicationStatus, data.resolvedMedia],
   );
   const previewServices = useMemo(
     () =>
@@ -38,26 +46,19 @@ export function XBlockStudioApp({ data, bridge }: XBlockStudioAppProps) {
     [bridge, data.resolvedMedia],
   );
 
-  if (artifactState.status === "error") {
-    return (
-      <div className="sc-xblock-root sc-xblock-error" role="alert">
-        <strong>Scaffold document could not be loaded.</strong>
-        <span>{artifactState.message}</span>
-      </div>
-    );
-  }
-
   return (
     <div className="sc-xblock-root sc-xblock-studio-shell">
       <ScaffoldAuthoringEntry
         application={scaffoldApplication}
-        artifact={artifactState.status === "ready" ? artifactState.artifact : null}
+        artifact={artifact}
+        productAccess={freeProductAccess}
         services={authoringServices}
         createPreviewServices={() => previewServices}
         className="sc-xblock-authoring-app"
         headerActions={(context) => (
           <XBlockStudioActions
             busy={context.saveState === "saving"}
+            publishState={context.publishState}
             onSave={() => {
               void saveWithHostNotification(bridge, context.saveNow);
             }}
@@ -65,6 +66,9 @@ export function XBlockStudioApp({ data, bridge }: XBlockStudioAppProps) {
               void saveWithHostNotification(bridge, context.saveNow).then(async (saved) => {
                 if (saved) await notifyXBlockDone(bridge);
               });
+            }}
+            onPublish={() => {
+              void context.publishNow();
             }}
           />
         )}
@@ -89,13 +93,30 @@ async function saveWithHostNotification(
 
 function XBlockStudioActions({
   busy,
+  publishState,
   onSave,
   onDone,
+  onPublish,
 }: {
   busy: boolean;
+  publishState: ScaffoldAuthoringHeaderActionsContext["publishState"];
   onSave: () => void;
   onDone: () => void;
+  onPublish: () => void;
 }) {
+  const publishDisabled =
+    busy ||
+    [
+      "loading",
+      "publishing",
+      "unsaved",
+      "invalid",
+      "unavailable-content",
+      "requires-scaffold-plus",
+      "unsupported-core-format",
+      "projection-warning",
+      "payload-too-large",
+    ].includes(publishState);
   return (
     <>
       <button
@@ -109,6 +130,17 @@ function XBlockStudioActions({
       <button
         type="button"
         className="sc-xblock-header-action sc-xblock-header-action--primary"
+        disabled={publishDisabled}
+        onClick={onPublish}
+      >
+        Publish
+      </button>
+      <span className="sc-xblock-publication-state" aria-live="polite">
+        {xblockPublicationStateCopy(publishState)}
+      </span>
+      <button
+        type="button"
+        className="sc-xblock-header-action sc-xblock-header-action--primary"
         disabled={busy}
         onClick={onDone}
       >
@@ -116,4 +148,19 @@ function XBlockStudioActions({
       </button>
     </>
   );
+}
+
+function xblockPublicationStateCopy(
+  state: ScaffoldAuthoringHeaderActionsContext["publishState"],
+): string {
+  if (state === "not-published") return "Not published";
+  if (state === "published") return "Published";
+  if (state === "unpublished") return "Unpublished changes";
+  if (state === "unsaved") return "Save before publishing";
+  if (state === "publishing") return "Publishing…";
+  if (state === "loading") return "Loading publication status";
+  if (state === "forbidden") return "Publishing is not permitted";
+  if (state === "stale-artifact-revision") return "Save changed; publish the latest revision";
+  if (state === "invalid") return "Fix invalid content before publishing";
+  return "Publish failed";
 }

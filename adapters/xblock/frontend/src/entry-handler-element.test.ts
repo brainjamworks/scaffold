@@ -44,17 +44,34 @@ type CapturedFrameOptions = {
 
 const data: ScaffoldXBlockOuterData = {
   innerUrl: "http://local.openedx.io/static/scaffold/student-inner.html",
+  artifactAccess: {
+    status: "supported",
+    artifact: {
+      id: "block-v1:course+run+type@scaffold+block@abc",
+      title: "Scaffold",
+      mode: "page",
+    },
+  },
   artifact: {
     id: "block-v1:course+run+type@scaffold+block@abc",
     title: "Scaffold",
     mode: "page",
     content: { type: "doc", content: [] },
   },
+  learnerPublication: {
+    status: "supported",
+    learnerContent: { type: "doc", content: [] },
+  },
+  publicationStatus: {
+    currentArtifactRevision: "revision-1",
+    publishedArtifactRevision: "revision-1",
+    publishedAt: "2026-08-09T10:00:00Z",
+  },
 };
 
 const assessmentSnapshot: AssessmentLearnerSnapshot = {
   snapshotVersion: 2,
-  artifactId: data.artifact.id,
+  artifactId: data.artifactAccess.artifact.id,
   problems: {
     "hotspot-target": {
       response: {
@@ -95,7 +112,7 @@ const learnerData: ScaffoldXBlockOuterData = {
   assessmentSnapshot,
   learnerActivitySnapshot: {
     snapshotVersion: 1,
-    artifactId: data.artifact.id,
+    artifactId: data.artifactAccess.artifact.id,
     activities: {
       "activity-1": {
         activityKind: "checklist",
@@ -178,6 +195,51 @@ describe("XBlock entry handler element routing", () => {
         body: JSON.stringify({ protocolVersion: 1 }),
       }),
     );
+  });
+
+  it("does not retry grades or route handlers for a withheld Plus course", async () => {
+    const handlerUrl = vi.fn((_element: unknown, handlerName: string) => {
+      return `http://local.openedx.io/handler/${handlerName}`;
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const refusedData: ScaffoldXBlockOuterData = {
+      ...learnerData,
+      artifactAccess: {
+        status: "requires-scaffold-plus",
+        artifact: learnerData.artifactAccess.artifact,
+      },
+      artifact: null,
+    };
+
+    renderEntry(renderStudentBlock, refusedData, { handlerUrl });
+    const options = capturedFrameOptions();
+    const frame = {
+      sendSuccessResponse: vi.fn(),
+      sendFailureResponse: vi.fn(),
+    };
+    options.onRequest(
+      createXBlockBridgeRequest({
+        requestId: "request-refused",
+        sessionId: "session-1",
+        type: "assessment.submit",
+        payload: {},
+      }),
+      frame,
+    );
+
+    expect(options.initPayload.artifact).toBeNull();
+    expect(options.initPayload.initialLearnerState).toEqual({});
+    expect(handlerUrl).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(frame.sendSuccessResponse).not.toHaveBeenCalled();
+    expect(frame.sendFailureResponse).toHaveBeenCalledWith({
+      requestId: "request-refused",
+      error: {
+        code: "invalid_request",
+        message: "Scaffold content access is unavailable.",
+      },
+    });
   });
 
   it("waits for bootstrap grade retry before handling iframe requests", async () => {
@@ -267,7 +329,7 @@ describe("XBlock entry handler element routing", () => {
     ["assessment.quiz.finishAttempt", "finish_quiz_attempt"],
     ["assessment.quiz.revealAnswers", "reveal_quiz_answers"],
   ] as const)("unscopes %s requests for the XBlock handler", async (type, handlerName) => {
-    const scopedGroupId = `artifact:${encodeURIComponent(data.artifact.id)}/group:quiz-1`;
+    const scopedGroupId = `artifact:${encodeURIComponent(data.artifactAccess.artifact.id)}/group:quiz-1`;
     const { handlerUrl, handlerElement, fetchMock } = await renderAndRequest(
       renderStudentBlock,
       {
@@ -290,7 +352,7 @@ describe("XBlock entry handler element routing", () => {
   });
 
   it("restores the scoped quiz group id returned to the learner runtime", async () => {
-    const scopedGroupId = `artifact:${encodeURIComponent(data.artifact.id)}/group:quiz-1`;
+    const scopedGroupId = `artifact:${encodeURIComponent(data.artifactAccess.artifact.id)}/group:quiz-1`;
     const { frame } = await renderAndRequest(
       renderStudentBlock,
       {
@@ -315,7 +377,7 @@ describe("XBlock entry handler element routing", () => {
   it("routes strict learner activity loads to the snapshot handler", async () => {
     const { handlerUrl, handlerElement } = await renderAndRequest(renderStudentBlock, {
       type: "learnerActivity.load",
-      payload: { artifactId: data.artifact.id },
+      payload: { artifactId: data.artifactAccess.artifact.id },
     });
 
     expect(handlerUrl).toHaveBeenCalledWith(handlerElement, "load_learner_activity");
@@ -325,7 +387,7 @@ describe("XBlock entry handler element routing", () => {
     const { handlerUrl, handlerElement } = await renderAndRequest(renderStudentBlock, {
       type: "learnerActivity.save",
       payload: {
-        artifactId: data.artifact.id,
+        artifactId: data.artifactAccess.artifact.id,
         blockId: "flashcard-1",
         record: {
           activityKind: "flashcard",
