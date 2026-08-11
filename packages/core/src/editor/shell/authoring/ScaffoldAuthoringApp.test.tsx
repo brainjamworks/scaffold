@@ -1214,6 +1214,162 @@ describe("ScaffoldAuthoringApp preview", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("renders host slots around one Core Publish action without publication authority", async () => {
+    let hostContextKeys: string[] = [];
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-host-slots",
+          title: "Draft",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+          media: null,
+        }}
+        hostHeaderActions={(context) => {
+          hostContextKeys = Object.keys(context).sort();
+          return {
+            beforePublish: <button type="button">Before Publish</button>,
+            afterPublish: <button type="button">After Publish</button>,
+          };
+        }}
+      />,
+    );
+
+    const before = await screen.findByRole("button", { name: "Before Publish" });
+    const publish = screen.getByRole("button", { name: "Publish" });
+    const after = screen.getByRole("button", { name: "After Publish" });
+    expect(before.compareDocumentPosition(publish) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(publish.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(hostContextKeys).toEqual(["preview", "saveNow", "saveState", "title"]);
+    expect(screen.getAllByRole("button", { name: "Publish" })).toHaveLength(1);
+  });
+
+  it("publishes once under rapid activation and emits one success notification", async () => {
+    const publishResult = createDeferred<{
+      currentArtifactRevision: string;
+      publishedArtifactRevision: string;
+      publishedAt: string;
+    }>();
+    const saveArtifact = vi.fn(async () => ({ artifactRevision: "revision-2" }));
+    const publish = vi.fn(() => publishResult.promise);
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-core-publication",
+          title: "Draft",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact },
+          learnerPublication: {
+            getStatus: async () => ({
+              currentArtifactRevision: "revision-1",
+              publishedArtifactRevision: null,
+              publishedAt: null,
+            }),
+            publish,
+          },
+          media: null,
+        }}
+        hostHeaderActions={({ saveNow }) => ({
+          beforePublish: (
+            <button type="button" onClick={() => void saveNow()}>
+              Save changes
+            </button>
+          ),
+        })}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    const publishAction = screen.getByRole("button", { name: "Publish" });
+    await waitFor(() => expect(publishAction).toHaveAttribute("aria-disabled", "false"));
+
+    act(() => {
+      publishAction.click();
+      publishAction.click();
+    });
+    expect(publish).toHaveBeenCalledTimes(1);
+
+    publishResult.resolve({
+      currentArtifactRevision: "revision-2",
+      publishedArtifactRevision: "revision-2",
+      publishedAt: "2026-08-11T12:00:00.000Z",
+    });
+
+    expect(await screen.findByText("Publication complete")).toBeVisible();
+    expect(document.querySelectorAll(".sc-app-notification")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Published" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("updates one publication notification when a failed publication is retried", async () => {
+    const saveArtifact = vi.fn(async () => ({ artifactRevision: "revision-2" }));
+    const publish = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network unavailable"))
+      .mockResolvedValueOnce({
+        currentArtifactRevision: "revision-2",
+        publishedArtifactRevision: "revision-2",
+        publishedAt: "2026-08-11T12:00:00.000Z",
+      });
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-publication-retry",
+          title: "Draft",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact },
+          learnerPublication: {
+            getStatus: async () => ({
+              currentArtifactRevision: "revision-1",
+              publishedArtifactRevision: null,
+              publishedAt: null,
+            }),
+            publish,
+          },
+          media: null,
+        }}
+        hostHeaderActions={({ saveNow }) => ({
+          beforePublish: (
+            <button type="button" onClick={() => void saveNow()}>
+              Save changes
+            </button>
+          ),
+        })}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Publish" })).toHaveAttribute(
+        "aria-disabled",
+        "false",
+      ),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Publish" }));
+    expect(await screen.findByText("Publication failed. Try again.")).toBeVisible();
+
+    await userEvent.click(screen.getByRole("button", { name: "Publish" }));
+    expect(await screen.findByText("Publication complete")).toBeVisible();
+    expect(publish).toHaveBeenCalledTimes(2);
+    expect(document.querySelectorAll(".sc-app-notification")).toHaveLength(1);
+  });
+
   it("publishes only the latest successfully saved canonical generation", async () => {
     const user = userEvent.setup();
     const saveArtifact = vi.fn(async () => ({ artifactRevision: "revision-2" }));

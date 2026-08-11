@@ -1,0 +1,92 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-app-publish-action {
+    display: inline-flex;
+    min-height: 2.25rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    padding: 0 1rem;
+    border: 1px solid var(--sc-app-color-primary);
+    border-radius: 9999px;
+    background: var(--sc-app-color-primary);
+    color: var(--sc-app-color-primary-foreground);
+    cursor: pointer;
+    font-family: var(--sc-app-font-family);
+    font-size: 0.875rem;
+    font-weight: 650;
+    line-height: 1;
+    white-space: nowrap;
+    transition:
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-app-publish-action:hover:not([aria-disabled="true"]) {
+    background: color-mix(in oklch, var(--sc-app-color-primary) 88%, black);
+  }
+
+  .sc-app-publish-action:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+  }
+
+  .sc-app-publish-action[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.58;
+  }
+
+  .sc-app-publish-action[data-presentation="quiet"] {
+    border-color: var(--sc-app-color-border);
+    background: var(--sc-app-color-muted);
+    color: var(--sc-app-color-text-secondary);
+    cursor: default;
+    opacity: 1;
+  }
+
+  .sc-app-publish-action__description {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    border: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .sc-app-publish-action__spinner {
+    animation: sc-app-publish-action-spin 900ms linear infinite;
+  }
+
+  @keyframes sc-app-publish-action-spin {
+    to {
+      transform: rotate(1turn);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .sc-app-publish-action {
+      border-color: ButtonText;
+    }
+
+    .sc-app-publish-action:focus-visible {
+      outline-color: Highlight;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-app-publish-action {
+      transition: none;
+    }
+
+    .sc-app-publish-action__spinner {
+      animation: none;
+    }
+  }
+}
