@@ -6,6 +6,7 @@ export const SCAFFOLD_MOODLE_BRIDGE_PROTOCOL_VERSION = 2;
 export const MOODLE_AJAX_METHODS = [
   "mod_scaffold_get_payload",
   "mod_scaffold_save_content",
+  "mod_scaffold_publish_content",
   "mod_scaffold_load_learner_activity",
   "mod_scaffold_save_learner_activity",
   "mod_scaffold_check_assessment",

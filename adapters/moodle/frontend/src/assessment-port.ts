@@ -131,14 +131,19 @@ function restoreScopedQuizOutcome(
   response: AssessmentResponse,
   group: MoodleQuizGroupIdentity,
 ): AssessmentQuizCommandOutcome {
-  const outcome = AssessmentQuizCommandOutcomeSchema.parse(
-    parseJsonField(response.outcomeJson, {}),
-  );
-  if (outcome.quizAttempt.groupId !== group.authored) {
+  const rawOutcome = parseJsonField(response.outcomeJson, {});
+  if (!isRecord(rawOutcome) || !isRecord(rawOutcome.quizAttempt)) {
+    return AssessmentQuizCommandOutcomeSchema.parse(rawOutcome);
+  }
+  if (rawOutcome.quizAttempt.groupId !== group.authored) {
     throw new Error("Moodle Quiz response group id did not match request");
   }
   return AssessmentQuizCommandOutcomeSchema.parse({
-    ...outcome,
-    quizAttempt: { ...outcome.quizAttempt, groupId: group.scoped },
+    ...rawOutcome,
+    quizAttempt: { ...rawOutcome.quizAttempt, groupId: group.scoped },
   });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

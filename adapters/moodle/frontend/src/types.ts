@@ -1,5 +1,6 @@
 import type { AssessmentLearnerSnapshot, LearnerActivitySnapshot } from "@scaffold/contracts";
 import type { ScaffoldArtifact } from "@scaffold/core/format";
+import type { LearnerPublicationStatus, ScaffoldLearnerPublication } from "@scaffold/core/ports";
 
 export type MoodleSurface = "authoring" | "learner";
 
@@ -27,8 +28,41 @@ export type MoodleOuterBootstrapConfig = MoodleApplicationConfig & {
   innerUrl: string;
 };
 
+export interface MoodleArtifactMetadata {
+  readonly id: string;
+  readonly title: string;
+  readonly mode: ScaffoldArtifact["mode"];
+}
+
+export type MoodleArtifactAccess =
+  | {
+      readonly status: "supported";
+      readonly artifact: MoodleArtifactMetadata;
+    }
+  | {
+      readonly status: "not-published";
+      readonly artifact: MoodleArtifactMetadata;
+    }
+  | {
+      readonly status: "requires-scaffold-plus";
+      readonly artifact: MoodleArtifactMetadata;
+    }
+  | {
+      readonly status: "invalid";
+      readonly artifact: MoodleArtifactMetadata;
+    }
+  | {
+      readonly status: "unsupported-core-format";
+      readonly artifact: MoodleArtifactMetadata;
+      readonly documentVersion: number;
+      readonly supportedVersion: number;
+    };
+
 export interface MoodlePayload {
-  artifact: ScaffoldArtifact;
+  artifactAccess: MoodleArtifactAccess;
+  artifact: ScaffoldArtifact | null;
   assessmentSnapshot?: AssessmentLearnerSnapshot;
   learnerActivitySnapshot?: LearnerActivitySnapshot;
+  learnerPublication?: ScaffoldLearnerPublication;
+  publicationStatus?: LearnerPublicationStatus;
 }

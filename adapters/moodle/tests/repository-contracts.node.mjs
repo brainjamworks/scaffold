@@ -59,6 +59,24 @@ test("does not retain or invoke the standalone PHP test harness", async () => {
   assert.doesNotMatch(protocoltest, /external_method_parity_test\.php|execFileSync/);
 });
 
+test("limits Moodle canonical Save to its three owned database fields", async () => {
+  const source = await readAdapterFile("scaffold/classes/local/content_service.php");
+  const saveStart = source.indexOf("private function save_instance(");
+  const saveEnd = source.indexOf("private static function validate_artifact(", saveStart);
+  const save = source.slice(saveStart, saveEnd);
+
+  assert.ok(saveStart >= 0, "save_instance must exist");
+  assert.ok(saveEnd > saveStart, "save_instance boundary must exist");
+  const update = save.match(/\$saveupdate = \(object\) \[([\s\S]*?)\n\s*\];/);
+  assert.ok(update, "Save must construct a named partial update");
+  assert.deepEqual(
+    [...update[1].matchAll(/'([^']+)'\s*=>/g)].map((match) => match[1]),
+    ["id", "artifactjson", "timemodified"],
+  );
+  assert.match(save, /\$DB->update_record\('scaffold', \$saveupdate\);/);
+  assert.doesNotMatch(save, /\$DB->update_record\('scaffold', \$saved\);/);
+});
+
 test("runs the packaged plugin through Moodle's developer-debug Behat smoke gate", async () => {
   const feature = await readAdapterFile("scaffold/tests/behat/developer_debug_smoke.feature");
   const generator = await readAdapterFile("scaffold/tests/generator/lib.php");

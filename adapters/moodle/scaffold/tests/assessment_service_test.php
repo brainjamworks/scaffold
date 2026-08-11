@@ -596,7 +596,18 @@ final class assessment_service_test extends \advanced_testcase {
             JSON_THROW_ON_ERROR,
         ), ['id' => $activityid]);
         $DB->set_field('scaffold', 'learnercontentjson', json_encode(
-            self::learner_content($hintcount),
+            [
+                'publicationVersion' => 1,
+                'sourceArtifactRevision' => 'published-revision',
+                'publishedAt' => '2026-08-09T10:00:00Z',
+                'artifact' => [
+                    'id' => 'moodle-cm-' . $cmid,
+                    'title' => 'Assessment service fixture',
+                    'mode' => 'page',
+                    'requiresScaffoldPlus' => false,
+                ],
+                'learnerContent' => self::learner_content($hintcount),
+            ],
             JSON_THROW_ON_ERROR,
         ), ['id' => $activityid]);
 

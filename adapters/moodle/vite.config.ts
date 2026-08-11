@@ -31,6 +31,7 @@ export default defineConfig(({ command }) => ({
       input: {
         "moodle-ui": resolve(__dirname, "frontend/src/moodle-entry.tsx"),
         "moodle-inner": resolve(__dirname, "moodle-inner.html"),
+        "moodle-learner-inner": resolve(__dirname, "moodle-learner-inner.html"),
       },
       output: {
         entryFileNames: (chunkInfo) =>

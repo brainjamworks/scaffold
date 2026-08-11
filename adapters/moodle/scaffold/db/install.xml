@@ -18,7 +18,7 @@
   @copyright  2026 Rizvan Ali
   @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
 -->
-<XMLDB PATH="mod/scaffold/db" VERSION="2026071804" COMMENT="Scaffold activity module tables">
+<XMLDB PATH="mod/scaffold/db" VERSION="2026081000" COMMENT="Scaffold activity module tables">
   <TABLES>
     <TABLE NAME="scaffold" COMMENT="Scaffold activity instances">
       <FIELDS>

@@ -160,12 +160,23 @@ final class restore_scaffold_test extends advanced_testcase {
                 ],
             ], JSON_THROW_ON_ERROR),
             'learnercontentjson' => json_encode((object) [
-                'type' => 'doc',
-                'content' => [(object) [
-                    'type' => 'courseDocument',
-                    'attrs' => (object) ['mode' => 'page'],
-                    'content' => [],
-                ]],
+                'publicationVersion' => 1,
+                'sourceArtifactRevision' => 'published-revision',
+                'publishedAt' => '2026-08-09T10:00:00Z',
+                'artifact' => (object) [
+                    'id' => $sourceartifactid,
+                    'title' => 'Restored Scaffold activity',
+                    'mode' => 'page',
+                    'requiresScaffoldPlus' => false,
+                ],
+                'learnerContent' => (object) [
+                    'type' => 'doc',
+                    'content' => [(object) [
+                        'type' => 'courseDocument',
+                        'attrs' => (object) ['mode' => 'page'],
+                        'content' => [],
+                    ]],
+                ],
             ], JSON_THROW_ON_ERROR),
             'assessmenttargetsjson' => '[]',
             'assessmentgroupsjson' => '[]',
@@ -173,10 +184,13 @@ final class restore_scaffold_test extends advanced_testcase {
 
         $repaired = restore_identity_service::repair($destinationartifactid, $source);
         $artifact = json_decode($repaired->artifactjson, false, 512, JSON_THROW_ON_ERROR);
+        $publication = json_decode($repaired->learnercontentjson, false, 512, JSON_THROW_ON_ERROR);
 
         $this->assertSame($destinationartifactid, $artifact->id);
         $this->assertSame('stable-block-id', $artifact->content->content[0]->content[0]->attrs->id);
         $this->assertSame($sourceartifactid, $artifact->content->content[0]->content[0]->attrs->literal);
+        $this->assertSame($destinationartifactid, $publication->artifact->id);
+        $this->assertSame(hash('sha256', $repaired->artifactjson), $publication->sourceArtifactRevision);
         $this->assertSame('[]', $repaired->assessmenttargetsjson);
         $this->assertSame('[]', $repaired->assessmentgroupsjson);
     }
@@ -365,9 +379,18 @@ final class restore_scaffold_test extends advanced_testcase {
         $target = self::target();
         $group = self::group();
         $DB->set_field('scaffold', 'artifactjson', json_encode($artifact, JSON_THROW_ON_ERROR), ['id' => $activityid]);
-        $DB->set_field('scaffold', 'learnercontentjson', json_encode($artifact->content, JSON_THROW_ON_ERROR), [
-            'id' => $activityid,
-        ]);
+        $DB->set_field('scaffold', 'learnercontentjson', json_encode([
+            'publicationVersion' => 1,
+            'sourceArtifactRevision' => 'published-revision',
+            'publishedAt' => '2026-08-09T10:00:00Z',
+            'artifact' => [
+                'id' => $artifactid,
+                'title' => 'Portable Scaffold activity',
+                'mode' => 'page',
+                'requiresScaffoldPlus' => false,
+            ],
+            'learnerContent' => $artifact->content,
+        ], JSON_THROW_ON_ERROR), ['id' => $activityid]);
         $DB->set_field('scaffold', 'assessmenttargetsjson', json_encode([$target], JSON_THROW_ON_ERROR), [
             'id' => $activityid,
         ]);

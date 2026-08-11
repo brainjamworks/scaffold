@@ -297,7 +297,7 @@ final class learner_activity_service_test extends \advanced_testcase {
             $DB->set_field(
                 'scaffold',
                 'learnercontentjson',
-                json_encode($content, JSON_THROW_ON_ERROR),
+                json_encode(self::publication($activity->cmid, $content), JSON_THROW_ON_ERROR),
                 ['id' => $activity->id],
             );
             $scope = activity_access::require($activity->cmid, 'mod/scaffold:view');
@@ -322,7 +322,10 @@ final class learner_activity_service_test extends \advanced_testcase {
         $DB->set_field(
             'scaffold',
             'learnercontentjson',
-            json_encode(self::learner_content(false), JSON_THROW_ON_ERROR),
+            json_encode(
+                self::publication($activity->cmid, self::learner_content(false)),
+                JSON_THROW_ON_ERROR,
+            ),
             ['id' => $activity->id],
         );
         $scope = activity_access::require($activity->cmid, 'mod/scaffold:view');
@@ -437,7 +440,7 @@ final class learner_activity_service_test extends \advanced_testcase {
         $DB->set_field(
             'scaffold',
             'learnercontentjson',
-            json_encode(self::learner_content(true), JSON_THROW_ON_ERROR),
+            json_encode(self::publication($cmid, self::learner_content(true)), JSON_THROW_ON_ERROR),
             ['id' => $activityid],
         );
 
@@ -553,6 +556,28 @@ final class learner_activity_service_test extends \advanced_testcase {
                     'content' => $content,
                 ]],
             ]],
+        ];
+    }
+
+    /**
+     * Wraps learner content in an active publication envelope.
+     *
+     * @param int $cmid Course module ID.
+     * @param array $content Learner content.
+     * @return array
+     */
+    private static function publication(int $cmid, array $content): array {
+        return [
+            'publicationVersion' => 1,
+            'sourceArtifactRevision' => 'published-revision',
+            'publishedAt' => '2026-08-09T10:00:00Z',
+            'artifact' => [
+                'id' => 'moodle-cm-' . $cmid,
+                'title' => 'Learner activity fixture',
+                'mode' => 'page',
+                'requiresScaffoldPlus' => false,
+            ],
+            'learnerContent' => $content,
         ];
     }
 }

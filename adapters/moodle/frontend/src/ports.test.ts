@@ -4,6 +4,12 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createMoodleRuntimePorts } from "./ports";
 
+const OPTION_A_ID = "option000001";
+const OPTION_B_ID = "option000002";
+const TARGET_ID = "target000001";
+const QUIZ_GROUP_ID = "quizgroup001";
+const OTHER_QUIZ_GROUP_ID = "quizgroup002";
+
 afterEach(() => {
   delete window.ScaffoldMoodleAjax;
 });
@@ -29,7 +35,7 @@ describe("createMoodleRuntimePorts assessment port", () => {
       items: {},
     };
     const problem = problemSnapshot({
-      response: { kind: "single-select", optionId: "b" },
+      response: { kind: "single-select", optionId: OPTION_B_ID },
       submitted: true,
       attemptNumber: 1,
       submissionResult: result,
@@ -49,20 +55,20 @@ describe("createMoodleRuntimePorts assessment port", () => {
     const assessment = ports.assessment;
     await expect(
       assessment?.submit({
-        problemId: "artifact:usage-v1/block:mcq-1",
-        targetId: "mcq-1",
+        problemId: `artifact:usage-v1/block:${TARGET_ID}`,
+        targetId: TARGET_ID,
         interactionKind: "single-select",
-        response: { kind: "single-select", optionId: "b" },
+        response: { kind: "single-select", optionId: OPTION_B_ID },
         expectedAttemptNumber: 0,
       }),
     ).resolves.toEqual({ problem });
 
     expect(call).toHaveBeenCalledWith("mod_scaffold_submit_assessment", {
       cmid: 42,
-      problemid: "artifact:usage-v1/block:mcq-1",
-      targetid: "mcq-1",
+      problemid: `artifact:usage-v1/block:${TARGET_ID}`,
+      targetid: TARGET_ID,
       interactionkind: "single-select",
-      responsejson: JSON.stringify({ kind: "single-select", optionId: "b" }),
+      responsejson: JSON.stringify({ kind: "single-select", optionId: OPTION_B_ID }),
       expectedattemptnumber: 0,
     });
   });
@@ -70,7 +76,7 @@ describe("createMoodleRuntimePorts assessment port", () => {
   it("returns the strict canonical answer reveal", async () => {
     const answerKey = {
       kind: "single-select" as const,
-      correctOptionId: "b",
+      correctOptionId: OPTION_B_ID,
       feedbackByOptionId: {},
     };
     window.ScaffoldMoodleAjax = {
@@ -84,10 +90,10 @@ describe("createMoodleRuntimePorts assessment port", () => {
     const assessment = createMoodleRuntimePorts(42).assessment;
     await expect(
       assessment?.revealAnswer?.({
-        problemId: "artifact:usage-v1/block:mcq-1",
-        targetId: "mcq-1",
+        problemId: `artifact:usage-v1/block:${TARGET_ID}`,
+        targetId: TARGET_ID,
         interactionKind: "single-select",
-        response: { kind: "single-select", optionId: "b" },
+        response: { kind: "single-select", optionId: OPTION_B_ID },
       }),
     ).resolves.toEqual({ answerKey });
   });
@@ -108,28 +114,28 @@ describe("createMoodleRuntimePorts assessment port", () => {
     expect(revealHint).toBeTypeOf("function");
     await expect(
       revealHint?.({
-        problemId: "artifact:moodle-cm-42/block:mcq-1",
-        targetId: "mcq-1",
+        problemId: `artifact:moodle-cm-42/block:${TARGET_ID}`,
+        targetId: TARGET_ID,
         interactionKind: "single-select",
         hintsShown: 2,
       }),
     ).resolves.toEqual({ problem });
     expect(call).toHaveBeenCalledWith("mod_scaffold_reveal_hint", {
       cmid: 42,
-      problemid: "artifact:moodle-cm-42/block:mcq-1",
-      targetid: "mcq-1",
+      problemid: `artifact:moodle-cm-42/block:${TARGET_ID}`,
+      targetid: TARGET_ID,
       interactionkind: "single-select",
       hintsshown: 2,
     });
   });
 
   it("forwards and validates the complete Quiz lifecycle", async () => {
-    const scopedGroupId = "artifact:moodle-cm-42/group:quiz-1";
+    const scopedGroupId = `artifact:moodle-cm-42/group:${QUIZ_GROUP_ID}`;
     const attempt = {
       attemptId: "attempt-1",
-      groupId: "quiz-1",
+      groupId: QUIZ_GROUP_ID,
       status: "in_progress" as const,
-      currentTargetId: "mcq-1",
+      currentTargetId: TARGET_ID,
       submittedTargetIds: [],
       startedAt: "2026-07-17T10:00:00Z",
       finishedAt: null,
@@ -154,15 +160,15 @@ describe("createMoodleRuntimePorts assessment port", () => {
     const submitted = await quiz?.submitQuestion({
       attemptId: "attempt-1",
       groupId: scopedGroupId,
-      targetId: "mcq-1",
-      response: { kind: "single-select", optionId: "b" },
+      targetId: TARGET_ID,
+      response: { kind: "single-select", optionId: OPTION_B_ID },
       expectedAttemptNumber: 0,
     });
     const finished = await quiz?.finishAttempt({
       attemptId: "attempt-1",
       groupId: scopedGroupId,
       responsesByTargetId: {
-        "mcq-1": { kind: "single-select", optionId: "b" },
+        [TARGET_ID]: { kind: "single-select", optionId: OPTION_B_ID },
       },
     });
     const revealed = await quiz?.revealAnswers?.({
@@ -175,15 +181,15 @@ describe("createMoodleRuntimePorts assessment port", () => {
     ).toEqual([scopedGroupId, scopedGroupId, scopedGroupId, scopedGroupId]);
 
     expect(call.mock.calls).toEqual([
-      ["mod_scaffold_start_quiz_attempt", { cmid: 42, groupid: "quiz-1" }],
+      ["mod_scaffold_start_quiz_attempt", { cmid: 42, groupid: QUIZ_GROUP_ID }],
       [
         "mod_scaffold_submit_quiz_question",
         {
           cmid: 42,
           attemptid: "attempt-1",
-          groupid: "quiz-1",
-          targetid: "mcq-1",
-          responsejson: JSON.stringify({ kind: "single-select", optionId: "b" }),
+          groupid: QUIZ_GROUP_ID,
+          targetid: TARGET_ID,
+          responsejson: JSON.stringify({ kind: "single-select", optionId: OPTION_B_ID }),
           expectedattemptnumber: 0,
         },
       ],
@@ -192,23 +198,26 @@ describe("createMoodleRuntimePorts assessment port", () => {
         {
           cmid: 42,
           attemptid: "attempt-1",
-          groupid: "quiz-1",
+          groupid: QUIZ_GROUP_ID,
           responsesjson: JSON.stringify({
-            "mcq-1": { kind: "single-select", optionId: "b" },
+            [TARGET_ID]: { kind: "single-select", optionId: OPTION_B_ID },
           }),
         },
       ],
-      ["mod_scaffold_reveal_quiz_answers", { cmid: 42, attemptid: "attempt-1", groupid: "quiz-1" }],
+      [
+        "mod_scaffold_reveal_quiz_answers",
+        { cmid: 42, attemptid: "attempt-1", groupid: QUIZ_GROUP_ID },
+      ],
     ]);
   });
 
   it("rejects mismatched Quiz response identity for every lifecycle operation", async () => {
-    const scopedGroupId = "artifact:moodle-cm-42/group:quiz-1";
+    const scopedGroupId = `artifact:moodle-cm-42/group:${QUIZ_GROUP_ID}`;
     const attempt = {
       attemptId: "attempt-1",
-      groupId: "quiz-other",
+      groupId: OTHER_QUIZ_GROUP_ID,
       status: "in_progress" as const,
-      currentTargetId: "mcq-1",
+      currentTargetId: TARGET_ID,
       submittedTargetIds: [],
       startedAt: "2026-07-17T10:00:00Z",
       finishedAt: null,
@@ -234,8 +243,8 @@ describe("createMoodleRuntimePorts assessment port", () => {
         quiz?.submitQuestion({
           attemptId: "attempt-1",
           groupId: scopedGroupId,
-          targetId: "mcq-1",
-          response: { kind: "single-select", optionId: "b" },
+          targetId: TARGET_ID,
+          response: { kind: "single-select", optionId: OPTION_B_ID },
           expectedAttemptNumber: 0,
         }),
       () =>
@@ -243,7 +252,7 @@ describe("createMoodleRuntimePorts assessment port", () => {
           attemptId: "attempt-1",
           groupId: scopedGroupId,
           responsesByTargetId: {
-            "mcq-1": { kind: "single-select", optionId: "b" },
+            [TARGET_ID]: { kind: "single-select", optionId: OPTION_B_ID },
           },
         }),
       () => quiz?.revealAnswers?.({ attemptId: "attempt-1", groupId: scopedGroupId }),
@@ -262,7 +271,7 @@ describe("createMoodleRuntimePorts assessment port", () => {
 
     const quiz = createMoodleRuntimePorts(42).assessment?.quiz;
     await expect(
-      quiz?.startAttempt({ groupId: "artifact:moodle-cm-99/group:quiz-1" }),
+      quiz?.startAttempt({ groupId: `artifact:moodle-cm-99/group:${QUIZ_GROUP_ID}` }),
     ).rejects.toThrow("Moodle Quiz group id is not scoped to this activity");
     expect(call).not.toHaveBeenCalled();
   });
@@ -295,7 +304,7 @@ describe("createMoodleRuntimePorts learner activity port", () => {
           success: true,
           outcomeJson: JSON.stringify({
             problem: problemSnapshot({
-              response: { kind: "single-select", optionId: "a" },
+              response: { kind: "single-select", optionId: OPTION_A_ID },
               submitted: true,
               attemptNumber: 1,
               submissionResult: result,
@@ -324,15 +333,15 @@ describe("createMoodleRuntimePorts learner activity port", () => {
     ).rejects.toThrow();
     await expect(
       ports.assessment.submit({
-        problemId: "problem-1",
-        targetId: "target-1",
+        problemId: `artifact:moodle-cm-42/block:${TARGET_ID}`,
+        targetId: TARGET_ID,
         interactionKind: "single-select",
-        response: { kind: "single-select", optionId: "a" },
+        response: { kind: "single-select", optionId: OPTION_A_ID },
         expectedAttemptNumber: 0,
       }),
     ).resolves.toEqual({
       problem: problemSnapshot({
-        response: { kind: "single-select", optionId: "a" },
+        response: { kind: "single-select", optionId: OPTION_A_ID },
         submitted: true,
         attemptNumber: 1,
         submissionResult: result,
@@ -370,10 +379,10 @@ describe("createMoodleRuntimePorts learner activity port", () => {
 
     await expect(
       ports.assessment.submit({
-        problemId: "problem-1",
-        targetId: "target-1",
+        problemId: `artifact:moodle-cm-42/block:${TARGET_ID}`,
+        targetId: TARGET_ID,
         interactionKind: "single-select",
-        response: { kind: "single-select", optionId: "a" },
+        response: { kind: "single-select", optionId: OPTION_A_ID },
         expectedAttemptNumber: 0,
       }),
     ).rejects.toThrow("assessment denied");

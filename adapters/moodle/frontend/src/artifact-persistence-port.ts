@@ -3,9 +3,7 @@ import type { ArtifactPersistencePort, ArtifactSaveResult } from "@scaffold/core
 import { moodleCall, type MoodleAjaxResponse } from "./api";
 
 interface SaveContentResponse extends MoodleAjaxResponse {
-  artifact?: {
-    title?: unknown;
-  };
+  artifactRevision?: unknown;
 }
 
 export function createMoodleArtifactPersistence(cmid: number): ArtifactPersistencePort {
@@ -14,14 +12,11 @@ export function createMoodleArtifactPersistence(cmid: number): ArtifactPersisten
       const response = await moodleCall<SaveContentResponse>("mod_scaffold_save_content", {
         cmid,
         artifactjson: JSON.stringify(bundle.artifact),
-        learnercontentjson: JSON.stringify(bundle.learnerContent),
-        assessmenttargetsjson: JSON.stringify(bundle.assessmentTargets),
-        assessmentgroupsjson: JSON.stringify(bundle.assessmentGroups),
       });
-
-      return typeof response.artifact?.title === "string" && response.artifact.title
-        ? { artifact: { title: response.artifact.title } }
-        : {};
+      if (typeof response.artifactRevision !== "string" || !response.artifactRevision) {
+        throw new Error("Moodle Save response did not include an artifact revision");
+      }
+      return { artifactRevision: response.artifactRevision };
     },
   };
 }

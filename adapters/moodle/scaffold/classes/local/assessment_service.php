@@ -1007,7 +1007,9 @@ final class assessment_service {
      * @return int
      */
     private static function hint_limit(\stdClass $scaffold, string $targetid): int {
-        $content = content_service::read_json_nullable_object((string) ($scaffold->learnercontentjson ?? 'null'));
+        $content = content_service::read_published_learner_content(
+            (string) ($scaffold->learnercontentjson ?? 'null'),
+        );
         $target = $content === null ? null : self::content_node_by_id($content, $targetid);
         if ($target === null) {
             throw new \moodle_exception('assessmenthintcontentnotfound', 'scaffold');
