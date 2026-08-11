@@ -38,6 +38,7 @@ import {
 import { cn } from "@/lib/cn";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { iconSm } from "@/ui/tokens/icon-sizes";
+import { AppNotificationsProvider } from "@/ui/components/app/AppNotifications/AppNotifications";
 import { AppShellState } from "@/ui/components/app/AppShellState/AppShellState";
 import {
   createArtifactSavePayload,
@@ -1010,66 +1011,68 @@ function ScaffoldAuthoringAppSession({
   return (
     <AppThemeProvider appearance={applicationColorMode}>
       <div ref={setApplicationElement} className={cn("sc-scaffold-authoring-app", className)}>
-        <OverlayBoundary container={applicationElement} kind="viewport">
-          <Header
-            title={title}
-            onTitleChange={(nextTitle) => {
-              setTitleForCurrentArtifact(nextTitle);
-              titleRef.current = nextTitle;
-              if (!readyArtifact) return;
-              publicationLifecycleRef.current.generation += 1;
-              setPublishActionState(null);
-              refreshPublicationLifecycleView();
-              scheduleAutosave();
-            }}
-            brandSurface={applicationColorMode}
-            saveState={saveState}
-            actions={appHeaderActions}
-          />
+        <AppNotificationsProvider appearance={applicationColorMode}>
+          <OverlayBoundary container={applicationElement} kind="viewport">
+            <Header
+              title={title}
+              onTitleChange={(nextTitle) => {
+                setTitleForCurrentArtifact(nextTitle);
+                titleRef.current = nextTitle;
+                if (!readyArtifact) return;
+                publicationLifecycleRef.current.generation += 1;
+                setPublishActionState(null);
+                refreshPublicationLifecycleView();
+                scheduleAutosave();
+              }}
+              brandSurface={applicationColorMode}
+              saveState={saveState}
+              actions={appHeaderActions}
+            />
 
-          <main className={cn("sc-scaffold-authoring-main", mainClassName)}>
-            <div
-              className={cn("sc-scaffold-authoring-workspace", workspaceClassName)}
-              data-preview-mode={activePreviewContent?.bootstrap.mode}
-            >
-              <ScaffoldServicesProvider ports={providerPorts}>
-                {authoringUnavailableState && !readyArtifact ? (
-                  <ScaffoldAuthoringUnavailable {...authoringUnavailableState} />
-                ) : activePreviewContent && previewServices ? (
-                  <Suspense fallback={<AppShellState kind="loading" title="Preparing preview" />}>
-                    <LazyScaffoldLearnerApp
-                      composition={application.runtime}
-                      bootstrap={activePreviewContent.bootstrap}
-                      hostColorMode={applicationColorMode}
-                      productAccess={productAccess}
-                      slideshowSizing="contained"
-                      services={previewServices}
+            <main className={cn("sc-scaffold-authoring-main", mainClassName)}>
+              <div
+                className={cn("sc-scaffold-authoring-workspace", workspaceClassName)}
+                data-preview-mode={activePreviewContent?.bootstrap.mode}
+              >
+                <ScaffoldServicesProvider ports={providerPorts}>
+                  {authoringUnavailableState && !readyArtifact ? (
+                    <ScaffoldAuthoringUnavailable {...authoringUnavailableState} />
+                  ) : activePreviewContent && previewServices ? (
+                    <Suspense fallback={<AppShellState kind="loading" title="Preparing preview" />}>
+                      <LazyScaffoldLearnerApp
+                        composition={application.runtime}
+                        bootstrap={activePreviewContent.bootstrap}
+                        hostColorMode={applicationColorMode}
+                        productAccess={productAccess}
+                        slideshowSizing="contained"
+                        services={previewServices}
+                      />
+                    </Suspense>
+                  ) : readyArtifact && activeAuthoringMount ? (
+                    <ContentAuthorHost
+                      agentIntegration={ScaffoldUnavailableAgentIntegration}
+                      {...(outlineOpen
+                        ? { authoringNavigatorDock: renderAuthoringNavigatorDock }
+                        : {})}
+                      artifactId={resolvedArtifactId}
+                      mount={activeAuthoringMount}
+                      courseAppearance={applicationColorMode}
+                      onChange={handleEditorChange}
+                      onEditorReady={handleEditorReady}
+                      onDocumentError={handleDocumentError}
+                      onUpdate={handleCanonicalUpdate}
+                      agentOpen={resolvedAgentOpen}
+                      onAgentClose={handleAgentClose}
+                      scrollModel={scrollModel}
+                      leftRail={renderLeftRail}
+                      rightRail={renderRightRail}
                     />
-                  </Suspense>
-                ) : readyArtifact && activeAuthoringMount ? (
-                  <ContentAuthorHost
-                    agentIntegration={ScaffoldUnavailableAgentIntegration}
-                    {...(outlineOpen
-                      ? { authoringNavigatorDock: renderAuthoringNavigatorDock }
-                      : {})}
-                    artifactId={resolvedArtifactId}
-                    mount={activeAuthoringMount}
-                    courseAppearance={applicationColorMode}
-                    onChange={handleEditorChange}
-                    onEditorReady={handleEditorReady}
-                    onDocumentError={handleDocumentError}
-                    onUpdate={handleCanonicalUpdate}
-                    agentOpen={resolvedAgentOpen}
-                    onAgentClose={handleAgentClose}
-                    scrollModel={scrollModel}
-                    leftRail={renderLeftRail}
-                    rightRail={renderRightRail}
-                  />
-                ) : null}
-              </ScaffoldServicesProvider>
-            </div>
-          </main>
-        </OverlayBoundary>
+                  ) : null}
+                </ScaffoldServicesProvider>
+              </div>
+            </main>
+          </OverlayBoundary>
+        </AppNotificationsProvider>
       </div>
     </AppThemeProvider>
   );
