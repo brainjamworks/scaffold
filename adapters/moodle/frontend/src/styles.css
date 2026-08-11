@@ -47,15 +47,6 @@ html[data-scaffold-surface="authoring"] .sc-moodle-react-root {
   line-height: 1;
 }
 
-.sc-moodle-publish-button {
-  font-weight: 600;
-}
-
-.sc-moodle-publication-state {
-  color: var(--color-text-secondary);
-  font-size: 0.75rem;
-}
-
 .sc-moodle-author-shell {
   height: 100%;
   min-height: 0;

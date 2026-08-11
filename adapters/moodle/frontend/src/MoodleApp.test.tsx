@@ -13,7 +13,6 @@ const mocks = vi.hoisted(() => ({
   runtimeHostProps: [] as ContentRuntimeHostProps[],
   learnerAppProps: [] as ScaffoldLearnerAppProps[],
   moodleCall: vi.fn(),
-  publishNow: vi.fn(async () => true),
   saveNow: vi.fn(async () => true),
   scaffoldApplications: [] as Array<{
     runtime: ContentRuntimeHostProps["composition"];
@@ -49,14 +48,11 @@ vi.mock("@scaffold/core/authoring", () => ({
     if (props["artifact"] === null) {
       return createElement("section", { "data-testid": "scaffold-authoring-entry" });
     }
-    const headerActions = props["headerActions"];
-    const actions =
-      typeof headerActions === "function"
-        ? headerActions({
+    const hostHeaderActions = props["hostHeaderActions"];
+    const slots =
+      typeof hostHeaderActions === "function"
+        ? hostHeaderActions({
             preview: false,
-            hasUnpublishedChanges: true,
-            publishNow: mocks.publishNow,
-            publishState: "unpublished",
             saveNow: mocks.saveNow,
             saveState: "idle",
             title: readyArtifact.title,
@@ -65,7 +61,13 @@ vi.mock("@scaffold/core/authoring", () => ({
     return createElement(
       "section",
       { "data-testid": "scaffold-authoring-entry" },
-      createElement("header", { "data-testid": "shared-header-actions" }, actions),
+      createElement(
+        "header",
+        { "data-testid": "shared-header-actions" },
+        slots?.beforePublish,
+        createElement("button", { type: "button" }, "Core Publish"),
+        slots?.afterPublish,
+      ),
     );
   },
 }));
@@ -340,11 +342,21 @@ describe("MoodleApp", () => {
     expect(returnLink.getAttribute("target")).toBe("_top");
     expect(returnLink.querySelector('[aria-hidden="true"]')?.textContent).toBe("←");
     expect(screen.getByTestId("shared-header-actions").contains(returnLink)).toBe(true);
-    const publishButton = screen.getByRole("button", { name: "Publish" });
-    await userEvent.click(publishButton);
-    expect(mocks.publishNow).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Core Publish" })).toBeInTheDocument();
+    expect(props?.["headerActions"]).toBeUndefined();
+    const hostHeaderActions = props?.["hostHeaderActions"];
+    expect(hostHeaderActions).toBeTypeOf("function");
+    const slots = (
+      hostHeaderActions as (context: Record<string, unknown>) => Record<string, unknown>
+    )({
+      preview: false,
+      saveNow: mocks.saveNow,
+      saveState: "idle",
+      title: readyArtifact.title,
+    });
+    expect(Object.keys(slots)).toEqual(["beforePublish"]);
+    expect(slots["afterPublish"]).toBeUndefined();
     expect(mocks.saveNow).not.toHaveBeenCalled();
-    expect(screen.getByText("Unpublished changes")).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Scaffold authoring" })).toBeNull();
     expect(mocks.runtimeHostProps).toHaveLength(0);
   });
