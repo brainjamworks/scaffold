@@ -1,27 +1,18 @@
 import type { JSONContent } from "@tiptap/core";
-import type {
-  AssessmentGroupContract,
-  AssessmentTargetContract,
-  ScaffoldArtifact,
-  CourseMode,
-} from "@scaffold/contracts";
+import type { ScaffoldArtifact, CourseMode } from "@scaffold/contracts";
+import type { ArtifactRevision } from "./learner-publication";
 
 export type SaveableScaffoldArtifact = Omit<ScaffoldArtifact, "content"> & {
   content: JSONContent;
 };
 
-export interface ArtifactSaveBundle {
-  /** Authoring copy, including private authoring data and answer keys. */
+export interface ArtifactSavePayload {
+  /** Canonical authoring copy, including private authoring data and answer keys. */
   artifact: SaveableScaffoldArtifact;
-  /** Runtime document shown to learners; private assessment data is redacted. */
-  learnerContent: JSONContent;
-  /** Private per-question grading contracts for the host/backend. */
-  assessmentTargets: AssessmentTargetContract[];
-  /** Group contracts such as Quiz target order and review/timer settings. */
-  assessmentGroups: AssessmentGroupContract[];
 }
 
 export interface ArtifactSaveResult {
+  artifactRevision: ArtifactRevision;
   artifact?:
     | {
         title?: string | undefined;
@@ -31,5 +22,5 @@ export interface ArtifactSaveResult {
 }
 
 export interface ArtifactPersistencePort {
-  saveArtifact: (bundle: ArtifactSaveBundle) => Promise<ArtifactSaveResult | void>;
+  saveArtifact: (payload: ArtifactSavePayload) => Promise<ArtifactSaveResult>;
 }

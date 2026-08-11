@@ -5,6 +5,10 @@ import {
 } from "@/editor/arrangements/layout/model/layout-registry";
 import type { BlockDefinition } from "@/editor/blocks/block-definition";
 import { createBlockRegistry, type BlockRegistry } from "@/editor/blocks/block-registry";
+import type {
+  BlockDuplicationLookup,
+  BlockDuplicationOperation,
+} from "@/document/model/identity/clone-with-new-ids";
 import type { SurfaceVariantDefinition } from "@/editor/surfaces/model/surface-variant-definition";
 import {
   createSurfaceVariantRegistry,
@@ -16,6 +20,7 @@ import { createSemanticDefinitionLookup } from "./semantic-definition-lookup";
 
 export interface ResolvedBlockCapabilities {
   readonly registry: BlockRegistry;
+  readonly duplication: BlockDuplicationLookup;
 }
 
 export interface ResolvedLayoutCapabilities {
@@ -33,19 +38,25 @@ export interface ResolvedScaffoldCapabilities {
   readonly documentSemantics: SemanticDefinitionLookup;
 }
 
+export interface ResolvableBlockCapability {
+  readonly definition: BlockDefinition;
+  readonly duplication?: BlockDuplicationOperation;
+}
+
 export interface ResolveScaffoldCapabilitiesInput {
-  readonly blockDefinitions: readonly BlockDefinition[];
+  readonly blockCapabilities: readonly ResolvableBlockCapability[];
   readonly layoutDefinitions: readonly LayoutDefinition[];
   readonly surfaceDefinitions: readonly SurfaceVariantDefinition[];
 }
 
 export function resolveScaffoldCapabilities({
-  blockDefinitions,
+  blockCapabilities,
   layoutDefinitions,
   surfaceDefinitions,
 }: ResolveScaffoldCapabilitiesInput): ResolvedScaffoldCapabilities {
   const blocks = Object.freeze({
-    registry: createBlockRegistry(blockDefinitions),
+    registry: createBlockRegistry(blockCapabilities.map((capability) => capability.definition)),
+    duplication: createBlockDuplicationLookup(blockCapabilities),
   });
   const layouts = Object.freeze({
     registry: createLayoutRegistry(layoutDefinitions),
@@ -63,5 +74,24 @@ export function resolveScaffoldCapabilities({
       layouts: layouts.registry,
       surfaces: surfaces.registry,
     }),
+  });
+}
+
+function createBlockDuplicationLookup(
+  capabilities: readonly ResolvableBlockCapability[],
+): BlockDuplicationLookup {
+  const operationsByNodeType = new Map<string, BlockDuplicationOperation>();
+  const mountedNodeTypes = new Set<string>();
+
+  for (const capability of capabilities) {
+    mountedNodeTypes.add(capability.definition.nodeType);
+    if (capability.duplication) {
+      operationsByNodeType.set(capability.definition.nodeType, capability.duplication);
+    }
+  }
+
+  return Object.freeze({
+    getByNodeType: (nodeType: string) => operationsByNodeType.get(nodeType),
+    hasNodeType: (nodeType: string) => mountedNodeTypes.has(nodeType),
   });
 }

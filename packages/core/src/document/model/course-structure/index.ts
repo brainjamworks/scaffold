@@ -14,7 +14,5 @@ export {
   type ProjectedCourseStructure,
   type ProjectedCourseSurface,
   type ProjectedPageCourseStructure,
-  type ProjectedSectionedSlideshowCourseStructure,
   type ProjectedSlideshowCourseStructure,
-  type ProjectedUnsectionedSlideshowCourseStructure,
 } from "./course-structure-projection";

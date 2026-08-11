@@ -31,10 +31,7 @@ import type {
 
 export type AssessmentBlockNodeType = string;
 
-export type AssessmentProjectionWarningCode =
-  | "missing-block-id"
-  | "empty-assessment-group"
-  | "invalid-assessment-group";
+export type AssessmentProjectionWarningCode = "missing-block-id" | "invalid-assessment-group";
 
 export interface AssessmentProjectionWarning {
   code: AssessmentProjectionWarningCode;
@@ -197,16 +194,18 @@ function projectAssessmentGroups(
       return;
     }
 
-    const childIds = readContent(quiz.node)
+    const children = readContent(quiz.node);
+    if (children.length === 0) return;
+
+    const childIds = children
       .map((child) => readStringAttr(child, "id"))
       .filter((id) => id.length > 0);
 
-    if (childIds.length === 0) {
-      warnings.push(emptyAssessmentGroupWarning(quiz));
-      return;
-    }
-
-    if (new Set(childIds).size !== childIds.length || childIds.some((id) => !targetIds.has(id))) {
+    if (
+      childIds.length !== children.length ||
+      new Set(childIds).size !== childIds.length ||
+      childIds.some((id) => !targetIds.has(id))
+    ) {
       warnings.push(invalidAssessmentGroupWarning(quiz));
       return;
     }
@@ -311,16 +310,6 @@ function missingBlockIdWarning(block: VisitedAssessmentBlock): AssessmentProject
   };
 }
 
-function emptyAssessmentGroupWarning(quiz: VisitedQuizBlock): AssessmentProjectionWarning {
-  return {
-    code: "empty-assessment-group",
-    blockType: "quiz",
-    blockId: quiz.blockId,
-    surfaceId: quiz.surfaceId,
-    message: "Quiz has no playable assessment targets; projection omitted its assessment group.",
-  };
-}
-
 function invalidAssessmentGroupWarning(quiz: VisitedQuizBlock): AssessmentProjectionWarning {
   return {
     code: "invalid-assessment-group",
@@ -345,7 +334,20 @@ function redactLearnerNode(
   return {
     ...cloneJsonNodeWithoutContent(node),
     ...(node.content
-      ? { content: readContent(node).map((child) => redactLearnerNode(child, blockDefinitions)) }
+      ? {
+          content: readContent(node)
+            .filter((child) => !isOmittableEmptyQuiz(child, blockDefinitions))
+            .map((child) => redactLearnerNode(child, blockDefinitions)),
+        }
       : {}),
   };
+}
+
+function isOmittableEmptyQuiz(node: JSONContent, blockDefinitions: BlockDefinitionLookup): boolean {
+  return (
+    node.type === "quiz" &&
+    blockDefinitions.getByNodeType("quiz") !== undefined &&
+    readStringAttr(node, "id").length > 0 &&
+    readContent(node).length === 0
+  );
 }

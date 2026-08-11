@@ -25,8 +25,19 @@ import type {
   ScaffoldAuthoringEntryHostServices,
   ScaffoldLearnerBootstrap,
   ScaffoldLearnerHostServices,
+  ScaffoldLearnerPublication,
 } from "@/host/contracts";
-import type { ScaffoldArtifactCreationPort } from "./artifact-creation";
+import type {
+  ScaffoldArtifactCreationMetadata,
+  ScaffoldArtifactCreationPort,
+} from "./artifact-creation";
+import type { ArtifactSaveResult } from "./artifact-persistence";
+import type {
+  ArtifactRevision,
+  LearnerPublicationPayload,
+  LearnerPublicationPort,
+  LearnerPublicationStatus,
+} from "./learner-publication";
 
 const successfulProblemOutcome: AssessmentProblemCommandOutcome = {
   problem: {
@@ -51,6 +62,56 @@ const SECOND_QUIZ_GROUP_ID = "artifact:artifact-1/group:quiz00000002";
 const PROBLEM_ID = "artifact:artifact-1/block:target000001";
 
 describe("host app contracts", () => {
+  it("keeps canonical revision authority and supported publication payloads host-owned", () => {
+    expectTypeOf<ArtifactRevision>().toEqualTypeOf<string>();
+    expectTypeOf<ArtifactSaveResult>().toEqualTypeOf<{
+      artifactRevision: ArtifactRevision;
+      artifact?:
+        | {
+            title?: string | undefined;
+            mode?: "page" | "slideshow" | "branching" | undefined;
+          }
+        | undefined;
+    }>();
+    expectTypeOf<LearnerPublicationStatus>().toEqualTypeOf<{
+      readonly currentArtifactRevision: ArtifactRevision;
+      readonly publishedArtifactRevision: ArtifactRevision | null;
+      readonly publishedAt: string | null;
+    }>();
+    expectTypeOf<LearnerPublicationPayload>().toMatchTypeOf<{
+      sourceArtifactRevision: ArtifactRevision;
+      artifact: {
+        id: string;
+        title: string;
+        mode: "page" | "slideshow" | "branching";
+        requiresScaffoldPlus: boolean;
+      };
+      learnerContent: unknown;
+      assessmentTargets: readonly unknown[];
+      assessmentGroups: readonly unknown[];
+    }>();
+    expectTypeOf<LearnerPublicationPort>().toEqualTypeOf<{
+      getStatus: () => Promise<LearnerPublicationStatus>;
+      publish: (payload: LearnerPublicationPayload) => Promise<LearnerPublicationStatus>;
+    }>();
+  });
+
+  it("keeps the Scaffold Plus requirement as a distinct learner refusal", () => {
+    const refusal = {
+      status: "requires-scaffold-plus",
+    } satisfies ScaffoldLearnerPublication;
+
+    expect(refusal).toEqual({ status: "requires-scaffold-plus" });
+  });
+
+  it("requires artifact creation metadata to declare the course product policy", () => {
+    expectTypeOf<ScaffoldArtifactCreationMetadata>().toEqualTypeOf<{
+      id: string;
+      title?: string | undefined;
+      requiresScaffoldPlus: boolean;
+    }>();
+  });
+
   it("keeps authoring bootstrap separate from learner bootstrap", () => {
     const artifact = {
       id: "artifact-1",
@@ -84,7 +145,7 @@ describe("host app contracts", () => {
       artifactId: artifact.id,
       title: artifact.title,
       mode: artifact.mode,
-      learnerContent: artifact.content,
+      publication: { status: "supported", learnerContent: artifact.content },
       initialLearnerState: {
         assessmentSnapshot,
         learnerActivitySnapshot: {
@@ -113,18 +174,32 @@ describe("host app contracts", () => {
 
   it("scopes host services by authoring and learner responsibilities", async () => {
     const artifactPersistence = {
-      saveArtifact: async () => undefined,
+      saveArtifact: async () => ({ artifactRevision: "revision-1" }),
     } satisfies ArtifactPersistencePort;
+    const learnerPublication = {
+      getStatus: async () => ({
+        currentArtifactRevision: "revision-1",
+        publishedArtifactRevision: null,
+        publishedAt: null,
+      }),
+      publish: async () => ({
+        currentArtifactRevision: "revision-1",
+        publishedArtifactRevision: "revision-1",
+        publishedAt: "2026-08-10T12:00:00.000Z",
+      }),
+    } satisfies LearnerPublicationPort;
     const artifactCreation = {
       createArtifactMetadata: async () => ({
         id: "artifact-1",
         title: "Untitled",
+        requiresScaffoldPlus: false,
       }),
     } satisfies ScaffoldArtifactCreationPort;
 
     const authoringServices = {
       artifactPersistence,
       artifactCreation,
+      learnerPublication,
       media: null,
     } satisfies ScaffoldAuthoringEntryHostServices;
 
@@ -151,6 +226,7 @@ describe("host app contracts", () => {
     } satisfies ScaffoldLearnerHostServices;
 
     expect(authoringServices.artifactPersistence).toBe(artifactPersistence);
+    expect(authoringServices.learnerPublication).toBe(learnerPublication);
     expect(learnerServices.learningEvents).toBe(learningEvents);
     expectTypeOf<
       "learningEvents" extends keyof ScaffoldAuthoringEntryHostServices ? true : false
@@ -164,6 +240,15 @@ describe("host app contracts", () => {
         expectedAttemptNumber: 0,
       }),
     ).resolves.toMatchObject({ problem: { submissionResult: { isCorrect: true } } });
+  });
+
+  it("keeps private assessment publication contracts out of learner bootstrap", () => {
+    expectTypeOf<
+      "assessmentTargets" extends keyof ScaffoldLearnerBootstrap ? true : false
+    >().toEqualTypeOf<false>();
+    expectTypeOf<
+      "assessmentGroups" extends keyof ScaffoldLearnerBootstrap ? true : false
+    >().toEqualTypeOf<false>();
   });
 });
 

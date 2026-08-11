@@ -1,6 +1,7 @@
 export {
   SCAFFOLD_DOCUMENT_FORMAT_VERSION,
   CourseDocumentAttrsSchema,
+  CourseSectionTitleSchema,
   CourseThemeNonColourAuthorOverridesSchema,
   CourseThemeRefSchema,
   PersistedCourseThemeSchema,

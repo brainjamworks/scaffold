@@ -1,15 +1,5 @@
 export {
-  defineCourseDocumentMigration,
-  runCourseDocumentMigrationSteps,
-  validateCourseDocumentMigrationPlan,
-  type AppliedCourseDocumentMigration,
-  type CourseDocumentMigrationStep,
-  type CourseDocumentMigrationStepResult,
-} from "./migration-registry";
-export {
   cloneCourseDocumentJSON,
-  migrateCourseDocumentJSON,
+  findCourseDocument,
   readCourseDocumentFormatVersion,
-  type CourseDocumentMigrationErrorCode,
-  type CourseDocumentMigrationResult,
-} from "./migrations";
+} from "./course-document-json";

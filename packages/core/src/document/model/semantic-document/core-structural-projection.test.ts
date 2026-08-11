@@ -18,6 +18,8 @@ const IDS = {
   grid: id("grid00000001"),
   cell1: id("cell00000001"),
   cell2: id("cell00000002"),
+  cellParagraph: id("cellpara0001"),
+  emptyCellParagraph: id("emptycell001"),
   block1: id("block0000001"),
   block2: id("block0000002"),
   privateWrapper: id("private00001"),
@@ -30,65 +32,90 @@ const schema = new Schema({
     text: { group: "inline" },
     courseDocument: {
       content: "block+",
-      attrs: { id: { default: null }, mode: { default: "page" } },
+      attrs: {
+        id: { default: null },
+        mode: { default: "page" },
+        semanticLabel: { default: null },
+      },
     },
     courseSection: {
       group: "block",
       atom: true,
       selectable: true,
-      attrs: { id: { default: null }, title: { default: null } },
+      attrs: {
+        id: { default: null },
+        title: { default: null },
+        semanticLabel: { default: null },
+      },
     },
     surface: {
       group: "block",
       content: "block+",
       selectable: false,
-      attrs: { id: { default: null }, variant: { default: null } },
+      attrs: {
+        id: { default: null },
+        variant: { default: null },
+        semanticLabel: { default: null },
+      },
     },
     region: {
       group: "block",
       content: "block+",
       selectable: false,
-      attrs: { id: { default: null }, role: { default: "main" } },
+      attrs: {
+        id: { default: null },
+        role: { default: "main" },
+        semanticLabel: { default: null },
+      },
     },
     layout: {
       group: "block",
       content: "section+",
-      attrs: { id: { default: null }, variant: { default: null } },
+      attrs: {
+        id: { default: null },
+        variant: { default: null },
+        semanticLabel: { default: null },
+      },
     },
     section: {
       content: "block+",
-      attrs: { id: { default: null }, label: { default: null }, role: { default: null } },
+      attrs: {
+        id: { default: null },
+        label: { default: null },
+        role: { default: null },
+        semanticLabel: { default: null },
+      },
     },
     grid: {
       group: "block",
       content: "cell+",
       selectable: false,
-      attrs: { id: { default: null } },
+      attrs: { id: { default: null }, semanticLabel: { default: null } },
     },
     cell: {
       content: "block+",
       selectable: false,
-      attrs: { id: { default: null } },
+      attrs: { id: { default: null }, semanticLabel: { default: null } },
     },
     unknown_wrapper: {
       group: "block",
       content: "block+",
-      attrs: { id: { default: null } },
+      attrs: { id: { default: null }, semanticLabel: { default: null } },
     },
     host_block: {
       group: "block",
       content: "block*",
-      attrs: { id: { default: null } },
+      attrs: { id: { default: null }, semanticLabel: { default: null } },
     },
     nested_block: {
       group: "block",
       content: "block*",
-      attrs: { id: { default: null } },
+      attrs: { id: { default: null }, semanticLabel: { default: null } },
     },
     paragraph: {
       group: "block",
       content: "inline*",
-      attrs: { id: { default: null } },
+      attrs: { id: { default: null }, semanticLabel: { default: null } },
     },
   },
 });
@@ -131,8 +158,9 @@ describe("Core structural semantic projection", () => {
     );
   });
 
-  it("projects unsectioned slideshow roots and nested Layout Sections in document order", () => {
+  it("projects Course Section-owned slideshow roots and nested Layout Sections in document order", () => {
     const doc = documentNode("slideshow", [
+      node("courseSection", IDS.courseSection, { title: "Introduction" }),
       node("surface", IDS.surface1, { variant: "slide-content" }, [
         node("layout", IDS.layout, { variant: "tabs" }, [
           node("section", IDS.layoutSection1, { label: "Overview" }, [
@@ -149,8 +177,8 @@ describe("Core structural semantic projection", () => {
     const snapshot = project(doc, 12);
 
     expect(snapshot.mode).toBe("slideshow");
-    expect(snapshot.roots.map(({ id }) => id)).toEqual([IDS.surface1, IDS.surface2]);
-    expect(tree(snapshot.roots[0]?.children ?? [])).toEqual([
+    expect(snapshot.roots.map(({ id }) => id)).toEqual([IDS.courseSection]);
+    expect(tree(snapshot.roots[0]?.children[0]?.children ?? [])).toEqual([
       [
         "layout000001:layout:Tabs",
         [
@@ -163,13 +191,25 @@ describe("Core structural semantic projection", () => {
     expect(snapshot.itemById.get(IDS.layoutSection2)?.definitionId).toBe("tabs");
   });
 
-  it("synthesizes Course Section ownership and emits Grid and Cells without actions", () => {
+  it("publishes direct Cell prose while preserving nested structural ownership and opacity", () => {
     const doc = documentNode("slideshow", [
       node("courseSection", IDS.courseSection, { title: "Practice" }),
       node("surface", IDS.surface1, { variant: "slide-content" }, [
         node("grid", IDS.grid, {}, [
-          node("cell", IDS.cell1, {}, [node("host_block", IDS.block1)]),
-          node("cell", IDS.cell2, {}, [node("nested_block", IDS.block2)]),
+          node("cell", IDS.cell1, {}, [
+            node("paragraph", IDS.cellParagraph, {}, [], "Direct Cell prose"),
+            node("host_block", IDS.block1, {}, [
+              node("paragraph", IDS.privateParagraph, {}, [], "Private Block prose"),
+            ]),
+          ]),
+          node("cell", IDS.cell2, {}, [
+            node("paragraph", IDS.emptyCellParagraph),
+            node("layout", IDS.layout, { variant: "tabs" }, [
+              node("section", IDS.layoutSection1, { label: "Nested panel" }, [
+                node("nested_block", IDS.block2),
+              ]),
+            ]),
+          ]),
         ]),
       ]),
     ]);
@@ -186,8 +226,25 @@ describe("Core structural semantic projection", () => {
               [
                 "grid00000001:grid:Grid",
                 [
-                  ["cell00000001:cell:Cell 1", ["block0000001:block:Host card"]],
-                  ["cell00000002:cell:Cell 2", ["block0000002:block:Nested card"]],
+                  [
+                    "cell00000001:cell:Cell 1",
+                    ["cellpara0001:rich-text:Direct Cell prose", "block0000001:block:Host card"],
+                  ],
+                  [
+                    "cell00000002:cell:Cell 2",
+                    [
+                      "emptycell001:rich-text:Paragraph",
+                      [
+                        "layout000001:layout:Tabs",
+                        [
+                          [
+                            "lsection0001:layout-section:Nested panel",
+                            ["block0000002:block:Nested card"],
+                          ],
+                        ],
+                      ],
+                    ],
+                  ],
                 ],
               ],
             ],
@@ -200,13 +257,103 @@ describe("Core structural semantic projection", () => {
     expect(snapshot.locationById.get(IDS.courseSection)?.surfaceId).toBeNull();
     expect(snapshot.itemById.get(IDS.grid)?.presentation.actionIds).toEqual([]);
     expect(snapshot.itemById.get(IDS.cell1)?.presentation.actionIds).toEqual([]);
+    expect(snapshot.parentById.get(IDS.cellParagraph)).toBe(IDS.cell1);
+    expect(snapshot.parentById.get(IDS.emptyCellParagraph)).toBe(IDS.cell2);
+    expect(snapshot.parentById.get(IDS.layout)).toBe(IDS.cell2);
+    expect(snapshot.parentById.get(IDS.block2)).toBe(IDS.layoutSection1);
+    expect(snapshot.itemById.has(IDS.privateParagraph)).toBe(false);
+  });
+
+  it("applies authored labels before descriptions and derived labels across every projection path", () => {
+    const doc = documentNode("slideshow", [
+      node("courseSection", IDS.courseSection, {
+        semanticLabel: "  Author course  ",
+        title: "Learner course title",
+      }),
+      node(
+        "surface",
+        IDS.surface1,
+        {
+          semanticLabel: "Author surface",
+          variant: "slide-content",
+        },
+        [
+          node("region", IDS.region, { role: "main", semanticLabel: "Author region" }, [
+            node("grid", IDS.grid, { semanticLabel: "Author grid" }, [
+              node("cell", IDS.cell1, { semanticLabel: "Author cell" }, [
+                node(
+                  "paragraph",
+                  IDS.cellParagraph,
+                  { semanticLabel: "Repeated prose" },
+                  [],
+                  "Learner first prose",
+                ),
+                node(
+                  "paragraph",
+                  IDS.emptyCellParagraph,
+                  { semanticLabel: "Repeated prose" },
+                  [],
+                  "Learner second prose",
+                ),
+              ]),
+            ]),
+            node("layout", IDS.layout, { semanticLabel: "Author layout", variant: "tabs" }, [
+              node(
+                "section",
+                IDS.layoutSection1,
+                { label: "Learner section", semanticLabel: "Author section" },
+                [
+                  node("host_block", IDS.block1, { semanticLabel: "Author block" }, [
+                    node(
+                      "paragraph",
+                      IDS.privateParagraph,
+                      { semanticLabel: "Author published child" },
+                      [],
+                      "Learner child content",
+                    ),
+                  ]),
+                ],
+              ),
+            ]),
+          ]),
+        ],
+      ),
+    ]);
+
+    const snapshot = project(doc, 14, describedHostDefinitions());
+
+    expect(snapshot.itemById.get(IDS.courseSection)?.label).toBe("Author course");
+    expect(snapshot.itemById.get(IDS.surface1)?.label).toBe("Author surface");
+    expect(snapshot.itemById.get(IDS.region)?.label).toBe("Author region");
+    expect(snapshot.itemById.get(IDS.grid)?.label).toBe("Author grid");
+    expect(snapshot.itemById.get(IDS.cell1)?.label).toBe("Author cell");
+    expect(snapshot.itemById.get(IDS.cellParagraph)?.label).toBe("Repeated prose 1");
+    expect(snapshot.itemById.get(IDS.emptyCellParagraph)?.label).toBe("Repeated prose 2");
+    expect(snapshot.itemById.get(IDS.layout)?.label).toBe("Author layout");
+    expect(snapshot.itemById.get(IDS.layoutSection1)?.label).toBe("Author section");
+    expect(snapshot.itemById.get(IDS.block1)?.label).toBe("Author block");
+    expect(snapshot.itemById.get(IDS.privateParagraph)?.label).toBe("Author published child");
   });
 });
 
-function project(doc: ProseMirrorNode, revision: number) {
-  const courseStructure = projectCourseStructure(doc.toJSON());
+function project(
+  doc: ProseMirrorNode,
+  revision: number,
+  semanticDefinitions: SemanticDefinitionLookup = definitions,
+) {
+  const json = doc.toJSON();
+  for (const child of json.content?.[0]?.content ?? []) {
+    if (child.type !== "courseSection") continue;
+    child.attrs = { id: child.attrs?.["id"], title: child.attrs?.["title"] };
+  }
+  const courseStructure = projectCourseStructure(json);
   if (!courseStructure) throw new Error("Invalid test Course Structure.");
-  return projectSemanticDocument({ doc, courseStructure, definitions, revision });
+  return projectSemanticDocument({
+    doc,
+    courseStructure,
+    definitions: semanticDefinitions,
+    revision,
+  });
 }
 
 function createDefinitions(): SemanticDefinitionLookup {
@@ -223,6 +370,32 @@ function createDefinitions(): SemanticDefinitionLookup {
     blocks: Object.freeze({ get: (nodeType: string) => blocks.get(nodeType) }),
     layouts: Object.freeze({ get: (variant: string) => layouts.get(variant) }),
     surfaces: Object.freeze({ get: (variant: string) => surfaces.get(variant) }),
+  });
+}
+
+function describedHostDefinitions(): SemanticDefinitionLookup {
+  const base = createDefinitions();
+  return Object.freeze({
+    ...base,
+    blocks: Object.freeze({
+      get(nodeType: string) {
+        const definition = base.blocks.get(nodeType);
+        if (!definition || nodeType !== "host_block") return definition;
+        return {
+          ...definition,
+          documentSemantics: {
+            describe: () => ({ label: "Described host" }),
+            projectChildren: () => [
+              {
+                label: "Definition child",
+                relativePos: 0,
+                semanticRole: "published-child" as const,
+              },
+            ],
+          },
+        };
+      },
+    }),
   });
 }
 

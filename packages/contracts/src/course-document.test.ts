@@ -90,6 +90,7 @@ describe("course document contracts", () => {
     expect(
       CourseDocumentAttrsSchema.safeParse({
         schemaVersion: 4,
+        requiresScaffoldPlus: false,
         mode: "page",
         surfaceSize: "fluid",
         theme: persistedCourseTheme(),
@@ -111,10 +112,34 @@ describe("course document contracts", () => {
     ).toBe(false);
   });
 
+  it("requires an explicit Scaffold Plus course requirement in current v4", () => {
+    const base = {
+      schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+      mode: "page",
+      surfaceSize: "fluid",
+      theme: persistedCourseTheme(),
+    } as const;
+
+    expect(
+      CourseDocumentAttrsSchema.parse({ ...base, requiresScaffoldPlus: false })
+        .requiresScaffoldPlus,
+    ).toBe(false);
+    expect(
+      CourseDocumentAttrsSchema.parse({ ...base, requiresScaffoldPlus: true }).requiresScaffoldPlus,
+    ).toBe(true);
+
+    for (const requiresScaffoldPlus of [undefined, null, 0, "false"]) {
+      expect(CourseDocumentAttrsSchema.safeParse({ ...base, requiresScaffoldPlus }).success).toBe(
+        false,
+      );
+    }
+  });
+
   it("requires the exact persisted Course theme on document attributes", () => {
     expect(
       CourseDocumentAttrsSchema.safeParse({
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        requiresScaffoldPlus: false,
         mode: "page",
         surfaceSize: "fluid",
       }).success,
@@ -363,6 +388,7 @@ describe("course document contracts", () => {
     expect(
       CourseDocumentAttrsSchema.safeParse({
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        requiresScaffoldPlus: false,
         mode: "slideshow",
         surfaceSize: "16x9",
         theme: persistedCourseTheme(),
@@ -371,6 +397,7 @@ describe("course document contracts", () => {
     expect(
       CourseDocumentAttrsSchema.safeParse({
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        requiresScaffoldPlus: false,
         mode: "page",
         surfaceSize: "fluid",
         theme: persistedCourseTheme(),
@@ -379,6 +406,7 @@ describe("course document contracts", () => {
     expect(
       CourseDocumentAttrsSchema.safeParse({
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        requiresScaffoldPlus: false,
         mode: "branching",
         surfaceSize: "fluid",
         theme: persistedCourseTheme(),
@@ -388,6 +416,7 @@ describe("course document contracts", () => {
     expect(
       CourseDocumentAttrsSchema.safeParse({
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        requiresScaffoldPlus: false,
         mode: "slideshow",
         surfaceSize: "fluid",
       }).success,
@@ -395,6 +424,7 @@ describe("course document contracts", () => {
     expect(
       CourseDocumentAttrsSchema.safeParse({
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        requiresScaffoldPlus: false,
         mode: "page",
         surfaceSize: "16x9",
       }).success,
@@ -402,6 +432,7 @@ describe("course document contracts", () => {
     expect(
       CourseDocumentAttrsSchema.safeParse({
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        requiresScaffoldPlus: false,
         mode: "branching",
         surfaceSize: "16x9",
       }).success,

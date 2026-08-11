@@ -109,6 +109,7 @@ describe("course document nodes", () => {
     expect(courseDocument?.type).toBe("courseDocument");
     expect(courseDocument?.attrs).toMatchObject({
       schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+      requiresScaffoldPlus: false,
       mode: "page",
       surfaceSize: "fluid",
       overflowMode: "grow",
@@ -140,7 +141,7 @@ describe("course document nodes", () => {
     editor.destroy();
   });
 
-  it("accepts only flat Surfaces or complete Course Section partitions", () => {
+  it("accepts only Page Surfaces or empty-capable Course Section partitions", () => {
     const editor = makeEditor();
     const { schema } = editor;
     const courseDocumentType = schema.nodes.courseDocument!;
@@ -164,11 +165,9 @@ describe("course document nodes", () => {
       title: "Practice",
     });
 
-    expect(courseDocumentType.spec.content).toBe("surface+ | (courseSection surface+)+");
+    expect(courseDocumentType.spec.content).toBe("surface | (courseSection surface*)+");
     expect(courseDocumentType.validContent(Fragment.from(firstSurface))).toBe(true);
-    expect(courseDocumentType.validContent(Fragment.fromArray([firstSurface, secondSurface]))).toBe(
-      true,
-    );
+    expect(courseDocumentType.validContent(Fragment.fromArray([firstSurface, secondSurface]))).toBe(false);
     expect(
       courseDocumentType.validContent(
         Fragment.fromArray([firstSection, firstSurface, secondSection, secondSurface]),
@@ -183,13 +182,10 @@ describe("course document nodes", () => {
       courseDocumentType.validContent(
         Fragment.fromArray([firstSection, firstSection, firstSurface]),
       ),
-    ).toBe(false);
-    expect(
-      courseDocumentType.validContent(
-        Fragment.fromArray([firstSection, firstSurface, secondSection]),
-      ),
-    ).toBe(false);
-    expect(courseDocumentType.validContent(Fragment.from(firstSection))).toBe(false);
+    ).toBe(true);
+    expect(courseDocumentType.validContent(Fragment.fromArray([firstSection, firstSurface, secondSection]))).toBe(true);
+    expect(courseDocumentType.validContent(Fragment.fromArray([firstSection, secondSection]))).toBe(true);
+    expect(courseDocumentType.validContent(Fragment.from(firstSection))).toBe(true);
     expect(courseDocumentType.validContent(Fragment.empty)).toBe(false);
     expect(surfaceType.validContent(Fragment.from(firstSection))).toBe(false);
 
@@ -279,6 +275,7 @@ describe("course document nodes", () => {
     expect(html).toContain(
       `data-scaffold-document-format-version="${SCAFFOLD_DOCUMENT_FORMAT_VERSION}"`,
     );
+    expect(html).not.toContain("requires-scaffold-plus");
     expect(html).toContain("data-course-theme=");
     expect(html).not.toContain("data-course-theme-values=");
     expect(html).toContain("data-surface");
@@ -321,11 +318,6 @@ describe("course document nodes", () => {
       theme,
       branching: { startSurfaceId: "surface00001" },
     };
-    courseDocument.content!.push({
-      type: "surface",
-      attrs: { id: "surface00002", title: "Next", variant: "page-default" },
-      content: [{ type: "paragraph" }],
-    });
     const editor = makeEditor(content);
     const html = editor.getHTML();
     const nextEditor = makeEditor(html);
@@ -335,7 +327,6 @@ describe("course document nodes", () => {
     expect(reopenedCourse?.attrs?.["branching"]).toEqual({ startSurfaceId: "surface00001" });
     expect(reopenedCourse?.content?.map((surface) => surface.attrs?.["id"])).toEqual([
       "surface00001",
-      "surface00002",
     ]);
     expect(html).toContain("data-course-theme=");
     expect(html).not.toContain("data-course-theme-values=");

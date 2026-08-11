@@ -14,21 +14,26 @@ import { createAssessmentConfiguration } from "@/editor/configuration/assessment
 import { mcqResponseCodec } from "@/editor/blocks/assessment/mcq/assessment";
 
 import {
+  projectLearnerPublication,
   projectAssessmentDocument as projectAssessmentDocumentWithBlocks,
   projectAssessmentTargets as projectAssessmentTargetsWithBlocks,
   projectLearnerDocument as projectLearnerDocumentWithBlocks,
 } from "./document-projection";
 
 function projectBuiltInAssessmentDocument(authorDocument: JSONContent) {
-  return projectAssessmentDocumentWithBlocks(authorDocument, builtInBlockRegistry);
+  return projectAssessmentDocumentWithBlocks(supported(authorDocument), builtInBlockRegistry);
 }
 
 function projectAssessmentTargets(authorDocument: JSONContent) {
-  return projectAssessmentTargetsWithBlocks(authorDocument, builtInBlockRegistry);
+  return projectAssessmentTargetsWithBlocks(supported(authorDocument), builtInBlockRegistry);
 }
 
 function projectLearnerDocument(authorDocument: JSONContent) {
-  return projectLearnerDocumentWithBlocks(authorDocument, builtInBlockRegistry);
+  return projectLearnerDocumentWithBlocks(supported(authorDocument), builtInBlockRegistry);
+}
+
+function supported(canonicalDocument: JSONContent) {
+  return { status: "supported" as const, canonicalDocument };
 }
 
 const blockRegistryOverride = vi.hoisted<{ current: BlockRegistry | null }>(() => ({
@@ -62,6 +67,50 @@ vi.mock("@/editor/blocks/built-in-block-definitions", async (importOriginal) => 
 });
 
 describe("authoring publication document projection", () => {
+  it.each([
+    {
+      readiness: {
+        status: "requires-scaffold-plus" as const,
+      },
+    },
+    {
+      readiness: {
+        status: "unavailable-content" as const,
+        unavailableContent: [
+          {
+            kind: "block" as const,
+            capabilityId: "plus_private_block",
+            stableId: "plusblock001",
+            path: ["content", 0, "content", 0] as const,
+          },
+        ],
+      },
+    },
+    {
+      readiness: {
+        status: "invalid" as const,
+        issues: [{ code: "invalid_document", message: "Invalid document.", path: [] }],
+      },
+    },
+    {
+      readiness: {
+        status: "unsupported-core-format" as const,
+        documentVersion: 5,
+        supportedVersion: 4,
+        message: "This document uses a future Core format.",
+      },
+    },
+  ])("does not invoke learner projection for $readiness.status readiness", ({ readiness }) => {
+    const getByNodeType = vi.fn(() => {
+      throw new Error("projection lookup must not run for rejected readiness");
+    });
+
+    const result = projectLearnerPublication(readiness, { getByNodeType });
+
+    expect(result).toBe(readiness);
+    expect(getByNodeType).not.toHaveBeenCalled();
+  });
+
   it("preserves exact Course theme references for learners", () => {
     const theme = {
       schemaVersion: 1 as const,
@@ -98,6 +147,7 @@ describe("authoring publication document projection", () => {
 
     const definition = defineBlock({
       nodeType: "registry_owned_projection_assessment",
+      title: "Registry-owned projection assessment",
       configuration: createAssessmentConfiguration({
         schema: configurationSchema,
         title: "Registry projection settings",
@@ -239,8 +289,8 @@ describe("authoring publication document projection", () => {
     });
   });
 
-  it("warns and emits no group for an empty quiz", () => {
-    const projection = projectBuiltInAssessmentDocument({
+  it("omits a truly empty quiz from learner output without a warning", () => {
+    const authorDocument: JSONContent = {
       type: "courseDocument",
       content: [
         {
@@ -248,22 +298,30 @@ describe("authoring publication document projection", () => {
           attrs: { id: "surface00004", variant: "page-default" },
           content: [
             {
+              type: "paragraph",
+              content: [{ type: "text", text: "Published lesson content" }],
+            },
+            {
               type: "quiz",
               attrs: { id: "quiz00000001", settings: {} },
             },
           ],
         },
       ],
-    });
+    };
+    const projection = projectBuiltInAssessmentDocument(authorDocument);
 
     expect(projection.targets).toEqual([]);
     expect(projection.groups).toEqual([]);
-    expect(projection.warnings).toContainEqual({
-      code: "empty-assessment-group",
-      blockType: "quiz",
-      blockId: "quiz00000001",
-      surfaceId: "surface00004",
-      message: "Quiz has no playable assessment targets; projection omitted its assessment group.",
+    expect(projection.warnings).toEqual([]);
+    expect(descendantsOfType(projection.learnerDocument, "quiz")).toEqual([]);
+    expect(firstDescendant(projection.learnerDocument, "paragraph")).toEqual({
+      type: "paragraph",
+      content: [{ type: "text", text: "Published lesson content" }],
+    });
+    expect(firstDescendant(authorDocument, "quiz")).toEqual({
+      type: "quiz",
+      attrs: { id: "quiz00000001", settings: {} },
     });
   });
 
@@ -431,17 +489,19 @@ describe("authoring publication document projection", () => {
         "Assessment block has no id; projection omitted its target because server storage cannot address it stably.",
     });
     expect(projection.warnings).toContainEqual({
-      code: "empty-assessment-group",
+      code: "invalid-assessment-group",
       blockType: "quiz",
       blockId: "quiz00000005",
       surfaceId: "surface00008",
-      message: "Quiz has no playable assessment targets; projection omitted its assessment group.",
+      message:
+        "Quiz contains children without projected assessment targets; projection omitted its assessment group.",
     });
   });
 
   it("throws clearly when a registered assessment block has no projection", async () => {
     const definition = defineBlock({
       nodeType: "missing_projection_assessment",
+      title: "Missing projection assessment",
       capabilities: {
         assessment: defineAssessmentCapability({
           interactionKind: "single-select",
@@ -488,6 +548,7 @@ describe("authoring publication document projection", () => {
   it("throws clearly when a registered assessment block has no settings attr schema", async () => {
     const definition = defineBlock({
       nodeType: "missing_settings_contract_assessment",
+      title: "Missing settings contract assessment",
       capabilities: {
         assessment: defineAssessmentCapability({
           interactionKind: "single-select",
@@ -553,6 +614,7 @@ describe("authoring publication document projection", () => {
 
     const definition = defineBlock({
       nodeType: "invalid_contract_projection_assessment",
+      title: "Invalid contract projection assessment",
       configuration: createAssessmentConfiguration({
         schema: configurationSchema,
         title: "Invalid projection settings",

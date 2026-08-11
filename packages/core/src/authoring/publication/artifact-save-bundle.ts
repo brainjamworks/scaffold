@@ -1,14 +1,12 @@
-import type { ArtifactSaveBundle, SaveableScaffoldArtifact } from "@/host/ports";
-import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import type { ArtifactSavePayload, SaveableScaffoldArtifact } from "@/host/ports";
 
-import { projectAssessmentDocument } from "./document-projection";
+import type { LearnerPublicationProjection } from "./document-projection";
 
 export interface ArtifactSaveProjectionInput {
   artifact: SaveableScaffoldArtifact;
 }
 
 export const ARTIFACT_SAVE_PAYLOAD_LIMITS = {
-  artifactContentBytes: 2 * 1024 * 1024,
   learnerContentBytes: 2 * 1024 * 1024,
   assessmentTargetsBytes: 1 * 1024 * 1024,
   assessmentGroupsBytes: 512 * 1024,
@@ -25,45 +23,45 @@ function jsonByteLength(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).byteLength;
 }
 
-function assertPayloadSize(label: string, bytes: number, limit: number): void {
+function assertPayloadSize(
+  label: string,
+  verb: "is" | "are",
+  action: "publish" | "save",
+  bytes: number,
+  limit: number,
+) {
   if (bytes <= limit) return;
   throw new ArtifactSavePayloadError(
-    `${label} is too large to save (${bytes} bytes, limit ${limit} bytes).`,
+    `${label} ${verb} too large to ${action} (${bytes} bytes, limit ${limit} bytes).`,
   );
 }
 
-export function validateArtifactSaveBundleSize(bundle: ArtifactSaveBundle): void {
-  assertPayloadSize(
-    "Artifact content",
-    jsonByteLength(bundle.artifact.content),
-    ARTIFACT_SAVE_PAYLOAD_LIMITS.artifactContentBytes,
-  );
+export function createArtifactSavePayload(input: ArtifactSaveProjectionInput): ArtifactSavePayload {
+  return { artifact: input.artifact };
+}
+
+export function validateLearnerPublicationPayloadSize(
+  publication: Extract<LearnerPublicationProjection, { readonly status: "supported" }>,
+): void {
   assertPayloadSize(
     "Learner content",
-    jsonByteLength(bundle.learnerContent),
+    "is",
+    "publish",
+    jsonByteLength(publication.learnerContent),
     ARTIFACT_SAVE_PAYLOAD_LIMITS.learnerContentBytes,
   );
   assertPayloadSize(
     "Assessment targets",
-    jsonByteLength(bundle.assessmentTargets),
+    "are",
+    "publish",
+    jsonByteLength(publication.assessmentTargets),
     ARTIFACT_SAVE_PAYLOAD_LIMITS.assessmentTargetsBytes,
   );
   assertPayloadSize(
     "Assessment groups",
-    jsonByteLength(bundle.assessmentGroups),
+    "are",
+    "publish",
+    jsonByteLength(publication.assessmentGroups),
     ARTIFACT_SAVE_PAYLOAD_LIMITS.assessmentGroupsBytes,
   );
-}
-
-export function projectArtifactSaveBundle(
-  input: ArtifactSaveProjectionInput,
-  blockDefinitions: BlockDefinitionLookup,
-): ArtifactSaveBundle {
-  const projection = projectAssessmentDocument(input.artifact.content, blockDefinitions);
-  return {
-    artifact: input.artifact,
-    learnerContent: projection.learnerDocument,
-    assessmentTargets: projection.targets,
-    assessmentGroups: projection.groups,
-  };
 }

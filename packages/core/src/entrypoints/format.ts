@@ -1,21 +1,34 @@
-export * from "@/format/artifact";
+export {
+  CourseDocumentAttrsSchema,
+  CourseModeSchema,
+  OverflowModeSchema,
+  ScaffoldArtifactSchema,
+  ScaffoldDocumentContentSchema,
+  SurfaceAttrsSchema,
+  SurfaceBackgroundSchema,
+  SurfaceSizeSchema,
+  createScaffoldArtifact,
+  createScaffoldDocumentContent,
+  readCourseDocumentAttrs,
+  readCourseDocumentMode,
+  type CourseDocumentAttrs,
+  type CourseMode,
+  type CreateScaffoldArtifactInput,
+  type CreateScaffoldDocumentContentInput,
+  type OverflowMode,
+  type ScaffoldArtifact,
+  type ScaffoldDocumentContent,
+  type SurfaceAttrs,
+  type SurfaceBackground,
+  type SurfaceSize,
+} from "@/format/artifact";
 export {
   projectCourseStructure,
   type ProjectedCourseSection,
   type ProjectedCourseStructure,
   type ProjectedCourseSurface,
   type ProjectedPageCourseStructure,
-  type ProjectedSectionedSlideshowCourseStructure,
   type ProjectedSlideshowCourseStructure,
-  type ProjectedUnsectionedSlideshowCourseStructure,
 } from "@/document/model/course-structure/course-structure-projection";
 export type { CourseSectionId, SurfaceId } from "@/document/model/course-structure/types";
-export type {
-  AuthoringDocumentCanonicalizationResult,
-  AuthoringDocumentEstablishmentResult,
-  DocumentEstablishmentIssue,
-  EstablishedDocumentFormat,
-  LearnerProjectionReadinessResult,
-  UnavailableCapabilityKind,
-  UnavailableContentRef,
-} from "@/document/model/establishment";
+export { readCourseDocumentFormatVersion } from "@/document/model/validation";

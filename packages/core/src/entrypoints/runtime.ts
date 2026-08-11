@@ -18,6 +18,7 @@ export {
   type LearningEventRuntimeProviderProps,
 } from "@/runtime/learning-events/LearningEventRuntimeProvider";
 export type { ScaffoldRuntimePorts } from "@/host/ports/runtime-ports";
+export type { ScaffoldProductAccess } from "@/host/contracts/product-access";
 export {
   CourseThemePortalBoundary,
   CourseThemeProvider,
@@ -25,9 +26,3 @@ export {
   type CourseThemePortalBoundaryProps,
   type CourseThemeProviderProps,
 } from "@/theme/course/CourseThemeProvider";
-export {
-  migrateCourseDocumentJSON,
-  readCourseDocumentFormatVersion,
-  type CourseDocumentMigrationErrorCode,
-  type CourseDocumentMigrationResult,
-} from "@/document/model/validation";

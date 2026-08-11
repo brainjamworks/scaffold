@@ -60,26 +60,19 @@ export function resolveSurfaceDestination(
   if ("beforeSurfaceId" in destination) {
     return childIndexById(children, "surface", destination.beforeSurfaceId);
   }
+  if ("intoCourseSectionId" in destination) {
+    const boundaryIndex = childIndexById(
+      children,
+      "courseSection",
+      destination.intoCourseSectionId,
+    );
+    if (boundaryIndex < 0) return -1;
+    return destination.edge === "start"
+      ? boundaryIndex + 1
+      : nextBoundaryIndex(children, boundaryIndex);
+  }
   const index = childIndexById(children, "surface", destination.afterSurfaceId);
   return index < 0 ? -1 : index + 1;
-}
-
-export function removeVacatedBoundary(children: ProseMirrorNode[], removedSurfaceIndex: number) {
-  let boundaryIndex = -1;
-  for (let index = removedSurfaceIndex - 1; index >= 0; index -= 1) {
-    if (children[index]?.type.name !== "courseSection") continue;
-    boundaryIndex = index;
-    break;
-  }
-  if (boundaryIndex < 0) return;
-  const nextBoundaryIndex = children.findIndex(
-    (node, index) => index > boundaryIndex && node.type.name === "courseSection",
-  );
-  const sectionEnd = nextBoundaryIndex < 0 ? children.length : nextBoundaryIndex;
-  const surfaceCount = children
-    .slice(boundaryIndex + 1, sectionEnd)
-    .filter((node) => node.type.name === "surface").length;
-  if (surfaceCount === 1) children.splice(boundaryIndex, 1);
 }
 
 export function sameChildren(

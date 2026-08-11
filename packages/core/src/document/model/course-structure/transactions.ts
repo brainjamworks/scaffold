@@ -1,7 +1,7 @@
 import { Fragment, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { EditorState, Transaction } from "@tiptap/pm/state";
 
-import type { CopiedBlockDefinitionLookup } from "@/document/model/identity/clone-with-new-ids";
+import type { BlockDuplicationLookup } from "@/document/model/identity/clone-with-new-ids";
 import { isNodeSelection } from "@/editor/selection/selection-facts";
 import {
   setNodeSelectionInTransaction,
@@ -24,7 +24,7 @@ import {
 import type { CourseSectionId, CourseStructureCommand, SurfaceId } from "./types";
 
 interface ApplyCourseStructureCommandInput {
-  readonly blockDefinitions?: CopiedBlockDefinitionLookup;
+  readonly blockDuplications?: BlockDuplicationLookup;
   readonly state: EditorState;
   readonly tr: Transaction;
   readonly command: CourseStructureCommand;
@@ -53,7 +53,7 @@ type LogicalSelection =
     };
 
 export function applyCourseStructureCommandToTransaction({
-  blockDefinitions,
+  blockDuplications,
   state,
   tr,
   command,
@@ -72,7 +72,7 @@ export function applyCourseStructureCommandToTransaction({
   const logicalSelection = captureLogicalSelection(state);
   let candidate: CandidateMutation | null;
   try {
-    candidate = buildCandidate(command, context, blockDefinitions);
+    candidate = buildCandidate(command, context, blockDuplications);
   } catch {
     return false;
   }
@@ -101,19 +101,19 @@ export function applyCourseStructureCommandToTransaction({
 function buildCandidate(
   command: CourseStructureCommand,
   context: CommandBuildContext,
-  blockDefinitions: CopiedBlockDefinitionLookup | undefined,
+  blockDuplications: BlockDuplicationLookup | undefined,
 ): CandidateMutation | null {
   if (command.type === "course-section.duplicate") {
-    if (!blockDefinitions) {
-      throw new Error("Course Section duplication requires the editor's Block registry.");
+    if (!blockDuplications) {
+      throw new Error("Course Section duplication requires the mounted Block duplication lookup.");
     }
-    return buildCourseSectionDuplicateCandidate(command, context, blockDefinitions);
+    return buildCourseSectionDuplicateCandidate(command, context, blockDuplications);
   }
   if (command.type === "surface.duplicate") {
-    if (!blockDefinitions) {
-      throw new Error("Surface duplication requires the editor's Block registry.");
+    if (!blockDuplications) {
+      throw new Error("Surface duplication requires the mounted Block duplication lookup.");
     }
-    return buildSurfaceDuplicateCandidate(command, context, blockDefinitions);
+    return buildSurfaceDuplicateCandidate(command, context, blockDuplications);
   }
   return command.type.startsWith("course-section.")
     ? buildCourseSectionCandidate(
@@ -144,7 +144,7 @@ function applyLocalChange({
   readonly candidate: CandidateMutation;
 }) {
   switch (command.type) {
-    case "course-section.start":
+    case "course-section.create":
     case "course-section.duplicate":
     case "surface.insert":
     case "surface.duplicate":
@@ -159,11 +159,8 @@ function applyLocalChange({
       tr.setNodeAttribute(source.pos, "title", parseCourseSectionTitle(command.title));
       return;
     }
-    case "course-section.remove":
-      removeCourseSection(tr, command.courseSectionId);
-      return;
-    case "course-section.move":
-      moveCourseSection(tr, command.courseSectionId, command.beforeCourseSectionId);
+    case "course-section.delete":
+      replaceCourseChildren(tr, candidate.children);
       return;
     case "surface.delete":
       deleteSurface(tr, command.surfaceId);
@@ -209,50 +206,15 @@ function insertNewRuns(
   }
 }
 
-function removeCourseSection(tr: Transaction, courseSectionId: CourseSectionId) {
-  const source = requireDirectChildRef(tr.doc.firstChild, "courseSection", courseSectionId);
-  const sectionRefs = directChildRefs(tr.doc.firstChild).filter(
-    (ref) => ref.node.type.name === "courseSection",
-  );
-  const sectionIndex = sectionRefs.findIndex((ref) => ref.node.attrs["id"] === courseSectionId);
-  if (sectionRefs.length === 1 || sectionIndex > 0) {
-    tr.delete(source.pos, source.end);
-    return;
-  }
-  const following = directChildRefs(tr.doc.firstChild).find(
-    (ref) => ref.index > source.index && ref.node.type.name === "courseSection",
-  );
-  if (!following) throw new Error("The following Course Section boundary is missing.");
-  tr.replaceWith(source.pos, source.end, following.node);
-  tr.delete(following.pos, following.end);
-}
-
-function moveCourseSection(
-  tr: Transaction,
-  courseSectionId: CourseSectionId,
-  beforeCourseSectionId: CourseSectionId | null,
-) {
-  const refs = directChildRefs(tr.doc.firstChild);
-  const source = requireRef(refs, "courseSection", courseSectionId);
-  const following = refs.find(
-    (ref) => ref.index > source.index && ref.node.type.name === "courseSection",
-  );
-  const sourceEnd = following?.pos ?? requireCourseDocument(tr).nodeSize - 1;
-  const destination =
-    beforeCourseSectionId === null
-      ? requireCourseDocument(tr).nodeSize - 1
-      : requireRef(refs, "courseSection", beforeCourseSectionId).pos;
-  const moved = tr.doc.slice(source.pos, sourceEnd).content;
-  const mappingStart = tr.mapping.maps.length;
-  tr.delete(source.pos, sourceEnd);
-  tr.insert(tr.mapping.slice(mappingStart).map(destination), moved);
+function replaceCourseChildren(tr: Transaction, children: readonly ProseMirrorNode[]) {
+  const courseDocument = requireCourseDocument(tr);
+  tr.replaceWith(1, courseDocument.nodeSize - 1, Fragment.fromArray([...children]));
 }
 
 function deleteSurface(tr: Transaction, surfaceId: SurfaceId) {
   const refs = directChildRefs(tr.doc.firstChild);
   const source = requireRef(refs, "surface", surfaceId);
-  const boundary = loneSurfaceBoundary(refs, source);
-  tr.delete(boundary?.pos ?? source.pos, source.end);
+  tr.delete(source.pos, source.end);
 }
 
 function moveSurface(
@@ -262,33 +224,26 @@ function moveSurface(
 ) {
   const refs = directChildRefs(tr.doc.firstChild);
   const source = requireRef(refs, "surface", surfaceId);
-  const destinationId =
-    "beforeSurfaceId" in destination ? destination.beforeSurfaceId : destination.afterSurfaceId;
-  const destinationRef = requireRef(refs, "surface", destinationId);
-  const destinationPos = "beforeSurfaceId" in destination ? destinationRef.pos : destinationRef.end;
-  const boundary = loneSurfaceBoundary(refs, source);
+  const destinationPos = resolveTransactionDestination(refs, destination);
   const mappingStart = tr.mapping.maps.length;
-  tr.delete(boundary?.pos ?? source.pos, source.end);
+  tr.delete(source.pos, source.end);
   tr.insert(tr.mapping.slice(mappingStart).map(destinationPos), source.node);
 }
 
-function loneSurfaceBoundary(
+function resolveTransactionDestination(
   refs: readonly DirectChildRef[],
-  surface: DirectChildRef,
-): DirectChildRef | undefined {
-  const boundary = [...refs]
-    .reverse()
-    .find((ref) => ref.index < surface.index && ref.node.type.name === "courseSection");
-  if (!boundary) return undefined;
+  destination: Extract<CourseStructureCommand, { type: "surface.move" }>["destination"],
+): number {
+  if ("beforeSurfaceId" in destination)
+    return requireRef(refs, "surface", destination.beforeSurfaceId).pos;
+  if ("afterSurfaceId" in destination)
+    return requireRef(refs, "surface", destination.afterSurfaceId).end;
+  const boundary = requireRef(refs, "courseSection", destination.intoCourseSectionId);
+  if (destination.edge === "start") return boundary.end;
   const nextBoundary = refs.find(
     (ref) => ref.index > boundary.index && ref.node.type.name === "courseSection",
   );
-  const sectionEnd = nextBoundary?.index ?? Number.POSITIVE_INFINITY;
-  const surfaces = refs.filter(
-    (ref) =>
-      ref.index > boundary.index && ref.index < sectionEnd && ref.node.type.name === "surface",
-  );
-  return surfaces.length === 1 ? boundary : undefined;
+  return nextBoundary?.pos ?? refs.at(-1)?.end ?? boundary.end;
 }
 
 function directChildRefs(courseDocument: ProseMirrorNode | null): DirectChildRef[] {

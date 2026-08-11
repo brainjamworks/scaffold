@@ -2,11 +2,7 @@ export {
   createCoreScaffoldAuthoringComposition,
   type ScaffoldAuthoringComposition,
 } from "@/composition/authoring/scaffold-authoring-composition";
-export {
-  CourseDocumentEditor,
-  type CourseDocumentAuthoringSource,
-  type CourseDocumentEditorProps,
-} from "@/document/authoring/CourseDocumentEditor";
+export type { UnavailableContentRef } from "@/document/model/establishment";
 export { ScaffoldAuthoringEntry } from "@/editor/shell/authoring/ScaffoldAuthoringEntry";
 export { AuthoringHeaderIconButton } from "@/editor/shell/chrome/AuthoringHeaderIconButton";
 export {
@@ -28,4 +24,5 @@ export type {
   ScaffoldAuthoringEntryHostServices,
   ScaffoldAuthoringHostServices,
   ScaffoldLearnerHostServices,
+  ScaffoldProductAccess,
 } from "@/host/contracts";

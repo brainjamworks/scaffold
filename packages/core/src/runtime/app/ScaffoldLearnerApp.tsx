@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 import type { ScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import type { ScaffoldLearnerBootstrap, ScaffoldLearnerHostServices } from "@/host/contracts";
+import type { ScaffoldProductAccess } from "@/host/contracts/product-access";
 import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 import type { SlideshowPlayerSizing } from "../players/player-types";
 
@@ -12,6 +13,7 @@ export interface ScaffoldLearnerAppProps {
   bootstrap: ScaffoldLearnerBootstrap;
   composition: ScaffoldRuntimeComposition;
   hostColorMode?: ScaffoldColorMode;
+  productAccess: ScaffoldProductAccess;
   services: ScaffoldLearnerHostServices;
   slideshowSizing?: SlideshowPlayerSizing;
 }
@@ -20,6 +22,7 @@ export function ScaffoldLearnerApp({
   bootstrap,
   composition,
   hostColorMode,
+  productAccess,
   services,
   slideshowSizing = "embedded",
 }: ScaffoldLearnerAppProps) {
@@ -49,7 +52,8 @@ export function ScaffoldLearnerApp({
           : {
               initialLearnerActivitySnapshot: bootstrap.initialLearnerState.learnerActivitySnapshot,
             })}
-        initialContent={bootstrap.learnerContent}
+        publication={bootstrap.publication}
+        productAccess={productAccess}
         {...(hostColorMode === undefined ? {} : { hostColorMode })}
         slideshowSizing={slideshowSizing}
       />

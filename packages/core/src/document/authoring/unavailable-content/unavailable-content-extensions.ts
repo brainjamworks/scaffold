@@ -39,7 +39,7 @@ export function createUnavailableContentAuthoringExtensions(): Extensions {
 
 export function authoringCourseDocumentContentExpression(): string {
   const surface = "(surface | unavailable_surface)";
-  return `${surface}+ | (courseSection ${surface}+)+`;
+  return `${surface} | (courseSection ${surface}*)+`;
 }
 
 function createUnavailableContentNode(name: UnavailableContentNodeName, group?: string) {

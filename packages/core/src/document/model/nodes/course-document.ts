@@ -12,6 +12,7 @@ import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course
 
 const defaultAttrs = {
   schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+  requiresScaffoldPlus: false,
   mode: "page" as const,
   surfaceSize: "fluid" as const,
   overflowMode: "grow" as const,
@@ -48,7 +49,7 @@ function parseDocumentFormatVersion(value: unknown): number {
 
 export const CourseDocumentNode = Node.create({
   name: "courseDocument",
-  content: "surface+ | (courseSection surface+)+",
+  content: "surface | (courseSection surface*)+",
   selectable: false,
   draggable: false,
   isolating: true,
@@ -77,6 +78,10 @@ export const CourseDocumentNode = Node.create({
             parseDocumentFormatVersion(attrs.schemaVersion),
           ),
         }),
+      },
+      requiresScaffoldPlus: {
+        default: defaultAttrs.requiresScaffoldPlus,
+        rendered: false,
       },
       surfaceSize: {
         default: defaultAttrs.surfaceSize,

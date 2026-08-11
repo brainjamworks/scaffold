@@ -6,14 +6,17 @@ export type SurfaceId = EmbeddedNodeId;
 
 export type SurfaceDestination =
   | { readonly beforeSurfaceId: SurfaceId }
-  | { readonly afterSurfaceId: SurfaceId };
+  | { readonly afterSurfaceId: SurfaceId }
+  | {
+      readonly intoCourseSectionId: CourseSectionId;
+      readonly edge: "start" | "end";
+    };
 
 export type CourseStructureCommand =
   | {
-      readonly type: "course-section.start";
-      readonly atSurfaceId: SurfaceId;
+      readonly type: "course-section.create";
       readonly title: string;
-      readonly leadingTitle?: string;
+      readonly placement: "end";
     }
   | {
       readonly type: "course-section.rename";
@@ -21,13 +24,9 @@ export type CourseStructureCommand =
       readonly title: string;
     }
   | {
-      readonly type: "course-section.remove";
+      readonly type: "course-section.delete";
       readonly courseSectionId: CourseSectionId;
-    }
-  | {
-      readonly type: "course-section.move";
-      readonly courseSectionId: CourseSectionId;
-      readonly beforeCourseSectionId: CourseSectionId | null;
+      readonly expectedSurfaceIds: readonly SurfaceId[];
     }
   | {
       readonly type: "course-section.duplicate";

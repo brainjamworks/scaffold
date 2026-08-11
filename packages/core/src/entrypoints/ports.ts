@@ -10,10 +10,18 @@ export {
 } from "@/host/ports/media";
 export type {
   ArtifactPersistencePort,
-  ArtifactSaveBundle,
+  ArtifactSavePayload,
   ArtifactSaveResult,
   SaveableScaffoldArtifact,
 } from "@/host/ports/artifact-persistence";
+export type {
+  ArtifactRevision,
+  LearnerPublicationPayload,
+  LearnerPublicationPort,
+  LearnerPublicationPortError,
+  LearnerPublicationPortErrorCode,
+  LearnerPublicationStatus,
+} from "@/host/ports/learner-publication";
 export type {
   ScaffoldArtifactCreationInput,
   ScaffoldArtifactCreationMetadata,
@@ -70,6 +78,9 @@ export type {
   ScaffoldLearnerBootstrap,
   ScaffoldLearnerHostServices,
   ScaffoldLearnerInitialState,
+  ScaffoldLearnerPublication,
+  ScaffoldLearnerPublicationIssue,
+  ScaffoldUnavailableContentRef,
 } from "@/host/contracts";
 
 export type { ScaffoldRuntimePorts } from "@/host/ports/runtime-ports";

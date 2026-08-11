@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
+import { checkRuntimeDocumentReadiness } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/styles/globals.css";
@@ -12,6 +13,7 @@ import "@/styles/globals.css";
 import { PagePlayer } from "./PagePlayer";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
+const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
 
 let roots: Root[] = [];
 let hosts: HTMLElement[] = [];
@@ -283,6 +285,14 @@ async function mountPage(
   width = 1200,
   appearance: "light" | "dark" = "light",
 ): Promise<{ host: HTMLElement }> {
+  const readiness = checkRuntimeDocumentReadiness(
+    initialContent,
+    runtimeComposition,
+    coreProductAccess,
+  );
+  if (readiness.status !== "supported") {
+    throw new Error(`Expected a prepared Page fixture, received ${readiness.status}.`);
+  }
   let editor: TiptapEditor | null = null;
   const host = document.createElement("div");
   host.style.width = `${width}px`;
@@ -300,8 +310,7 @@ async function mountPage(
           hasBackground={false}
         >
           <PagePlayer
-            composition={runtimeComposition}
-            initialContent={initialContent}
+            preparedDocument={readiness.preparedDocument}
             surfaceId="pagebrowse01"
             onRendererReady={(readyEditor) => {
               editor = readyEditor;

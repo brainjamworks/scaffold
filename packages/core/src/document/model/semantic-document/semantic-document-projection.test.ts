@@ -8,7 +8,7 @@ import {
 } from "../index";
 import { createRepresentativeSemanticDocumentFixture } from "./testing/semantic-document-fixtures";
 
-describe.each(["page", "unsectioned-slideshow", "sectioned-slideshow"] as const)(
+describe.each(["page", "slideshow"] as const)(
   "integrated %s semantic projection",
   (kind) => {
     it("produces one complete immutable hierarchy with exact indexes and contained diagnostics", () => {

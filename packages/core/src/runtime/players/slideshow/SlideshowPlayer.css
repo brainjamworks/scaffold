@@ -32,16 +32,6 @@
     position: relative;
     min-width: 0;
     min-height: 0;
-    border-radius: var(--radius-md);
-  }
-
-  .sc-slideshow-player__stage::after {
-    position: absolute;
-    inset: 0;
-    border: 1px solid var(--color-border);
-    border-radius: inherit;
-    content: "";
-    pointer-events: none;
   }
 
   .sc-slideshow-player[data-slideshow-sizing="embedded"] .sc-slideshow-player__viewport {

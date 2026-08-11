@@ -29,6 +29,7 @@ export * from "./multiselect";
 export * from "./numbered-list";
 export * from "./pdf-embed";
 export * from "./pull-quote";
+export * from "./process-flow";
 export * from "./quiz";
 export * from "./roadmap";
 export * from "./resource-link";

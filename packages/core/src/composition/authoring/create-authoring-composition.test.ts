@@ -163,7 +163,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     }
   });
 
-  it("registers one authoring Course Section node view with shared mounted identity", () => {
+  it("registers one neutral hidden Course Section boundary with shared mounted identity", () => {
     const extensions = createCourseDocumentAuthoringExtensions({
       editable: true,
       composition: coreAuthoringComposition,
@@ -172,12 +172,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     const schema = getSchema(extensions);
 
     expect(courseSectionNodes).toHaveLength(1);
-    const courseSectionConfig = courseSectionNodes[0]?.config;
-    expect(courseSectionConfig && "addNodeView" in courseSectionConfig).toBe(true);
-    if (!courseSectionConfig || !("addNodeView" in courseSectionConfig)) {
-      throw new Error("Expected Course Section to be registered as a Node extension.");
-    }
-    expect(courseSectionConfig.addNodeView).toBeTypeOf("function");
+    expect(courseSectionNodes[0]?.config.addNodeView).toBeUndefined();
     expect(Object.keys(schema.nodes).filter((name) => name === "courseSection")).toEqual([
       "courseSection",
     ]);
@@ -646,6 +641,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     });
     const schema = getSchema(extensions);
     const uniqueId = extensions.find(({ name }) => name === "uniqueID");
+    const semanticLabel = extensions.find(({ name }) => name === "semanticLabel");
     const frame = extensions.find(({ name }) => name === "runtimeBlockFrameAttributes");
 
     expect(
@@ -656,10 +652,33 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     ).toHaveLength(1);
     expect(extensions).not.toContain(capability.runtimeExtension);
     expect(uniqueId?.options["types"]).toBe("all");
+    expect(semanticLabel).toBeDefined();
     expect(schema.nodes["paragraph"]?.spec.attrs?.["id"]).toBeDefined();
+    expect(schema.nodes["paragraph"]?.spec.attrs?.["semanticLabel"]?.default).toBeNull();
     expect(
       schema.nodes[`${capability.definition.nodeType}_child`]?.spec.attrs?.["id"],
     ).toBeDefined();
+    expect(
+      schema.nodes[capability.definition.nodeType]?.spec.attrs?.["semanticLabel"]?.default,
+    ).toBeNull();
+    expect(
+      schema.nodes[`${capability.definition.nodeType}_child`]?.spec.attrs?.["semanticLabel"]
+        ?.default,
+    ).toBeNull();
+    for (const [nodeType, nodeSchema] of Object.entries(schema.nodes)) {
+      if (
+        nodeType === "text" ||
+        UNAVAILABLE_CONTENT_NODE_NAMES.includes(
+          nodeType as (typeof UNAVAILABLE_CONTENT_NODE_NAMES)[number],
+        )
+      ) {
+        continue;
+      }
+      expect(nodeSchema.spec.attrs?.["semanticLabel"]?.default, nodeType).toBeNull();
+    }
+    for (const nodeType of UNAVAILABLE_CONTENT_NODE_NAMES) {
+      expect(schema.nodes[nodeType]?.spec.attrs?.["semanticLabel"], nodeType).toBeUndefined();
+    }
     expect(schema.nodes["doc"]?.spec.attrs?.["id"]).toBeUndefined();
     expect(schema.nodes["text"]?.spec.attrs?.["id"]).toBeUndefined();
     expect(schema.marks["bold"]?.spec.attrs?.["id"]).toBeUndefined();

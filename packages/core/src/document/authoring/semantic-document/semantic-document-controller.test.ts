@@ -8,6 +8,8 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { insertSurfaceTemplateAfterSurface } from "@/editor/surfaces/authoring/surface-template-insertion";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 
 import { createAuthoringSemanticNavigationEnvironment } from "./authoring-semantic-navigation-environment";
 import {
@@ -152,6 +154,51 @@ describe("SemanticDocumentController", () => {
     }
   });
 
+  it("atomically projects an inserted default Content Surface and Region", () => {
+    const editor = createEditor(slideshowDocument());
+
+    try {
+      const controller = getSemanticDocumentControllerForEditor(editor);
+      const initialItemIds = new Set(controller.getSnapshot().semantics.itemById.keys());
+      let updates = 0;
+      const unsubscribe = controller.subscribe(() => {
+        updates += 1;
+      });
+      let inserted = false;
+
+      expect(() => {
+        inserted = insertSurfaceTemplateAfterSurface(editor, builtInSurfaceVariantRegistry, {
+          afterSurfaceId: testId("s", "slide-one"),
+          variantId: "slide-content",
+        });
+      }).not.toThrow();
+
+      expect(inserted).toBe(true);
+      expect(updates).toBe(1);
+      const semantics = controller.getSnapshot().semantics;
+      expect(semantics.revision).toBe(1);
+      const insertedSurface = [...semantics.itemById.values()].find(
+        ({ id, kind }) => kind === "surface" && !initialItemIds.has(id),
+      );
+      expect(insertedSurface).toMatchObject({
+        kind: "surface",
+        nodeType: "surface",
+        definitionId: "slide-content",
+      });
+      const insertedRegion = [...semantics.itemById.values()].find(
+        ({ id, kind }) => kind === "region" && semantics.parentById.get(id) === insertedSurface?.id,
+      );
+      expect(insertedRegion).toMatchObject({
+        kind: "region",
+        nodeType: "region",
+        definitionId: null,
+      });
+      unsubscribe();
+    } finally {
+      editor.destroy();
+    }
+  });
+
   it("disposes controller subscriptions with the editor session", () => {
     const editor = createEditor(pageDocument("drop"));
     const controller = getSemanticDocumentControllerForEditor(editor);
@@ -199,8 +246,7 @@ describe("SemanticDocumentController", () => {
       expect(pageController.getSnapshot().semantics.mode).toBe("page");
       expect(slideshowController.getSnapshot().semantics.mode).toBe("slideshow");
       expect(slideshowController.getSnapshot().semantics.roots.map(({ id }) => id)).toEqual([
-        testId("s", "slide-one"),
-        testId("s", "slide-two"),
+        testId("cs", "slides"),
       ]);
     } finally {
       pageEditor.destroy();
@@ -301,6 +347,10 @@ function slideshowDocument(): JSONContent {
         type: "courseDocument",
         attrs: { id: testId("c", "slides"), mode: "slideshow" },
         content: [
+          {
+            type: "courseSection",
+            attrs: { id: testId("cs", "slides"), title: "Introduction" },
+          },
           {
             type: "surface",
             attrs: { id: testId("s", "slide-one"), variant: "slide-content" },

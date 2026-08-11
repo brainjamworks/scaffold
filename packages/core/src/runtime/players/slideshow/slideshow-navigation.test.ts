@@ -20,7 +20,18 @@ const SECTION_2 = EmbeddedNodeIdSchema.parse("section00002");
 const SECTION_3 = EmbeddedNodeIdSchema.parse("section00003");
 
 describe("getSlideshowNavigationState", () => {
-  it("describes an unsectioned one-slide Slideshow without Course Section UI state", () => {
+  it("represents an empty-only Slideshow without fabricating an active Surface", () => {
+    const structure = sectionedStructure([section(SECTION_1, "Empty")]);
+    expect(getSlideshowNavigationState(structure)).toMatchObject({
+      activeSurfaceId: null,
+      currentIndex: 0,
+      currentNumber: 0,
+      count: 0,
+      currentCourseSection: null,
+      courseSectionItems: [{ id: SECTION_1, firstSurfaceId: null, current: false }],
+    });
+  });
+  it("describes a one-slide Slideshow with its owning Course Section", () => {
     const structure = unsectionedStructure(SURFACE_1);
 
     expect(getSlideshowNavigationState(structure)).toEqual({
@@ -32,8 +43,27 @@ describe("getSlideshowNavigationState", () => {
       nextSurfaceId: null,
       canGoPrevious: false,
       canGoNext: false,
-      currentCourseSection: null,
-      courseSectionItems: [],
+      currentCourseSection: {
+        id: SECTION_1,
+        title: "Introduction",
+        index: 0,
+        number: 1,
+        count: 1,
+        surfaceIndex: 0,
+        surfaceNumber: 1,
+        surfaceCount: 1,
+      },
+      courseSectionItems: [
+        {
+          id: SECTION_1,
+          title: "Introduction",
+          index: 0,
+          number: 1,
+          count: 1,
+          firstSurfaceId: SURFACE_1,
+          current: true,
+        },
+      ],
     });
   });
 
@@ -67,8 +97,8 @@ describe("getSlideshowNavigationState", () => {
       count: 3,
       canGoPrevious: expected.previousSurfaceId !== null,
       canGoNext: expected.nextSurfaceId !== null,
-      currentCourseSection: null,
-      courseSectionItems: [],
+      currentCourseSection: expect.objectContaining({ id: SECTION_1 }),
+      courseSectionItems: [expect.objectContaining({ id: SECTION_1 })],
     });
   });
 
@@ -207,7 +237,11 @@ function unsectionedStructure(
   firstSurfaceId: string,
   ...remainingSurfaceIds: string[]
 ): ProjectedSlideshowCourseStructure {
-  return requireSlideshowProjection([surface(firstSurfaceId), ...remainingSurfaceIds.map(surface)]);
+  return requireSlideshowProjection([
+    { type: "courseSection", attrs: { id: SECTION_1, title: "Introduction" } },
+    surface(firstSurfaceId),
+    ...remainingSurfaceIds.map(surface),
+  ]);
 }
 
 function sectionedStructure(
@@ -226,7 +260,11 @@ function section(id: string, title: string, ...surfaceIds: string[]) {
 }
 
 function requireSlideshowProjection(children: JSONContent[]): ProjectedSlideshowCourseStructure {
-  const content = createScaffoldDocumentContent({ mode: "slideshow", surfaceId: SURFACE_1 });
+  const content = createScaffoldDocumentContent({
+    mode: "slideshow",
+    initialCourseSectionTitle: "Introduction",
+    surfaceId: SURFACE_1,
+  });
   const courseDocument = content.content?.[0];
   if (!courseDocument) throw new Error("Expected a Slideshow fixture.");
   courseDocument.content = children;

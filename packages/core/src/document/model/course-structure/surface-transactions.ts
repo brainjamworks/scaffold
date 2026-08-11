@@ -1,11 +1,10 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-new-ids";
-import type { CopiedBlockDefinitionLookup } from "@/document/model/identity/clone-with-new-ids";
+import type { BlockDuplicationLookup } from "@/document/model/identity/clone-with-new-ids";
 
 import {
   childIndexById,
-  removeVacatedBoundary,
   resolveSurfaceDestination,
   type CandidateMutation,
   type CommandBuildContext,
@@ -32,9 +31,9 @@ export function buildSurfaceCandidate(
 export function buildSurfaceDuplicateCandidate(
   command: Extract<SurfaceCommand, { type: "surface.duplicate" }>,
   context: CommandBuildContext,
-  blockDefinitions: CopiedBlockDefinitionLookup,
+  blockDuplications: BlockDuplicationLookup,
 ): CandidateMutation | null {
-  return duplicateSurface(command.surfaceId, context, blockDefinitions);
+  return duplicateSurface(command.surfaceId, context, blockDuplications);
 }
 
 function insertSurface(
@@ -57,12 +56,12 @@ function insertSurface(
 function duplicateSurface(
   surfaceId: SurfaceId,
   { children, createId, schema }: CommandBuildContext,
-  blockDefinitions: CopiedBlockDefinitionLookup,
+  blockDuplications: BlockDuplicationLookup,
 ): CandidateMutation | null {
   const sourceIndex = childIndexById(children, "surface", surfaceId);
   if (sourceIndex < 0) return null;
   const json = cloneJsonWithNewStableIds(children[sourceIndex]!.toJSON(), {
-    blockDefinitions,
+    blockDuplications,
     createId,
   });
   const clone = schema.nodeFromJSON(json);
@@ -82,15 +81,10 @@ function deleteSurface(
       ? [node.attrs["id"] as SurfaceId]
       : [],
   );
-  if (surfaceIds.length === 1) return null;
-
   const surfaceIndex = surfaceIds.indexOf(surfaceId);
   const selectionSurfaceId = surfaceIds[surfaceIndex + 1] ?? surfaceIds[surfaceIndex - 1];
   const next = [...children];
-  removeVacatedBoundary(next, sourceIndex);
-  const adjustedSourceIndex = childIndexById(next, "surface", surfaceId);
-  if (adjustedSourceIndex < 0) return null;
-  next.splice(adjustedSourceIndex, 1);
+  next.splice(sourceIndex, 1);
   return { children: next, ...(selectionSurfaceId ? { selectionSurfaceId } : {}) };
 }
 
@@ -101,17 +95,17 @@ function moveSurface(
 ): CandidateMutation | null {
   const sourceIndex = childIndexById(children, "surface", surfaceId);
   if (sourceIndex < 0) return null;
-  const destinationSurfaceId =
-    "beforeSurfaceId" in destination ? destination.beforeSurfaceId : destination.afterSurfaceId;
+  const destinationSurfaceId = "beforeSurfaceId" in destination
+    ? destination.beforeSurfaceId
+    : "afterSurfaceId" in destination
+      ? destination.afterSurfaceId
+      : null;
   if (destinationSurfaceId === surfaceId) return null;
-  if (childIndexById(children, "surface", destinationSurfaceId) < 0) return null;
 
   const next = [...children];
   const source = next[sourceIndex];
-  removeVacatedBoundary(next, sourceIndex);
-  const adjustedSourceIndex = childIndexById(next, "surface", surfaceId);
-  if (!source || adjustedSourceIndex < 0) return null;
-  next.splice(adjustedSourceIndex, 1);
+  if (!source) return null;
+  next.splice(sourceIndex, 1);
   const destinationIndex = resolveSurfaceDestination(next, destination);
   if (destinationIndex < 0) return null;
   next.splice(destinationIndex, 0, source!);

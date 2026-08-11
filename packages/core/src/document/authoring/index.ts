@@ -1,5 +1,5 @@
 export {
   CourseDocumentEditor,
-  type CourseDocumentAuthoringSource,
+  type CourseDocumentAuthoringFailure,
   type CourseDocumentEditorProps,
 } from "./CourseDocumentEditor";

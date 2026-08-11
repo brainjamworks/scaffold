@@ -108,6 +108,7 @@ export type OverflowMode = z.infer<typeof OverflowModeSchema>;
 export const CourseDocumentAttrsSchema = z
   .object({
     schemaVersion: z.literal(SCAFFOLD_DOCUMENT_FORMAT_VERSION),
+    requiresScaffoldPlus: z.boolean(),
     mode: CourseModeSchema,
     surfaceSize: SurfaceSizeSchema.default("fluid"),
     overflowMode: OverflowModeSchema.default("grow"),

@@ -8,6 +8,7 @@ import { projectSemanticDocument } from "./project-semantic-document";
 
 const IDS = {
   course: id("course000001"),
+  courseSection: id("section00001"),
   surface: id("surface00001"),
   unavailableSurface: id("availsrf0001"),
   region: id("region000001"),
@@ -63,6 +64,11 @@ const schema = new Schema({
     courseDocument: {
       content: "block+",
       attrs: { id: { default: null }, mode: { default: "page" } },
+    },
+    courseSection: {
+      group: "block",
+      atom: true,
+      attrs: { id: { default: null }, title: { default: null } },
     },
     surface: {
       group: "block",
@@ -203,6 +209,7 @@ describe("semantic content boundaries", () => {
       "plus.immersive-v3",
     );
     const doc = documentNode("slideshow", [
+      node("courseSection", IDS.courseSection, { title: "Unavailable content" }),
       node("surface", IDS.surface, { variant: "slide-content" }, [
         node("region", IDS.region, { role: "main" }, [
           compatibilityNode(
@@ -232,10 +239,7 @@ describe("semantic content boundaries", () => {
       courseStructureFor("slideshow", [IDS.surface, IDS.unavailableSurface]),
     );
 
-    expect(snapshot.roots.map(({ id: rootId }) => rootId)).toEqual([
-      IDS.surface,
-      IDS.unavailableSurface,
-    ]);
+    expect(snapshot.roots.map(({ id: rootId }) => rootId)).toEqual([IDS.courseSection]);
     expect(snapshot.itemById.get(IDS.region)?.children.map(({ id: childId }) => childId)).toEqual([
       IDS.unavailableBlock,
       IDS.unavailableLayout,
@@ -258,7 +262,7 @@ describe("semantic content boundaries", () => {
       kind: "surface",
       label: "Unavailable Surface: plus.immersive-v3",
       nodeType: "unavailable_surface",
-      parentId: null,
+      parentId: IDS.courseSection,
       surfaceId: IDS.unavailableSurface,
     });
     for (const opaqueId of [
@@ -383,10 +387,15 @@ function courseStructureFor(mode: "page" | "slideshow", surfaceIds: readonly Emb
       {
         type: "courseDocument",
         attrs: { id: IDS.course, mode },
-        content: surfaceIds.map((surfaceId) => ({
-          type: "surface",
-          attrs: { id: surfaceId, variant: "canonical-only" },
-        })),
+        content: [
+          ...(mode === "slideshow"
+            ? [{ type: "courseSection", attrs: { id: IDS.courseSection, title: "Section" } }]
+            : []),
+          ...surfaceIds.map((surfaceId) => ({
+            type: "surface",
+            attrs: { id: surfaceId, variant: "canonical-only" },
+          })),
+        ],
       },
     ],
   });

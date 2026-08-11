@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   projectCourseStructure,
-  type ProjectedSectionedSlideshowCourseStructure,
+  type ProjectedSlideshowCourseStructure,
 } from "@/document/model/course-structure";
 
 import { getSlideshowNavigationState } from "./slideshow-navigation";
@@ -248,9 +248,9 @@ function guardSource<T extends object>(
 
 function requireSectionedProjection(
   projection: ReturnType<typeof projectCourseStructure>,
-): ProjectedSectionedSlideshowCourseStructure {
-  if (projection?.kind !== "sectioned-slideshow") {
-    throw new Error("Expected representative content to project as a sectioned Slideshow.");
+): ProjectedSlideshowCourseStructure {
+  if (projection?.kind !== "slideshow") {
+    throw new Error("Expected representative content to project as a Slideshow.");
   }
   return projection;
 }

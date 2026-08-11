@@ -14,7 +14,7 @@ export interface CourseSectionNavigationItem {
   readonly index: number;
   readonly number: number;
   readonly count: number;
-  readonly firstSurfaceId: SurfaceId;
+  readonly firstSurfaceId: SurfaceId | null;
   readonly current: boolean;
 }
 
@@ -30,7 +30,7 @@ export interface CurrentCourseSectionNavigation {
 }
 
 export interface SlideshowNavigationState {
-  readonly activeSurfaceId: SurfaceId;
+  readonly activeSurfaceId: SurfaceId | null;
   readonly currentIndex: number;
   readonly currentNumber: number;
   readonly count: number;
@@ -52,16 +52,16 @@ export function getSlideshowNavigationState(
   const { surfaceIds } = structure;
   const activeIndex = requestedSurfaceId ? surfaceIds.indexOf(requestedSurfaceId) : -1;
   const currentIndex = activeIndex >= 0 ? activeIndex : 0;
-  const activeSurfaceId = surfaceIds[currentIndex] ?? surfaceIds[0];
+  const activeSurfaceId = surfaceIds[currentIndex] ?? surfaceIds[0] ?? null;
   const previousSurfaceId = currentIndex > 0 ? (surfaceIds[currentIndex - 1] ?? null) : null;
   const nextSurfaceId =
     currentIndex < surfaceIds.length - 1 ? (surfaceIds[currentIndex + 1] ?? null) : null;
-  const currentSurface = structure.surfaceById[activeSurfaceId]!;
+  const currentSurface = activeSurfaceId ? structure.surfaceById[activeSurfaceId] : undefined;
   const currentCourseSection =
-    structure.kind === "sectioned-slideshow"
+    currentSurface?.courseSectionId
       ? (() => {
-          const section = structure.courseSectionById[currentSurface.courseSectionId!]!;
-          const surfaceIndex = currentSurface.courseSectionSurfaceIndex!;
+          const section = structure.courseSectionById[currentSurface.courseSectionId]!;
+          const surfaceIndex = currentSurface.courseSectionSurfaceIndex ?? 0;
           return {
             id: section.id,
             title: section.title,
@@ -87,7 +87,7 @@ export function getSlideshowNavigationState(
   return {
     activeSurfaceId,
     currentIndex,
-    currentNumber: currentIndex + 1,
+    currentNumber: activeSurfaceId ? currentIndex + 1 : 0,
     count: surfaceIds.length,
     previousSurfaceId,
     nextSurfaceId,

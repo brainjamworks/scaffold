@@ -18,18 +18,37 @@ import { createScaffoldDocumentContent } from "@/format/artifact";
 import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
 import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
 import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRuntimeFrame";
-import type { ScaffoldLearnerBootstrap, ScaffoldLearnerHostServices } from "@/host/contracts";
+import type {
+  ScaffoldLearnerBootstrap,
+  ScaffoldLearnerHostServices,
+  ScaffoldLearnerPublication,
+} from "@/host/contracts";
 import type { LearningEventPort } from "@/host/ports/learning-events";
 
-import { ScaffoldLearnerApp } from "./ScaffoldLearnerApp";
+import {
+  ScaffoldLearnerApp as PublicScaffoldLearnerApp,
+  type ScaffoldLearnerAppProps,
+} from "./ScaffoldLearnerApp";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
+const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
+const plusProductAccess = { scaffoldPlusAuthorized: true } as const;
 const LEARNER_TEXT_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00011");
 const LEARNER_MCQ_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00012");
 const LEARNER_SURFACE_ID_BY_MODE = {
   slideshow: EmbeddedNodeIdSchema.parse("surface00013"),
   branching: EmbeddedNodeIdSchema.parse("surface00014"),
 } as const;
+
+function ScaffoldLearnerApp(
+  props: Omit<ScaffoldLearnerAppProps, "productAccess"> & {
+    readonly productAccess?: ScaffoldLearnerAppProps["productAccess"];
+  },
+) {
+  return (
+    <PublicScaffoldLearnerApp {...props} productAccess={props.productAccess ?? coreProductAccess} />
+  );
+}
 
 class ResizeObserverStub implements ResizeObserver {
   readonly observe = vi.fn((target: Element) => {
@@ -163,13 +182,40 @@ function learnerDocumentForMode(mode: "slideshow" | "branching"): JSONContent {
 function learnerBootstrap(
   overrides: Partial<ScaffoldLearnerBootstrap> = {},
 ): ScaffoldLearnerBootstrap {
-  return {
-    artifactId: "artifact-learner",
-    title: "Learner artifact",
-    mode: "page",
-    learnerContent: learnerDocumentWithText("Projected learner content"),
-    ...overrides,
+  const bootstrap: ScaffoldLearnerBootstrap = {
+    artifactId: overrides.artifactId ?? "artifact-learner",
+    title: overrides.title ?? "Learner artifact",
+    mode: overrides.mode ?? "page",
+    publication:
+      overrides.publication ??
+      ({
+        status: "supported",
+        learnerContent: learnerDocumentWithText("Projected learner content"),
+      } satisfies ScaffoldLearnerPublication),
+    ...(overrides.initialLearnerState === undefined
+      ? {}
+      : { initialLearnerState: overrides.initialLearnerState }),
   };
+  if (bootstrap.publication.status === "supported") {
+    normalizeLearnerFixtureIds(bootstrap.publication.learnerContent);
+  }
+  return bootstrap;
+}
+
+function normalizeLearnerFixtureIds(content: JSONContent): void {
+  const seen = new Set<string>();
+  const stack = [content];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node.type !== "doc" && node.type !== "text") {
+      const id = node.attrs?.id;
+      if (!EmbeddedNodeIdSchema.safeParse(id).success || seen.has(String(id))) {
+        node.attrs = { ...node.attrs, id: createEmbeddedNodeId() };
+      }
+      seen.add(String(node.attrs?.id));
+    }
+    stack.push(...(node.content ?? []));
+  }
 }
 
 function privateLearnerSurfaceCapability(id: string): SurfaceCapability {
@@ -213,6 +259,46 @@ function PrivateLearnerSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
 }
 
 describe("ScaffoldLearnerApp", () => {
+  it("refuses Plus-required learner content without product access", () => {
+    const learnerContent = learnerDocumentWithText("Protected learner content");
+    learnerContent.content![0]!.attrs!["requiresScaffoldPlus"] = true;
+
+    render(
+      <ScaffoldLearnerApp
+        bootstrap={learnerBootstrap({
+          publication: { status: "supported", learnerContent },
+        })}
+        composition={runtimeComposition}
+        productAccess={coreProductAccess}
+        services={{}}
+      />,
+    );
+
+    expect(screen.getByTestId("scaffold-runtime-unavailable")).toHaveAttribute(
+      "data-runtime-unavailable-reason",
+      "requires-scaffold-plus",
+    );
+    expect(screen.queryByText("Protected learner content")).toBeNull();
+  });
+
+  it("renders Plus-required learner content with product access", async () => {
+    const learnerContent = learnerDocumentWithText("Protected learner content");
+    learnerContent.content![0]!.attrs!["requiresScaffoldPlus"] = true;
+
+    render(
+      <ScaffoldLearnerApp
+        bootstrap={learnerBootstrap({
+          publication: { status: "supported", learnerContent },
+        })}
+        composition={runtimeComposition}
+        productAccess={plusProductAccess}
+        services={{}}
+      />,
+    );
+
+    expect(await screen.findByText("Protected learner content")).toBeInTheDocument();
+  });
+
   it("renders private-pack content through the supplied runtime composition", async () => {
     const capability = privateLearnerSurfaceCapability("private-learner-surface");
     const application = createScaffoldApplication({
@@ -230,7 +316,9 @@ describe("ScaffoldLearnerApp", () => {
 
     render(
       <ScaffoldLearnerApp
-        bootstrap={learnerBootstrap({ learnerContent })}
+        bootstrap={learnerBootstrap({
+          publication: { status: "supported", learnerContent },
+        })}
         composition={application.runtime}
         services={{}}
       />,
@@ -323,13 +411,67 @@ describe("ScaffoldLearnerApp", () => {
     expect(editableSurface?.getAttribute("contenteditable")).toBe("false");
   });
 
+  it.each([
+    {
+      publication: { status: "not-published" as const },
+      reason: "not-published",
+    },
+    {
+      publication: {
+        status: "unavailable-content" as const,
+        unavailableContent: [
+          {
+            kind: "block" as const,
+            capabilityId: "plus_private_block",
+            stableId: "plusblock001",
+            path: ["content", 0] as const,
+          },
+        ],
+      },
+      reason: "unavailable-content",
+    },
+    {
+      publication: {
+        status: "invalid" as const,
+        issues: [{ code: "invalid_document", message: "Invalid document.", path: [] }],
+      },
+      reason: "invalid-learner-content",
+    },
+    {
+      publication: {
+        status: "unsupported-core-format" as const,
+        documentVersion: 5,
+        supportedVersion: 4,
+        message: "Future format.",
+      },
+      reason: "unsupported-core-format",
+    },
+  ])("preserves $publication.status learner publication refusal", ({ publication, reason }) => {
+    render(
+      <ScaffoldLearnerApp
+        composition={runtimeComposition}
+        bootstrap={learnerBootstrap({ publication })}
+        services={{}}
+      />,
+    );
+
+    expect(screen.getByTestId("scaffold-runtime-unavailable")).toHaveAttribute(
+      "data-runtime-unavailable-reason",
+      reason,
+    );
+    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
+  });
+
   it("renders slideshow learner content through the slideshow player", async () => {
     render(
       <ScaffoldLearnerApp
         composition={runtimeComposition}
         bootstrap={learnerBootstrap({
           mode: "slideshow",
-          learnerContent: learnerDocumentForMode("slideshow"),
+          publication: {
+            status: "supported",
+            learnerContent: learnerDocumentForMode("slideshow"),
+          },
         })}
         services={{}}
       />,
@@ -351,7 +493,10 @@ describe("ScaffoldLearnerApp", () => {
         composition={runtimeComposition}
         bootstrap={learnerBootstrap({
           mode: "slideshow",
-          learnerContent: learnerDocumentForMode("slideshow"),
+          publication: {
+            status: "supported",
+            learnerContent: learnerDocumentForMode("slideshow"),
+          },
         })}
         services={{}}
         slideshowSizing="contained"
@@ -368,7 +513,7 @@ describe("ScaffoldLearnerApp", () => {
       <ScaffoldLearnerApp
         composition={runtimeComposition}
         bootstrap={learnerBootstrap({
-          learnerContent: learnerDocumentWithMcq(),
+          publication: { status: "supported", learnerContent: learnerDocumentWithMcq() },
         })}
         services={{}}
       />,

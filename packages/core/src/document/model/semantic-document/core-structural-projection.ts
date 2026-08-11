@@ -26,6 +26,7 @@ import {
   type SemanticOwnerContext,
 } from "./owner-publication";
 import type { SemanticProjectionNodeIndex } from "./projection-node-index";
+import { readAuthoredSemanticLabel } from "./semantic-labels";
 import type { SemanticSnapshotBuilder, SemanticSnapshotItemInput } from "./snapshot-builder";
 
 const NODE_TYPES = Object.freeze({
@@ -97,13 +98,14 @@ export function projectCoreStructuralItems({
       const description = ownerContext
         ? evaluateOwnerDescription(ownerContext, definitions, builder)
         : null;
-      const describedItem = description
-        ? {
-            ...classified.item,
-            label: readNonEmptyString(description.label) ?? classified.item.label,
-            summary: readNonEmptyString(description.summary),
-          }
-        : classified.item;
+      const describedItem = {
+        ...classified.item,
+        label:
+          readAuthoredSemanticLabel(node.attrs["semanticLabel"]) ??
+          readNonEmptyString(description?.label) ??
+          classified.item.label,
+        summary: description ? readNonEmptyString(description.summary) : classified.item.summary,
+      };
       builder.addItem({
         item: describedItem,
         parentId: classified.parentId,
@@ -227,7 +229,10 @@ function projectPublishedChildren(input: {
           kind: resolved.candidate.semanticRole,
           nodeType: resolved.node.type.name,
           definitionId: input.owner.definitionId,
-          label: readNonEmptyString(resolved.candidate.label) ?? humanize(resolved.node.type.name),
+          label:
+            readAuthoredSemanticLabel(resolved.node.attrs["semanticLabel"]) ??
+            readNonEmptyString(resolved.candidate.label) ??
+            humanize(resolved.node.type.name),
           summary: readNonEmptyString(resolved.candidate.summary),
           presentation: {
             actionIds: resolved.candidate.presentation?.actionIds ?? [],
@@ -386,6 +391,8 @@ function classifyNode(
       item(id, "cell", nodeType, null, `Cell ${context.siblingTypeOrdinal}`),
       context.parentId,
       context.surfaceId,
+      undefined,
+      standardRichTextDocumentSemantics,
     );
   }
 

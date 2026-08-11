@@ -2,10 +2,8 @@ import { nanoid } from "nanoid";
 
 import {
   EmbeddedDataIdSchema,
-  EmbeddedIdSchema,
   EmbeddedNodeIdSchema,
   type EmbeddedDataId,
-  type EmbeddedId,
   type EmbeddedNodeId,
 } from "@scaffold/contracts";
 
@@ -21,9 +19,4 @@ export function createEmbeddedNodeId(): EmbeddedNodeId {
 
 export function createEmbeddedDataId(): EmbeddedDataId {
   return EmbeddedDataIdSchema.parse(createEmbeddedIdToken());
-}
-
-/** @deprecated Use the semantic node or data generator for new call sites. */
-export function createStableId(): EmbeddedId {
-  return EmbeddedIdSchema.parse(createEmbeddedIdToken());
 }

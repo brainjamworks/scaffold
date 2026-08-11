@@ -1,5 +1,4 @@
-import { type Editor as TiptapEditor, type Extension, type JSONContent } from "@tiptap/core";
-import { UndoRedo } from "@tiptap/extensions";
+import { type Editor as TiptapEditor, type JSONContent } from "@tiptap/core";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 
 import "@/editor/shell/authoring/cursors.css";
@@ -10,101 +9,136 @@ import { AuthoringDocumentChrome } from "@/editor/shell/authoring/AuthoringDocum
 import { readSurfaceViewSettingsFromProseMirrorDoc } from "@/document/model/surface-view-settings";
 import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document";
 import { createAuthoringSemanticNavigationEnvironment } from "@/document/authoring/semantic-document/authoring-semantic-navigation-environment";
-import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
-import type { ScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { getCourseDocumentAuthoringEnvironmentState } from "@/composition/authoring/create-authoring-composition";
+import {
+  canonicalizeAuthoringDocument,
+  type DocumentEstablishmentIssue,
+  type UnavailableContentRef,
+} from "@/document/model/establishment";
+import {
+  getCourseDocumentAuthoringMountState,
+  type CourseDocumentAuthoringMount,
+} from "@/document/authoring/prepared-authoring-mount";
 import { PersistedCourseThemeSchema } from "@/schemas/course-document";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 import { AuthoringSurfaceView } from "@/editor/surfaces/authoring/views/AuthoringSurfaceView";
 import "./CourseDocumentEditor.css";
 
-export type CourseDocumentAuthoringSource =
-  | {
-      /**
-       * Portable JSON initializes this editor session. Tiptap owns live state
-       * after mounting; remount when switching artifacts or sources.
-       */
-      readonly mode: "document";
-      readonly content: JSONContent;
-      /** Observes portable updates; the host remains responsible for persistence. */
-      readonly onUpdate?: (json: JSONContent) => void;
-    }
-  | {
-      /**
-       * Trusted host extensions own editor state. Core does not provide,
-       * initialize, persist, or synchronize content in this mode.
-       */
-      readonly mode: "external";
-      readonly stateExtensions: readonly Extension[];
-      /** Optional checkpoint signal; it does not grant Core persistence authority. */
-      readonly onUpdate?: (json: JSONContent) => void;
-    };
-
 export interface CourseDocumentEditorProps {
   artifactId?: string | null;
   /** Unscaled host geometry used by Slideshow authoring overlays. */
   authoringOverlayCollisionBoundary?: Element | null;
-  /**
-   * Initial state source for this mounted editor session. The source is
-   * immutable after mounting; callers remount to change source or artifact.
-   */
-  source: CourseDocumentAuthoringSource;
-  composition: ScaffoldAuthoringComposition;
-  editable?: boolean;
-  /**
-   * Schema and content-capability contributions. These remain distinct from
-   * external state-owning extensions.
-   */
-  schemaExtensions?: readonly Extension[];
+  /** Opaque input produced by Core's complete authoring preparation boundary. */
+  mount: CourseDocumentAuthoringMount;
   onChange?: (editor: TiptapEditor) => void;
   onReady?: (editor: TiptapEditor) => void;
+  onUpdate?: (json: JSONContent, unavailableContent: readonly UnavailableContentRef[]) => void;
+  onDocumentError?: (failure: CourseDocumentAuthoringFailure) => void;
+  onUnavailableContentChange?: (content: readonly UnavailableContentRef[]) => void;
   courseAppearance?: ScaffoldColorMode;
   suspended?: boolean;
 }
 
-const DEFAULT_SCHEMA_EXTENSIONS: readonly Extension[] = [];
+export type CourseDocumentAuthoringFailure =
+  | {
+      readonly status: "canonicalization-failed";
+      readonly issues: readonly DocumentEstablishmentIssue[];
+    }
+  | {
+      readonly status: "requires-scaffold-plus";
+    }
+  | {
+      readonly status: "unsupported-core-format";
+      readonly documentVersion: number;
+      readonly supportedVersion: number;
+      readonly message: string;
+    };
 
 export function CourseDocumentEditor({
   artifactId,
   authoringOverlayCollisionBoundary,
-  source,
-  composition,
-  editable = true,
-  schemaExtensions = DEFAULT_SCHEMA_EXTENSIONS,
+  mount,
   onChange,
   onReady,
+  onUpdate,
+  onDocumentError,
+  onUnavailableContentChange,
   courseAppearance = "light",
   suspended = false,
 }: CourseDocumentEditorProps) {
-  const [initialSource] = useState(source);
+  const [initialMount] = useState(mount);
+  const mountState = useMemo(
+    () => getCourseDocumentAuthoringMountState(initialMount),
+    [initialMount],
+  );
+  const environmentState = useMemo(
+    () => getCourseDocumentAuthoringEnvironmentState(mountState.environment),
+    [mountState.environment],
+  );
   const callbackRef = useRef({
     onChange,
+    onDocumentError,
     onReady,
-    onUpdate: source.onUpdate,
+    onUpdate,
+    onUnavailableContentChange,
   });
   callbackRef.current = {
     onChange,
+    onDocumentError,
     onReady,
-    onUpdate: source.onUpdate,
+    onUpdate,
+    onUnavailableContentChange,
   };
+
+  useEffect(() => {
+    callbackRef.current.onUnavailableContentChange?.(mountState.unavailableContent);
+  }, [mountState]);
   const handleChange = useCallback((editor: TiptapEditor) => {
     callbackRef.current.onChange?.(editor);
   }, []);
   const handleReady = useCallback((editor: TiptapEditor) => {
     callbackRef.current.onReady?.(editor);
   }, []);
-  const handleUpdate = useCallback((editor: TiptapEditor) => {
-    const observer = callbackRef.current.onUpdate;
-    if (observer) observer(editor.getJSON());
-  }, []);
+  const handleUpdate = useCallback(
+    (editor: TiptapEditor) => {
+      const observer = callbackRef.current.onUpdate;
+      const canonical = canonicalizeAuthoringDocument({
+        workingDocument: editor.getJSON(),
+        capabilities: environmentState.capabilities,
+        authoringSchema: environmentState.schema,
+        expectedRequiresScaffoldPlus: mountState.expectedRequiresScaffoldPlus,
+        productAccess: mountState.productAccess,
+      });
+      if (canonical.status === "invalid") {
+        callbackRef.current.onDocumentError?.({
+          status: "canonicalization-failed",
+          issues: canonical.issues,
+        });
+        return;
+      }
+      if (canonical.status === "unsupported-core-format") {
+        callbackRef.current.onDocumentError?.(canonical);
+        return;
+      }
+      if (canonical.status === "requires-scaffold-plus") {
+        callbackRef.current.onDocumentError?.(canonical);
+        return;
+      }
+      callbackRef.current.onUnavailableContentChange?.(canonical.unavailableContent);
+      observer?.(canonical.canonicalDocument, canonical.unavailableContent);
+    },
+    [environmentState, mountState.expectedRequiresScaffoldPlus, mountState.productAccess],
+  );
+
   return (
     <MountedCourseDocumentEditor
       artifactId={artifactId}
       authoringOverlayCollisionBoundary={authoringOverlayCollisionBoundary}
-      source={initialSource}
-      composition={composition}
-      editable={editable}
-      schemaExtensions={schemaExtensions}
+      content={mountState.workingDocument}
+      composition={environmentState.composition}
+      editable={environmentState.editable}
+      authoringExtensions={environmentState.extensions}
       onChange={handleChange}
       onReady={handleReady}
       onUpdate={handleUpdate}
@@ -117,10 +151,10 @@ export function CourseDocumentEditor({
 interface RequiredEditorProps {
   artifactId: string | null | undefined;
   authoringOverlayCollisionBoundary: Element | null | undefined;
-  source: CourseDocumentAuthoringSource;
-  composition: ScaffoldAuthoringComposition;
+  content: JSONContent;
+  composition: ReturnType<typeof getCourseDocumentAuthoringEnvironmentState>["composition"];
   editable: boolean;
-  schemaExtensions: readonly Extension[];
+  authoringExtensions: ReturnType<typeof getCourseDocumentAuthoringEnvironmentState>["extensions"];
   onChange: ((editor: TiptapEditor) => void) | undefined;
   onReady: ((editor: TiptapEditor) => void) | undefined;
   onUpdate: (editor: TiptapEditor) => void;
@@ -131,10 +165,10 @@ interface RequiredEditorProps {
 function MountedCourseDocumentEditor({
   artifactId,
   authoringOverlayCollisionBoundary,
-  source,
+  content,
   composition,
   editable,
-  schemaExtensions,
+  authoringExtensions,
   onChange,
   onReady,
   onUpdate,
@@ -142,18 +176,9 @@ function MountedCourseDocumentEditor({
   suspended,
 }: RequiredEditorProps) {
   const [overlayContainer, setOverlayContainer] = useState<HTMLDivElement | null>(null);
-  const authoringExtensions = useMemo(
-    () => [
-      ...createCourseDocumentAuthoringExtensions({ editable, composition }),
-      ...schemaExtensions,
-      ...(source.mode === "document" ? [UndoRedo] : source.stateExtensions),
-    ],
-    [composition, editable, schemaExtensions, source],
-  );
-
   const editor = useEditor({
     immediatelyRender: false,
-    content: source.mode === "document" ? source.content : null,
+    content,
     editable: editable && !suspended,
     extensions: authoringExtensions,
     onCreate: ({ editor: e }) => {
@@ -205,9 +230,11 @@ function MountedCourseDocumentEditor({
     >
       <ScaffoldArtifactIdentityProvider artifactId={artifactId ?? null}>
         <AuthoringDocumentChrome
+          courseAppearance={courseAppearance}
           editable={editable}
           editor={editor}
           overlayContainer={overlayContainer}
+          surfaceAuthoringChrome={composition.surfaces.chrome}
           {...(useUnscaledSlideshowOverlayBoundary
             ? {
                 overlayCollisionBoundary: authoringOverlayCollisionBoundary,

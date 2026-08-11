@@ -9,6 +9,7 @@ export interface ScaffoldArtifactCreationInput {
 export interface ScaffoldArtifactCreationMetadata {
   id: string;
   title?: string | undefined;
+  requiresScaffoldPlus: boolean;
 }
 
 export interface ScaffoldArtifactCreationPort {

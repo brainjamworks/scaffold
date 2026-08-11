@@ -27,14 +27,17 @@ describe("selectRuntimePlayer", () => {
   it("preserves slideshow Surface order", () => {
     const content = createScaffoldDocumentContent({
       mode: "slideshow",
+      initialCourseSectionTitle: "Introduction",
       surfaceId: FIRST_SLIDE_ID,
     });
     const courseDocument = content.content?.[0];
-    const firstSurface = courseDocument?.content?.[0];
-    if (!courseDocument || !firstSurface) throw new Error("missing slideshow fixture");
+    const firstSection = courseDocument?.content?.[0];
+    const firstSurface = courseDocument?.content?.[1];
+    if (!courseDocument || !firstSection || !firstSurface) throw new Error("missing slideshow fixture");
     const slideCover = builtInSurfaceVariantRegistry.get("slide-cover");
     if (!slideCover) throw new Error("missing slide-cover definition");
     courseDocument.content = [
+      firstSection,
       firstSurface,
       slideCover.createSurface({ surfaceId: SECOND_SLIDE_ID }),
     ];
@@ -43,7 +46,7 @@ describe("selectRuntimePlayer", () => {
     const selection = selectRuntimePlayer(content);
 
     const structure = projectCourseStructure(content);
-    expect(structure?.kind).toBe("unsectioned-slideshow");
+    expect(structure?.kind).toBe("slideshow");
     expect(selection).toEqual({
       player: "slideshow",
       mode: "slideshow",
@@ -55,10 +58,11 @@ describe("selectRuntimePlayer", () => {
   it("flattens a sectioned Slideshow without selecting Course Section boundaries", () => {
     const content = createScaffoldDocumentContent({
       mode: "slideshow",
+      initialCourseSectionTitle: "Introduction",
       surfaceId: FIRST_SLIDE_ID,
     });
     const courseDocument = content.content?.[0];
-    const firstSurface = courseDocument?.content?.[0];
+    const firstSurface = courseDocument?.content?.[1];
     const slideCover = builtInSurfaceVariantRegistry.get("slide-cover");
     if (!courseDocument || !firstSurface || !slideCover) {
       throw new Error("missing sectioned slideshow fixture");
@@ -70,7 +74,7 @@ describe("selectRuntimePlayer", () => {
     ];
 
     const structure = projectCourseStructure(content);
-    expect(structure?.kind).toBe("sectioned-slideshow");
+    expect(structure?.kind).toBe("slideshow");
     expect(selectRuntimePlayer(content)).toEqual({
       player: "slideshow",
       mode: "slideshow",
@@ -82,10 +86,11 @@ describe("selectRuntimePlayer", () => {
   it("returns no player selection for malformed Course Structure", () => {
     const content = createScaffoldDocumentContent({
       mode: "slideshow",
+      initialCourseSectionTitle: "Introduction",
       surfaceId: FIRST_SLIDE_ID,
     });
     const courseDocument = content.content?.[0];
-    const firstSurface = courseDocument?.content?.[0];
+    const firstSurface = courseDocument?.content?.[1];
     if (!courseDocument || !firstSurface) throw new Error("missing slideshow fixture");
     courseDocument.content = [
       firstSurface,
@@ -99,10 +104,11 @@ describe("selectRuntimePlayer", () => {
   it("returns no player selection for a Course Section containing child content", () => {
     const content = createScaffoldDocumentContent({
       mode: "slideshow",
+      initialCourseSectionTitle: "Introduction",
       surfaceId: FIRST_SLIDE_ID,
     });
     const courseDocument = content.content?.[0];
-    const firstSurface = courseDocument?.content?.[0];
+    const firstSurface = courseDocument?.content?.[1];
     if (!courseDocument || !firstSurface) throw new Error("missing slideshow fixture");
     courseDocument.content = [
       {

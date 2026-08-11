@@ -63,7 +63,7 @@ describe("semantic document projection scale baseline", () => {
       samples: 15,
       surfaceCount: 100,
       blockCount: 2_000,
-      semanticItemCount: 3_000,
+      semanticItemCount: 3_001,
       projectorCallbackCount: 100,
     });
     expect(metadata.proseMirrorNodeCount).toBeGreaterThan(metadata.semanticItemCount);

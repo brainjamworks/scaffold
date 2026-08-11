@@ -64,6 +64,7 @@ export class SemanticNavigationCoordinator {
   #editor: SemanticNavigationEditor | null;
   #environment: SemanticNavigationEnvironment | null;
   #requestToken = 0;
+  #requestAbortController: AbortController | null = null;
 
   constructor({
     registry,
@@ -91,12 +92,17 @@ export class SemanticNavigationCoordinator {
 
   interrupt(): void {
     this.#requestToken += 1;
+    this.#requestAbortController?.abort();
+    this.#requestAbortController = null;
   }
 
   async select(
     id: EmbeddedNodeId,
     options: SemanticNavigationOptions,
   ): Promise<SemanticNavigationResult> {
+    this.#requestAbortController?.abort();
+    const requestAbortController = new AbortController();
+    this.#requestAbortController = requestAbortController;
     const token = ++this.#requestToken;
     const completedAdapters = new Map<string, SemanticContainerAdapter>();
     let presentedSurfaceId: EmbeddedNodeId | null = null;
@@ -132,7 +138,7 @@ export class SemanticNavigationCoordinator {
 
       let result;
       try {
-        result = await adapter.reveal(next.childId, "navigate");
+        result = await adapter.reveal(next.childId, "navigate", requestAbortController.signal);
       } catch {
         result = "child-unavailable" as const;
       }

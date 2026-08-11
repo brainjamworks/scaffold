@@ -6,6 +6,8 @@ import { undo } from "@tiptap/pm/history";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
+
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
@@ -24,7 +26,7 @@ import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaf
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
-import { CourseDocumentEditor } from "./CourseDocumentEditor";
+import { CourseDocumentEditor } from "./CourseDocumentEditor.test-harness";
 
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 const coreRuntimeComposition = createCoreScaffoldRuntimeComposition();
@@ -32,6 +34,7 @@ const coreInsertCatalog = coreAuthoringComposition.catalogues.inDocument;
 const COVER_SURFACE_ID = createEmbeddedNodeId();
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
+  layoutDefinitions: coreAuthoringComposition.capabilities.layouts.registry,
   surfaceVariants: builtInSurfaceVariantRegistry,
 });
 afterEach(() => {
@@ -236,6 +239,7 @@ describe("CourseDocumentEditor unified alignment", () => {
             artifactId="artifact-parity"
             composition={coreRuntimeComposition}
             initialContent={content}
+            productAccess={{ scaffoldPlusAuthorized: false }}
             onReady={onRuntimeReady}
           />
         </div>
@@ -255,11 +259,11 @@ describe("CourseDocumentEditor unified alignment", () => {
     const runtimeText = requiredElement(runtime, '[data-text-align="right"]');
     const authoringFrame = requiredElement(
       authoring,
-      '[data-authoring-frame="block"][data-id="parity-callout"]',
+      `[data-authoring-frame="block"][data-id="${fixtureId("parity-callout")}"]`,
     );
     const runtimeFrame = requiredElement(
       runtime,
-      '[data-runtime-frame="block"][data-id="parity-callout"]',
+      `[data-runtime-frame="block"][data-id="${fixtureId("parity-callout")}"]`,
     );
     const authoringGeometry = authoringFrame.closest("[data-authoring-frame-wrapper]");
     if (!(authoringGeometry instanceof HTMLElement)) {
@@ -280,15 +284,21 @@ describe("CourseDocumentEditor unified alignment", () => {
 
 async function mountEditor(content: JSONContent): Promise<Editor> {
   const onReady = vi.fn();
+  const onDocumentError = vi.fn();
   render(
     createElement(CourseDocumentEditor, {
       composition: coreAuthoringComposition,
       source: { mode: "document", content },
+      onDocumentError,
       onReady,
     }),
   );
 
-  await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+  await waitFor(() => {
+    const failure = onDocumentError.mock.calls[0]?.[0];
+    if (failure) throw new Error(JSON.stringify(failure));
+    expect(onReady).toHaveBeenCalledTimes(1);
+  });
   const editor = onReady.mock.calls[0]?.[0];
   if (!editor) throw new Error("CourseDocumentEditor did not provide an editor");
   await waitFor(() => expect(editor.getJSON().content?.[0]?.type).toBe("courseDocument"));
@@ -300,9 +310,14 @@ function snapshot(
   kind: Parameters<typeof structuralDescriptor>[1] | typeof InteractionTargetKind.Block,
   id: string,
 ) {
+  const targetId = fixtureId(id);
   const descriptor =
     kind === InteractionTargetKind.Block
-      ? resolveBlockChromeTargetDescriptor(editor.state, { id, kind }, builtInBlockRegistry)
+      ? resolveBlockChromeTargetDescriptor(
+          editor.state,
+          { id: targetId, kind },
+          builtInBlockRegistry,
+        )
       : structuralDescriptor(editor, kind, id);
   if (!descriptor) throw new Error(`Missing ${kind} descriptor for ${id}`);
   return alignmentTargetPort.snapshot(editor.state, descriptor);
@@ -319,18 +334,22 @@ function structuralDescriptor(
     | typeof InteractionTargetKind.Section,
   id: string,
 ) {
-  const descriptor = resolveStructuralChromeTargetDescriptor(editor.state, { id, kind });
+  const descriptor = resolveStructuralChromeTargetDescriptor(editor.state, {
+    id: fixtureId(id),
+    kind,
+  });
   if (!descriptor) throw new Error(`Missing ${kind} descriptor for ${id}`);
   return descriptor;
 }
 
 function pageDocument(content: JSONContent[]): JSONContent {
-  return {
+  return assignMissingFixtureIds({
     type: "doc",
     content: [
       {
         type: "courseDocument",
         attrs: {
+          id: createEmbeddedNodeId(),
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
           mode: "page",
           surfaceSize: "fluid",
@@ -346,7 +365,7 @@ function pageDocument(content: JSONContent[]): JSONContent {
         ],
       },
     ],
-  };
+  });
 }
 
 function slideshowAlignmentDocument(): JSONContent {
@@ -368,19 +387,24 @@ function slideshowAlignmentDocument(): JSONContent {
   });
   const mainRegion = contentSurface.content?.[1];
   if (!mainRegion) throw new Error("Expected slide content Region");
-  mainRegion.attrs = { ...mainRegion.attrs, id: "bounded-region", verticalPosition: "top" };
+  mainRegion.attrs = {
+    ...mainRegion.attrs,
+    id: fixtureId("bounded-region"),
+    verticalPosition: "top",
+  };
   mainRegion.content = [
     layout("bounded-layout", "tabs", [
       section("bounded-tab", "tab-panel", [paragraph("Bounded tab", "left")]),
     ]),
   ];
 
-  return {
+  return assignMissingFixtureIds({
     type: "doc",
     content: [
       {
         type: "courseDocument",
         attrs: {
+          id: createEmbeddedNodeId(),
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
           mode: "slideshow",
           surfaceSize: "16x9",
@@ -390,13 +414,13 @@ function slideshowAlignmentDocument(): JSONContent {
         content: [cover, contentSurface],
       },
     ],
-  };
+  });
 }
 
 function paragraph(text: string, textAlign: "left" | "center" | "right" | "justify"): JSONContent {
   return {
     type: "paragraph",
-    attrs: { textAlign },
+    attrs: { id: createEmbeddedNodeId(), textAlign },
     content: [{ type: "text", text }],
   };
 }
@@ -409,40 +433,65 @@ function callout(id: string, align: "start" | "center" | "end"): JSONContent {
     ...content,
     attrs: {
       ...content.attrs,
-      id,
+      id: fixtureId(id),
       frame: { align, widthMode: "fill", widthPercent: 100 },
     },
   };
 }
 
 function region(id: string, verticalPosition: "top" | "middle" | "bottom", content: JSONContent[]) {
-  return { type: "region", attrs: { id, verticalPosition }, content } satisfies JSONContent;
+  return {
+    type: "region",
+    attrs: { id: fixtureId(id), verticalPosition },
+    content,
+  } satisfies JSONContent;
 }
 
 function grid(id: string, content: JSONContent[]) {
-  return { type: "grid", attrs: { id }, content } satisfies JSONContent;
+  return { type: "grid", attrs: { id: fixtureId(id) }, content } satisfies JSONContent;
 }
 
 function cell(id: string, verticalPosition: "top" | "middle" | "bottom", content: JSONContent[]) {
-  return { type: "cell", attrs: { id, verticalPosition }, content } satisfies JSONContent;
+  return {
+    type: "cell",
+    attrs: { id: fixtureId(id), verticalPosition },
+    content,
+  } satisfies JSONContent;
 }
 
 function layout(id: string, variant: "tabs" | "accordion", content: JSONContent[]) {
-  return { type: "layout", attrs: { id, variant }, content } satisfies JSONContent;
+  return {
+    type: "layout",
+    attrs: {
+      id: fixtureId(id),
+      variant,
+      options:
+        variant === "tabs"
+          ? { label: "Tabs", variant: "default" }
+          : { allowMultiple: false, label: "Accordion", variant: "default" },
+    },
+    content,
+  } satisfies JSONContent;
 }
 
 function section(id: string, role: "tab-panel" | "accordion-item", content: JSONContent[]) {
   return {
     type: "section",
-    attrs: { id, role, verticalPosition: "top" },
+    attrs: {
+      id: fixtureId(id),
+      role,
+      verticalPosition: "top",
+      options: role === "tab-panel" ? { label: "Tab" } : { defaultOpen: false },
+    },
     content,
   } satisfies JSONContent;
 }
 
 function nodeById(editor: Editor, id: string) {
+  const expectedId = fixtureId(id);
   let resultPos = -1;
   editor.state.doc.descendants((node, pos) => {
-    if (node.attrs["id"] === id) {
+    if (node.attrs["id"] === expectedId) {
       resultPos = pos;
       return false;
     }
@@ -451,6 +500,22 @@ function nodeById(editor: Editor, id: string) {
   const result = resultPos < 0 ? null : editor.state.doc.nodeAt(resultPos);
   if (!result) throw new Error(`Missing node ${id}`);
   return result;
+}
+
+function fixtureId(value: string) {
+  return EmbeddedNodeIdSchema.parse(`${value}____________`.slice(0, 12));
+}
+
+function assignMissingFixtureIds(document: JSONContent): JSONContent {
+  const stack = [document];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node.type !== "doc" && node.type !== "text" && node.attrs?.["id"] == null) {
+      node.attrs = { ...node.attrs, id: createEmbeddedNodeId() };
+    }
+    for (const child of node.content ?? []) stack.push(child);
+  }
+  return document;
 }
 
 function firstNodeOfType(editor: Editor, type: string) {

@@ -19,10 +19,18 @@ export type {
 } from "./assessment";
 export type {
   ArtifactPersistencePort,
-  ArtifactSaveBundle,
+  ArtifactSavePayload,
   ArtifactSaveResult,
   SaveableScaffoldArtifact,
 } from "./artifact-persistence";
+export type {
+  ArtifactRevision,
+  LearnerPublicationPayload,
+  LearnerPublicationPort,
+  LearnerPublicationPortError,
+  LearnerPublicationPortErrorCode,
+  LearnerPublicationStatus,
+} from "./learner-publication";
 export type {
   ScaffoldArtifactCreationInput,
   ScaffoldArtifactCreationMetadata,

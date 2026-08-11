@@ -16,11 +16,13 @@ import {
 
 import { PagePlayer } from "../page/PagePlayer";
 import { SlideshowPlayer } from "../slideshow/SlideshowPlayer";
+import { checkRuntimeDocumentReadiness } from "../../renderer/CourseDocumentRuntimeRenderer";
 
 const SEQUENCING_PROBLEM_ID = "artifact:artifact-1/block:sequenc00001";
 const MATCHING_PROBLEM_ID = "artifact:artifact-1/block:matching0001";
 const CATEGORISE_PROBLEM_ID = "artifact:artifact-1/block:categorise-1";
 const RUNTIME_DRAG_SURFACE_ID = "runtime_drag";
+const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
 
 export interface RuntimeDragBrowserHarnessOptions {
   readonly interaction?: "categorise" | "matching" | "sequencing";
@@ -116,13 +118,16 @@ export async function mountRuntimeDragHarness(
   if (options.surface === "slideshow" && !slideshowStructure) {
     throw new Error("Expected projected Slideshow drag content.");
   }
+  const readiness = checkRuntimeDocumentReadiness(initialContent, composition, coreProductAccess);
+  if (readiness.status !== "supported") {
+    throw new Error(`Expected prepared runtime drag content, received ${readiness.status}.`);
+  }
   root.render(
     createAssessmentRuntimeTestRoot({
       children:
         options.surface === "page" ? (
           <PagePlayer
-            composition={composition}
-            initialContent={initialContent}
+            preparedDocument={readiness.preparedDocument}
             surfaceId={RUNTIME_DRAG_SURFACE_ID}
             onRendererReady={(readyEditor) => {
               editor = readyEditor;
@@ -130,8 +135,7 @@ export async function mountRuntimeDragHarness(
           />
         ) : (
           <SlideshowPlayer
-            composition={composition}
-            initialContent={initialContent}
+            preparedDocument={readiness.preparedDocument}
             structure={slideshowStructure!}
             sizing="embedded"
             onRendererReady={(readyEditor) => {

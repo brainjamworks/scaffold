@@ -10,6 +10,7 @@ import Underline from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
 
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { SemanticLabel } from "@/composition/model/semantic-label-extension";
 import {
   AccordionSectionPanelNode,
   AccordionSectionTitleNode,
@@ -152,6 +153,7 @@ export function createCourseDocumentBaseExtensions({
     AccordionSectionPanelNode,
     ExtendedParagraph,
     createRuntimeBlockFrameAttributesExtension(resizableBlockNodeTypes),
+    SemanticLabel,
     UniqueID.configure({
       types: "all",
       attributeName: "id",

@@ -2,18 +2,62 @@
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import type { JSONContent } from "@tiptap/core";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import {
+  createCoreScaffoldRuntimeComposition,
+  type ScaffoldRuntimeComposition,
+} from "@/composition/runtime/scaffold-runtime-composition";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import type { ScaffoldProductAccess } from "@/host/contracts/product-access";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
+import { checkRuntimeDocumentReadiness } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
-import { PagePlayer } from "./PagePlayer";
+import { PagePlayer as PublicPagePlayer, type PagePlayerProps } from "./PagePlayer";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
+const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
+
+type TestPagePlayerProps = Omit<PagePlayerProps, "preparedDocument"> & {
+  readonly composition: ScaffoldRuntimeComposition;
+  readonly initialContent: JSONContent;
+  readonly productAccess?: ScaffoldProductAccess;
+};
+
+function PagePlayer({
+  composition,
+  initialContent,
+  productAccess = coreProductAccess,
+  ...props
+}: TestPagePlayerProps) {
+  normalizeRuntimeFixtureIds(initialContent);
+  const readiness = checkRuntimeDocumentReadiness(initialContent, composition, productAccess);
+  if (readiness.status !== "supported") {
+    throw new Error(`Expected a prepared Page fixture, received ${readiness.status}.`);
+  }
+  return <PublicPagePlayer {...props} preparedDocument={readiness.preparedDocument} />;
+}
+
+function normalizeRuntimeFixtureIds(content: JSONContent): void {
+  const seen = new Set<string>();
+  const stack = [content];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node.type !== "doc" && node.type !== "text") {
+      const id = node.attrs?.id;
+      if (!EmbeddedNodeIdSchema.safeParse(id).success || seen.has(String(id))) {
+        node.attrs = { ...node.attrs, id: createEmbeddedNodeId() };
+      }
+      seen.add(String(node.attrs?.id));
+    }
+    stack.push(...(node.content ?? []));
+  }
+}
 
 afterEach(() => {
   cleanup();
@@ -146,6 +190,7 @@ describe("PagePlayer", () => {
           composition={runtimeComposition}
           artifactId="artifact-page-player"
           initialContent={initialContent}
+          productAccess={coreProductAccess}
           surfaceId="pageplayer01"
           onRendererReady={onRendererReady}
         />
@@ -172,6 +217,7 @@ describe("PagePlayer", () => {
           composition={runtimeComposition}
           artifactId="artifact-page-player"
           initialContent={pageDocumentWithText("Plain learner content")}
+          productAccess={coreProductAccess}
           surfaceId="pageplayer01"
           onRendererReady={onRendererReady}
         />
@@ -215,6 +261,7 @@ describe("PagePlayer", () => {
             composition={runtimeComposition}
             artifactId="artifact-page-runtime-popover"
             initialContent={pageDocumentWithRuntimeHint()}
+            productAccess={coreProductAccess}
             surfaceId="pageplayer01"
           />
         ),

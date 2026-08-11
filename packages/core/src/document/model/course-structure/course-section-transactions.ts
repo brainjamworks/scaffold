@@ -1,7 +1,8 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-new-ids";
-import type { CopiedBlockDefinitionLookup } from "@/document/model/identity/clone-with-new-ids";
+import type { BlockDuplicationLookup } from "@/document/model/identity/clone-with-new-ids";
+import { isUnavailableContentCompatibilityRootType } from "@/document/model/establishment/unavailable-content-compatibility-root";
 
 import {
   childIndexById,
@@ -24,64 +25,30 @@ export function buildCourseSectionCandidate(
   context: CommandBuildContext,
 ): CandidateMutation | null {
   switch (command.type) {
-    case "course-section.start":
-      return startCourseSection(command, context);
+    case "course-section.create":
+      return createCourseSection(command, context);
     case "course-section.rename":
       return renameCourseSection(command, context.children);
-    case "course-section.remove":
-      return removeCourseSection(command.courseSectionId, context);
-    case "course-section.move":
-      return moveCourseSection(
-        command.courseSectionId,
-        command.beforeCourseSectionId,
-        context.children,
-      );
+    case "course-section.delete":
+      return deleteCourseSection(command, context);
   }
 }
 
 export function buildCourseSectionDuplicateCandidate(
   command: Extract<CourseSectionCommand, { type: "course-section.duplicate" }>,
   context: CommandBuildContext,
-  blockDefinitions: CopiedBlockDefinitionLookup,
+  blockDuplications: BlockDuplicationLookup,
 ): CandidateMutation | null {
-  return duplicateCourseSection(command.courseSectionId, context, blockDefinitions);
+  return duplicateCourseSection(command.courseSectionId, context, blockDuplications);
 }
 
-function startCourseSection(
-  command: Extract<CourseSectionCommand, { type: "course-section.start" }>,
+function createCourseSection(
+  command: Extract<CourseSectionCommand, { type: "course-section.create" }>,
   { children, createId, schema }: CommandBuildContext,
 ): CandidateMutation | null {
   const title = parseCourseSectionTitle(command.title);
-  if (title === null) return null;
-  const targetIndex = childIndexById(children, "surface", command.atSurfaceId);
-  if (targetIndex < 0) return null;
-
-  const hasSections = children.some((node) => node.type.name === "courseSection");
-  if (!hasSections) {
-    const firstSurfaceIndex = children.findIndex((node) => node.type.name === "surface");
-    if (targetIndex === firstSurfaceIndex) {
-      return { children: [createCourseSectionBoundary(schema, createId(), title), ...children] };
-    }
-    const leadingTitle = parseCourseSectionTitle(command.leadingTitle);
-    if (leadingTitle === null) return null;
-    return {
-      children: [
-        createCourseSectionBoundary(schema, createId(), leadingTitle),
-        ...children.slice(0, targetIndex),
-        createCourseSectionBoundary(schema, createId(), title),
-        ...children.slice(targetIndex),
-      ],
-    };
-  }
-
-  if (children[targetIndex - 1]?.type.name === "courseSection") return null;
-  return {
-    children: [
-      ...children.slice(0, targetIndex),
-      createCourseSectionBoundary(schema, createId(), title),
-      ...children.slice(targetIndex),
-    ],
-  };
+  if (title === null || command.placement !== "end") return null;
+  return { children: [...children, createCourseSectionBoundary(schema, createId(), title)] };
 }
 
 function renameCourseSection(
@@ -99,11 +66,11 @@ function renameCourseSection(
   return { children: next };
 }
 
-function removeCourseSection(
-  courseSectionId: CourseSectionId,
+function deleteCourseSection(
+  command: Extract<CourseSectionCommand, { type: "course-section.delete" }>,
   { children }: CommandBuildContext,
 ): CandidateMutation | null {
-  const childIndex = childIndexById(children, "courseSection", courseSectionId);
+  const childIndex = childIndexById(children, "courseSection", command.courseSectionId);
   if (childIndex < 0) return null;
   const sectionIndices = children.flatMap((node, index) =>
     node.type.name === "courseSection" ? [index] : [],
@@ -111,69 +78,45 @@ function removeCourseSection(
   const sectionIndex = sectionIndices.indexOf(childIndex);
   if (sectionIndex < 0) return null;
   const sectionEnd = sectionIndices[sectionIndex + 1] ?? children.length;
-  const firstSurface = children
-    .slice(childIndex + 1, sectionEnd)
-    .find((node) => node.type.name === "surface");
-  const firstSurfaceId = firstSurface?.attrs["id"];
-
-  const next = [...children];
-  if (sectionIndices.length === 1 || sectionIndex > 0) {
-    next.splice(childIndex, 1);
-  } else {
-    const followingIndex = next.findIndex(
-      (node, index) => index > childIndex && node.type.name === "courseSection",
-    );
-    if (followingIndex < 0) return null;
-    const [following] = next.splice(followingIndex, 1);
-    next.splice(childIndex, 1, following!);
-  }
-  return {
-    children: next,
-    ...(typeof firstSurfaceId === "string"
-      ? { selectionSurfaceId: firstSurfaceId as SurfaceId }
-      : {}),
-  };
-}
-
-function moveCourseSection(
-  courseSectionId: CourseSectionId,
-  beforeCourseSectionId: CourseSectionId | null,
-  children: readonly ProseMirrorNode[],
-): CandidateMutation | null {
-  const sourceIndex = childIndexById(children, "courseSection", courseSectionId);
-  if (sourceIndex < 0 || beforeCourseSectionId === courseSectionId) return null;
-
-  const sourceEnd = nextBoundaryIndex(children, sourceIndex);
-  const range = children.slice(sourceIndex, sourceEnd);
-  const remaining = [...children.slice(0, sourceIndex), ...children.slice(sourceEnd)];
-  const destinationIndex =
-    beforeCourseSectionId === null
-      ? remaining.length
-      : childIndexById(remaining, "courseSection", beforeCourseSectionId);
-  if (destinationIndex < 0) return null;
-  return {
-    children: [
-      ...remaining.slice(0, destinationIndex),
-      ...range,
-      ...remaining.slice(destinationIndex),
-    ],
-  };
+  if (sectionIndices.length === 1) return null;
+  const currentSurfaceIds = children.slice(childIndex + 1, sectionEnd).flatMap((node) =>
+    node.type.name === "surface" && typeof node.attrs["id"] === "string"
+      ? [node.attrs["id"] as SurfaceId]
+      : [],
+  );
+  if (
+    currentSurfaceIds.length !== command.expectedSurfaceIds.length ||
+    currentSurfaceIds.some((id, index) => id !== command.expectedSurfaceIds[index])
+  ) return null;
+  return { children: [...children.slice(0, childIndex), ...children.slice(sectionEnd)] };
 }
 
 function duplicateCourseSection(
   courseSectionId: CourseSectionId,
   { children, createId, schema }: CommandBuildContext,
-  blockDefinitions: CopiedBlockDefinitionLookup,
+  blockDuplications: BlockDuplicationLookup,
 ): CandidateMutation | null {
   const sourceIndex = childIndexById(children, "courseSection", courseSectionId);
   if (sourceIndex < 0) return null;
   const sourceEnd = nextBoundaryIndex(children, sourceIndex);
+  if (children.slice(sourceIndex, sourceEnd).some(containsUnavailableCompatibilityRoot)) return null;
   const sourceJson = children.slice(sourceIndex, sourceEnd).map((node) => node.toJSON());
   const cloned = cloneJsonWithNewStableIds(sourceJson, {
-    blockDefinitions,
+    blockDuplications,
     createId,
   }).map((node) => schema.nodeFromJSON(node));
   return {
     children: [...children.slice(0, sourceEnd), ...cloned, ...children.slice(sourceEnd)],
   };
+}
+
+function containsUnavailableCompatibilityRoot(node: ProseMirrorNode): boolean {
+  if (isUnavailableContentCompatibilityRootType(node.type.name)) return true;
+  let found = false;
+  node.descendants((child) => {
+    if (!isUnavailableContentCompatibilityRootType(child.type.name)) return !found;
+    found = true;
+    return false;
+  });
+  return found;
 }

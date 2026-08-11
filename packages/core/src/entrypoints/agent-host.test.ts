@@ -27,7 +27,6 @@ import {
   canInsertCatalogItem,
   createCatalogNodeChecked,
   createGridTemplate,
-  getBlockDefinitionByNodeType,
   getInsertableCatalogItems,
   getSurfaceViewSettings,
   insertGridChecked,
@@ -39,7 +38,6 @@ import {
   resolveBlockChromeTargetDescriptor,
   resolveCourseSelectionProjection,
   resolveStructuralChromeTargetDescriptor,
-  updateRegisteredNodeSettingsChecked,
   type AssessmentDocumentProjection,
   type BlockDefinition,
   type BlockChromeTargetDescriptor,
@@ -85,7 +83,6 @@ const agentHostValues = {
   canInsertCatalogItem,
   createCatalogNodeChecked,
   createGridTemplate,
-  getBlockDefinitionByNodeType,
   getInsertableCatalogItems,
   getSurfaceViewSettings,
   insertGridChecked,
@@ -97,7 +94,6 @@ const agentHostValues = {
   resolveBlockChromeTargetDescriptor,
   resolveCourseSelectionProjection,
   resolveStructuralChromeTargetDescriptor,
-  updateRegisteredNodeSettingsChecked,
 };
 
 type AgentHostTypeSurface = {

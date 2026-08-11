@@ -326,6 +326,52 @@ describe("Matching connector coordinate gate", () => {
 });
 
 describe("Matching shared drag runtime", () => {
+  it("gives item and match columns equal space on a wide Page", async () => {
+    await page.viewport(1280, 900);
+    const harness = await mountRuntimeDragHarness({
+      interaction: "matching",
+      surface: "page",
+      width: 1024,
+    });
+    mounted.push(harness);
+    await animationFrames(harness, 2);
+    const columns = Array.from(
+      harness.player.querySelectorAll<HTMLElement>(".sc-course-matching__column"),
+    );
+    expect(columns).toHaveLength(2);
+    const [items, targets] = columns as [HTMLElement, HTMLElement];
+    const itemsRect = items.getBoundingClientRect();
+    const targetsRect = targets.getBoundingClientRect();
+
+    expect(items).toHaveClass("sc-course-matching__column--items");
+    expect(targets).toHaveClass("sc-course-matching__column--targets");
+    expect(itemsRect.width).toBeCloseTo(targetsRect.width, 1);
+    expect(targetsRect.left).toBeGreaterThan(itemsRect.right);
+  });
+
+  it("stacks full-width matching columns below the wide container breakpoint", async () => {
+    await page.viewport(800, 900);
+    const harness = await mountRuntimeDragHarness({
+      interaction: "matching",
+      surface: "page",
+      width: 560,
+    });
+    mounted.push(harness);
+    await animationFrames(harness, 2);
+    const columns = Array.from(
+      harness.player.querySelectorAll<HTMLElement>(".sc-course-matching__column"),
+    );
+    expect(columns).toHaveLength(2);
+    const [items, targets] = columns as [HTMLElement, HTMLElement];
+    const itemsRect = items.getBoundingClientRect();
+    const targetsRect = targets.getBoundingClientRect();
+
+    expect(items).toHaveClass("sc-course-matching__column--items");
+    expect(targets).toHaveClass("sc-course-matching__column--targets");
+    expect(itemsRect.width).toBeCloseTo(targetsRect.width, 1);
+    expect(targetsRect.top).toBeGreaterThanOrEqual(itemsRect.bottom);
+  });
+
   it.each([
     { label: "Page", surface: "page" as const, scale: 1 },
     { label: "Slideshow 0.5", surface: "slideshow" as const, scale: 0.5 },
@@ -638,6 +684,80 @@ describe("Categorise shared drag runtime", () => {
     fireEvent.keyDown(target, { code: "Space", key: " " });
     await harness.waitForPlacements({ [itemId]: "catfish00001" }, 1);
     expect(harness.getResponseRevision()).toBe(1);
+    expect(harness.getAnnouncements()).toEqual([]);
+  });
+
+  it("moves an already placed item directly between categories with one response write", async () => {
+    await page.viewport(1024, 768);
+    const harness = await mountRuntimeDragHarness({
+      interaction: "categorise",
+      surface: "page",
+    });
+    mounted.push(harness);
+    const source = harness.getActivationAreas()[0]!;
+    const itemId = source.dataset.id!;
+    source.click();
+    await animationFrames(harness, 1);
+    categoriseCategory(harness, "catbirds0001").click();
+    await harness.waitForPlacements({ [itemId]: "catbirds0001" }, 1);
+    const placed = harness.player.querySelector<HTMLElement>(`[data-placed-item-id="${itemId}"]`);
+    const handle = placed?.querySelector<HTMLElement>("[data-categorise-placed-item-drag-handle]");
+    expect(placed).not.toBeNull();
+    expect(handle).not.toBeNull();
+
+    const destination = centerOf(
+      categoriseCategory(harness, "catfish00001").getBoundingClientRect(),
+    );
+    const drag = await startPointerDrag(
+      harness,
+      handle!,
+      destination,
+      "mouse",
+      centerOf(handle!.getBoundingClientRect()),
+    );
+
+    expect(harness.getResponsePlacements()).toEqual({ [itemId]: "catbirds0001" });
+    expect(harness.getResponseRevision()).toBe(1);
+    expect(harness.getPlaceholder()).toBe(placed);
+    expect(requiredOverlay(harness).hasAttribute("inert")).toBe(true);
+
+    await finishPointerDrag(harness, drag.pointer, drag.pointerType);
+    await harness.waitForPlacements({ [itemId]: "catfish00001" }, 2);
+    await harness.waitForIdle();
+
+    expect(harness.getResponsePlacements()).toEqual({ [itemId]: "catfish00001" });
+    expect(harness.getResponseRevision()).toBe(2);
+  });
+
+  it("keeps the selection alternative available for an already placed item", async () => {
+    await page.viewport(1024, 768);
+    const harness = await mountRuntimeDragHarness({
+      interaction: "categorise",
+      surface: "page",
+    });
+    mounted.push(harness);
+    const source = harness.getActivationAreas()[0]!;
+    const itemId = source.dataset.id!;
+    source.click();
+    await animationFrames(harness, 1);
+    categoriseCategory(harness, "catbirds0001").click();
+    await harness.waitForPlacements({ [itemId]: "catbirds0001" }, 1);
+    const handle = harness.player.querySelector<HTMLButtonElement>(
+      `[data-categorise-placed-item-drag-handle][data-id="${itemId}"]`,
+    );
+    expect(handle).not.toBeNull();
+
+    handle!.focus();
+    await userEvent.keyboard("{Enter}");
+    await animationFrames(harness, 1);
+    expect(handle).toHaveAttribute("aria-pressed", "true");
+    const target = categoriseCategory(harness, "catfish00001");
+    target.focus();
+    await userEvent.keyboard("{Space}");
+    await harness.waitForPlacements({ [itemId]: "catfish00001" }, 2);
+
+    expect(harness.getResponsePlacements()).toEqual({ [itemId]: "catfish00001" });
+    expect(harness.getResponseRevision()).toBe(2);
     expect(harness.getAnnouncements()).toEqual([]);
   });
 });

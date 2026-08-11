@@ -23,12 +23,12 @@ export function createCourseStructureCommandsExtension({
               if (dispatch !== undefined) tr.setMeta("preventDispatch", true);
               return false;
             }
-            const blockDefinitions =
+            const blockDuplications =
               command.type === "course-section.duplicate" || command.type === "surface.duplicate"
-                ? getScaffoldCapabilitiesForEditor(editor).blocks.registry
+                ? getScaffoldCapabilitiesForEditor(editor).blocks.duplication
                 : undefined;
             const applied = applyCourseStructureCommandToTransaction({
-              ...(blockDefinitions ? { blockDefinitions } : {}),
+              ...(blockDuplications ? { blockDuplications } : {}),
               state,
               tr,
               command,
