@@ -1,13 +1,16 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 
-import type { ArtifactSaveBundle } from "@scaffold/core/ports";
+import type {
+  ArtifactRevision,
+  ArtifactSavePayload,
+  LearnerPublicationPayload,
+} from "@scaffold/core/ports";
 
 /**
  * IndexedDB schema for the browser-local port pair.
  *
- * One DB, scoped per origin, with two object stores: `doc` for authored
- * artifacts (one per artifact id) and `media` for uploaded files
- * (one Blob per mediaId, with sidecar metadata).
+ * One DB, scoped per origin, with separate object stores for canonical drafts,
+ * active learner publications and uploaded media.
  *
  * Used by `createBrowserPersistencePort` and
  * `createBrowserMediaPort`. Adapters with their own backend never touch
@@ -15,14 +18,21 @@ import type { ArtifactSaveBundle } from "@scaffold/core/ports";
  */
 
 const DB_NAME = "scaffold-local";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export const ARTIFACT_STORE = "artifact" as const;
+export const PUBLICATION_STORE = "publication" as const;
 export const MEDIA_STORE = "media" as const;
 
 export interface StoredArtifact {
-  artifact: ArtifactSaveBundle["artifact"];
+  artifact: ArtifactSavePayload["artifact"];
+  artifactRevision: ArtifactRevision;
   savedAt: string;
+}
+
+export interface StoredLearnerPublication {
+  payload: LearnerPublicationPayload;
+  publishedAt: string;
 }
 
 export interface StoredMedia {
@@ -39,6 +49,10 @@ export interface BrowserStorageSchema extends DBSchema {
   artifact: {
     key: string;
     value: StoredArtifact;
+  };
+  publication: {
+    key: string;
+    value: StoredLearnerPublication;
   };
   media: {
     key: string;
@@ -65,6 +79,9 @@ export function getBrowserStorageDb(): Promise<IDBPDatabase<BrowserStorageSchema
         if (!db.objectStoreNames.contains(ARTIFACT_STORE)) {
           db.createObjectStore(ARTIFACT_STORE);
         }
+        if (!db.objectStoreNames.contains(PUBLICATION_STORE)) {
+          db.createObjectStore(PUBLICATION_STORE);
+        }
         if (!db.objectStoreNames.contains(MEDIA_STORE)) {
           const mediaStore = db.createObjectStore(MEDIA_STORE);
           mediaStore.createIndex("by-createdAt", "createdAt");
@@ -76,13 +93,13 @@ export function getBrowserStorageDb(): Promise<IDBPDatabase<BrowserStorageSchema
 }
 
 /**
- * Wipe both stores and close the DB. Used by the playground's Reset
+ * Wipe all stores. Used by the playground's Reset
  * action. Re-opening happens lazily on next access.
  */
 export async function resetBrowserStorage(): Promise<void> {
   const db = await getBrowserStorageDb();
   if (!db) return;
-  await Promise.all([db.clear(ARTIFACT_STORE), db.clear(MEDIA_STORE)]);
+  await Promise.all([db.clear(ARTIFACT_STORE), db.clear(PUBLICATION_STORE), db.clear(MEDIA_STORE)]);
 }
 
 /**

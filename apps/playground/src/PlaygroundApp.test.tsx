@@ -6,7 +6,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { createScaffoldDocumentContent } from "@scaffold/core/format";
-import type { ArtifactSaveBundle } from "@scaffold/core/ports";
+import type { ArtifactSavePayload } from "@scaffold/core/ports";
 import type { StoredArtifact } from "./ports/browserStorageDb";
 
 interface BrowserPreviewProjection {
@@ -24,8 +24,16 @@ const mocks = vi.hoisted(() => {
     scaffoldApplications: [] as unknown[],
     previewProjectionReaders: [] as Array<() => unknown>,
     previewAssessmentPorts: [] as Array<{ type: string; projectionIndex: number }>,
+    publishNow: vi.fn(async () => true),
+    publishState: "not-published",
     requestPersistentStorage: vi.fn(async () => false),
-    saveArtifact: vi.fn(async (_bundle: ArtifactSaveBundle) => ({})),
+    saveArtifact: vi.fn(async (_payload: ArtifactSavePayload) => ({
+      artifactRevision: "revision-1",
+    })),
+    learnerPublicationPort: {
+      getStatus: vi.fn(),
+      publish: vi.fn(),
+    },
   };
 });
 
@@ -51,10 +59,26 @@ vi.mock("@scaffold/core/authoring", async () => {
       const [preview, setPreview] = useState(false);
       const [createdArtifact, setCreatedArtifact] = useState<unknown>(null);
       const artifact = (createdArtifact ?? props["artifact"]) as {
+        content?: JSONContent;
         id?: string;
         title?: string;
       } | null;
       mocks.authoringAppProps.push({ ...props, artifact });
+
+      const courseAttrs = artifact?.content?.content?.[0]?.attrs;
+      const productAccess = props["productAccess"] as
+        | { scaffoldPlusAuthorized?: boolean }
+        | undefined;
+      if (
+        courseAttrs?.["requiresScaffoldPlus"] === true &&
+        productAccess?.scaffoldPlusAuthorized === false
+      ) {
+        return createElement(
+          "section",
+          { "data-testid": "scaffold-authoring-unavailable" },
+          "This course requires Scaffold Plus.",
+        );
+      }
 
       async function createPage() {
         const services = props["services"] as {
@@ -97,6 +121,9 @@ vi.mock("@scaffold/core/authoring", async () => {
         typeof props["headerActions"] === "function"
           ? props["headerActions"]({
               preview,
+              hasUnpublishedChanges: false,
+              publishNow: mocks.publishNow,
+              publishState: mocks.publishState,
               saveNow: async () => true,
               saveState: "idle",
               title,
@@ -168,6 +195,10 @@ vi.mock("./ports/browserMediaPort", () => ({
   browserMediaPort: { resolve: vi.fn() },
 }));
 
+vi.mock("./ports/createBrowserLearnerPublicationPort", () => ({
+  createBrowserLearnerPublicationPort: vi.fn(() => mocks.learnerPublicationPort),
+}));
+
 vi.mock("./ports/createLocalAssessmentPort", () => {
   mocks.assessmentModuleReads += 1;
   return {
@@ -195,6 +226,7 @@ import { PlaygroundApp } from "./PlaygroundApp";
 
 beforeEach(() => {
   mocks.learnerPreviewContent = createLearnerPreviewContent();
+  mocks.publishState = "not-published";
 });
 
 afterEach(() => {
@@ -213,6 +245,7 @@ function storedArtifact(id = "shell-doc", title = "Stored draft"): StoredArtifac
       mode: "page",
       content: mocks.learnerPreviewContent.learnerContent,
     },
+    artifactRevision: "revision-1",
     savedAt: "2026-06-27T12:00:00.000Z",
   };
 }
@@ -257,6 +290,33 @@ describe("PlaygroundApp preview boundary", () => {
     expect(mocks.authoringAppProps.at(-1)?.["application"]).toBe(mocks.scaffoldApplications[0]);
   });
 
+  it("supplies one module-stable Free product-access decision", async () => {
+    mocks.loadArtifact.mockResolvedValueOnce(storedArtifact());
+    const view = render(<PlaygroundApp artifactId="shell-doc" />);
+
+    await screen.findByTestId("content-author-workspace");
+    const firstAccess = mocks.authoringAppProps.at(-1)?.["productAccess"];
+    expect(firstAccess).toEqual({ scaffoldPlusAuthorized: false });
+
+    view.rerender(<PlaygroundApp artifactId="shell-doc" />);
+    expect(mocks.authoringAppProps.at(-1)?.["productAccess"]).toBe(firstAccess);
+  });
+
+  it("refuses a stored Plus-required artifact before authoring or preview", async () => {
+    const stored = storedArtifact();
+    stored.artifact.content!.content![0]!.attrs!["requiresScaffoldPlus"] = true;
+    mocks.loadArtifact.mockResolvedValueOnce(stored);
+
+    render(<PlaygroundApp artifactId="shell-doc" />);
+
+    expect(await screen.findByTestId("scaffold-authoring-unavailable")).toHaveTextContent(
+      "This course requires Scaffold Plus.",
+    );
+    expect(screen.queryByTestId("content-author-workspace")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Switch to preview" })).toBeNull();
+    expect(mocks.assessmentModuleReads).toBe(0);
+  });
+
   it("does not evaluate local assessment grading during an ordinary mount", async () => {
     mocks.loadArtifact.mockResolvedValueOnce(storedArtifact());
 
@@ -278,7 +338,7 @@ describe("PlaygroundApp preview boundary", () => {
     expect(screen.queryByTestId("authoring-agent-dock")).toBeNull();
     expect(
       Object.keys(mocks.authoringAppProps.at(-1)?.["services"] as Record<string, unknown>).sort(),
-    ).toEqual(["artifactCreation", "artifactPersistence", "media"]);
+    ).toEqual(["artifactCreation", "artifactPersistence", "learnerPublication", "media"]);
   });
 
   it("mounts the authoring host with rails and opens the unavailable Agent dock", async () => {
@@ -320,6 +380,31 @@ describe("PlaygroundApp preview boundary", () => {
     });
   });
 
+  it("renders a host-owned Publish action without invoking Save", async () => {
+    const user = userEvent.setup();
+    mocks.loadArtifact.mockResolvedValueOnce(storedArtifact());
+
+    render(<PlaygroundApp artifactId="shell-doc" />);
+
+    await screen.findByTestId("content-author-workspace");
+    expect(screen.getByText("Not published")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Publish" }));
+
+    expect(mocks.publishNow).toHaveBeenCalledTimes(1);
+    expect(mocks.saveArtifact).not.toHaveBeenCalled();
+  });
+
+  it("disables Publish and explains when the canonical generation is unsaved", async () => {
+    mocks.publishState = "unsaved";
+    mocks.loadArtifact.mockResolvedValueOnce(storedArtifact());
+
+    render(<PlaygroundApp artifactId="shell-doc" />);
+
+    await screen.findByTestId("content-author-workspace");
+    expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
+    expect(screen.getByText("Save before publishing")).toBeInTheDocument();
+  });
+
   it("provides browser-local artifact metadata before mounting authoring when storage is empty", async () => {
     const user = userEvent.setup();
 
@@ -333,6 +418,7 @@ describe("PlaygroundApp preview boundary", () => {
     expect(screen.getByTestId("content-author-workspace")).toBeInTheDocument();
     expect(mocks.authoringAppProps.at(-1)?.["artifact"]).toMatchObject({
       id: "shell-doc",
+      requiresScaffoldPlus: false,
       title: "Untitled",
     });
     expect(mocks.saveArtifact).not.toHaveBeenCalled();

@@ -40,6 +40,8 @@ describe("Playground local assessment runtime composition", () => {
     const assessment = createLocalAssessmentPortFromProjection(() => assessmentProjection);
     const finishAttempt = vi.spyOn(assessment.quiz!, "finishAttempt");
 
+    expect(JSON.stringify(learnerContent)).not.toContain("correctOptionId");
+
     render(
       <ScaffoldLearnerApp
         composition={runtimeComposition}
@@ -47,8 +49,9 @@ describe("Playground local assessment runtime composition", () => {
           artifactId: LOCAL_ARTIFACT_ID,
           title: "Local quiz",
           mode: "page",
-          learnerContent,
+          publication: { status: "supported", learnerContent },
         }}
+        productAccess={{ scaffoldPlusAuthorized: false }}
         services={{
           assessment,
         }}
@@ -103,6 +106,7 @@ function quizDocument(): JSONContent {
       content: [mcqBlock()],
     },
   ];
+  assignMissingNodeIds(document);
   return document;
 }
 
@@ -111,11 +115,6 @@ function mcqBlock(): JSONContent {
     type: "mcq",
     attrs: {
       id: "target_00001",
-      assessment: {
-        correctOptionId: "option_00001",
-        feedbackByOptionId: {},
-        summaryFeedback: null,
-      },
       settings: {
         feedbackMode: "on_submit",
         isGraded: true,
@@ -155,4 +154,17 @@ function selectableChoice(id: string, text: string): JSONContent {
       },
     ],
   };
+}
+
+function assignMissingNodeIds(document: JSONContent): void {
+  let nextId = 1;
+  const stack = [document];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node.type !== "doc" && node.type !== "text" && node.attrs?.["id"] == null) {
+      node.attrs = { ...node.attrs, id: `playnode${String(nextId).padStart(4, "0")}` };
+      nextId += 1;
+    }
+    for (const child of node.content ?? []) stack.push(child);
+  }
 }
