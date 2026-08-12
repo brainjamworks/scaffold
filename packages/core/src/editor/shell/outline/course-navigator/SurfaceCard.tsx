@@ -16,10 +16,10 @@ interface SurfaceCardProps {
   readonly registerSelectionControl: (element: HTMLButtonElement | null) => void;
   readonly onSelect: (item: SemanticItem) => void;
   readonly onShowStructure: (item: SemanticItem) => void;
-  readonly onDelete: (item: SemanticItem) => void;
-  readonly onDuplicate: (item: SemanticItem) => void;
-  readonly onRename: (item: SemanticItem, value: string) => boolean;
-  readonly onSettings: (item: SemanticItem) => void;
+  readonly onDelete?: (item: SemanticItem) => void;
+  readonly onDuplicate?: (item: SemanticItem) => void;
+  readonly onRename?: (item: SemanticItem, value: string) => boolean;
+  readonly onSettings?: (item: SemanticItem) => void;
   readonly draggable?: boolean;
 }
 
@@ -57,7 +57,7 @@ function SurfaceCardContent({
   const submitRename = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = draft.trim();
-    if (!value || !onRename(item, value)) return;
+    if (!value || !onRename?.(item, value)) return;
     setEditing(false);
   };
 
@@ -124,13 +124,17 @@ function SurfaceCardContent({
       </div>
       <SurfaceActions
         item={item}
-        onDelete={onDelete}
-        onDuplicate={onDuplicate}
-        onRename={() => {
-          setDraft(item.label);
-          setEditing(true);
-        }}
-        onSettings={onSettings}
+        {...(onDelete ? { onDelete } : {})}
+        {...(onDuplicate ? { onDuplicate } : {})}
+        {...(onRename
+          ? {
+              onRename: () => {
+                setDraft(item.label);
+                setEditing(true);
+              },
+            }
+          : {})}
+        {...(onSettings ? { onSettings } : {})}
         onShowStructure={onShowStructure}
       />
     </article>

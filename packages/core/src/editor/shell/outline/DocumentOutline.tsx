@@ -1,5 +1,5 @@
-import { SemanticSubtreeOutline, type SemanticSubtreeOutlineProps } from "./SemanticSubtreeOutline";
-import { useSyncExternalStore } from "react";
+import type { SemanticDocumentController } from "@/document/authoring/semantic-document";
+import type { SemanticSubtreeOutlineProps } from "./SemanticSubtreeOutline";
 import {
   DocumentNavigator,
   type DocumentNavigatorNavigation,
@@ -9,6 +9,8 @@ import type { CourseOutlineStructureAuthoringPort } from "./course-outline-struc
 import type { OverlayBoundaryResolution } from "@/ui/overlays/portal-host-context";
 
 export interface DocumentOutlineProps extends SemanticSubtreeOutlineProps {
+  readonly controller: SemanticSubtreeOutlineProps["controller"] &
+    Pick<SemanticDocumentController, "reportComponentSelection">;
   readonly sectionDialogOverlayBoundary?: OverlayBoundaryResolution;
   readonly structureAuthoring?: CourseOutlineStructureAuthoringPort;
   readonly surfaceActions?: DocumentNavigatorSurfaceActionPort;
@@ -18,28 +20,20 @@ export type { DocumentOutlineAuthoringPort } from "./SemanticSubtreeOutline";
 export { DocumentOutlineRowViewport } from "./SemanticSubtreeOutline";
 
 export function DocumentOutline(props: DocumentOutlineProps) {
-  const snapshot = useSyncExternalStore(
-    props.controller.subscribe,
-    props.controller.getSnapshot,
-    props.controller.getSnapshot,
+  return (
+    <DocumentNavigator
+      {...(props.onDocumentNavigatorNavigationChange
+        ? { onNavigationChange: props.onDocumentNavigatorNavigationChange }
+        : {})}
+      {...(props.authoring ? { authoring: props.authoring } : {})}
+      {...(props.sectionDialogOverlayBoundary
+        ? { sectionDialogOverlayBoundary: props.sectionDialogOverlayBoundary }
+        : {})}
+      {...(props.structureAuthoring ? { structureAuthoring: props.structureAuthoring } : {})}
+      {...(props.surfaceActions ? { surfaceActions: props.surfaceActions } : {})}
+      controller={props.controller}
+      viewController={props.viewController}
+      viewport={props.viewport}
+    />
   );
-  if (snapshot.semantics.mode === "slideshow") {
-    return (
-      <DocumentNavigator
-        {...(props.onDocumentNavigatorNavigationChange
-          ? { onNavigationChange: props.onDocumentNavigatorNavigationChange }
-          : {})}
-        {...(props.authoring ? { authoring: props.authoring } : {})}
-        {...(props.sectionDialogOverlayBoundary
-          ? { sectionDialogOverlayBoundary: props.sectionDialogOverlayBoundary }
-          : {})}
-        {...(props.structureAuthoring ? { structureAuthoring: props.structureAuthoring } : {})}
-        {...(props.surfaceActions ? { surfaceActions: props.surfaceActions } : {})}
-        controller={props.controller}
-        viewController={props.viewController}
-        viewport={props.viewport}
-      />
-    );
-  }
-  return <SemanticSubtreeOutline {...props} />;
 }

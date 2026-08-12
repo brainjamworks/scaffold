@@ -38,10 +38,10 @@ import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 
 import {
-  DocumentOutline,
   DocumentOutlineRowViewport,
+  SemanticSubtreeOutline,
   type DocumentOutlineAuthoringPort,
-} from "./DocumentOutline";
+} from "./SemanticSubtreeOutline";
 import { createDocumentOutlineAuthoringPort } from "./DocumentOutlineHost";
 
 const IDS = {
@@ -464,7 +464,7 @@ async function mountLiveOutline(
   });
   const rendered = await renderBrowserReact(
     <div>
-      <DocumentOutline
+      <SemanticSubtreeOutline
         authoring={authoring}
         controller={controller}
         viewController={viewController}

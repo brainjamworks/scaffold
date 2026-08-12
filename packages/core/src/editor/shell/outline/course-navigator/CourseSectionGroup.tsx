@@ -47,12 +47,12 @@ export function CourseSectionGroup({
   readonly movementAvailable: boolean;
   readonly onExpandedChange: (expanded: boolean) => void;
   readonly onDeleteSection: (item: SemanticItem) => void;
-  readonly onDeleteSurface: (item: SemanticItem) => void;
+  readonly onDeleteSurface?: (item: SemanticItem) => void;
   readonly onDuplicateSection: (item: SemanticItem) => void;
-  readonly onDuplicateSurface: (item: SemanticItem) => void;
+  readonly onDuplicateSurface?: (item: SemanticItem) => void;
   readonly onRenameSection: (item: SemanticItem) => void;
-  readonly onRenameSurface: (item: SemanticItem, value: string) => boolean;
-  readonly onSurfaceSettings: (item: SemanticItem) => void;
+  readonly onRenameSurface?: (item: SemanticItem, value: string) => boolean;
+  readonly onSurfaceSettings?: (item: SemanticItem) => void;
   readonly registerSectionActionControl: (
     sectionId: string,
     element: HTMLButtonElement | null,
@@ -182,10 +182,10 @@ export function CourseSectionGroup({
                   }
                   onSelect={onSelectSurface}
                   onShowStructure={onShowSurfaceStructure}
-                  onDelete={onDeleteSurface}
-                  onDuplicate={onDuplicateSurface}
-                  onRename={onRenameSurface}
-                  onSettings={onSurfaceSettings}
+                  {...(onDeleteSurface ? { onDelete: onDeleteSurface } : {})}
+                  {...(onDuplicateSurface ? { onDuplicate: onDuplicateSurface } : {})}
+                  {...(onRenameSurface ? { onRename: onRenameSurface } : {})}
+                  {...(onSurfaceSettings ? { onSettings: onSurfaceSettings } : {})}
                 />
                 {movementAvailable ? (
                   <CourseOutlineSurfaceDropTarget

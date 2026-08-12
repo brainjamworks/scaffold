@@ -15,6 +15,7 @@ import type { SemanticDocumentSnapshot, SemanticItem } from "@/document/model/se
 import type { CourseOutlineStructureAuthoringPort } from "./course-outline-structure-authoring";
 
 import { DocumentOutline, DocumentOutlineRowViewport } from "./DocumentOutline";
+import { SemanticSubtreeOutline } from "./SemanticSubtreeOutline";
 
 const scrollIntoView = vi.fn();
 
@@ -38,12 +39,51 @@ describe("DocumentOutline", () => {
     expect(screen.queryByRole("treeitem", { name: "Heading" })).toBeNull();
   });
 
+  it("routes a Page through one ungrouped Surface card and the shared Structure view", async () => {
+    const user = userEvent.setup();
+    const surface = item("surface", "surface", "Page", null, [
+      item("heading", "rich-text", "Heading", null),
+    ]);
+    const fixture = createFixtureFromRoots([surface], "page");
+    const authoring = {
+      read: vi.fn(() => ({ ok: true as const, value: null })),
+      write: vi.fn(() => ({ ok: true as const })),
+    };
+    const surfaceActions = {
+      openSettings: vi.fn(() => true),
+      duplicateSurface: vi.fn(() => true),
+      deleteSurface: vi.fn(() => true),
+    };
+
+    render(
+      <DocumentOutline {...fixture.props} authoring={authoring} surfaceActions={surfaceActions} />,
+    );
+
+    expect(screen.getByRole("button", { name: "Select Surface Page" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Course Section" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Move Surface Page" })).toBeNull();
+    expect(screen.queryByRole("treeitem", { name: "Heading" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Open settings for Page" }));
+    expect(surfaceActions.openSettings).toHaveBeenCalledWith(surface.id);
+
+    await user.click(screen.getByRole("button", { name: "More actions for Page" }));
+    expect(screen.getByRole("menuitem", { name: "Rename Surface" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Duplicate Surface" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Delete Surface" })).toBeNull();
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByRole("button", { name: "Show structure for Page" }));
+    const structure = screen.getByRole("tree", { name: "Page structure" });
+    expect(within(structure).getByRole("treeitem", { name: "Heading" })).toBeInTheDocument();
+  });
+
   it("renders nested public items, supplied labels and payload-safe diagnostics", () => {
     const fixture = createFixture();
     fixture.view.setExpanded(id("surface"), true);
     fixture.view.setExpanded(id("region"), true);
 
-    render(<DocumentOutline {...fixture.props} />);
+    render(<SemanticSubtreeOutline {...fixture.props} />);
 
     const tree = screen.getByRole("tree", { name: "Document outline" });
     expect(within(tree).getAllByRole("treeitem")).toHaveLength(5);
@@ -63,7 +103,7 @@ describe("DocumentOutline", () => {
     const section = item("section", "course-section", "Introduction", null, [surface]);
     const fixture = createFixtureFromRoots([section]);
 
-    render(<DocumentOutline {...fixture.props} />);
+    render(<SemanticSubtreeOutline {...fixture.props} />);
 
     expect(screen.getByRole("treeitem", { name: "Introduction" })).toHaveAttribute(
       "aria-expanded",
@@ -92,7 +132,7 @@ describe("DocumentOutline", () => {
     const surface = item("surface", "surface", "Overview", null);
     const section = item("section", "course-section", "Introduction", null, [surface]);
     const fixture = createFixtureFromRoots([section]);
-    render(<DocumentOutline {...fixture.props} />);
+    render(<SemanticSubtreeOutline {...fixture.props} />);
 
     await user.click(screen.getByRole("button", { name: "Collapse Introduction" }));
     fixture.controller.replace(snapshotFromRoots([section]), null, null);
@@ -109,7 +149,7 @@ describe("DocumentOutline", () => {
       item("surface", "surface", "Overview", null),
     ]);
     const fixture = createFixtureFromRoots([first]);
-    render(<DocumentOutline {...fixture.props} />);
+    render(<SemanticSubtreeOutline {...fixture.props} />);
     const second = item("section-2", "course-section", "Practice", null, [
       item("surface-2", "surface", "Exercise", null),
     ]);
@@ -221,7 +261,7 @@ describe("DocumentOutline", () => {
   it("supports roving tree focus, expansion and selection from the keyboard", async () => {
     const user = userEvent.setup();
     const fixture = createFixture();
-    render(<DocumentOutline {...fixture.props} />);
+    render(<SemanticSubtreeOutline {...fixture.props} />);
 
     const surface = screen.getByRole("treeitem", { name: "Overview" });
     surface.focus();
@@ -287,7 +327,7 @@ describe("DocumentOutline", () => {
     const fixture = createFixture();
     fixture.view.setExpanded(id("surface"), true);
     fixture.controller.nextResult = { kind: "missing", id: id("region") };
-    render(<DocumentOutline {...fixture.props} />);
+    render(<SemanticSubtreeOutline {...fixture.props} />);
 
     await user.click(screen.getByRole("treeitem", { name: /Main content/ }));
     expect(screen.getByRole("status")).toHaveTextContent("This item is no longer available.");
@@ -317,7 +357,9 @@ describe("DocumentOutline", () => {
   });
 
   it("consumes only the snapshot/controller seam and never requests editor traversal state", () => {
-    const fixture = createFixture();
+    const fixture = createFixtureFromRoots([
+      item("surface", "surface", "Page", null, [item("paragraph", "rich-text", "Paragraph", null)]),
+    ]);
     const controller = new Proxy(fixture.controller, {
       get(target, property, receiver) {
         if (property === "editor" || property === "state" || property === "doc") {
@@ -335,8 +377,8 @@ describe("DocumentOutline", () => {
 
     render(<DocumentOutline controller={controller} viewController={view} viewport={viewport} />);
 
-    expect(screen.getByRole("tree", { name: "Document outline" })).toBeInTheDocument();
-    expect(screen.getByRole("treeitem", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Select Surface Page" })).toBeInTheDocument();
+    expect(screen.queryByRole("tree", { name: "Document outline" })).toBeNull();
     view.destroy();
   });
 });
@@ -462,6 +504,10 @@ class FakeSemanticDocumentController {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
   };
+
+  reportComponentSelection(itemId: EmbeddedNodeId): void {
+    this.replace(this.#snapshot.semantics, itemId, "component");
+  }
 
   async select(
     itemId: EmbeddedNodeId,

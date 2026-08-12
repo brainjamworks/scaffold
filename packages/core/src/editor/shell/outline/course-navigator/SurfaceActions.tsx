@@ -18,12 +18,13 @@ export function SurfaceActions({
   onShowStructure,
 }: {
   readonly item: SemanticItem;
-  readonly onDelete: (item: SemanticItem) => void;
-  readonly onDuplicate: (item: SemanticItem) => void;
-  readonly onRename: (item: SemanticItem) => void;
-  readonly onSettings: (item: SemanticItem) => void;
+  readonly onDelete?: (item: SemanticItem) => void;
+  readonly onDuplicate?: (item: SemanticItem) => void;
+  readonly onRename?: (item: SemanticItem) => void;
+  readonly onSettings?: (item: SemanticItem) => void;
   readonly onShowStructure: (item: SemanticItem) => void;
 }) {
+  const hasMenuActions = Boolean(onRename || onDuplicate || onDelete);
   return (
     <div className="sc-course-surface-actions">
       <button
@@ -35,53 +36,63 @@ export function SurfaceActions({
         <TreeStructure aria-hidden size={iconSm} />
         <span>Structure</span>
       </button>
-      <button
-        aria-label={`Open settings for ${item.label}`}
-        className="sc-course-surface-action"
-        type="button"
-        onClick={() => onSettings(item)}
-      >
-        <Gear aria-hidden size={iconSm} />
-        <span>Settings</span>
-      </button>
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <button
-            aria-label={`More actions for ${item.label}`}
-            className="sc-course-surface-action sc-course-surface-action--icon"
-            type="button"
-          >
-            <DotsThree aria-hidden size={iconSm} weight="bold" />
-          </button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content
-            align="end"
-            className="sc-document-outline-actions-menu"
-            sideOffset={4}
-            style={{ zIndex: zIndex.dropdown }}
-          >
-            <DropdownMenu.Item
-              className="sc-document-outline-actions-item"
-              onSelect={() => onRename(item)}
+      {onSettings ? (
+        <button
+          aria-label={`Open settings for ${item.label}`}
+          className="sc-course-surface-action"
+          type="button"
+          onClick={() => onSettings(item)}
+        >
+          <Gear aria-hidden size={iconSm} />
+          <span>Settings</span>
+        </button>
+      ) : null}
+      {hasMenuActions ? (
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <button
+              aria-label={`More actions for ${item.label}`}
+              className="sc-course-surface-action sc-course-surface-action--icon"
+              type="button"
             >
-              Rename Surface
-            </DropdownMenu.Item>
-            <DropdownMenu.Item
-              className="sc-document-outline-actions-item"
-              onSelect={() => onDuplicate(item)}
+              <DotsThree aria-hidden size={iconSm} weight="bold" />
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              align="end"
+              className="sc-document-outline-actions-menu"
+              sideOffset={4}
+              style={{ zIndex: zIndex.dropdown }}
             >
-              Duplicate Surface
-            </DropdownMenu.Item>
-            <DropdownMenu.Item
-              className="sc-document-outline-actions-item sc-document-outline-actions-item--danger"
-              onSelect={() => onDelete(item)}
-            >
-              Delete Surface
-            </DropdownMenu.Item>
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+              {onRename ? (
+                <DropdownMenu.Item
+                  className="sc-document-outline-actions-item"
+                  onSelect={() => onRename(item)}
+                >
+                  Rename Surface
+                </DropdownMenu.Item>
+              ) : null}
+              {onDuplicate ? (
+                <DropdownMenu.Item
+                  className="sc-document-outline-actions-item"
+                  onSelect={() => onDuplicate(item)}
+                >
+                  Duplicate Surface
+                </DropdownMenu.Item>
+              ) : null}
+              {onDelete ? (
+                <DropdownMenu.Item
+                  className="sc-document-outline-actions-item sc-document-outline-actions-item--danger"
+                  onSelect={() => onDelete(item)}
+                >
+                  Delete Surface
+                </DropdownMenu.Item>
+              ) : null}
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
+      ) : null}
     </div>
   );
 }

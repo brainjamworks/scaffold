@@ -57,8 +57,10 @@ describe("Document Outline authoring integration", () => {
         .element(page.getByRole("button", { name: "Show Document Outline" }))
         .toBeVisible();
       requireElement<HTMLButtonElement>('button[aria-label="Show Document Outline"]').click();
-      await expect.element(page.getByRole("tree", { name: "Document outline" })).toBeVisible();
-      await expect.element(page.getByRole("heading", { name: "Course Outline" })).toBeVisible();
+      await expect
+        .element(page.getByRole("button", { name: "Back to Page overview" }))
+        .toBeVisible();
+      await expect.element(page.getByRole("tree", { name: "Page structure" })).toBeVisible();
       expect(document.querySelector('button[aria-label="Add Course Section"]')).toBeNull();
 
       const blockRow = requireElement<HTMLElement>(
@@ -128,7 +130,7 @@ describe("Document Outline authoring integration", () => {
         .element(page.getByRole("button", { name: "Show Document Outline" }))
         .toBeVisible();
       requireElement<HTMLButtonElement>('button[aria-label="Show Document Outline"]').click();
-      await expect.element(page.getByRole("tree", { name: "Document outline" })).toBeVisible();
+      await expect.element(page.getByRole("tree", { name: "Page structure" })).toBeVisible();
       expect(multipleChoiceOutlineCount()).toBe(2);
 
       const blocks = document.querySelectorAll<HTMLElement>('[data-node="mcq"][data-id]');
@@ -194,7 +196,7 @@ describe("Document Outline authoring integration", () => {
         .element(page.getByRole("button", { name: "Show Document Outline" }))
         .toBeVisible();
       requireElement<HTMLButtonElement>('button[aria-label="Show Document Outline"]').click();
-      await expect.element(page.getByRole("tree", { name: "Document outline" })).toBeVisible();
+      await expect.element(page.getByRole("tree", { name: "Page structure" })).toBeVisible();
 
       requireElement<HTMLButtonElement>('button[aria-label="Collapse Paginated"]').click();
       await expect
@@ -245,7 +247,7 @@ describe("Document Outline authoring integration", () => {
 
     try {
       requireElement<HTMLButtonElement>('button[aria-label="Show Document Outline"]').click();
-      await expect.element(page.getByRole("tree", { name: "Document outline" })).toBeVisible();
+      await expect.element(page.getByRole("tree", { name: "Page structure" })).toBeVisible();
       const blockRow = requireElement<HTMLElement>(
         '[role="treeitem"][aria-label^="Multiple choice"]',
       );

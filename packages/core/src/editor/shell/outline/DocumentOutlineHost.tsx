@@ -74,7 +74,8 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
   );
   const [documentNavigatorNavigation, setDocumentNavigatorNavigation] =
     useState<DocumentNavigatorNavigation>({ kind: "overview" });
-  const usesDocumentNavigator = semanticSnapshot.semantics.mode === "slideshow";
+  const isSlideshow = semanticSnapshot.semantics.mode === "slideshow";
+  const overviewLabel = isSlideshow ? "Course overview" : "Page overview";
 
   useEffect(() => {
     const next = new SemanticHierarchyViewController({
@@ -105,9 +106,9 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
       data-testid="authoring-outline-dock"
     >
       <header className="sc-authoring-outline-dock-header">
-        {usesDocumentNavigator && documentNavigatorNavigation.kind === "surface-structure" ? (
+        {documentNavigatorNavigation.kind === "surface-structure" ? (
           <Button
-            aria-label="Back to Course overview"
+            aria-label={`Back to ${overviewLabel}`}
             className="sc-authoring-outline-dock-back"
             size="sm"
             type="button"
@@ -115,12 +116,10 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
             onClick={documentNavigatorNavigation.returnToOverview}
           >
             <ArrowLeft aria-hidden size={iconSm} />
-            Course overview
+            {overviewLabel}
           </Button>
         ) : (
-          <h2 className="sc-authoring-outline-dock-title">
-            {usesDocumentNavigator ? "Course overview" : "Course Outline"}
-          </h2>
+          <h2 className="sc-authoring-outline-dock-title">{overviewLabel}</h2>
         )}
         <IconButton
           aria-label="Close Document Outline"

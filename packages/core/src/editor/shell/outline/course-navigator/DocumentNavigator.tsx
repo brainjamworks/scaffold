@@ -34,6 +34,7 @@ import {
 } from "../CourseOutlineSurfaceDragSession";
 import { deriveCourseOutlineSurfaceDropTargets } from "../course-outline-surface-drop-targets";
 import { CourseOverview } from "./CourseOverview";
+import { PageOverview } from "./PageOverview";
 import { SurfaceStructure } from "./SurfaceStructure";
 import "./course-navigator.css";
 
@@ -52,8 +53,8 @@ export type DocumentNavigatorNavigation =
 
 export interface DocumentNavigatorSurfaceActionPort {
   openSettings(surfaceId: SurfaceId): boolean;
-  duplicateSurface(surfaceId: SurfaceId): boolean;
-  deleteSurface(surfaceId: SurfaceId): boolean;
+  duplicateSurface?(surfaceId: SurfaceId): boolean;
+  deleteSurface?(surfaceId: SurfaceId): boolean;
 }
 
 export function DocumentNavigator({
@@ -85,6 +86,8 @@ export function DocumentNavigator({
     viewController.getSnapshot,
     viewController.getSnapshot,
   );
+  const isSlideshow = snapshot.semantics.mode === "slideshow";
+  const courseStructureAuthoring = isSlideshow ? structureAuthoring : undefined;
   const [view, setView] = useState<DocumentNavigatorView>({ kind: "overview" });
   const [sectionDialog, setSectionDialog] = useState<CourseSectionDialogRequest>(null);
   const [status, setStatus] = useState("");
@@ -231,6 +234,29 @@ export function DocumentNavigator({
     return result.ok;
   };
 
+  const showSurfaceStructure = (item: SemanticItem) => {
+    returnSurfaceId.current = item.id;
+    setView({ kind: "surface-structure", surfaceId: item.id });
+  };
+
+  const surfaceSettings = surfaceActions
+    ? (item: SemanticItem) =>
+        finishSurfaceAction(surfaceActions.openSettings(item.id), "Surface settings opened.")
+    : undefined;
+  const duplicateSurface =
+    isSlideshow && surfaceActions?.duplicateSurface
+      ? (item: SemanticItem) =>
+          finishSurfaceAction(
+            surfaceActions.duplicateSurface?.(item.id) ?? false,
+            "Surface duplicated.",
+          )
+      : undefined;
+  const deleteSurfaceAction =
+    isSlideshow && surfaceActions?.deleteSurface
+      ? (item: SemanticItem) =>
+          finishSurfaceAction(surfaceActions.deleteSurface?.(item.id) ?? false, "Surface deleted.")
+      : undefined;
+
   if (view.kind === "surface-structure" && drilledSurface) {
     return (
       <SurfaceStructure
@@ -243,7 +269,7 @@ export function DocumentNavigator({
     );
   }
 
-  const addSectionButton = structureAuthoring ? (
+  const addSectionButton = courseStructureAuthoring ? (
     <Button
       aria-label="Add Course Section"
       className="sc-course-navigator-add-section"
@@ -272,95 +298,92 @@ export function DocumentNavigator({
           {addSectionButton}
         </div>
       ) : null}
-      <CourseOverview
-        expandedSectionIds={hierarchySnapshot.expandedIds}
-        roots={snapshot.semantics.roots}
-        surfaceDragProjection={surfaceDragProjection}
-        selectedId={snapshot.selectedId}
-        selectedSurfaceId={selectedSurfaceId}
-        registerSectionControl={registerSectionControl}
-        registerSurfaceControl={registerSurfaceControl}
-        onSelectSection={selectSection}
-        onSelectSurface={selectSurface}
-        onShowSurfaceStructure={(item) => {
-          returnSurfaceId.current = item.id;
-          setView({ kind: "surface-structure", surfaceId: item.id });
-        }}
-        canDragSurface={(item) =>
-          Boolean(
-            structureAuthoring &&
-            deriveCourseOutlineSurfaceDropTargets(snapshot.semantics.roots, item.id).some(
-              ({ destination }) => structureAuthoring.canMoveSurface(item.id, destination),
-            ),
-          )
-        }
-        movementAvailable={Boolean(structureAuthoring)}
-        onSectionExpandedChange={(sectionId, expanded) =>
-          viewController.setExpanded(sectionId, expanded)
-        }
-        onRenameSection={(item) => {
-          dialogReturnControl.current = sectionActionControls.current.get(item.id) ?? null;
-          setSectionDialog({ kind: "rename", item });
-        }}
-        onDuplicateSection={(item) => {
-          if (structureAuthoring) {
-            finishStructureAction(
-              structureAuthoring.duplicateCourseSection(item.id),
-              "Course Section duplicated.",
-            );
+      {isSlideshow ? (
+        <CourseOverview
+          expandedSectionIds={hierarchySnapshot.expandedIds}
+          roots={snapshot.semantics.roots}
+          surfaceDragProjection={surfaceDragProjection}
+          selectedId={snapshot.selectedId}
+          selectedSurfaceId={selectedSurfaceId}
+          registerSectionControl={registerSectionControl}
+          registerSurfaceControl={registerSurfaceControl}
+          onSelectSection={selectSection}
+          onSelectSurface={selectSurface}
+          onShowSurfaceStructure={showSurfaceStructure}
+          canDragSurface={(item) =>
+            Boolean(
+              courseStructureAuthoring &&
+              deriveCourseOutlineSurfaceDropTargets(snapshot.semantics.roots, item.id).some(
+                ({ destination }) => courseStructureAuthoring.canMoveSurface(item.id, destination),
+              ),
+            )
           }
-        }}
-        onDeleteSection={(item) => {
-          if (!structureAuthoring) return;
-          dialogReturnControl.current = sectionActionControls.current.get(item.id) ?? null;
-          const surfaces = item.children.filter((child) => child.kind === "surface");
-          if (surfaces.length === 0) {
-            finishStructureAction(
-              structureAuthoring.deleteCourseSection({
-                courseSectionId: item.id,
-                expectedSurfaceIds: [],
-              }),
-              "Empty Course Section deleted.",
-            );
-            return;
+          movementAvailable={Boolean(courseStructureAuthoring)}
+          onSectionExpandedChange={(sectionId, expanded) =>
+            viewController.setExpanded(sectionId, expanded)
           }
-          setSectionDialog({
-            kind: "delete",
-            item,
-            surfaceIds: surfaces.map((surface) => surface.id),
-            surfaceLabels: surfaces.map((surface) => surface.label),
-          });
-        }}
-        onRenameSurface={renameSurface}
-        onDuplicateSurface={(item) =>
-          finishSurfaceAction(
-            Boolean(surfaceActions?.duplicateSurface(item.id)),
-            "Surface duplicated.",
-          )
-        }
-        onDeleteSurface={(item) =>
-          finishSurfaceAction(Boolean(surfaceActions?.deleteSurface(item.id)), "Surface deleted.")
-        }
-        onSurfaceSettings={(item) =>
-          finishSurfaceAction(
-            Boolean(surfaceActions?.openSettings(item.id)),
-            "Surface settings opened.",
-          )
-        }
-        registerSectionActionControl={registerSectionActionControl}
-      />
+          onRenameSection={(item) => {
+            dialogReturnControl.current = sectionActionControls.current.get(item.id) ?? null;
+            setSectionDialog({ kind: "rename", item });
+          }}
+          onDuplicateSection={(item) => {
+            if (courseStructureAuthoring) {
+              finishStructureAction(
+                courseStructureAuthoring.duplicateCourseSection(item.id),
+                "Course Section duplicated.",
+              );
+            }
+          }}
+          onDeleteSection={(item) => {
+            if (!courseStructureAuthoring) return;
+            dialogReturnControl.current = sectionActionControls.current.get(item.id) ?? null;
+            const surfaces = item.children.filter((child) => child.kind === "surface");
+            if (surfaces.length === 0) {
+              finishStructureAction(
+                courseStructureAuthoring.deleteCourseSection({
+                  courseSectionId: item.id,
+                  expectedSurfaceIds: [],
+                }),
+                "Empty Course Section deleted.",
+              );
+              return;
+            }
+            setSectionDialog({
+              kind: "delete",
+              item,
+              surfaceIds: surfaces.map((surface) => surface.id),
+              surfaceLabels: surfaces.map((surface) => surface.label),
+            });
+          }}
+          {...(authoring ? { onRenameSurface: renameSurface } : {})}
+          {...(duplicateSurface ? { onDuplicateSurface: duplicateSurface } : {})}
+          {...(deleteSurfaceAction ? { onDeleteSurface: deleteSurfaceAction } : {})}
+          {...(surfaceSettings ? { onSurfaceSettings: surfaceSettings } : {})}
+          registerSectionActionControl={registerSectionActionControl}
+        />
+      ) : (
+        <PageOverview
+          roots={snapshot.semantics.roots}
+          selectedSurfaceId={selectedSurfaceId}
+          registerSurfaceControl={registerSurfaceControl}
+          onSelectSurface={selectSurface}
+          onShowSurfaceStructure={showSurfaceStructure}
+          {...(authoring ? { onRenameSurface: renameSurface } : {})}
+          {...(surfaceSettings ? { onSurfaceSettings: surfaceSettings } : {})}
+        />
+      )}
       <p
         className="sc-document-outline-status sc-document-outline-status--visually-hidden"
         role="status"
       >
         {status}
       </p>
-      {structureAuthoring ? (
+      {courseStructureAuthoring ? (
         <DocumentOutlineSectionDialogs
           {...(sectionDialogOverlayBoundary
             ? { overlayBoundary: sectionDialogOverlayBoundary }
             : {})}
-          port={structureAuthoring}
+          port={courseStructureAuthoring}
           request={sectionDialog}
           onClose={closeSectionDialog}
           onResult={finishStructureAction}
@@ -369,9 +392,9 @@ export function DocumentNavigator({
     </div>
   );
 
-  return structureAuthoring ? (
+  return courseStructureAuthoring ? (
     <CourseOutlineSurfaceDragSession
-      port={structureAuthoring}
+      port={courseStructureAuthoring}
       onProjectionChange={setSurfaceDragProjection}
       onResult={finishStructureAction}
     >
