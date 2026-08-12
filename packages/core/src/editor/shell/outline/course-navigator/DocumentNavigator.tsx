@@ -94,6 +94,19 @@ export function DocumentNavigator({
     snapshot.semantics.itemById,
     snapshot.semantics.parentById,
   );
+  const externallySelectedItem =
+    (snapshot.selectionOrigin === "editor" || snapshot.selectionOrigin === "component") &&
+    snapshot.selectedId
+      ? (snapshot.semantics.itemById.get(snapshot.selectedId) ?? null)
+      : null;
+  const externallySelectedDescendantId =
+    externallySelectedItem && selectedSurfaceId && externallySelectedItem.id !== selectedSurfaceId
+      ? externallySelectedItem.id
+      : null;
+  const externallySelectedOverviewId =
+    externallySelectedItem?.kind === "surface" || externallySelectedItem?.kind === "course-section"
+      ? externallySelectedItem.id
+      : null;
 
   const returnToOverview = useCallback(() => {
     const surfaceId = returnSurfaceId.current;
@@ -106,6 +119,19 @@ export function DocumentNavigator({
       setView({ kind: "overview" });
     }
   }, [drilledSurface, view]);
+
+  useEffect(() => {
+    if (externallySelectedDescendantId && selectedSurfaceId) {
+      returnSurfaceId.current = selectedSurfaceId;
+      setView((current) =>
+        current.kind === "surface-structure" && current.surfaceId === selectedSurfaceId
+          ? current
+          : { kind: "surface-structure", surfaceId: selectedSurfaceId },
+      );
+    } else if (externallySelectedOverviewId) {
+      setView((current) => (current.kind === "overview" ? current : { kind: "overview" }));
+    }
+  }, [externallySelectedDescendantId, externallySelectedOverviewId, selectedSurfaceId]);
 
   useEffect(() => {
     onNavigationChange?.(

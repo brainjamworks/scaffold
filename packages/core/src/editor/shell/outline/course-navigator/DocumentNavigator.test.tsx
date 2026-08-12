@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
 import type { EmbeddedNodeId } from "@scaffold/contracts";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState, type ComponentProps } from "react";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { SemanticHierarchyViewController } from "@/document/authoring/semantic-document/semantic-hierarchy-view-controller";
 import type { SemanticDocumentControllerSnapshot } from "@/document/authoring/semantic-document/semantic-document-controller";
@@ -13,7 +13,14 @@ import type { SemanticDocumentSnapshot, SemanticItem } from "@/document/model/se
 import { DocumentOutlineRowViewport } from "../SemanticSubtreeOutline";
 import { DocumentNavigator, type DocumentNavigatorNavigation } from "./DocumentNavigator";
 
+const scrollIntoView = vi.fn();
+
 describe("DocumentNavigator", () => {
+  beforeEach(() => {
+    scrollIntoView.mockClear();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+  });
+
   it("expands Course Sections by default and lets authors collapse their nested Surfaces", async () => {
     const user = userEvent.setup();
     const surface = item("surface-1", "surface", "Introduction");
@@ -47,7 +54,161 @@ describe("DocumentNavigator", () => {
     expect(screen.getByRole("button", { name: "Select Surface Introduction" })).toBeVisible();
   });
 
-  it("selects Surface cards separately from drilling into their component structure", async () => {
+  it("routes an external descendant selection into its owning Surface Structure", async () => {
+    const heading = item("heading", "rich-text", "Heading");
+    const callout = item("callout", "block", "Callout", [heading]);
+    const introduction = item("surface-1", "surface", "Introduction", [callout]);
+    const section = item("section-1", "course-section", "Section 1", [introduction]);
+    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const viewport = new DocumentOutlineRowViewport();
+    const viewController = new SemanticHierarchyViewController({
+      controller,
+      origin: "document-outline",
+      viewport,
+    });
+
+    render(
+      <DocumentNavigatorHarness
+        controller={controller}
+        viewController={viewController}
+        viewport={viewport}
+      />,
+    );
+
+    act(() => controller.selectFromEditor(heading.id));
+
+    const structure = await screen.findByRole("tree", { name: "Introduction structure" });
+    expect(within(structure).getByRole("treeitem", { name: "Callout" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(within(structure).getByRole("treeitem", { name: "Heading" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(controller.getSnapshot().selectedId).toBe(heading.id);
+    expect(controller.selectCalls).toEqual([]);
+  });
+
+  it("follows a new external descendant selection into another Surface Structure", async () => {
+    const heading = item("heading", "rich-text", "Heading");
+    const introduction = item("surface-1", "surface", "Introduction", [heading]);
+    const paragraph = item("paragraph", "rich-text", "Summary paragraph");
+    const summary = item("surface-2", "surface", "Summary", [paragraph]);
+    const section = item("section-1", "course-section", "Section 1", [introduction, summary]);
+    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const viewport = new DocumentOutlineRowViewport();
+    const viewController = new SemanticHierarchyViewController({
+      controller,
+      origin: "document-outline",
+      viewport,
+    });
+
+    render(
+      <DocumentNavigatorHarness
+        controller={controller}
+        viewController={viewController}
+        viewport={viewport}
+      />,
+    );
+
+    act(() => controller.selectFromEditor(heading.id));
+    expect(await screen.findByRole("tree", { name: "Introduction structure" })).toBeInTheDocument();
+
+    act(() => controller.selectFromComponent(paragraph.id));
+
+    const structure = await screen.findByRole("tree", { name: "Summary structure" });
+    expect(screen.queryByRole("tree", { name: "Introduction structure" })).toBeNull();
+    expect(within(structure).getByRole("treeitem", { name: "Summary paragraph" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(controller.getSnapshot().selectedId).toBe(paragraph.id);
+    expect(controller.selectCalls).toEqual([]);
+  });
+
+  it("requires a new external selection to reopen Structure after Back", async () => {
+    const user = userEvent.setup();
+    const heading = item("heading", "rich-text", "Heading");
+    const paragraph = item("paragraph", "rich-text", "Paragraph");
+    const introduction = item("surface-1", "surface", "Introduction", [heading, paragraph]);
+    const section = item("section-1", "course-section", "Section 1", [introduction]);
+    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const viewport = new DocumentOutlineRowViewport();
+    const viewController = new SemanticHierarchyViewController({
+      controller,
+      origin: "document-outline",
+      viewport,
+    });
+
+    render(
+      <DocumentNavigatorHarness
+        controller={controller}
+        viewController={viewController}
+        viewport={viewport}
+      />,
+    );
+
+    act(() => controller.selectFromEditor(heading.id));
+    expect(await screen.findByRole("tree", { name: "Introduction structure" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Back to Course overview" }));
+    expect(
+      await screen.findByRole("button", { name: "Select Surface Introduction" }),
+    ).toBeVisible();
+
+    act(() => controller.replaceSemantics(snapshotFromRoots([section])));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("tree", { name: "Introduction structure" })).toBeNull(),
+    );
+    expect(controller.getSnapshot().selectedId).toBe(heading.id);
+
+    act(() => controller.selectFromComponent(paragraph.id));
+    const structure = await screen.findByRole("tree", { name: "Introduction structure" });
+    expect(within(structure).getByRole("treeitem", { name: "Paragraph" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
+  it("shows Overview for external Surface and Course Section selections", async () => {
+    const heading = item("heading", "rich-text", "Heading");
+    const introduction = item("surface-1", "surface", "Introduction", [heading]);
+    const section = item("section-1", "course-section", "Section 1", [introduction]);
+    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const viewport = new DocumentOutlineRowViewport();
+    const viewController = new SemanticHierarchyViewController({
+      controller,
+      origin: "document-outline",
+      viewport,
+    });
+
+    render(
+      <DocumentNavigatorHarness
+        controller={controller}
+        viewController={viewController}
+        viewport={viewport}
+      />,
+    );
+
+    act(() => controller.selectFromEditor(heading.id));
+    expect(await screen.findByRole("tree", { name: "Introduction structure" })).toBeInTheDocument();
+
+    act(() => controller.selectFromEditor(introduction.id));
+    expect(
+      await screen.findByRole("button", { name: "Select Surface Introduction" }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    act(() => controller.selectFromEditor(heading.id));
+    expect(await screen.findByRole("tree", { name: "Introduction structure" })).toBeInTheDocument();
+
+    act(() => controller.selectFromEditor(section.id));
+    expect(await screen.findByRole("heading", { name: "Section 1" })).toBeInTheDocument();
+    expect(screen.queryByRole("tree", { name: "Introduction structure" })).toBeNull();
+  });
+
+  it("keeps Surface selection separate from manual Structure routing", async () => {
     const user = userEvent.setup();
     const heading = item("heading", "rich-text", "Heading");
     const introduction = item("surface-1", "surface", "Introduction", [heading]);
@@ -72,12 +233,6 @@ describe("DocumentNavigator", () => {
     expect(screen.getByRole("heading", { name: "Section 1" })).toBeInTheDocument();
     expect(screen.getAllByTestId("course-surface-placeholder")).toHaveLength(2);
     expect(screen.queryByRole("treeitem", { name: "Heading" })).toBeNull();
-
-    act(() => controller.selectFromEditor(heading.id));
-    expect(screen.getByRole("button", { name: "Select Surface Introduction" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
 
     await user.click(screen.getByRole("button", { name: "Select Surface Introduction" }));
     expect(controller.selectCalls.at(-1)).toEqual({
@@ -225,6 +380,16 @@ class FakeSemanticDocumentController {
 
   selectFromEditor(itemId: EmbeddedNodeId) {
     this.#snapshot = { ...this.#snapshot, selectedId: itemId, selectionOrigin: "editor" };
+    for (const listener of this.#listeners) listener();
+  }
+
+  selectFromComponent(itemId: EmbeddedNodeId) {
+    this.#snapshot = { ...this.#snapshot, selectedId: itemId, selectionOrigin: "component" };
+    for (const listener of this.#listeners) listener();
+  }
+
+  replaceSemantics(semantics: SemanticDocumentSnapshot) {
+    this.#snapshot = { ...this.#snapshot, semantics };
     for (const listener of this.#listeners) listener();
   }
 
