@@ -16,6 +16,82 @@ import type { LearnerPublicationPort } from "@/host/ports/learner-publication";
 import "@/styles/globals.css";
 
 describe("Document Outline authoring integration", () => {
+  it("coordinates the mounted Page overview and Surface Structure lifecycle", async () => {
+    const content = createScaffoldDocumentContent({
+      mode: "page",
+      surfaceId: "page-route01",
+    });
+    const surface = content.content?.[0]?.content?.[0];
+    const mcq = builtInBlockRegistry.getByNodeType("mcq")?.insert;
+    if (!surface || !mcq) throw new Error("Expected the built-in Page Surface and MCQ insert");
+    surface.content = [mountedMcq(mcq.content())];
+
+    const rendered = await renderBrowserReact(
+      <ScaffoldAuthoringApp
+        application={createScaffoldApplication()}
+        artifact={{
+          id: "page-navigator-lifecycle-artifact",
+          title: "Page navigator lifecycle",
+          mode: "page",
+          content,
+        }}
+        productAccess={{ scaffoldPlusAuthorized: false }}
+        services={{
+          artifactPersistence: {
+            saveArtifact: vi.fn(async () => ({ artifactRevision: "outline-test-revision" })),
+          },
+          learnerPublication: createTestLearnerPublicationPort(),
+          media: null,
+        }}
+      />,
+    );
+
+    try {
+      await expect
+        .element(page.getByRole("button", { name: "Show Document Outline" }))
+        .toBeVisible();
+      await userEvent.click(page.getByRole("button", { name: "Show Document Outline" }));
+
+      await expect.element(page.getByRole("heading", { name: "Page overview" })).toBeVisible();
+      const pageSurface = page.getByRole("button", { name: "Select Surface Page" });
+      await expect.element(pageSurface).toBeVisible();
+      await userEvent.click(pageSurface);
+      await expect.element(pageSurface).toHaveAttribute("aria-pressed", "true");
+      expect(document.querySelector('[role="tree"][aria-label="Page structure"]')).toBeNull();
+
+      await userEvent.click(page.getByRole("button", { name: "Open settings for Page" }));
+      await expect.element(page.getByRole("heading", { name: "Surface settings" })).toBeVisible();
+      await userEvent.click(page.getByRole("button", { name: "Close settings" }));
+      await expect.element(page.getByRole("heading", { name: "Page overview" })).toBeVisible();
+
+      await userEvent.click(page.getByRole("button", { name: "More actions for Page" }));
+      await userEvent.click(page.getByRole("menuitem", { name: "Rename Surface" }));
+      const surfaceName = requireElement<HTMLInputElement>('input[id^="surface-name-"]');
+      await userEvent.clear(surfaceName);
+      await userEvent.type(surfaceName, "Lesson page");
+      await userEvent.click(
+        requireElement<HTMLButtonElement>(".sc-course-surface-rename button[type=submit]"),
+      );
+      const renamedSurface = page.getByRole("button", { name: "Select Surface Lesson page" });
+      await expect.element(renamedSurface).toBeVisible();
+
+      const block = requireElement<HTMLElement>('[data-node="mcq"][data-id]');
+      block.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+      block.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+      block.click();
+
+      await expect.element(page.getByRole("tree", { name: "Lesson page structure" })).toBeVisible();
+      const back = page.getByRole("button", { name: "Back to Page overview" });
+      await userEvent.click(back);
+      await expect.element(renamedSurface).toBeVisible();
+      await expect
+        .poll(() => document.activeElement?.getAttribute("aria-label"))
+        .toBe("Select Surface Lesson page");
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
   it("keeps canonical Block and Layout chrome visible while focus remains in the Outline", async () => {
     const content = createScaffoldDocumentContent({
       mode: "page",
@@ -53,14 +129,10 @@ describe("Document Outline authoring integration", () => {
     );
 
     try {
-      await expect
-        .element(page.getByRole("button", { name: "Show Document Outline" }))
-        .toBeVisible();
-      requireElement<HTMLButtonElement>('button[aria-label="Show Document Outline"]').click();
+      await openPageStructure();
       await expect
         .element(page.getByRole("button", { name: "Back to Page overview" }))
         .toBeVisible();
-      await expect.element(page.getByRole("tree", { name: "Page structure" })).toBeVisible();
       expect(document.querySelector('button[aria-label="Add Course Section"]')).toBeNull();
 
       const blockRow = requireElement<HTMLElement>(
@@ -126,11 +198,7 @@ describe("Document Outline authoring integration", () => {
     );
 
     try {
-      await expect
-        .element(page.getByRole("button", { name: "Show Document Outline" }))
-        .toBeVisible();
-      requireElement<HTMLButtonElement>('button[aria-label="Show Document Outline"]').click();
-      await expect.element(page.getByRole("tree", { name: "Page structure" })).toBeVisible();
+      await openPageStructure();
       expect(multipleChoiceOutlineCount()).toBe(2);
 
       const blocks = document.querySelectorAll<HTMLElement>('[data-node="mcq"][data-id]');
@@ -192,11 +260,7 @@ describe("Document Outline authoring integration", () => {
     );
 
     try {
-      await expect
-        .element(page.getByRole("button", { name: "Show Document Outline" }))
-        .toBeVisible();
-      requireElement<HTMLButtonElement>('button[aria-label="Show Document Outline"]').click();
-      await expect.element(page.getByRole("tree", { name: "Page structure" })).toBeVisible();
+      await openPageStructure();
 
       requireElement<HTMLButtonElement>('button[aria-label="Collapse Paginated"]').click();
       await expect
@@ -246,8 +310,7 @@ describe("Document Outline authoring integration", () => {
     );
 
     try {
-      requireElement<HTMLButtonElement>('button[aria-label="Show Document Outline"]').click();
-      await expect.element(page.getByRole("tree", { name: "Page structure" })).toBeVisible();
+      await openPageStructure();
       const blockRow = requireElement<HTMLElement>(
         '[role="treeitem"][aria-label^="Multiple choice"]',
       );
@@ -279,13 +342,22 @@ describe("Document Outline authoring integration", () => {
           }}
         />,
       );
-      requireElement<HTMLButtonElement>('button[aria-label="Show Document Outline"]').click();
+      await openPageStructure();
       await expect.element(page.getByRole("treeitem", { name: "Knowledge check" })).toBeVisible();
     } finally {
       await rendered.unmount();
     }
   });
 });
+
+async function openPageStructure(): Promise<void> {
+  const showOutline = page.getByRole("button", { name: "Show Document Outline" });
+  await expect.element(showOutline).toBeVisible();
+  await userEvent.click(showOutline);
+  await expect.element(page.getByRole("heading", { name: "Page overview" })).toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "Show structure for Page" }));
+  await expect.element(page.getByRole("tree", { name: "Page structure" })).toBeVisible();
+}
 
 function multipleChoiceOutlineCount(): number {
   return Array.from(document.querySelectorAll<HTMLElement>('[role="treeitem"]')).filter((item) =>

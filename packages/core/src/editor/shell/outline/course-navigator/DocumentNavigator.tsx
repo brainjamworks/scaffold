@@ -124,6 +124,10 @@ export function DocumentNavigator({
       : null;
   const externallySelectedCourseSectionId =
     externallySelectedItem?.kind === "course-section" ? externallySelectedItem.id : null;
+  const externalSelectionRouteKey = externallySelectedItem
+    ? `${snapshot.selectionOrigin}:${externallySelectedItem.id}:${selectedSurfaceId ?? ""}`
+    : null;
+  const handledExternalSelectionRouteKey = useRef(externalSelectionRouteKey);
 
   const returnToOverview = useCallback(() => {
     const surfaceId = returnSurfaceId.current;
@@ -152,6 +156,9 @@ export function DocumentNavigator({
   }, [drilledSurface, view]);
 
   useEffect(() => {
+    if (handledExternalSelectionRouteKey.current === externalSelectionRouteKey) return;
+    handledExternalSelectionRouteKey.current = externalSelectionRouteKey;
+
     if (externallySelectedDescendantId && selectedSurfaceId) {
       returnSurfaceId.current = selectedSurfaceId;
       setView((current) =>
@@ -169,6 +176,7 @@ export function DocumentNavigator({
       }
     }
   }, [
+    externalSelectionRouteKey,
     externallySelectedDescendantId,
     externallySelectedCourseSectionId,
     externallySelectedOverviewId,
