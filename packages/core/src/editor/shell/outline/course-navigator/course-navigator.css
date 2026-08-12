@@ -51,10 +51,13 @@
   }
 
   .sc-course-section-group {
+    position: relative;
     min-width: 0;
   }
 
   .sc-course-section-header {
+    position: relative;
+    z-index: 1;
     display: flex;
     min-width: 0;
     min-height: 2rem;
@@ -67,8 +70,10 @@
   }
 
   .sc-course-section-title {
+    display: flex;
     min-width: 0;
     flex: 1 1 auto;
+    align-items: center;
     margin: 0;
     overflow: hidden;
     color: var(--color-text-primary);
@@ -80,20 +85,38 @@
   }
 
   .sc-course-section-toggle {
-    display: flex;
-    width: 100%;
-    min-width: 0;
-    min-height: 2rem;
+    display: grid;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: 0 0 1.75rem;
     align-items: center;
-    gap: 0.375rem;
+    place-items: center;
     border: 0;
     border-radius: var(--sc-app-radius-control);
-    padding: 0.25rem;
+    padding: 0;
+    background: transparent;
+    color: var(--sc-app-color-text-secondary);
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .sc-course-section-selection {
+    display: flex;
+    min-width: 0;
+    min-height: 2rem;
+    flex: 1 1 auto;
+    align-items: center;
+    border: 0;
+    padding: 0.25rem 0.125rem;
     background: transparent;
     color: var(--sc-app-color-text-primary);
     cursor: pointer;
     font: inherit;
     text-align: start;
+  }
+
+  .sc-course-section-selection[aria-pressed="true"] {
+    color: var(--color-primary);
   }
 
   .sc-course-section-toggle-label {
@@ -105,13 +128,7 @@
 
   .sc-course-section-toggle-icon {
     display: grid;
-    width: 1.75rem;
-    height: 1.75rem;
-    flex: 0 0 1.75rem;
     place-items: center;
-    margin-inline-start: -0.25rem;
-    border-radius: var(--sc-app-radius-control);
-    color: var(--sc-app-color-text-secondary);
   }
 
   .sc-course-section-toggle-icon svg {
@@ -124,15 +141,36 @@
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .sc-course-section-toggle:hover .sc-course-section-toggle-icon {
+    .sc-course-section-toggle:hover {
       background: var(--sc-app-color-muted);
       color: var(--sc-app-color-text-primary);
     }
+
+    .sc-course-section-selection:hover {
+      color: var(--color-primary);
+    }
   }
 
-  .sc-course-section-toggle:focus-visible {
+  .sc-course-section-toggle:focus-visible,
+  .sc-course-section-selection:focus-visible {
     outline: 2px solid var(--sc-app-color-focus-outline);
     outline-offset: 1px;
+  }
+
+  .sc-course-section-group[data-expanded="false"] > .sc-document-outline-drop-target--section {
+    position: absolute;
+    top: 0;
+    z-index: 0;
+    height: 2rem;
+    margin: 0;
+    inset-inline: 0;
+  }
+
+  .sc-course-section-group[data-expanded="false"]
+    > .sc-document-outline-drop-target--section[data-active="true"] {
+    height: 2rem;
+    border-radius: var(--sc-app-radius-control);
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   }
 
   .sc-course-section-surfaces {

@@ -1,6 +1,13 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { PlusIcon as Plus } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import type {
   SemanticDocumentController,
@@ -32,7 +39,7 @@ import "./course-navigator.css";
 
 type DocumentNavigatorController = Pick<
   SemanticDocumentController,
-  "getSnapshot" | "subscribe" | "select"
+  "getSnapshot" | "reportComponentSelection" | "subscribe" | "select"
 >;
 
 type DocumentNavigatorView =
@@ -73,16 +80,21 @@ export function DocumentNavigator({
     controller.getSnapshot,
     controller.getSnapshot,
   );
-  const [view, setView] = useState<DocumentNavigatorView>({ kind: "overview" });
-  const [collapsedSectionIds, setCollapsedSectionIds] = useState<ReadonlySet<EmbeddedNodeId>>(
-    () => new Set(),
+  const hierarchySnapshot = useSyncExternalStore(
+    viewController.subscribe,
+    viewController.getSnapshot,
+    viewController.getSnapshot,
   );
+  const [view, setView] = useState<DocumentNavigatorView>({ kind: "overview" });
   const [sectionDialog, setSectionDialog] = useState<CourseSectionDialogRequest>(null);
   const [status, setStatus] = useState("");
   const [surfaceDragProjection, setSurfaceDragProjection] =
     useState<CourseOutlineSurfaceDragProjection | null>(null);
   const surfaceControls = useRef(new Map<string, HTMLButtonElement>());
+  const sectionControlCleanups = useRef(new Map<string, () => void>());
   const sectionActionControls = useRef(new Map<string, HTMLButtonElement>());
+  const seenCourseSectionIds = useRef(new Set<EmbeddedNodeId>());
+  const locallySelectedSectionId = useRef<EmbeddedNodeId | null>(null);
   const dialogReturnControl = useRef<HTMLButtonElement | null>(null);
   const returnSurfaceId = useRef<EmbeddedNodeId | null>(null);
   const drilledSurface =
@@ -107,12 +119,28 @@ export function DocumentNavigator({
     externallySelectedItem?.kind === "surface" || externallySelectedItem?.kind === "course-section"
       ? externallySelectedItem.id
       : null;
+  const externallySelectedCourseSectionId =
+    externallySelectedItem?.kind === "course-section" ? externallySelectedItem.id : null;
 
   const returnToOverview = useCallback(() => {
     const surfaceId = returnSurfaceId.current;
     setView({ kind: "overview" });
     globalThis.queueMicrotask(() => surfaceControls.current.get(surfaceId ?? "")?.focus());
   }, []);
+
+  useLayoutEffect(() => {
+    const currentIds = new Set(
+      snapshot.semantics.roots
+        .filter((item) => item.kind === "course-section")
+        .map((item) => item.id),
+    );
+    for (const sectionId of currentIds) {
+      if (!seenCourseSectionIds.current.has(sectionId)) {
+        viewController.setExpanded(sectionId, true);
+      }
+    }
+    seenCourseSectionIds.current = currentIds;
+  }, [snapshot.semantics.roots, viewController]);
 
   useEffect(() => {
     if (view.kind === "surface-structure" && !drilledSurface) {
@@ -130,8 +158,20 @@ export function DocumentNavigator({
       );
     } else if (externallySelectedOverviewId) {
       setView((current) => (current.kind === "overview" ? current : { kind: "overview" }));
+      if (externallySelectedCourseSectionId) {
+        const selectedLocally =
+          locallySelectedSectionId.current === externallySelectedCourseSectionId;
+        locallySelectedSectionId.current = null;
+        if (!selectedLocally) viewController.setExpanded(externallySelectedCourseSectionId, true);
+      }
     }
-  }, [externallySelectedDescendantId, externallySelectedOverviewId, selectedSurfaceId]);
+  }, [
+    externallySelectedDescendantId,
+    externallySelectedCourseSectionId,
+    externallySelectedOverviewId,
+    selectedSurfaceId,
+    viewController,
+  ]);
 
   useEffect(() => {
     onNavigationChange?.(
@@ -145,6 +185,16 @@ export function DocumentNavigator({
     if (element) surfaceControls.current.set(surfaceId, element);
     else surfaceControls.current.delete(surfaceId);
   };
+  const registerSectionControl = useCallback(
+    (sectionId: EmbeddedNodeId, element: HTMLButtonElement | null) => {
+      sectionControlCleanups.current.get(sectionId)?.();
+      sectionControlCleanups.current.delete(sectionId);
+      if (element) {
+        sectionControlCleanups.current.set(sectionId, viewport.register(sectionId, element));
+      }
+    },
+    [viewport],
+  );
   const registerSectionActionControl = (sectionId: string, element: HTMLButtonElement | null) => {
     if (element) sectionActionControls.current.set(sectionId, element);
     else sectionActionControls.current.delete(sectionId);
@@ -158,6 +208,11 @@ export function DocumentNavigator({
 
   const selectSurface = (item: SemanticItem) => {
     void controller.select(item.id, { origin: "document-outline", focusEditor: false });
+  };
+
+  const selectSection = (item: SemanticItem) => {
+    locallySelectedSectionId.current = item.id;
+    controller.reportComponentSelection(item.id);
   };
 
   const finishStructureAction = (
@@ -218,11 +273,14 @@ export function DocumentNavigator({
         </div>
       ) : null}
       <CourseOverview
-        collapsedSectionIds={collapsedSectionIds}
+        expandedSectionIds={hierarchySnapshot.expandedIds}
         roots={snapshot.semantics.roots}
         surfaceDragProjection={surfaceDragProjection}
-        selectedId={selectedSurfaceId}
+        selectedId={snapshot.selectedId}
+        selectedSurfaceId={selectedSurfaceId}
+        registerSectionControl={registerSectionControl}
         registerSurfaceControl={registerSurfaceControl}
+        onSelectSection={selectSection}
         onSelectSurface={selectSurface}
         onShowSurfaceStructure={(item) => {
           returnSurfaceId.current = item.id;
@@ -237,14 +295,9 @@ export function DocumentNavigator({
           )
         }
         movementAvailable={Boolean(structureAuthoring)}
-        onSectionExpandedChange={(sectionId, expanded) => {
-          setCollapsedSectionIds((current) => {
-            const next = new Set(current);
-            if (expanded) next.delete(sectionId);
-            else next.add(sectionId);
-            return next;
-          });
-        }}
+        onSectionExpandedChange={(sectionId, expanded) =>
+          viewController.setExpanded(sectionId, expanded)
+        }
         onRenameSection={(item) => {
           dialogReturnControl.current = sectionActionControls.current.get(item.id) ?? null;
           setSectionDialog({ kind: "rename", item });

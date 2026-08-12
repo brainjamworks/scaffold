@@ -41,17 +41,128 @@ describe("DocumentNavigator", () => {
       />,
     );
 
-    const disclosure = screen.getByRole("button", { name: "Section 1" });
+    const disclosure = screen.getByRole("button", { name: "Collapse Section 1" });
     expect(disclosure).toHaveAttribute("aria-expanded", "true");
+    expect(viewController.getSnapshot().expandedIds.has(section.id)).toBe(true);
     expect(screen.getByRole("button", { name: "Select Surface Introduction" })).toBeVisible();
 
     await user.click(disclosure);
     expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    expect(viewController.getSnapshot().expandedIds.has(section.id)).toBe(false);
     expect(screen.queryByRole("button", { name: "Select Surface Introduction" })).toBeNull();
 
-    await user.click(disclosure);
+    await user.click(screen.getByRole("button", { name: "Expand Section 1" }));
     expect(disclosure).toHaveAttribute("aria-expanded", "true");
+    expect(viewController.getSnapshot().expandedIds.has(section.id)).toBe(true);
     expect(screen.getByRole("button", { name: "Select Surface Introduction" })).toBeVisible();
+  });
+
+  it("selects an empty Course Section without changing its disclosure state", async () => {
+    const user = userEvent.setup();
+    const section = item("section-1", "course-section", "Empty Section");
+    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const viewport = new DocumentOutlineRowViewport();
+    const viewController = new SemanticHierarchyViewController({
+      controller,
+      origin: "document-outline",
+      viewport,
+    });
+
+    render(
+      <DocumentNavigator
+        controller={controller}
+        viewController={viewController}
+        viewport={viewport}
+      />,
+    );
+
+    const disclosure = screen.getByRole("button", { name: "Collapse Empty Section" });
+    await user.click(disclosure);
+    await user.click(screen.getByRole("button", { name: "Select Course Section Empty Section" }));
+
+    expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.getByRole("button", { name: "Select Course Section Empty Section" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(controller.componentSelectionCalls).toEqual([section.id]);
+    expect(controller.selectCalls).toEqual([]);
+  });
+
+  it("returns to Overview, expands, and reveals an externally selected Course Section", async () => {
+    const user = userEvent.setup();
+    const heading = item("heading", "rich-text", "Heading");
+    const surface = item("surface-1", "surface", "Introduction", [heading]);
+    const section = item("section-1", "course-section", "Section 1", [surface]);
+    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const viewport = new DocumentOutlineRowViewport();
+    const viewController = new SemanticHierarchyViewController({
+      controller,
+      origin: "document-outline",
+      viewport,
+    });
+
+    render(
+      <DocumentNavigatorHarness
+        controller={controller}
+        viewController={viewController}
+        viewport={viewport}
+      />,
+    );
+
+    act(() => controller.selectFromEditor(heading.id));
+    expect(await screen.findByRole("tree", { name: "Introduction structure" })).toBeVisible();
+
+    act(() => viewController.setExpanded(section.id, false));
+    expect(viewController.getSnapshot().expandedIds.has(section.id)).toBe(false);
+    scrollIntoView.mockClear();
+
+    act(() => controller.selectFromComponent(section.id));
+
+    const disclosure = await screen.findByRole("button", { name: "Collapse Section 1" });
+    expect(disclosure).toHaveAttribute("aria-expanded", "true");
+    expect(viewController.getSnapshot().expandedIds.has(section.id)).toBe(true);
+    expect(screen.getByRole("button", { name: "Select Course Section Section 1" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+    expect(controller.selectCalls).toEqual([]);
+
+    await user.click(disclosure);
+    expect(disclosure).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("keeps a collapsed Course Section available as a Surface drop destination", async () => {
+    const user = userEvent.setup();
+    const section = item("section-1", "course-section", "Empty Section");
+    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const viewport = new DocumentOutlineRowViewport();
+    const viewController = new SemanticHierarchyViewController({
+      controller,
+      origin: "document-outline",
+      viewport,
+    });
+    const structureAuthoring = {
+      createCourseSection: vi.fn(() => ({ ok: true as const })),
+      canMoveSurface: vi.fn(() => true),
+      renameCourseSection: vi.fn(() => ({ ok: true as const })),
+      duplicateCourseSection: vi.fn(() => ({ ok: true as const })),
+      deleteCourseSection: vi.fn(() => ({ ok: true as const })),
+      moveSurface: vi.fn(() => ({ ok: true as const })),
+    };
+
+    render(
+      <DocumentNavigator
+        controller={controller}
+        structureAuthoring={structureAuthoring}
+        viewController={viewController}
+        viewport={viewport}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Collapse Empty Section" }));
+
+    expect(document.querySelector(`[data-destination="section:${section.id}:end"]`)).not.toBeNull();
   });
 
   it("routes an external descendant selection into its owning Surface Structure", async () => {
@@ -364,6 +475,7 @@ function snapshotFromRoots(roots: readonly SemanticItem[]): SemanticDocumentSnap
 
 class FakeSemanticDocumentController {
   readonly selectCalls: Array<{ id: EmbeddedNodeId; options: SemanticNavigationOptions }> = [];
+  readonly componentSelectionCalls: EmbeddedNodeId[] = [];
   readonly #listeners = new Set<() => void>();
   #snapshot: SemanticDocumentControllerSnapshot;
 
@@ -391,6 +503,11 @@ class FakeSemanticDocumentController {
   replaceSemantics(semantics: SemanticDocumentSnapshot) {
     this.#snapshot = { ...this.#snapshot, semantics };
     for (const listener of this.#listeners) listener();
+  }
+
+  reportComponentSelection(itemId: EmbeddedNodeId) {
+    this.componentSelectionCalls.push(itemId);
+    this.selectFromComponent(itemId);
   }
 
   async select(itemId: EmbeddedNodeId, options: SemanticNavigationOptions) {

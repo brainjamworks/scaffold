@@ -14,8 +14,11 @@ export function CourseSectionGroup({
   expanded,
   item,
   surfaceDragProjection,
-  selectedId,
+  selected,
+  selectedSurfaceId,
+  registerSelectionControl,
   registerSurfaceControl,
+  onSelect,
   onSelectSurface,
   onShowSurfaceStructure,
   canDragSurface,
@@ -33,8 +36,11 @@ export function CourseSectionGroup({
   readonly expanded: boolean;
   readonly item: SemanticItem;
   readonly surfaceDragProjection: CourseOutlineSurfaceDragProjection | null;
-  readonly selectedId: string | null;
+  readonly selected: boolean;
+  readonly selectedSurfaceId: string | null;
+  readonly registerSelectionControl: (element: HTMLButtonElement | null) => void;
   readonly registerSurfaceControl: (surfaceId: string, element: HTMLButtonElement | null) => void;
+  readonly onSelect: (item: SemanticItem) => void;
   readonly onSelectSurface: (item: SemanticItem) => void;
   readonly onShowSurfaceStructure: (item: SemanticItem) => void;
   readonly canDragSurface: (item: SemanticItem) => boolean;
@@ -87,17 +93,15 @@ export function CourseSectionGroup({
     </div>
   ) : null;
   return (
-    <section
-      aria-labelledby={sectionLabelId}
-      className="sc-course-section-group"
-      data-expanded={expanded}
-    >
+    <section aria-label={item.label} className="sc-course-section-group" data-expanded={expanded}>
       <header
         className="sc-course-section-header"
         data-course-outline-motion-id={`section-header:${item.id}`}
+        data-selected={selected}
       >
-        <h3 id={sectionLabelId} className="sc-course-section-title">
+        <h3 aria-label={item.label} className="sc-course-section-title">
           <button
+            aria-label={`${expanded ? "Collapse" : "Expand"} ${item.label}`}
             aria-controls={sectionSurfacesId}
             aria-expanded={expanded}
             className="sc-course-section-toggle"
@@ -107,6 +111,15 @@ export function CourseSectionGroup({
             <span aria-hidden="true" className="sc-course-section-toggle-icon">
               <CaretRight size={iconXs} weight="bold" />
             </span>
+          </button>
+          <button
+            ref={registerSelectionControl}
+            aria-label={`Select Course Section ${item.label}`}
+            aria-pressed={selected}
+            className="sc-course-section-selection"
+            type="button"
+            onClick={() => onSelect(item)}
+          >
             <span className="sc-course-section-toggle-label">{item.label}</span>
           </button>
         </h3>
@@ -119,6 +132,13 @@ export function CourseSectionGroup({
           onEditSectionTitle={onRenameSection}
         />
       </header>
+      {movementAvailable && !expanded ? (
+        <CourseOutlineSurfaceDropTarget
+          destination={{ intoCourseSectionId: item.id, edge: "end" }}
+          label={`Move into ${item.label}`}
+          targetId={`card-section-collapsed:${item.id}`}
+        />
+      ) : null}
       {expanded ? (
         <div
           id={sectionSurfacesId}
@@ -156,7 +176,7 @@ export function CourseSectionGroup({
                 <SurfaceCard
                   draggable={canDragSurface(surface)}
                   item={surface}
-                  selected={surface.id === selectedId}
+                  selected={surface.id === selectedSurfaceId}
                   registerSelectionControl={(element) =>
                     registerSurfaceControl(surface.id, element)
                   }

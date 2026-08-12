@@ -6,11 +6,14 @@ import type { CourseOutlineSurfaceDragProjection } from "../CourseOutlineSurface
 import { CourseSectionGroup } from "./CourseSectionGroup";
 
 export function CourseOverview({
-  collapsedSectionIds,
+  expandedSectionIds,
   roots,
   surfaceDragProjection,
   selectedId,
+  selectedSurfaceId,
+  registerSectionControl,
   registerSurfaceControl,
+  onSelectSection,
   onSelectSurface,
   onShowSurfaceStructure,
   canDragSurface,
@@ -25,11 +28,17 @@ export function CourseOverview({
   onSurfaceSettings,
   registerSectionActionControl,
 }: {
-  readonly collapsedSectionIds: ReadonlySet<EmbeddedNodeId>;
+  readonly expandedSectionIds: ReadonlySet<EmbeddedNodeId>;
   readonly roots: readonly SemanticItem[];
   readonly surfaceDragProjection: CourseOutlineSurfaceDragProjection | null;
   readonly selectedId: string | null;
+  readonly selectedSurfaceId: string | null;
+  readonly registerSectionControl: (
+    sectionId: EmbeddedNodeId,
+    element: HTMLButtonElement | null,
+  ) => void;
   readonly registerSurfaceControl: (surfaceId: string, element: HTMLButtonElement | null) => void;
+  readonly onSelectSection: (item: SemanticItem) => void;
   readonly onSelectSurface: (item: SemanticItem) => void;
   readonly onShowSurfaceStructure: (item: SemanticItem) => void;
   readonly canDragSurface: (item: SemanticItem) => boolean;
@@ -56,11 +65,14 @@ export function CourseOverview({
         .map((section) => (
           <CourseSectionGroup
             key={section.id}
-            expanded={!collapsedSectionIds.has(section.id)}
+            expanded={expandedSectionIds.has(section.id)}
             item={section}
             surfaceDragProjection={surfaceDragProjection}
-            selectedId={selectedId}
+            selected={section.id === selectedId}
+            selectedSurfaceId={selectedSurfaceId}
+            registerSelectionControl={(element) => registerSectionControl(section.id, element)}
             registerSurfaceControl={registerSurfaceControl}
+            onSelect={onSelectSection}
             onSelectSurface={onSelectSurface}
             onShowSurfaceStructure={onShowSurfaceStructure}
             canDragSurface={canDragSurface}

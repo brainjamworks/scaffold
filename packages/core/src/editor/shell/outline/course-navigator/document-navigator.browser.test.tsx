@@ -33,6 +33,11 @@ describe("Document Navigator", () => {
 
     try {
       await expect.element(page.getByRole("heading", { name: "Section 1" })).toBeVisible();
+      await userEvent.click(page.getByRole("button", { name: "Select Course Section Section 1" }));
+      await expect
+        .element(page.getByRole("button", { name: "Select Course Section Section 1" }))
+        .toHaveAttribute("aria-pressed", "true");
+      expect(controller.selectCalls).toEqual([]);
       await userEvent.click(page.getByRole("button", { name: "Select Surface Introduction" }));
       expect(controller.selectCalls.at(-1)?.id).toBe(surface.id);
       await userEvent.click(page.getByRole("button", { name: "Show structure for Introduction" }));
@@ -128,6 +133,11 @@ class FakeSemanticDocumentController {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
   };
+
+  reportComponentSelection(itemId: EmbeddedNodeId) {
+    this.#snapshot = { ...this.#snapshot, selectedId: itemId, selectionOrigin: "component" };
+    for (const listener of this.#listeners) listener();
+  }
 
   async select(itemId: EmbeddedNodeId, options: SemanticNavigationOptions) {
     this.selectCalls.push({ id: itemId, options });
