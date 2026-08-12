@@ -377,6 +377,17 @@ describe("Course Outline Surface movement", () => {
 
       expect(visibleGenericCues).toEqual([]);
       expect(activeDestination()).not.toBe("before:surface00002");
+      fireEvent.pointerUp(document, {
+        buttons: 0,
+        clientX: noOpPoint.x,
+        clientY: noOpPoint.y,
+        isPrimary: true,
+        pointerId: 1,
+        pointerType: "mouse",
+      });
+      await expect
+        .poll(() => Boolean(document.querySelector("[data-interaction-drag-overlay]")))
+        .toBe(false);
     } finally {
       cueObserver?.disconnect();
       await rendered.unmount();
