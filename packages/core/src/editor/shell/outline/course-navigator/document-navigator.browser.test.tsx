@@ -9,9 +9,9 @@ import type { SemanticDocumentControllerSnapshot } from "@/document/authoring/se
 import type { SemanticNavigationOptions } from "@/document/authoring/semantic-document/semantic-navigation";
 import type { SemanticDocumentSnapshot, SemanticItem } from "@/document/model/semantic-document";
 import { DocumentOutlineRowViewport } from "../SemanticSubtreeOutline";
-import { CourseNavigator, type CourseNavigatorNavigation } from "./CourseNavigator";
+import { DocumentNavigator, type DocumentNavigatorNavigation } from "./DocumentNavigator";
 
-describe("Course Navigator", () => {
+describe("Document Navigator", () => {
   it("moves between the Surface overview and one Surface structure", async () => {
     const heading = item("heading", "rich-text", "Heading");
     const surface = item("surface", "surface", "Introduction", [heading]);
@@ -24,7 +24,7 @@ describe("Course Navigator", () => {
       viewport,
     });
     const rendered = await renderBrowserReact(
-      <CourseNavigatorHarness
+      <DocumentNavigatorHarness
         controller={controller}
         viewController={viewController}
         viewport={viewport}
@@ -52,8 +52,8 @@ describe("Course Navigator", () => {
   });
 });
 
-function CourseNavigatorHarness(props: ComponentProps<typeof CourseNavigator>) {
-  const [navigation, setNavigation] = useState<CourseNavigatorNavigation>({ kind: "overview" });
+function DocumentNavigatorHarness(props: ComponentProps<typeof DocumentNavigator>) {
+  const [navigation, setNavigation] = useState<DocumentNavigatorNavigation>({ kind: "overview" });
 
   return (
     <>
@@ -66,7 +66,7 @@ function CourseNavigatorHarness(props: ComponentProps<typeof CourseNavigator>) {
           Course overview
         </button>
       ) : null}
-      <CourseNavigator {...props} onNavigationChange={setNavigation} />
+      <DocumentNavigator {...props} onNavigationChange={setNavigation} />
     </>
   );
 }

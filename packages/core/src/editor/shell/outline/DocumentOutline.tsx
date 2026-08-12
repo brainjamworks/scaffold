@@ -1,14 +1,18 @@
 import { SemanticSubtreeOutline, type SemanticSubtreeOutlineProps } from "./SemanticSubtreeOutline";
 import { useSyncExternalStore } from "react";
 import {
-  CourseNavigator,
-  type CourseNavigatorNavigation,
-  type CourseNavigatorSurfaceActionPort,
-} from "./course-navigator/CourseNavigator";
+  DocumentNavigator,
+  type DocumentNavigatorNavigation,
+  type DocumentNavigatorSurfaceActionPort,
+} from "./course-navigator/DocumentNavigator";
+import type { CourseOutlineStructureAuthoringPort } from "./course-outline-structure-authoring";
+import type { OverlayBoundaryResolution } from "@/ui/overlays/portal-host-context";
 
 export interface DocumentOutlineProps extends SemanticSubtreeOutlineProps {
-  readonly surfaceActions?: CourseNavigatorSurfaceActionPort;
-  readonly onCourseNavigatorNavigationChange?: (navigation: CourseNavigatorNavigation) => void;
+  readonly sectionDialogOverlayBoundary?: OverlayBoundaryResolution;
+  readonly structureAuthoring?: CourseOutlineStructureAuthoringPort;
+  readonly surfaceActions?: DocumentNavigatorSurfaceActionPort;
+  readonly onDocumentNavigatorNavigationChange?: (navigation: DocumentNavigatorNavigation) => void;
 }
 export type { DocumentOutlineAuthoringPort } from "./SemanticSubtreeOutline";
 export { DocumentOutlineRowViewport } from "./SemanticSubtreeOutline";
@@ -21,15 +25,17 @@ export function DocumentOutline(props: DocumentOutlineProps) {
   );
   if (snapshot.semantics.mode === "slideshow") {
     return (
-      <CourseNavigator
-        {...(props.onCourseNavigatorNavigationChange
-          ? { onNavigationChange: props.onCourseNavigatorNavigationChange }
+      <DocumentNavigator
+        {...(props.onDocumentNavigatorNavigationChange
+          ? { onNavigationChange: props.onDocumentNavigatorNavigationChange }
           : {})}
-        authoring={props.authoring}
+        {...(props.authoring ? { authoring: props.authoring } : {})}
+        {...(props.sectionDialogOverlayBoundary
+          ? { sectionDialogOverlayBoundary: props.sectionDialogOverlayBoundary }
+          : {})}
+        {...(props.structureAuthoring ? { structureAuthoring: props.structureAuthoring } : {})}
+        {...(props.surfaceActions ? { surfaceActions: props.surfaceActions } : {})}
         controller={props.controller}
-        sectionDialogOverlayBoundary={props.sectionDialogOverlayBoundary}
-        structureAuthoring={props.structureAuthoring}
-        surfaceActions={props.surfaceActions}
         viewController={props.viewController}
         viewport={props.viewport}
       />

@@ -27,29 +27,29 @@ import {
 } from "../CourseOutlineSurfaceDragSession";
 import { deriveCourseOutlineSurfaceDropTargets } from "../course-outline-surface-drop-targets";
 import { CourseOverview } from "./CourseOverview";
-import { SurfaceStructureView } from "./SurfaceStructureView";
+import { SurfaceStructure } from "./SurfaceStructure";
 import "./course-navigator.css";
 
-type CourseNavigatorController = Pick<
+type DocumentNavigatorController = Pick<
   SemanticDocumentController,
   "getSnapshot" | "subscribe" | "select"
 >;
 
-type CourseNavigatorView =
+type DocumentNavigatorView =
   | { readonly kind: "overview" }
   | { readonly kind: "surface-structure"; readonly surfaceId: EmbeddedNodeId };
 
-export type CourseNavigatorNavigation =
+export type DocumentNavigatorNavigation =
   | { readonly kind: "overview" }
   | { readonly kind: "surface-structure"; readonly returnToOverview: () => void };
 
-export interface CourseNavigatorSurfaceActionPort {
+export interface DocumentNavigatorSurfaceActionPort {
   openSettings(surfaceId: SurfaceId): boolean;
   duplicateSurface(surfaceId: SurfaceId): boolean;
   deleteSurface(surfaceId: SurfaceId): boolean;
 }
 
-export function CourseNavigator({
+export function DocumentNavigator({
   authoring,
   controller,
   viewController,
@@ -60,20 +60,20 @@ export function CourseNavigator({
   onNavigationChange,
 }: {
   readonly authoring?: DocumentOutlineAuthoringPort;
-  readonly controller: CourseNavigatorController;
+  readonly controller: DocumentNavigatorController;
   readonly viewController: SemanticHierarchyViewController;
   readonly viewport: DocumentOutlineRowViewport;
   readonly sectionDialogOverlayBoundary?: OverlayBoundaryResolution;
   readonly structureAuthoring?: CourseOutlineStructureAuthoringPort;
-  readonly surfaceActions?: CourseNavigatorSurfaceActionPort;
-  readonly onNavigationChange?: (navigation: CourseNavigatorNavigation) => void;
+  readonly surfaceActions?: DocumentNavigatorSurfaceActionPort;
+  readonly onNavigationChange?: (navigation: DocumentNavigatorNavigation) => void;
 }) {
   const snapshot = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
     controller.getSnapshot,
   );
-  const [view, setView] = useState<CourseNavigatorView>({ kind: "overview" });
+  const [view, setView] = useState<DocumentNavigatorView>({ kind: "overview" });
   const [collapsedSectionIds, setCollapsedSectionIds] = useState<ReadonlySet<EmbeddedNodeId>>(
     () => new Set(),
   );
@@ -152,7 +152,7 @@ export function CourseNavigator({
 
   if (view.kind === "surface-structure" && drilledSurface) {
     return (
-      <SurfaceStructureView
+      <SurfaceStructure
         {...(authoring ? { authoring } : {})}
         controller={controller}
         item={drilledSurface}

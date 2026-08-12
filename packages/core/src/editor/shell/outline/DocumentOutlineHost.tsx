@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } fr
 import { SemanticHierarchyViewController } from "@/document/authoring/semantic-document/semantic-hierarchy-view-controller";
 import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document/semantic-document-storage";
 import { setSemanticLabelChecked } from "@/document/model/commands/semantic-label";
+import type { SurfaceId } from "@/document/model/course-structure";
 import { readAuthoredSemanticLabel } from "@/document/model/semantic-document/semantic-labels";
 import {
   registerAuthoringInteractionHost,
@@ -32,9 +33,9 @@ import {
 } from "./DocumentOutline";
 import { createCourseOutlineStructureAuthoringPort } from "./course-outline-structure-authoring";
 import type {
-  CourseNavigatorNavigation,
-  CourseNavigatorSurfaceActionPort,
-} from "./course-navigator/CourseNavigator";
+  DocumentNavigatorNavigation,
+  DocumentNavigatorSurfaceActionPort,
+} from "./course-navigator/DocumentNavigator";
 
 export interface DocumentOutlineHostProps {
   readonly editor: Editor;
@@ -54,7 +55,7 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
     () => createCourseOutlineStructureAuthoringPort(editor),
     [editor],
   );
-  const surfaceActions = useMemo(() => createCourseNavigatorSurfaceActionPort(editor), [editor]);
+  const surfaceActions = useMemo(() => createDocumentNavigatorSurfaceActionPort(editor), [editor]);
   const viewport = useMemo(() => new DocumentOutlineRowViewport(), []);
   const [host, setHost] = useState<HTMLElement | null>(null);
   const [dragRoot, setDragRoot] = useState<HTMLDivElement | null>(null);
@@ -71,9 +72,9 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
   const [viewController, setViewController] = useState<SemanticHierarchyViewController | null>(
     null,
   );
-  const [courseNavigatorNavigation, setCourseNavigatorNavigation] =
-    useState<CourseNavigatorNavigation>({ kind: "overview" });
-  const usesCourseNavigator = semanticSnapshot.semantics.mode === "slideshow";
+  const [documentNavigatorNavigation, setDocumentNavigatorNavigation] =
+    useState<DocumentNavigatorNavigation>({ kind: "overview" });
+  const usesDocumentNavigator = semanticSnapshot.semantics.mode === "slideshow";
 
   useEffect(() => {
     const next = new SemanticHierarchyViewController({
@@ -104,21 +105,21 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
       data-testid="authoring-outline-dock"
     >
       <header className="sc-authoring-outline-dock-header">
-        {usesCourseNavigator && courseNavigatorNavigation.kind === "surface-structure" ? (
+        {usesDocumentNavigator && documentNavigatorNavigation.kind === "surface-structure" ? (
           <Button
             aria-label="Back to Course overview"
             className="sc-authoring-outline-dock-back"
             size="sm"
             type="button"
             variant="ghost"
-            onClick={courseNavigatorNavigation.returnToOverview}
+            onClick={documentNavigatorNavigation.returnToOverview}
           >
             <ArrowLeft aria-hidden size={iconSm} />
             Course overview
           </Button>
         ) : (
           <h2 className="sc-authoring-outline-dock-title">
-            {usesCourseNavigator ? "Course overview" : "Course Outline"}
+            {usesDocumentNavigator ? "Course overview" : "Course Outline"}
           </h2>
         )}
         <IconButton
@@ -136,14 +137,12 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
           <OutlineDragEnvironment coordinateRoot={dragRoot} coordinateSpace={coordinateSpace}>
             {viewController ? (
               <DocumentOutline
-                sectionDialogOverlayBoundary={
-                  applicationOverlayBoundary.status === "unscoped"
-                    ? undefined
-                    : applicationOverlayBoundary
-                }
+                {...(applicationOverlayBoundary.status === "unscoped"
+                  ? {}
+                  : { sectionDialogOverlayBoundary: applicationOverlayBoundary })}
                 authoring={authoring}
                 controller={controller}
-                onCourseNavigatorNavigationChange={setCourseNavigatorNavigation}
+                onDocumentNavigatorNavigationChange={setDocumentNavigatorNavigation}
                 structureAuthoring={structureAuthoring}
                 surfaceActions={surfaceActions}
                 viewController={viewController}
@@ -157,20 +156,20 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
   );
 }
 
-export function createCourseNavigatorSurfaceActionPort(
+export function createDocumentNavigatorSurfaceActionPort(
   editor: Editor,
-): CourseNavigatorSurfaceActionPort {
+): DocumentNavigatorSurfaceActionPort {
   return Object.freeze({
-    openSettings(surfaceId) {
+    openSettings(surfaceId: SurfaceId) {
       if (editor.isDestroyed) return false;
       return getInteractionFacadeStoreForEditor(editor)
         .getState()
         .commands.openSettings({ kind: InteractionTargetKind.Surface, id: surfaceId });
     },
-    duplicateSurface(surfaceId) {
+    duplicateSurface(surfaceId: SurfaceId) {
       return !editor.isDestroyed && duplicateSurface(editor, surfaceId);
     },
-    deleteSurface(surfaceId) {
+    deleteSurface(surfaceId: SurfaceId) {
       return !editor.isDestroyed && deleteSurface(editor, surfaceId);
     },
   });

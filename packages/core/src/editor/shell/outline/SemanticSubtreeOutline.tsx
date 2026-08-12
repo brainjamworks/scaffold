@@ -16,19 +16,8 @@ import type {
 import type { SemanticNavigationResult } from "@/document/authoring/semantic-document/semantic-navigation";
 import type { SemanticDocumentSnapshot, SemanticItem } from "@/document/model/semantic-document";
 import { iconSm } from "@/ui/tokens/icon-sizes";
-import type { OverlayBoundaryResolution } from "@/ui/overlays/portal-host-context";
 
 import { DocumentOutlineRow } from "./DocumentOutlineRow";
-import {
-  DocumentOutlineSectionDialogs,
-  type CourseSectionDialogRequest,
-} from "./DocumentOutlineSectionDialogs";
-import type { CourseOutlineStructureAuthoringPort } from "./course-outline-structure-authoring";
-import {
-  CourseOutlineSurfaceDragSession,
-  CourseOutlineSurfaceDropTarget,
-} from "./CourseOutlineSurfaceDragSession";
-import { deriveCourseOutlineSurfaceDropTargets } from "./course-outline-surface-drop-targets";
 import "./document-outline.css";
 
 type SemanticSubtreeOutlineController = Pick<
@@ -41,8 +30,6 @@ export interface SemanticSubtreeOutlineProps {
   readonly authoring?: DocumentOutlineAuthoringPort;
   readonly controller: SemanticSubtreeOutlineController;
   readonly selectRoots?: (snapshot: SemanticDocumentSnapshot) => readonly SemanticItem[];
-  readonly sectionDialogOverlayBoundary?: OverlayBoundaryResolution;
-  readonly structureAuthoring?: CourseOutlineStructureAuthoringPort;
   readonly viewController: SemanticHierarchyViewController;
   readonly viewport: DocumentOutlineRowViewport;
 }
@@ -115,8 +102,6 @@ export function SemanticSubtreeOutline({
   authoring,
   controller,
   selectRoots = selectAllRoots,
-  sectionDialogOverlayBoundary,
-  structureAuthoring,
   viewController,
   viewport,
 }: SemanticSubtreeOutlineProps) {
@@ -131,8 +116,6 @@ export function SemanticSubtreeOutline({
     viewController.getSnapshot,
   );
   const roots = selectRoots(controllerSnapshot.semantics);
-  const courseStructureAuthoring =
-    controllerSnapshot.semantics.mode === "slideshow" ? structureAuthoring : undefined;
   const initialCourseSectionIds = roots
     .filter((item) => item.kind === "course-section")
     .map((item) => item.id);
@@ -144,10 +127,7 @@ export function SemanticSubtreeOutline({
     () => new Set([...viewSnapshot.expandedIds, ...autoExpandedIds]),
     [viewSnapshot.expandedIds, autoExpandedIds],
   );
-  const visibleItems = useMemo(
-    () => flattenVisibleItems(roots, expandedIds),
-    [roots, expandedIds],
-  );
+  const visibleItems = useMemo(() => flattenVisibleItems(roots, expandedIds), [roots, expandedIds]);
   const visibleIds = useMemo(
     () => new Set(visibleItems.map(({ item }) => item.id)),
     [visibleItems],
@@ -160,15 +140,11 @@ export function SemanticSubtreeOutline({
   const [editingId, setEditingId] = useState<EmbeddedNodeId | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [navigationMessage, setNavigationMessage] = useState("");
-  const [sectionDialog, setSectionDialog] = useState<CourseSectionDialogRequest>(null);
-  const actionReturnId = useRef<EmbeddedNodeId | null>(null);
   const currentFocusedId = focusedId && visibleIds.has(focusedId) ? focusedId : defaultFocusedId;
 
   useEffect(() => {
     const currentIds = new Set(
-      roots
-        .filter((item) => item.kind === "course-section")
-        .map((item) => item.id),
+      roots.filter((item) => item.kind === "course-section").map((item) => item.id),
     );
     const newlySeen = [...currentIds].filter((id) => !seenCourseSectionIds.current.has(id));
     seenCourseSectionIds.current = currentIds;
@@ -223,21 +199,6 @@ export function SemanticSubtreeOutline({
     globalThis.queueMicrotask(() => viewport.focus(item.id));
   }
 
-  function finishStructureAction(
-    result: { readonly ok: true } | { readonly ok: false; readonly message: string },
-    successMessage: string,
-  ): void {
-    setNavigationMessage(result.ok ? successMessage : result.message);
-  }
-
-  function restoreActionFocus(): void {
-    const id = actionReturnId.current;
-    setSectionDialog(null);
-    if (!id) return;
-    setFocusedId(id);
-    globalThis.queueMicrotask(() => viewport.focus(id));
-  }
-
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>, item: SemanticItem): void {
     const index = visibleItems.findIndex(({ item: visible }) => visible.id === item.id);
     if (index < 0) return;
@@ -280,7 +241,7 @@ export function SemanticSubtreeOutline({
     );
   }
 
-  const outline = (
+  return (
     <div className="sc-document-outline-content">
       {controllerSnapshot.semantics.diagnostics.length > 0 ? (
         <div className="sc-document-outline-diagnostic">
@@ -292,18 +253,6 @@ export function SemanticSubtreeOutline({
           </span>
         </div>
       ) : null}
-      {courseStructureAuthoring ? (
-        <button
-          className="sc-document-outline-add-section"
-          type="button"
-          onClick={() => {
-            actionReturnId.current = currentFocusedId;
-            setSectionDialog({ kind: "create" });
-          }}
-        >
-          Add Course Section
-        </button>
-      ) : null}
       <ul aria-label={ariaLabel} className="sc-document-outline-tree" role="tree">
         {renderItems(roots, 1)}
       </ul>
@@ -313,29 +262,12 @@ export function SemanticSubtreeOutline({
       >
         {navigationMessage}
       </p>
-      {courseStructureAuthoring ? (
-        <DocumentOutlineSectionDialogs
-          overlayBoundary={sectionDialogOverlayBoundary}
-          port={courseStructureAuthoring}
-          request={sectionDialog}
-          onClose={restoreActionFocus}
-          onResult={finishStructureAction}
-        />
-      ) : null}
     </div>
-  );
-  return courseStructureAuthoring ? (
-    <CourseOutlineSurfaceDragSession port={courseStructureAuthoring} onResult={finishStructureAction}>
-      {outline}
-    </CourseOutlineSurfaceDragSession>
-  ) : (
-    outline
   );
 
   function renderItems(items: readonly SemanticItem[], level: number): React.ReactNode {
     return items.map((item) => {
       const expanded = expandedIds.has(item.id);
-      const sectionDrop = sectionDropFor(item);
       return (
         <li key={item.id} role="none">
           <DocumentOutlineRow
@@ -346,50 +278,7 @@ export function SemanticSubtreeOutline({
             item={item}
             level={level}
             renameAvailable={Boolean(authoring)}
-            rowActions={
-              courseStructureAuthoring &&
-              item.kind === "course-section"
-                ? {
-                    item,
-                    onEditSectionTitle: (selectedItem) => {
-                      actionReturnId.current = selectedItem.id;
-                      setSectionDialog({ kind: "rename", item: selectedItem });
-                    },
-                    onDuplicateSection: (selectedItem) => {
-                      actionReturnId.current = selectedItem.id;
-                      finishStructureAction(
-                        courseStructureAuthoring.duplicateCourseSection(selectedItem.id),
-                        "Course Section duplicated.",
-                      );
-                      globalThis.queueMicrotask(() => viewport.focus(selectedItem.id));
-                    },
-                    onDeleteSection: (selectedItem) => {
-                      actionReturnId.current = selectedItem.id;
-                      const surfaces = selectedItem.children.filter(
-                        (child) => child.kind === "surface",
-                      );
-                      if (surfaces.length === 0) {
-                        finishStructureAction(
-                          courseStructureAuthoring.deleteCourseSection({
-                            courseSectionId: selectedItem.id,
-                            expectedSurfaceIds: [],
-                          }),
-                          "Empty Course Section deleted.",
-                        );
-                        return;
-                      }
-                      setSectionDialog({
-                        kind: "delete",
-                        item: selectedItem,
-                        surfaceIds: surfaces.map((surface) => surface.id),
-                        surfaceLabels: surfaces.map((surface) => surface.label),
-                      });
-                    },
-                  }
-                : undefined
-            }
             selected={item.id === viewSnapshot.selectedId}
-            surfaceDrag={surfaceDragFor(item)}
             viewport={viewport}
             onActivate={(selectedItem) => void activate(selectedItem)}
             onCancelRename={(selectedItem) => finishRename(selectedItem, false)}
@@ -412,39 +301,9 @@ export function SemanticSubtreeOutline({
           {expanded && item.children.length > 0 ? (
             <ul role="group">{renderItems(item.children, level + 1)}</ul>
           ) : null}
-          {sectionDrop ? (
-            <CourseOutlineSurfaceDropTarget
-              destination={sectionDrop.destination}
-              label={item.label}
-              level={level + 1}
-              targetId={`section:${item.id}`}
-            />
-          ) : null}
         </li>
       );
     });
-  }
-
-  function surfaceDragFor(item: SemanticItem) {
-    if (!courseStructureAuthoring || item.kind !== "surface") return undefined;
-    const targets = deriveCourseOutlineSurfaceDropTargets(
-      controllerSnapshot.semantics.roots,
-      item.id,
-    ).filter(({ destination }) => courseStructureAuthoring.canMoveSurface(item.id, destination));
-    return {
-      handle: targets.length > 0,
-      destinations: [
-        { beforeSurfaceId: item.id },
-        { afterSurfaceId: item.id },
-      ],
-    };
-  }
-
-  function sectionDropFor(item: SemanticItem) {
-    if (!courseStructureAuthoring || item.kind !== "course-section") return undefined;
-    return {
-      destination: { intoCourseSectionId: item.id, edge: "end" as const },
-    };
   }
 }
 

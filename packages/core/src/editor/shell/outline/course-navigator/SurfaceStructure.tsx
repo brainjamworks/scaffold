@@ -10,7 +10,7 @@ import {
 
 const EMPTY_ITEMS: readonly SemanticItem[] = [];
 
-export function SurfaceStructureView({
+export function SurfaceStructure({
   authoring,
   controller,
   item,
@@ -32,7 +32,7 @@ export function SurfaceStructureView({
       </h2>
       <SemanticSubtreeOutline
         ariaLabel={`${item.label} structure`}
-        authoring={authoring}
+        {...(authoring ? { authoring } : {})}
         controller={controller}
         selectRoots={selectSurfaceChildren}
         viewController={viewController}

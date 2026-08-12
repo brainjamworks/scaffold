@@ -1,11 +1,15 @@
-import { DotsThreeIcon as DotsThree, GearIcon as Gear, TreeStructureIcon as TreeStructure } from "@phosphor-icons/react";
+import {
+  DotsThreeIcon as DotsThree,
+  GearIcon as Gear,
+  TreeStructureIcon as TreeStructure,
+} from "@phosphor-icons/react";
 
 import type { SemanticItem } from "@/document/model/semantic-document";
 import * as DropdownMenu from "@/ui/components/DropdownMenu/DropdownMenu";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 import { zIndex } from "@/ui/overlays/z-index";
 
-export function CourseSurfaceActions({
+export function SurfaceActions({
   item,
   onDelete,
   onDuplicate,
@@ -57,10 +61,16 @@ export function CourseSurfaceActions({
             sideOffset={4}
             style={{ zIndex: zIndex.dropdown }}
           >
-            <DropdownMenu.Item className="sc-document-outline-actions-item" onSelect={() => onRename(item)}>
+            <DropdownMenu.Item
+              className="sc-document-outline-actions-item"
+              onSelect={() => onRename(item)}
+            >
               Rename Surface
             </DropdownMenu.Item>
-            <DropdownMenu.Item className="sc-document-outline-actions-item" onSelect={() => onDuplicate(item)}>
+            <DropdownMenu.Item
+              className="sc-document-outline-actions-item"
+              onSelect={() => onDuplicate(item)}
+            >
               Duplicate Surface
             </DropdownMenu.Item>
             <DropdownMenu.Item

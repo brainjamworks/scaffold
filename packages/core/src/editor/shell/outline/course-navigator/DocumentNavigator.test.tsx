@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import type { EmbeddedNodeId } from "@scaffold/contracts";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState, type ComponentProps } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -11,9 +11,9 @@ import type { SemanticDocumentControllerSnapshot } from "@/document/authoring/se
 import type { SemanticNavigationOptions } from "@/document/authoring/semantic-document/semantic-navigation";
 import type { SemanticDocumentSnapshot, SemanticItem } from "@/document/model/semantic-document";
 import { DocumentOutlineRowViewport } from "../SemanticSubtreeOutline";
-import { CourseNavigator, type CourseNavigatorNavigation } from "./CourseNavigator";
+import { DocumentNavigator, type DocumentNavigatorNavigation } from "./DocumentNavigator";
 
-describe("CourseNavigator", () => {
+describe("DocumentNavigator", () => {
   it("expands Course Sections by default and lets authors collapse their nested Surfaces", async () => {
     const user = userEvent.setup();
     const surface = item("surface-1", "surface", "Introduction");
@@ -27,7 +27,7 @@ describe("CourseNavigator", () => {
     });
 
     render(
-      <CourseNavigator
+      <DocumentNavigator
         controller={controller}
         viewController={viewController}
         viewport={viewport}
@@ -62,7 +62,7 @@ describe("CourseNavigator", () => {
     });
 
     render(
-      <CourseNavigatorHarness
+      <DocumentNavigatorHarness
         controller={controller}
         viewController={viewController}
         viewport={viewport}
@@ -73,7 +73,7 @@ describe("CourseNavigator", () => {
     expect(screen.getAllByTestId("course-surface-placeholder")).toHaveLength(2);
     expect(screen.queryByRole("treeitem", { name: "Heading" })).toBeNull();
 
-    await controller.select(heading.id, { origin: "editor-selection", focusEditor: false });
+    act(() => controller.selectFromEditor(heading.id));
     expect(screen.getByRole("button", { name: "Select Surface Introduction" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -123,7 +123,7 @@ describe("CourseNavigator", () => {
     };
 
     render(
-      <CourseNavigator
+      <DocumentNavigator
         controller={controller}
         structureAuthoring={structureAuthoring}
         surfaceActions={surfaceActions}
@@ -146,8 +146,8 @@ describe("CourseNavigator", () => {
   });
 });
 
-function CourseNavigatorHarness(props: ComponentProps<typeof CourseNavigator>) {
-  const [navigation, setNavigation] = useState<CourseNavigatorNavigation>({ kind: "overview" });
+function DocumentNavigatorHarness(props: ComponentProps<typeof DocumentNavigator>) {
+  const [navigation, setNavigation] = useState<DocumentNavigatorNavigation>({ kind: "overview" });
 
   return (
     <>
@@ -160,7 +160,7 @@ function CourseNavigatorHarness(props: ComponentProps<typeof CourseNavigator>) {
           Course overview
         </button>
       ) : null}
-      <CourseNavigator {...props} onNavigationChange={setNavigation} />
+      <DocumentNavigator {...props} onNavigationChange={setNavigation} />
     </>
   );
 }
@@ -222,6 +222,11 @@ class FakeSemanticDocumentController {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
   };
+
+  selectFromEditor(itemId: EmbeddedNodeId) {
+    this.#snapshot = { ...this.#snapshot, selectedId: itemId, selectionOrigin: "editor" };
+    for (const listener of this.#listeners) listener();
+  }
 
   async select(itemId: EmbeddedNodeId, options: SemanticNavigationOptions) {
     this.selectCalls.push({ id: itemId, options });

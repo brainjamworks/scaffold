@@ -8,7 +8,7 @@ import {
   type CourseOutlineSurfaceDragProjection,
 } from "../CourseOutlineSurfaceDragSession";
 import { DocumentOutlineRowActions } from "../DocumentOutlineRowActions";
-import { CourseSurfaceCard } from "./CourseSurfaceCard";
+import { SurfaceCard } from "./SurfaceCard";
 
 export function CourseSectionGroup({
   expanded,
@@ -153,7 +153,7 @@ export function CourseSectionGroup({
                     targetId={`card-before:${surface.id}`}
                   />
                 ) : null}
-                <CourseSurfaceCard
+                <SurfaceCard
                   draggable={canDragSurface(surface)}
                   item={surface}
                   selected={surface.id === selectedId}

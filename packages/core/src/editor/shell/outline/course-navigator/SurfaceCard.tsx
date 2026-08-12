@@ -8,9 +8,9 @@ import {
   CourseOutlineSurfaceDragHandle,
   type CourseOutlineSurfaceDragData,
 } from "../CourseOutlineSurfaceDragSession";
-import { CourseSurfaceActions } from "./CourseSurfaceActions";
+import { SurfaceActions } from "./SurfaceActions";
 
-interface CourseSurfaceCardProps {
+interface SurfaceCardProps {
   readonly item: SemanticItem;
   readonly selected: boolean;
   readonly registerSelectionControl: (element: HTMLButtonElement | null) => void;
@@ -23,25 +23,21 @@ interface CourseSurfaceCardProps {
   readonly draggable?: boolean;
 }
 
-export function CourseSurfaceCard(props: CourseSurfaceCardProps) {
-  return props.draggable ? (
-    <DraggableCourseSurfaceCard {...props} />
-  ) : (
-    <CourseSurfaceCardContent {...props} />
-  );
+export function SurfaceCard(props: SurfaceCardProps) {
+  return props.draggable ? <DraggableSurfaceCard {...props} /> : <SurfaceCardContent {...props} />;
 }
 
-function DraggableCourseSurfaceCard(props: CourseSurfaceCardProps) {
+function DraggableSurfaceCard(props: SurfaceCardProps) {
   const drag = useInteractionDragSource<CourseOutlineSurfaceDragData>({
     data: { surfaceId: props.item.id, label: props.item.label },
     id: `course-outline-surface:${props.item.id}`,
     keyboardAxis: "vertical",
     label: `Move Surface ${props.item.label}`,
   });
-  return <CourseSurfaceCardContent {...props} drag={drag} />;
+  return <SurfaceCardContent {...props} drag={drag} />;
 }
 
-function CourseSurfaceCardContent({
+function SurfaceCardContent({
   item,
   selected,
   registerSelectionControl,
@@ -52,7 +48,7 @@ function CourseSurfaceCardContent({
   onRename,
   onSettings,
   drag,
-}: CourseSurfaceCardProps & {
+}: SurfaceCardProps & {
   readonly drag?: InteractionDragSourceResult;
 }) {
   const [editing, setEditing] = useState(false);
@@ -126,7 +122,7 @@ function CourseSurfaceCardContent({
           </span>
         )}
       </div>
-      <CourseSurfaceActions
+      <SurfaceActions
         item={item}
         onDelete={onDelete}
         onDuplicate={onDuplicate}

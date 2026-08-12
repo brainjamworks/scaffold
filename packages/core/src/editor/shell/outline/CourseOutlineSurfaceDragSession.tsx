@@ -44,6 +44,7 @@ export function CourseOutlineSurfaceDragSession({
   const id = useId();
   const projectionKeyRef = useRef("");
   const sourceSizeRef = useRef<CourseOutlineSurfaceDragProjection["sourceSize"]>(null);
+  const targetEligibilityRef = useRef(new Map<string, boolean>());
   const publishProjection = (projection: CourseOutlineSurfaceDragProjection | null) => {
     const key = projection
       ? `${projection.surfaceId}:${destinationKey(projection.destination)}`
@@ -55,6 +56,7 @@ export function CourseOutlineSurfaceDragSession({
   const end = (event: InteractionDragEvent<CourseOutlineSurfaceDragData, SurfaceDropData>) => {
     publishProjection(null);
     sourceSizeRef.current = null;
+    targetEligibilityRef.current.clear();
     const destination = event.over?.data.destination;
     if (!destination) {
       onResult({ ok: false, message: "The Surface move was cancelled." }, "");
@@ -70,6 +72,14 @@ export function CourseOutlineSurfaceDragSession({
   return (
     <InteractionDragSession<CourseOutlineSurfaceDragData, SurfaceDropData>
       accessibilityMode="draggable"
+      canDrop={(active, over) => {
+        const key = `${active.surfaceId}:${destinationKey(over.destination)}`;
+        const cached = targetEligibilityRef.current.get(key);
+        if (cached !== undefined) return cached;
+        const eligible = port.canMoveSurface(active.surfaceId, over.destination);
+        targetEligibilityRef.current.set(key, eligible);
+        return eligible;
+      }}
       collisionPolicy="closest-center"
       labels={{
         draggable: "Surface",
@@ -78,22 +88,21 @@ export function CourseOutlineSurfaceDragSession({
       onCancel={(reason) => {
         publishProjection(null);
         sourceSizeRef.current = null;
+        targetEligibilityRef.current.clear();
         onResult({ ok: false, message: `Surface move cancelled (${reason}).` }, "");
       }}
       onEnd={end}
       onMove={(event) => {
         const destination = event.over?.data.destination;
         publishProjection({
-          destination:
-            destination && port.canMoveSurface(event.active.data.surfaceId, destination)
-              ? destination
-              : null,
+          destination: destination ?? null,
           label: event.active.data.label,
           sourceSize: sourceSizeRef.current,
           surfaceId: event.active.data.surfaceId,
         });
       }}
       onStart={(event) => {
+        targetEligibilityRef.current.clear();
         sourceSizeRef.current = measureSurfaceCard(event.active.data.surfaceId);
         publishProjection({
           destination: null,
@@ -106,6 +115,9 @@ export function CourseOutlineSurfaceDragSession({
       renderPreview={(active) => (
         <CourseOutlineSurfaceGhost label={active.label} variant="overlay" />
       )}
+      resolvePreviewSize={(active, sourceSize) =>
+        measureSurfacePreview(active.surfaceId) ?? sourceSize
+      }
       sessionId={`course-outline-surface-${id}`}
     >
       {children}
@@ -163,9 +175,10 @@ export function CourseOutlineSurfaceGhost({
           : undefined
       }
     >
-      <span className="sc-course-outline-slide-ghost__canvas" />
-      <span className="sc-course-outline-slide-ghost__label">{label}</span>
-      <span className="sc-course-outline-slide-ghost__footer" />
+      <span className="sc-course-outline-slide-ghost__visual">
+        <span className="sc-course-outline-slide-ghost__canvas" />
+        <span className="sc-course-outline-slide-ghost__label">{label}</span>
+      </span>
     </article>
   );
 }
@@ -225,6 +238,24 @@ function measureSurfaceCard(
   const rect = card.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return null;
   return Object.freeze({ height: rect.height, width: rect.width });
+}
+
+function measureSurfacePreview(
+  surfaceId: SurfaceId,
+): CourseOutlineSurfaceDragProjection["sourceSize"] {
+  const card = globalThis.document.querySelector<HTMLElement>(
+    `[data-course-outline-surface-card-id="${surfaceId}"]`,
+  );
+  const slide = card?.querySelector<HTMLElement>(".sc-course-surface-card-selection");
+  const subtitle = card?.querySelector<HTMLElement>(".sc-course-surface-meta");
+  if (!slide || !subtitle) return null;
+  const slideRect = slide.getBoundingClientRect();
+  const subtitleRect = subtitle.getBoundingClientRect();
+  const height = subtitleRect.bottom - slideRect.top;
+  const width =
+    Math.max(slideRect.right, subtitleRect.right) - Math.min(slideRect.left, subtitleRect.left);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+  return Object.freeze({ height, width });
 }
 
 function restoreSurfaceHandleFocus(surfaceId: SurfaceId): void {

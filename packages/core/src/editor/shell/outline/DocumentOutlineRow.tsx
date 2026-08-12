@@ -6,17 +6,11 @@ import type { KeyboardEvent } from "react";
 import { useEffect, useRef } from "react";
 
 import type { SemanticItem } from "@/document/model/semantic-document";
-import type { SurfaceDestination } from "@/document/model/course-structure";
 import { MAX_SEMANTIC_LABEL_LENGTH } from "@/document/model/semantic-document/semantic-labels";
 import { Input } from "@/ui/components/Input/Input";
 import { iconXs } from "@/ui/tokens/icon-sizes";
 
 import type { DocumentOutlineRowViewport } from "./SemanticSubtreeOutline";
-import { DocumentOutlineRowActions } from "./DocumentOutlineRowActions";
-import {
-  CourseOutlineSurfaceDragHandle,
-  CourseOutlineSurfaceDropTarget,
-} from "./CourseOutlineSurfaceDragSession";
 
 export interface DocumentOutlineRowProps {
   readonly draft: string;
@@ -26,11 +20,6 @@ export interface DocumentOutlineRowProps {
   readonly item: SemanticItem;
   readonly level: number;
   readonly renameAvailable: boolean;
-  readonly rowActions?: React.ComponentProps<typeof DocumentOutlineRowActions>;
-  readonly surfaceDrag?: {
-    readonly destinations: readonly SurfaceDestination[];
-    readonly handle: boolean;
-  };
   readonly selected: boolean;
   readonly viewport: DocumentOutlineRowViewport;
   readonly onActivate: (item: SemanticItem) => void;
@@ -50,8 +39,6 @@ export function DocumentOutlineRow({
   item,
   level,
   renameAvailable,
-  rowActions,
-  surfaceDrag,
   selected,
   viewport,
   onActivate,
@@ -95,10 +82,7 @@ export function DocumentOutlineRow({
       }}
       onKeyDown={(event) => onKeyDown(event, item)}
     >
-      <span
-        aria-hidden="true"
-        className="sc-document-outline-indent"
-      />
+      <span aria-hidden="true" className="sc-document-outline-indent" />
       {expandable ? (
         <button
           aria-label={`${expanded ? "Collapse" : "Expand"} ${item.label}`}
@@ -147,9 +131,6 @@ export function DocumentOutlineRow({
           </>
         )}
       </span>
-      {surfaceDrag?.handle ? (
-        <CourseOutlineSurfaceDragHandle label={item.label} surfaceId={item.id} />
-      ) : null}
       {renameAvailable && !editing ? (
         <button
           aria-label={`Rename ${item.label}`}
@@ -165,14 +146,6 @@ export function DocumentOutlineRow({
           <PencilSimple aria-hidden size={iconXs} />
         </button>
       ) : null}
-      {rowActions && !editing ? <DocumentOutlineRowActions {...rowActions} /> : null}
-      {surfaceDrag?.destinations.map((destination) => (
-        <CourseOutlineSurfaceDropTarget
-          key={JSON.stringify(destination)}
-          destination={destination}
-          label={item.label}
-        />
-      ))}
     </div>
   );
 }

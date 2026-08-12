@@ -110,6 +110,7 @@ export interface InteractionDragPreviewContext {
 
 export interface InteractionDragSessionProps<ActiveData, OverData> {
   readonly accessibilityMode: DragAccessibilityMode;
+  readonly canDrop?: (active: ActiveData, over: OverData) => boolean;
   readonly children: ReactNode;
   readonly collisionPolicy: InteractionCollisionPolicy;
   readonly labels: DragAccessibilityLabels;
@@ -202,6 +203,7 @@ const configuredKeyboardSensor = AxisOwnedKeyboardSensor.configure({
 
 export function InteractionDragSession<ActiveData, OverData>({
   accessibilityMode,
+  canDrop,
   children,
   collisionPolicy,
   labels,
@@ -489,7 +491,11 @@ export function InteractionDragSession<ActiveData, OverData>({
     },
     [cancelActiveSession],
   );
-  const collisionDetector = useInteractionCollisionDetector(collisionPolicy, activeSessionRef);
+  const collisionDetector = useInteractionCollisionDetector(
+    collisionPolicy,
+    activeSessionRef,
+    canDrop,
+  );
   const handleCollision = useFeatureCollision(collisionPolicy, resolveCollision, activeSessionRef);
   const context = useMemo<InteractionDragSessionContextValue>(
     () => ({
@@ -621,12 +627,21 @@ function useInteractionModifiers(profile: DragInputProfile) {
 function useInteractionCollisionDetector<ActiveData, OverData>(
   policy: InteractionCollisionPolicy,
   activeSessionRef: RefObject<ActiveSession<ActiveData, OverData> | null>,
+  canDrop: InteractionDragSessionProps<ActiveData, OverData>["canDrop"],
 ): CollisionDetector {
   return useCallback<CollisionDetector>(
     (input) => {
       const activeSession = activeSessionRef.current;
       const rect = input.droppable.shape?.boundingRectangle;
       if (!activeSession || !rect || !rectsIntersect(rect, activeSession.collisionBoundaryRect)) {
+        return null;
+      }
+      const targetRegistration = registrationFromData(input.droppable.data);
+      if (
+        canDrop &&
+        (!targetRegistration?.target ||
+          !canDrop(activeSession.active.data, targetRegistration.overData as OverData))
+      ) {
         return null;
       }
       if (policy === "pointer") return pointerIntersection(input);
@@ -638,7 +653,7 @@ function useInteractionCollisionDetector<ActiveData, OverData>(
         value: 1,
       };
     },
-    [activeSessionRef, policy],
+    [activeSessionRef, canDrop, policy],
   );
 }
 

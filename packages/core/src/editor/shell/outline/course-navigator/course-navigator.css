@@ -164,13 +164,6 @@
   }
 
   .sc-course-section-surfaces[data-course-outline-has-projection]
-    .sc-document-outline-drop-target[data-active="true"]::before,
-  .sc-course-section-surfaces[data-course-outline-has-projection]
-    .sc-document-outline-drop-target[data-active="true"]::after {
-    content: none;
-  }
-
-  .sc-course-section-surfaces[data-course-outline-has-projection]
     > .sc-document-outline-drop-target--section[data-active="true"] {
     position: absolute;
     top: 0;
@@ -224,6 +217,12 @@
 
   .sc-course-outline-slide-ghost {
     box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sc-course-outline-slide-ghost__visual {
+    box-sizing: border-box;
     display: grid;
     width: 100%;
     min-width: 0;
@@ -234,16 +233,23 @@
 
   .sc-course-outline-slide-ghost--overlay {
     height: 100%;
-    grid-template-rows: minmax(0, 1fr) 2rem 2rem;
+  }
+
+  .sc-course-outline-slide-ghost--overlay .sc-course-outline-slide-ghost__visual {
+    height: 100%;
+    grid-template-rows: minmax(0, 1fr) 2rem;
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     box-shadow: var(--shadow-lg);
   }
 
-  .sc-course-outline-slide-ghost--projection {
-    grid-template-rows: auto 2rem 2rem;
+  .sc-course-outline-slide-ghost--projection .sc-course-outline-slide-ghost__visual {
+    grid-template-rows: auto 2rem;
     border: 1px dashed color-mix(in srgb, var(--color-primary) 52%, var(--color-border));
     background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+  }
+
+  .sc-course-outline-slide-ghost--projection {
     opacity: 0.72;
     transition: opacity 160ms var(--ease-out-soft);
   }
@@ -269,10 +275,6 @@
     line-height: 1.35;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .sc-course-outline-slide-ghost__footer {
-    border-block-start: 1px dashed color-mix(in srgb, var(--color-border) 68%, transparent);
   }
 
   @starting-style {
@@ -403,8 +405,6 @@
 
   .sc-course-section-surfaces > .sc-document-outline-drop-target--section[data-active="true"] {
     height: 2.75rem;
-    border-radius: var(--radius-md);
-    background: color-mix(in srgb, var(--color-primary) 7%, transparent);
   }
 
   .sc-course-surface-rename {

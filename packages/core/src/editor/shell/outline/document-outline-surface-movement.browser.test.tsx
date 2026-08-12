@@ -47,7 +47,15 @@ describe("Course Outline Surface movement", () => {
       const sourceCard = requireElement<HTMLElement>(
         `[data-course-outline-surface-slot="${sourceId}"] .sc-course-surface-card`,
       );
+      const sourceSlide = requireElement<HTMLElement>(
+        `[data-course-outline-surface-slot="${sourceId}"] .sc-course-surface-card-selection`,
+      );
+      const sourceSubtitle = requireElement<HTMLElement>(
+        `[data-course-outline-surface-slot="${sourceId}"] .sc-course-surface-meta`,
+      );
       const sourceCardRect = sourceCard.getBoundingClientRect();
+      const sourceSlideRect = sourceSlide.getBoundingClientRect();
+      const sourceSubtitleRect = sourceSubtitle.getBoundingClientRect();
       expect(sourceId).toBe("surface00001");
       handle.focus();
       await userEvent.keyboard("{Space}");
@@ -55,12 +63,28 @@ describe("Course Outline Surface movement", () => {
         .poll(() => Boolean(document.querySelector("[data-interaction-drag-overlay]")))
         .toBe(true);
       const overlay = requireElement<HTMLElement>("[data-interaction-drag-overlay]");
-      expect(overlay.querySelector(".sc-course-outline-slide-ghost--overlay")).not.toBeNull();
+      const overlayGhost = requireElement<HTMLElement>(
+        ".sc-course-outline-slide-ghost--overlay .sc-course-outline-slide-ghost__visual",
+      );
       expect(overlay.textContent).toContain(sourceLabel);
+      expect(overlay.querySelector(".sc-course-outline-slide-ghost__footer")).toBeNull();
+      expect(overlay.querySelector(".sc-course-surface-actions")).toBeNull();
       expect(sourceCard).toHaveAttribute("data-interaction-drag-placeholder");
       expect(Math.abs(overlay.getBoundingClientRect().width - sourceCardRect.width)).toBeLessThan(
         1,
       );
+      expect(
+        Math.abs(
+          overlay.getBoundingClientRect().height -
+            (sourceSlideRect.height + sourceSubtitleRect.height),
+        ),
+      ).toBeLessThan(1);
+      expect(overlay.getBoundingClientRect().height).toBeLessThan(sourceCardRect.height);
+      expect(
+        Math.abs(
+          overlayGhost.getBoundingClientRect().height - overlay.getBoundingClientRect().height,
+        ),
+      ).toBeLessThan(1);
       for (let step = 0; step < 120 && !activeDestination()?.startsWith("section:"); step += 1) {
         await userEvent.keyboard("{ArrowDown}");
         await animationFrames(1);
@@ -109,6 +133,18 @@ describe("Course Outline Surface movement", () => {
       expect(
         Math.abs(projectedSlide.getBoundingClientRect().width - sourceCardRect.width),
       ).toBeLessThan(1);
+      const projectedVisual = requireElement<HTMLElement>(
+        '[data-course-outline-surface-projection="surface00001"] .sc-course-outline-slide-ghost__visual',
+      );
+      expect(
+        Math.abs(
+          projectedVisual.getBoundingClientRect().height -
+            (sourceSlideRect.height + sourceSubtitleRect.height),
+        ),
+      ).toBeLessThan(1);
+      expect(projectedVisual.getBoundingClientRect().height).toBeLessThan(
+        projectedSlide.getBoundingClientRect().height,
+      );
       expect(
         requireElement<HTMLElement>(
           `[data-course-outline-surface-slot="${sourceId}"]`,
@@ -214,9 +250,11 @@ describe("Course Outline Surface movement", () => {
 
       await expect.poll(() => activeDestination()).toBe("section:section00002:end");
       expect(document.querySelector(".sc-course-outline-slide-ghost--overlay")).not.toBeNull();
-      expect(sectionVisualSurfaceIds("Section 1")).toEqual([]);
-      expect(sectionVisualSurfaceIds("Section 2")).toEqual(["surface00001"]);
-      expect(sectionVisualSurfaceIds("Section 3")).toEqual(["surface00002", "surface00003"]);
+      await expect.poll(() => sectionVisualSurfaceIds("Section 1")).toEqual([]);
+      await expect.poll(() => sectionVisualSurfaceIds("Section 2")).toEqual(["surface00001"]);
+      await expect
+        .poll(() => sectionVisualSurfaceIds("Section 3"))
+        .toEqual(["surface00002", "surface00003"]);
       const projectedSlide = requireElement<HTMLElement>(
         '[data-course-outline-surface-projection="surface00001"]',
       );
