@@ -92,6 +92,92 @@ describe("Document Outline authoring integration", () => {
     }
   });
 
+  it("coordinates the mounted Slideshow overview and Surface Structure lifecycle", async () => {
+    const content = createScaffoldDocumentContent({
+      mode: "slideshow",
+      initialCourseSectionTitle: "Introduction",
+      surfaceId: "slide-route1",
+    });
+    const surface = content.content?.[0]?.content?.[1];
+    const mcq = builtInBlockRegistry.getByNodeType("mcq")?.insert;
+    if (!surface || !mcq) throw new Error("Expected the built-in Slide Surface and MCQ insert");
+    surface.attrs = { ...surface.attrs, semanticLabel: "Opening slide" };
+    surface.content = [mountedMcq(mcq.content())];
+
+    const rendered = await renderBrowserReact(
+      <ScaffoldAuthoringApp
+        application={createScaffoldApplication()}
+        artifact={{
+          id: "slideshow-navigator-lifecycle-artifact",
+          title: "Slideshow navigator lifecycle",
+          mode: "slideshow",
+          content,
+        }}
+        productAccess={{ scaffoldPlusAuthorized: false }}
+        services={{
+          artifactPersistence: {
+            saveArtifact: vi.fn(async () => ({ artifactRevision: "outline-test-revision" })),
+          },
+          learnerPublication: createTestLearnerPublicationPort(),
+          media: null,
+        }}
+      />,
+    );
+
+    try {
+      const showOutline = page.getByRole("button", { name: "Show Document Outline" });
+      await expect.element(showOutline).toBeVisible();
+      await userEvent.click(showOutline);
+
+      await expect.element(page.getByRole("heading", { name: "Course overview" })).toBeVisible();
+      await expect.element(page.getByRole("heading", { name: "Introduction" })).toBeVisible();
+      const slideSurface = page.getByRole("button", { name: "Select Surface Opening slide" });
+      await expect.element(slideSurface).toBeVisible();
+      await userEvent.click(slideSurface);
+      await expect.element(slideSurface).toHaveAttribute("aria-pressed", "true");
+      expect(
+        document.querySelector('[role="tree"][aria-label="Opening slide structure"]'),
+      ).toBeNull();
+
+      await userEvent.click(page.getByRole("button", { name: "Open settings for Opening slide" }));
+      await expect.element(page.getByRole("heading", { name: "Slide settings" })).toBeVisible();
+      await userEvent.click(page.getByRole("button", { name: "Close settings" }));
+      await expect.element(page.getByRole("heading", { name: "Course overview" })).toBeVisible();
+
+      await userEvent.click(page.getByRole("button", { name: "More actions for Opening slide" }));
+      await userEvent.click(page.getByRole("menuitem", { name: "Rename Surface" }));
+      const surfaceName = requireElement<HTMLInputElement>('input[id^="surface-name-"]');
+      await userEvent.clear(surfaceName);
+      await userEvent.type(surfaceName, "Welcome slide");
+      await userEvent.click(
+        requireElement<HTMLButtonElement>(".sc-course-surface-rename button[type=submit]"),
+      );
+      const renamedSurface = page.getByRole("button", { name: "Select Surface Welcome slide" });
+      await expect.element(renamedSurface).toBeVisible();
+
+      const block = requireElement<HTMLElement>('[data-node="mcq"][data-id]');
+      block.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+      block.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+      block.click();
+
+      await expect
+        .element(page.getByRole("tree", { name: "Welcome slide structure" }))
+        .toBeVisible();
+      await expect
+        .element(page.getByRole("treeitem", { name: /^Multiple choice/ }))
+        .toHaveAttribute("aria-selected", "true");
+
+      await userEvent.click(page.getByRole("button", { name: "Back to Course overview" }));
+      await expect.element(page.getByRole("heading", { name: "Introduction" })).toBeVisible();
+      await expect.element(renamedSurface).toBeVisible();
+      await expect
+        .poll(() => document.activeElement?.getAttribute("aria-label"))
+        .toBe("Select Surface Welcome slide");
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
   it("keeps canonical Block and Layout chrome visible while focus remains in the Outline", async () => {
     const content = createScaffoldDocumentContent({
       mode: "page",
