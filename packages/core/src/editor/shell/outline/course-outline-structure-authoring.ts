@@ -43,7 +43,7 @@ export function createCourseOutlineStructureAuthoringPort(
       : { ok: false, message: unavailableMessage };
   };
 
-  return Object.freeze({
+  const port: CourseOutlineStructureAuthoringPort = {
     createCourseSection(title) {
       return apply(
         { type: "course-section.create", title, placement: "end" },
@@ -80,5 +80,6 @@ export function createCourseOutlineStructureAuthoringPort(
         "This Surface could not be moved. The document may have changed.",
       );
     },
-  });
+  };
+  return Object.freeze(port);
 }

@@ -1,3 +1,4 @@
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import type { Editor } from "@tiptap/core";
 import { describe, expect, it, vi } from "vite-plus/test";
 
@@ -5,8 +6,9 @@ import type { CourseStructureCommand } from "@/document/model/course-structure";
 
 import { createCourseOutlineStructureAuthoringPort } from "./course-outline-structure-authoring";
 
-const SURFACE_ID = "surface000001" as const;
-const SECTION_ID = "section000001" as const;
+const SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
+const OTHER_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00002");
+const SECTION_ID = EmbeddedNodeIdSchema.parse("section00001");
 
 describe("createCourseOutlineStructureAuthoringPort", () => {
   it.each([
@@ -41,11 +43,14 @@ describe("createCourseOutlineStructureAuthoringPort", () => {
     [
       "moves a Surface",
       (port: ReturnType<typeof createCourseOutlineStructureAuthoringPort>) =>
-        port.moveSurface({ surfaceId: SURFACE_ID, destination: { afterSurfaceId: "surface000002" } }),
+        port.moveSurface({
+          surfaceId: SURFACE_ID,
+          destination: { afterSurfaceId: OTHER_SURFACE_ID },
+        }),
       {
         type: "surface.move",
         surfaceId: SURFACE_ID,
-        destination: { afterSurfaceId: "surface000002" },
+        destination: { afterSurfaceId: OTHER_SURFACE_ID },
       },
     ],
   ] as const)("%s through the stable-ID command seam", (_name, invoke, expected) => {
@@ -75,7 +80,7 @@ describe("createCourseOutlineStructureAuthoringPort", () => {
   it("uses command applicability for concrete Surface destinations", () => {
     const harness = createEditorHarness(true);
     const port = createCourseOutlineStructureAuthoringPort(harness.editor);
-    const destination = { beforeSurfaceId: "surface000002" as const };
+    const destination = { beforeSurfaceId: OTHER_SURFACE_ID };
 
     expect(port.canMoveSurface(SURFACE_ID, destination)).toBe(true);
     expect(harness.canApply).toHaveBeenCalledWith({

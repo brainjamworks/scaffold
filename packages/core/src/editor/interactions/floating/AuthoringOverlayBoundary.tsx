@@ -12,7 +12,10 @@ export interface AuthoringOverlayBoundaryProps {
   ownerRoot: Element | null;
 }
 
-function AuthoringOverlayHostRegistration({ children, ownerRoot }: AuthoringOverlayBoundaryProps) {
+export function AuthoringOverlayOwnership({
+  children,
+  ownerRoot,
+}: Pick<AuthoringOverlayBoundaryProps, "children" | "ownerRoot">) {
   const resolution = useOverlayBoundary();
 
   useLayoutEffect(() => {
@@ -40,9 +43,7 @@ export function AuthoringOverlayBoundary({
       container={physicalContainer}
       kind={kind}
     >
-      <AuthoringOverlayHostRegistration ownerRoot={ownerRoot}>
-        {children}
-      </AuthoringOverlayHostRegistration>
+      <AuthoringOverlayOwnership ownerRoot={ownerRoot}>{children}</AuthoringOverlayOwnership>
     </OverlayBoundary>
   );
 }

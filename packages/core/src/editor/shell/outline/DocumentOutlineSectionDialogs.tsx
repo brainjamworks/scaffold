@@ -2,6 +2,7 @@ import { CourseSectionTitleSchema, type EmbeddedNodeId } from "@scaffold/contrac
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
 
 import type { SemanticItem } from "@/document/model/semantic-document";
+import { AuthoringOverlayOwnership } from "@/editor/interactions/floating/AuthoringOverlayBoundary";
 import { Button } from "@/ui/components/Button/Button";
 import { Field, FieldError, Input, Label } from "@/ui/components/Input/Input";
 import { AppDialog } from "@/ui/components/app/AppDialog/AppDialog";
@@ -27,12 +28,14 @@ export type CourseSectionDialogRequest =
   | null;
 
 export function DocumentOutlineSectionDialogs({
+  interactionOwnerRoot,
   overlayBoundary,
   port,
   request,
   onClose,
   onResult,
 }: {
+  readonly interactionOwnerRoot?: Element;
   readonly overlayBoundary?: OverlayBoundaryResolution;
   readonly port: CourseOutlineStructureAuthoringPort;
   readonly request: CourseSectionDialogRequest;
@@ -95,7 +98,11 @@ export function DocumentOutlineSectionDialogs({
 
   return (
     <AppDialog.Root open={request !== null} onOpenChange={(open) => !open && onClose()}>
-      <SectionDialogBoundary overlayBoundary={overlayBoundary}>
+      <SectionDialogBoundary
+        active={request !== null}
+        {...(interactionOwnerRoot ? { interactionOwnerRoot } : {})}
+        {...(overlayBoundary ? { overlayBoundary } : {})}
+      >
         <AppDialog.Content
           intent={renderedRequest?.kind === "delete" ? "danger" : "neutral"}
           role={renderedRequest?.kind === "delete" ? "alertdialog" : "dialog"}
@@ -164,15 +171,21 @@ export function DocumentOutlineSectionDialogs({
 }
 
 function SectionDialogBoundary({
+  active,
   children,
+  interactionOwnerRoot,
   overlayBoundary,
 }: {
+  readonly active: boolean;
   readonly children: ReactNode;
+  readonly interactionOwnerRoot?: Element;
   readonly overlayBoundary?: OverlayBoundaryResolution;
 }) {
   return overlayBoundary ? (
     <OverlayBoundaryResolutionProvider resolution={overlayBoundary}>
-      {children}
+      <AuthoringOverlayOwnership ownerRoot={active ? (interactionOwnerRoot ?? null) : null}>
+        {children}
+      </AuthoringOverlayOwnership>
     </OverlayBoundaryResolutionProvider>
   ) : (
     children

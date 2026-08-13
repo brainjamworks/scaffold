@@ -5,11 +5,12 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { isOverlayTargetOwnedBy } from "@/editor/interactions/dom/overlay-ownership";
 import {
+  OverlayBoundaryResolutionProvider,
   useOverlayBoundary,
   type OverlayBoundaryEnvironment,
 } from "@/ui/overlays/portal-host-context";
 
-import { AuthoringOverlayBoundary } from "./AuthoringOverlayBoundary";
+import { AuthoringOverlayBoundary, AuthoringOverlayOwnership } from "./AuthoringOverlayBoundary";
 
 function BoundaryProbe() {
   const resolution = useOverlayBoundary();
@@ -17,6 +18,38 @@ function BoundaryProbe() {
 }
 
 describe("AuthoringOverlayBoundary", () => {
+  it("registers an existing resolved host without creating another portal host", async () => {
+    const ownerRoot = document.createElement("div");
+    const existingHost = document.createElement("div");
+    const target = document.createElement("button");
+    existingHost.append(target);
+    document.body.append(ownerRoot, existingHost);
+
+    const environment: OverlayBoundaryEnvironment = {
+      host: existingHost,
+      collisionBoundary: null,
+      kind: "viewport",
+      ownerDocument: document,
+      ownerWindow: window,
+      strategy: "fixed",
+    };
+    const { unmount } = render(
+      <OverlayBoundaryResolutionProvider resolution={{ status: "ready", environment }}>
+        <AuthoringOverlayOwnership ownerRoot={ownerRoot}>
+          <div data-testid="existing-host-owner" />
+        </AuthoringOverlayOwnership>
+      </OverlayBoundaryResolutionProvider>,
+    );
+
+    await waitFor(() => expect(isOverlayTargetOwnedBy(ownerRoot, target)).toBe(true));
+    expect(existingHost.querySelector("[data-scaffold-overlay-host]")).toBeNull();
+
+    unmount();
+    expect(isOverlayTargetOwnedBy(ownerRoot, target)).toBe(false);
+    ownerRoot.remove();
+    existingHost.remove();
+  });
+
   it("creates and registers one contained host for a ready editor root", async () => {
     const ownerRoot = document.createElement("div");
     document.body.append(ownerRoot);

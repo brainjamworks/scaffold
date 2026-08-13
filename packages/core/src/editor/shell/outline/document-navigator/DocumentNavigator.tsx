@@ -63,6 +63,7 @@ export function DocumentNavigator({
   viewController,
   viewport,
   sectionDialogOverlayBoundary,
+  sectionDialogInteractionOwnerRoot,
   structureAuthoring,
   surfaceActions,
   onNavigationChange,
@@ -72,6 +73,7 @@ export function DocumentNavigator({
   readonly viewController: SemanticHierarchyViewController;
   readonly viewport: DocumentOutlineRowViewport;
   readonly sectionDialogOverlayBoundary?: OverlayBoundaryResolution;
+  readonly sectionDialogInteractionOwnerRoot?: Element;
   readonly structureAuthoring?: CourseOutlineStructureAuthoringPort;
   readonly surfaceActions?: DocumentNavigatorSurfaceActionPort;
   readonly onNavigationChange?: (navigation: DocumentNavigatorNavigation) => void;
@@ -388,6 +390,9 @@ export function DocumentNavigator({
       </p>
       {courseStructureAuthoring ? (
         <DocumentOutlineSectionDialogs
+          {...(sectionDialogInteractionOwnerRoot
+            ? { interactionOwnerRoot: sectionDialogInteractionOwnerRoot }
+            : {})}
           {...(sectionDialogOverlayBoundary
             ? { overlayBoundary: sectionDialogOverlayBoundary }
             : {})}

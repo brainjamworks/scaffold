@@ -48,15 +48,16 @@ describe("mounted Course Outline Course Structure authoring", () => {
           .scrollbarGutter,
       ).toBe("stable");
 
-      const sectionDisclosure = page.getByRole("button", {
-        name: "Introduction",
-        exact: true,
+      await userEvent.click(page.getByRole("button", { name: "Collapse Introduction" }));
+      const collapsedSectionDisclosure = page.getByRole("button", {
+        name: "Expand Introduction",
       });
-      await userEvent.click(sectionDisclosure);
-      await expect.element(sectionDisclosure).toHaveAttribute("aria-expanded", "false");
+      await expect.element(collapsedSectionDisclosure).toHaveAttribute("aria-expanded", "false");
       expect(outlineDock.getBoundingClientRect().width).toBeCloseTo(expandedDockWidth, 1);
-      await userEvent.click(sectionDisclosure);
-      await expect.element(sectionDisclosure).toHaveAttribute("aria-expanded", "true");
+      await userEvent.click(collapsedSectionDisclosure);
+      await expect
+        .element(page.getByRole("button", { name: "Collapse Introduction" }))
+        .toHaveAttribute("aria-expanded", "true");
       expect(outlineDock.getBoundingClientRect().width).toBeCloseTo(expandedDockWidth, 1);
 
       const preview = requireElement<HTMLElement>(".sc-document-navigator-surface-placeholder");
@@ -118,7 +119,10 @@ describe("mounted Course Outline Course Structure authoring", () => {
       await userEvent.click(requireButton("Add Course Section"));
       await assertSectionDialogUsesApplicationBoundary();
       await typeInto("Course Section title", "Practice");
-      await userEvent.click(requireButton("Add Course Section"));
+      const submitAddSection = requireButton("Add Course Section");
+      expect(submitAddSection.closest('[role="dialog"]')).not.toBeNull();
+      expect(submitAddSection).toHaveAttribute("type", "submit");
+      await userEvent.click(submitAddSection);
       await expect.poll(() => readSectionTitles(editor)).toEqual(["Introduction", "Practice"]);
       await expectSingleUpdate(onUpdate, editor, onDocumentError);
       const withEmptySection = structuredClone(editor.getJSON());

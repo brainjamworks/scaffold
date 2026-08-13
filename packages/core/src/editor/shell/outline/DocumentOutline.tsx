@@ -12,6 +12,7 @@ export interface DocumentOutlineProps extends SemanticSubtreeOutlineProps {
   readonly controller: SemanticSubtreeOutlineProps["controller"] &
     Pick<SemanticDocumentController, "reportComponentSelection">;
   readonly sectionDialogOverlayBoundary?: OverlayBoundaryResolution;
+  readonly sectionDialogInteractionOwnerRoot?: Element;
   readonly structureAuthoring?: CourseOutlineStructureAuthoringPort;
   readonly surfaceActions?: DocumentNavigatorSurfaceActionPort;
   readonly onDocumentNavigatorNavigationChange?: (navigation: DocumentNavigatorNavigation) => void;
@@ -28,6 +29,9 @@ export function DocumentOutline(props: DocumentOutlineProps) {
       {...(props.authoring ? { authoring: props.authoring } : {})}
       {...(props.sectionDialogOverlayBoundary
         ? { sectionDialogOverlayBoundary: props.sectionDialogOverlayBoundary }
+        : {})}
+      {...(props.sectionDialogInteractionOwnerRoot
+        ? { sectionDialogInteractionOwnerRoot: props.sectionDialogInteractionOwnerRoot }
         : {})}
       {...(props.structureAuthoring ? { structureAuthoring: props.structureAuthoring } : {})}
       {...(props.surfaceActions ? { surfaceActions: props.surfaceActions } : {})}

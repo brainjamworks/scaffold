@@ -139,6 +139,7 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
                 {...(applicationOverlayBoundary.status === "unscoped"
                   ? {}
                   : { sectionDialogOverlayBoundary: applicationOverlayBoundary })}
+                sectionDialogInteractionOwnerRoot={resolveAuthoringInteractionRoot(editor.view.dom)}
                 authoring={authoring}
                 controller={controller}
                 onDocumentNavigatorNavigationChange={setDocumentNavigatorNavigation}
