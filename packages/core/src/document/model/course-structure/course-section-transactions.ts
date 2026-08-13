@@ -13,6 +13,7 @@ import {
   type CommandBuildContext,
 } from "./transaction-helpers";
 import type { CourseSectionId, CourseStructureCommand, SurfaceId } from "./types";
+import { createDefaultCourseSectionTitle } from "./course-section-title";
 
 type CourseSectionCommand = Extract<CourseStructureCommand, { type: `course-section.${string}` }>;
 type NonDuplicateCourseSectionCommand = Exclude<
@@ -46,8 +47,9 @@ function createCourseSection(
   command: Extract<CourseSectionCommand, { type: "course-section.create" }>,
   { children, createId, schema }: CommandBuildContext,
 ): CandidateMutation | null {
-  const title = parseCourseSectionTitle(command.title);
-  if (title === null || command.placement !== "end") return null;
+  if (command.placement !== "end") return null;
+  const number = children.filter((node) => node.type.name === "courseSection").length + 1;
+  const title = createDefaultCourseSectionTitle(number);
   return { children: [...children, createCourseSectionBoundary(schema, createId(), title)] };
 }
 
@@ -79,15 +81,18 @@ function deleteCourseSection(
   if (sectionIndex < 0) return null;
   const sectionEnd = sectionIndices[sectionIndex + 1] ?? children.length;
   if (sectionIndices.length === 1) return null;
-  const currentSurfaceIds = children.slice(childIndex + 1, sectionEnd).flatMap((node) =>
-    node.type.name === "surface" && typeof node.attrs["id"] === "string"
-      ? [node.attrs["id"] as SurfaceId]
-      : [],
-  );
+  const currentSurfaceIds = children
+    .slice(childIndex + 1, sectionEnd)
+    .flatMap((node) =>
+      node.type.name === "surface" && typeof node.attrs["id"] === "string"
+        ? [node.attrs["id"] as SurfaceId]
+        : [],
+    );
   if (
     currentSurfaceIds.length !== command.expectedSurfaceIds.length ||
     currentSurfaceIds.some((id, index) => id !== command.expectedSurfaceIds[index])
-  ) return null;
+  )
+    return null;
   return { children: [...children.slice(0, childIndex), ...children.slice(sectionEnd)] };
 }
 
@@ -99,7 +104,8 @@ function duplicateCourseSection(
   const sourceIndex = childIndexById(children, "courseSection", courseSectionId);
   if (sourceIndex < 0) return null;
   const sourceEnd = nextBoundaryIndex(children, sourceIndex);
-  if (children.slice(sourceIndex, sourceEnd).some(containsUnavailableCompatibilityRoot)) return null;
+  if (children.slice(sourceIndex, sourceEnd).some(containsUnavailableCompatibilityRoot))
+    return null;
   const sourceJson = children.slice(sourceIndex, sourceEnd).map((node) => node.toJSON());
   const cloned = cloneJsonWithNewStableIds(sourceJson, {
     blockDuplications,

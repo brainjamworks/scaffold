@@ -1,6 +1,7 @@
 import { createArtifactSavePayload } from "@/authoring/publication/artifact-save-bundle";
 import type { CourseDocumentAuthoringEnvironment } from "@/composition/authoring/create-authoring-composition";
 import { prepareScaffoldArtifactForAuthoring } from "@/document/authoring/prepare-scaffold-artifact-for-authoring";
+import { createDefaultCourseSectionTitle } from "@/document/model/course-structure";
 import { createScaffoldArtifact } from "@/format/artifact";
 import type { ArtifactRevision } from "@/host/ports/learner-publication";
 import type {
@@ -10,7 +11,6 @@ import type {
 import type { ScaffoldProductAccess } from "@/host/contracts/product-access";
 
 const DEFAULT_CREATED_ARTIFACT_TITLE = "Untitled";
-const DEFAULT_INITIAL_COURSE_SECTION_TITLE = "Section 1";
 
 export interface AuthoringArtifactCreationResult {
   readonly artifact: ScaffoldAuthoringArtifact;
@@ -32,7 +32,7 @@ export async function createAndPersistAuthoringArtifact(
     id: metadata.id,
     title: metadata.title ?? DEFAULT_CREATED_ARTIFACT_TITLE,
     ...(mode === "slideshow"
-      ? { mode, initialCourseSectionTitle: DEFAULT_INITIAL_COURSE_SECTION_TITLE }
+      ? { mode, initialCourseSectionTitle: createDefaultCourseSectionTitle(1) }
       : { mode }),
     requiresScaffoldPlus: metadata.requiresScaffoldPlus,
   });

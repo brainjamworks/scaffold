@@ -286,10 +286,12 @@ export function DocumentNavigator({
       size="sm"
       variant="ghost"
       type="button"
-      onClick={(event) => {
-        dialogReturnControl.current = event.currentTarget;
-        setSectionDialog({ kind: "create" });
-      }}
+      onClick={() =>
+        finishStructureAction(
+          courseStructureAuthoring.createCourseSection(),
+          "Course Section added.",
+        )
+      }
     >
       <Plus aria-hidden size={iconSm} weight="bold" />
       Add

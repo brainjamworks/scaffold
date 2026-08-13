@@ -15,8 +15,8 @@ describe("createCourseOutlineStructureAuthoringPort", () => {
     [
       "creates a Course Section",
       (port: ReturnType<typeof createCourseOutlineStructureAuthoringPort>) =>
-        port.createCourseSection("Overview"),
-      { type: "course-section.create", title: "Overview", placement: "end" },
+        port.createCourseSection(),
+      { type: "course-section.create", placement: "end" },
     ],
     [
       "renames a Course Section",

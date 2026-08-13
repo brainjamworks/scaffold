@@ -4,6 +4,7 @@ export type {
   SurfaceDestination,
   SurfaceId,
 } from "./types";
+export { createDefaultCourseSectionTitle } from "./course-section-title";
 export {
   readCourseSectionOrdinalContext,
   type CourseSectionOrdinalContext,

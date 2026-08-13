@@ -11,7 +11,7 @@ export type CourseOutlineStructureResult =
   | { readonly ok: false; readonly message: string };
 
 export interface CourseOutlineStructureAuthoringPort {
-  createCourseSection(title: string): CourseOutlineStructureResult;
+  createCourseSection(): CourseOutlineStructureResult;
   canMoveSurface(surfaceId: SurfaceId, destination: SurfaceDestination): boolean;
   renameCourseSection(input: {
     readonly courseSectionId: CourseSectionId;
@@ -44,9 +44,9 @@ export function createCourseOutlineStructureAuthoringPort(
   };
 
   const port: CourseOutlineStructureAuthoringPort = {
-    createCourseSection(title) {
+    createCourseSection() {
       return apply(
-        { type: "course-section.create", title, placement: "end" },
+        { type: "course-section.create", placement: "end" },
         "This Course Section could not be created. The document may have changed.",
       );
     },

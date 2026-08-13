@@ -113,19 +113,18 @@ describe("Course Structure Tiptap commands", () => {
     expect(editor.state.selection.anchor).toBe(4);
   });
 
-  it("appends a genuinely empty Course Section", () => {
+  it("appends a genuinely empty Course Section with the next default title", () => {
     const editor = makeEditor([section(SECTION_1, "One"), surface(SURFACE_1)], "slideshow", [
       "newsect_0001",
     ]);
     expect(
       runCommand(editor, {
         type: "course-section.create",
-        title: "  Practice  ",
         placement: "end",
       }),
     ).toBe(true);
     expect(childIdentity(editor)).toEqual([SECTION_1, SURFACE_1, "newsect_0001"]);
-    expect(courseChildren(editor).at(-1)?.attrs?.["title"]).toBe("Practice");
+    expect(courseChildren(editor).at(-1)?.attrs?.["title"]).toBe("Section 2");
   });
 
   it("deletes exactly the confirmed populated Section membership", () => {
@@ -268,12 +267,7 @@ describe("Course Structure Tiptap commands", () => {
     expect(
       runCommand(editor, { type: "course-section.duplicate", courseSectionId: SECTION_2 }),
     ).toBe(true);
-    expect(childIdentity(editor)).toEqual([
-      SECTION_1,
-      SURFACE_1,
-      SECTION_2,
-      "copysect0001",
-    ]);
+    expect(childIdentity(editor)).toEqual([SECTION_1, SURFACE_1, SECTION_2, "copysect0001"]);
   });
 
   it("retains the boundary vacated by a singleton Surface", () => {
@@ -291,13 +285,7 @@ describe("Course Structure Tiptap commands", () => {
     );
 
     expect(runCommand(editor, { type: "surface.delete", surfaceId: SURFACE_2 })).toBe(true);
-    expect(childIdentity(editor)).toEqual([
-      SECTION_1,
-      SURFACE_1,
-      SECTION_2,
-      SECTION_3,
-      SURFACE_3,
-    ]);
+    expect(childIdentity(editor)).toEqual([SECTION_1, SURFACE_1, SECTION_2, SECTION_3, SURFACE_3]);
     expect(selectedSurfaceId(editor)).toBe(SURFACE_3);
   });
 

@@ -15,7 +15,6 @@ export type SurfaceDestination =
 export type CourseStructureCommand =
   | {
       readonly type: "course-section.create";
-      readonly title: string;
       readonly placement: "end";
     }
   | {

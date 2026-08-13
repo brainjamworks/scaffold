@@ -117,13 +117,8 @@ describe("mounted Course Outline Course Structure authoring", () => {
       onUpdate.mockClear();
 
       await userEvent.click(requireButton("Add Course Section"));
-      await assertSectionDialogUsesApplicationBoundary();
-      await typeInto("Course Section title", "Practice");
-      const submitAddSection = requireButton("Add Course Section");
-      expect(submitAddSection.closest('[role="dialog"]')).not.toBeNull();
-      expect(submitAddSection).toHaveAttribute("type", "submit");
-      await userEvent.click(submitAddSection);
-      await expect.poll(() => readSectionTitles(editor)).toEqual(["Introduction", "Practice"]);
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+      await expect.poll(() => readSectionTitles(editor)).toEqual(["Introduction", "Section 2"]);
       await expectSingleUpdate(onUpdate, editor, onDocumentError);
       const withEmptySection = structuredClone(editor.getJSON());
 
@@ -134,7 +129,7 @@ describe("mounted Course Outline Course Structure authoring", () => {
       await expect.poll(() => editor.getJSON()).toEqual(withEmptySection);
       await expectSingleUpdate(onUpdate, editor, onDocumentError);
 
-      await chooseRowAction("Practice", "Edit Course Section title");
+      await chooseRowAction("Section 2", "Edit Course Section title");
       await assertSectionDialogUsesApplicationBoundary();
       const titleInput = requireInput("Course Section title");
       await userEvent.clear(titleInput);
@@ -261,11 +256,6 @@ function findMenuItem(label: string): HTMLElement | null {
       (item) => item.textContent?.trim() === label,
     ) ?? null
   );
-}
-
-async function typeInto(label: string, value: string): Promise<void> {
-  const input = requireInput(label);
-  await userEvent.type(input, value);
 }
 
 function requireInput(label: string): HTMLInputElement {

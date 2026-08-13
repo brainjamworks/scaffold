@@ -17,7 +17,6 @@ import type {
 } from "./course-outline-structure-authoring";
 
 export type CourseSectionDialogRequest =
-  | { readonly kind: "create" }
   | { readonly kind: "rename"; readonly item: SemanticItem }
   | {
       readonly kind: "delete";
@@ -61,21 +60,15 @@ export function DocumentOutlineSectionDialogs({
 
   const submitTitle = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!request || request.kind === "delete") return;
+    if (!request || request.kind !== "rename") return;
     const parsedTitle = CourseSectionTitleSchema.safeParse(title);
     setTitleError(parsedTitle.success ? null : "Enter a Course Section title.");
     if (!parsedTitle.success) return;
-    const result =
-      request.kind === "create"
-        ? port.createCourseSection(parsedTitle.data)
-        : port.renameCourseSection({
-            courseSectionId: request.item.id,
-            title: parsedTitle.data,
-          });
-    onResult(
-      result,
-      request.kind === "create" ? "Course Section added." : "Course Section title updated.",
-    );
+    const result = port.renameCourseSection({
+      courseSectionId: request.item.id,
+      title: parsedTitle.data,
+    });
+    onResult(result, "Course Section title updated.");
     if (result.ok) onClose();
   };
 
@@ -90,11 +83,7 @@ export function DocumentOutlineSectionDialogs({
   };
 
   const dialogTitle =
-    renderedRequest?.kind === "create"
-      ? "Add Course Section"
-      : renderedRequest?.kind === "delete"
-        ? "Delete Course Section"
-        : "Edit Course Section title";
+    renderedRequest?.kind === "delete" ? "Delete Course Section" : "Edit Course Section title";
 
   return (
     <AppDialog.Root open={request !== null} onOpenChange={(open) => !open && onClose()}>
@@ -113,9 +102,7 @@ export function DocumentOutlineSectionDialogs({
             <AppDialog.Description>
               {renderedRequest?.kind === "delete"
                 ? `Deleting ${renderedRequest.item.label} will also delete its related Surfaces. This action can be undone.`
-                : renderedRequest?.kind === "create"
-                  ? "Add a genuinely empty Course Section to the end of this Slideshow."
-                  : "Change the canonical Course Section title."}
+                : "Change the canonical Course Section title."}
             </AppDialog.Description>
           </AppDialog.Header>
           {renderedRequest?.kind === "delete" ? (
@@ -157,9 +144,7 @@ export function DocumentOutlineSectionDialogs({
                   Cancel
                 </Button>
                 <Button type="submit" size="lg">
-                  {renderedRequest?.kind === "create"
-                    ? "Add Course Section"
-                    : "Save Course Section title"}
+                  Save Course Section title
                 </Button>
               </AppDialog.Actions>
             </form>

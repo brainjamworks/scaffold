@@ -176,7 +176,7 @@ describe("DocumentOutline", () => {
     );
   });
 
-  it("offers Add Course Section only as an Outline-level action", async () => {
+  it("adds a default-named Course Section immediately from the Outline-level action", async () => {
     const user = userEvent.setup();
     const fixture = createFixtureFromRoots(
       [item("surface", "surface", "Overview", null)],
@@ -186,14 +186,9 @@ describe("DocumentOutline", () => {
 
     render(<DocumentOutline {...fixture.props} structureAuthoring={structure} />);
     await user.click(screen.getByRole("button", { name: "Add Course Section" }));
-    expect(screen.getByRole("dialog", { name: "Add Course Section" })).toHaveAttribute(
-      "data-intent",
-      "neutral",
-    );
-    await user.type(screen.getByRole("textbox", { name: "Course Section title" }), "Welcome");
-    await user.click(screen.getByRole("button", { name: "Add Course Section" }));
 
-    expect(structure.createCourseSection).toHaveBeenCalledWith("Welcome");
+    expect(structure.createCourseSection).toHaveBeenCalledWith();
+    expect(screen.queryByRole("dialog", { name: "Add Course Section" })).toBeNull();
     expect(screen.getByText("Course Section added.")).toHaveClass(
       "sc-document-outline-status",
       "sc-document-outline-status--visually-hidden",
