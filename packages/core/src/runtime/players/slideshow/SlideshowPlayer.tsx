@@ -8,7 +8,10 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import type { Editor as TiptapEditor } from "@tiptap/core";
 
 import { IconButton } from "@/ui/components/IconButton/IconButton";
-import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
+import type {
+  ProjectedSlideshowCourseStructure,
+  SurfaceId,
+} from "@/document/model/course-structure";
 import { createScaledCanvasCoordinateSpace } from "@/editor/interactions/drag/dom/dom-coordinate-space";
 import { InteractionDragEnvironmentProvider } from "@/editor/interactions/drag/react/interaction-drag-environment";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
@@ -42,7 +45,7 @@ export interface SlideshowPlayerProps {
   structure: ProjectedSlideshowCourseStructure;
   sizing?: SlideshowPlayerSizing;
   onRendererReady?: (editor: TiptapEditor) => void;
-  onActiveSurfaceChange?: (surfaceId: string) => void;
+  onActiveSurfaceChange?: (surfaceId: SurfaceId | null) => void;
 }
 
 export function SlideshowPlayer({
@@ -88,7 +91,7 @@ export function SlideshowPlayer({
   }
 
   useEffect(() => {
-    if (navigation.activeSurfaceId) onActiveSurfaceChange?.(navigation.activeSurfaceId);
+    onActiveSurfaceChange?.(navigation.activeSurfaceId);
   }, [navigation.activeSurfaceId, onActiveSurfaceChange]);
 
   useEffect(() => {
@@ -296,7 +299,7 @@ export function SlideshowPlayer({
                         aria-live="polite"
                         aria-atomic="true"
                       >
-                        {navigation.count === 0
+                        {navigation.currentNumber === null
                           ? "No slides"
                           : `${navigation.currentNumber} of ${navigation.count}`}
                       </span>

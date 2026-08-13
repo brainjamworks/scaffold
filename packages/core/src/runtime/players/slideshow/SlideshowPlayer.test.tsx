@@ -983,6 +983,40 @@ describe("SlideshowPlayer", () => {
     ).toBeInTheDocument();
   });
 
+  it("presents empty-only Course Sections and publishes a null active Surface", async () => {
+    const user = userEvent.setup();
+    const onActiveSurfaceChange = vi.fn();
+
+    render(
+      <TestSlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={sectionedSlideshowDocumentContent([
+          { id: "section00001", title: "Introduction", surfaces: [] },
+          { id: "section00002", title: "Practice", surfaces: [] },
+        ])}
+        onActiveSurfaceChange={onActiveSurfaceChange}
+      />,
+    );
+
+    await waitFor(() => expect(onActiveSurfaceChange).toHaveBeenLastCalledWith(null));
+    expect(screen.getByRole("status")).toHaveTextContent("No slides");
+    expect(buttonByName("Previous slide").disabled).toBe(true);
+    expect(buttonByName("Next slide").disabled).toBe(true);
+
+    await user.click(screen.getByRole("button", { name: "Course Sections, no slides" }));
+    expect(
+      screen.getByRole("menuitemradio", {
+        name: "Introduction, Course Section 1 of 2, no slides",
+      }),
+    ).toHaveAttribute("aria-disabled", "true");
+    expect(
+      screen.getByRole("menuitemradio", {
+        name: "Practice, Course Section 2 of 2, no slides",
+      }),
+    ).toBeInTheDocument();
+    expect(document.body.querySelectorAll('[data-node="surface"]')).toHaveLength(0);
+  });
+
   it("keeps the Course Section chooser portal inside the fullscreen viewport", async () => {
     const user = userEvent.setup();
     installFullscreenHarness();

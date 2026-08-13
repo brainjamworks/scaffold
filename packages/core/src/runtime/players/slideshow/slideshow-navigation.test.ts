@@ -24,8 +24,8 @@ describe("getSlideshowNavigationState", () => {
     const structure = sectionedStructure([section(SECTION_1, "Empty")]);
     expect(getSlideshowNavigationState(structure)).toMatchObject({
       activeSurfaceId: null,
-      currentIndex: 0,
-      currentNumber: 0,
+      currentIndex: null,
+      currentNumber: null,
       count: 0,
       currentCourseSection: null,
       courseSectionItems: [{ id: SECTION_1, firstSurfaceId: null, current: false }],

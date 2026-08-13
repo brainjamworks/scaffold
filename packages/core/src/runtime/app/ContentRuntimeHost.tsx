@@ -2,6 +2,7 @@ import type { Editor as TiptapEditor } from "@tiptap/core";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import type { ScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import type { SurfaceId } from "@/document/model/course-structure";
 import type { ScaffoldLearnerPublication } from "@/host/contracts";
 import type { ScaffoldProductAccess } from "@/host/contracts/product-access";
 import { CourseDocumentAttrsSchema } from "@/schemas/course-document";
@@ -151,16 +152,20 @@ function HydratedRuntimePlayer({
   const learningEventReporter = useLearningEventReporter();
   const rendererReadyRef = useRef(false);
   const surfaceIds = playerSelection.structure.surfaceIds;
-  const activeSurfaceIdRef = useRef(surfaceIds[0]);
+  const activeSurfaceIdRef = useRef<SurfaceId | null>(surfaceIds[0] ?? null);
   const recordedSurfaceRef = useRef<{
     reporter: LearningEventReporter;
     surfaceId: string;
   } | null>(null);
-  if (!surfaceIds.includes(activeSurfaceIdRef.current)) {
-    activeSurfaceIdRef.current = surfaceIds[0];
+  if (activeSurfaceIdRef.current === null || !surfaceIds.includes(activeSurfaceIdRef.current)) {
+    activeSurfaceIdRef.current = surfaceIds[0] ?? null;
   }
   const recordSurfaceExperienced = useCallback(
-    (surfaceId: string) => {
+    (surfaceId: SurfaceId | null) => {
+      if (surfaceId === null) {
+        activeSurfaceIdRef.current = null;
+        return;
+      }
       const surfaceIndex = surfaceIds.findIndex((candidate) => candidate === surfaceId);
       if (surfaceIndex < 0) return;
       const selectedSurfaceId = surfaceIds[surfaceIndex]!;

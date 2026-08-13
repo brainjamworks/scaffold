@@ -148,4 +148,55 @@ describe("CourseSectionNavigation", () => {
     expect(container).toBeEmptyDOMElement();
     expect(screen.queryByRole("button", { name: /Course Section/ })).toBeNull();
   });
+
+  it("keeps empty-only Course Sections inspectable without creating a jump target", async () => {
+    const user = userEvent.setup();
+    const onSelectSurface = vi.fn();
+    const emptyItems: readonly CourseSectionNavigationItem[] = [
+      {
+        id: SECTION_1,
+        title: "Introduction",
+        index: 0,
+        number: 1,
+        count: 2,
+        firstSurfaceId: null,
+        current: false,
+      },
+      {
+        id: SECTION_2,
+        title: "Practice",
+        index: 1,
+        number: 2,
+        count: 2,
+        firstSurfaceId: null,
+        current: false,
+      },
+    ];
+
+    render(
+      <CourseSectionNavigation
+        currentCourseSection={null}
+        courseSectionItems={emptyItems}
+        onSelectSurface={onSelectSurface}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: "Course Sections, no slides" });
+    await user.click(trigger);
+
+    const firstSection = screen.getByRole("menuitemradio", {
+      name: "Introduction, Course Section 1 of 2, no slides",
+    });
+    expect(firstSection).toHaveAttribute("aria-disabled", "true");
+    expect(
+      screen.getByRole("menuitemradio", {
+        name: "Practice, Course Section 2 of 2, no slides",
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(firstSection);
+
+    expect(onSelectSurface).not.toHaveBeenCalled();
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+  });
 });

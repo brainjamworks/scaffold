@@ -1,5 +1,6 @@
 import { CaretDownIcon as CaretDown, CheckIcon as Check } from "@phosphor-icons/react";
 
+import type { SurfaceId } from "@/document/model/course-structure";
 import * as DropdownMenu from "@/ui/components/DropdownMenu/DropdownMenu";
 import { zIndex } from "@/ui/overlays/z-index";
 import { iconSm } from "@/ui/tokens/icon-sizes";
@@ -12,7 +13,7 @@ import type {
 export interface CourseSectionNavigationProps {
   readonly currentCourseSection: CurrentCourseSectionNavigation | null;
   readonly courseSectionItems: readonly CourseSectionNavigationItem[];
-  readonly onSelectSurface: (surfaceId: CourseSectionNavigationItem["firstSurfaceId"]) => void;
+  readonly onSelectSurface: (surfaceId: SurfaceId) => void;
 }
 
 export function CourseSectionNavigation({
@@ -20,8 +21,10 @@ export function CourseSectionNavigation({
   courseSectionItems,
   onSelectSurface,
 }: CourseSectionNavigationProps) {
-  if (!currentCourseSection || courseSectionItems.length === 0) return null;
-  const triggerLabel = courseSectionLabel(currentCourseSection);
+  if (courseSectionItems.length === 0) return null;
+  const triggerLabel = currentCourseSection
+    ? courseSectionLabel(currentCourseSection)
+    : "Course Sections, no slides";
 
   return (
     <DropdownMenu.Root>
@@ -32,10 +35,12 @@ export function CourseSectionNavigation({
           aria-label={triggerLabel}
         >
           <span className="sc-slideshow-player__course-section-title">
-            {currentCourseSection.title}
+            {currentCourseSection?.title ?? "Course Sections"}
           </span>
           <span className="sc-slideshow-player__course-section-position">
-            {currentCourseSection.number} of {currentCourseSection.count}
+            {currentCourseSection
+              ? `${currentCourseSection.number} of ${currentCourseSection.count}`
+              : "No slides"}
           </span>
           <CaretDown size={iconSm} weight="bold" aria-hidden />
         </button>
@@ -52,27 +57,37 @@ export function CourseSectionNavigation({
           <DropdownMenu.Label className="sc-slideshow-player__course-section-menu-label">
             Course Sections
           </DropdownMenu.Label>
-          <DropdownMenu.RadioGroup value={currentCourseSection.id}>
-            {courseSectionItems.map((item) => (
-              <DropdownMenu.RadioItem
-                key={item.id}
-                value={item.id}
-                aria-label={courseSectionLabel(item)}
-                className="sc-slideshow-player__course-section-menu-item"
-                disabled={item.firstSurfaceId === null}
-                onSelect={() => {
-                  if (item.firstSurfaceId) onSelectSurface(item.firstSurfaceId);
-                }}
-              >
-                <span className="sc-slideshow-player__course-section-menu-title">{item.title}</span>
-                <span className="sc-slideshow-player__course-section-menu-position">
-                  Course Section {item.number} of {item.count}
-                </span>
-                <DropdownMenu.ItemIndicator className="sc-slideshow-player__course-section-menu-indicator">
-                  <Check size={iconSm} weight="bold" aria-hidden />
-                </DropdownMenu.ItemIndicator>
-              </DropdownMenu.RadioItem>
-            ))}
+          <DropdownMenu.RadioGroup value={currentCourseSection?.id ?? ""}>
+            {courseSectionItems.map((item) => {
+              const isEmpty = item.firstSurfaceId === null;
+              return (
+                <DropdownMenu.RadioItem
+                  key={item.id}
+                  value={item.id}
+                  aria-disabled={isEmpty}
+                  aria-label={courseSectionLabel(item, isEmpty)}
+                  className="sc-slideshow-player__course-section-menu-item"
+                  onSelect={(event) => {
+                    if (item.firstSurfaceId === null) {
+                      event.preventDefault();
+                      return;
+                    }
+                    onSelectSurface(item.firstSurfaceId);
+                  }}
+                >
+                  <span className="sc-slideshow-player__course-section-menu-title">
+                    {item.title}
+                  </span>
+                  <span className="sc-slideshow-player__course-section-menu-position">
+                    Course Section {item.number} of {item.count}
+                    {isEmpty ? " · No slides" : ""}
+                  </span>
+                  <DropdownMenu.ItemIndicator className="sc-slideshow-player__course-section-menu-indicator">
+                    <Check size={iconSm} weight="bold" aria-hidden />
+                  </DropdownMenu.ItemIndicator>
+                </DropdownMenu.RadioItem>
+              );
+            })}
           </DropdownMenu.RadioGroup>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
@@ -80,10 +95,13 @@ export function CourseSectionNavigation({
   );
 }
 
-function courseSectionLabel(item: {
-  readonly title: string;
-  readonly number: number;
-  readonly count: number;
-}) {
-  return `${item.title}, Course Section ${item.number} of ${item.count}`;
+function courseSectionLabel(
+  item: {
+    readonly title: string;
+    readonly number: number;
+    readonly count: number;
+  },
+  noSlides = false,
+) {
+  return `${item.title}, Course Section ${item.number} of ${item.count}${noSlides ? ", no slides" : ""}`;
 }

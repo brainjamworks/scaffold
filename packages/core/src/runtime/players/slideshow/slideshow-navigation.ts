@@ -31,8 +31,8 @@ export interface CurrentCourseSectionNavigation {
 
 export interface SlideshowNavigationState {
   readonly activeSurfaceId: SurfaceId | null;
-  readonly currentIndex: number;
-  readonly currentNumber: number;
+  readonly currentIndex: number | null;
+  readonly currentNumber: number | null;
   readonly count: number;
   readonly previousSurfaceId: SurfaceId | null;
   readonly nextSurfaceId: SurfaceId | null;
@@ -47,33 +47,35 @@ export type SlideshowSurfaceStateMap = RuntimeSurfaceStateMap;
 
 export function getSlideshowNavigationState(
   structure: ProjectedSlideshowCourseStructure,
-  requestedSurfaceId?: SurfaceId,
+  requestedSurfaceId?: SurfaceId | null,
 ): SlideshowNavigationState {
   const { surfaceIds } = structure;
   const activeIndex = requestedSurfaceId ? surfaceIds.indexOf(requestedSurfaceId) : -1;
-  const currentIndex = activeIndex >= 0 ? activeIndex : 0;
-  const activeSurfaceId = surfaceIds[currentIndex] ?? surfaceIds[0] ?? null;
-  const previousSurfaceId = currentIndex > 0 ? (surfaceIds[currentIndex - 1] ?? null) : null;
+  const currentIndex = activeIndex >= 0 ? activeIndex : surfaceIds.length > 0 ? 0 : null;
+  const activeSurfaceId = currentIndex === null ? null : (surfaceIds[currentIndex] ?? null);
+  const previousSurfaceId =
+    currentIndex !== null && currentIndex > 0 ? (surfaceIds[currentIndex - 1] ?? null) : null;
   const nextSurfaceId =
-    currentIndex < surfaceIds.length - 1 ? (surfaceIds[currentIndex + 1] ?? null) : null;
-  const currentSurface = activeSurfaceId ? structure.surfaceById[activeSurfaceId] : undefined;
-  const currentCourseSection =
-    currentSurface?.courseSectionId
-      ? (() => {
-          const section = structure.courseSectionById[currentSurface.courseSectionId]!;
-          const surfaceIndex = currentSurface.courseSectionSurfaceIndex ?? 0;
-          return {
-            id: section.id,
-            title: section.title,
-            index: section.index,
-            number: section.index + 1,
-            count: structure.courseSections.length,
-            surfaceIndex,
-            surfaceNumber: surfaceIndex + 1,
-            surfaceCount: section.surfaceIds.length,
-          };
-        })()
+    currentIndex !== null && currentIndex < surfaceIds.length - 1
+      ? (surfaceIds[currentIndex + 1] ?? null)
       : null;
+  const currentSurface = activeSurfaceId ? structure.surfaceById[activeSurfaceId] : undefined;
+  const currentCourseSection = currentSurface?.courseSectionId
+    ? (() => {
+        const section = structure.courseSectionById[currentSurface.courseSectionId]!;
+        const surfaceIndex = currentSurface.courseSectionSurfaceIndex ?? 0;
+        return {
+          id: section.id,
+          title: section.title,
+          index: section.index,
+          number: section.index + 1,
+          count: structure.courseSections.length,
+          surfaceIndex,
+          surfaceNumber: surfaceIndex + 1,
+          surfaceCount: section.surfaceIds.length,
+        };
+      })()
+    : null;
   const courseSectionItems = structure.courseSections.map((section) => ({
     id: section.id,
     title: section.title,
@@ -87,7 +89,7 @@ export function getSlideshowNavigationState(
   return {
     activeSurfaceId,
     currentIndex,
-    currentNumber: activeSurfaceId ? currentIndex + 1 : 0,
+    currentNumber: currentIndex === null ? null : currentIndex + 1,
     count: surfaceIds.length,
     previousSurfaceId,
     nextSurfaceId,
