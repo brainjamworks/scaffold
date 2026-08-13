@@ -16,12 +16,14 @@ import {
 import { buildSurfaceCandidate, buildSurfaceDuplicateCandidate } from "./surface-transactions";
 import {
   directChildren,
+  isCourseSurfaceRoot,
+  isCourseSurfaceRootType,
   parseCourseSectionTitle,
   sameChildren,
   type CandidateMutation,
   type CommandBuildContext,
 } from "./transaction-helpers";
-import type { CourseSectionId, CourseStructureCommand, SurfaceId } from "./types";
+import type { CourseStructureCommand, SurfaceId } from "./types";
 
 interface ApplyCourseStructureCommandInput {
   readonly blockDuplications?: BlockDuplicationLookup;
@@ -41,12 +43,12 @@ interface DirectChildRef {
 type LogicalSelection =
   | {
       readonly kind: "node";
-      readonly type: "courseSection" | "surface";
+      readonly type: "courseSection" | "surface" | "unavailable_surface";
       readonly id: string;
     }
   | {
       readonly kind: "text";
-      readonly type: "courseSection" | "surface";
+      readonly type: "courseSection" | "surface" | "unavailable_surface";
       readonly id: string;
       readonly anchorOffset: number;
       readonly headOffset: number;
@@ -213,7 +215,7 @@ function replaceCourseChildren(tr: Transaction, children: readonly ProseMirrorNo
 
 function deleteSurface(tr: Transaction, surfaceId: SurfaceId) {
   const refs = directChildRefs(tr.doc.firstChild);
-  const source = requireRef(refs, "surface", surfaceId);
+  const source = requireCourseSurfaceRef(refs, surfaceId);
   tr.delete(source.pos, source.end);
 }
 
@@ -223,7 +225,7 @@ function moveSurface(
   destination: Extract<CourseStructureCommand, { type: "surface.move" }>["destination"],
 ) {
   const refs = directChildRefs(tr.doc.firstChild);
-  const source = requireRef(refs, "surface", surfaceId);
+  const source = requireCourseSurfaceRef(refs, surfaceId);
   const destinationPos = resolveTransactionDestination(refs, destination);
   const mappingStart = tr.mapping.maps.length;
   tr.delete(source.pos, source.end);
@@ -235,9 +237,9 @@ function resolveTransactionDestination(
   destination: Extract<CourseStructureCommand, { type: "surface.move" }>["destination"],
 ): number {
   if ("beforeSurfaceId" in destination)
-    return requireRef(refs, "surface", destination.beforeSurfaceId).pos;
+    return requireCourseSurfaceRef(refs, destination.beforeSurfaceId).pos;
   if ("afterSurfaceId" in destination)
-    return requireRef(refs, "surface", destination.afterSurfaceId).end;
+    return requireCourseSurfaceRef(refs, destination.afterSurfaceId).end;
   const boundary = requireRef(refs, "courseSection", destination.intoCourseSectionId);
   if (destination.edge === "start") return boundary.end;
   const nextBoundary = refs.find(
@@ -260,7 +262,7 @@ function directChildRefs(courseDocument: ProseMirrorNode | null): DirectChildRef
 
 function requireDirectChildRef(
   courseDocument: ProseMirrorNode | null,
-  type: "courseSection" | "surface",
+  type: "courseSection",
   id: string,
 ): DirectChildRef {
   return requireRef(directChildRefs(courseDocument), type, id);
@@ -276,6 +278,12 @@ function requireRef(
   return ref;
 }
 
+function requireCourseSurfaceRef(refs: readonly DirectChildRef[], id: string): DirectChildRef {
+  const ref = refs.find((item) => isCourseSurfaceRoot(item.node) && item.node.attrs["id"] === id);
+  if (!ref) throw new Error(`The Course Surface "${id}" is missing from the current document.`);
+  return ref;
+}
+
 function requireCourseDocument(tr: Transaction): ProseMirrorNode {
   const courseDocument = tr.doc.firstChild;
   if (!courseDocument) throw new Error("The Course Document is missing.");
@@ -287,13 +295,15 @@ function captureLogicalSelection(state: EditorState): LogicalSelection | null {
   const { selection } = state;
   if (isNodeSelection(selection)) {
     const selectedRef = refs.find((ref) => ref.pos === selection.from);
+    const selectedType = selectedRef?.node.type.name;
     if (
       selectedRef &&
-      (selectedRef.node.type.name === "courseSection" || selectedRef.node.type.name === "surface")
+      selectedType &&
+      (selectedType === "courseSection" || isCourseSurfaceRootType(selectedType))
     ) {
       const id = selectedRef.node.attrs["id"];
       if (typeof id === "string") {
-        return { kind: "node", type: selectedRef.node.type.name, id };
+        return { kind: "node", type: selectedType, id };
       }
     }
     return null;
@@ -301,10 +311,10 @@ function captureLogicalSelection(state: EditorState): LogicalSelection | null {
   const anchorRef = refs.find((ref) => selection.anchor >= ref.pos && selection.anchor < ref.end);
   const headRef = refs.find((ref) => selection.head >= ref.pos && selection.head < ref.end);
   if (!anchorRef || anchorRef !== headRef) return null;
-  if (anchorRef.node.type.name !== "courseSection" && anchorRef.node.type.name !== "surface") {
+  const type = anchorRef.node.type.name;
+  if (type !== "courseSection" && !isCourseSurfaceRootType(type)) {
     return null;
   }
-  const type = anchorRef.node.type.name;
   const id = anchorRef.node.attrs["id"];
   if (typeof id !== "string") return null;
   return {
@@ -323,7 +333,7 @@ function restoreLogicalSelection(
   if (!selection) return;
   if (selection.kind === "surface") {
     const ref = directChildRefs(tr.doc.firstChild).find(
-      (item) => item.node.type.name === "surface" && item.node.attrs["id"] === selection.id,
+      (item) => isCourseSurfaceRoot(item.node) && item.node.attrs["id"] === selection.id,
     );
     if (ref) setTextSelectionNearInTransaction(tr, ref.pos + 1);
     return;

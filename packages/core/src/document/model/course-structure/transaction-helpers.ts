@@ -1,6 +1,8 @@
 import { CourseSectionTitleSchema } from "@scaffold/contracts";
 import type { Node as ProseMirrorNode, Schema } from "@tiptap/pm/model";
 
+import { isUnavailableSurfaceCompatibilityRootType } from "@/document/model/establishment/unavailable-content-compatibility-root";
+
 import type { SurfaceDestination, SurfaceId } from "./types";
 
 export interface CommandBuildContext {
@@ -43,6 +45,20 @@ export function childIndexById(
   return children.findIndex((node) => node.type.name === type && node.attrs["id"] === id);
 }
 
+export function isCourseSurfaceRoot(node: ProseMirrorNode): boolean {
+  return isCourseSurfaceRootType(node.type.name);
+}
+
+export function isCourseSurfaceRootType(
+  nodeType: string,
+): nodeType is "surface" | "unavailable_surface" {
+  return nodeType === "surface" || isUnavailableSurfaceCompatibilityRootType(nodeType);
+}
+
+export function courseSurfaceIndexById(children: readonly ProseMirrorNode[], id: string): number {
+  return children.findIndex((node) => isCourseSurfaceRoot(node) && node.attrs["id"] === id);
+}
+
 export function nextBoundaryIndex(
   children: readonly ProseMirrorNode[],
   sourceIndex: number,
@@ -58,7 +74,7 @@ export function resolveSurfaceDestination(
   destination: SurfaceDestination,
 ): number {
   if ("beforeSurfaceId" in destination) {
-    return childIndexById(children, "surface", destination.beforeSurfaceId);
+    return courseSurfaceIndexById(children, destination.beforeSurfaceId);
   }
   if ("intoCourseSectionId" in destination) {
     const boundaryIndex = childIndexById(
@@ -71,7 +87,7 @@ export function resolveSurfaceDestination(
       ? boundaryIndex + 1
       : nextBoundaryIndex(children, boundaryIndex);
   }
-  const index = childIndexById(children, "surface", destination.afterSurfaceId);
+  const index = courseSurfaceIndexById(children, destination.afterSurfaceId);
   return index < 0 ? -1 : index + 1;
 }
 

@@ -16,6 +16,12 @@ export function isUnavailableContentCompatibilityRootType(nodeType: string): boo
   return Object.prototype.hasOwnProperty.call(COMPATIBILITY_ROOTS, nodeType);
 }
 
+export function isUnavailableSurfaceCompatibilityRootType(
+  nodeType: string,
+): nodeType is "unavailable_surface" {
+  return COMPATIBILITY_ROOTS[nodeType as keyof typeof COMPATIBILITY_ROOTS]?.kind === "surface";
+}
+
 export function readUnavailableContentCompatibilityRoot(
   nodeType: string,
   attrs: Readonly<Record<string, unknown>>,

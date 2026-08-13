@@ -5,6 +5,8 @@ import type { BlockDuplicationLookup } from "@/document/model/identity/clone-wit
 
 import {
   childIndexById,
+  courseSurfaceIndexById,
+  isCourseSurfaceRoot,
   resolveSurfaceDestination,
   type CandidateMutation,
   type CommandBuildContext,
@@ -74,10 +76,10 @@ function deleteSurface(
   surfaceId: SurfaceId,
   { children }: CommandBuildContext,
 ): CandidateMutation | null {
-  const sourceIndex = childIndexById(children, "surface", surfaceId);
+  const sourceIndex = courseSurfaceIndexById(children, surfaceId);
   if (sourceIndex < 0) return null;
   const surfaceIds = children.flatMap((node) =>
-    node.type.name === "surface" && typeof node.attrs["id"] === "string"
+    isCourseSurfaceRoot(node) && typeof node.attrs["id"] === "string"
       ? [node.attrs["id"] as SurfaceId]
       : [],
   );
@@ -93,13 +95,14 @@ function moveSurface(
   destination: SurfaceDestination,
   { children }: CommandBuildContext,
 ): CandidateMutation | null {
-  const sourceIndex = childIndexById(children, "surface", surfaceId);
+  const sourceIndex = courseSurfaceIndexById(children, surfaceId);
   if (sourceIndex < 0) return null;
-  const destinationSurfaceId = "beforeSurfaceId" in destination
-    ? destination.beforeSurfaceId
-    : "afterSurfaceId" in destination
-      ? destination.afterSurfaceId
-      : null;
+  const destinationSurfaceId =
+    "beforeSurfaceId" in destination
+      ? destination.beforeSurfaceId
+      : "afterSurfaceId" in destination
+        ? destination.afterSurfaceId
+        : null;
   if (destinationSurfaceId === surfaceId) return null;
 
   const next = [...children];

@@ -7,6 +7,7 @@ import { isUnavailableContentCompatibilityRootType } from "@/document/model/esta
 import {
   childIndexById,
   createCourseSectionBoundary,
+  isCourseSurfaceRoot,
   nextBoundaryIndex,
   parseCourseSectionTitle,
   type CandidateMutation,
@@ -84,7 +85,7 @@ function deleteCourseSection(
   const currentSurfaceIds = children
     .slice(childIndex + 1, sectionEnd)
     .flatMap((node) =>
-      node.type.name === "surface" && typeof node.attrs["id"] === "string"
+      isCourseSurfaceRoot(node) && typeof node.attrs["id"] === "string"
         ? [node.attrs["id"] as SurfaceId]
         : [],
     );

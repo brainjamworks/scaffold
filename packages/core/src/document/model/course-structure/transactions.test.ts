@@ -14,6 +14,10 @@ import {
   type ResolvedBlockCapabilities,
 } from "@/composition/model/resolved-scaffold-capabilities";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
+import {
+  authoringCourseDocumentContentExpression,
+  createUnavailableContentAuthoringExtensions,
+} from "@/document/authoring/unavailable-content";
 import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { CourseDocumentNode, DocumentNode, createCourseSectionNode } from "@/document/model/nodes";
 import { defineBlock } from "@/editor/blocks/block-definition";
@@ -33,6 +37,7 @@ const SURFACE_1 = EmbeddedNodeIdSchema.parse("surface00001");
 const SURFACE_2 = EmbeddedNodeIdSchema.parse("surface00002");
 const SURFACE_3 = EmbeddedNodeIdSchema.parse("surface00003");
 const SURFACE_4 = EmbeddedNodeIdSchema.parse("surface00004");
+const UNAVAILABLE_SURFACE = EmbeddedNodeIdSchema.parse("unavail00001");
 const SECTION_1 = EmbeddedNodeIdSchema.parse("section00001");
 const SECTION_2 = EmbeddedNodeIdSchema.parse("section00002");
 const SECTION_3 = EmbeddedNodeIdSchema.parse("section00003");
@@ -58,6 +63,9 @@ const CopyFixtureNode = Node.create({
   renderHTML() {
     return ["div", { "data-copy-fixture": "" }];
   },
+});
+const TestCourseDocumentNode = CourseDocumentNode.extend({
+  content: authoringCourseDocumentContentExpression(),
 });
 const surfaceVariants = createSurfaceVariantRegistry([
   {
@@ -255,6 +263,131 @@ describe("Course Structure Tiptap commands", () => {
       }),
     ).toBe(true);
     expect(childIdentity(editor)).toEqual([SECTION_1, SECTION_2, SURFACE_1]);
+  });
+
+  it("moves an unavailable Surface opaquely and resolves it as a destination", () => {
+    const unavailable = unavailableSurface(UNAVAILABLE_SURFACE);
+    const editor = makeEditor(
+      [
+        section(SECTION_1, "One"),
+        unavailable,
+        surface(SURFACE_1),
+        section(SECTION_2, "Two"),
+        surface(SURFACE_2),
+      ],
+      "slideshow",
+      [],
+    );
+    editor.commands.setNodeSelection(
+      directChildPosition(editor, "unavailable_surface", UNAVAILABLE_SURFACE),
+    );
+
+    expect(
+      runCommand(editor, {
+        type: "surface.move",
+        surfaceId: UNAVAILABLE_SURFACE,
+        destination: { intoCourseSectionId: SECTION_2, edge: "end" },
+      }),
+    ).toBe(true);
+    expect(
+      runCommand(editor, {
+        type: "surface.move",
+        surfaceId: SURFACE_1,
+        destination: { beforeSurfaceId: UNAVAILABLE_SURFACE },
+      }),
+    ).toBe(true);
+
+    expect(childIdentity(editor)).toEqual([
+      SECTION_1,
+      SECTION_2,
+      SURFACE_2,
+      SURFACE_1,
+      UNAVAILABLE_SURFACE,
+    ]);
+    expect(courseChildren(editor).at(-1)).toEqual(unavailable);
+    expect(isNodeSelection(editor.state.selection)).toBe(true);
+    expect(editor.state.selection.$from.nodeAfter?.attrs["id"]).toBe(UNAVAILABLE_SURFACE);
+  });
+
+  it("deletes and restores an unavailable Surface without changing its payload", () => {
+    const unavailable = unavailableSurface(UNAVAILABLE_SURFACE);
+    const editor = makeEditor(
+      [
+        section(SECTION_1, "One"),
+        surface(SURFACE_1),
+        unavailable,
+        section(SECTION_2, "Two"),
+        surface(SURFACE_2),
+      ],
+      "slideshow",
+      [],
+    );
+    const before = editor.getJSON();
+
+    expect(runCommand(editor, { type: "surface.delete", surfaceId: UNAVAILABLE_SURFACE })).toBe(
+      true,
+    );
+    expect(childIdentity(editor)).toEqual([SECTION_1, SURFACE_1, SECTION_2, SURFACE_2]);
+    expect(editor.commands.undo()).toBe(true);
+    expect(editor.getJSON()).toEqual(before);
+    expect(courseChildren(editor)[2]).toEqual(unavailable);
+  });
+
+  it("requires unavailable Surfaces in confirmed Section deletion membership", () => {
+    const editor = makeEditor(
+      [
+        section(SECTION_1, "One"),
+        surface(SURFACE_1),
+        unavailableSurface(UNAVAILABLE_SURFACE),
+        section(SECTION_2, "Two"),
+        surface(SURFACE_2),
+      ],
+      "slideshow",
+      [],
+    );
+    const before = editor.getJSON();
+
+    expect(
+      runCommand(editor, {
+        type: "course-section.delete",
+        courseSectionId: SECTION_1,
+        expectedSurfaceIds: [SURFACE_1],
+      }),
+    ).toBe(false);
+    expect(editor.getJSON()).toEqual(before);
+    expect(
+      runCommand(editor, {
+        type: "course-section.delete",
+        courseSectionId: SECTION_1,
+        expectedSurfaceIds: [SURFACE_1, UNAVAILABLE_SURFACE],
+      }),
+    ).toBe(true);
+    expect(childIdentity(editor)).toEqual([SECTION_2, SURFACE_2]);
+  });
+
+  it("continues to refuse unavailable Surface and owning Section duplication", () => {
+    const editor = makeEditor(
+      [
+        section(SECTION_1, "One"),
+        unavailableSurface(UNAVAILABLE_SURFACE),
+        section(SECTION_2, "Two"),
+        surface(SURFACE_2),
+      ],
+      "slideshow",
+      ["unusedid0001"],
+    );
+    const before = editor.getJSON();
+
+    expect(runCommand(editor, { type: "surface.duplicate", surfaceId: UNAVAILABLE_SURFACE })).toBe(
+      false,
+    );
+    expect(
+      runCommand(editor, {
+        type: "course-section.duplicate",
+        courseSectionId: SECTION_1,
+      }),
+    ).toBe(false);
+    expect(editor.getJSON()).toEqual(before);
   });
 
   it("duplicates an empty Course Section as empty with fresh identity", () => {
@@ -455,12 +588,13 @@ function makeEditor(
       DocumentNode,
       StarterKit.configure({ document: false, paragraph: false }),
       ExtendedParagraph,
-      CourseDocumentNode,
+      TestCourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       TestArrangementNode,
       CopyFixtureNode,
+      ...createUnavailableContentAuthoringExtensions(),
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       createCourseStructureCommandsExtension({
         createId: () => {
@@ -523,7 +657,7 @@ function surfaceTextPosition(editor: Editor, surfaceId: string): number {
 
 function directChildPosition(
   editor: Editor,
-  type: "courseSection" | "surface",
+  type: "courseSection" | "surface" | "unavailable_surface",
   id: string,
 ): number {
   const courseDocument = editor.state.doc.firstChild;
@@ -579,6 +713,30 @@ function surface(
     type: "surface",
     attrs: { id, title: null, variant, settings: {}, notes: null },
     content,
+  };
+}
+
+function unavailableSurface(id: string): JSONContent {
+  return {
+    type: "unavailable_surface",
+    attrs: {
+      id,
+      capabilityId: "plus-interactive-slide",
+      original: {
+        type: "surface",
+        attrs: {
+          id,
+          variant: "plus-interactive-slide",
+          settings: { privateMode: "guided" },
+        },
+        content: [
+          {
+            type: "plus_private_content",
+            attrs: { referenceId: "private00001" },
+          },
+        ],
+      },
+    },
   };
 }
 
