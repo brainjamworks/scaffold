@@ -26,10 +26,10 @@ export function SurfaceActions({
 }) {
   const hasMenuActions = Boolean(onRename || onDuplicate || onDelete);
   return (
-    <div className="sc-course-surface-actions">
+    <div className="sc-document-navigator-surface-actions">
       <button
         aria-label={`Show structure for ${item.label}`}
-        className="sc-course-surface-action"
+        className="sc-document-navigator-surface-action"
         type="button"
         onClick={() => onShowStructure(item)}
       >
@@ -39,7 +39,7 @@ export function SurfaceActions({
       {onSettings ? (
         <button
           aria-label={`Open settings for ${item.label}`}
-          className="sc-course-surface-action"
+          className="sc-document-navigator-surface-action"
           type="button"
           onClick={() => onSettings(item)}
         >
@@ -52,7 +52,7 @@ export function SurfaceActions({
           <DropdownMenu.Trigger asChild>
             <button
               aria-label={`More actions for ${item.label}`}
-              className="sc-course-surface-action sc-course-surface-action--icon"
+              className="sc-document-navigator-surface-action sc-document-navigator-surface-action--icon"
               type="button"
             >
               <DotsThree aria-hidden size={iconSm} weight="bold" />

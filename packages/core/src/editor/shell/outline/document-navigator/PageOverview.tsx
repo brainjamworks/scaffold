@@ -29,7 +29,7 @@ export function PageOverview({
   }
 
   return (
-    <div className="sc-course-overview" aria-label="Page overview">
+    <div className="sc-document-navigator-overview" aria-label="Page overview">
       <SurfaceCard
         item={surface}
         selected={surface.id === selectedSurfaceId}

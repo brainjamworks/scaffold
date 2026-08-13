@@ -64,8 +64,8 @@ function SurfaceCardContent({
   return (
     <article
       ref={drag?.sourceRef}
-      className="sc-course-surface-card"
-      data-course-outline-surface-card-id={item.id}
+      className="sc-document-navigator-surface-card"
+      data-document-navigator-surface-card-id={item.id}
       data-course-outline-motion-id={`surface:${item.id}`}
       data-interaction-drag-placeholder={drag?.isPlaceholder ? "" : undefined}
       data-selected={selected ? "true" : undefined}
@@ -82,19 +82,19 @@ function SurfaceCardContent({
         ref={registerSelectionControl}
         aria-label={`Select Surface ${item.label}`}
         aria-pressed={selected}
-        className="sc-course-surface-card-selection"
+        className="sc-document-navigator-surface-card-selection"
         type="button"
         onClick={() => onSelect(item)}
       >
         <span
           aria-hidden="true"
-          className="sc-course-surface-placeholder"
-          data-testid="course-surface-placeholder"
+          className="sc-document-navigator-surface-placeholder"
+          data-testid="document-navigator-surface-placeholder"
         />
       </button>
-      <div className="sc-course-surface-meta">
+      <div className="sc-document-navigator-surface-meta">
         {editing ? (
-          <form className="sc-course-surface-rename" onSubmit={submitRename}>
+          <form className="sc-document-navigator-surface-rename" onSubmit={submitRename}>
             <label
               className="sc-document-outline-status--visually-hidden"
               htmlFor={`surface-name-${item.id}`}
@@ -117,7 +117,7 @@ function SurfaceCardContent({
             <button type="submit">Save</button>
           </form>
         ) : (
-          <span className="sc-course-surface-label" title={item.label}>
+          <span className="sc-document-navigator-surface-label" title={item.label}>
             {item.label}
           </span>
         )}

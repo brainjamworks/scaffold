@@ -4,7 +4,7 @@ import {
   DocumentNavigator,
   type DocumentNavigatorNavigation,
   type DocumentNavigatorSurfaceActionPort,
-} from "./course-navigator/DocumentNavigator";
+} from "./document-navigator/DocumentNavigator";
 import type { CourseOutlineStructureAuthoringPort } from "./course-outline-structure-authoring";
 import type { OverlayBoundaryResolution } from "@/ui/overlays/portal-host-context";
 

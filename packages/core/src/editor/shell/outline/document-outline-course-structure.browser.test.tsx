@@ -59,12 +59,12 @@ describe("mounted Course Outline Course Structure authoring", () => {
       await expect.element(sectionDisclosure).toHaveAttribute("aria-expanded", "true");
       expect(outlineDock.getBoundingClientRect().width).toBeCloseTo(expandedDockWidth, 1);
 
-      const preview = requireElement<HTMLElement>(".sc-course-surface-placeholder");
+      const preview = requireElement<HTMLElement>(".sc-document-navigator-surface-placeholder");
       const previewRect = preview.getBoundingClientRect();
       expect(previewRect.width / previewRect.height).toBeCloseTo(16 / 9, 1);
 
       const dragHandle = requireElement<HTMLElement>(".sc-document-outline-drag-handle");
-      const card = dragHandle.closest<HTMLElement>(".sc-course-surface-card");
+      const card = dragHandle.closest<HTMLElement>(".sc-document-navigator-surface-card");
       if (!card) throw new Error("Expected Surface card drag geometry");
       expect(dragHandle.getBoundingClientRect().right).toBeLessThanOrEqual(
         card.getBoundingClientRect().right,

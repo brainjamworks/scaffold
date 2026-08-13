@@ -70,7 +70,9 @@ describe("Document Outline authoring integration", () => {
       await userEvent.clear(surfaceName);
       await userEvent.type(surfaceName, "Lesson page");
       await userEvent.click(
-        requireElement<HTMLButtonElement>(".sc-course-surface-rename button[type=submit]"),
+        requireElement<HTMLButtonElement>(
+          ".sc-document-navigator-surface-rename button[type=submit]",
+        ),
       );
       const renamedSurface = page.getByRole("button", { name: "Select Surface Lesson page" });
       await expect.element(renamedSurface).toBeVisible();
@@ -150,7 +152,9 @@ describe("Document Outline authoring integration", () => {
       await userEvent.clear(surfaceName);
       await userEvent.type(surfaceName, "Welcome slide");
       await userEvent.click(
-        requireElement<HTMLButtonElement>(".sc-course-surface-rename button[type=submit]"),
+        requireElement<HTMLButtonElement>(
+          ".sc-document-navigator-surface-rename button[type=submit]",
+        ),
       );
       const renamedSurface = page.getByRole("button", { name: "Select Surface Welcome slide" });
       await expect.element(renamedSurface).toBeVisible();

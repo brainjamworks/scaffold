@@ -1,11 +1,11 @@
 @layer sc-components {
-  .sc-course-navigator {
+  .sc-document-navigator {
     min-width: 0;
     padding-block-end: 1rem;
     color: var(--color-text-primary);
   }
 
-  .sc-course-navigator-overview-actions {
+  .sc-document-navigator-overview-actions {
     display: flex;
     min-width: 0;
     min-height: 2.25rem;
@@ -15,7 +15,7 @@
     padding-inline: 0.75rem;
   }
 
-  .sc-course-navigator-overview-label {
+  .sc-document-navigator-overview-label {
     min-width: 0;
     flex: 1 1 auto;
     overflow: hidden;
@@ -27,23 +27,23 @@
     white-space: nowrap;
   }
 
-  .sc-course-navigator-overview-actions .sc-course-navigator-add-section {
+  .sc-document-navigator-overview-actions .sc-document-navigator-add-section {
     flex: 0 0 auto;
     border-radius: var(--sc-app-radius-control);
     padding-inline: 0.625rem;
     color: var(--sc-app-color-text-secondary);
   }
 
-  .sc-course-navigator-overview-actions .sc-course-navigator-add-section:hover:not(:disabled) {
+  .sc-document-navigator-overview-actions .sc-document-navigator-add-section:hover:not(:disabled) {
     background: var(--sc-app-color-muted);
     color: var(--sc-app-color-text-primary);
   }
 
-  .sc-course-navigator-overview-actions .sc-course-navigator-add-section:focus-visible {
+  .sc-document-navigator-overview-actions .sc-document-navigator-add-section:focus-visible {
     outline-color: var(--sc-app-color-focus-outline);
   }
 
-  .sc-course-overview {
+  .sc-document-navigator-overview {
     display: grid;
     min-width: 0;
     gap: 1.25rem;
@@ -219,7 +219,9 @@
     padding-block-end: 0;
   }
 
-  .sc-course-section-surfaces > [data-course-outline-projected-source] > .sc-course-surface-card {
+  .sc-course-section-surfaces
+    > [data-course-outline-projected-source]
+    > .sc-document-navigator-surface-card {
     position: absolute;
     top: 0;
     inset-inline: 0;
@@ -227,27 +229,28 @@
     pointer-events: none;
   }
 
-  .sc-course-surface-card {
+  .sc-document-navigator-surface-card {
     position: relative;
     min-width: 0;
   }
 
-  .sc-course-surface-card[data-interaction-drag-placeholder] {
+  .sc-document-navigator-surface-card[data-interaction-drag-placeholder] {
     pointer-events: none;
   }
 
-  .sc-course-surface-card[data-interaction-drag-placeholder] .sc-course-surface-card-selection {
+  .sc-document-navigator-surface-card[data-interaction-drag-placeholder]
+    .sc-document-navigator-surface-card-selection {
     border-style: dashed;
     border-color: color-mix(in srgb, var(--color-primary) 48%, var(--color-border));
     background: transparent;
     box-shadow: none;
   }
 
-  .sc-course-surface-card[data-interaction-drag-placeholder]
+  .sc-document-navigator-surface-card[data-interaction-drag-placeholder]
     :is(
-      .sc-course-surface-placeholder,
-      .sc-course-surface-meta,
-      .sc-course-surface-actions,
+      .sc-document-navigator-surface-placeholder,
+      .sc-document-navigator-surface-meta,
+      .sc-document-navigator-surface-actions,
       .sc-document-outline-drag-handle
     ) {
     visibility: hidden;
@@ -321,7 +324,7 @@
     }
   }
 
-  .sc-course-surface-card-selection {
+  .sc-document-navigator-surface-card-selection {
     display: block;
     width: 100%;
     overflow: hidden;
@@ -334,27 +337,28 @@
     outline: none;
   }
 
-  .sc-course-surface-placeholder {
+  .sc-document-navigator-surface-placeholder {
     display: block;
     aspect-ratio: 16 / 9;
     width: 100%;
     background: var(--color-surface);
   }
 
-  .sc-course-surface-card-selection:hover {
+  .sc-document-navigator-surface-card-selection:hover {
     border-color: color-mix(in srgb, var(--color-text-secondary) 42%, var(--color-border));
   }
 
-  .sc-course-surface-card-selection:focus-visible {
+  .sc-document-navigator-surface-card-selection:focus-visible {
     box-shadow: 0 0 0 2px var(--color-focus-outline);
   }
 
-  .sc-course-surface-card[data-selected="true"] .sc-course-surface-card-selection {
+  .sc-document-navigator-surface-card[data-selected="true"]
+    .sc-document-navigator-surface-card-selection {
     border-color: var(--color-primary);
     box-shadow: inset 0 0 0 1px var(--color-primary);
   }
 
-  .sc-course-surface-meta {
+  .sc-document-navigator-surface-meta {
     display: flex;
     min-width: 0;
     min-height: 2rem;
@@ -363,7 +367,7 @@
     padding-inline: 0.125rem;
   }
 
-  .sc-course-surface-label {
+  .sc-document-navigator-surface-label {
     min-width: 0;
     overflow: hidden;
     font-size: 0.8125rem;
@@ -373,14 +377,14 @@
     white-space: nowrap;
   }
 
-  .sc-course-surface-actions {
+  .sc-document-navigator-surface-actions {
     display: flex;
     min-width: 0;
     align-items: center;
     gap: 0.125rem;
   }
 
-  .sc-course-surface-action {
+  .sc-document-navigator-surface-action {
     display: inline-flex;
     min-width: 0;
     min-height: 2rem;
@@ -397,25 +401,25 @@
     font-size: 0.75rem;
   }
 
-  .sc-course-surface-action:hover {
+  .sc-document-navigator-surface-action:hover {
     background: var(--color-muted);
     color: var(--color-text-primary);
   }
 
-  .sc-course-surface-action:focus-visible,
+  .sc-document-navigator-surface-action:focus-visible,
   .sc-course-section-header .sc-document-outline-actions-trigger:focus-visible,
-  .sc-course-surface-rename :is(input, button):focus-visible {
+  .sc-document-navigator-surface-rename :is(input, button):focus-visible {
     outline: 2px solid var(--color-focus-outline);
     outline-offset: 1px;
   }
 
-  .sc-course-surface-action--icon {
+  .sc-document-navigator-surface-action--icon {
     width: 2rem;
     margin-inline-start: auto;
     padding: 0;
   }
 
-  .sc-course-surface-card > .sc-document-outline-drag-handle {
+  .sc-document-navigator-surface-card > .sc-document-outline-drag-handle {
     position: absolute;
     top: 0.375rem;
     inset-inline-end: 0.375rem;
@@ -426,9 +430,9 @@
     opacity: 0;
   }
 
-  .sc-course-surface-card:hover > .sc-document-outline-drag-handle,
-  .sc-course-surface-card:focus-within > .sc-document-outline-drag-handle,
-  .sc-course-surface-card > .sc-document-outline-drag-handle[data-dragging="true"] {
+  .sc-document-navigator-surface-card:hover > .sc-document-outline-drag-handle,
+  .sc-document-navigator-surface-card:focus-within > .sc-document-outline-drag-handle,
+  .sc-document-navigator-surface-card > .sc-document-outline-drag-handle[data-dragging="true"] {
     opacity: 1;
   }
 
@@ -445,14 +449,14 @@
     height: 2.75rem;
   }
 
-  .sc-course-surface-rename {
+  .sc-document-navigator-surface-rename {
     display: flex;
     width: 100%;
     min-width: 0;
     gap: 0.375rem;
   }
 
-  .sc-course-surface-rename input {
+  .sc-document-navigator-surface-rename input {
     width: 100%;
     min-width: 0;
     border: 1px solid var(--color-border);
@@ -464,7 +468,7 @@
     font-size: 0.8125rem;
   }
 
-  .sc-course-surface-rename button {
+  .sc-document-navigator-surface-rename button {
     border: 0;
     border-radius: var(--radius-sm);
     padding-inline: 0.625rem;
@@ -493,7 +497,7 @@
   }
 
   @media (pointer: coarse) {
-    .sc-course-surface-card > .sc-document-outline-drag-handle {
+    .sc-document-navigator-surface-card > .sc-document-outline-drag-handle {
       opacity: 1;
     }
   }

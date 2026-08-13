@@ -59,7 +59,7 @@ export function CourseOverview({
   const overviewRef = useRef<HTMLDivElement>(null);
   useCourseOutlineReorderMotion(overviewRef, roots, surfaceDragProjection);
   return (
-    <div ref={overviewRef} className="sc-course-overview" aria-label="Course overview">
+    <div ref={overviewRef} className="sc-document-navigator-overview" aria-label="Course overview">
       {roots
         .filter((item) => item.kind === "course-section")
         .map((section) => (

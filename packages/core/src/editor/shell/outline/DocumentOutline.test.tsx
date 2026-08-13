@@ -78,6 +78,20 @@ describe("DocumentOutline", () => {
     expect(within(structure).getByRole("treeitem", { name: "Heading" })).toBeInTheDocument();
   });
 
+  it("uses mode-neutral hooks for shared Document Navigator UI", () => {
+    const surface = item("surface", "surface", "Page", null);
+    const fixture = createFixtureFromRoots([surface], "page");
+
+    const { container } = render(<DocumentOutline {...fixture.props} />);
+
+    expect(container.querySelector(".sc-document-navigator")).not.toBeNull();
+    expect(container.querySelector(".sc-document-navigator-overview")).not.toBeNull();
+    expect(container.querySelector(".sc-document-navigator-surface-card")).not.toBeNull();
+    expect(
+      container.querySelector(".sc-course-navigator, .sc-course-overview, .sc-course-surface-card"),
+    ).toBeNull();
+  });
+
   it("renders nested public items, supplied labels and payload-safe diagnostics", () => {
     const fixture = createFixture();
     fixture.view.setExpanded(id("surface"), true);

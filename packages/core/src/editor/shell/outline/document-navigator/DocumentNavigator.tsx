@@ -36,7 +36,7 @@ import { deriveCourseOutlineSurfaceDropTargets } from "../course-outline-surface
 import { CourseOverview } from "./CourseOverview";
 import { PageOverview } from "./PageOverview";
 import { SurfaceStructure } from "./SurfaceStructure";
-import "./course-navigator.css";
+import "./document-navigator.css";
 
 type DocumentNavigatorController = Pick<
   SemanticDocumentController,
@@ -280,7 +280,7 @@ export function DocumentNavigator({
   const addSectionButton = courseStructureAuthoring ? (
     <Button
       aria-label="Add Course Section"
-      className="sc-course-navigator-add-section"
+      className="sc-document-navigator-add-section"
       size="sm"
       variant="ghost"
       type="button"
@@ -295,14 +295,14 @@ export function DocumentNavigator({
   ) : null;
 
   const overview = (
-    <div className="sc-course-navigator">
+    <div className="sc-document-navigator">
       {addSectionButton ? (
         <div
           aria-label="Course overview actions"
-          className="sc-course-navigator-overview-actions"
+          className="sc-document-navigator-overview-actions"
           role="group"
         >
-          <span className="sc-course-navigator-overview-label">Sections</span>
+          <span className="sc-document-navigator-overview-label">Sections</span>
           {addSectionButton}
         </div>
       ) : null}

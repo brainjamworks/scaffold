@@ -342,7 +342,7 @@ describe("DocumentNavigator", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Section 1" })).toBeInTheDocument();
-    expect(screen.getAllByTestId("course-surface-placeholder")).toHaveLength(2);
+    expect(screen.getAllByTestId("document-navigator-surface-placeholder")).toHaveLength(2);
     expect(screen.queryByRole("treeitem", { name: "Heading" })).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Select Surface Introduction" }));

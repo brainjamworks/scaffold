@@ -45,13 +45,13 @@ describe("Course Outline Surface movement", () => {
       const sourceId = handle.getAttribute("data-course-outline-surface-drag-id");
       const sourceLabel = handle.getAttribute("aria-label")?.replace("Move Surface ", "") ?? "";
       const sourceCard = requireElement<HTMLElement>(
-        `[data-course-outline-surface-slot="${sourceId}"] .sc-course-surface-card`,
+        `[data-course-outline-surface-slot="${sourceId}"] .sc-document-navigator-surface-card`,
       );
       const sourceSlide = requireElement<HTMLElement>(
-        `[data-course-outline-surface-slot="${sourceId}"] .sc-course-surface-card-selection`,
+        `[data-course-outline-surface-slot="${sourceId}"] .sc-document-navigator-surface-card-selection`,
       );
       const sourceSubtitle = requireElement<HTMLElement>(
-        `[data-course-outline-surface-slot="${sourceId}"] .sc-course-surface-meta`,
+        `[data-course-outline-surface-slot="${sourceId}"] .sc-document-navigator-surface-meta`,
       );
       const sourceCardRect = sourceCard.getBoundingClientRect();
       const sourceSlideRect = sourceSlide.getBoundingClientRect();
@@ -68,7 +68,7 @@ describe("Course Outline Surface movement", () => {
       );
       expect(overlay.textContent).toContain(sourceLabel);
       expect(overlay.querySelector(".sc-course-outline-slide-ghost__footer")).toBeNull();
-      expect(overlay.querySelector(".sc-course-surface-actions")).toBeNull();
+      expect(overlay.querySelector(".sc-document-navigator-surface-actions")).toBeNull();
       expect(sourceCard).toHaveAttribute("data-interaction-drag-placeholder");
       expect(Math.abs(overlay.getBoundingClientRect().width - sourceCardRect.width)).toBeLessThan(
         1,
@@ -106,7 +106,7 @@ describe("Course Outline Surface movement", () => {
       await expect.poll(() => activeDestination()).toBe("after:surface00003");
       expect(
         requireElement<HTMLElement>(
-          '[data-course-outline-surface-slot="surface00003"] .sc-course-surface-card',
+          '[data-course-outline-surface-slot="surface00003"] .sc-document-navigator-surface-card',
         )
           .getAnimations()
           .some((animation) => animation.playState === "running"),
@@ -220,7 +220,7 @@ describe("Course Outline Surface movement", () => {
         '.sc-document-outline-drop-target[data-destination="section:section00002:end"]';
       const start = centerOf(handle.getBoundingClientRect());
       const sourceRect = requireElement<HTMLElement>(
-        '[data-course-outline-surface-slot="surface00001"] .sc-course-surface-card',
+        '[data-course-outline-surface-slot="surface00001"] .sc-document-navigator-surface-card',
       ).getBoundingClientRect();
       const sourceCenter = centerOf(sourceRect);
       fireEvent.pointerDown(handle, {
@@ -330,7 +330,7 @@ describe("Course Outline Surface movement", () => {
         'button[data-course-outline-surface-drag-id="surface00001"]',
       );
       const sourceCard = requireElement<HTMLElement>(
-        '[data-course-outline-surface-slot="surface00001"] .sc-course-surface-card',
+        '[data-course-outline-surface-slot="surface00001"] .sc-document-navigator-surface-card',
       );
       const noOpTarget = requireElement<HTMLElement>(
         '.sc-document-outline-drop-target[data-destination="before:surface00002"]',

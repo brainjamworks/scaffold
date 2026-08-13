@@ -232,7 +232,7 @@ function measureSurfaceCard(
   surfaceId: SurfaceId,
 ): CourseOutlineSurfaceDragProjection["sourceSize"] {
   const card = globalThis.document.querySelector<HTMLElement>(
-    `[data-course-outline-surface-card-id="${surfaceId}"]`,
+    `[data-document-navigator-surface-card-id="${surfaceId}"]`,
   );
   if (!card) return null;
   const rect = card.getBoundingClientRect();
@@ -244,10 +244,10 @@ function measureSurfacePreview(
   surfaceId: SurfaceId,
 ): CourseOutlineSurfaceDragProjection["sourceSize"] {
   const card = globalThis.document.querySelector<HTMLElement>(
-    `[data-course-outline-surface-card-id="${surfaceId}"]`,
+    `[data-document-navigator-surface-card-id="${surfaceId}"]`,
   );
-  const slide = card?.querySelector<HTMLElement>(".sc-course-surface-card-selection");
-  const subtitle = card?.querySelector<HTMLElement>(".sc-course-surface-meta");
+  const slide = card?.querySelector<HTMLElement>(".sc-document-navigator-surface-card-selection");
+  const subtitle = card?.querySelector<HTMLElement>(".sc-document-navigator-surface-meta");
   if (!slide || !subtitle) return null;
   const slideRect = slide.getBoundingClientRect();
   const subtitleRect = subtitle.getBoundingClientRect();

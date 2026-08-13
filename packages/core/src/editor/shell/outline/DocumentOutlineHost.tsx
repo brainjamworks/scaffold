@@ -35,7 +35,7 @@ import { createCourseOutlineStructureAuthoringPort } from "./course-outline-stru
 import type {
   DocumentNavigatorNavigation,
   DocumentNavigatorSurfaceActionPort,
-} from "./course-navigator/DocumentNavigator";
+} from "./document-navigator/DocumentNavigator";
 
 export interface DocumentOutlineHostProps {
   readonly editor: Editor;
