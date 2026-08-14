@@ -88,6 +88,7 @@ function item(
     label: value,
     summary: null,
     presentation: { actionIds: [], disabledReason: null },
+    presentationContainer: null,
     children,
   };
 }

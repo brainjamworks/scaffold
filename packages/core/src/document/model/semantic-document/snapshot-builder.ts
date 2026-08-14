@@ -10,19 +10,11 @@ import {
 import type {
   SemanticDocumentSnapshot,
   SemanticItem,
-  SemanticItemKind,
+  SemanticPresentationContainer,
   SemanticPresentationCapability,
 } from "./semantic-document-snapshot";
 
-export interface SemanticSnapshotItemInput {
-  readonly id: EmbeddedNodeId;
-  readonly kind: SemanticItemKind;
-  readonly nodeType: string;
-  readonly definitionId: string | null;
-  readonly label: string;
-  readonly summary: string | null;
-  readonly presentation: SemanticPresentationCapability;
-}
+export type SemanticSnapshotItemInput = Omit<SemanticItem, "children">;
 
 export interface AddSemanticSnapshotItemInput {
   readonly item: SemanticSnapshotItemInput;
@@ -124,6 +116,7 @@ export function createSemanticSnapshotBuilder(input: {
           ...record.item,
           label: finalLabelById.get(id)!,
           presentation: freezePresentation(record.item.presentation),
+          presentationContainer: freezePresentationContainer(record.item.presentationContainer),
           children,
         });
         itemById.set(id, item);
@@ -274,6 +267,13 @@ function freezePresentation(
     actionIds: Object.freeze([...presentation.actionIds]),
     disabledReason: presentation.disabledReason,
   });
+}
+
+function freezePresentationContainer(
+  presentationContainer: SemanticPresentationContainer | null,
+): SemanticPresentationContainer | null {
+  if (presentationContainer === null) return null;
+  return Object.freeze({ ...presentationContainer });
 }
 
 function freezeLocation(location: SemanticLocation): SemanticLocation {

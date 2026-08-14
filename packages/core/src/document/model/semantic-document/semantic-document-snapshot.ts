@@ -1,4 +1,7 @@
-import type { EmbeddedNodeId } from "@scaffold/contracts";
+import type {
+  EmbeddedNodeId,
+  PresentationContentLayout,
+} from "@scaffold/contracts";
 
 import type { SemanticLocation } from "./semantic-location";
 import type { SemanticProjectionDiagnostic } from "./projection-diagnostic";
@@ -20,6 +23,10 @@ export interface SemanticPresentationCapability {
   readonly disabledReason: string | null;
 }
 
+export interface SemanticPresentationContainer {
+  readonly contentLayout: PresentationContentLayout;
+}
+
 export interface SemanticItem {
   readonly id: EmbeddedNodeId;
   readonly kind: SemanticItemKind;
@@ -28,6 +35,7 @@ export interface SemanticItem {
   readonly label: string;
   readonly summary: string | null;
   readonly presentation: SemanticPresentationCapability;
+  readonly presentationContainer: SemanticPresentationContainer | null;
   readonly children: readonly SemanticItem[];
 }
 

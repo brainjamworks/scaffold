@@ -170,6 +170,7 @@ function semanticSnapshot(
         label: itemId,
         summary: null,
         presentation: { actionIds: [], disabledReason: null },
+        presentationContainer: null,
         children: [],
       },
     ]),

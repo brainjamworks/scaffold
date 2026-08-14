@@ -1,5 +1,12 @@
-import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
+import {
+  EmbeddedNodeIdSchema,
+  PresentationContentLayoutSchema,
+  type EmbeddedNodeId,
+  type PresentationContentLayout,
+} from "@scaffold/contracts";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+
+import { CONTENT_LAYOUT_ATTR } from "@/editor/content-layout/model/content-layout-attribute";
 
 import type { ProjectedCourseStructure } from "../course-structure/course-structure-projection";
 import { readUnavailableContentCompatibilityRoot } from "../establishment/unavailable-content-compatibility-root";
@@ -28,6 +35,7 @@ import {
 import type { SemanticProjectionNodeIndex } from "./projection-node-index";
 import { readAuthoredSemanticLabel } from "./semantic-labels";
 import type { SemanticSnapshotBuilder, SemanticSnapshotItemInput } from "./snapshot-builder";
+import type { SemanticPresentationContainer } from "./semantic-document-snapshot";
 
 const NODE_TYPES = Object.freeze({
   courseSection: COURSE_SECTION_NODE_TYPE,
@@ -238,6 +246,7 @@ function projectPublishedChildren(input: {
             actionIds: resolved.candidate.presentation?.actionIds ?? [],
             disabledReason: resolved.candidate.presentation?.disabledReason ?? null,
           },
+          presentationContainer: null,
         },
         parentId,
         location: {
@@ -284,7 +293,15 @@ function classifyNode(
       throw new Error(`Course Structure does not contain unavailable Surface ${id}.`);
     }
     return classified(
-      item(id, unavailableRoot.kind, nodeType, null, unavailableRoot.label),
+      item(
+        id,
+        unavailableRoot.kind,
+        nodeType,
+        null,
+        unavailableRoot.label,
+        undefined,
+        null,
+      ),
       unavailableSurface?.courseSectionId ?? context.parentId,
       unavailableRoot.kind === "surface" ? id : context.surfaceId,
       undefined,
@@ -297,7 +314,11 @@ function classifyNode(
     const id = requireNodeId(node);
     const section = courseStructure.courseSectionById[id];
     if (!section) throw new Error(`Course Structure does not contain Course Section ${id}.`);
-    return classified(item(id, "course-section", nodeType, null, section.title), null, null);
+    return classified(
+      item(id, "course-section", nodeType, null, section.title, undefined, null),
+      null,
+      null,
+    );
   }
 
   if (nodeType === NODE_TYPES.surface) {
@@ -315,6 +336,7 @@ function classifyNode(
         definition?.id ?? null,
         definition?.title ?? "Surface",
         definition?.documentSemantics?.presentation,
+        null,
       ),
       projectedSurface.courseSectionId,
       id,
@@ -336,6 +358,7 @@ function classifyNode(
         definition?.id ?? null,
         definition?.title ?? "Layout",
         definition?.documentSemantics?.presentation,
+        null,
       ),
       context.parentId,
       context.surfaceId,
@@ -356,6 +379,7 @@ function classifyNode(
         definition?.id ?? null,
         authoredLabel ?? definition?.section?.label ?? "Section",
         definition?.section?.documentSemantics?.presentation,
+        projectPresentationContainer(node, courseStructure.mode),
       ),
       context.parentId,
       context.surfaceId,
@@ -368,7 +392,15 @@ function classifyNode(
     const id = requireNodeId(node);
     const role = readNonEmptyString(node.attrs["role"]) ?? "main";
     return classified(
-      item(id, "region", nodeType, null, humanize(role)),
+      item(
+        id,
+        "region",
+        nodeType,
+        null,
+        humanize(role),
+        undefined,
+        projectPresentationContainer(node, courseStructure.mode),
+      ),
       context.parentId,
       context.surfaceId,
       undefined,
@@ -379,7 +411,7 @@ function classifyNode(
   if (nodeType === NODE_TYPES.grid) {
     const id = requireNodeId(node);
     return classified(
-      item(id, "grid", nodeType, null, "Grid"),
+      item(id, "grid", nodeType, null, "Grid", undefined, null),
       context.parentId,
       context.surfaceId,
     );
@@ -388,7 +420,15 @@ function classifyNode(
   if (nodeType === NODE_TYPES.cell && context.parentNodeType === NODE_TYPES.grid) {
     const id = requireNodeId(node);
     return classified(
-      item(id, "cell", nodeType, null, `Cell ${context.siblingTypeOrdinal}`),
+      item(
+        id,
+        "cell",
+        nodeType,
+        null,
+        `Cell ${context.siblingTypeOrdinal}`,
+        undefined,
+        projectPresentationContainer(node, courseStructure.mode),
+      ),
       context.parentId,
       context.surfaceId,
       undefined,
@@ -412,6 +452,7 @@ function classifyNode(
       block.nodeType,
       block.title,
       block.isAssessment ? undefined : block.documentSemantics?.presentation,
+      null,
     ),
     context.parentId,
     context.surfaceId,
@@ -456,7 +497,8 @@ function item(
   nodeType: string,
   definitionId: string | null,
   label: string,
-  presentation?: SemanticPresentationDefinition,
+  presentation: SemanticPresentationDefinition | undefined,
+  presentationContainer: SemanticPresentationContainer | null,
 ): SemanticSnapshotItemInput {
   return {
     id,
@@ -469,7 +511,33 @@ function item(
       actionIds: presentation?.actionIds ?? [],
       disabledReason: presentation?.disabledReason ?? null,
     },
+    presentationContainer,
   };
+}
+
+function projectPresentationContainer(
+  node: ProseMirrorNode,
+  mode: "page" | "slideshow",
+): SemanticPresentationContainer | null {
+  if (mode === "page") return null;
+  if (
+    node.type.name !== NODE_TYPES.region &&
+    node.type.name !== NODE_TYPES.cell &&
+    node.type.name !== NODE_TYPES.layoutSection
+  ) {
+    return null;
+  }
+  return { contentLayout: decodePresentationContentLayout(node) };
+}
+
+function decodePresentationContentLayout(node: ProseMirrorNode): PresentationContentLayout {
+  const parsed = PresentationContentLayoutSchema.safeParse(node.attrs[CONTENT_LAYOUT_ATTR]);
+  if (!parsed.success) {
+    throw new Error(
+      `Semantic projection encountered invalid contentLayout on ${node.type.name}.`,
+    );
+  }
+  return parsed.data;
 }
 
 function requireNodeId(node: ProseMirrorNode): EmbeddedNodeId {
