@@ -4,13 +4,62 @@ import { render as renderBrowserReact } from "vitest-browser-react";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
 
+import "@/styles/globals.css";
+import "./document-navigator/document-navigator.css";
+
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { ScaffoldAuthoringApp } from "@/editor/shell/authoring/ScaffoldAuthoringApp";
 import type { ArtifactSavePayload, LearnerPublicationPort } from "@/host/ports";
-import "@/styles/globals.css";
 
 describe("Course Outline Surface movement", () => {
+  it("centers empty Course Section content vertically", async () => {
+    const rendered = await renderBrowserReact(
+      <ScaffoldAuthoringApp
+        application={createScaffoldApplication()}
+        artifact={{
+          id: "outline-empty-section-alignment",
+          title: "Outline empty Section alignment",
+          mode: "slideshow",
+          content: sectionedSlideshow(),
+        }}
+        productAccess={{ scaffoldPlusAuthorized: false }}
+        services={{
+          artifactPersistence: {
+            saveArtifact: vi.fn(async (_payload: ArtifactSavePayload) => ({
+              artifactRevision: "outline-empty-section-alignment-revision" as const,
+            })),
+          },
+          learnerPublication: learnerPublication(),
+          media: null,
+        }}
+      />,
+    );
+
+    try {
+      requireElement<HTMLButtonElement>('button[aria-label="Show Document Outline"]').click();
+      await expect.element(page.getByText("No slides yet")).toBeVisible();
+      const emptySection = sectionGroup("Section 2");
+      if (!emptySection) throw new Error("Expected the empty Course Section.");
+      const target = requireElementFrom<HTMLElement>(
+        emptySection,
+        ".sc-document-outline-drop-target--visible",
+      );
+      const content = requireElementFrom<HTMLElement>(target, ".sc-course-outline-empty-section");
+      const targetRect = target.getBoundingClientRect();
+      const contentRect = content.getBoundingClientRect();
+      const topGap = contentRect.top - targetRect.top;
+      const bottomGap = targetRect.bottom - contentRect.bottom;
+      const targetStyle = getComputedStyle(target);
+
+      expect(Number.parseFloat(targetStyle.paddingTop)).toBeGreaterThan(0);
+      expect(targetStyle.paddingBottom).toBe(targetStyle.paddingTop);
+      expect(Math.abs(topGap - bottomGap)).toBeLessThan(1);
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
   it("moves only a Surface through the keyboard drag session and preserves its stable ID", async () => {
     const saveArtifact = vi.fn(async (_payload: ArtifactSavePayload) => ({
       artifactRevision: "outline-move-revision" as const,
@@ -502,6 +551,15 @@ function learnerPublication(): LearnerPublicationPort {
 
 function requireElement<ElementType extends Element>(selector: string): ElementType {
   const element = document.querySelector<ElementType>(selector);
+  if (!element) throw new Error(`Expected element ${selector}`);
+  return element;
+}
+
+function requireElementFrom<ElementType extends Element>(
+  root: ParentNode,
+  selector: string,
+): ElementType {
+  const element = root.querySelector<ElementType>(selector);
   if (!element) throw new Error(`Expected element ${selector}`);
   return element;
 }

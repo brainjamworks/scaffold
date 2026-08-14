@@ -445,7 +445,8 @@
     margin: 0;
   }
 
-  .sc-course-section-surfaces > .sc-document-outline-drop-target--visible {
+  .sc-course-section-surfaces
+    > .sc-document-outline-drop-target--section.sc-document-outline-drop-target--visible {
     display: flex;
     align-items: center;
     justify-content: flex-start;
