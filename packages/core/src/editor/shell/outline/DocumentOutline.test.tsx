@@ -130,15 +130,17 @@ describe("DocumentOutline", () => {
     expect(screen.queryByRole("treeitem", { name: "Paragraph" })).toBeNull();
   });
 
-  it("keeps an empty Course Section as a quiet card destination without a redundant subtitle", () => {
+  it("shows an empty Course Section as a quiet, accessible Surface destination", () => {
     const section = item("section", "course-section", "Practice", null);
     const fixture = createFixtureFromRoots([section], "slideshow");
 
     render(<DocumentOutline {...fixture.props} structureAuthoring={createStructurePort()} />);
 
     expect(screen.getByRole("heading", { name: "Practice" })).toBeInTheDocument();
-    expect(document.querySelector('[data-destination="section:section00000:end"]')).not.toBeNull();
-    expect(screen.queryByText("No slides — drag slides here")).toBeNull();
+    const emptyMessage = screen.getByText("No slides — drag slides here");
+    const destination = emptyMessage.closest('[role="listitem"]');
+    expect(destination).not.toBeNull();
+    expect(destination).toHaveAttribute("data-destination", "section:section00000:end");
   });
 
   it("preserves an explicit Course Section collapse across snapshot replacements", async () => {

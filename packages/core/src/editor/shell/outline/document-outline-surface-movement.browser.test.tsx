@@ -93,6 +93,7 @@ describe("Course Outline Surface movement", () => {
       expect(sectionTarget?.getAttribute("data-destination")).toMatch(/^section:/);
       expect(sectionTarget).toHaveClass("sc-document-outline-drop-target--section");
       expect(sectionTarget?.getBoundingClientRect().height).toBe(44);
+      await expect.poll(() => dragAnnouncement()).toContain("is over Move into Section 2");
 
       for (let step = 0; step < 120 && activeDestination() !== "after:surface00003"; step += 1) {
         await userEvent.keyboard("{ArrowDown}");
@@ -475,6 +476,12 @@ function activeDestination(): string | null {
 function activeDropTarget(): HTMLElement | null {
   return document.querySelector<HTMLElement>(
     '.sc-document-outline-drop-target[data-active="true"]',
+  );
+}
+
+function dragAnnouncement(): string {
+  return (
+    document.querySelector<HTMLElement>('[id^="scaffold-dnd-announcement-"]')?.textContent ?? ""
   );
 }
 

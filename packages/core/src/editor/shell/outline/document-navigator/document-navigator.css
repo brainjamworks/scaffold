@@ -445,6 +445,31 @@
     margin: 0;
   }
 
+  .sc-course-section-surfaces > .sc-document-outline-drop-target--visible {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--sc-app-radius-control);
+    padding: 0.625rem 0.75rem;
+    color: var(--sc-app-color-text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.35;
+    text-align: center;
+  }
+
+  .sc-course-section-surfaces > .sc-document-outline-drop-target--visible[data-active="true"] {
+    border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+    background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+    color: var(--color-primary);
+  }
+
+  .sc-course-section-surfaces[data-course-outline-has-projection]
+    > .sc-document-outline-drop-target--visible {
+    border-color: transparent;
+    color: transparent;
+  }
+
   .sc-course-section-surfaces > .sc-document-outline-drop-target--section[data-active="true"] {
     height: 2.75rem;
   }

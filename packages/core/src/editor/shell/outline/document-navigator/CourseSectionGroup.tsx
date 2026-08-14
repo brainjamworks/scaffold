@@ -204,6 +204,7 @@ export function CourseSectionGroup({
               destination={{ intoCourseSectionId: item.id, edge: "end" }}
               label={`Move into ${item.label}`}
               targetId={`card-section:${item.id}`}
+              visibleLabel="No slides — drag slides here"
             />
           ) : null}
         </div>
