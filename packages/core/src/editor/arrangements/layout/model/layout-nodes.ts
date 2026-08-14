@@ -7,6 +7,7 @@ import {
 } from "@/document/model/content-model/content-groups";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
 import { LAYOUT_NODE_TYPE, SECTION_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
+import { contentLayoutAttribute } from "@/editor/content-layout/model/content-layout-attribute";
 import {
   VerticalContentPositionSchema,
   type VerticalContentPosition,
@@ -93,6 +94,7 @@ export function createSectionNode(options: SectionNodeOptions = {}) {
 
     addAttributes() {
       return {
+        ...contentLayoutAttribute,
         role: {
           default: null,
           parseHTML: (element: HTMLElement) => element.getAttribute("data-section-role"),
