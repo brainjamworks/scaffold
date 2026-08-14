@@ -28,6 +28,7 @@ export * from "./mcq";
 export * from "./multiselect";
 export * from "./numbered-list";
 export * from "./pdf-embed";
+export * from "./presentation-container-layout";
 export * from "./pull-quote";
 export * from "./process-flow";
 export * from "./quiz";
