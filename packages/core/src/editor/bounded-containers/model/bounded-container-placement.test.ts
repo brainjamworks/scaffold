@@ -67,6 +67,7 @@ const TestIneligibleChildNode = Node.create({
 
 const testStagedHostDefinition = defineBlock({
   nodeType: TEST_STAGED_HOST_TYPE,
+  title: "Test staged bounded host",
   boundedPlacement: "fill",
   stagedBoundedHost: {
     childGroup: TEST_STAGED_CHILD_GROUP,
@@ -75,11 +76,13 @@ const testStagedHostDefinition = defineBlock({
 
 const testStagedChildDefinition = defineBlock({
   nodeType: TEST_STAGED_CHILD_TYPE,
+  title: "Test staged child",
   boundedPlacement: "fill",
 });
 
 const testIneligibleChildDefinition = defineBlock({
   nodeType: TEST_INELIGIBLE_CHILD_TYPE,
+  title: "Test ineligible child",
   boundedPlacement: "fill",
 });
 

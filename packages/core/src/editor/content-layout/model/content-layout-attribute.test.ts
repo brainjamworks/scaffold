@@ -5,6 +5,11 @@ import StarterKit from "@tiptap/starter-kit";
 import { PresentationContentLayout } from "@scaffold/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
+import {
+  CELL_NODE_TYPE,
+  REGION_NODE_TYPE,
+  SECTION_NODE_TYPE,
+} from "@/document/model/nodes/structural-node-types";
 import { createGridNode, createCellNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import {
   createLayoutNode,
@@ -14,12 +19,22 @@ import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/doc
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
-import { CONTENT_LAYOUT_ATTR, CONTENT_LAYOUT_HTML_ATTR } from "./content-layout-attribute";
+import {
+  CONTENT_LAYOUT_ATTR,
+  CONTENT_LAYOUT_HTML_ATTR,
+  contentLayoutAttribute,
+} from "./content-layout-attribute";
 
 const FLOW = PresentationContentLayout.Flow;
 const SEQUENCE = PresentationContentLayout.Sequence;
 
-const eligibleNodeTypes = ["region", "cell", "section"] as const;
+const eligibleNodeTypes = [REGION_NODE_TYPE, CELL_NODE_TYPE, SECTION_NODE_TYPE] as const;
+
+const arrangementNodeTypes: ReadonlySet<string> = new Set([
+  ...eligibleNodeTypes,
+  "grid",
+  "layout",
+]);
 
 describe("content layout attribute schema", () => {
   it("defaults eligible containers to Flow and keeps arrangement nodes unowned", () => {
@@ -57,6 +72,18 @@ describe("content layout attribute schema", () => {
     } finally {
       editor.destroy();
     }
+  });
+
+  it("distinguishes absent values from explicit null at the attribute boundary", () => {
+    const descriptor = contentLayoutAttribute[CONTENT_LAYOUT_ATTR];
+    const parseHTML = descriptor.parseHTML;
+    const renderHTML = descriptor.renderHTML;
+
+    if (!parseHTML || !renderHTML) throw new Error("Expected content-layout adapter hooks");
+
+    expect(parseHTML(document.createElement("div"))).toBe(FLOW);
+    expect(renderHTML({})).toEqual({ [CONTENT_LAYOUT_HTML_ATTR]: FLOW });
+    expect(() => renderHTML({ [CONTENT_LAYOUT_ATTR]: null })).toThrow();
   });
 
   it("projects an explicit Sequence value to eligible JSON and HTML nodes", () => {
@@ -102,8 +129,10 @@ describe("content layout attribute schema", () => {
       const editor = createEditor();
 
       try {
-        expect(editor.schema.nodes[nodeType].spec.attrs).toHaveProperty(CONTENT_LAYOUT_ATTR);
-        expect(editor.schema.nodes[nodeType].spec.attrs?.[CONTENT_LAYOUT_ATTR]).toHaveProperty(
+        const node = editor.schema.nodes[nodeType];
+        if (!node) throw new Error(`Expected ${nodeType} schema node`);
+        expect(node.spec.attrs).toHaveProperty(CONTENT_LAYOUT_ATTR);
+        expect(node.spec.attrs?.[CONTENT_LAYOUT_ATTR]).toHaveProperty(
           "validate",
         );
         expect(() =>
@@ -149,21 +178,21 @@ function createEditor(contentLayout?: typeof FLOW | typeof SEQUENCE): Editor {
               type: "surface",
               content: [
                 {
-                  type: "region",
+                  type: REGION_NODE_TYPE,
                   attrs: eligibleAttrs,
                   content: [
                     {
                       type: "grid",
                       content: [
                         {
-                          type: "cell",
+                          type: CELL_NODE_TYPE,
                           attrs: eligibleAttrs,
                           content: [
                             {
                               type: "layout",
                               content: [
                                 {
-                                  type: "section",
+                                  type: SECTION_NODE_TYPE,
                                   attrs: eligibleAttrs,
                                   content: [paragraph("Section content")],
                                 },
@@ -188,7 +217,7 @@ function findNodes(editor: Editor) {
   const nodes = {} as Record<string, ReturnType<typeof editor.state.doc.nodeAt>>;
 
   editor.state.doc.descendants((node) => {
-    if ([...eligibleNodeTypes, "grid", "layout"].includes(node.type.name as never)) {
+    if (arrangementNodeTypes.has(node.type.name)) {
       nodes[node.type.name] = node;
     }
     return true;

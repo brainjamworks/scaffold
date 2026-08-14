@@ -5,6 +5,11 @@ export interface StableNodeIdentity {
   nodeType: string;
 }
 
+export type StableNodeByIdResolution =
+  | { status: "ready"; node: ProseMirrorNode; pos: number }
+  | { status: "missing" }
+  | { status: "duplicate" };
+
 export type StableNodeResolution =
   | { status: "ready"; node: ProseMirrorNode; pos: number }
   | { status: "missing" }
@@ -12,14 +17,14 @@ export type StableNodeResolution =
 
 export type ResolvedStableNode = Extract<StableNodeResolution, { status: "ready" }>;
 
-export function resolveStableNode(
+export function resolveStableNodeById(
   doc: ProseMirrorNode,
-  identity: StableNodeIdentity,
-): StableNodeResolution {
+  id: string,
+): StableNodeByIdResolution {
   const matches: { node: ProseMirrorNode; pos: number }[] = [];
 
   doc.descendants((node, pos) => {
-    if (node.attrs["id"] !== identity.id) return true;
+    if (node.attrs["id"] !== id) return true;
 
     if (matches.length < 2) matches.push({ node, pos });
     return true;
@@ -27,10 +32,23 @@ export function resolveStableNode(
 
   const [match, duplicate] = matches;
   if (!match) return { status: "missing" };
-  if (duplicate) return { status: "invalid", reason: "duplicate_id" };
-  if (match.node.type.name !== identity.nodeType) {
+  if (duplicate) return { status: "duplicate" };
+
+  return { status: "ready", ...match };
+}
+
+export function resolveStableNode(
+  doc: ProseMirrorNode,
+  identity: StableNodeIdentity,
+): StableNodeResolution {
+  const result = resolveStableNodeById(doc, identity.id);
+  if (result.status === "missing") return result;
+  if (result.status === "duplicate") {
+    return { status: "invalid", reason: "duplicate_id" };
+  }
+  if (result.node.type.name !== identity.nodeType) {
     return { status: "invalid", reason: "wrong_node_type" };
   }
 
-  return { status: "ready", ...match };
+  return result;
 }
