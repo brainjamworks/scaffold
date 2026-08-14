@@ -92,7 +92,7 @@ describe("Course Outline Surface movement", () => {
       const sectionTarget = activeDropTarget();
       expect(sectionTarget?.getAttribute("data-destination")).toMatch(/^section:/);
       expect(sectionTarget).toHaveClass("sc-document-outline-drop-target--section");
-      expect(sectionTarget?.getBoundingClientRect().height).toBe(44);
+      expect(sectionTarget?.getBoundingClientRect().height).toBeGreaterThanOrEqual(64);
       await expect.poll(() => dragAnnouncement()).toContain("is over Move into Section 2");
 
       for (let step = 0; step < 120 && activeDestination() !== "after:surface00003"; step += 1) {

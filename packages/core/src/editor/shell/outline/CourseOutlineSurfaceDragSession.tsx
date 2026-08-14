@@ -194,7 +194,7 @@ export function CourseOutlineSurfaceDropTarget({
   readonly label: string;
   readonly level?: number;
   readonly targetId?: string;
-  readonly visibleLabel?: string;
+  readonly visibleLabel?: ReactNode;
 }) {
   const isSectionDestination = "intoCourseSectionId" in destination;
   const key =
@@ -208,14 +208,15 @@ export function CourseOutlineSurfaceDropTarget({
     id: `course-outline-drop:${targetId ?? key}`,
     label,
   });
+  const hasVisibleLabel = visibleLabel !== null && visibleLabel !== undefined;
   return (
     <span
       ref={drop.targetRef}
-      aria-hidden={visibleLabel ? undefined : "true"}
-      className={`sc-document-outline-drop-target sc-document-outline-drop-target--${isSectionDestination ? "section" : "insertion"}${visibleLabel ? " sc-document-outline-drop-target--visible" : ""}`}
+      aria-hidden={hasVisibleLabel ? undefined : "true"}
+      className={`sc-document-outline-drop-target sc-document-outline-drop-target--${isSectionDestination ? "section" : "insertion"}${hasVisibleLabel ? " sc-document-outline-drop-target--visible" : ""}`}
       data-active={drop.isDropTarget ? "true" : undefined}
       data-destination={key}
-      role={visibleLabel ? "listitem" : undefined}
+      role={hasVisibleLabel ? "listitem" : undefined}
       style={
         level === undefined
           ? undefined

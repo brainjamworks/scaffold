@@ -57,6 +57,9 @@ export function CourseOverview({
   ) => void;
 }) {
   const overviewRef = useRef<HTMLDivElement>(null);
+  const hasMovableSurface = roots.some((section) =>
+    section.children.some((child) => child.kind === "surface" && canDragSurface(child)),
+  );
   useCourseOutlineReorderMotion(overviewRef, roots, surfaceDragProjection);
   return (
     <div ref={overviewRef} className="sc-document-navigator-overview" aria-label="Course overview">
@@ -67,6 +70,7 @@ export function CourseOverview({
             key={section.id}
             expanded={expandedSectionIds.has(section.id)}
             item={section}
+            hasMovableSurface={hasMovableSurface}
             surfaceDragProjection={surfaceDragProjection}
             selected={section.id === selectedId}
             selectedSurfaceId={selectedSurfaceId}

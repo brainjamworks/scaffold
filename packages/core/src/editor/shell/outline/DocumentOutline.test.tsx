@@ -137,10 +137,30 @@ describe("DocumentOutline", () => {
     render(<DocumentOutline {...fixture.props} structureAuthoring={createStructurePort()} />);
 
     expect(screen.getByRole("heading", { name: "Practice" })).toBeInTheDocument();
-    const emptyMessage = screen.getByText("No slides — drag slides here");
+    const emptyMessage = screen.getByText("No slides yet");
     const destination = emptyMessage.closest('[role="listitem"]');
     expect(destination).not.toBeNull();
     expect(destination).toHaveAttribute("data-destination", "section:section00000:end");
+    expect(screen.getByText("Add a slide to get started.")).toBeInTheDocument();
+    expect(screen.queryByText("Drag a slide here to move it into this section.")).toBeNull();
+  });
+
+  it("offers an empty Course Section as a move destination when another slide is movable", () => {
+    const introduction = item("section-1", "course-section", "Introduction", null, [
+      item("surface-1", "surface", "Welcome", null),
+    ]);
+    const practice = item("section-2", "course-section", "Practice", null);
+    const fixture = createFixtureFromRoots([introduction, practice], "slideshow");
+    const structure = createStructurePort();
+    structure.canMoveSurface.mockReturnValue(true);
+
+    render(<DocumentOutline {...fixture.props} structureAuthoring={structure} />);
+
+    const emptyMessage = screen.getByText("No slides yet");
+    const destination = emptyMessage.closest('[role="listitem"]');
+    expect(destination).not.toBeNull();
+    expect(screen.getByText("Drag a slide here to move it into this section.")).toBeInTheDocument();
+    expect(screen.queryByText("Add a slide to get started.")).toBeNull();
   });
 
   it("preserves an explicit Course Section collapse across snapshot replacements", async () => {

@@ -1,6 +1,9 @@
-import { CaretRightIcon as CaretRight } from "@phosphor-icons/react";
+import {
+  CaretRightIcon as CaretRight,
+  PresentationIcon as Presentation,
+} from "@phosphor-icons/react";
 import type { SemanticItem } from "@/document/model/semantic-document";
-import { iconXs } from "@/ui/tokens/icon-sizes";
+import { iconLg, iconXs } from "@/ui/tokens/icon-sizes";
 
 import {
   CourseOutlineSurfaceDropTarget,
@@ -12,6 +15,7 @@ import { SurfaceCard } from "./SurfaceCard";
 
 export function CourseSectionGroup({
   expanded,
+  hasMovableSurface,
   item,
   surfaceDragProjection,
   selected,
@@ -34,6 +38,7 @@ export function CourseSectionGroup({
   registerSectionActionControl,
 }: {
   readonly expanded: boolean;
+  readonly hasMovableSurface: boolean;
   readonly item: SemanticItem;
   readonly surfaceDragProjection: CourseOutlineSurfaceDragProjection | null;
   readonly selected: boolean;
@@ -204,11 +209,40 @@ export function CourseSectionGroup({
               destination={{ intoCourseSectionId: item.id, edge: "end" }}
               label={`Move into ${item.label}`}
               targetId={`card-section:${item.id}`}
-              visibleLabel="No slides — drag slides here"
+              visibleLabel={
+                <EmptyCourseSectionDropContent
+                  description={
+                    hasMovableSurface
+                      ? "Drag a slide here to move it into this section."
+                      : "Add a slide to get started."
+                  }
+                  title="No slides yet"
+                />
+              }
             />
           ) : null}
         </div>
       ) : null}
     </section>
+  );
+}
+
+function EmptyCourseSectionDropContent({
+  description,
+  title,
+}: {
+  readonly description: string;
+  readonly title: string;
+}) {
+  return (
+    <span className="sc-course-outline-empty-section">
+      <span aria-hidden="true" className="sc-course-outline-empty-section__icon">
+        <Presentation size={iconLg} weight="regular" />
+      </span>
+      <span className="sc-course-outline-empty-section__copy">
+        <strong className="sc-course-outline-empty-section__title">{title}</strong>
+        <span className="sc-course-outline-empty-section__description">{description}</span>
+      </span>
+    </span>
   );
 }
