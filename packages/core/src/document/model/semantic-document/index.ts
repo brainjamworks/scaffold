@@ -29,6 +29,10 @@ export type {
   SemanticItemKind,
   SemanticPresentationCapability,
 } from "./semantic-document-snapshot";
+export {
+  resolveSemanticPresentationContainer,
+  type ResolvedSemanticPresentationContainer,
+} from "./presentation-container-resolution";
 export { normalizeDocumentSemanticsDefinition } from "./normalize-document-semantics-definition";
 export {
   projectSemanticDocument,
