@@ -197,7 +197,7 @@ export function PaginatedSectionView(props: SectionComponentProps) {
         />
       ) : null}
       <div data-bounded-scroll-frame="">
-        <NodeViewContent
+        <props.ContentRoot
           data-bounded-scroll=""
           className="sc-layout-section__content sc-course-paginated__page-content"
         />

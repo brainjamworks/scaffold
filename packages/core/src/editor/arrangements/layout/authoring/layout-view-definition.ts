@@ -1,5 +1,5 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type { NodeViewProps } from "@tiptap/react";
+import type { NodeViewContentProps, NodeViewProps } from "@tiptap/react";
 import type { ComponentType } from "react";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { RegisteredLayoutDefinition } from "../model/layout-definition";
@@ -13,6 +13,7 @@ export interface LayoutComponentProps extends NodeViewProps {
 }
 
 export interface SectionComponentProps extends NodeViewProps {
+  ContentRoot: ComponentType<NodeViewContentProps>;
   blockDefinitions: BlockDefinitionLookup;
   layoutDefinition: RegisteredLayoutDefinition | null;
   layoutNode: ProseMirrorNode | null;
