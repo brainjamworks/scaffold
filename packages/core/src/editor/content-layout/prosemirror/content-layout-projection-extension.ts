@@ -16,6 +16,8 @@ import type {
 } from "../model/content-layout-projection";
 import { projectContentLayout } from "../model/content-layout-projection";
 import { CONTENT_LAYOUT_ATTR } from "../model/content-layout-attribute";
+import { contentLayoutProjectionDomAttributes } from "../view/content-layout-projection-dom";
+import "../view/content-layout-projection.css";
 import type {
   SemanticDocumentSnapshot,
   SemanticItem,
@@ -392,7 +394,7 @@ function buildProjectionState(
             Decoration.node(
               location.from,
               location.to,
-              {},
+              contentLayoutProjectionDomAttributes(state),
               Object.freeze({
                 containerId: input.containerId,
                 state,

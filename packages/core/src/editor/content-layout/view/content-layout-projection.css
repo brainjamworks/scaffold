@@ -1,0 +1,7 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-adapters {
+  [data-content-layout-root] > [data-presentation-slot="shared"] {
+    grid-area: 1 / 1;
+  }
+}

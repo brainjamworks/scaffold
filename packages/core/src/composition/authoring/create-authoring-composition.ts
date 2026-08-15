@@ -38,6 +38,7 @@ import { AuthoringSlideDividers } from "@/editor/surfaces/authoring/AuthoringSli
 import { createSurfaceRootSelectionPolicy } from "@/editor/surfaces/authoring/surface-root-selection-policy";
 import { createSurfaceAuthoringNode } from "@/editor/surfaces/authoring/nodes/surface-authoring-node";
 import { RegionAuthoringNode } from "@/editor/surfaces/authoring/nodes/region-authoring-node";
+import { ContentLayoutProjectionExtension } from "@/editor/content-layout/prosemirror/content-layout-projection-extension";
 import "@/editor/surfaces/authoring/AuthoringSlideDividers.css";
 import "@/editor/rich-text/view/text-alignment.css";
 
@@ -169,6 +170,7 @@ export function createCourseDocumentAuthoringExtensions({
   return [
     createScaffoldCapabilitiesStorageExtension(composition.capabilities),
     createSemanticDocumentExtension(composition.documentSemantics),
+    ContentLayoutProjectionExtension,
     createScaffoldAuthoringCataloguesStorageExtension(composition.catalogues),
     createCourseStructureCommandsExtension(),
     ...baseExtensions,

@@ -15,6 +15,7 @@ import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extens
 import { createCourseDocumentBaseExtensions } from "@/composition/model/create-document-composition";
 import { createCourseSectionNode } from "@/document/model/nodes";
 import { createSurfaceRuntimeNode } from "@/editor/surfaces/runtime/nodes/surface-runtime-node";
+import { ContentLayoutProjectionExtension } from "@/editor/content-layout/prosemirror/content-layout-projection-extension";
 import { StudentGuard } from "@/runtime/guards/student-guard";
 import "@/editor/rich-text/view/text-alignment.css";
 
@@ -38,6 +39,7 @@ export function createCourseDocumentRuntimeExtensions({
 
   return [
     createScaffoldCapabilitiesStorageExtension(composition.capabilities),
+    ContentLayoutProjectionExtension,
     ...createCourseDocumentBaseExtensions({
       assessmentActionsGroupNode: AssessmentActionsGroupRuntimeNode,
       assessmentChoicesGroupNode: AssessmentChoicesGroupRuntimeNode,
