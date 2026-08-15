@@ -4,6 +4,7 @@ import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-grou
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
 import { REGION_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
 import { contentLayoutAttribute } from "@/editor/content-layout/model/content-layout-attribute";
+import { contentLayoutContentRootAttributes } from "@/editor/content-layout/view/ContentLayoutNodeViewContent";
 import {
   VerticalContentPositionSchema,
   type VerticalContentPosition,
@@ -77,6 +78,7 @@ export function createRegionNode(options: RegionNodeOptions = {}) {
             {
               "data-bounded-scroll": "",
               class: "sc-region__content",
+              ...contentLayoutContentRootAttributes(),
             },
             0,
           ],

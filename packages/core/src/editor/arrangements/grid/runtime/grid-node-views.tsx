@@ -2,6 +2,7 @@ import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/re
 import type { CSSProperties } from "react";
 
 import { BoundedScrollHint } from "@/editor/bounded-containers/view/bounded-scroll";
+import { ContentLayoutNodeViewContent } from "@/editor/content-layout/view/ContentLayoutNodeViewContent";
 import { boundedPlacementAttributes } from "@/editor/frame/model/bounded-placement";
 
 import "@/editor/bounded-containers/view/bounded-container.css";
@@ -53,7 +54,7 @@ export function CellRuntimeNodeView(props: NodeViewProps) {
       className="sc-grid-cell"
     >
       <div data-bounded-scroll-frame="">
-        <NodeViewContent data-bounded-scroll="" className="sc-grid-cell__content" />
+        <ContentLayoutNodeViewContent data-bounded-scroll="" className="sc-grid-cell__content" />
         <BoundedScrollHint />
       </div>
     </NodeViewWrapper>
