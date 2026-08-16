@@ -1,14 +1,33 @@
 import type { Editor } from "@tiptap/core";
+import { Result, type Result as ResultType } from "better-result";
 
 import type {
+  CourseSectionDeletionIssue,
   CourseSectionId,
   SurfaceDestination,
   SurfaceId,
 } from "@/document/model/course-structure";
+import { checkCourseSectionDeletion } from "@/document/model/course-structure";
 
-export type CourseOutlineStructureResult =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly message: string };
+export type CourseOutlineStructureOperation =
+  | "create-course-section"
+  | "rename-course-section"
+  | "duplicate-course-section"
+  | "delete-course-section"
+  | "move-surface";
+
+export type CourseOutlineStructureIssue =
+  | CourseSectionDeletionIssue
+  | {
+      readonly code: "course_structure_operation_unavailable";
+      readonly operation: CourseOutlineStructureOperation;
+    }
+  | {
+      readonly code: "surface_move_cancelled";
+      readonly reason: string | null;
+    };
+
+export type CourseOutlineStructureResult = ResultType<void, CourseOutlineStructureIssue>;
 
 export interface CourseOutlineStructureAuthoringPort {
   createCourseSection(): CourseOutlineStructureResult;
@@ -33,22 +52,19 @@ export function createCourseOutlineStructureAuthoringPort(
 ): CourseOutlineStructureAuthoringPort {
   const apply = (
     command: Parameters<Editor["commands"]["applyCourseStructureCommand"]>[0],
-    unavailableMessage: string,
+    operation: CourseOutlineStructureOperation,
   ): CourseOutlineStructureResult => {
     if (editor.isDestroyed || !editor.can().applyCourseStructureCommand(command)) {
-      return { ok: false, message: unavailableMessage };
+      return operationUnavailable(operation);
     }
     return editor.chain().applyCourseStructureCommand(command).run()
-      ? { ok: true }
-      : { ok: false, message: unavailableMessage };
+      ? Result.ok()
+      : operationUnavailable(operation);
   };
 
   const port: CourseOutlineStructureAuthoringPort = {
     createCourseSection() {
-      return apply(
-        { type: "course-section.create", placement: "end" },
-        "This Course Section could not be created. The document may have changed.",
-      );
+      return apply({ type: "course-section.create", placement: "end" }, "create-course-section");
     },
     canMoveSurface(surfaceId, destination) {
       return (
@@ -57,29 +73,29 @@ export function createCourseOutlineStructureAuthoringPort(
       );
     },
     renameCourseSection(input) {
-      return apply(
-        { type: "course-section.rename", ...input },
-        "This Course Section could not be renamed. The document may have changed.",
-      );
+      return apply({ type: "course-section.rename", ...input }, "rename-course-section");
     },
     duplicateCourseSection(courseSectionId) {
       return apply(
         { type: "course-section.duplicate", courseSectionId },
-        "This Course Section could not be duplicated. The document may have changed.",
+        "duplicate-course-section",
       );
     },
     deleteCourseSection(input) {
-      return apply(
-        { type: "course-section.delete", ...input },
-        "This Course Section could not be deleted. Its membership may have changed.",
-      );
+      if (editor.isDestroyed) return operationUnavailable("delete-course-section");
+      const deletion = checkCourseSectionDeletion(editor.state.doc, input);
+      if (deletion.isErr()) return Result.err(deletion.error);
+      return apply({ type: "course-section.delete", ...input }, "delete-course-section");
     },
     moveSurface(input) {
-      return apply(
-        { type: "surface.move", ...input },
-        "This Surface could not be moved. The document may have changed.",
-      );
+      return apply({ type: "surface.move", ...input }, "move-surface");
     },
   };
   return Object.freeze(port);
+}
+
+function operationUnavailable(
+  operation: CourseOutlineStructureOperation,
+): CourseOutlineStructureResult {
+  return Result.err({ code: "course_structure_operation_unavailable", operation });
 }

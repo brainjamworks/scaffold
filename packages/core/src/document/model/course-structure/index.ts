@@ -4,6 +4,13 @@ export type {
   SurfaceDestination,
   SurfaceId,
 } from "./types";
+export {
+  checkCourseSectionDeletion,
+  type CourseSectionDeletionInput,
+  type CourseSectionDeletionIssue,
+  type CourseSectionDeletionResult,
+  type CourseSectionDeletionScope,
+} from "./course-section-deletion";
 export { createDefaultCourseSectionTitle } from "./course-section-title";
 export {
   readCourseSectionOrdinalContext,

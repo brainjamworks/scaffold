@@ -4,17 +4,17 @@ import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-
 import type { BlockDuplicationLookup } from "@/document/model/identity/clone-with-new-ids";
 import { isUnavailableContentCompatibilityRootType } from "@/document/model/establishment/unavailable-content-compatibility-root";
 
+import { resolveCourseSectionDeletion } from "./course-section-deletion";
+import { createDefaultCourseSectionTitle } from "./course-section-title";
 import {
   childIndexById,
   createCourseSectionBoundary,
-  isCourseSurfaceRoot,
   nextBoundaryIndex,
   parseCourseSectionTitle,
   type CandidateMutation,
   type CommandBuildContext,
 } from "./transaction-helpers";
-import type { CourseSectionId, CourseStructureCommand, SurfaceId } from "./types";
-import { createDefaultCourseSectionTitle } from "./course-section-title";
+import type { CourseSectionId, CourseStructureCommand } from "./types";
 
 type CourseSectionCommand = Extract<CourseStructureCommand, { type: `course-section.${string}` }>;
 type NonDuplicateCourseSectionCommand = Exclude<
@@ -73,28 +73,14 @@ function deleteCourseSection(
   command: Extract<CourseSectionCommand, { type: "course-section.delete" }>,
   { children }: CommandBuildContext,
 ): CandidateMutation | null {
-  const childIndex = childIndexById(children, "courseSection", command.courseSectionId);
-  if (childIndex < 0) return null;
-  const sectionIndices = children.flatMap((node, index) =>
-    node.type.name === "courseSection" ? [index] : [],
-  );
-  const sectionIndex = sectionIndices.indexOf(childIndex);
-  if (sectionIndex < 0) return null;
-  const sectionEnd = sectionIndices[sectionIndex + 1] ?? children.length;
-  if (sectionIndices.length === 1) return null;
-  const currentSurfaceIds = children
-    .slice(childIndex + 1, sectionEnd)
-    .flatMap((node) =>
-      isCourseSurfaceRoot(node) && typeof node.attrs["id"] === "string"
-        ? [node.attrs["id"] as SurfaceId]
-        : [],
-    );
-  if (
-    currentSurfaceIds.length !== command.expectedSurfaceIds.length ||
-    currentSurfaceIds.some((id, index) => id !== command.expectedSurfaceIds[index])
-  )
-    return null;
-  return { children: [...children.slice(0, childIndex), ...children.slice(sectionEnd)] };
+  const deletion = resolveCourseSectionDeletion(children, command);
+  if (deletion.isErr()) return null;
+  return {
+    children: [
+      ...children.slice(0, deletion.value.fromChildIndex),
+      ...children.slice(deletion.value.toChildIndex),
+    ],
+  };
 }
 
 function duplicateCourseSection(

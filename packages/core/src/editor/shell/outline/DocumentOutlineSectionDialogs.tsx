@@ -1,5 +1,5 @@
 import { CourseSectionTitleSchema, type EmbeddedNodeId } from "@scaffold/contracts";
-import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import type { SemanticItem } from "@/document/model/semantic-document";
 import { AuthoringOverlayOwnership } from "@/editor/interactions/floating/AuthoringOverlayBoundary";
@@ -15,6 +15,7 @@ import type {
   CourseOutlineStructureAuthoringPort,
   CourseOutlineStructureResult,
 } from "./course-outline-structure-authoring";
+import { courseOutlineStructureIssueMessage } from "./course-outline-structure-messages";
 
 export type CourseSectionDialogRequest =
   | { readonly kind: "rename"; readonly item: SemanticItem }
@@ -32,6 +33,7 @@ export function DocumentOutlineSectionDialogs({
   port,
   request,
   onClose,
+  onDeleteScopeChange,
   onResult,
 }: {
   readonly interactionOwnerRoot?: Element;
@@ -39,21 +41,31 @@ export function DocumentOutlineSectionDialogs({
   readonly port: CourseOutlineStructureAuthoringPort;
   readonly request: CourseSectionDialogRequest;
   readonly onClose: () => void;
+  readonly onDeleteScopeChange: (surfaceIds: readonly EmbeddedNodeId[]) => void;
   readonly onResult: (result: CourseOutlineStructureResult, successMessage: string) => void;
 }) {
   const [title, setTitle] = useState("");
   const [titleError, setTitleError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [displayedRequest, setDisplayedRequest] = useState<Exclude<
     CourseSectionDialogRequest,
     null
   > | null>(request);
+  const dialogIdentity = useRef<string | null>(null);
   const titleId = useId();
 
   useEffect(() => {
-    if (!request) return;
+    if (!request) {
+      dialogIdentity.current = null;
+      return;
+    }
     setDisplayedRequest(request);
+    const nextIdentity = `${request.kind}:${request.item.id}`;
+    if (dialogIdentity.current === nextIdentity) return;
+    dialogIdentity.current = nextIdentity;
     setTitle(request.kind === "rename" ? request.item.label : "");
     setTitleError(null);
+    setDeleteError(null);
   }, [request]);
 
   const renderedRequest = request ?? displayedRequest;
@@ -69,17 +81,25 @@ export function DocumentOutlineSectionDialogs({
       title: parsedTitle.data,
     });
     onResult(result, "Course Section title updated.");
-    if (result.ok) onClose();
+    if (result.isOk()) onClose();
   };
 
   const confirmDelete = () => {
-    if (!request || request.kind !== "delete") return;
+    if (!renderedRequest || renderedRequest.kind !== "delete") return;
     const result = port.deleteCourseSection({
-      courseSectionId: request.item.id,
-      expectedSurfaceIds: request.surfaceIds,
+      courseSectionId: renderedRequest.item.id,
+      expectedSurfaceIds: renderedRequest.surfaceIds,
     });
     onResult(result, "Course Section and related Surfaces deleted.");
-    if (result.ok) onClose();
+    if (result.isOk()) {
+      onClose();
+      return;
+    }
+
+    setDeleteError(courseOutlineStructureIssueMessage(result.error));
+    if (result.error.code === "course_section_membership_changed") {
+      onDeleteScopeChange(result.error.actualSurfaceIds);
+    }
   };
 
   const dialogTitle =
@@ -108,6 +128,7 @@ export function DocumentOutlineSectionDialogs({
           {renderedRequest?.kind === "delete" ? (
             <>
               <AppDialog.Body>
+                {deleteError ? <FieldError>{deleteError}</FieldError> : null}
                 <ul className="sc-document-outline-section-list" aria-label="Related Surfaces">
                   {renderedRequest.surfaceLabels.map((label, index) => (
                     <li key={renderedRequest.surfaceIds[index]}>{label}</li>

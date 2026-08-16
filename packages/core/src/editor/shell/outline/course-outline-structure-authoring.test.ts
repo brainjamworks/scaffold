@@ -57,21 +57,77 @@ describe("createCourseOutlineStructureAuthoringPort", () => {
     const harness = createEditorHarness(true);
     const result = invoke(createCourseOutlineStructureAuthoringPort(harness.editor));
 
-    expect(result).toEqual({ ok: true });
+    expect(result.status).toBe("ok");
     expect(harness.canApply).toHaveBeenCalledWith(expected);
     expect(harness.apply).toHaveBeenCalledWith(expected);
     expect(harness.run).toHaveBeenCalledTimes(1);
   });
 
-  it("returns a stale result without dispatch when the command is no longer applicable", () => {
+  it("returns current membership without dispatch when Section deletion confirmation is stale", () => {
+    const harness = createEditorHarness(
+      true,
+      courseStructureDocument([
+        courseNode("courseSection", SECTION_ID),
+        courseNode("surface", SURFACE_ID),
+        courseNode("surface", OTHER_SURFACE_ID),
+        courseNode("courseSection", EmbeddedNodeIdSchema.parse("section00002")),
+      ]),
+    );
+    const port = createCourseOutlineStructureAuthoringPort(harness.editor);
+
+    const result = port.deleteCourseSection({
+      courseSectionId: SECTION_ID,
+      expectedSurfaceIds: [SURFACE_ID],
+    });
+
+    expect(result.status).toBe("error");
+    if (result.isOk()) return;
+    expect(result.error).toEqual({
+      code: "course_section_membership_changed",
+      courseSectionId: SECTION_ID,
+      expectedSurfaceIds: [SURFACE_ID],
+      actualSurfaceIds: [SURFACE_ID, OTHER_SURFACE_ID],
+    });
+    expect(harness.apply).not.toHaveBeenCalled();
+    expect(harness.run).not.toHaveBeenCalled();
+  });
+
+  it("returns a distinct final Section refusal without dispatch", () => {
+    const harness = createEditorHarness(
+      true,
+      courseStructureDocument([
+        courseNode("courseSection", SECTION_ID),
+        courseNode("surface", SURFACE_ID),
+      ]),
+    );
+    const port = createCourseOutlineStructureAuthoringPort(harness.editor);
+
+    const result = port.deleteCourseSection({
+      courseSectionId: SECTION_ID,
+      expectedSurfaceIds: [SURFACE_ID],
+    });
+
+    expect(result.status).toBe("error");
+    if (result.isOk()) return;
+    expect(result.error).toEqual({
+      code: "cannot_delete_final_course_section",
+      courseSectionId: SECTION_ID,
+    });
+    expect(harness.apply).not.toHaveBeenCalled();
+    expect(harness.run).not.toHaveBeenCalled();
+  });
+
+  it("returns typed operation unavailability instead of presentation copy", () => {
     const harness = createEditorHarness(false);
     const port = createCourseOutlineStructureAuthoringPort(harness.editor);
 
-    expect(
-      port.deleteCourseSection({ courseSectionId: SECTION_ID, expectedSurfaceIds: [] }),
-    ).toEqual({
-      ok: false,
-      message: "This Course Section could not be deleted. Its membership may have changed.",
+    const result = port.createCourseSection();
+
+    expect(result.status).toBe("error");
+    if (result.isOk()) return;
+    expect(result.error).toEqual({
+      code: "course_structure_operation_unavailable",
+      operation: "create-course-section",
     });
     expect(harness.apply).not.toHaveBeenCalled();
     expect(harness.run).not.toHaveBeenCalled();
@@ -91,16 +147,39 @@ describe("createCourseOutlineStructureAuthoringPort", () => {
   });
 });
 
-function createEditorHarness(applicable: boolean) {
+function createEditorHarness(
+  applicable: boolean,
+  doc = courseStructureDocument([
+    courseNode("courseSection", SECTION_ID),
+    courseNode("surface", SURFACE_ID),
+    courseNode("courseSection", EmbeddedNodeIdSchema.parse("section00002")),
+  ]),
+) {
   const canApply = vi.fn((_command: CourseStructureCommand) => applicable);
   const apply = vi.fn((_command: CourseStructureCommand) => chain);
   const run = vi.fn(() => applicable);
   const chain = { applyCourseStructureCommand: apply, run };
   const editor = {
     isDestroyed: false,
-    state: { doc: {} },
+    state: { doc },
     can: () => ({ applyCourseStructureCommand: canApply }),
     chain: () => chain,
   } as unknown as Editor;
   return { editor, canApply, apply, run };
+}
+
+function courseStructureDocument(children: readonly unknown[]) {
+  return {
+    firstChild: {
+      attrs: { mode: "slideshow" },
+      child: (index: number) => children[index],
+      childCount: children.length,
+      forEach: (visit: (child: unknown) => void) => children.forEach(visit),
+      type: { name: "courseDocument" },
+    },
+  };
+}
+
+function courseNode(type: "courseSection" | "surface", id: string) {
+  return { attrs: { id }, type: { name: type } };
 }

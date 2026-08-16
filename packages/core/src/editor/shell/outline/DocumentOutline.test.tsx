@@ -3,6 +3,7 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Result } from "better-result";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { SemanticHierarchyViewController } from "@/document/authoring/semantic-document/semantic-hierarchy-view-controller";
@@ -256,6 +257,70 @@ describe("DocumentOutline", () => {
       courseSectionId: id("section"),
       expectedSurfaceIds: [id("surface")],
     });
+  });
+
+  it("refreshes a stale deletion dialog before the author can confirm the new scope", async () => {
+    const user = userEvent.setup();
+    const overview = item("surface", "surface", "Overview", null);
+    const section = item("section", "course-section", "Introduction", null, [overview]);
+    const fixture = createFixtureFromRoots([section], "slideshow");
+    const structure = createStructurePort();
+    structure.deleteCourseSection.mockImplementationOnce(
+      () =>
+        Result.err({
+          code: "course_section_membership_changed",
+          courseSectionId: section.id,
+          expectedSurfaceIds: [overview.id],
+          actualSurfaceIds: [overview.id, id("practice")],
+        }) as never,
+    );
+    render(<DocumentOutline {...fixture.props} structureAuthoring={structure} />);
+
+    await user.click(screen.getByRole("button", { name: "More actions for Introduction" }));
+    await user.click(screen.getByRole("menuitem", { name: "Delete Course Section" }));
+
+    const practice = item("practice", "surface", "Practice", null);
+    fixture.controller.replace(
+      snapshotFromRoots([{ ...section, children: [overview, practice] }], "slideshow"),
+      null,
+      null,
+    );
+    await user.click(screen.getByRole("button", { name: "Delete Course Section" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "This Course Section changed while the dialog was open. Review the updated related Surfaces, then try again.",
+    );
+    expect(screen.getByRole("list", { name: "Related Surfaces" })).toHaveTextContent("Practice");
+
+    await user.click(screen.getByRole("button", { name: "Delete Course Section" }));
+    expect(structure.deleteCourseSection).toHaveBeenLastCalledWith({
+      courseSectionId: section.id,
+      expectedSurfaceIds: [overview.id, practice.id],
+    });
+  });
+
+  it("explains why the final Course Section cannot be deleted", async () => {
+    const user = userEvent.setup();
+    const overview = item("surface", "surface", "Overview", null);
+    const section = item("section", "course-section", "Introduction", null, [overview]);
+    const fixture = createFixtureFromRoots([section], "slideshow");
+    const structure = createStructurePort();
+    structure.deleteCourseSection.mockImplementationOnce(
+      () =>
+        Result.err({
+          code: "cannot_delete_final_course_section",
+          courseSectionId: section.id,
+        }) as never,
+    );
+    render(<DocumentOutline {...fixture.props} structureAuthoring={structure} />);
+
+    await user.click(screen.getByRole("button", { name: "More actions for Introduction" }));
+    await user.click(screen.getByRole("menuitem", { name: "Delete Course Section" }));
+    await user.click(screen.getByRole("button", { name: "Delete Course Section" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The final Course Section cannot be deleted. Add another Course Section first.",
+    );
   });
 
   it("renders drag handles only for eligible Surface rows", () => {
@@ -563,11 +628,11 @@ class FakeSemanticDocumentController {
 
 function createStructurePort() {
   return {
-    createCourseSection: vi.fn(() => ({ ok: true as const })),
+    createCourseSection: vi.fn(() => Result.ok()),
     canMoveSurface: vi.fn(() => false),
-    renameCourseSection: vi.fn(() => ({ ok: true as const })),
-    duplicateCourseSection: vi.fn(() => ({ ok: true as const })),
-    deleteCourseSection: vi.fn(() => ({ ok: true as const })),
-    moveSurface: vi.fn(() => ({ ok: true as const })),
+    renameCourseSection: vi.fn(() => Result.ok()),
+    duplicateCourseSection: vi.fn(() => Result.ok()),
+    deleteCourseSection: vi.fn(() => Result.ok()),
+    moveSurface: vi.fn(() => Result.ok()),
   } satisfies CourseOutlineStructureAuthoringPort;
 }

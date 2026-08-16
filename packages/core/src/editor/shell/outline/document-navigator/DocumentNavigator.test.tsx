@@ -2,6 +2,7 @@
 
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { Result } from "better-result";
 import userEvent from "@testing-library/user-event";
 import { useState, type ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -143,12 +144,12 @@ describe("DocumentNavigator", () => {
       viewport,
     });
     const structureAuthoring = {
-      createCourseSection: vi.fn(() => ({ ok: true as const })),
+      createCourseSection: vi.fn(() => Result.ok()),
       canMoveSurface: vi.fn(() => true),
-      renameCourseSection: vi.fn(() => ({ ok: true as const })),
-      duplicateCourseSection: vi.fn(() => ({ ok: true as const })),
-      deleteCourseSection: vi.fn(() => ({ ok: true as const })),
-      moveSurface: vi.fn(() => ({ ok: true as const })),
+      renameCourseSection: vi.fn(() => Result.ok()),
+      duplicateCourseSection: vi.fn(() => Result.ok()),
+      deleteCourseSection: vi.fn(() => Result.ok()),
+      moveSurface: vi.fn(() => Result.ok()),
     };
 
     render(
@@ -375,12 +376,12 @@ describe("DocumentNavigator", () => {
       viewport,
     });
     const structureAuthoring = {
-      createCourseSection: vi.fn(() => ({ ok: true as const })),
+      createCourseSection: vi.fn(() => Result.ok()),
       canMoveSurface: vi.fn(() => false),
-      renameCourseSection: vi.fn(() => ({ ok: true as const })),
-      duplicateCourseSection: vi.fn(() => ({ ok: true as const })),
-      deleteCourseSection: vi.fn(() => ({ ok: true as const })),
-      moveSurface: vi.fn(() => ({ ok: true as const })),
+      renameCourseSection: vi.fn(() => Result.ok()),
+      duplicateCourseSection: vi.fn(() => Result.ok()),
+      deleteCourseSection: vi.fn(() => Result.ok()),
+      moveSurface: vi.fn(() => Result.ok()),
     };
     const surfaceActions = {
       openSettings: vi.fn(() => true),

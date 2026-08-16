@@ -30,6 +30,7 @@ import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-va
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
+import { checkCourseSectionDeletion } from "./course-section-deletion";
 import type { CourseStructureCommand } from "./index";
 
 const COURSE_ID = EmbeddedNodeIdSchema.parse("course000001");
@@ -177,6 +178,86 @@ describe("Course Structure Tiptap commands", () => {
         expectedSurfaceIds: [SURFACE_1],
       }),
     ).toBe(false);
+  });
+
+  it("reports current ordered membership when a confirmed Section deletion is stale", () => {
+    const editor = makeEditor(
+      [
+        section(SECTION_1, "One"),
+        surface(SURFACE_1),
+        surface(SURFACE_2),
+        section(SECTION_2, "Two"),
+        surface(SURFACE_3),
+      ],
+      "slideshow",
+      [],
+    );
+
+    const result = checkCourseSectionDeletion(editor.state.doc, {
+      courseSectionId: SECTION_1,
+      expectedSurfaceIds: [SURFACE_1],
+    });
+
+    expect(result.status).toBe("error");
+    if (result.isOk()) return;
+    expect(result.error).toEqual({
+      code: "course_section_membership_changed",
+      courseSectionId: SECTION_1,
+      expectedSurfaceIds: [SURFACE_1],
+      actualSurfaceIds: [SURFACE_1, SURFACE_2],
+    });
+  });
+
+  it("distinguishes final Section deletion from stale membership", () => {
+    const editor = makeEditor([section(SECTION_1, "One"), surface(SURFACE_1)], "slideshow", []);
+
+    const result = checkCourseSectionDeletion(editor.state.doc, {
+      courseSectionId: SECTION_1,
+      expectedSurfaceIds: [],
+    });
+
+    expect(result.status).toBe("error");
+    if (result.isOk()) return;
+    expect(result.error).toEqual({
+      code: "cannot_delete_final_course_section",
+      courseSectionId: SECTION_1,
+    });
+  });
+
+  it("reports when Course Section deletion is unavailable outside a Slideshow", () => {
+    const editor = makeEditor([surface(SURFACE_1)], "page", []);
+
+    const result = checkCourseSectionDeletion(editor.state.doc, {
+      courseSectionId: SECTION_1,
+      expectedSurfaceIds: [],
+    });
+
+    expect(result.status).toBe("error");
+    if (result.isOk()) return;
+    expect(result.error).toEqual({
+      code: "course_structure_unavailable",
+      courseSectionId: SECTION_1,
+    });
+  });
+
+  it("reports when the requested Course Section no longer exists", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "One"), section(SECTION_2, "Two")],
+      "slideshow",
+      [],
+    );
+
+    const result = checkCourseSectionDeletion(editor.state.doc, {
+      courseSectionId: SECTION_3,
+      expectedSurfaceIds: [],
+    });
+
+    expect(result.status).toBe("error");
+    if (result.isOk()) return;
+    expect(result.error).toEqual({
+      code: "course_section_not_found",
+      courseSectionId: SECTION_3,
+    });
   });
 
   it("duplicates a complete section with coordinated fresh identities", () => {
@@ -469,6 +550,17 @@ describe("Course Structure Tiptap commands", () => {
     expect(updates).not.toHaveBeenCalled();
   });
 
+  it("keeps identity allocation defects observable instead of flattening them into refusal", () => {
+    const editor = makeEditor([section(SECTION_1, "One")], "slideshow", []);
+
+    expect(() =>
+      runCommand(editor, {
+        type: "course-section.create",
+        placement: "end",
+      }),
+    ).toThrow("unexpected identity allocation");
+  });
+
   it("lets a mounted Block rewrite private identity during Surface duplication", () => {
     const duplication = vi.fn(({ content, nodeIdChanges }) => {
       const data = content.attrs?.["data"];
@@ -620,39 +712,6 @@ function courseChildren(editor: Editor): JSONContent[] {
 
 function childIdentity(editor: Editor): unknown[] {
   return courseChildren(editor).map((node) => node.attrs?.["id"]);
-}
-
-function captureNextDocumentChange(editor: Editor): () => Transaction {
-  let captured: Transaction | undefined;
-  editor.on("transaction", ({ transaction }) => {
-    if (transaction.docChanged && !captured) captured = transaction;
-  });
-  return () => {
-    if (!captured) throw new Error("expected one changed transaction");
-    return captured;
-  };
-}
-
-function expectLocalSteps(transaction: Transaction, count: number) {
-  expect(transaction.steps).toHaveLength(count);
-  const wholeDocumentEnd = transaction.before.firstChild?.nodeSize;
-  expect(wholeDocumentEnd).toBeDefined();
-  for (const step of transaction.steps) {
-    expect(step.toJSON()).not.toMatchObject({ from: 1, to: wholeDocumentEnd! - 1 });
-  }
-}
-
-function surfaceTextPosition(editor: Editor, surfaceId: string): number {
-  const courseDocument = editor.state.doc.firstChild;
-  if (!courseDocument) throw new Error("missing courseDocument");
-  let position: number | null = null;
-  courseDocument.forEach((node, offset) => {
-    if (node.type.name === "surface" && node.attrs["id"] === surfaceId) {
-      position = 1 + offset + 2;
-    }
-  });
-  if (position === null) throw new Error(`missing Surface ${surfaceId}`);
-  return position;
 }
 
 function directChildPosition(

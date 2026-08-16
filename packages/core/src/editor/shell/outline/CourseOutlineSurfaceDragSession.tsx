@@ -1,5 +1,6 @@
 import { DotsSixVerticalIcon as DotsSixVertical } from "@phosphor-icons/react";
 import { useId, useRef, type ReactNode } from "react";
+import { Result } from "better-result";
 
 import type { SurfaceDestination, SurfaceId } from "@/document/model/course-structure";
 import type { InteractionDragEvent } from "@/editor/interactions/drag/model/interaction-drag-event";
@@ -59,12 +60,12 @@ export function CourseOutlineSurfaceDragSession({
     targetEligibilityRef.current.clear();
     const destination = event.over?.data.destination;
     if (!destination) {
-      onResult({ ok: false, message: "The Surface move was cancelled." }, "");
+      onResult(Result.err({ code: "surface_move_cancelled", reason: null }), "");
       return;
     }
     const result = port.moveSurface({ surfaceId: event.active.data.surfaceId, destination });
-    onResult(result, result.ok ? `Moved ${event.active.data.label}.` : "");
-    if (result.ok) {
+    onResult(result, result.isOk() ? `Moved ${event.active.data.label}.` : "");
+    if (result.isOk()) {
       restoreSurfaceHandleFocus(event.active.data.surfaceId);
     }
   };
@@ -89,7 +90,7 @@ export function CourseOutlineSurfaceDragSession({
         publishProjection(null);
         sourceSizeRef.current = null;
         targetEligibilityRef.current.clear();
-        onResult({ ok: false, message: `Surface move cancelled (${reason}).` }, "");
+        onResult(Result.err({ code: "surface_move_cancelled", reason }), "");
       }}
       onEnd={end}
       onMove={(event) => {

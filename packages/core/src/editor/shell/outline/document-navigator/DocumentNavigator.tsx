@@ -28,6 +28,7 @@ import {
   type CourseSectionDialogRequest,
 } from "../DocumentOutlineSectionDialogs";
 import type { CourseOutlineStructureAuthoringPort } from "../course-outline-structure-authoring";
+import { courseOutlineStructureIssueMessage } from "../course-outline-structure-messages";
 import {
   CourseOutlineSurfaceDragSession,
   type CourseOutlineSurfaceDragProjection,
@@ -229,9 +230,15 @@ export function DocumentNavigator({
   };
 
   const finishStructureAction = (
-    result: { readonly ok: true } | { readonly ok: false; readonly message: string },
+    result: ReturnType<CourseOutlineStructureAuthoringPort["createCourseSection"]>,
     successMessage: string,
-  ) => setStatus(result.ok ? successMessage : result.message);
+  ) =>
+    setStatus(
+      result.match({
+        ok: () => successMessage,
+        err: courseOutlineStructureIssueMessage,
+      }),
+    );
 
   const finishSurfaceAction = (ok: boolean, successMessage: string) => {
     setStatus(ok ? successMessage : "This Surface action is no longer available.");
@@ -401,6 +408,20 @@ export function DocumentNavigator({
           port={courseStructureAuthoring}
           request={sectionDialog}
           onClose={closeSectionDialog}
+          onDeleteScopeChange={(surfaceIds) =>
+            setSectionDialog((current) =>
+              current?.kind === "delete"
+                ? {
+                    ...current,
+                    surfaceIds,
+                    surfaceLabels: surfaceIds.map(
+                      (surfaceId) =>
+                        snapshot.semantics.itemById.get(surfaceId)?.label ?? "Unavailable Surface",
+                    ),
+                  }
+                : current,
+            )
+          }
           onResult={finishStructureAction}
         />
       ) : null}

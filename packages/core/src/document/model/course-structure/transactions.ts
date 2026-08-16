@@ -72,24 +72,15 @@ export function applyCourseStructureCommandToTransaction({
     schema: state.schema,
   };
   const logicalSelection = captureLogicalSelection(state);
-  let candidate: CandidateMutation | null;
-  try {
-    candidate = buildCandidate(command, context, blockDuplications);
-  } catch {
-    return false;
-  }
+  const candidate = buildCandidate(command, context, blockDuplications);
   if (!candidate || sameChildren(children, candidate.children)) return false;
 
-  try {
-    applyLocalChange({
-      tr,
-      command,
-      beforeChildren: children,
-      candidate,
-    });
-  } catch {
-    return false;
-  }
+  applyLocalChange({
+    tr,
+    command,
+    beforeChildren: children,
+    candidate,
+  });
 
   restoreLogicalSelection(
     tr,
