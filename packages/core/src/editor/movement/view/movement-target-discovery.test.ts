@@ -10,6 +10,10 @@ import { courseBlockAuthoringFrameAttributes } from "@/editor/interactions/dom/a
 import { DocumentNode, CourseDocumentNode, createCourseSectionNode } from "@/document/model/nodes";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import {
+  CONTENT_LAYOUT_PROJECTION_DOM_ATTRS,
+  readContentLayoutMovementState,
+} from "@/editor/content-layout/view/content-layout-projection-dom";
 
 import { resolveMovementNodeContext } from "../model/movement-policy";
 import { discoverMovementTargetDescriptors } from "./movement-target-discovery";
@@ -140,6 +144,49 @@ describe("movement target discovery", () => {
     ).toBe(`structure:${TEST_BLOCK}:${targetPos}:target-b`);
     expect(descendants).toHaveBeenCalledTimes(1);
     expect(nodeDOM).toHaveBeenCalled();
+  });
+
+  it("rejects an exact shared-position owner but keeps its unprojected nested target", () => {
+    const harness = makeEditor([
+      { type: TEST_BLOCK, attrs: { id: "source-a" } },
+      {
+        type: TEST_CONTAINER,
+        attrs: { id: "shared-container" },
+        content: [{ type: TEST_BLOCK, attrs: { id: "nested-target" } }],
+      },
+      { type: TEST_BLOCK, attrs: { id: "flow-target" } },
+    ]);
+    const sourcePos = nodePos(harness.editor, TEST_BLOCK, "source-a");
+    const sharedContainerPos = nodePos(harness.editor, TEST_CONTAINER, "shared-container");
+    const sharedContainerDom = harness.editor.view.nodeDOM(sharedContainerPos);
+    if (!(sharedContainerDom instanceof Element)) throw new Error("missing shared owner DOM");
+    sharedContainerDom.setAttribute(
+      CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.geometry,
+      "shared-position",
+    );
+
+    expect(readContentLayoutMovementState(sharedContainerDom)).toEqual({
+      kind: "unavailable",
+      reason: "sequence-shared-position",
+    });
+
+    const source = resolveMovementNodeContext(harness.editor.state.doc, sourcePos)!;
+    const result = discoverMovementTargetDescriptors({
+      blockDefinitions,
+      documentRevision: 13,
+      source: { context: source, kind: "structure" },
+      view: harness.editor.view,
+    });
+
+    expect(result.descriptors.map((descriptor) => descriptor.context.node.attrs["id"])).toEqual([
+      "nested-target",
+      "flow-target",
+    ]);
+    expect(
+      result.descriptors.some(
+        (descriptor) => descriptor.context.node.attrs["id"] === "shared-container",
+      ),
+    ).toBe(false);
   });
 
   it("discovers only contained siblings in the same owner", () => {

@@ -4,6 +4,7 @@ import { Plugin } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
+import { userEvent } from "vite-plus/test/browser/context";
 import {
   EmbeddedNodeIdSchema,
   type EmbeddedNodeId,
@@ -53,8 +54,10 @@ const OWNER_IDS = Object.freeze({
 
 const projectionApplication = createProjectionApplication();
 const mountedEditors: MountedEditor[] = [];
+let projectionTracerControlActivations = 0;
 
 afterEach(() => {
+  projectionTracerControlActivations = 0;
   for (const mounted of mountedEditors.splice(0)) {
     mounted.root.unmount();
     mounted.editor.destroy();
@@ -97,6 +100,186 @@ describe("mounted content-layout projection tracer", () => {
 });
 
 describe("mounted content-layout projection", () => {
+  it("contains withheld focus, pointer, accessibility, paint, and mounted identity", async () => {
+    for (const lane of ["authoring", "runtime"] as const) {
+      const mounted = await mountEditor(lane, createProjectionDocument(), false);
+      await waitForOwnerMatrix(mounted, lane);
+      const activationsBeforeLane = projectionTracerControlActivations;
+
+      const beforeIdentity = captureDomIdentity(mounted.editor);
+      const ordinary = findNodeDom(mounted.editor, OWNER_IDS.ordinaryBlock);
+      if (!ordinary) throw new Error("Missing ordinary projection owner.");
+      const control = requiredElement<HTMLButtonElement>(
+        ordinary,
+        "[data-projection-tracer-control]",
+      );
+
+      control.focus();
+      expect(document.activeElement).toBe(control);
+      await userEvent.click(control);
+      expect(projectionTracerControlActivations).toBe(activationsBeforeLane + 1);
+
+      dispatchProjectionBatch(
+        mounted.editor,
+        createProjectionBatch(mounted.editor, lane, [
+          { containerId: OWNER_IDS.region, activeChildId: OWNER_IDS.paragraph },
+        ]),
+      );
+      await waitForProjectedOwner(mounted.editor, OWNER_IDS.ordinaryBlock, "withheld");
+
+      expect(ordinary).toHaveAttribute("inert", "");
+      expect(ordinary).toHaveAttribute("aria-hidden", "true");
+      expect(getComputedStyle(ordinary).visibility).toBe("hidden");
+      expect(getComputedStyle(ordinary).contentVisibility).toBe("hidden");
+      expect(getComputedStyle(ordinary).pointerEvents).toBe("none");
+      expect(getComputedStyle(ordinary).contain).toContain("paint");
+      expect(getComputedStyle(ordinary).overflow).toMatch(/clip|hidden/);
+      await waitForCondition(
+        () => !ordinary.contains(document.activeElement),
+        "withheld owner to lose focus",
+      );
+      expect(ordinary.contains(document.activeElement)).toBe(false);
+
+      control.focus();
+      expect(ordinary.contains(document.activeElement)).toBe(false);
+      await userEvent.click(control, { force: true });
+      expect(projectionTracerControlActivations).toBe(activationsBeforeLane + 1);
+      expect(control.isConnected).toBe(true);
+      expectDomIdentity(mounted.editor, beforeIdentity);
+    }
+  });
+
+  it("lets an active nested Tabs control and scroll lane remain feature-owned", async () => {
+    const mounted = await mountEditor("runtime", createProjectionDocument(), false);
+    mounted.host.style.width = "800px";
+    mounted.host.style.height = "600px";
+    await nextFrame();
+    await waitForOwnerMatrix(mounted, "runtime");
+    const region = findNodeDom(mounted.editor, OWNER_IDS.region);
+    if (!region) throw new Error("Missing nested Tabs region.");
+    region.style.width = "400px";
+    region.style.height = "500px";
+    await nextFrame();
+
+    dispatchProjectionBatch(
+      mounted.editor,
+      createProjectionBatch(mounted.editor, "runtime", [
+        { containerId: OWNER_IDS.section, activeChildId: OWNER_IDS.sectionParagraph },
+      ]),
+    );
+    await waitForProjectedOwner(mounted.editor, OWNER_IDS.sectionParagraph, "available");
+
+    const layout = findNodeDom(mounted.editor, OWNER_IDS.layout);
+    const section = findNodeDom(mounted.editor, OWNER_IDS.section);
+    if (!layout || !section) {
+      throw new Error("Missing nested Tabs production owners.");
+    }
+    const layoutFrame = requiredElement<HTMLElement>(layout, '[data-node="layout"]');
+    const sectionFrame = requiredElement<HTMLElement>(section, '[data-node="section"]');
+    const tabPanel = requiredElement<HTMLElement>(sectionFrame, '[role="tabpanel"]');
+    const sectionScrollFrame = requiredElement<HTMLElement>(
+      sectionFrame,
+      "[data-bounded-scroll-frame]",
+    );
+    layoutFrame.style.height = "400px";
+    layoutFrame.style.maxHeight = "400px";
+    sectionFrame.style.height = "300px";
+    sectionFrame.style.maxHeight = "300px";
+    tabPanel.style.height = "300px";
+    tabPanel.style.minHeight = "300px";
+    sectionScrollFrame.style.height = "300px";
+    sectionScrollFrame.style.minHeight = "300px";
+
+    const tabs = Array.from(layout.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+    expect(tabs).toHaveLength(1);
+    expect(section).not.toHaveAttribute("inert");
+    expect(findNodeDom(mounted.editor, OWNER_IDS.sectionParagraph)).toHaveAttribute(
+      CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.slot,
+      "shared",
+    );
+
+    const firstParagraph = findNodeDom(mounted.editor, OWNER_IDS.sectionParagraph);
+    const firstViewport = requiredElement<HTMLElement>(section, "[data-bounded-scroll]");
+    if (!firstParagraph) throw new Error("Missing first Tabs paragraph.");
+    firstViewport.style.display = "block";
+    firstViewport.style.height = "120px";
+    firstViewport.style.minHeight = "120px";
+    firstViewport.style.maxHeight = "120px";
+    firstParagraph.style.minHeight = "480px";
+    await waitForCondition(
+      () => firstViewport.scrollHeight > firstViewport.clientHeight,
+      "active first Tabs panel to overflow",
+    );
+    expect(firstViewport).not.toHaveAttribute("inert");
+
+    await userEvent.click(tabs[0]!);
+    await waitForCondition(
+      () => tabs[0]?.getAttribute("aria-selected") === "true",
+      "active Tabs trigger to remain active",
+    );
+    firstViewport.scrollTop = firstViewport.scrollHeight;
+    firstViewport.dispatchEvent(new Event("scroll"));
+    await nextFrame();
+    expect(firstViewport.scrollTop).toBeGreaterThan(0);
+    expect(firstViewport).not.toHaveAttribute("inert");
+  });
+
+  it("lets only the available Sequence owner drive bounded overflow and hints", async () => {
+    const mounted = await mountEditor("runtime", createProjectionDocument(), false);
+    mounted.host.style.width = "800px";
+    mounted.host.style.height = "600px";
+    await nextFrame();
+    await waitForOwnerMatrix(mounted, "runtime");
+
+    const paragraph = findNodeDom(mounted.editor, OWNER_IDS.paragraph);
+    const resizable = findNodeDom(mounted.editor, OWNER_IDS.resizableBlock);
+    const region = findNodeDom(mounted.editor, OWNER_IDS.region);
+    if (!paragraph || !resizable || !region) throw new Error("Missing overflow tracer owners.");
+    const resizableFill = resizable.querySelector<HTMLElement>('[data-bounded-placement="fill"]');
+    if (!resizableFill) throw new Error("Missing resizable bounded-fill owner.");
+    region.style.width = "400px";
+    region.style.height = "500px";
+    await nextFrame();
+    const viewport = requiredElement<HTMLElement>(
+      region,
+      ":scope > [data-bounded-scroll-frame] > [data-bounded-scroll]",
+    );
+    const hint = requiredElement<HTMLElement>(
+      region,
+      ":scope > [data-bounded-scroll-frame] > [data-bounded-scroll-hint]",
+    );
+
+    expect(getComputedStyle(resizable).display).toBe("contents");
+    paragraph.style.minHeight = "24px";
+    resizableFill.style.minHeight = "560px";
+    const inactiveTall = createProjectionBatch(mounted.editor, "runtime", [
+      { containerId: OWNER_IDS.region, activeChildId: OWNER_IDS.paragraph },
+    ]);
+    dispatchProjectionBatch(mounted.editor, inactiveTall);
+    await waitForProjectedOwner(mounted.editor, OWNER_IDS.paragraph, "available");
+    await waitForCondition(
+      () => !viewport.hasAttribute("data-bounded-scroll-overflow"),
+      "inactive tall owner to stop driving overflow",
+      8_000,
+    );
+    expect(viewport).not.toHaveAttribute("data-bounded-scroll-overflow");
+    expect(getComputedStyle(hint).visibility).toBe("hidden");
+    expect(getComputedStyle(resizable).display).toBe("block");
+
+    paragraph.style.minHeight = "560px";
+    const activeTall = createProjectionBatch(mounted.editor, "runtime", [
+      { containerId: OWNER_IDS.region, activeChildId: OWNER_IDS.paragraph },
+    ]);
+    dispatchProjectionBatch(mounted.editor, activeTall);
+    await waitForCondition(
+      () => viewport.hasAttribute("data-bounded-scroll-overflow"),
+      "active tall owner to drive overflow",
+    );
+    expect(viewport).toHaveAttribute("data-bounded-scroll-overflow");
+    expect(viewport).not.toHaveAttribute("data-bounded-scroll-end");
+    expect(getComputedStyle(hint).visibility).toBe("visible");
+  });
+
   it("projects supplied Sequence state and preserves document and DOM identity", async () => {
     for (const lane of ["authoring", "runtime"] as const) {
       const mounted = await mountEditor(lane, createProjectionDocument(), false);
@@ -250,6 +433,9 @@ describe("mounted content-layout projection", () => {
 
     expect(readContentLayoutProjectionDiagnostics(mounted.editor.state)).toEqual([]);
     expectProjectionAbsent(mounted.editor);
+    const flowReactOwner = findNodeDom(mounted.editor, OWNER_IDS.ordinaryBlock);
+    if (!flowReactOwner) throw new Error("Missing Flow React owner.");
+    expect(getComputedStyle(flowReactOwner).display).toBe("contents");
   });
 });
 
@@ -413,7 +599,20 @@ function createTracerRuntimeNode(definition: BlockDefinition) {
 }
 
 function TracerBlockView({ node }: ReactNodeViewProps) {
-  return <span data-projection-tracer-inner={String(node.attrs["id"] ?? "")} />;
+  return (
+    <>
+      <span data-projection-tracer-inner={String(node.attrs["id"] ?? "")} />
+      <button
+        type="button"
+        data-projection-tracer-control=""
+        onClick={() => {
+          projectionTracerControlActivations += 1;
+        }}
+      >
+        Tracer control
+      </button>
+    </>
+  );
 }
 
 async function mountEditor(
@@ -760,6 +959,12 @@ function findNodeDom(editor: Editor, id: string): HTMLElement | null {
   if (position === null) return null;
   const dom = editor.view.nodeDOM(position);
   return dom instanceof HTMLElement ? dom : null;
+}
+
+function requiredElement<T extends Element>(root: ParentNode, selector: string): T {
+  const element = root.querySelector<T>(selector);
+  if (!element) throw new Error(`Expected element for ${selector}.`);
+  return element;
 }
 
 async function waitForCondition(

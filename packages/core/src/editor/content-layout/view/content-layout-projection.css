@@ -1,7 +1,46 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-adapters {
-  [data-content-layout-root] > [data-presentation-slot="shared"] {
+  [data-content-layout-root] > [data-presentation-slot="shared"],
+  [data-content-layout-root] > [data-node-view-content-react] > [data-presentation-slot="shared"] {
     grid-area: 1 / 1;
+  }
+
+  [data-content-layout-root] > .react-renderer[data-presentation-slot="shared"],
+  [data-content-layout-root]
+    > [data-node-view-content-react]
+    > .react-renderer[data-presentation-slot="shared"] {
+    display: block;
+  }
+
+  [data-content-layout-root]
+    > [data-presentation-slot="shared"][data-presentation-availability="withheld"],
+  [data-content-layout-root]
+    > [data-node-view-content-react]
+    > [data-presentation-slot="shared"][data-presentation-availability="withheld"] {
+    contain: paint;
+    content-visibility: hidden;
+    overflow: clip;
+    pointer-events: none;
+    visibility: hidden;
+  }
+
+  [data-content-layout-root][data-bounded-scroll]:has(
+    > [data-presentation-slot="shared"][data-presentation-availability="available"],
+    > [data-node-view-content-react]
+      > [data-presentation-slot="shared"][data-presentation-availability="available"]
+  ):not(
+    :has(
+      > [data-presentation-slot="shared"][data-presentation-availability="available"][data-bounded-placement="fill"],
+      > [data-node-view-content-react]
+        > [data-presentation-slot="shared"][data-presentation-availability="available"][data-bounded-placement="fill"],
+      > [data-presentation-slot="shared"][data-presentation-availability="available"]
+        [data-bounded-placement="fill"],
+      > [data-node-view-content-react]
+        > [data-presentation-slot="shared"][data-presentation-availability="available"]
+        [data-bounded-placement="fill"]
+    )
+  ) {
+    overflow: auto;
   }
 }
