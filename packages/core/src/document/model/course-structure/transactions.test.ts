@@ -149,6 +149,12 @@ describe("Course Structure Tiptap commands", () => {
     );
 
     const before = editor.getJSON();
+    const expectedFrom = directChildPosition(editor, "courseSection", SECTION_1);
+    const expectedTo = directChildPosition(editor, "courseSection", SECTION_2);
+    let dispatched: Transaction | undefined;
+    editor.on("transaction", ({ transaction }) => {
+      if (transaction.docChanged) dispatched = transaction;
+    });
     expect(
       runCommand(editor, {
         type: "course-section.delete",
@@ -165,8 +171,45 @@ describe("Course Structure Tiptap commands", () => {
       }),
     ).toBe(true);
     expect(childIdentity(editor)).toEqual([SECTION_2, SURFACE_2]);
+    expect(dispatched?.steps.map((step) => step.toJSON())).toEqual([
+      { stepType: "replace", from: expectedFrom, to: expectedTo },
+    ]);
     expect(editor.commands.undo()).toBe(true);
     expect(editor.getJSON()).toEqual(before);
+    expect(editor.commands.redo()).toBe(true);
+    expect(childIdentity(editor)).toEqual([SECTION_2, SURFACE_2]);
+  });
+
+  it("deletes an empty Course Section with one local replacement step", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "Empty"), section(SECTION_2, "Two"), surface(SURFACE_2)],
+      "slideshow",
+      [],
+    );
+    const before = editor.getJSON();
+    const expectedFrom = directChildPosition(editor, "courseSection", SECTION_1);
+    const expectedTo = directChildPosition(editor, "courseSection", SECTION_2);
+    let dispatched: Transaction | undefined;
+    editor.on("transaction", ({ transaction }) => {
+      if (transaction.docChanged) dispatched = transaction;
+    });
+
+    expect(
+      runCommand(editor, {
+        type: "course-section.delete",
+        courseSectionId: SECTION_1,
+        expectedSurfaceIds: [],
+      }),
+    ).toBe(true);
+
+    expect(childIdentity(editor)).toEqual([SECTION_2, SURFACE_2]);
+    expect(dispatched?.steps.map((step) => step.toJSON())).toEqual([
+      { stepType: "replace", from: expectedFrom, to: expectedTo },
+    ]);
+    expect(editor.commands.undo()).toBe(true);
+    expect(editor.getJSON()).toEqual(before);
+    expect(editor.commands.redo()).toBe(true);
+    expect(childIdentity(editor)).toEqual([SECTION_2, SURFACE_2]);
   });
 
   it("rejects deletion of the final Course Section", () => {

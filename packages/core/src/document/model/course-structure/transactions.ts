@@ -23,7 +23,7 @@ import {
   type CandidateMutation,
   type CommandBuildContext,
 } from "./transaction-helpers";
-import type { CourseStructureCommand, SurfaceId } from "./types";
+import type { CourseSectionId, CourseStructureCommand, SurfaceId } from "./types";
 
 interface ApplyCourseStructureCommandInput {
   readonly blockDuplications?: BlockDuplicationLookup;
@@ -153,7 +153,7 @@ function applyLocalChange({
       return;
     }
     case "course-section.delete":
-      replaceCourseChildren(tr, candidate.children);
+      deleteCourseSection(tr, command.courseSectionId);
       return;
     case "surface.delete":
       deleteSurface(tr, command.surfaceId);
@@ -199,9 +199,14 @@ function insertNewRuns(
   }
 }
 
-function replaceCourseChildren(tr: Transaction, children: readonly ProseMirrorNode[]) {
-  const courseDocument = requireCourseDocument(tr);
-  tr.replaceWith(1, courseDocument.nodeSize - 1, Fragment.fromArray([...children]));
+function deleteCourseSection(tr: Transaction, courseSectionId: CourseSectionId) {
+  const refs = directChildRefs(tr.doc.firstChild);
+  const source = requireRef(refs, "courseSection", courseSectionId);
+  const nextBoundary = refs.find(
+    (ref) => ref.index > source.index && ref.node.type.name === "courseSection",
+  );
+  const end = nextBoundary?.pos ?? refs.at(-1)?.end ?? source.end;
+  tr.delete(source.pos, end);
 }
 
 function deleteSurface(tr: Transaction, surfaceId: SurfaceId) {
@@ -273,12 +278,6 @@ function requireCourseSurfaceRef(refs: readonly DirectChildRef[], id: string): D
   const ref = refs.find((item) => isCourseSurfaceRoot(item.node) && item.node.attrs["id"] === id);
   if (!ref) throw new Error(`The Course Surface "${id}" is missing from the current document.`);
   return ref;
-}
-
-function requireCourseDocument(tr: Transaction): ProseMirrorNode {
-  const courseDocument = tr.doc.firstChild;
-  if (!courseDocument) throw new Error("The Course Document is missing.");
-  return courseDocument;
 }
 
 function captureLogicalSelection(state: EditorState): LogicalSelection | null {
