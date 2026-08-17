@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { NodeSelection } from "@tiptap/pm/state";
+import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { setObjectSelectionInTransaction } from "@/editor/selection/selection-transactions";
@@ -21,10 +22,26 @@ import {
   setInteractionOwnerCommandMeta,
 } from "../state/interaction-owner-plugin-state";
 import { InteractionOwnerCommandKind } from "../state/interaction-owner-command-model";
-import { applyInteractionActivationIntent } from "./interaction-activation-dispatch";
+import {
+  applyInteractionActivationIntent,
+  createInteractionTargetActivationTransaction,
+  createStructuralInteractionTargetActivationTransaction,
+} from "./interaction-activation-dispatch";
 import { InteractionDomActivationIntentKind } from "./interaction-activation-intent";
+import type {
+  StructuralActivationPlacementResolution,
+  StructuralActivationPlacementResolver,
+} from "./structural-activation-placement";
 
 const BLOCK = "v2_activation_dispatch_block";
+const RETAINED_CELL_ID = EmbeddedNodeIdSchema.parse("cell-target1");
+const RETAINED_BLOCK_ID = EmbeddedNodeIdSchema.parse("block-targ01");
+const ACTIVE_CHILD_ID = EmbeddedNodeIdSchema.parse("active-child");
+const UNAVAILABLE_TARGET_ID = EmbeddedNodeIdSchema.parse("target-miss1");
+const INVALID_RETAINED_TARGET_IDS = [
+  { label: "missing", targetId: null },
+  { label: "malformed", targetId: "cell-a" },
+] as const;
 
 const testBlockRegistry = createBlockRegistry([
   defineBlock({ nodeType: BLOCK, title: "Activation dispatch block" }),
@@ -109,6 +126,25 @@ function twoCellDocument(): JSONContent {
   };
 }
 
+function twoParagraphCellDocument(): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "cell",
+        attrs: { id: RETAINED_CELL_ID },
+        content: [paragraph("active text"), paragraph("withheld text")],
+      },
+      {
+        type: BLOCK,
+        attrs: { id: RETAINED_BLOCK_ID },
+        content: [paragraph("block text")],
+      },
+      { type: "paragraph" },
+    ],
+  };
+}
+
 afterEach(() => {
   document.body.innerHTML = "";
 });
@@ -148,12 +184,52 @@ function textEndPos(editor: Editor, text: string): number {
   return found;
 }
 
-function cellRef(editor: Editor): InteractionTargetRef {
+function paragraphRangeByText(editor: Editor, text: string): { from: number; to: number } {
+  let range: { from: number; to: number } | null = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (range) return false;
+    if (node.type.name === "paragraph" && node.textContent === text) {
+      range = { from: pos, to: pos + node.nodeSize };
+      return false;
+    }
+    return true;
+  });
+  if (!range) throw new Error(`missing paragraph ${text}`);
+  return range;
+}
+
+function retainedActiveParagraphPlacement(
+  editor: Editor,
+  selectionTarget: Extract<
+    StructuralActivationPlacementResolution,
+    { readonly kind: "retain-active-child" }
+  >["selectionTarget"] = {
+    kind: "text",
+    from: paragraphRangeByText(editor, "active text").from + 1,
+    to: paragraphRangeByText(editor, "active text").from + 1,
+  },
+): Extract<StructuralActivationPlacementResolution, { readonly kind: "retain-active-child" }> {
   return {
-    id: "cell-a",
-    kind: InteractionTargetKind.Cell,
-    pos: nodePosById(editor, "cell-a"),
+    kind: "retain-active-child",
+    activeChildId: ACTIVE_CHILD_ID,
+    activeRange: paragraphRangeByText(editor, "active text"),
+    selectionTarget,
   };
+}
+
+function cellRef(editor: Editor, id = "cell-a"): InteractionTargetRef {
+  return {
+    id,
+    kind: InteractionTargetKind.Cell,
+    pos: nodePosById(editor, id),
+  };
+}
+
+function retainedTargetWithId(editor: Editor, targetId: string | null): InteractionTargetRef {
+  const pos = nodePosById(editor, RETAINED_CELL_ID);
+  return targetId === null
+    ? { kind: InteractionTargetKind.Cell, pos }
+    : { id: targetId, kind: InteractionTargetKind.Cell, pos };
 }
 
 function blockRef(editor: Editor): InteractionTargetRef {
@@ -161,6 +237,14 @@ function blockRef(editor: Editor): InteractionTargetRef {
     id: "block-a",
     kind: InteractionTargetKind.Block,
     pos: nodePosById(editor, "block-a"),
+  };
+}
+
+function fieldRef(): InteractionTargetRef {
+  return {
+    id: "field-target1",
+    kind: InteractionTargetKind.Field,
+    pos: 0,
   };
 }
 
@@ -495,6 +579,545 @@ describe("applyInteractionActivationIntent", () => {
     editor.destroy();
   });
 
+  it("keeps pointer placement on the bounded posAtCoords path", () => {
+    const editor = makeEditor(twoParagraphCellDocument());
+    const activeRange = paragraphRangeByText(editor, "active text");
+    editor.commands.setTextSelection(textEndPos(editor, "withheld text"));
+    const event = mouseDown({ clientX: 12, clientY: 34 });
+    const posAtCoords = vi.spyOn(editor.view, "posAtCoords").mockReturnValue({
+      inside: activeRange.from,
+      pos: activeRange.from + 2,
+    });
+    const resolveStructuralActivationPlacement = vi.fn<StructuralActivationPlacementResolver>(
+      () => ({ kind: "pointer-within-target" }),
+    );
+
+    const handled = applyInteractionActivationIntent(
+      editor.view,
+      {
+        kind: InteractionDomActivationIntentKind.BlankStructuralSpace,
+        target: cellRef(editor, RETAINED_CELL_ID),
+      },
+      event,
+      { resolveStructuralActivationPlacement },
+    );
+
+    expect(handled).toBe(true);
+    expect(resolveStructuralActivationPlacement).toHaveBeenCalledOnce();
+    expect(posAtCoords).toHaveBeenCalledWith({ left: 12, top: 34 });
+    expect(editor.state.selection.from).toBe(activeRange.from + 2);
+    expect(editor.state.selection.to).toBe(activeRange.from + 2);
+    posAtCoords.mockRestore();
+    editor.destroy();
+  });
+
+  it("retains an existing text selection inside the active child", () => {
+    const editor = makeEditor(twoParagraphCellDocument());
+    editor.commands.setTextSelection(textEndPos(editor, "active text"));
+    const selectionBefore = editor.state.selection;
+    const posAtCoords = vi.spyOn(editor.view, "posAtCoords");
+
+    const handled = applyInteractionActivationIntent(
+      editor.view,
+      {
+        kind: InteractionDomActivationIntentKind.BlankStructuralSpace,
+        target: cellRef(editor, RETAINED_CELL_ID),
+      },
+      mouseDown({ clientX: 12, clientY: 34 }),
+      {
+        resolveStructuralActivationPlacement: () => retainedActiveParagraphPlacement(editor),
+      },
+    );
+
+    expect(handled).toBe(true);
+    expect(editor.state.selection.eq(selectionBefore)).toBe(true);
+    expect(posAtCoords).not.toHaveBeenCalled();
+    posAtCoords.mockRestore();
+    editor.destroy();
+  });
+
+  it("retains an existing node selection on the active child", () => {
+    const editor = makeEditor(twoParagraphCellDocument());
+    const activeRange = paragraphRangeByText(editor, "active text");
+    editor.view.dispatch(
+      editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, activeRange.from)),
+    );
+    const selectionBefore = editor.state.selection;
+    const posAtCoords = vi.spyOn(editor.view, "posAtCoords");
+
+    const handled = applyInteractionActivationIntent(
+      editor.view,
+      {
+        kind: InteractionDomActivationIntentKind.BlankStructuralSpace,
+        target: cellRef(editor, RETAINED_CELL_ID),
+      },
+      mouseDown({ clientX: 12, clientY: 34 }),
+      {
+        resolveStructuralActivationPlacement: () => retainedActiveParagraphPlacement(editor),
+      },
+    );
+
+    expect(handled).toBe(true);
+    expect(editor.state.selection.eq(selectionBefore)).toBe(true);
+    expect(posAtCoords).not.toHaveBeenCalled();
+    posAtCoords.mockRestore();
+    editor.destroy();
+  });
+
+  it.each(["from", "to"] as const)(
+    "does not preserve a text selection at the active child %s boundary",
+    (boundary) => {
+      const editor = makeEditor(twoParagraphCellDocument());
+      const activeRange = paragraphRangeByText(editor, "active text");
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, activeRange[boundary])),
+      );
+
+      const handled = applyInteractionActivationIntent(
+        editor.view,
+        {
+          kind: InteractionDomActivationIntentKind.BlankStructuralSpace,
+          target: cellRef(editor, RETAINED_CELL_ID),
+        },
+        mouseDown(),
+        {
+          resolveStructuralActivationPlacement: () => retainedActiveParagraphPlacement(editor),
+        },
+      );
+
+      expect(handled).toBe(true);
+      expect(editor.state.selection.toJSON()).toEqual({
+        type: "text",
+        anchor: activeRange.from + 1,
+        head: activeRange.from + 1,
+      });
+      editor.destroy();
+    },
+  );
+
+  it.each(["from", "to"] as const)(
+    "refuses a supplied text selection at the active child %s boundary",
+    (boundary) => {
+      const editor = makeEditor(twoParagraphCellDocument());
+      const activeRange = paragraphRangeByText(editor, "active text");
+      editor.commands.setTextSelection(textEndPos(editor, "withheld text"));
+      const selectionBefore = editor.state.selection;
+
+      const outcome = applyInteractionActivationIntent(
+        editor.view,
+        {
+          kind: InteractionDomActivationIntentKind.BlankStructuralSpace,
+          target: cellRef(editor, RETAINED_CELL_ID),
+        },
+        mouseDown(),
+        {
+          resolveStructuralActivationPlacement: () =>
+            retainedActiveParagraphPlacement(editor, {
+              kind: "text",
+              from: activeRange[boundary],
+              to: activeRange[boundary],
+            }),
+        },
+      );
+
+      expect(outcome).toEqual({
+        kind: "placement-unavailable",
+        issue: {
+          kind: "retained-child-selection-unavailable",
+          targetId: RETAINED_CELL_ID,
+          activeChildId: ACTIVE_CHILD_ID,
+        },
+      });
+      expect(editor.state.selection.eq(selectionBefore)).toBe(true);
+      editor.destroy();
+    },
+  );
+
+  it.each([
+    {
+      kind: "node",
+      selectionTarget: (range: { from: number; to: number }) => ({
+        kind: "node" as const,
+        pos: range.from,
+      }),
+      expectedSelection: (range: { from: number; to: number }) => ({
+        type: "node",
+        anchor: range.from,
+      }),
+    },
+    {
+      kind: "text",
+      selectionTarget: (range: { from: number; to: number }) => ({
+        kind: "text" as const,
+        from: range.from + 1,
+        to: range.from + 1,
+      }),
+      expectedSelection: (range: { from: number; to: number }) => ({
+        type: "text",
+        anchor: range.from + 1,
+        head: range.from + 1,
+      }),
+    },
+    {
+      kind: "near",
+      selectionTarget: (range: { from: number; to: number }) => ({
+        kind: "near" as const,
+        pos: range.from,
+      }),
+      expectedSelection: (range: { from: number; to: number }) => ({
+        type: "text",
+        anchor: range.from + 1,
+        head: range.from + 1,
+      }),
+    },
+  ])(
+    "applies the supplied $kind selection target inside the active child",
+    ({ expectedSelection, selectionTarget }) => {
+      const editor = makeEditor(twoParagraphCellDocument());
+      const activeRange = paragraphRangeByText(editor, "active text");
+      editor.commands.setTextSelection(textEndPos(editor, "withheld text"));
+      const posAtCoords = vi.spyOn(editor.view, "posAtCoords");
+
+      const handled = applyInteractionActivationIntent(
+        editor.view,
+        {
+          kind: InteractionDomActivationIntentKind.BlankStructuralSpace,
+          target: cellRef(editor, RETAINED_CELL_ID),
+        },
+        mouseDown({ clientX: 12, clientY: 34 }),
+        {
+          resolveStructuralActivationPlacement: () =>
+            retainedActiveParagraphPlacement(editor, selectionTarget(activeRange)),
+        },
+      );
+
+      expect(handled).toBe(true);
+      expect(editor.state.selection.toJSON()).toEqual(expectedSelection(activeRange));
+      expect(posAtCoords).not.toHaveBeenCalled();
+      posAtCoords.mockRestore();
+      editor.destroy();
+    },
+  );
+
+  it("refuses a retained-child selection that resolves outside the active range", () => {
+    const editor = makeEditor(twoParagraphCellDocument());
+    editor.commands.setTextSelection(textEndPos(editor, "withheld text"));
+    const selectionBefore = editor.state.selection;
+    const docBefore = editor.state.doc;
+    const ownerBefore = pluginState(editor);
+    const activeElementBefore = document.activeElement;
+    const withheldRange = paragraphRangeByText(editor, "withheld text");
+    const focus = vi.spyOn(editor.view, "focus");
+    const posAtCoords = vi.spyOn(editor.view, "posAtCoords");
+
+    const outcome = applyInteractionActivationIntent(
+      editor.view,
+      {
+        kind: InteractionDomActivationIntentKind.BlankStructuralSpace,
+        target: cellRef(editor, RETAINED_CELL_ID),
+      },
+      mouseDown({ clientX: 12, clientY: 34 }),
+      {
+        resolveStructuralActivationPlacement: () =>
+          retainedActiveParagraphPlacement(editor, {
+            kind: "near",
+            pos: withheldRange.from + 1,
+          }),
+      },
+    );
+
+    expect(outcome).toEqual({
+      kind: "placement-unavailable",
+      issue: {
+        kind: "retained-child-selection-unavailable",
+        targetId: RETAINED_CELL_ID,
+        activeChildId: ACTIVE_CHILD_ID,
+      },
+    });
+    expect(editor.state.doc).toBe(docBefore);
+    expect(editor.state.selection.eq(selectionBefore)).toBe(true);
+    expect(pluginState(editor)).toBe(ownerBefore);
+    expect(focus).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(activeElementBefore);
+    expect(posAtCoords).not.toHaveBeenCalled();
+    focus.mockRestore();
+    posAtCoords.mockRestore();
+    editor.destroy();
+  });
+
+  it.each(INVALID_RETAINED_TARGET_IDS)(
+    "rejects a $label retained-child target before preserving an in-range selection",
+    ({ targetId }) => {
+      const editor = makeEditor(twoParagraphCellDocument());
+      editor.commands.setTextSelection(textEndPos(editor, "active text"));
+      const documentBefore = editor.state.doc;
+      const selectionBefore = editor.state.selection;
+      const ownerBefore = pluginState(editor);
+
+      expect(() =>
+        applyInteractionActivationIntent(
+          editor.view,
+          {
+            kind: InteractionDomActivationIntentKind.BlankStructuralSpace,
+            target: retainedTargetWithId(editor, targetId),
+          },
+          mouseDown(),
+          {
+            resolveStructuralActivationPlacement: () => retainedActiveParagraphPlacement(editor),
+          },
+        ),
+      ).toThrowError("Retained-child structural activation requires a valid embedded node ID.");
+
+      expect(editor.state.doc).toBe(documentBefore);
+      expect(editor.state.selection.eq(selectionBefore)).toBe(true);
+      expect(pluginState(editor)).toBe(ownerBefore);
+      editor.destroy();
+    },
+  );
+
+  it.each(INVALID_RETAINED_TARGET_IDS)(
+    "rejects a $label retained-child target before applying a valid semantic selection",
+    ({ targetId }) => {
+      const editor = makeEditor(twoParagraphCellDocument());
+      editor.commands.setTextSelection(textEndPos(editor, "withheld text"));
+      const documentBefore = editor.state.doc;
+      const selectionBefore = editor.state.selection;
+      const ownerBefore = pluginState(editor);
+
+      expect(() =>
+        applyInteractionActivationIntent(
+          editor.view,
+          {
+            kind: InteractionDomActivationIntentKind.BlankStructuralSpace,
+            target: retainedTargetWithId(editor, targetId),
+          },
+          mouseDown(),
+          {
+            resolveStructuralActivationPlacement: () => retainedActiveParagraphPlacement(editor),
+          },
+        ),
+      ).toThrowError("Retained-child structural activation requires a valid embedded node ID.");
+
+      expect(editor.state.doc).toBe(documentBefore);
+      expect(editor.state.selection.eq(selectionBefore)).toBe(true);
+      expect(pluginState(editor)).toBe(ownerBefore);
+      editor.destroy();
+    },
+  );
+
+  it.each(INVALID_RETAINED_TARGET_IDS)(
+    "rejects a $label retained-child target at the direct transaction boundary",
+    ({ targetId }) => {
+      const editor = makeEditor(twoParagraphCellDocument());
+      editor.commands.setTextSelection(textEndPos(editor, "active text"));
+
+      expect(() =>
+        createStructuralInteractionTargetActivationTransaction(
+          editor.state,
+          retainedTargetWithId(editor, targetId),
+          retainedActiveParagraphPlacement(editor),
+        ),
+      ).toThrowError("Retained-child structural activation requires a valid embedded node ID.");
+      editor.destroy();
+    },
+  );
+
+  it("returns the exact retained-child selection refusal at the direct transaction boundary", () => {
+    const editor = makeEditor(twoParagraphCellDocument());
+    const withheldRange = paragraphRangeByText(editor, "withheld text");
+    editor.commands.setTextSelection(textEndPos(editor, "withheld text"));
+
+    const outcome = createStructuralInteractionTargetActivationTransaction(
+      editor.state,
+      cellRef(editor, RETAINED_CELL_ID),
+      retainedActiveParagraphPlacement(editor, {
+        kind: "near",
+        pos: withheldRange.from + 1,
+      }),
+    );
+
+    expect(outcome).toEqual({
+      kind: "placement-unavailable",
+      issue: {
+        kind: "retained-child-selection-unavailable",
+        targetId: RETAINED_CELL_ID,
+        activeChildId: ACTIVE_CHILD_ID,
+      },
+    });
+    editor.destroy();
+  });
+
+  it.each([
+    { label: "Block", target: blockRef },
+    { label: "Field", target: () => fieldRef() },
+  ])("keeps legacy structural activation nullable for a $label target", ({ target }) => {
+    const editor = makeEditor();
+
+    expect(
+      createInteractionTargetActivationTransaction(editor.state, target(editor), "structural"),
+    ).toBeNull();
+    editor.destroy();
+  });
+
+  it.each([
+    { label: "Block", target: blockRef },
+    { label: "Field", target: () => fieldRef() },
+  ])("rejects a $label target as an explicit structural invariant defect", ({ target }) => {
+    const editor = makeEditor();
+
+    expect(() =>
+      createStructuralInteractionTargetActivationTransaction(editor.state, target(editor), {
+        kind: "pointer-within-target",
+      }),
+    ).toThrowError("Explicit structural activation requires a structural interaction target.");
+    editor.destroy();
+  });
+
+  it.each(INVALID_RETAINED_TARGET_IDS)(
+    "keeps a $label retained-child target ID failure observable",
+    ({ targetId }) => {
+      const editor = makeEditor(twoParagraphCellDocument());
+      const withheldRange = paragraphRangeByText(editor, "withheld text");
+      editor.commands.setTextSelection(textEndPos(editor, "withheld text"));
+
+      expect(() =>
+        applyInteractionActivationIntent(
+          editor.view,
+          {
+            kind: InteractionDomActivationIntentKind.BlankStructuralSpace,
+            target: retainedTargetWithId(editor, targetId),
+          },
+          mouseDown(),
+          {
+            resolveStructuralActivationPlacement: () =>
+              retainedActiveParagraphPlacement(editor, {
+                kind: "near",
+                pos: withheldRange.from + 1,
+              }),
+          },
+        ),
+      ).toThrowError("Retained-child structural activation requires a valid embedded node ID.");
+      editor.destroy();
+    },
+  );
+
+  it.each([
+    {
+      kind: "target-unavailable",
+      resolution: {
+        kind: "placement-unavailable",
+        issue: {
+          kind: "target-unavailable",
+          targetId: UNAVAILABLE_TARGET_ID,
+        },
+      } satisfies StructuralActivationPlacementResolution,
+    },
+    {
+      kind: "retained-child-unavailable",
+      resolution: {
+        kind: "placement-unavailable",
+        issue: {
+          kind: "retained-child-unavailable",
+          targetId: UNAVAILABLE_TARGET_ID,
+          activeChildId: ACTIVE_CHILD_ID,
+        },
+      } satisfies StructuralActivationPlacementResolution,
+    },
+    {
+      kind: "retained-child-selection-unavailable",
+      resolution: {
+        kind: "placement-unavailable",
+        issue: {
+          kind: "retained-child-selection-unavailable",
+          targetId: UNAVAILABLE_TARGET_ID,
+          activeChildId: ACTIVE_CHILD_ID,
+        },
+      } satisfies StructuralActivationPlacementResolution,
+    },
+  ])("returns the exact $kind issue without changing editor state", ({ resolution }) => {
+    const editor = makeEditor(twoParagraphCellDocument());
+    editor.commands.setTextSelection(textEndPos(editor, "active text"));
+    const selectionBefore = editor.state.selection;
+    const docBefore = editor.state.doc;
+    const ownerBefore = pluginState(editor);
+    const dispatch = vi.spyOn(editor.view, "dispatch");
+    const focus = vi.spyOn(editor.view, "focus");
+    const posAtCoords = vi.spyOn(editor.view, "posAtCoords");
+    const event = mouseDown({ clientX: 12, clientY: 34 });
+    const resolveStructuralActivationPlacement = vi.fn(() => resolution);
+
+    const outcome = applyInteractionActivationIntent(
+      editor.view,
+      {
+        kind: InteractionDomActivationIntentKind.BlankStructuralSpace,
+        target: cellRef(editor, RETAINED_CELL_ID),
+      },
+      event,
+      { resolveStructuralActivationPlacement },
+    );
+
+    expect(outcome).toBe(resolution);
+    expect(event.preventDefaultMock).toHaveBeenCalledOnce();
+    expect(resolveStructuralActivationPlacement).toHaveBeenCalledOnce();
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(focus).not.toHaveBeenCalled();
+    expect(editor.state.doc).toBe(docBefore);
+    expect(editor.state.selection.eq(selectionBefore)).toBe(true);
+    expect(pluginState(editor)).toBe(ownerBefore);
+    expect(posAtCoords).not.toHaveBeenCalled();
+    dispatch.mockRestore();
+    focus.mockRestore();
+    posAtCoords.mockRestore();
+    editor.destroy();
+  });
+
+  it("keeps a resolver programming defect observable", () => {
+    const editor = makeEditor(twoParagraphCellDocument());
+    const defect = new Error("structural placement resolver defect");
+    const sequence: string[] = [];
+    const resolveStructuralActivationPlacement = vi.fn(() => {
+      sequence.push("resolver");
+      throw defect;
+    });
+    const event = mouseDown({
+      preventDefault: vi.fn(() => sequence.push("preventDefault")),
+    });
+    const documentBefore = editor.state.doc;
+    const selectionBefore = editor.state.selection;
+    const ownerBefore = pluginState(editor);
+    const activeElementBefore = document.activeElement;
+    const dispatch = vi.spyOn(editor.view, "dispatch");
+    const focus = vi.spyOn(editor.view, "focus");
+    const posAtCoords = vi.spyOn(editor.view, "posAtCoords");
+
+    expect(() =>
+      applyInteractionActivationIntent(
+        editor.view,
+        {
+          kind: InteractionDomActivationIntentKind.BlankStructuralSpace,
+          target: cellRef(editor, RETAINED_CELL_ID),
+        },
+        event,
+        { resolveStructuralActivationPlacement },
+      ),
+    ).toThrowError(defect);
+
+    expect(sequence).toEqual(["preventDefault", "resolver"]);
+    expect(event.preventDefaultMock).toHaveBeenCalledOnce();
+    expect(resolveStructuralActivationPlacement).toHaveBeenCalledOnce();
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(focus).not.toHaveBeenCalled();
+    expect(posAtCoords).not.toHaveBeenCalled();
+    expect(editor.state.doc).toBe(documentBefore);
+    expect(editor.state.selection.eq(selectionBefore)).toBe(true);
+    expect(pluginState(editor)).toBe(ownerBefore);
+    expect(document.activeElement).toBe(activeElementBefore);
+    dispatch.mockRestore();
+    focus.mockRestore();
+    posAtCoords.mockRestore();
+    editor.destroy();
+  });
+
   it("activates explicit chrome targets and reconciles PM selection non-destructively", () => {
     const editor = makeEditor();
     objectSelectBlock(editor);
@@ -631,3 +1254,13 @@ describe("applyInteractionActivationIntent", () => {
     editor.destroy();
   });
 });
+
+// oxlint-disable-next-line no-constant-condition -- compile-time port contract assertion.
+if (false) {
+  const placement = {} as Extract<
+    StructuralActivationPlacementResolution,
+    { readonly kind: "retain-active-child" }
+  >;
+  // @ts-expect-error validated placement range facts remain readonly at the port boundary.
+  placement.activeRange.from = 1;
+}
