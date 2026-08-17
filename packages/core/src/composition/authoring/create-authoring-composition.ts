@@ -24,6 +24,7 @@ import {
   createUnavailableContentAuthoringExtensions,
 } from "@/document/authoring/unavailable-content";
 import { createSemanticDocumentExtension } from "@/document/authoring/semantic-document";
+import { resolveContentLayoutStructuralActivationPlacement } from "@/editor/content-layout/authoring/content-layout-structural-activation-placement";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
@@ -178,7 +179,9 @@ export function createCourseDocumentAuthoringExtensions({
     ...baseExtensions,
     AuthoringSlideDividers,
     createSurfaceRootSelectionPolicy({ surfaceVariants: surfaceRegistry }),
-    createScaffoldInteractionOwnerExtension(blockRegistry),
+    createScaffoldInteractionOwnerExtension(blockRegistry, {
+      resolveStructuralActivationPlacement: resolveContentLayoutStructuralActivationPlacement,
+    }),
     createStructuralClipboardPolicy({
       blockDefinitions: blockRegistry,
       blockDuplications: composition.capabilities.blocks.duplication,

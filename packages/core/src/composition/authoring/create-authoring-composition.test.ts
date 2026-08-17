@@ -24,6 +24,8 @@ import {
 } from "@/editor/arrangements/grid/authoring/grid-nodes";
 import { builtInBlockAuthoringBindings } from "@/editor/blocks/authoring-block-extensions";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { resolveContentLayoutStructuralActivationPlacement } from "@/editor/content-layout/authoring/content-layout-structural-activation-placement";
+import * as interactionOwnerExtension from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
@@ -638,6 +640,29 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(runtimeExtensionNames).toContain("contentLayoutProjection");
     expect(runtimeExtensionNames).not.toContain("semanticDocumentController");
     expect(runtimeExtensionNames).not.toContain("contentLayoutAuthoring");
+  });
+
+  it("injects one Content Layout structural placement adapter at authoring composition only", () => {
+    const createInteractionOwner = vi.spyOn(
+      interactionOwnerExtension,
+      "createScaffoldInteractionOwnerExtension",
+    );
+
+    createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: coreAuthoringComposition,
+    });
+    createCourseDocumentRuntimeExtensions({
+      composition: createCoreScaffoldRuntimeComposition(),
+    });
+
+    expect(createInteractionOwner).toHaveBeenCalledOnce();
+    expect(createInteractionOwner).toHaveBeenCalledWith(
+      coreAuthoringComposition.capabilities.blocks.registry,
+      {
+        resolveStructuralActivationPlacement: resolveContentLayoutStructuralActivationPlacement,
+      },
+    );
   });
 
   it("keeps the owner extension store editor-owned", () => {
