@@ -25,6 +25,8 @@ import {
 import { builtInBlockAuthoringBindings } from "@/editor/blocks/authoring-block-extensions";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
+import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
@@ -49,6 +51,7 @@ const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 const AUTHORING_ONLY_EXTENSION_NAMES = [
   "semanticDocumentController",
+  "contentLayoutAuthoring",
   "scaffoldInteractionOwner",
   "scaffoldStructuralClipboardPolicy",
   "placeholder",
@@ -172,7 +175,12 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     const schema = getSchema(extensions);
 
     expect(courseSectionNodes).toHaveLength(1);
-    expect(courseSectionNodes[0]?.config.addNodeView).toBeUndefined();
+    const courseSectionNode = courseSectionNodes[0];
+    expect(courseSectionNode).toBeInstanceOf(Node);
+    if (!(courseSectionNode instanceof Node)) {
+      throw new Error("Expected Course Section extension to be a Tiptap Node.");
+    }
+    expect(courseSectionNode.config.addNodeView).toBeUndefined();
     expect(Object.keys(schema.nodes).filter((name) => name === "courseSection")).toEqual([
       "courseSection",
     ]);
@@ -604,6 +612,32 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     for (const authoringOnlyName of AUTHORING_ONLY_EXTENSION_NAMES) {
       expect(authoringExtensionNames).toContain(authoringOnlyName);
     }
+  });
+
+  it("installs the authoring coordinator after its projection dependencies without leaking to runtime", () => {
+    const authoringExtensionNames = createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: coreAuthoringComposition,
+    })
+      .map((extension) => extension.name)
+      .filter((name): name is string => typeof name === "string");
+    const semanticIndex = authoringExtensionNames.indexOf("semanticDocumentController");
+    const projectionIndex = authoringExtensionNames.indexOf("contentLayoutProjection");
+    const authoringIndex = authoringExtensionNames.indexOf("contentLayoutAuthoring");
+
+    expect(semanticIndex).toBeGreaterThanOrEqual(0);
+    expect(projectionIndex).toBe(semanticIndex + 1);
+    expect(authoringIndex).toBe(projectionIndex + 1);
+
+    const runtimeExtensionNames = createCourseDocumentRuntimeExtensions({
+      composition: createCoreScaffoldRuntimeComposition(),
+    })
+      .map((extension) => extension.name)
+      .filter((name): name is string => typeof name === "string");
+
+    expect(runtimeExtensionNames).toContain("contentLayoutProjection");
+    expect(runtimeExtensionNames).not.toContain("semanticDocumentController");
+    expect(runtimeExtensionNames).not.toContain("contentLayoutAuthoring");
   });
 
   it("keeps the owner extension store editor-owned", () => {
