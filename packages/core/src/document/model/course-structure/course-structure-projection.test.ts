@@ -1,10 +1,17 @@
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import type { JSONContent } from "@tiptap/core";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "../../../format/artifact";
 
-import { projectCourseStructure } from "./course-structure-projection";
+import {
+  projectCourseStructure,
+  type ProjectedPageCourseSurface,
+  type ProjectedPageCourseStructure,
+  type ProjectedSlideshowCourseSurface,
+  type ProjectedSlideshowCourseStructure,
+} from "./course-structure-projection";
+import type { CourseSectionId } from "./types";
 
 const PAGE_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface-page");
 const SURFACE_1 = EmbeddedNodeIdSchema.parse("surface00001");
@@ -14,6 +21,22 @@ const SECTION_1 = EmbeddedNodeIdSchema.parse("section00001");
 const SECTION_2 = EmbeddedNodeIdSchema.parse("section00002");
 
 describe("projectCourseStructure", () => {
+  it("publishes mode-specific Surface ownership types", () => {
+    expectTypeOf<
+      ProjectedPageCourseStructure["surfaces"][number]
+    >().toEqualTypeOf<ProjectedPageCourseSurface>();
+    expectTypeOf<ProjectedPageCourseSurface["courseSectionId"]>().toEqualTypeOf<null>();
+    expectTypeOf<
+      ProjectedSlideshowCourseStructure["surfaces"][number]
+    >().toEqualTypeOf<ProjectedSlideshowCourseSurface>();
+    expectTypeOf<
+      ProjectedSlideshowCourseSurface["courseSectionId"]
+    >().toEqualTypeOf<CourseSectionId>();
+    expectTypeOf<
+      ProjectedSlideshowCourseSurface["courseSectionSurfaceIndex"]
+    >().toEqualTypeOf<number>();
+  });
+
   it("projects a canonical Page as one unsectioned Surface", () => {
     const content = createScaffoldDocumentContent({ mode: "page", surfaceId: PAGE_SURFACE_ID });
 

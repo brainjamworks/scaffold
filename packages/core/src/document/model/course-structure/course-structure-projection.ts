@@ -7,12 +7,22 @@ import type { JSONContent } from "@tiptap/core";
 
 import type { CourseSectionId, SurfaceId } from "./types";
 
-export interface ProjectedCourseSurface {
+interface ProjectedCourseSurfaceBase {
   readonly id: SurfaceId;
   readonly index: number;
-  readonly courseSectionId: CourseSectionId | null;
-  readonly courseSectionSurfaceIndex: number | null;
 }
+
+export interface ProjectedPageCourseSurface extends ProjectedCourseSurfaceBase {
+  readonly courseSectionId: null;
+  readonly courseSectionSurfaceIndex: null;
+}
+
+export interface ProjectedSlideshowCourseSurface extends ProjectedCourseSurfaceBase {
+  readonly courseSectionId: CourseSectionId;
+  readonly courseSectionSurfaceIndex: number;
+}
+
+export type ProjectedCourseSurface = ProjectedPageCourseSurface | ProjectedSlideshowCourseSurface;
 
 export interface ProjectedCourseSection {
   readonly id: CourseSectionId;
@@ -22,23 +32,23 @@ export interface ProjectedCourseSection {
   readonly firstSurfaceId: SurfaceId | null;
 }
 
-interface ProjectedCourseStructureBase {
+interface ProjectedCourseStructureBase<TSurface extends ProjectedCourseSurface> {
   readonly surfaceIds: readonly SurfaceId[];
-  readonly surfaces: readonly ProjectedCourseSurface[];
-  readonly surfaceById: Readonly<Record<string, ProjectedCourseSurface>>;
+  readonly surfaces: readonly TSurface[];
+  readonly surfaceById: Readonly<Record<string, TSurface>>;
   readonly courseSections: readonly ProjectedCourseSection[];
   readonly courseSectionById: Readonly<Record<string, ProjectedCourseSection>>;
 }
 
-export interface ProjectedPageCourseStructure extends ProjectedCourseStructureBase {
+export interface ProjectedPageCourseStructure extends ProjectedCourseStructureBase<ProjectedPageCourseSurface> {
   readonly kind: "page";
   readonly mode: "page";
   readonly surfaceIds: readonly [SurfaceId];
-  readonly surfaces: readonly [ProjectedCourseSurface];
+  readonly surfaces: readonly [ProjectedPageCourseSurface];
   readonly courseSections: readonly [];
 }
 
-export interface ProjectedSlideshowCourseStructure extends ProjectedCourseStructureBase {
+export interface ProjectedSlideshowCourseStructure extends ProjectedCourseStructureBase<ProjectedSlideshowCourseSurface> {
   readonly kind: "slideshow";
   readonly mode: "slideshow";
   readonly courseSections: readonly [ProjectedCourseSection, ...ProjectedCourseSection[]];
@@ -64,12 +74,12 @@ function projectPage(children: readonly JSONContent[]): ProjectedPageCourseStruc
   if (children.length !== 1) return null;
   const surfaceId = parseSurfaceId(children[0]);
   if (!surfaceId) return null;
-  const surface = freezeSurface(surfaceId, 0, null, null);
+  const surface = freezePageSurface(surfaceId, 0);
   return Object.freeze({
     kind: "page",
     mode: "page",
     surfaceIds: Object.freeze([surfaceId]) as readonly [SurfaceId],
-    surfaces: Object.freeze([surface]) as readonly [ProjectedCourseSurface],
+    surfaces: Object.freeze([surface]) as readonly [ProjectedPageCourseSurface],
     surfaceById: freezeLookup([surface]),
     courseSections: Object.freeze([]) as readonly [],
     courseSectionById: freezeLookup([]),
@@ -80,7 +90,7 @@ function projectSlideshow(
   children: readonly JSONContent[],
 ): ProjectedSlideshowCourseStructure | null {
   if (children[0]?.type !== "courseSection") return null;
-  const surfaces: ProjectedCourseSurface[] = [];
+  const surfaces: ProjectedSlideshowCourseSurface[] = [];
   const courseSections: ProjectedCourseSection[] = [];
   const ids = new Set<string>();
   let activeSection: CourseSectionAttrs | null = null;
@@ -120,7 +130,12 @@ function projectSlideshow(
     ids.add(surfaceId);
     memberSurfaceIds.push(surfaceId);
     surfaces.push(
-      freezeSurface(surfaceId, surfaces.length, activeSection.id, memberSurfaceIds.length - 1),
+      freezeSlideshowSurface(
+        surfaceId,
+        surfaces.length,
+        activeSection.id,
+        memberSurfaceIds.length - 1,
+      ),
     );
   }
 
@@ -145,12 +160,21 @@ function parseSurfaceId(node: JSONContent | undefined): SurfaceId | null {
   return parsed.success ? parsed.data : null;
 }
 
-function freezeSurface(
+function freezePageSurface(id: SurfaceId, index: number): ProjectedPageCourseSurface {
+  return Object.freeze({
+    id,
+    index,
+    courseSectionId: null,
+    courseSectionSurfaceIndex: null,
+  });
+}
+
+function freezeSlideshowSurface(
   id: SurfaceId,
   index: number,
-  courseSectionId: CourseSectionId | null,
-  courseSectionSurfaceIndex: number | null,
-): ProjectedCourseSurface {
+  courseSectionId: CourseSectionId,
+  courseSectionSurfaceIndex: number,
+): ProjectedSlideshowCourseSurface {
   return Object.freeze({ id, index, courseSectionId, courseSectionSurfaceIndex });
 }
 

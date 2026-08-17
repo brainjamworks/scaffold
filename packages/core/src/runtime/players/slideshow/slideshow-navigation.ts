@@ -60,10 +60,15 @@ export function getSlideshowNavigationState(
       ? (surfaceIds[currentIndex + 1] ?? null)
       : null;
   const currentSurface = activeSurfaceId ? structure.surfaceById[activeSurfaceId] : undefined;
-  const currentCourseSection = currentSurface?.courseSectionId
+  const currentCourseSection = currentSurface
     ? (() => {
-        const section = structure.courseSectionById[currentSurface.courseSectionId]!;
-        const surfaceIndex = currentSurface.courseSectionSurfaceIndex ?? 0;
+        const section = structure.courseSectionById[currentSurface.courseSectionId];
+        if (!section) {
+          throw new Error(
+            `Projected Slideshow Surface ${currentSurface.id} references missing Course Section ${currentSurface.courseSectionId}.`,
+          );
+        }
+        const surfaceIndex = currentSurface.courseSectionSurfaceIndex;
         return {
           id: section.id,
           title: section.title,

@@ -19,7 +19,9 @@ import type {
   ProjectedCourseSection,
   ProjectedCourseStructure,
   ProjectedCourseSurface,
+  ProjectedPageCourseSurface,
   ProjectedPageCourseStructure,
+  ProjectedSlideshowCourseSurface,
   ProjectedSlideshowCourseStructure,
   SurfaceAttrs,
   SurfaceBackground,
@@ -40,7 +42,9 @@ type FormatTypeSurface = {
   projectedCourseSection: ProjectedCourseSection;
   projectedCourseStructure: ProjectedCourseStructure;
   projectedCourseSurface: ProjectedCourseSurface;
+  projectedPageCourseSurface: ProjectedPageCourseSurface;
   projectedPageCourseStructure: ProjectedPageCourseStructure;
+  projectedSlideshowCourseSurface: ProjectedSlideshowCourseSurface;
   projectedSlideshowCourseStructure: ProjectedSlideshowCourseStructure;
   surfaceAttrs: SurfaceAttrs;
   surfaceBackground: SurfaceBackground;
@@ -73,6 +77,10 @@ describe("@scaffold/core/format", () => {
 
   it("publishes every format input, result, document, and schema-derived type", () => {
     expectTypeOf<FormatTypeSurface>().toBeObject();
+    expectTypeOf<ProjectedPageCourseSurface["courseSectionId"]>().toEqualTypeOf<null>();
+    expectTypeOf<
+      ProjectedSlideshowCourseSurface["courseSectionId"]
+    >().toEqualTypeOf<CourseSectionId>();
   });
 
   it("projects canonical content through the public format read seam", () => {

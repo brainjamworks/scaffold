@@ -27,7 +27,9 @@ export {
   type ProjectedCourseSection,
   type ProjectedCourseStructure,
   type ProjectedCourseSurface,
+  type ProjectedPageCourseSurface,
   type ProjectedPageCourseStructure,
+  type ProjectedSlideshowCourseSurface,
   type ProjectedSlideshowCourseStructure,
 } from "@/document/model/course-structure/course-structure-projection";
 export type { CourseSectionId, SurfaceId } from "@/document/model/course-structure/types";
