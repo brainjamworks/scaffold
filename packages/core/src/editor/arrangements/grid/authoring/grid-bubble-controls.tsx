@@ -4,7 +4,9 @@ import {
   TrashIcon as Trash,
 } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/react";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
+import { ContentLayoutBubbleControls } from "@/editor/content-layout/authoring/ContentLayoutBubbleControls";
 import {
   MenuControls,
   MenuSeparator,
@@ -52,6 +54,7 @@ export type GridMenuSnapshot =
       gridPos: number;
       cellIndex: number;
       cellCount: number;
+      cellId: string | null;
     };
 
 export function resolveGridMenuSnapshot(
@@ -94,6 +97,7 @@ function CellMenuControls({
   snapshot: Extract<GridMenuSnapshot, { kind: "cell" }>;
 }) {
   const commands = useInteractionCommands();
+  const cellId = EmbeddedNodeIdSchema.safeParse(snapshot.cellId);
 
   const addCell = (side: GridCellSide) => {
     const added = addGridCellAt(editor, snapshot.gridPos, snapshot.cellIndex, side);
@@ -122,6 +126,12 @@ function CellMenuControls({
 
   return (
     <>
+      {cellId.success ? (
+        <>
+          <ContentLayoutBubbleControls containerId={cellId.data} editor={editor} />
+          <MenuSeparator />
+        </>
+      ) : null}
       <MenuControls
         controls={[
           {
@@ -240,6 +250,7 @@ function cellMenuSnapshotFromCell(descriptor: CellChromeTargetDescriptor): GridM
     gridPos: descriptor.gridPos,
     cellIndex: descriptor.cellIndex,
     cellCount: descriptor.gridNode.childCount,
+    cellId: descriptor.id,
   };
 }
 

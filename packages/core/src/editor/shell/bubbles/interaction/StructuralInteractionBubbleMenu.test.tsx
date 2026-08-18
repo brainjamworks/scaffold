@@ -60,6 +60,8 @@ import {
   type StructuralInteractionBubbleRenderer,
   type StructuralInteractionBubbleRendererBinding,
 } from "@/editor/interactions/interaction-bubble";
+import { gridStructuralInteractionBubbleRendererBindings } from "@/editor/arrangements/grid/authoring/grid-bubble-controls";
+import { layoutStructuralInteractionBubbleRendererBindings } from "@/editor/arrangements/layout/authoring/layout-bubble-controls";
 import { contentLayoutRegionStructuralInteractionBubbleRendererBindings } from "@/editor/content-layout/authoring/content-layout-region-bubble-renderer";
 
 const alignmentTargetPort = createAlignmentTargetPort({
@@ -447,6 +449,41 @@ describe("resolveStructuralInteractionBubbleModel", () => {
     expect(binding?.kind).toBe(InteractionTargetKind.Region);
     expect(binding?.renderer({ descriptor: validRegionDescriptor!, editor })).not.toBeNull();
     expect(binding?.renderer({ descriptor: cellDescriptor!, editor: gridEditor })).toBeNull();
+  });
+
+  it("keeps one independent renderer binding for each structural owner", () => {
+    const bindings = [
+      ...gridStructuralInteractionBubbleRendererBindings,
+      ...layoutStructuralInteractionBubbleRendererBindings,
+      ...contentLayoutRegionStructuralInteractionBubbleRendererBindings,
+    ];
+    const renderers = createStructuralInteractionBubbleRendererMap(bindings);
+    const bindingForKind = (kind: InteractionTargetKind) => {
+      const binding = bindings.find((candidate) => candidate.kind === kind);
+      if (!binding) throw new Error(`Missing renderer binding for ${kind}`);
+      return binding;
+    };
+
+    expect(bindings.filter(({ kind }) => kind === InteractionTargetKind.Grid)).toHaveLength(1);
+    expect(bindings.filter(({ kind }) => kind === InteractionTargetKind.Cell)).toHaveLength(1);
+    expect(bindings.filter(({ kind }) => kind === InteractionTargetKind.Layout)).toHaveLength(1);
+    expect(bindings.filter(({ kind }) => kind === InteractionTargetKind.Section)).toHaveLength(1);
+    expect(bindings.filter(({ kind }) => kind === InteractionTargetKind.Region)).toHaveLength(1);
+    expect(renderers.get(InteractionTargetKind.Grid)).toBe(
+      bindingForKind(InteractionTargetKind.Grid).renderer,
+    );
+    expect(renderers.get(InteractionTargetKind.Cell)).toBe(
+      bindingForKind(InteractionTargetKind.Cell).renderer,
+    );
+    expect(renderers.get(InteractionTargetKind.Layout)).toBe(
+      bindingForKind(InteractionTargetKind.Layout).renderer,
+    );
+    expect(renderers.get(InteractionTargetKind.Section)).toBe(
+      bindingForKind(InteractionTargetKind.Section).renderer,
+    );
+    expect(renderers.get(InteractionTargetKind.Region)).toBe(
+      bindingForKind(InteractionTargetKind.Region).renderer,
+    );
   });
 
   it("keeps both common Region axes without an owner renderer", async () => {

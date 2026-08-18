@@ -1,14 +1,27 @@
 // @vitest-environment happy-dom
 
 import { Editor, Node, type JSONContent } from "@tiptap/core";
+import { UndoRedo } from "@tiptap/extensions";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Fragment } from "@tiptap/pm/model";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
+import { AppNotificationsProvider } from "@/ui/components/app/AppNotifications/AppNotifications";
+import {
+  EmbeddedNodeIdSchema,
+  PresentationContentLayout,
+  type EmbeddedNodeId,
+} from "@scaffold/contracts";
 
+import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { createSemanticDefinitionLookup } from "@/composition/model/semantic-definition-lookup";
+import { createScaffoldDocumentContent } from "@/format/artifact";
 import {
   ARRANGEMENT_CONTENT,
   CELL_ARRANGEMENT_CONTENT,
@@ -48,26 +61,59 @@ import {
   resolveStructuralInteractionBubbleModel,
 } from "@/editor/shell/bubbles/interaction/StructuralInteractionBubbleMenu";
 import { createStructuralInteractionBubbleRendererMap } from "@/editor/interactions/interaction-bubble";
+import { readContentLayoutAuthoringState } from "@/editor/content-layout/prosemirror/content-layout-authoring-extension";
+import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document/semantic-document-storage";
 
 import { createGridAuthoringNodes } from "../authoring/grid-nodes";
 import { CellRuntimeNode, GridRuntimeNode } from "../runtime/grid-nodes";
-import { gridStructuralInteractionBubbleRendererBindings } from "../authoring/grid-bubble-controls";
+import {
+  GridMenuBubbleContent,
+  gridStructuralInteractionBubbleRendererBindings,
+  resolveGridMenuSnapshot,
+  type GridMenuSnapshot,
+} from "../authoring/grid-bubble-controls";
 import { isGridCellChromeActive, resolveGridChromeState } from "../authoring/grid-chrome-state";
 import { gridCellPositionAt } from "../authoring/grid-menu-target";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
+import { InteractionProvider } from "@/editor/interactions/targets/facade/interaction-provider";
+import { createInteractionStore } from "@/editor/interactions/targets/facade/interaction-store";
+import { resolveStructuralChromeTargetDescriptor } from "@/editor/interactions/targets/prosemirror/projection/structural-chrome-target-projection";
 
 const TEST_INNER_BLOCK = "grid_selection_test_block";
 
+const REAL_CELL_IDS = Object.freeze({
+  region: EmbeddedNodeIdSchema.parse("region000001"),
+  grid: EmbeddedNodeIdSchema.parse("grid00000001"),
+  cell: EmbeddedNodeIdSchema.parse("cell00000001"),
+  first: EmbeddedNodeIdSchema.parse("para00000001"),
+  second: EmbeddedNodeIdSchema.parse("para00000002"),
+  surface: EmbeddedNodeIdSchema.parse("surface00001"),
+  slideTitle: EmbeddedNodeIdSchema.parse("slidetitle01"),
+});
+const FLOW = PresentationContentLayout.Flow;
+const SEQUENCE = PresentationContentLayout.Sequence;
+
 const testBlockRegistry = createBlockRegistry([
   ...builtInBlockRegistry.definitions,
-  defineBlock({ nodeType: TEST_INNER_BLOCK }),
+  defineBlock({ nodeType: TEST_INNER_BLOCK, title: "Grid selection test block" }),
 ]);
 const testScaffoldCapabilities = Object.freeze({
-  blocks: Object.freeze({ registry: testBlockRegistry }),
+  blocks: Object.freeze({
+    registry: testBlockRegistry,
+    duplication: Object.freeze({
+      getByNodeType: () => undefined,
+      hasNodeType: (nodeType: string) => testBlockRegistry.getByNodeType(nodeType) !== undefined,
+    }),
+  }),
   layouts: Object.freeze({ registry: builtInLayoutRegistry }),
   surfaces: Object.freeze({ registry: builtInSurfaceVariantRegistry }),
+  documentSemantics: createSemanticDefinitionLookup({
+    blocks: testBlockRegistry,
+    layouts: builtInLayoutRegistry,
+    surfaces: builtInSurfaceVariantRegistry,
+  }),
 });
 const { CellAuthoringNode, GridAuthoringNode } = createGridAuthoringNodes(testBlockRegistry);
 const alignmentTargetPort = createAlignmentTargetPort({
@@ -105,6 +151,73 @@ const TestLayoutNode = Node.create({
     return ["div", { "data-test-layout": "" }, 0];
   },
 });
+
+async function makeRealCellEditor(): Promise<Editor> {
+  const composition = createCoreScaffoldAuthoringComposition();
+  const editor = new Editor({
+    editable: true,
+    extensions: [
+      ...createCourseDocumentAuthoringExtensions({ editable: true, composition }),
+      UndoRedo,
+    ],
+    content: createRealCellDocument(),
+  });
+  await Promise.resolve();
+  return editor;
+}
+
+function createRealCellDocument(): JSONContent {
+  const content = createScaffoldDocumentContent({
+    initialCourseSectionTitle: "Grid content layout",
+    mode: "slideshow",
+    surfaceId: REAL_CELL_IDS.surface,
+  });
+  const courseDocument = content.content?.[0];
+  const courseSection = courseDocument?.content?.[0];
+  if (!courseDocument || courseDocument.type !== "courseDocument" || !courseSection) {
+    throw new Error("Expected a generated slideshow Course Document");
+  }
+
+  courseDocument.content = [
+    courseSection,
+    {
+      type: "surface",
+      attrs: {
+        id: REAL_CELL_IDS.surface,
+        settings: {
+          footer: { enabled: false },
+          header: { enabled: false },
+          slideTitle: { enabled: true },
+        },
+        variant: "slide-content",
+      },
+      content: [
+        { type: "slide_title", attrs: { id: REAL_CELL_IDS.slideTitle } },
+        {
+          type: "region",
+          attrs: { contentLayout: FLOW, id: REAL_CELL_IDS.region, role: "main" },
+          content: [
+            {
+              type: "grid",
+              attrs: { columnWidths: [1], id: REAL_CELL_IDS.grid },
+              content: [
+                {
+                  type: "cell",
+                  attrs: { contentLayout: FLOW, id: REAL_CELL_IDS.cell },
+                  content: [
+                    { type: "paragraph", attrs: { id: REAL_CELL_IDS.first } },
+                    { type: "paragraph", attrs: { id: REAL_CELL_IDS.second } },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ];
+  return content;
+}
 
 function makeEditor() {
   return new Editor({
@@ -366,6 +479,35 @@ function textPos(editor: Editor, text: string): number {
 
   if (found === null) throw new Error(`Missing text: ${text}`);
   return found;
+}
+
+function renderGridMenuForTest(editor: Editor, snapshot: GridMenuSnapshot) {
+  const menu = createElement(GridMenuBubbleContent, { editor, snapshot });
+  const interaction = createElement(InteractionProvider, {
+    store: createInteractionStore(),
+    children: menu,
+  });
+  const notifications = createElement(AppNotificationsProvider, {
+    appearance: "light",
+    children: interaction,
+  });
+  return render(createElement(Tooltip.Provider, { delayDuration: 0, children: notifications }));
+}
+
+function contentLayoutProjectionFor(editor: Editor, containerId: EmbeddedNodeId) {
+  return readContentLayoutAuthoringState(editor.state).projectionInputs.find(
+    (input) => input.containerId === containerId,
+  );
+}
+
+function readButtonLabels(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+    .map((button) => button.getAttribute("aria-label") ?? button.textContent?.trim() ?? "")
+    .filter(Boolean);
+}
+
+function isBefore(left: Element, right: Element): boolean {
+  return Boolean(left.compareDocumentPosition(right) & globalThis.Node.DOCUMENT_POSITION_FOLLOWING);
 }
 
 describe("grid arrangement nodes", () => {
@@ -1508,6 +1650,118 @@ describe("grid arrangement nodes", () => {
     expect(trigger.getAttribute("role")).toBe("combobox");
     expect(trigger.getAttribute("aria-label")).toBe("Grid cells");
 
+    editor.destroy();
+  });
+
+  it("composes real Cell controls while keeping Grid arrangement-only", async () => {
+    const editor = await makeRealCellEditor();
+    const semanticController = getSemanticDocumentControllerForEditor(editor);
+    await waitFor(() => {
+      expect(semanticController.getSnapshot().semantics.itemById.has(REAL_CELL_IDS.cell)).toBe(
+        true,
+      );
+    });
+
+    const cellDescriptor = resolveStructuralChromeTargetDescriptor(editor.state, {
+      id: REAL_CELL_IDS.cell,
+      kind: InteractionTargetKind.Cell,
+      pos: firstNodePosByAttr(editor, "cell", "id", REAL_CELL_IDS.cell),
+    });
+    if (!cellDescriptor) throw new Error("Missing valid Cell descriptor");
+
+    const cellSnapshot = resolveGridMenuSnapshot(cellDescriptor);
+    if (!cellSnapshot || cellSnapshot.kind !== "cell") {
+      throw new Error("Missing Cell menu snapshot");
+    }
+    expect(cellSnapshot).toMatchObject({ cellId: REAL_CELL_IDS.cell, kind: "cell" });
+
+    const cellMenu = renderGridMenuForTest(editor, cellSnapshot);
+    const cellScope = within(cellMenu.container);
+    expect(cellScope.getByRole("radio", { name: "Flow" })).toBeInTheDocument();
+    expect(readButtonLabels(cellMenu.container)).toEqual([
+      "Flow",
+      "Sequence",
+      "Add column left",
+      "Add column right",
+      "Delete cell",
+    ]);
+    expect(cellMenu.container.querySelectorAll(".sc-menu-separator")).toHaveLength(2);
+
+    const user = userEvent.setup();
+    await user.click(cellScope.getByRole("radio", { name: "Sequence" }));
+    await waitFor(() => expect(cellScope.getByText("1 of 2")).toBeInTheDocument());
+    expect(contentLayoutProjectionFor(editor, REAL_CELL_IDS.cell)).toMatchObject({
+      containerId: REAL_CELL_IDS.cell,
+      contentLayout: SEQUENCE,
+    });
+    expect(contentLayoutProjectionFor(editor, REAL_CELL_IDS.region)).toMatchObject({
+      containerId: REAL_CELL_IDS.region,
+      contentLayout: FLOW,
+    });
+
+    await user.click(cellScope.getByRole("button", { name: "Next sequence child" }));
+    await waitFor(() => expect(cellScope.getByText("2 of 2")).toBeInTheDocument());
+    await user.click(cellScope.getByRole("button", { name: "Previous sequence child" }));
+    await waitFor(() => expect(cellScope.getByText("1 of 2")).toBeInTheDocument());
+    cellMenu.unmount();
+
+    const gridDescriptor = resolveStructuralChromeTargetDescriptor(editor.state, {
+      id: REAL_CELL_IDS.grid,
+      kind: InteractionTargetKind.Grid,
+      pos: firstNodePosByAttr(editor, "grid", "id", REAL_CELL_IDS.grid),
+    });
+    if (!gridDescriptor) throw new Error("Missing Grid descriptor");
+    const gridSnapshot = resolveGridMenuSnapshot(gridDescriptor);
+    if (!gridSnapshot || gridSnapshot.kind !== "grid") {
+      throw new Error("Missing Grid menu snapshot");
+    }
+
+    const gridMenu = renderGridMenuForTest(editor, gridSnapshot);
+    const gridScope = within(gridMenu.container);
+    expect(gridScope.queryByRole("radio", { name: "Flow" })).toBeNull();
+    const gridCells = gridScope.getByRole("combobox", { name: "Grid cells" });
+    const deleteGrid = gridScope.getByRole("button", { name: "Delete grid" });
+    expect(isBefore(gridCells, deleteGrid)).toBe(true);
+    expect(gridMenu.container.querySelectorAll(".sc-menu-separator")).toHaveLength(1);
+    gridMenu.unmount();
+    editor.destroy();
+  });
+
+  it("omits only shared controls for missing or invalid Cell IDs", () => {
+    const editor = makeCourseEditorWithSurfaceContent([
+      {
+        type: "grid",
+        attrs: { columnWidths: [1], id: "grid00000001" },
+        content: [
+          {
+            type: "cell",
+            attrs: { id: "cell00000001" },
+            content: [{ type: "paragraph" }],
+          },
+        ],
+      },
+    ]);
+    const descriptor = resolveStructuralChromeTargetDescriptor(editor.state, {
+      id: "cell00000001",
+      kind: InteractionTargetKind.Cell,
+      pos: firstNodePosByAttr(editor, "cell", "id", "cell00000001"),
+    });
+    if (!descriptor) throw new Error("Missing Cell descriptor");
+    const snapshot = resolveGridMenuSnapshot(descriptor);
+    if (!snapshot || snapshot.kind !== "cell") throw new Error("Missing Cell snapshot");
+
+    for (const cellId of [null, "not-an-embedded-id"] as const) {
+      const menu = renderGridMenuForTest(editor, { ...snapshot, cellId });
+      const scope = within(menu.container);
+      expect(scope.queryByRole("group", { name: /Content layout controls/ })).toBeNull();
+      expect(readButtonLabels(menu.container)).toEqual([
+        "Add column left",
+        "Add column right",
+        "Delete cell",
+      ]);
+      expect(menu.container.querySelectorAll(".sc-menu-separator")).toHaveLength(1);
+      menu.unmount();
+    }
     editor.destroy();
   });
 

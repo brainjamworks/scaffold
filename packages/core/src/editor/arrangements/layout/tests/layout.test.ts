@@ -2,17 +2,28 @@
 
 import { Editor, type JSONContent } from "@tiptap/core";
 import { TabsIcon as Tabs } from "@phosphor-icons/react";
+import { UndoRedo } from "@tiptap/extensions";
 import { EditorContent } from "@tiptap/react";
 import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { Fragment } from "@tiptap/pm/model";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { TooltipProvider } from "@radix-ui/react-tooltip";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
+import {
+  EmbeddedNodeIdSchema,
+  PresentationContentLayout,
+  type EmbeddedNodeId,
+} from "@scaffold/contracts";
 
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { createScaffoldDocumentContent } from "@/format/artifact";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import {
   ARRANGEMENT_CONTENT,
@@ -67,6 +78,8 @@ import { BubbleMenus } from "@/editor/shell/bubbles/BubbleMenus";
 import { AuthoringDocumentChrome } from "@/editor/shell/authoring/AuthoringDocumentChrome";
 import { resolveStructuralInteractionBubbleModel } from "@/editor/shell/bubbles/interaction/StructuralInteractionBubbleMenu";
 import { createStructuralInteractionBubbleRendererMap } from "@/editor/interactions/interaction-bubble";
+import { readContentLayoutAuthoringState } from "@/editor/content-layout/prosemirror/content-layout-authoring-extension";
+import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document/semantic-document-storage";
 import { createAlignmentTargetPort } from "@/editor/interactions/alignment/alignment-target";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { builtInSurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-views";
@@ -89,8 +102,10 @@ import {
 import { createLayoutArrangementAnchorId } from "../model/layout-arrangement-helpers";
 import {
   layoutStructuralInteractionBubbleRendererBindings,
+  LayoutMenuBubbleContent,
   resolveLayoutMenuSnapshot,
 } from "../authoring/layout-bubble-controls";
+import type { LayoutMenuSnapshot } from "../authoring/layout-bubble-controls";
 import { reorderLayoutSectionAt } from "../model/layout-commands";
 import { getLayoutKindFromAttrs, type LayoutDefinition } from "../model/layout-definition";
 import type { LayoutComponentProps } from "../authoring/layout-view-definition";
@@ -99,6 +114,20 @@ import { createLayoutAuthoringViewRegistry } from "../authoring/layout-view-regi
 import { DefaultLayoutContent } from "../authoring/default-layout-content";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { AppNotificationsProvider } from "@/ui/components/app/AppNotifications/AppNotifications";
+import { createInteractionStore } from "@/editor/interactions/targets/facade/interaction-store";
+
+const REAL_SECTION_IDS = Object.freeze({
+  region: EmbeddedNodeIdSchema.parse("region000001"),
+  layout: EmbeddedNodeIdSchema.parse("layout000001"),
+  section: EmbeddedNodeIdSchema.parse("section00001"),
+  first: EmbeddedNodeIdSchema.parse("para00000001"),
+  second: EmbeddedNodeIdSchema.parse("para00000002"),
+  surface: EmbeddedNodeIdSchema.parse("surface00001"),
+  slideTitle: EmbeddedNodeIdSchema.parse("slidetitle01"),
+});
+const FLOW = PresentationContentLayout.Flow;
+const SEQUENCE = PresentationContentLayout.Sequence;
 
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
@@ -169,6 +198,77 @@ describeLayoutContract({
   expectsLayoutConfiguration: true,
   expectsSectionConfiguration: true,
 });
+
+async function makeRealSectionEditor(): Promise<Editor> {
+  const composition = createCoreScaffoldAuthoringComposition();
+  const editor = new Editor({
+    editable: true,
+    extensions: [
+      ...createCourseDocumentAuthoringExtensions({ editable: true, composition }),
+      UndoRedo,
+    ],
+    content: createRealSectionDocument(),
+  });
+  await Promise.resolve();
+  return editor;
+}
+
+function createRealSectionDocument(): JSONContent {
+  const content = createScaffoldDocumentContent({
+    initialCourseSectionTitle: "Section content layout",
+    mode: "slideshow",
+    surfaceId: REAL_SECTION_IDS.surface,
+  });
+  const courseDocument = content.content?.[0];
+  const courseSection = courseDocument?.content?.[0];
+  if (!courseDocument || courseDocument.type !== "courseDocument" || !courseSection) {
+    throw new Error("Expected a generated slideshow Course Document");
+  }
+
+  courseDocument.content = [
+    courseSection,
+    {
+      type: "surface",
+      attrs: {
+        id: REAL_SECTION_IDS.surface,
+        settings: {
+          footer: { enabled: false },
+          header: { enabled: false },
+          slideTitle: { enabled: true },
+        },
+        variant: "slide-content",
+      },
+      content: [
+        { type: "slide_title", attrs: { id: REAL_SECTION_IDS.slideTitle } },
+        {
+          type: "region",
+          attrs: { contentLayout: FLOW, id: REAL_SECTION_IDS.region, role: "main" },
+          content: [
+            {
+              type: "layout",
+              attrs: { id: REAL_SECTION_IDS.layout, variant: "tabs" },
+              content: [
+                {
+                  type: "section",
+                  attrs: {
+                    contentLayout: FLOW,
+                    id: REAL_SECTION_IDS.section,
+                    role: "tab-panel",
+                  },
+                  content: [
+                    { type: "paragraph", attrs: { id: REAL_SECTION_IDS.first } },
+                    { type: "paragraph", attrs: { id: REAL_SECTION_IDS.second } },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ];
+  return content;
+}
 
 function makeEditor(content?: JSONContent) {
   const editor = new Editor({
@@ -349,6 +449,33 @@ function textPos(editor: Editor, text: string): number {
 
   if (found === null) throw new Error(`Could not find text: ${text}`);
   return found;
+}
+
+function renderLayoutMenuForTest(
+  editor: Editor,
+  descriptor: Parameters<typeof LayoutMenuBubbleContent>[0]["descriptor"],
+  snapshot: LayoutMenuSnapshot,
+  store = createInteractionStore(),
+) {
+  const menu = createElement(LayoutMenuBubbleContent, { descriptor, editor, snapshot });
+  const interaction = createElement(InteractionProvider, { store, children: menu });
+  const notifications = createElement(AppNotificationsProvider, {
+    appearance: "light",
+    children: interaction,
+  });
+  return render(createElement(TooltipProvider, { children: notifications }));
+}
+
+function contentLayoutProjectionFor(editor: Editor, containerId: EmbeddedNodeId) {
+  return readContentLayoutAuthoringState(editor.state).projectionInputs.find(
+    (input) => input.containerId === containerId,
+  );
+}
+
+function readMenuButtonLabels(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+    .map((button) => button.getAttribute("aria-label") ?? button.textContent?.trim() ?? "")
+    .filter(Boolean);
 }
 
 function mockFloatingControlRect(
@@ -1073,6 +1200,162 @@ describe("layout arrangement nodes", () => {
       sectionDefinition: { label: "Tab" },
       sectionPos,
     });
+    editor.destroy();
+  });
+
+  it("composes real Tabs Section controls while keeping Layout arrangement-only", async () => {
+    const editor = await makeRealSectionEditor();
+    const semanticController = getSemanticDocumentControllerForEditor(editor);
+    await waitFor(() => {
+      expect(
+        semanticController.getSnapshot().semantics.itemById.has(REAL_SECTION_IDS.section),
+      ).toBe(true);
+    });
+
+    const sectionDescriptor = resolveStructuralChromeTargetDescriptor(
+      editor.state,
+      structuralRefForTest(editor, "section", REAL_SECTION_IDS.section),
+    );
+    if (!sectionDescriptor || sectionDescriptor.kind !== InteractionTargetKind.Section) {
+      throw new Error("Missing valid Section descriptor");
+    }
+    const sectionSnapshot = resolveLayoutMenuSnapshot(sectionDescriptor);
+    if (!sectionSnapshot || sectionSnapshot.kind !== "section") {
+      throw new Error("Missing Section menu snapshot");
+    }
+
+    expect(sectionSnapshot).toMatchObject({
+      kind: "section",
+      layoutDefinition: { id: "tabs" },
+      sectionId: REAL_SECTION_IDS.section,
+    });
+    const sectionStore = createInteractionStore({
+      commandPorts: createInteractionOwnerCommandPorts(editor.view, builtInBlockRegistry),
+    });
+    const sectionMenu = renderLayoutMenuForTest(
+      editor,
+      sectionDescriptor,
+      sectionSnapshot,
+      sectionStore,
+    );
+    const sectionScope = within(sectionMenu.container);
+    expect(sectionScope.getByRole("radio", { name: "Flow" })).toBeInTheDocument();
+    expect(readMenuButtonLabels(sectionMenu.container)).toEqual([
+      "Flow",
+      "Sequence",
+      "Duplicate section",
+      "Delete section",
+      "Open section settings",
+    ]);
+    expect(sectionMenu.container.querySelectorAll(".sc-menu-separator")).toHaveLength(2);
+
+    const user = userEvent.setup();
+    await user.click(sectionScope.getByRole("radio", { name: "Sequence" }));
+    await waitFor(() => expect(sectionScope.getByText("1 of 2")).toBeInTheDocument());
+    expect(contentLayoutProjectionFor(editor, REAL_SECTION_IDS.section)).toMatchObject({
+      containerId: REAL_SECTION_IDS.section,
+      contentLayout: SEQUENCE,
+    });
+    expect(contentLayoutProjectionFor(editor, REAL_SECTION_IDS.region)).toMatchObject({
+      containerId: REAL_SECTION_IDS.region,
+      contentLayout: FLOW,
+    });
+
+    await user.click(sectionScope.getByRole("button", { name: "Next sequence child" }));
+    await waitFor(() => expect(sectionScope.getByText("2 of 2")).toBeInTheDocument());
+    await user.click(sectionScope.getByRole("button", { name: "Previous sequence child" }));
+    await waitFor(() => expect(sectionScope.getByText("1 of 2")).toBeInTheDocument());
+
+    await user.click(sectionScope.getByRole("button", { name: "Open section settings" }));
+    await waitFor(() => {
+      expect(settingsOwnerForTest(editor)).toMatchObject({
+        id: REAL_SECTION_IDS.section,
+        kind: InteractionTargetKind.Section,
+      });
+    });
+    sectionMenu.unmount();
+
+    const layoutDescriptor = resolveStructuralChromeTargetDescriptor(
+      editor.state,
+      structuralRefForTest(editor, "layout", REAL_SECTION_IDS.layout),
+    );
+    if (!layoutDescriptor || layoutDescriptor.kind !== InteractionTargetKind.Layout) {
+      throw new Error("Missing Layout descriptor");
+    }
+    const layoutSnapshot = resolveLayoutMenuSnapshot(layoutDescriptor);
+    if (!layoutSnapshot || layoutSnapshot.kind !== "layout") {
+      throw new Error("Missing Layout menu snapshot");
+    }
+
+    const layoutMenu = renderLayoutMenuForTest(editor, layoutDescriptor, layoutSnapshot);
+    const layoutScope = within(layoutMenu.container);
+    expect(layoutScope.queryByRole("radio", { name: "Flow" })).toBeNull();
+    expect(readMenuButtonLabels(layoutMenu.container)).toEqual([
+      "Duplicate layout",
+      "Delete layout",
+      "Style: Default",
+      "Style: Pills",
+      "Style: Underline",
+      "Open layout settings",
+    ]);
+    expect(layoutMenu.container.querySelectorAll(".sc-menu-separator")).toHaveLength(2);
+    layoutMenu.unmount();
+    editor.destroy();
+  });
+
+  it("omits only shared controls for missing or invalid Section IDs", () => {
+    const editor = makeEditor({
+      type: "doc",
+      content: [
+        {
+          type: "courseDocument",
+          content: [
+            {
+              type: "surface",
+              content: [
+                {
+                  type: "layout",
+                  attrs: { id: "layout000001", variant: "tabs" },
+                  content: [
+                    {
+                      type: "section",
+                      attrs: { id: "section00001" },
+                      content: [{ type: "paragraph" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    const descriptor = resolveStructuralChromeTargetDescriptor(
+      editor.state,
+      structuralRefForTest(editor, "section", "section00001"),
+    );
+    if (!descriptor || descriptor.kind !== InteractionTargetKind.Section) {
+      throw new Error("Missing Section descriptor");
+    }
+    const snapshot = resolveLayoutMenuSnapshot(descriptor);
+    if (!snapshot || snapshot.kind !== "section") throw new Error("Missing Section snapshot");
+    const missingSectionIdSnapshot = { ...snapshot };
+    delete missingSectionIdSnapshot.sectionId;
+
+    for (const sectionId of [undefined, "not-an-embedded-id"] as const) {
+      const menuSnapshot =
+        sectionId === undefined ? missingSectionIdSnapshot : { ...snapshot, sectionId };
+      const menu = renderLayoutMenuForTest(editor, descriptor, menuSnapshot);
+      const scope = within(menu.container);
+      expect(scope.queryByRole("group", { name: /Content layout controls/ })).toBeNull();
+      expect(readMenuButtonLabels(menu.container)).toEqual([
+        "Duplicate section",
+        "Delete section",
+        "Open section settings",
+      ]);
+      expect(menu.container.querySelectorAll(".sc-menu-separator")).toHaveLength(1);
+      menu.unmount();
+    }
     editor.destroy();
   });
 
