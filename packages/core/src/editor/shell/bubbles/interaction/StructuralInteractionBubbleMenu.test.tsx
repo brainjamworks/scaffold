@@ -43,7 +43,10 @@ import {
 } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { InteractionProvider } from "@/editor/interactions/targets/facade/interaction-provider";
 import { createInteractionStore } from "@/editor/interactions/targets/facade/interaction-store";
-import type { StructuralChromeTargetDescriptor } from "@/editor/interactions/targets/prosemirror/projection/structural-chrome-target-projection";
+import {
+  resolveStructuralChromeTargetDescriptor,
+  type StructuralChromeTargetDescriptor,
+} from "@/editor/interactions/targets/prosemirror/projection/structural-chrome-target-projection";
 import { structuralMenuAnchorId } from "@/editor/interactions/interaction-bubble/structural-bubble-anchor";
 
 import {
@@ -57,6 +60,7 @@ import {
   type StructuralInteractionBubbleRenderer,
   type StructuralInteractionBubbleRendererBinding,
 } from "@/editor/interactions/interaction-bubble";
+import { contentLayoutRegionStructuralInteractionBubbleRendererBindings } from "@/editor/content-layout/authoring/content-layout-region-bubble-renderer";
 
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
@@ -422,6 +426,27 @@ describe("resolveStructuralInteractionBubbleModel", () => {
     expect(screen.getByRole("radiogroup", { name: "Horizontal alignment" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Owner control" })).toBeInTheDocument();
     expect(container.querySelectorAll(".sc-menu-separator")).toHaveLength(1);
+  });
+
+  it("binds the content layout adapter to Region without claiming other structural kinds", () => {
+    const editor = makeEditor(regionContent());
+    const gridEditor = makeEditor(gridContent());
+    const [binding] = contentLayoutRegionStructuralInteractionBubbleRendererBindings;
+    const regionDescriptor = resolveStructuralChromeTargetDescriptor(
+      editor.state,
+      structuralRef(editor, InteractionTargetKind.Region, "region-a"),
+    );
+    const cellDescriptor = resolveStructuralChromeTargetDescriptor(
+      gridEditor.state,
+      structuralRef(gridEditor, InteractionTargetKind.Cell, "cell-a"),
+    );
+    const validRegionDescriptor = regionDescriptor
+      ? { ...regionDescriptor, id: "region000001" }
+      : null;
+
+    expect(binding?.kind).toBe(InteractionTargetKind.Region);
+    expect(binding?.renderer({ descriptor: validRegionDescriptor!, editor })).not.toBeNull();
+    expect(binding?.renderer({ descriptor: cellDescriptor!, editor: gridEditor })).toBeNull();
   });
 
   it("keeps both common Region axes without an owner renderer", async () => {

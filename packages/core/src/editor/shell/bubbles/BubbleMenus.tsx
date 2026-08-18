@@ -3,6 +3,7 @@ import { useMemo } from "react";
 
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import { contentLayoutRegionStructuralInteractionBubbleRendererBindings } from "@/editor/content-layout/authoring/content-layout-region-bubble-renderer";
 import {
   createAlignmentTargetPort,
   type AlignmentTargetPort,
@@ -42,6 +43,7 @@ export function BubbleMenus({
       createStructuralInteractionBubbleRendererMap([
         ...gridStructuralInteractionBubbleRendererBindings,
         ...layoutStructuralInteractionBubbleRendererBindings,
+        ...contentLayoutRegionStructuralInteractionBubbleRendererBindings,
         createSurfaceStructuralInteractionBubbleRendererBinding(surfaceAuthoringChrome),
       ]),
     [surfaceAuthoringChrome],
