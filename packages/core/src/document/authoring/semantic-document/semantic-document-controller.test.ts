@@ -12,6 +12,7 @@ import { insertSurfaceTemplateAfterSurface } from "@/editor/surfaces/authoring/s
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 
 import { createAuthoringSemanticNavigationEnvironment } from "./authoring-semantic-navigation-environment";
+import { setSemanticSelectionTransactionMeta } from "./semantic-selection-origin";
 import {
   getSemanticDocumentControllerForEditor,
   semanticDocumentPluginKey,
@@ -100,6 +101,59 @@ describe("SemanticDocumentController", () => {
       expect(controller.getSnapshot()).toMatchObject({
         selectedId: courseSectionId,
         selectionOrigin: "document-outline",
+      });
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it("interrupts pending coordinated navigation for editor-origin semantic intent", async () => {
+    const physicalId = testId("p", "intent-caret");
+    const navigationId = testId("p", "intent-navigation");
+    const semanticTargetId = testId("s", "intent");
+    const editor = createEditor(
+      pageDocument("intent", [
+        paragraph(navigationId, "Navigation target"),
+        paragraph(physicalId, "Physical caret"),
+      ]),
+    );
+    const presentation = deferred<void>();
+
+    try {
+      const controller = getSemanticDocumentControllerForEditor(editor);
+      editor.commands.setTextSelection(findNodePosition(editor, physicalId) + 1);
+      controller.setNavigationEditor({
+        dispatch: (transaction) => editor.view.dispatch(transaction),
+        focus: () => editor.commands.focus(),
+      });
+      controller.setNavigationEnvironment({
+        presentSurface: () => presentation.promise,
+        createActivationTransaction: () =>
+          editor.state.tr.setSelection(
+            TextSelection.create(editor.state.doc, findNodePosition(editor, navigationId) + 1),
+          ),
+        bringIntoView: async () => undefined,
+      });
+      const pendingNavigation = controller.select(navigationId, {
+        origin: "document-outline",
+      });
+      const transaction = editor.state.tr;
+      setSemanticSelectionTransactionMeta(transaction, {
+        intendedId: semanticTargetId,
+        origin: "editor",
+      });
+
+      editor.view.dispatch(transaction);
+      presentation.resolve();
+
+      expect(transaction.selectionSet).toBe(false);
+      expect(controller.getSnapshot()).toMatchObject({
+        selectedId: semanticTargetId,
+        selectionOrigin: "editor",
+      });
+      await expect(pendingNavigation).resolves.toEqual({
+        kind: "interrupted",
+        id: navigationId,
       });
     } finally {
       editor.destroy();
@@ -428,7 +482,18 @@ function paragraph(id: EmbeddedNodeId, text: string): JSONContent {
   };
 }
 
-function testId(kind: "c" | "p" | "s" | "x", value: string): EmbeddedNodeId {
+function testId(kind: "c" | "cs" | "p" | "s" | "x", value: string): EmbeddedNodeId {
   const normalized = value.replaceAll(/[^0-9A-Za-z_-]/g, "");
   return EmbeddedNodeIdSchema.parse(`${kind}${normalized}`.padEnd(12, "0").slice(0, 12));
+}
+
+function deferred<T>(): {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T | PromiseLike<T>) => void;
+} {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
 }

@@ -10,10 +10,13 @@ import { projectSemanticDocument } from "@/document/model/semantic-document";
 import { createRepresentativeSemanticDocumentFixture } from "@/document/model/semantic-document/testing/semantic-document-fixtures";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
+import { createStructuralInteractionTargetActivationTransaction } from "@/editor/interactions/targets/prosemirror/activation/interaction-activation-dispatch";
 
 import { SemanticDocumentController } from "./semantic-document-controller";
 import { getSemanticDocumentControllerForEditor } from "./semantic-document-storage";
 import {
+  readSemanticSelectionTransactionMeta,
   setSemanticSelectionTransactionMeta,
   type SemanticSelectionOrigin,
 } from "./semantic-selection-origin";
@@ -103,6 +106,124 @@ describe("projectSemanticSelection", () => {
 });
 
 describe("SemanticDocumentController selection", () => {
+  it("attaches editor semantic intent to canonical structural activation without changing the document", () => {
+    const context = createContext();
+    const layoutId = context.fixture.surfaces[0]!.layout;
+    const paragraphId = context.fixture.surfaces[0]!.repeatedParagraphs[0];
+    const paragraphFrom = findPosition(context.state.doc, paragraphId);
+    const paragraphNode = context.state.doc.nodeAt(paragraphFrom);
+    if (!paragraphNode) throw new Error("Expected active paragraph");
+    const state = context.state.apply(
+      context.state.tr.setSelection(TextSelection.create(context.state.doc, paragraphFrom + 1)),
+    );
+    const controller = new SemanticDocumentController({
+      state,
+      definitions: context.fixture.definitions,
+    });
+    const documentBefore = state.doc.toJSON();
+
+    const resolution = createStructuralInteractionTargetActivationTransaction(
+      state,
+      {
+        id: layoutId,
+        kind: InteractionTargetKind.Layout,
+        pos: findPosition(state.doc, layoutId),
+      },
+      {
+        kind: "retain-active-child",
+        activeChildId: paragraphId,
+        activeRange: { from: paragraphFrom, to: paragraphFrom + paragraphNode.nodeSize },
+        selectionTarget: { kind: "text", from: paragraphFrom + 1, to: paragraphFrom + 1 },
+      },
+    );
+
+    expect(resolution.kind).toBe("transaction");
+    if (resolution.kind !== "transaction") throw new Error("Expected structural activation");
+    expect(readSemanticSelectionTransactionMeta(resolution.transaction)).toEqual({
+      intendedId: layoutId,
+      origin: "editor",
+    });
+    expect(resolution.transaction.docChanged).toBe(false);
+    expect(resolution.transaction.selectionSet).toBe(false);
+    expect(resolution.transaction.steps).toHaveLength(0);
+    expect(resolution.transaction.doc.toJSON()).toEqual(documentBefore);
+    controller.applyTransaction(resolution.transaction, state.apply(resolution.transaction));
+    expectSelection(controller, layoutId, "editor");
+  });
+
+  it.each([undefined, "layout-a"])(
+    "does not attach structural semantic intent for invalid stable ID %s",
+    (targetId) => {
+      const context = createContext();
+      const layoutId = context.fixture.surfaces[0]!.layout;
+      const target = {
+        kind: InteractionTargetKind.Layout,
+        pos: findPosition(context.state.doc, layoutId),
+        ...(targetId === undefined ? {} : { id: targetId }),
+      } as const;
+
+      const resolution = createStructuralInteractionTargetActivationTransaction(
+        context.state,
+        target,
+        { kind: "pointer-within-target" },
+      );
+
+      expect(resolution.kind).toBe("transaction");
+      if (resolution.kind !== "transaction") throw new Error("Expected structural activation");
+      expect(readSemanticSelectionTransactionMeta(resolution.transaction)).toBeNull();
+    },
+  );
+
+  it("records content-layout selection intent without changing the document", () => {
+    const context = createContext();
+    const controller = new SemanticDocumentController({
+      state: context.state,
+      definitions: context.fixture.definitions,
+    });
+    const paragraphId = context.fixture.surfaces[0]!.repeatedParagraphs[0];
+    const transaction = context.state.tr.setSelection(
+      TextSelection.create(context.state.doc, findPosition(context.state.doc, paragraphId) + 1),
+    );
+    setSemanticSelectionTransactionMeta(transaction, {
+      intendedId: paragraphId,
+      origin: "content-layout",
+    });
+
+    const nextState = context.state.apply(transaction);
+    controller.applyTransaction(transaction, nextState);
+
+    expect(transaction.docChanged).toBe(false);
+    expectSelection(controller, paragraphId, "content-layout");
+  });
+
+  it.each(["content-layout", "document-outline", "presentation-timeline"] as const)(
+    "preserves later %s intent over editor structural intent on one transaction",
+    (origin) => {
+      const context = createContext();
+      const controller = new SemanticDocumentController({
+        state: context.state,
+        definitions: context.fixture.definitions,
+      });
+      const physicalParagraphId = context.fixture.surfaces[0]!.repeatedParagraphs[0];
+      const intendedId = context.fixture.surfaces[0]!.publishedContainer;
+      const transaction = context.state.tr.setSelection(
+        TextSelection.create(
+          context.state.doc,
+          findPosition(context.state.doc, physicalParagraphId) + 1,
+        ),
+      );
+      setSemanticSelectionTransactionMeta(transaction, {
+        intendedId: context.fixture.surfaces[0]!.layout,
+        origin: "editor",
+      });
+      setSemanticSelectionTransactionMeta(transaction, { intendedId, origin });
+
+      controller.applyTransaction(transaction, context.state.apply(transaction));
+
+      expectSelection(controller, intendedId, origin);
+    },
+  );
+
   it("tracks component, controller and later editor origins without feedback", () => {
     const context = createContext();
     const controller = new SemanticDocumentController({

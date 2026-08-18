@@ -13,6 +13,7 @@ import {
   setTextSelectionNearInTransaction,
 } from "@/editor/selection/selection-transactions";
 import type { SemanticEditorSelectionTarget } from "@/document/model/semantic-document/semantic-location";
+import { setSemanticSelectionTransactionMeta } from "@/document/authoring/semantic-document/semantic-selection-origin";
 
 import {
   InteractionTargetKind,
@@ -202,12 +203,21 @@ export function createStructuralInteractionTargetActivationTransaction(
   const application = applyStructuralActivationPlacement(tr, target, placement, preferredPos);
   if (application.kind === "placement-unavailable") return application;
 
+  const transaction = setInteractionOwnerCommandMeta(tr, {
+    kind: InteractionOwnerCommandKind.ActivateStructuralTarget,
+    target,
+  });
+  const intendedId = EmbeddedNodeIdSchema.safeParse(target.id);
+  if (intendedId.success) {
+    setSemanticSelectionTransactionMeta(transaction, {
+      intendedId: intendedId.data,
+      origin: "editor",
+    });
+  }
+
   return {
     kind: "transaction",
-    transaction: setInteractionOwnerCommandMeta(tr, {
-      kind: InteractionOwnerCommandKind.ActivateStructuralTarget,
-      target,
-    }),
+    transaction,
   };
 }
 

@@ -102,13 +102,18 @@ export class SemanticDocumentController {
   }
 
   applyTransaction(transaction: Transaction, state: EditorState): void {
-    if (this.#destroyed || (!transaction.docChanged && !transaction.selectionSet)) return;
+    const transactionMeta = readSemanticSelectionTransactionMeta(transaction);
+    if (
+      this.#destroyed ||
+      (!transaction.docChanged && !transaction.selectionSet && !transactionMeta)
+    ) {
+      return;
+    }
 
     const previous = this.#snapshot;
-    const transactionMeta = transaction.selectionSet
-      ? readSemanticSelectionTransactionMeta(transaction)
-      : null;
-    if (transaction.selectionSet && !transactionMeta) this.#navigation.interrupt();
+    if ((transaction.selectionSet && !transactionMeta) || transactionMeta?.origin === "editor") {
+      this.#navigation.interrupt();
+    }
 
     const projected = transaction.docChanged
       ? projectState(state, this.#definitions, previous.semantics.revision + 1)
@@ -127,7 +132,7 @@ export class SemanticDocumentController {
     ) {
       selectedId = projectSemanticSelection(state.selection, semantics.itemById);
       selectionOrigin = selectedId ? "editor" : null;
-    } else if (transaction.selectionSet) {
+    } else if (transaction.selectionSet || transactionMeta) {
       if (transactionMeta && semantics.itemById.has(transactionMeta.intendedId)) {
         selectedId = transactionMeta.intendedId;
         selectionOrigin = transactionMeta.origin;
