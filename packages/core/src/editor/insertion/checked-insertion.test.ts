@@ -2,14 +2,18 @@
 
 import type { Icon } from "@phosphor-icons/react";
 import { Editor, Extension, Node, type JSONContent } from "@tiptap/core";
-import { Plugin } from "@tiptap/pm/state";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { NodeSelection, Plugin } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { gridInsertAction } from "@/editor/arrangements/grid/model/grid-insert-action";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
+import { createLayoutInsertAction } from "@/editor/arrangements/layout/model/layout-definition";
+import { tabsLayoutDefinition } from "@/editor/arrangements/layout/tabs/tabs-definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
@@ -32,6 +36,29 @@ const TestManualBlock = Node.create({
   group: "block",
   renderHTML() {
     return ["div", { "data-test-manual-catalog-block": "" }];
+  },
+});
+const TestContentfulCatalogBlock = Node.create({
+  name: "test_contentful_catalog_block",
+  group: "block",
+  content: "paragraph",
+  addAttributes() {
+    return { id: { default: null } };
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["section", { ...HTMLAttributes, "data-test-contentful-catalog-block": "" }, 0];
+  },
+});
+const TestReadOnlyAtomicBlock = Node.create({
+  name: "test_read_only_atomic_catalog_block",
+  group: "block",
+  atom: true,
+  selectable: false,
+  addAttributes() {
+    return { id: { default: null } };
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["div", { ...HTMLAttributes, "data-test-read-only-atomic-catalog-block": "" }];
   },
 });
 const RejectDocumentChanges = Extension.create({
@@ -71,6 +98,7 @@ const TestResizableCatalogBlock = Node.create({
 
 const testResizableCatalogBlockDefinition = defineBlock({
   nodeType: RESIZABLE_CATALOG_BLOCK,
+  title: "Resizable alignment block",
   frame: { resizable: true },
 });
 
@@ -92,7 +120,12 @@ afterEach(() => {
 
 function makeEditor() {
   const editor = new Editor({
-    extensions: [StarterKit.configure({ undoRedo: false }), TestManualBlock],
+    extensions: [
+      StarterKit.configure({ undoRedo: false }),
+      TestManualBlock,
+      TestContentfulCatalogBlock,
+      TestReadOnlyAtomicBlock,
+    ],
   });
   editors.push(editor);
   return editor;
@@ -164,6 +197,49 @@ function slideContentDocument(regionContent: JSONContent[]): JSONContent {
 }
 
 describe("insertCatalogItemChecked", () => {
+  it("selects the fitted contentful root instead of the original mapped caret", () => {
+    const editor = makeEditor();
+    editor.commands.setContent({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Existing paragraph" }],
+        },
+      ],
+    });
+    const originalCaret = findTextPosition(editor, "Existing paragraph") + 2;
+    expect(editor.commands.setTextSelection({ from: originalCaret, to: originalCaret })).toBe(true);
+
+    expect(
+      insertCatalogItemChecked(
+        editor,
+        {
+          id: "test-contentful-fitted-block",
+          nodeType: "test_contentful_catalog_block",
+          title: "Contentful fitted block",
+          description: "Test fitted contentful block selection",
+          icon: TestIcon,
+          category: "content",
+          content: () => ({
+            type: "test_contentful_catalog_block",
+            attrs: { id: "fitted-contentful-root" },
+            content: [{ type: "paragraph", content: [{ type: "text", text: "Inserted" }] }],
+          }),
+        },
+        testBlockRegistry,
+        builtInLayoutRegistry,
+        testSurfaceVariants,
+      ),
+    ).toBe(true);
+
+    const insertedPosition = findNodePositionByAttribute(editor, "id", "fitted-contentful-root");
+    const inserted = editor.state.doc.nodeAt(insertedPosition);
+    if (!inserted) throw new Error("Expected the inserted contentful node.");
+    expect(insertedPosition).not.toBe(originalCaret);
+    expectSelectionWithinNode(editor, insertedPosition, inserted);
+  });
+
   it("materializes replaced text alignment on an inserted resizable block", () => {
     const item: InsertAction = {
       id: RESIZABLE_CATALOG_BLOCK,
@@ -215,8 +291,9 @@ describe("insertCatalogItemChecked", () => {
       widthPercent: 100,
     });
     expect(inserted?.attrs["data"]).toEqual({ retained: true });
-    expect(editor.state.selection.from).toBeGreaterThanOrEqual(0);
-    expect(editor.state.selection.from).toBeLessThanOrEqual(editor.state.doc.content.size);
+    const insertedPosition = findNodePositionByAttribute(editor, "id", "inserted-aligned");
+    if (!inserted) throw new Error("Expected the inserted resizable block.");
+    expectSelectionWithinNode(editor, insertedPosition, inserted);
   });
   it("dispatches a checked catalog range replacement for manual insertion", () => {
     const item: InsertAction = {
@@ -324,6 +401,39 @@ describe("insertCatalogItemChecked", () => {
       { type: "test_manual_catalog_block" },
       { type: "paragraph" },
     ]);
+    const insertedPosition = findNodePositionByType(editor, "test_manual_catalog_block");
+    const insertedNode = editor.state.doc.nodeAt(insertedPosition);
+    if (!insertedNode) throw new Error("Expected the inserted slash block.");
+    expectSelectionWithinNode(editor, insertedPosition, insertedNode);
+  });
+
+  it("keeps a valid selection for a non-selectable atomic insertion", () => {
+    const editor = makeEditor();
+
+    expect(
+      insertCatalogItemChecked(
+        editor,
+        {
+          id: "test-read-only-atomic-catalog-block",
+          nodeType: "test_read_only_atomic_catalog_block",
+          title: "Read-only atomic block",
+          description: "Test read-only atomic selection fallback",
+          icon: TestIcon,
+          category: "content",
+          content: () => ({
+            type: "test_read_only_atomic_catalog_block",
+            attrs: { id: "read-only-atomic-root" },
+          }),
+        },
+        testBlockRegistry,
+        builtInLayoutRegistry,
+        testSurfaceVariants,
+      ),
+    ).toBe(true);
+
+    expect(editor.state.selection.from).toBeGreaterThanOrEqual(0);
+    expect(editor.state.selection.to).toBeLessThanOrEqual(editor.state.doc.content.size);
+    expect(editor.state.selection).not.toBeInstanceOf(NodeSelection);
   });
 
   it("does not insert catalog blocks directly at a disabled surface root", () => {
@@ -396,6 +506,51 @@ describe("insertCatalogItemChecked", () => {
 
     expect(inserted).toBe(true);
     expect(nodeTypesInJson(editor.getJSON())).toContain("test_manual_catalog_block");
+    const insertedPosition = findNodePositionByType(editor, "test_manual_catalog_block");
+    const insertedNode = editor.state.doc.nodeAt(insertedPosition);
+    if (!insertedNode) throw new Error("Expected the nested-cell insertion.");
+    expectSelectionWithinNode(editor, insertedPosition, insertedNode);
+  });
+
+  it("selects the fitted Grid root through the existing layout insertion action", () => {
+    const editor = makeCourseEditor(slideContentDocument([{ type: "paragraph" }]));
+    setCursorInFirstEmptyParagraph(editor);
+
+    expect(
+      insertCatalogItemChecked(
+        editor,
+        gridInsertAction,
+        builtInBlockRegistry,
+        builtInLayoutRegistry,
+        testSurfaceVariants,
+      ),
+    ).toBe(true);
+
+    const insertedPosition = findNodePositionByType(editor, "grid");
+    const insertedNode = editor.state.doc.nodeAt(insertedPosition);
+    if (!insertedNode) throw new Error("Expected the inserted Grid.");
+    expectSelectionWithinNode(editor, insertedPosition, insertedNode);
+  });
+
+  it("selects the fitted Layout root through the existing layout insertion action", () => {
+    const editor = makeCourseEditor(slideContentDocument([{ type: "paragraph" }]));
+    setCursorInFirstEmptyParagraph(editor);
+    const action = createLayoutInsertAction(tabsLayoutDefinition);
+
+    expect(
+      insertCatalogItemChecked(
+        editor,
+        action,
+        builtInBlockRegistry,
+        builtInLayoutRegistry,
+        testSurfaceVariants,
+      ),
+    ).toBe(true);
+
+    const insertedPosition = findNodePositionByAttribute(editor, "variant", "tabs");
+    const insertedNode = editor.state.doc.nodeAt(insertedPosition);
+    if (!insertedNode) throw new Error("Expected the inserted Layout.");
+    expectSelectionWithinNode(editor, insertedPosition, insertedNode);
   });
 
   it("rejects an invalid bounded fill placement before materializing catalog content", () => {
@@ -568,6 +723,44 @@ function findTextPosition(editor: Editor, text: string): number {
 
   if (found === null) throw new Error(`Could not find text: ${text}`);
   return found;
+}
+
+function findNodePositionByAttribute(editor: Editor, attribute: string, value: unknown): number {
+  let found: number | null = null;
+  editor.state.doc.descendants((node, position) => {
+    if (node.attrs[attribute] !== value) return true;
+    found = position;
+    return false;
+  });
+  if (found === null) throw new Error(`Could not find node with ${attribute}=${String(value)}.`);
+  return found;
+}
+
+function findNodePositionByType(editor: Editor, type: string): number {
+  let found: number | null = null;
+  editor.state.doc.descendants((node, position) => {
+    if (node.type.name !== type) return true;
+    found = position;
+    return false;
+  });
+  if (found === null) throw new Error(`Could not find node type: ${type}`);
+  return found;
+}
+
+function expectSelectionWithinNode(
+  editor: Editor,
+  position: number,
+  node: ProseMirrorNode | null,
+): void {
+  if (!node) throw new Error("Expected a node at the inserted position.");
+  if (node.isAtom && node.type.spec.selectable !== false) {
+    expect(editor.state.selection).toBeInstanceOf(NodeSelection);
+    expect(editor.state.selection.from).toBe(position);
+    expect(editor.state.selection.to).toBe(position + node.nodeSize);
+    return;
+  }
+  expect(editor.state.selection.from).toBeGreaterThan(position);
+  expect(editor.state.selection.to).toBeLessThan(position + node.nodeSize);
 }
 
 function setCursorInFirstEmptyParagraph(editor: Editor): void {

@@ -5,10 +5,7 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser/context";
-import {
-  EmbeddedNodeIdSchema,
-  type EmbeddedNodeId,
-} from "@scaffold/contracts";
+import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 
 import {
   createScaffoldApplication,
@@ -114,17 +111,42 @@ describe("mounted content-layout projection", () => {
         "[data-projection-tracer-control]",
       );
 
+      if (lane === "authoring") {
+        await waitForProjectedOwner(mounted.editor, OWNER_IDS.paragraph, "available");
+        assertProjectedOwner(mounted.editor, OWNER_IDS.paragraph, "available");
+        assertProjectedOwner(mounted.editor, OWNER_IDS.ordinaryBlock, "withheld");
+        expect(
+          mounted.editor.commands.setNodeSelection(
+            findNodePosition(mounted.editor, OWNER_IDS.ordinaryBlock),
+          ),
+        ).toBe(true);
+        mounted.editor.view.focus();
+        await waitForProjectedOwner(mounted.editor, OWNER_IDS.ordinaryBlock, "available");
+      } else {
+        expectProjectionAbsent(mounted.editor);
+      }
+
       control.focus();
       expect(document.activeElement).toBe(control);
       await userEvent.click(control);
       expect(projectionTracerControlActivations).toBe(activationsBeforeLane + 1);
 
-      dispatchProjectionBatch(
-        mounted.editor,
-        createProjectionBatch(mounted.editor, lane, [
-          { containerId: OWNER_IDS.region, activeChildId: OWNER_IDS.paragraph },
-        ]),
-      );
+      if (lane === "authoring") {
+        const paragraphPosition = findNodePosition(mounted.editor, OWNER_IDS.paragraph);
+        expect(
+          mounted.editor.commands.setTextSelection({
+            from: paragraphPosition + 1,
+            to: paragraphPosition + 1,
+          }),
+        ).toBe(true);
+      } else {
+        dispatchProjectionBatch(
+          mounted.editor,
+          createProjectionBatch(mounted.editor, lane, [
+            { containerId: OWNER_IDS.region, activeChildId: OWNER_IDS.paragraph },
+          ]),
+        );
+      }
       await waitForProjectedOwner(mounted.editor, OWNER_IDS.ordinaryBlock, "withheld");
 
       expect(ordinary).toHaveAttribute("inert", "");
@@ -291,7 +313,13 @@ describe("mounted content-layout projection", () => {
         { containerId: OWNER_IDS.region, activeChildId: OWNER_IDS.paragraph },
       ]);
 
-      expectProjectionAbsent(mounted.editor);
+      if (lane === "authoring") {
+        await waitForProjectedOwner(mounted.editor, OWNER_IDS.paragraph, "available");
+        assertProjectedOwner(mounted.editor, OWNER_IDS.paragraph, "available");
+        assertProjectedOwner(mounted.editor, OWNER_IDS.ordinaryBlock, "withheld");
+      } else {
+        expectProjectionAbsent(mounted.editor);
+      }
       dispatchProjectionBatch(mounted.editor, outerBatch);
       await waitForProjectedOwner(mounted.editor, OWNER_IDS.paragraph, "available");
       assertExactlyOneAvailable(mounted.editor, outerBatch);
@@ -403,7 +431,9 @@ describe("mounted content-layout projection", () => {
       { containerId: OWNER_IDS.region, activeChildId: null },
     ]);
 
-    mounted.editor.view.dispatch(setContentLayoutProjectionBatchMeta(mounted.editor.state.tr, batch));
+    mounted.editor.view.dispatch(
+      setContentLayoutProjectionBatchMeta(mounted.editor.state.tr, batch),
+    );
     await nextFrame();
 
     expect(readContentLayoutProjectionDiagnostics(mounted.editor.state)).toEqual([
@@ -414,7 +444,12 @@ describe("mounted content-layout projection", () => {
       }),
     ]);
     expectProjectionAbsent(mounted.editor);
-    for (const id of [OWNER_IDS.paragraph, OWNER_IDS.ordinaryBlock, OWNER_IDS.grid, OWNER_IDS.layout]) {
+    for (const id of [
+      OWNER_IDS.paragraph,
+      OWNER_IDS.ordinaryBlock,
+      OWNER_IDS.grid,
+      OWNER_IDS.layout,
+    ]) {
       expect(findNodeDom(mounted.editor, id)?.isConnected).toBe(true);
     }
   });
@@ -639,9 +674,11 @@ async function mountEditor(
   document.body.append(host);
   const root = createRoot(host);
   root.render(
-    lane === "authoring"
-      ? createAuthoringMovementTestRoot(editor, <EditorContent editor={editor} />, host)
-      : <EditorContent editor={editor} />,
+    lane === "authoring" ? (
+      createAuthoringMovementTestRoot(editor, <EditorContent editor={editor} />, host)
+    ) : (
+      <EditorContent editor={editor} />
+    ),
   );
 
   const mounted = { editor, host, root };
@@ -730,10 +767,7 @@ function dispatchProjectionBatch(editor: Editor, batch: ContentLayoutProjectionB
   editor.view.dispatch(setContentLayoutProjectionBatchMeta(editor.state.tr, batch));
 }
 
-async function waitForOwnerMatrix(
-  mounted: MountedEditor,
-  lane: ProjectionLane,
-): Promise<void> {
+async function waitForOwnerMatrix(mounted: MountedEditor, lane: ProjectionLane): Promise<void> {
   await waitForCondition(
     () =>
       OWNER_SPECS.every(({ id, isReady }) => {
@@ -770,7 +804,9 @@ function expectDomIdentity(editor: Editor, identity: ReadonlyMap<string, HTMLEle
 }
 
 function hasProjectionSlot(editor: Editor, id: string): boolean {
-  return findNodeDom(editor, id)?.getAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.slot) === "shared";
+  return (
+    findNodeDom(editor, id)?.getAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.slot) === "shared"
+  );
 }
 
 function expectProjectionAbsent(editor: Editor): void {
@@ -779,9 +815,7 @@ function expectProjectionAbsent(editor: Editor): void {
 
 function expectProjectionAbsentFor(editor: Editor, ids: readonly string[]): void {
   for (const id of ids) {
-    expect(findNodeDom(editor, id)).not.toHaveAttribute(
-      CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.slot,
-    );
+    expect(findNodeDom(editor, id)).not.toHaveAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.slot);
   }
 }
 
@@ -794,12 +828,15 @@ function assertProjectedOwner(
   if (!dom) throw new Error(`Missing projected owner ${id}.`);
 
   expect(dom).toHaveAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.slot, "shared");
+  expect(dom).toHaveAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.availability, availability);
   expect(dom).toHaveAttribute(
-    CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.availability,
-    availability,
+    CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.interaction,
+    availability === "available" ? "enabled" : "inert",
   );
-  expect(dom).toHaveAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.interaction, availability === "available" ? "enabled" : "inert");
-  expect(dom).toHaveAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.accessibility, availability === "available" ? "exposed" : "hidden");
+  expect(dom).toHaveAttribute(
+    CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.accessibility,
+    availability === "available" ? "exposed" : "hidden",
+  );
   expect(dom).toHaveAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.geometry, "shared-position");
 
   if (availability === "available") {
@@ -811,10 +848,7 @@ function assertProjectedOwner(
   }
 }
 
-function assertExactlyOneAvailable(
-  editor: Editor,
-  batch: ContentLayoutProjectionBatch,
-): void {
+function assertExactlyOneAvailable(editor: Editor, batch: ContentLayoutProjectionBatch): void {
   for (const container of batch.containers) {
     const available = container.directChildIds.filter((childId) => {
       const dom = findNodeDom(editor, childId);
@@ -841,9 +875,7 @@ async function nextFrame(): Promise<void> {
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 }
 
-function createProjectionDocument(
-  contentLayout: "flow" | "sequence" = "sequence",
-): JSONContent {
+function createProjectionDocument(contentLayout: "flow" | "sequence" = "sequence"): JSONContent {
   const content = createScaffoldDocumentContent({
     initialCourseSectionTitle: "Projection tracer",
     mode: "slideshow",
@@ -959,6 +991,19 @@ function findNodeDom(editor: Editor, id: string): HTMLElement | null {
   if (position === null) return null;
   const dom = editor.view.nodeDOM(position);
   return dom instanceof HTMLElement ? dom : null;
+}
+
+function findNodePosition(editor: Editor, id: string): number {
+  let position: number | null = null;
+  editor.state.doc.descendants((node, nodePosition) => {
+    if (node.attrs["id"] === id) {
+      position = nodePosition;
+      return false;
+    }
+    return true;
+  });
+  if (position === null) throw new Error(`Missing document node ${id}.`);
+  return position;
 }
 
 function requiredElement<T extends Element>(root: ParentNode, selector: string): T {

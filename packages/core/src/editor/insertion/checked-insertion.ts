@@ -10,6 +10,10 @@ import {
   type CheckedMutationIssue,
 } from "@/document/model/commands/checked-transactions";
 import { materializeCatalogNodeHorizontalAlignment } from "@/editor/interactions/alignment/alignment-insertion";
+import {
+  isNodeSelectable,
+  setNodeSelectionInTransaction,
+} from "@/editor/selection/selection-transactions";
 import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-variant-registry";
 
 import type { InsertAction, InsertActionIntent, InsertActionRange } from "./insert-action";
@@ -196,20 +200,36 @@ export function insertCatalogItemChecked(
   if (!result.ok) return false;
   if (result.tr.doc.eq(editor.state.doc)) return false;
 
-  setSelectionNearInsertedNode(result.tr, placement.range.from);
+  setSelectionNearInsertedNode(result.tr, node, placement.range.from);
   const docBeforeDispatch = editor.state.doc;
   editor.view.dispatch(result.tr.scrollIntoView());
   return !editor.state.doc.eq(docBeforeDispatch);
 }
 
-function setSelectionNearInsertedNode(tr: Transaction, from: number): void {
-  try {
-    const insertedStart = tr.mapping.map(from, 1);
-    const selectionPos = Math.max(0, Math.min(insertedStart + 1, tr.doc.content.size));
-    tr.setSelection(Selection.near(tr.doc.resolve(selectionPos), 1));
-  } catch {
-    // Some valid catalog nodes are atomic/read-only. In those cases the
-    // transaction remains valid; ProseMirror keeps its existing mapped
-    // selection.
+function setSelectionNearInsertedNode(
+  tr: Transaction,
+  insertedNode: ProseMirrorNode,
+  fallbackFrom: number,
+): void {
+  const insertedStart = findNodePositionByIdentity(tr.doc, insertedNode);
+  if (insertedStart !== null && insertedNode.isAtom && isNodeSelectable(insertedNode)) {
+    if (!setNodeSelectionInTransaction(tr, insertedStart)) {
+      throw new Error("Expected the inserted selectable atomic node to accept NodeSelection.");
+    }
+    return;
   }
+
+  const selectionStart = insertedStart ?? tr.mapping.map(fallbackFrom, 1);
+  const selectionPos = Math.max(0, Math.min(selectionStart + 1, tr.doc.content.size));
+  tr.setSelection(Selection.near(tr.doc.resolve(selectionPos), 1));
+}
+
+function findNodePositionByIdentity(doc: ProseMirrorNode, target: ProseMirrorNode): number | null {
+  let found: number | null = null;
+  doc.descendants((node, position) => {
+    if (node !== target) return true;
+    found = position;
+    return false;
+  });
+  return found;
 }
