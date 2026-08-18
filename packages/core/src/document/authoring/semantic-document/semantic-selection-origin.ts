@@ -4,12 +4,13 @@ import { PluginKey, type Transaction } from "@tiptap/pm/state";
 export type SemanticSelectionOrigin =
   | "editor"
   | "component"
+  | "content-layout"
   | "document-outline"
   | "presentation-timeline";
 
 export interface SemanticSelectionTransactionMeta {
   readonly intendedId: EmbeddedNodeId;
-  readonly origin: "document-outline" | "presentation-timeline";
+  readonly origin: "editor" | "content-layout" | "document-outline" | "presentation-timeline";
 }
 
 const semanticSelectionTransactionKey = new PluginKey<SemanticSelectionTransactionMeta>(
