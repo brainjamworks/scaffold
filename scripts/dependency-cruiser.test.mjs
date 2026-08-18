@@ -1690,6 +1690,56 @@ test("reports interaction kernel, store, and provider ownership inversions", asy
   assert.match(output, /interaction-provider-does-not-reach-prosemirror-or-feature-policy/);
 });
 
+test("rejects a reachable Interaction Targets dependency on Content Layout", async (t) => {
+  const sourcePath =
+    "packages/core/src/editor/interactions/targets/prosemirror/forbidden-target-entry.ts";
+  const relayPath = "packages/core/src/editor/content-layout-policy-relay.ts";
+  const targetPath = "packages/core/src/editor/content-layout/forbidden-policy.ts";
+  const fixtureRoot = await createFixture(t, {
+    [targetPath]: 'export const contentLayoutPolicy = { id: "content-layout" };\n',
+    [relayPath]: [
+      'import { contentLayoutPolicy } from "./content-layout/forbidden-policy";',
+      "export const relayedContentLayoutPolicy = contentLayoutPolicy;",
+    ].join("\n"),
+    [sourcePath]: [
+      'import { relayedContentLayoutPolicy } from "../../../content-layout-policy-relay";',
+      "export const forbiddenInteractionTargetDependency = relayedContentLayoutPolicy;",
+    ].join("\n"),
+  });
+
+  const result = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+  const output = `${result.stdout}\n${result.stderr}`;
+
+  assert.equal(result.status, 1, output);
+  assert.match(output, /interaction-targets-do-not-reach-content-layout/);
+  assert.match(
+    output,
+    new RegExp(
+      `${escapeRegExp(sourcePath)}[\\s\\S]*${escapeRegExp(relayPath)}[\\s\\S]*${escapeRegExp(targetPath)}`,
+    ),
+  );
+});
+
+test("allows Content Layout placement ports and authoring composition assembly", async (t) => {
+  const fixtureRoot = await createFixture(t, {
+    "packages/core/src/editor/interactions/targets/prosemirror/activation/structural-activation-placement.ts":
+      "export interface StructuralActivationPlacement { kind: string }\n",
+    "packages/core/src/editor/content-layout/authoring/content-layout-placement-adapter.ts": [
+      'import type { StructuralActivationPlacement } from "../../interactions/targets/prosemirror/activation/structural-activation-placement";',
+      "export type ContentLayoutPlacementAdapter = StructuralActivationPlacement;",
+    ].join("\n"),
+    "packages/core/src/composition/authoring/create-authoring-composition.ts": [
+      'import type { ContentLayoutPlacementAdapter } from "../../editor/content-layout/authoring/content-layout-placement-adapter";',
+      'import type { StructuralActivationPlacement } from "../../editor/interactions/targets/prosemirror/activation/structural-activation-placement";',
+      "export type AuthoringCompositionAssembly = ContentLayoutPlacementAdapter | StructuralActivationPlacement;",
+    ].join("\n"),
+  });
+
+  const result = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
 test("distinguishes low-level floating infrastructure from higher coordinators", async (t) => {
   const fixtureRoot = await createFixture(t, {
     "packages/core/src/editor/interactions/targets/model/target.ts":

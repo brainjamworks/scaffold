@@ -124,9 +124,11 @@ const interactionFrameworkDependencyPath = [
   "node_modules/prosemirror-",
   ...reactDependencyPath,
 ];
+const contentLayoutPath = "^packages/core/src/editor/content-layout/";
 const interactionFeaturePolicyPath = [
   "^packages/core/src/editor/blocks/",
   "^packages/core/src/editor/arrangements/(?:grid|layout)/(?:authoring|runtime)/",
+  contentLayoutPath,
   "^packages/core/src/editor/surfaces/(?:authoring|runtime|view)/",
   "^packages/core/src/editor/frame/(?:authoring|runtime|view)/",
   "^packages/core/src/editor/movement/view/",
@@ -1074,6 +1076,19 @@ module.exports = {
       },
       to: {
         path: dndKitDependencyPath,
+      },
+    },
+    {
+      // Owner: Interaction Targets owns feature-neutral activation placement; Content Layout
+      // supplies its policy through authoring composition, never through a reverse dependency.
+      name: "interaction-targets-do-not-reach-content-layout",
+      severity: "error",
+      from: {
+        path: interactionTargetsPath,
+      },
+      to: {
+        path: contentLayoutPath,
+        reachable: true,
       },
     },
     {

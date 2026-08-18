@@ -1,10 +1,10 @@
-import {
-  PresentationContentLayout,
-  PresentationContentLayoutSchema,
-} from "@scaffold/contracts";
+import { PresentationContentLayout, PresentationContentLayoutSchema } from "@scaffold/contracts";
 import type { Attribute } from "@tiptap/core";
 
-export const CONTENT_LAYOUT_ATTR = "contentLayout" as const;
+import { CONTENT_LAYOUT_ATTR } from "@/document/model/nodes/presentation-container-attributes";
+
+export { CONTENT_LAYOUT_ATTR };
+
 export const CONTENT_LAYOUT_HTML_ATTR = "data-content-layout" as const;
 
 function parsePresentationContentLayoutOrThrow(value: unknown) {

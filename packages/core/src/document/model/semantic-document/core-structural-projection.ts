@@ -6,8 +6,6 @@ import {
 } from "@scaffold/contracts";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
-import { CONTENT_LAYOUT_ATTR } from "@/editor/content-layout/model/content-layout-attribute";
-
 import type { ProjectedCourseStructure } from "../course-structure/course-structure-projection";
 import { readUnavailableContentCompatibilityRoot } from "../establishment/unavailable-content-compatibility-root";
 import {
@@ -19,6 +17,7 @@ import {
   SECTION_NODE_TYPE,
   SURFACE_NODE_TYPE,
 } from "../nodes/structural-node-types";
+import { CONTENT_LAYOUT_ATTR } from "../nodes/presentation-container-attributes";
 import type { SemanticDefinitionLookup, SemanticLayoutDefinition } from "./definition-lookup";
 import type {
   DocumentSemanticsDefinition,
@@ -293,15 +292,7 @@ function classifyNode(
       throw new Error(`Course Structure does not contain unavailable Surface ${id}.`);
     }
     return classified(
-      item(
-        id,
-        unavailableRoot.kind,
-        nodeType,
-        null,
-        unavailableRoot.label,
-        undefined,
-        null,
-      ),
+      item(id, unavailableRoot.kind, nodeType, null, unavailableRoot.label, undefined, null),
       unavailableSurface?.courseSectionId ?? context.parentId,
       unavailableRoot.kind === "surface" ? id : context.surfaceId,
       undefined,
@@ -533,9 +524,7 @@ function projectPresentationContainer(
 function decodePresentationContentLayout(node: ProseMirrorNode): PresentationContentLayout {
   const parsed = PresentationContentLayoutSchema.safeParse(node.attrs[CONTENT_LAYOUT_ATTR]);
   if (!parsed.success) {
-    throw new Error(
-      `Semantic projection encountered invalid contentLayout on ${node.type.name}.`,
-    );
+    throw new Error(`Semantic projection encountered invalid contentLayout on ${node.type.name}.`);
   }
   return parsed.data;
 }
