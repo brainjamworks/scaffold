@@ -5,6 +5,7 @@ import type { Selection } from "@tiptap/pm/state";
 import type { SurfaceDestination } from "@/document/model/course-structure/types";
 import type { InsertActionRange } from "@/editor/insertion/insert-action";
 import { allowsBoundedContainerRootInsertionAtPosition } from "@/editor/bounded-containers/model/bounded-container-placement";
+import { resolveBoundedContainerOccupancyPolicy } from "@/editor/content-layout/model/content-layout-bounded-placement";
 import { isNodeSelection, isTextSelection } from "@/editor/selection/selection-facts";
 import { allowsSurfaceRootInsertionAtPosition } from "@/editor/surfaces/model/policies/surface-root-insertion-policy";
 
@@ -115,19 +116,20 @@ function resolveAdjacentPlacement(input: {
     ) {
       return refused("schema_insertion_refused");
     }
-
-    if (
-      !allowsBoundedContainerRootInsertionAtPosition({
-        blockDefinitions: input.capabilities.blocks,
-        doc: input.doc,
-        layoutDefinitions: input.capabilities.layouts,
-        pos: checkedRange.parentPos,
-      })
-    ) {
-      return refused("bounded_container_insertion_refused");
-    }
   } catch {
     return refused("invalid_destination_selection");
+  }
+
+  if (
+    !allowsBoundedContainerRootInsertionAtPosition({
+      blockDefinitions: input.capabilities.blocks,
+      doc: input.doc,
+      layoutDefinitions: input.capabilities.layouts,
+      pos: checkedRange.parentPos,
+      resolveBoundedContainerOccupancyPolicy,
+    })
+  ) {
+    return refused("bounded_container_insertion_refused");
   }
 
   return {
