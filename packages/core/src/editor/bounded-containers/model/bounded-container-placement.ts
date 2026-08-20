@@ -6,6 +6,39 @@ import type { BoundedPlacement } from "@/editor/frame/model/bounded-placement";
 
 export type BoundedContainerType = "cell" | "region" | "section";
 
+export type BoundedContainerOccupancyPolicy =
+  | { readonly kind: "exclusive-fill" }
+  | { readonly kind: "shared-fill" };
+
+export type ResolveBoundedContainerOccupancyPolicy = (
+  container: ProseMirrorNode,
+) => BoundedContainerOccupancyPolicy;
+
+export const EXCLUSIVE_FILL_OCCUPANCY_POLICY = Object.freeze({
+  kind: "exclusive-fill",
+}) satisfies BoundedContainerOccupancyPolicy;
+
+export const SHARED_FILL_OCCUPANCY_POLICY = Object.freeze({
+  kind: "shared-fill",
+}) satisfies BoundedContainerOccupancyPolicy;
+
+export type BoundedFillInsertionPolicy =
+  | { readonly kind: "not-active-bounded-container" }
+  | { readonly kind: "replace-empty-placeholder" }
+  | { readonly kind: "insert-at-checked-range" };
+
+export const NOT_ACTIVE_BOUNDED_CONTAINER_FILL_INSERTION_POLICY = Object.freeze({
+  kind: "not-active-bounded-container",
+}) satisfies BoundedFillInsertionPolicy;
+
+export const REPLACE_EMPTY_PLACEHOLDER_FILL_INSERTION_POLICY = Object.freeze({
+  kind: "replace-empty-placeholder",
+}) satisfies BoundedFillInsertionPolicy;
+
+export const INSERT_AT_CHECKED_RANGE_FILL_INSERTION_POLICY = Object.freeze({
+  kind: "insert-at-checked-range",
+}) satisfies BoundedFillInsertionPolicy;
+
 export function isFillOccupantNode(
   node: ProseMirrorNode,
   blockDefinitions: BlockDefinitionLookup,
@@ -96,6 +129,7 @@ export function allowsBoundedContainerRootInsertionAtPosition(input: {
   doc: ProseMirrorNode;
   layoutDefinitions: LayoutRegistry;
   pos: number | null | undefined;
+  resolveBoundedContainerOccupancyPolicy?: ResolveBoundedContainerOccupancyPolicy;
 }): boolean {
   const container = resolveActiveBoundedContainer(
     input.doc,
@@ -104,7 +138,32 @@ export function allowsBoundedContainerRootInsertionAtPosition(input: {
     input.layoutDefinitions,
   );
   if (!container) return true;
+  const occupancyPolicy =
+    input.resolveBoundedContainerOccupancyPolicy?.(container) ?? EXCLUSIVE_FILL_OCCUPANCY_POLICY;
+  if (occupancyPolicy.kind === "shared-fill") return true;
   return !hasDirectFillOccupant(container, input.blockDefinitions, input.layoutDefinitions);
+}
+
+export function resolveBoundedFillInsertionPolicyAtPosition(input: {
+  blockDefinitions: BlockDefinitionLookup;
+  doc: ProseMirrorNode;
+  layoutDefinitions: LayoutRegistry;
+  pos: number | null | undefined;
+  resolveBoundedContainerOccupancyPolicy?: ResolveBoundedContainerOccupancyPolicy;
+}): BoundedFillInsertionPolicy {
+  const container = resolveActiveBoundedContainer(
+    input.doc,
+    input.pos,
+    input.blockDefinitions,
+    input.layoutDefinitions,
+  );
+  if (!container) return NOT_ACTIVE_BOUNDED_CONTAINER_FILL_INSERTION_POLICY;
+
+  const occupancyPolicy =
+    input.resolveBoundedContainerOccupancyPolicy?.(container) ?? EXCLUSIVE_FILL_OCCUPANCY_POLICY;
+  return occupancyPolicy.kind === "shared-fill"
+    ? INSERT_AT_CHECKED_RANGE_FILL_INSERTION_POLICY
+    : REPLACE_EMPTY_PLACEHOLDER_FILL_INSERTION_POLICY;
 }
 
 export function isActiveBoundedContainerAtPosition(input: {
@@ -135,13 +194,7 @@ function resolveActiveBoundedContainer(
     const node = doc.nodeAt(pos);
     if (
       !node ||
-      !isActiveBoundedContainerNodeAtPosition(
-        doc,
-        node,
-        pos,
-        blockDefinitions,
-        layoutDefinitions,
-      )
+      !isActiveBoundedContainerNodeAtPosition(doc, node, pos, blockDefinitions, layoutDefinitions)
     ) {
       return null;
     }

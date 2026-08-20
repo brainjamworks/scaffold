@@ -19,6 +19,7 @@ import {
   allowsBoundedContainerRootInsertionAtPosition as allowsBoundedContainerRootInsertionAtPositionWithLookup,
   isActiveBoundedContainerAtPosition as isActiveBoundedContainerAtPositionWithLookup,
   isFillOccupantNode as isFillOccupantNodeWithLookup,
+  resolveBoundedFillInsertionPolicyAtPosition,
   resolveActiveBoundedPlacement as resolveActiveBoundedPlacementWithLookup,
 } from "./bounded-container-placement";
 
@@ -143,6 +144,181 @@ afterEach(() => {
 });
 
 describe("bounded container placement", () => {
+  it("allows root insertion when shared occupancy permits an existing fill occupant", () => {
+    const editor = makeEditor([
+      {
+        type: "region",
+        attrs: { id: "region-a" },
+        content: [grid()],
+      },
+    ]);
+
+    expect(
+      allowsBoundedContainerRootInsertionAtPosition({
+        doc: editor.state.doc,
+        pos: firstNodePos(editor, "region"),
+        resolveBoundedContainerOccupancyPolicy: () => ({ kind: "shared-fill" }),
+      }),
+    ).toBe(true);
+  });
+
+  it("resolves shared fill insertion to the already-checked range", () => {
+    const editor = makeEditor([
+      {
+        type: "region",
+        attrs: { id: "region-a" },
+        content: [grid()],
+      },
+    ]);
+
+    const policy = resolveBoundedFillInsertionPolicyAtPosition({
+      blockDefinitions: testBlockRegistry,
+      doc: editor.state.doc,
+      layoutDefinitions: builtInLayoutRegistry,
+      pos: firstNodePos(editor, "region"),
+      resolveBoundedContainerOccupancyPolicy: () => ({ kind: "shared-fill" }),
+    });
+
+    expect(policy).toEqual({ kind: "insert-at-checked-range" });
+    expect(Object.isFrozen(policy)).toBe(true);
+  });
+
+  it("resolves omitted or exclusive occupancy to empty-placeholder replacement", () => {
+    const editor = makeEditor([
+      {
+        type: "region",
+        attrs: { id: "region-a" },
+        content: [paragraph()],
+      },
+    ]);
+    const pos = firstNodePos(editor, "region");
+
+    const defaultPolicy = resolveBoundedFillInsertionPolicyAtPosition({
+      blockDefinitions: testBlockRegistry,
+      doc: editor.state.doc,
+      layoutDefinitions: builtInLayoutRegistry,
+      pos,
+    });
+    const exclusivePolicy = resolveBoundedFillInsertionPolicyAtPosition({
+      blockDefinitions: testBlockRegistry,
+      doc: editor.state.doc,
+      layoutDefinitions: builtInLayoutRegistry,
+      pos,
+      resolveBoundedContainerOccupancyPolicy: () => ({ kind: "exclusive-fill" }),
+    });
+
+    expect(defaultPolicy).toEqual({ kind: "replace-empty-placeholder" });
+    expect(exclusivePolicy).toEqual({ kind: "replace-empty-placeholder" });
+    expect(Object.isFrozen(defaultPolicy)).toBe(true);
+    expect(Object.isFrozen(exclusivePolicy)).toBe(true);
+  });
+
+  it("returns not-active for non-bounded and invalid fill positions", () => {
+    const editor = makeEditor([paragraph()]);
+    const resolver = () => ({ kind: "shared-fill" as const });
+
+    const nonBoundedPolicy = resolveBoundedFillInsertionPolicyAtPosition({
+      blockDefinitions: testBlockRegistry,
+      doc: editor.state.doc,
+      layoutDefinitions: builtInLayoutRegistry,
+      pos: firstNodePos(editor, "paragraph"),
+      resolveBoundedContainerOccupancyPolicy: resolver,
+    });
+    const invalidPositionPolicy = resolveBoundedFillInsertionPolicyAtPosition({
+      blockDefinitions: testBlockRegistry,
+      doc: editor.state.doc,
+      layoutDefinitions: builtInLayoutRegistry,
+      pos: -1,
+      resolveBoundedContainerOccupancyPolicy: resolver,
+    });
+
+    expect(nonBoundedPolicy).toEqual({ kind: "not-active-bounded-container" });
+    expect(invalidPositionPolicy).toEqual({ kind: "not-active-bounded-container" });
+    expect(Object.isFrozen(nonBoundedPolicy)).toBe(true);
+    expect(Object.isFrozen(invalidPositionPolicy)).toBe(true);
+  });
+
+  it("consults root occupancy only after resolving an active bounded container", () => {
+    const calls: string[] = [];
+    const resolver = () => {
+      calls.push("active");
+      return { kind: "shared-fill" as const };
+    };
+    const nonBoundedEditor = makeEditor([paragraph()]);
+    const boundedEditor = makeEditor([
+      {
+        type: "region",
+        attrs: { id: "region-a" },
+        content: [grid()],
+      },
+    ]);
+
+    expect(
+      allowsBoundedContainerRootInsertionAtPosition({
+        doc: nonBoundedEditor.state.doc,
+        pos: firstNodePos(nonBoundedEditor, "paragraph"),
+        resolveBoundedContainerOccupancyPolicy: resolver,
+      }),
+    ).toBe(true);
+    expect(calls).toEqual([]);
+
+    expect(
+      allowsBoundedContainerRootInsertionAtPosition({
+        doc: boundedEditor.state.doc,
+        pos: firstNodePos(boundedEditor, "region"),
+        resolveBoundedContainerOccupancyPolicy: resolver,
+      }),
+    ).toBe(true);
+    expect(calls).toEqual(["active"]);
+  });
+
+  it("keeps exclusive root insertion open without a direct fill and closed with one", () => {
+    const emptyEditor = makeEditor([
+      {
+        type: "region",
+        attrs: { id: "region-empty" },
+        content: [paragraph()],
+      },
+    ]);
+    const occupiedEditor = makeEditor([
+      {
+        type: "region",
+        attrs: { id: "region-occupied" },
+        content: [grid()],
+      },
+    ]);
+
+    expect(
+      allowsBoundedContainerRootInsertionAtPosition({
+        doc: emptyEditor.state.doc,
+        pos: firstNodePos(emptyEditor, "region"),
+      }),
+    ).toBe(true);
+    expect(
+      allowsBoundedContainerRootInsertionAtPosition({
+        doc: occupiedEditor.state.doc,
+        pos: firstNodePos(occupiedEditor, "region"),
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps root insertion open for non-bounded and invalid positions", () => {
+    const editor = makeEditor([paragraph()]);
+
+    expect(
+      allowsBoundedContainerRootInsertionAtPosition({
+        doc: editor.state.doc,
+        pos: firstNodePos(editor, "paragraph"),
+      }),
+    ).toBe(true);
+    expect(
+      allowsBoundedContainerRootInsertionAtPosition({
+        doc: editor.state.doc,
+        pos: -1,
+      }),
+    ).toBe(true);
+  });
+
   it("uses active bounded cell position for insertion affordances", () => {
     const flowEditor = makeEditor([
       {
