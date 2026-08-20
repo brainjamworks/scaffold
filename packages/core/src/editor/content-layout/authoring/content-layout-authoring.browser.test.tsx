@@ -4,6 +4,7 @@ import {
   type EmbeddedNodeId,
 } from "@scaffold/contracts";
 import { Editor, type JSONContent } from "@tiptap/core";
+import { redoDepth, undoDepth } from "@tiptap/pm/history";
 import { EditorContent } from "@tiptap/react";
 import { fireEvent } from "@testing-library/react";
 import { createRoot, type Root } from "react-dom/client";
@@ -419,6 +420,221 @@ describe("mounted Content Layout authoring", () => {
       await expectProjectedChild(editor, childId, "withheld");
     }
     expectSelectionWithin(editor, insertedId);
+  });
+
+  it("inserts and activates a second installed fill Layout in mounted Sequence", async () => {
+    const mounted = await mountRegionEditor(
+      PresentationContentLayout.Sequence,
+      [layoutWithSection(IDS.layout, "tabs", IDS.section, "First fill")],
+      IDS.layout,
+    );
+    const { editor } = mounted;
+
+    expect(directChildIdsInDocument(editor, IDS.region)).toEqual([IDS.layout]);
+    const firstContentPosition = findNodePosition(editor, IDS.first);
+    expect(
+      editor.commands.setTextSelection({
+        from: firstContentPosition + 1,
+        to: firstContentPosition + 1,
+      }),
+    ).toBe(true);
+    await waitForCondition(
+      () =>
+        readContentLayoutAuthoringState(editor.state).containers.get(IDS.region)?.activeChildId ===
+        IDS.layout,
+      "initial fill Layout authoring activation",
+    );
+    expectProjectedDom(editor, IDS.layout, "available");
+
+    const documentBeforeInsertion = JSON.stringify(editor.getJSON());
+    const historyBeforeInsertion = {
+      redoDepth: redoDepth(editor.state),
+      undoDepth: undoDepth(editor.state),
+    };
+    const item = getScaffoldAuthoringCataloguesForEditor(editor).inDocument.getById("tabs");
+    if (!item) throw new Error("Expected the installed Tabs fill Layout in the mounted catalogue.");
+    expect(item.boundedPlacement).toBe("fill");
+
+    expect(
+      insertCatalogItemChecked(
+        editor,
+        item,
+        composition.capabilities.blocks.registry,
+        composition.capabilities.layouts.registry,
+        composition.capabilities.surfaces.registry,
+        regionEndRange(editor, IDS.region),
+      ),
+    ).toBe(true);
+
+    const insertedChildIds = directChildIdsInDocument(editor, IDS.region);
+    expect(insertedChildIds).toHaveLength(2);
+    expect(insertedChildIds[0]).toBe(IDS.layout);
+    const insertedId = insertedChildIds[1];
+    if (!insertedId) throw new Error("Expected the second fill Layout stable ID.");
+    expect(insertedId).not.toBe(IDS.layout);
+    expect(editor.state.doc.nodeAt(findNodePosition(editor, insertedId))?.type.name).toBe(
+      item.nodeType,
+    );
+
+    await waitForNodeDom(editor, insertedId);
+    await waitForCondition(
+      () =>
+        readContentLayoutAuthoringState(editor.state).containers.get(IDS.region)?.activeChildId ===
+        insertedId,
+      "inserted fill Layout authoring activation",
+    );
+    const afterInsertionState = readContentLayoutAuthoringState(editor.state).containers.get(
+      IDS.region,
+    );
+    if (!afterInsertionState) throw new Error("Expected mounted Region state after insertion.");
+    expect(afterInsertionState.directChildIds).toEqual(insertedChildIds);
+    expect(afterInsertionState.activeChildId).toBe(insertedId);
+    expectSelectionWithin(editor, insertedId);
+    expectProjectedDom(editor, IDS.layout, "withheld");
+    expectProjectedDom(editor, insertedId, "available");
+    expectNoPersistedActiveChildId(editor.getJSON());
+    expect(undoDepth(editor.state)).toBe(historyBeforeInsertion.undoDepth + 1);
+    expect(redoDepth(editor.state)).toBe(historyBeforeInsertion.redoDepth);
+
+    const documentAfterInsertion = JSON.stringify(editor.getJSON());
+    expect(documentAfterInsertion).not.toBe(documentBeforeInsertion);
+    expect(editor.commands.undo()).toBe(true);
+    await waitForCondition(
+      () =>
+        JSON.stringify(editor.getJSON()) === documentBeforeInsertion &&
+        directChildIdsInDocument(editor, IDS.region).length === 1,
+      "undo of the second fill Layout insertion",
+    );
+    expectSelectionWithin(editor, IDS.layout);
+    expectProjectedDom(editor, IDS.layout, "available");
+    expect(undoDepth(editor.state)).toBe(historyBeforeInsertion.undoDepth);
+    expect(redoDepth(editor.state)).toBe(historyBeforeInsertion.redoDepth + 1);
+
+    expect(editor.commands.redo()).toBe(true);
+    await waitForCondition(
+      () =>
+        JSON.stringify(editor.getJSON()) === documentAfterInsertion &&
+        directChildIdsInDocument(editor, IDS.region)[1] === insertedId,
+      "redo of the second fill Layout insertion",
+    );
+    await waitForNodeDom(editor, insertedId);
+    await waitForCondition(
+      () =>
+        readContentLayoutAuthoringState(editor.state).containers.get(IDS.region)?.activeChildId ===
+        insertedId,
+      "redo active fill Layout normalization",
+    );
+    expectSelectionWithin(editor, insertedId);
+    expectProjectedDom(editor, IDS.layout, "withheld");
+    expectProjectedDom(editor, insertedId, "available");
+    expectNoPersistedActiveChildId(editor.getJSON());
+    expect(undoDepth(editor.state)).toBe(historyBeforeInsertion.undoDepth + 1);
+    expect(redoDepth(editor.state)).toBe(historyBeforeInsertion.redoDepth);
+
+    const flowMounted = await mountRegionEditor(
+      PresentationContentLayout.Flow,
+      [layoutWithSection(IDS.layout, "tabs", IDS.section, "Flow fill")],
+      IDS.layout,
+    );
+    const flowEditor = flowMounted.editor;
+    const flowContentPosition = findNodePosition(flowEditor, IDS.first);
+    expect(
+      flowEditor.commands.setTextSelection({
+        from: flowContentPosition + 1,
+        to: flowContentPosition + 1,
+      }),
+    ).toBe(true);
+    const flowItem = getScaffoldAuthoringCataloguesForEditor(flowEditor).inDocument.getById("tabs");
+    if (!flowItem)
+      throw new Error("Expected the installed Tabs fill Layout in the Flow catalogue.");
+    const flowDocumentBeforeInsertion = JSON.stringify(flowEditor.getJSON());
+    const flowSelectionBeforeInsertion = flowEditor.state.selection.toJSON();
+    const flowHistoryBeforeInsertion = {
+      redoDepth: redoDepth(flowEditor.state),
+      undoDepth: undoDepth(flowEditor.state),
+    };
+    expect(
+      insertCatalogItemChecked(
+        flowEditor,
+        flowItem,
+        composition.capabilities.blocks.registry,
+        composition.capabilities.layouts.registry,
+        composition.capabilities.surfaces.registry,
+        regionEndRange(flowEditor, IDS.region),
+      ),
+    ).toBe(false);
+    expect(JSON.stringify(flowEditor.getJSON())).toBe(flowDocumentBeforeInsertion);
+    expect(flowEditor.state.selection.toJSON()).toEqual(flowSelectionBeforeInsertion);
+    expect(redoDepth(flowEditor.state)).toBe(flowHistoryBeforeInsertion.redoDepth);
+    expect(undoDepth(flowEditor.state)).toBe(flowHistoryBeforeInsertion.undoDepth);
+
+    await openRegionBubble(editor);
+    const rejectedDocumentBeforeConversion = JSON.stringify(editor.getJSON());
+    const rejectedSelectionBeforeConversion = editor.state.selection.toJSON();
+    const rejectedHistoryBeforeConversion = {
+      redoDepth: redoDepth(editor.state),
+      undoDepth: undoDepth(editor.state),
+    };
+    const rejectedProjectionBeforeConversion = projectionSnapshot(editor, [IDS.layout, insertedId]);
+    const rejectedStateBeforeConversion = readContentLayoutAuthoringState(
+      editor.state,
+    ).containers.get(IDS.region);
+    if (!rejectedStateBeforeConversion) {
+      throw new Error("Expected mounted Region state before rejected Flow conversion.");
+    }
+    await userEvent.click(page.getByRole("radio", { name: "Flow" }));
+    await expect
+      .element(
+        page.getByText("Flow is unavailable while this container has multiple fill children."),
+      )
+      .toBeVisible();
+    expect(JSON.stringify(editor.getJSON())).toBe(rejectedDocumentBeforeConversion);
+    expect(editor.state.selection.toJSON()).toEqual(rejectedSelectionBeforeConversion);
+    expect(redoDepth(editor.state)).toBe(rejectedHistoryBeforeConversion.redoDepth);
+    expect(undoDepth(editor.state)).toBe(rejectedHistoryBeforeConversion.undoDepth);
+    expect(projectionSnapshot(editor, [IDS.layout, insertedId])).toEqual(
+      rejectedProjectionBeforeConversion,
+    );
+    expect(
+      readContentLayoutAuthoringState(editor.state).containers.get(IDS.region)?.activeChildId,
+    ).toBe(rejectedStateBeforeConversion.activeChildId);
+    expect(contentLayoutInJson(editor.getJSON(), IDS.region)).toBe(
+      PresentationContentLayout.Sequence,
+    );
+    expectNoPersistedActiveChildId(editor.getJSON());
+
+    getInteractionFacadeStoreForEditor(editor).getState().commands.dismissInteraction();
+    await nextFrame();
+    deleteChildThroughExistingOwner(editor, insertedId);
+    await waitForCondition(
+      () =>
+        directChildIdsInDocument(editor, IDS.region).length === 1 &&
+        readContentLayoutAuthoringState(editor.state).containers.get(IDS.region)?.activeChildId ===
+          IDS.layout,
+      "compatible Sequence child set after deletion",
+    );
+    expectProjectedDom(editor, IDS.layout, "available");
+    const compatibleChildIds = directChildIdsInDocument(editor, IDS.region);
+    const compatibleDocumentBeforeConversion = editor.getJSON();
+    const expectedCompatibleDocumentAfterConversion = withContentLayoutAtId(
+      compatibleDocumentBeforeConversion,
+      IDS.region,
+      PresentationContentLayout.Flow,
+    );
+
+    await openRegionBubble(editor);
+    await userEvent.click(page.getByRole("radio", { name: "Flow" }));
+    await waitForCondition(
+      () => contentLayoutInJson(editor.getJSON(), IDS.region) === PresentationContentLayout.Flow,
+      "compatible Flow conversion",
+    );
+    expect(directChildIdsInDocument(editor, IDS.region)).toEqual(compatibleChildIds);
+    expect(editor.getJSON()).toEqual(expectedCompatibleDocumentAfterConversion);
+    expect(
+      readContentLayoutAuthoringState(editor.state).containers.get(IDS.region)?.resolution,
+    ).toBe("flow");
+    expectNoSequenceProjectionDom(editor, IDS.layout);
+    expectNoPersistedActiveChildId(editor.getJSON());
   });
 
   it("normalizes active first, middle, and last deletion through the existing owner", async () => {
@@ -957,6 +1173,33 @@ function expectProjectedDom(
   }
 }
 
+function projectionSnapshot(editor: Editor, childIds: readonly EmbeddedNodeId[]) {
+  return childIds.map((childId) => {
+    const child = requireNodeDom(editor, childId);
+    return {
+      accessibility: child.getAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.accessibility),
+      availability: child.getAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.availability),
+      ariaHidden: child.getAttribute("aria-hidden"),
+      geometry: child.getAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.geometry),
+      id: childId,
+      inert: child.hasAttribute("inert"),
+      interaction: child.getAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.interaction),
+      slot: child.getAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.slot),
+    };
+  });
+}
+
+function expectNoSequenceProjectionDom(editor: Editor, childId: EmbeddedNodeId): void {
+  const child = requireNodeDom(editor, childId);
+  expect(child).not.toHaveAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.slot);
+  expect(child).not.toHaveAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.availability);
+  expect(child).not.toHaveAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.interaction);
+  expect(child).not.toHaveAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.accessibility);
+  expect(child).not.toHaveAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.geometry);
+  expect(child).not.toHaveAttribute("inert");
+  expect(child).not.toHaveAttribute("aria-hidden");
+}
+
 function expectSelectionWithin(editor: Editor, id: EmbeddedNodeId): void {
   const from = findNodePosition(editor, id);
   const node = editor.state.doc.nodeAt(from);
@@ -1075,6 +1318,34 @@ function findNodePosition(editor: Editor, id: EmbeddedNodeId): number {
   });
   if (found === null) throw new Error(`Expected document node ${id}.`);
   return found;
+}
+
+function directChildIdsInDocument(editor: Editor, containerId: EmbeddedNodeId): EmbeddedNodeId[] {
+  const container = editor.state.doc.nodeAt(findNodePosition(editor, containerId));
+  if (!container) throw new Error(`Expected document container ${containerId}.`);
+
+  const ids: EmbeddedNodeId[] = [];
+  container.forEach((child) => {
+    const childId = EmbeddedNodeIdSchema.safeParse(child.attrs["id"]);
+    if (!childId.success) throw new Error(`Expected a stable ID under ${containerId}.`);
+    ids.push(childId.data);
+  });
+  return ids;
+}
+
+function regionEndRange(
+  editor: Editor,
+  regionId: EmbeddedNodeId,
+): { readonly from: number; readonly to: number } {
+  const regionPosition = findNodePosition(editor, regionId);
+  const region = editor.state.doc.nodeAt(regionPosition);
+  if (!region) throw new Error(`Expected Region ${regionId}.`);
+  const end = regionPosition + region.nodeSize - 1;
+  return { from: end, to: end };
+}
+
+function expectNoPersistedActiveChildId(value: JSONContent): void {
+  expect(JSON.stringify(value)).not.toContain('"activeChildId"');
 }
 
 function createDocument(
@@ -1322,6 +1593,24 @@ function withoutContentLayout(value: JSONContent): JSONContent {
   }
   if (value.content) next.content = value.content.map(withoutContentLayout);
   return next;
+}
+
+function withContentLayoutAtId(
+  value: JSONContent,
+  id: EmbeddedNodeId,
+  contentLayout: PresentationContentLayout,
+): JSONContent {
+  if (value.attrs?.["id"] === id) {
+    return {
+      ...value,
+      attrs: { ...value.attrs, contentLayout },
+    };
+  }
+  if (!value.content) return { ...value };
+  return {
+    ...value,
+    content: value.content.map((child) => withContentLayoutAtId(child, id, contentLayout)),
+  };
 }
 
 function contentLayoutInJson(value: JSONContent, id: EmbeddedNodeId): unknown {
