@@ -8,11 +8,12 @@ import { buildGridBesideDropTransaction } from "@/editor/arrangements/grid/model
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import {
   allowsBoundedContainerRootInsertionAtPosition,
-  isActiveBoundedContainerAtPosition,
   isFillOccupantNode,
+  resolveBoundedFillInsertionPolicyAtPosition,
   type BoundedContainerType,
 } from "@/editor/bounded-containers/model/bounded-container-placement";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import { resolveBoundedContainerOccupancyPolicy } from "@/editor/content-layout/model/content-layout-bounded-placement";
 import {
   canMoveSiblingNodeTo,
   moveSiblingNodeTo,
@@ -114,6 +115,10 @@ function buildMovementTransaction(
   if (containsPosition(sourcePos, sourceNode, targetPos)) return null;
   if (!canApplyStructureMovementBoundary(doc, sourcePos, targetPos)) return null;
 
+  const boundedMovePlacement = isDirectMoveIntent(intent)
+    ? resolveBoundedMovePlacementForIntent(editor, sourceNode, targetNode, intent, blockDefinitions)
+    : true;
+
   try {
     const tr = isDirectMoveIntent(intent)
       ? buildDirectMoveTransaction(
@@ -122,7 +127,7 @@ function buildMovementTransaction(
           sourceNode,
           targetNode,
           intent,
-          blockDefinitions,
+          boundedMovePlacement,
           surfaceVariants,
         )
       : isSideMovementIntent(intent)
@@ -144,18 +149,11 @@ function buildDirectMoveTransaction(
   sourceNode: ProseMirrorNode,
   targetNode: ProseMirrorNode,
   intent: DirectMoveIntent,
-  blockDefinitions: BlockDefinitionLookup,
+  boundedMovePlacement: boolean,
   surfaceVariants: SurfaceVariantLookup,
 ): Transaction | null {
   if (
-    !canInsertForMove(
-      editor,
-      sourceNode,
-      targetNode,
-      intent,
-      blockDefinitions,
-      surfaceVariants,
-    )
+    !canInsertForMove(editor, sourceNode, targetNode, intent, boundedMovePlacement, surfaceVariants)
   ) {
     return null;
   }
@@ -190,7 +188,7 @@ function canInsertForMove(
   sourceNode: ProseMirrorNode,
   targetNode: ProseMirrorNode,
   intent: DirectMoveIntent,
-  blockDefinitions: BlockDefinitionLookup,
+  boundedMovePlacement: boolean,
   surfaceVariants: SurfaceVariantLookup,
 ): boolean {
   const fragment = Fragment.from(sourceNode);
@@ -206,17 +204,7 @@ function canInsertForMove(
     ) {
       return false;
     }
-    if (
-      !allowsBoundedMovePlacementForTarget(
-        editor,
-        sourceNode,
-        targetNode,
-        intent.target.pos,
-        blockDefinitions,
-      )
-    ) {
-      return false;
-    }
+    if (!boundedMovePlacement) return false;
     return targetNode.canReplace(targetNode.childCount, targetNode.childCount, fragment);
   }
 
@@ -234,22 +222,55 @@ function canInsertForMove(
     return false;
   }
 
-  const parentPos = targetResolved.depth > 0 ? targetResolved.before(targetResolved.depth) : 0;
-  if (
-    !allowsBoundedMovePlacementForTarget(
-      editor,
-      sourceNode,
-      parent,
-      parentPos,
-      blockDefinitions,
-    )
-  ) {
-    return false;
-  }
+  if (!boundedMovePlacement) return false;
 
   const targetIndex = targetResolved.index();
   const insertIndex = intent instanceof InsertBeforeTarget ? targetIndex : targetIndex + 1;
   return targetResolved.parent.canReplace(insertIndex, insertIndex, fragment);
+}
+
+function resolveBoundedMovePlacementForIntent(
+  editor: Editor,
+  sourceNode: ProseMirrorNode,
+  targetNode: ProseMirrorNode,
+  intent: DirectMoveIntent,
+  blockDefinitions: BlockDefinitionLookup,
+): boolean {
+  if (intent instanceof InsertInsideTarget) {
+    return allowsBoundedMovePlacementForTarget(
+      editor,
+      sourceNode,
+      targetNode,
+      intent.target.pos,
+      blockDefinitions,
+    );
+  }
+
+  const targetParent = resolveMoveTargetParent(editor.state.doc, intent.target.pos);
+  if (!targetParent) return false;
+
+  return allowsBoundedMovePlacementForTarget(
+    editor,
+    sourceNode,
+    targetParent.node,
+    targetParent.pos,
+    blockDefinitions,
+  );
+}
+
+function resolveMoveTargetParent(
+  doc: ProseMirrorNode,
+  targetPos: number,
+): { node: ProseMirrorNode; pos: number } | null {
+  try {
+    const resolved = doc.resolve(targetPos);
+    return {
+      node: resolved.parent,
+      pos: resolved.depth > 0 ? resolved.before(resolved.depth) : 0,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function allowsBoundedMovePlacementForTarget(
@@ -261,10 +282,17 @@ function allowsBoundedMovePlacementForTarget(
 ): boolean {
   if (!mayBeBoundedMoveTarget(targetNode, blockDefinitions)) return true;
 
+  let layoutDefinitions: LayoutRegistry;
+  try {
+    layoutDefinitions = getScaffoldCapabilitiesForEditor(editor).layouts.registry;
+  } catch {
+    return false;
+  }
+
   return allowsBoundedMovePlacement({
     blockDefinitions,
     doc: editor.state.doc,
-    layoutDefinitions: getScaffoldCapabilitiesForEditor(editor).layouts.registry,
+    layoutDefinitions,
     sourceNode,
     targetNode,
     targetPos,
@@ -302,30 +330,32 @@ function allowsBoundedMovePlacement({
       doc,
       layoutDefinitions,
       pos: targetPos,
+      resolveBoundedContainerOccupancyPolicy,
     })
   ) {
     return false;
   }
 
   if (!isFillOccupantNode(sourceNode, blockDefinitions, layoutDefinitions)) return true;
-  if (!isBoundedContainerType(targetNode.type.name)) return true;
-  if (
-    !isActiveBoundedContainerAtPosition({
-      blockDefinitions,
-      containerType: targetNode.type.name,
-      doc,
-      layoutDefinitions,
-      pos: targetPos,
-    })
-  ) {
-    return true;
-  }
 
-  return (
-    targetNode.childCount === 1 &&
-    targetNode.firstChild?.type.name === "paragraph" &&
-    targetNode.firstChild.content.size === 0
-  );
+  const fillInsertionPolicy = resolveBoundedFillInsertionPolicyAtPosition({
+    blockDefinitions,
+    doc,
+    layoutDefinitions,
+    pos: targetPos,
+    resolveBoundedContainerOccupancyPolicy,
+  });
+  switch (fillInsertionPolicy.kind) {
+    case "not-active-bounded-container":
+    case "insert-at-checked-range":
+      return true;
+    case "replace-empty-placeholder":
+      return (
+        targetNode.childCount === 1 &&
+        targetNode.firstChild?.type.name === "paragraph" &&
+        targetNode.firstChild.content.size === 0
+      );
+  }
 }
 
 function isBoundedContainerType(nodeType: string): nodeType is BoundedContainerType {
