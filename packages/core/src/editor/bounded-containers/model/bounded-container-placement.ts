@@ -129,7 +129,7 @@ export function allowsBoundedContainerRootInsertionAtPosition(input: {
   doc: ProseMirrorNode;
   layoutDefinitions: LayoutRegistry;
   pos: number | null | undefined;
-  resolveBoundedContainerOccupancyPolicy?: ResolveBoundedContainerOccupancyPolicy;
+  resolveBoundedContainerOccupancyPolicy: ResolveBoundedContainerOccupancyPolicy;
 }): boolean {
   const container = resolveActiveBoundedContainer(
     input.doc,
@@ -138,8 +138,7 @@ export function allowsBoundedContainerRootInsertionAtPosition(input: {
     input.layoutDefinitions,
   );
   if (!container) return true;
-  const occupancyPolicy =
-    input.resolveBoundedContainerOccupancyPolicy?.(container) ?? EXCLUSIVE_FILL_OCCUPANCY_POLICY;
+  const occupancyPolicy = input.resolveBoundedContainerOccupancyPolicy(container);
   if (occupancyPolicy.kind === "shared-fill") return true;
   return !hasDirectFillOccupant(container, input.blockDefinitions, input.layoutDefinitions);
 }
@@ -149,7 +148,7 @@ export function resolveBoundedFillInsertionPolicyAtPosition(input: {
   doc: ProseMirrorNode;
   layoutDefinitions: LayoutRegistry;
   pos: number | null | undefined;
-  resolveBoundedContainerOccupancyPolicy?: ResolveBoundedContainerOccupancyPolicy;
+  resolveBoundedContainerOccupancyPolicy: ResolveBoundedContainerOccupancyPolicy;
 }): BoundedFillInsertionPolicy {
   const container = resolveActiveBoundedContainer(
     input.doc,
@@ -159,8 +158,7 @@ export function resolveBoundedFillInsertionPolicyAtPosition(input: {
   );
   if (!container) return NOT_ACTIVE_BOUNDED_CONTAINER_FILL_INSERTION_POLICY;
 
-  const occupancyPolicy =
-    input.resolveBoundedContainerOccupancyPolicy?.(container) ?? EXCLUSIVE_FILL_OCCUPANCY_POLICY;
+  const occupancyPolicy = input.resolveBoundedContainerOccupancyPolicy(container);
   return occupancyPolicy.kind === "shared-fill"
     ? INSERT_AT_CHECKED_RANGE_FILL_INSERTION_POLICY
     : REPLACE_EMPTY_PLACEHOLDER_FILL_INSERTION_POLICY;

@@ -18,6 +18,7 @@ import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { resolveBoundedContainerOccupancyPolicy } from "@/editor/content-layout/model/content-layout-bounded-placement";
 
 import {
   allowsBoundedContainerRootInsertionAtPosition as allowsBoundedContainerRootInsertionAtPositionWithLookup,
@@ -39,6 +40,7 @@ const TestFillNode = Node.create({
 
 const testFillDefinition = defineBlock({
   nodeType: TEST_FILL_NODE,
+  title: "Test accordion terminal fill",
   boundedPlacement: "fill",
 });
 
@@ -50,13 +52,14 @@ const testBlockRegistry = createBlockRegistry([
 function allowsBoundedContainerRootInsertionAtPosition(
   input: Omit<
     Parameters<typeof allowsBoundedContainerRootInsertionAtPositionWithLookup>[0],
-    "blockDefinitions" | "layoutDefinitions"
+    "blockDefinitions" | "layoutDefinitions" | "resolveBoundedContainerOccupancyPolicy"
   >,
 ) {
   return allowsBoundedContainerRootInsertionAtPositionWithLookup({
     ...input,
     blockDefinitions: testBlockRegistry,
     layoutDefinitions: builtInLayoutRegistry,
+    resolveBoundedContainerOccupancyPolicy,
   });
 }
 
