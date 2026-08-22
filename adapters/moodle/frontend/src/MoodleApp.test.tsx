@@ -64,6 +64,7 @@ vi.mock("@scaffold/core/authoring", () => ({
       createElement(
         "header",
         { "data-testid": "shared-header-actions" },
+        slots?.utility,
         slots?.beforePublish,
         createElement("button", { type: "button" }, "Core Publish"),
         slots?.afterPublish,
@@ -354,7 +355,8 @@ describe("MoodleApp", () => {
       saveState: "idle",
       title: readyArtifact.title,
     });
-    expect(Object.keys(slots)).toEqual(["beforePublish"]);
+    expect(Object.keys(slots)).toEqual(["utility"]);
+    expect(slots["beforePublish"]).toBeUndefined();
     expect(slots["afterPublish"]).toBeUndefined();
     expect(mocks.saveNow).not.toHaveBeenCalled();
     expect(screen.queryByRole("navigation", { name: "Scaffold authoring" })).toBeNull();

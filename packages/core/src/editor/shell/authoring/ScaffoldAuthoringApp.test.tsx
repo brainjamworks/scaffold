@@ -1223,7 +1223,7 @@ describe("ScaffoldAuthoringApp preview", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("renders host slots around one Core Publish action without publication authority", async () => {
+  it("groups header actions by task order while preserving publication slots", async () => {
     let hostContextKeys: string[] = [];
     render(
       <ScaffoldAuthoringApp
@@ -1241,6 +1241,7 @@ describe("ScaffoldAuthoringApp preview", () => {
         hostHeaderActions={(context) => {
           hostContextKeys = Object.keys(context).sort();
           return {
+            utility: <button type="button">Host utility</button>,
             beforePublish: <button type="button">Before Publish</button>,
             afterPublish: <button type="button">After Publish</button>,
           };
@@ -1248,9 +1249,22 @@ describe("ScaffoldAuthoringApp preview", () => {
       />,
     );
 
+    const utility = await screen.findByRole("button", { name: "Host utility" });
+    const appearance = screen.getByRole("group", { name: "Appearance" });
+    const workspace = screen.getByRole("group", { name: "Workspace" });
+    const release = screen.getByRole("group", { name: "Preview and publishing" });
+    const preview = screen.getByRole("button", { name: "Switch to preview" });
     const before = await screen.findByRole("button", { name: "Before Publish" });
     const publish = screen.getByRole("button", { name: "Publish" });
     const after = screen.getByRole("button", { name: "After Publish" });
+    expect(utility.closest('[data-authoring-action-group="utility"]')).not.toBeNull();
+    expect(
+      appearance.compareDocumentPosition(workspace) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(workspace.compareDocumentPosition(release) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(
+      0,
+    );
+    expect(preview.compareDocumentPosition(before) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     expect(before.compareDocumentPosition(publish) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     expect(publish.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     expect(hostContextKeys).toEqual(["preview", "saveNow", "saveState", "title"]);
@@ -1314,6 +1328,7 @@ describe("ScaffoldAuthoringApp preview", () => {
     });
 
     expect(await screen.findByText("Publication complete")).toBeVisible();
+    expect(screen.getByText("This version is now live for learners.")).toBeVisible();
     expect(document.querySelectorAll(".sc-app-notification")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Published" })).toHaveAttribute(
       "aria-disabled",
@@ -1371,10 +1386,12 @@ describe("ScaffoldAuthoringApp preview", () => {
       ),
     );
     await userEvent.click(screen.getByRole("button", { name: "Publish" }));
-    expect(await screen.findByText("Publication failed. Try again.")).toBeVisible();
+    expect(await screen.findByText("Publication failed")).toBeVisible();
+    expect(screen.getByText("Try again.")).toBeVisible();
 
     await userEvent.click(screen.getByRole("button", { name: "Publish" }));
     expect(await screen.findByText("Publication complete")).toBeVisible();
+    expect(screen.getByText("This version is now live for learners.")).toBeVisible();
     expect(publish).toHaveBeenCalledTimes(2);
     expect(document.querySelectorAll(".sc-app-notification")).toHaveLength(1);
   });

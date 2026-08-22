@@ -36,6 +36,13 @@
   .sc-scaffold-authoring-actions {
     display: flex;
     align-items: center;
+    gap: 1rem;
+  }
+
+  .sc-scaffold-authoring-action-group {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
     gap: 0.5rem;
   }
 
@@ -66,7 +73,15 @@
     display: inline;
   }
 
-  @container sc-editor-header (max-width: 32rem) {
+  @container sc-editor-header (max-width: 48rem) {
+    .sc-scaffold-authoring-actions {
+      gap: 0.375rem;
+    }
+
+    .sc-scaffold-authoring-action-group {
+      gap: 0.25rem;
+    }
+
     .sc-scaffold-authoring-action[data-compact-label] {
       width: var(--spacing-touch-target);
       height: var(--spacing-touch-target);

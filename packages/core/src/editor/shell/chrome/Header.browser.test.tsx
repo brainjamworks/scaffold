@@ -41,6 +41,16 @@ describe("Header responsive geometry", () => {
       expect(getComputedStyle(label).display).not.toBe("none");
     }
   });
+
+  it("compacts action labels before they crowd a medium-width title", async () => {
+    await page.viewport(900, 600);
+    const sample = await mountHeader(760);
+
+    expect(getComputedStyle(sample.title).display).not.toBe("none");
+    for (const label of sample.labels) {
+      expect(getComputedStyle(label).display).toBe("none");
+    }
+  });
 });
 
 async function mountHeader(width: number) {

@@ -4,7 +4,15 @@
   .sc-course-popover-surface {
     box-sizing: border-box;
     display: flex;
+    inline-size: min(
+      var(--sc-course-popover-preferred-inline-size, 25rem),
+      var(--sc-overlay-available-inline-size, 25rem)
+    );
     max-inline-size: min(100%, var(--sc-overlay-available-inline-size, 100%));
+    max-block-size: min(
+      var(--sc-course-popover-maximum-block-size, 20rem),
+      var(--sc-overlay-available-block-size, 20rem)
+    );
     min-inline-size: 0;
     min-block-size: 0;
     flex-direction: column;
@@ -15,6 +23,7 @@
     display: flex;
     min-inline-size: 0;
     flex: none;
+    flex-wrap: wrap;
     align-items: center;
   }
 
@@ -57,6 +66,7 @@
     min-inline-size: 0;
     flex: none;
     align-items: center;
+    margin-inline-start: auto;
   }
 
   .sc-course-popover-surface__body {

@@ -7,7 +7,24 @@
   }
 
   .sc-app-notification-viewport [data-sonner-toast] {
-    width: min(24rem, calc(100vw - 1.5rem));
+    width: min(22rem, calc(100vw - 2rem)) !important;
+    transition:
+      transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 160ms ease-out,
+      height 200ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 160ms ease-out !important;
+  }
+
+  .sc-app-notification-viewport [data-sonner-toast][data-y-position="top"][data-mounted="false"] {
+    --y: translateY(-0.5rem) !important;
+  }
+
+  .sc-app-notification-viewport [data-sonner-toast] > * {
+    transition: opacity 160ms ease-out !important;
+  }
+
+  .sc-app-notification-viewport [data-sonner-toast][data-swiping="true"] {
+    transition: none !important;
   }
 
   .sc-app-notification {
@@ -16,19 +33,20 @@
     width: 100%;
     min-height: 3.25rem;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: start;
+    align-items: center;
     gap: 0.75rem;
     padding: 0.75rem;
     border: 1px solid var(--sc-app-color-border);
     border-radius: var(--sc-app-radius-surface);
     background: var(--sc-app-color-background);
-    box-shadow: var(--shadow-overlay);
+    box-shadow: var(--sc-app-shadow-notification);
     color: var(--sc-app-color-text-primary);
   }
 
   .sc-app-notification__icon {
     display: inline-flex;
-    margin-top: 0.0625rem;
+    align-items: center;
+    justify-content: center;
     color: var(--sc-app-color-primary);
   }
 
@@ -68,10 +86,11 @@
   }
 
   .sc-app-notification__dismiss {
+    position: relative;
     display: inline-grid;
-    width: 2rem;
-    height: 2rem;
-    margin: -0.25rem -0.25rem -0.25rem 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: -0.5rem -0.5rem -0.5rem 0;
     padding: 0;
     border: 0;
     border-radius: var(--sc-app-radius-control);
@@ -79,14 +98,35 @@
     color: var(--sc-app-color-text-muted);
     cursor: pointer;
     place-items: center;
+    transition: color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-app-notification__dismiss::before {
+    position: absolute;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--sc-app-radius-control);
+    background: transparent;
+    content: "";
     transition:
       background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
-      color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+      transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-app-notification__dismiss:hover::before {
+    background: var(--sc-app-color-muted);
   }
 
   .sc-app-notification__dismiss:hover {
-    background: var(--sc-app-color-muted);
     color: var(--sc-app-color-text-primary);
+  }
+
+  .sc-app-notification__dismiss:active::before {
+    transform: scale(0.94);
+  }
+
+  .sc-app-notification__dismiss svg {
+    position: relative;
   }
 
   .sc-app-notification__dismiss:focus-visible {
@@ -121,6 +161,10 @@
     }
 
     .sc-app-notification__dismiss {
+      transition: none;
+    }
+
+    .sc-app-notification__dismiss::before {
       transition: none;
     }
 

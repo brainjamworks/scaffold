@@ -146,6 +146,8 @@ export interface ScaffoldAuthoringHostActionsContext {
 }
 
 export interface ScaffoldAuthoringHostActionSlots {
+  /** Host-owned utility actions displayed before Core's task groups. */
+  utility?: ReactNode;
   beforePublish?: ReactNode;
   afterPublish?: ReactNode;
 }
@@ -170,8 +172,8 @@ export interface ScaffoldAuthoringAppProps {
   productAccess: ScaffoldProductAccess;
   services: ScaffoldAuthoringHostServices;
   /**
-   * Host-owned actions placed around Core's publication action. Publication
-   * state and commands intentionally remain private to the Core app shell.
+   * Host-owned utility and publication-adjacent actions. Publication state and
+   * commands intentionally remain private to the Core app shell.
    */
   hostHeaderActions?: (
     context: ScaffoldAuthoringHostActionsContext,
@@ -772,13 +774,15 @@ function ScaffoldAuthoringAppSessionContent({
   ]);
 
   const notifyPublicationOutcome = useCallback(
-    (intent: "success" | "error", message: string) => {
+    (intent: "success" | "error", message: string, description: string) => {
       const notificationId = publicationNotificationIdRef.current;
       if (notificationId) {
-        appNotifications.update(notificationId, intent, message);
+        appNotifications.update(notificationId, intent, message, { description });
         return;
       }
-      publicationNotificationIdRef.current = appNotifications.notify(intent, message);
+      publicationNotificationIdRef.current = appNotifications.notify(intent, message, {
+        description,
+      });
     },
     [appNotifications],
   );
@@ -876,12 +880,13 @@ function ScaffoldAuthoringAppSessionContent({
       const published = status.publishedArtifactRevision === sourceArtifactRevision;
       notifyPublicationOutcome(
         published ? "success" : "error",
-        published ? "Publication complete" : "Publication failed. Try again.",
+        published ? "Publication complete" : "Publication failed",
+        published ? "This version is now live for learners." : "Try again.",
       );
       return published;
     } catch (error) {
       setPublishActionState(readPublicationPortErrorCode(error) ?? "error");
-      notifyPublicationOutcome("error", "Publication failed. Try again.");
+      notifyPublicationOutcome("error", "Publication failed", "Try again.");
       return false;
     } finally {
       publishInFlightRef.current = false;
@@ -950,70 +955,106 @@ function ScaffoldAuthoringAppSessionContent({
 
   const appHeaderActions = (
     <div className="sc-scaffold-authoring-actions">
-      {hostActionSlots?.beforePublish}
-      <AuthoringPublishAction onPublish={publishNow} publishState={publishState} />
-      {hostActionSlots?.afterPublish}
-      {courseTheme ? (
-        <CourseThemePanel
-          editor={editor}
-          designs={builtInCourseDesignThemeRegistry}
-          colourSystems={builtInCourseColourSystemRegistry}
-          theme={courseTheme}
-          onThemeChange={(nextTheme) => {
-            setCourseThemeState({ source: readyArtifact, value: nextTheme });
-          }}
+      {hostActionSlots?.utility ? (
+        <div
+          className="sc-scaffold-authoring-action-group"
+          data-authoring-action-group="utility"
+          role="group"
+          aria-label="Host tools"
+        >
+          {hostActionSlots.utility}
+        </div>
+      ) : null}
+      <div
+        className="sc-scaffold-authoring-action-group"
+        data-authoring-action-group="appearance"
+        role="group"
+        aria-label="Appearance"
+      >
+        {courseTheme ? (
+          <CourseThemePanel
+            editor={editor}
+            designs={builtInCourseDesignThemeRegistry}
+            colourSystems={builtInCourseColourSystemRegistry}
+            theme={courseTheme}
+            onThemeChange={(nextTheme) => {
+              setCourseThemeState({ source: readyArtifact, value: nextTheme });
+            }}
+          />
+        ) : null}
+        <AuthoringColorModeButton
+          mode={applicationColorMode}
+          onToggle={toggleApplicationColorMode}
         />
-      ) : null}
-      <AuthoringColorModeButton mode={applicationColorMode} onToggle={toggleApplicationColorMode} />
+      </div>
       {!preview ? (
-        <button
-          ref={outlineToggleRef}
-          type="button"
-          onClick={() => setOutlineOpen((open) => !open)}
-          aria-pressed={outlineOpen}
-          aria-label={outlineOpen ? "Hide Document Outline" : "Show Document Outline"}
-          title="Toggle Document Outline"
-          className="sc-scaffold-authoring-action"
-          data-compact-label
-          data-state={outlineOpen ? "active-muted" : "default"}
+        <div
+          className="sc-scaffold-authoring-action-group"
+          data-authoring-action-group="workspace"
+          role="group"
+          aria-label="Workspace"
         >
-          <ListBullets size={iconSm} aria-hidden />
-          <span className="sc-scaffold-authoring-action-label">Outline</span>
-        </button>
+          <button
+            ref={outlineToggleRef}
+            type="button"
+            onClick={() => setOutlineOpen((open) => !open)}
+            aria-pressed={outlineOpen}
+            aria-label={outlineOpen ? "Hide Document Outline" : "Show Document Outline"}
+            title="Toggle Document Outline"
+            className="sc-scaffold-authoring-action"
+            data-compact-label
+            data-state={outlineOpen ? "active-muted" : "default"}
+          >
+            <ListBullets size={iconSm} aria-hidden />
+            <span className="sc-scaffold-authoring-action-label">Outline</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleAgentToggle}
+            aria-pressed={resolvedAgentOpen}
+            aria-label={resolvedAgentOpen ? "Hide Scaffold Agent" : "Show Scaffold Agent"}
+            title="Toggle Scaffold Agent"
+            className="sc-scaffold-authoring-action"
+            data-compact-label
+            data-state={resolvedAgentOpen ? "active-muted" : "default"}
+          >
+            <ChatCircleText size={iconSm} aria-hidden />
+            <span className="sc-scaffold-authoring-action-label">Agent</span>
+          </button>
+        </div>
       ) : null}
-      {!preview ? (
-        <button
-          type="button"
-          onClick={handleAgentToggle}
-          aria-pressed={resolvedAgentOpen}
-          aria-label={resolvedAgentOpen ? "Hide Scaffold Agent" : "Show Scaffold Agent"}
-          title="Toggle Scaffold Agent"
-          className="sc-scaffold-authoring-action"
-          data-compact-label
-          data-state={resolvedAgentOpen ? "active-muted" : "default"}
-        >
-          <ChatCircleText size={iconSm} aria-hidden />
-          <span className="sc-scaffold-authoring-action-label">Agent</span>
-        </button>
-      ) : null}
-      {enablePreview ? (
-        <button
-          type="button"
-          onClick={handlePreviewToggle}
-          disabled={previewState === "loading" || (!preview && !editor)}
-          aria-pressed={preview}
-          aria-label={preview ? "Switch to editing" : "Switch to preview"}
-          title={preview ? "Switch to editing" : "Switch to preview"}
-          className="sc-scaffold-authoring-action"
-          data-compact-label
-          data-state={preview ? "active-primary" : "default"}
-        >
-          {preview ? <PencilSimple size={iconSm} aria-hidden /> : <Eye size={iconSm} aria-hidden />}
-          <span className="sc-scaffold-authoring-action-label">
-            {preview ? "Edit" : previewState === "loading" ? "Preparing..." : "Preview"}
-          </span>
-        </button>
-      ) : null}
+      <div
+        className="sc-scaffold-authoring-action-group"
+        data-authoring-action-group="release"
+        role="group"
+        aria-label="Preview and publishing"
+      >
+        {enablePreview ? (
+          <button
+            type="button"
+            onClick={handlePreviewToggle}
+            disabled={previewState === "loading" || (!preview && !editor)}
+            aria-pressed={preview}
+            aria-label={preview ? "Switch to editing" : "Switch to preview"}
+            title={preview ? "Switch to editing" : "Switch to preview"}
+            className="sc-scaffold-authoring-action"
+            data-compact-label
+            data-state={preview ? "active-primary" : "default"}
+          >
+            {preview ? (
+              <PencilSimple size={iconSm} aria-hidden />
+            ) : (
+              <Eye size={iconSm} aria-hidden />
+            )}
+            <span className="sc-scaffold-authoring-action-label">
+              {preview ? "Edit" : previewState === "loading" ? "Preparing..." : "Preview"}
+            </span>
+          </button>
+        ) : null}
+        {hostActionSlots?.beforePublish}
+        <AuthoringPublishAction onPublish={publishNow} publishState={publishState} />
+        {hostActionSlots?.afterPublish}
+      </div>
       {previewState === "error" ? (
         <span role="alert">Preview could not be prepared. Try again.</span>
       ) : null}

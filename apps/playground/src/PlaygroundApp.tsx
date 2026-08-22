@@ -104,7 +104,7 @@ export function PlaygroundApp({
       artifact={artifact}
       productAccess={freeProductAccess}
       services={authoringServices}
-      hostHeaderActions={() => ({ beforePublish: headerExtras })}
+      hostHeaderActions={() => ({ utility: headerExtras })}
       agentOpen={agentOpen}
       onAgentOpenChange={setAgentOpen}
       onAgentClose={() => setAgentOpen(false)}

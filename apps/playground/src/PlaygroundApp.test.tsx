@@ -132,6 +132,7 @@ vi.mock("@scaffold/core/authoring", async () => {
           "header",
           null,
           createElement("h1", null, title),
+          (hostActionSlots as { utility?: ReactNode } | null)?.utility,
           (hostActionSlots as { beforePublish?: ReactNode } | null)?.beforePublish,
           createElement("button", { type: "button" }, "Core Publish"),
           (hostActionSlots as { afterPublish?: ReactNode } | null)?.afterPublish,
@@ -376,7 +377,7 @@ describe("PlaygroundApp preview boundary", () => {
     });
   });
 
-  it("supplies header extras only in the before-Publish host slot", async () => {
+  it("supplies header extras in the host utility slot", async () => {
     mocks.loadArtifact.mockResolvedValueOnce(storedArtifact());
 
     render(
@@ -395,7 +396,9 @@ describe("PlaygroundApp preview boundary", () => {
     const slots = (
       hostHeaderActions as (context: Record<string, unknown>) => Record<string, unknown>
     )({ preview: false, saveNow: async () => true, saveState: "idle", title: "Stored draft" });
-    expect(Object.keys(slots)).toEqual(["beforePublish"]);
+    expect(Object.keys(slots)).toEqual(["utility"]);
+    expect(slots["utility"]).toBeDefined();
+    expect(slots["beforePublish"]).toBeUndefined();
     expect(slots["afterPublish"]).toBeUndefined();
   });
 

@@ -122,14 +122,13 @@ export function AppNotificationsProvider({ appearance, children }: AppNotificati
       <Toaster
         className="sc-app-notification-viewport"
         containerAriaLabel="Authoring notifications"
-        expand
         gap={8}
         id={toasterId}
-        mobileOffset={{ right: 12, top: 72 }}
+        mobileOffset={{ right: 12, top: 80 }}
         offset={{ right: 16, top: 72 }}
         position="top-right"
         theme={appearance}
-        visibleToasts={4}
+        visibleToasts={3}
       />
     </AppNotificationsContext.Provider>
   );

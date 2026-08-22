@@ -89,14 +89,14 @@ afterEach(() => {
 });
 
 describe("EditableOverlayPopoverShell", () => {
-  it("restores the resolved Course theme on editable portal content", async () => {
+  it("keeps editable portal content out of the Course theme boundary", async () => {
     render(
       <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="dark">
         <EditableOverlayPopover.Root defaultOpen>
           <EditableOverlayPopover.Trigger>Open feedback</EditableOverlayPopover.Trigger>
           <EditableOverlayPopover.Portal>
             <EditableOverlayPopover.Content title="Feedback">
-              Course-owned text
+              App-owned editor content
             </EditableOverlayPopover.Content>
           </EditableOverlayPopover.Portal>
         </EditableOverlayPopover.Root>
@@ -104,13 +104,9 @@ describe("EditableOverlayPopoverShell", () => {
     );
 
     const dialog = await screen.findByRole("dialog", { name: "Feedback" });
-    expect(dialog).toHaveClass(
-      "radix-themes",
-      "dark",
-      "sc-course",
-      "sc-course-theme-scaffold-flow-v1",
-    );
-    expect(dialog.querySelector(".sc-course-popover-surface")).toBeInstanceOf(HTMLElement);
+    expect(dialog).not.toHaveClass("sc-course", "sc-course-theme-scaffold-flow-v1");
+    expect(dialog.querySelector(".sc-app-editable-overlay-popover")).toBeInstanceOf(HTMLElement);
+    expect(dialog.querySelector(".sc-course-popover-surface")).toBeNull();
   });
 
   it("renders a labelled editor popover shell with consumer-owned slots", () => {
@@ -237,7 +233,7 @@ describe("EditableOverlayPopoverShell", () => {
     expect(onCloseAutoFocus).not.toHaveBeenCalled();
   });
 
-  it("composes Course-owned text and pager actions without taking over behavior", async () => {
+  it("composes App-owned text and pager actions without taking over behavior", async () => {
     const onClick = vi.fn();
 
     render(
@@ -268,13 +264,13 @@ describe("EditableOverlayPopoverShell", () => {
 
     expect(onClick).toHaveBeenCalledTimes(1);
     expect(addAction.getAttribute("type")).toBe("button");
-    expect(addAction).toHaveClass("sc-course-popover-action");
-    expect(addAction.className).not.toContain("sc-app-");
+    expect(addAction).toHaveClass("sc-app-editable-overlay-popover__text-action");
+    expect(addAction.className).not.toContain("sc-course-");
     expect(deleteAction.getAttribute("data-tone")).toBe("danger");
-    expect(previousAction).toHaveClass("sc-course-popover-pager__action");
+    expect(previousAction).toHaveClass("sc-app-editable-overlay-popover__pager-action");
     expect(previousAction).toBeDisabled();
-    expect(nextAction).toHaveClass("sc-course-popover-pager__action");
-    expect(previousAction.parentElement).toHaveClass("sc-course-popover-pager");
+    expect(nextAction).toHaveClass("sc-app-editable-overlay-popover__pager-action");
+    expect(previousAction.parentElement).toHaveClass("sc-app-editable-overlay-popover__pager");
   });
 
   it("exposes a namespace compatible with the editor floating popover", () => {

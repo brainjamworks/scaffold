@@ -135,7 +135,7 @@ function MoodleAuthoringApp({
       mainClassName="sc-moodle-editor-scroll"
       scrollModel="contained"
       hostHeaderActions={() => ({
-        beforePublish: <MoodleReturnLink returnUrl={returnUrl} />,
+        utility: <MoodleReturnLink returnUrl={returnUrl} />,
       })}
     />
   );

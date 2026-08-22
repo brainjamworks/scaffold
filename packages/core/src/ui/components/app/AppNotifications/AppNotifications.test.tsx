@@ -29,20 +29,26 @@ const sonner = vi.hoisted(() => ({
 vi.mock("sonner", () => ({
   Toaster: ({
     containerAriaLabel,
+    expand,
     id,
     mobileOffset,
     theme,
+    visibleToasts,
   }: {
     containerAriaLabel?: string;
+    expand?: boolean;
     id?: string;
     mobileOffset?: { top?: number };
     theme?: string;
+    visibleToasts?: number;
   }) => (
     <div
+      data-expand={expand ? "true" : "false"}
       data-testid="sonner-toaster"
       data-theme={theme}
       data-toaster-id={id}
       data-mobile-top={mobileOffset?.top}
+      data-visible-toasts={visibleToasts}
       aria-label={containerAriaLabel}
     />
   ),
@@ -91,7 +97,9 @@ describe("AppNotifications", () => {
     const toaster = screen.getByTestId("sonner-toaster");
     expect(toaster).toHaveAttribute("data-theme", "dark");
     expect(toaster).toHaveAttribute("aria-label", "Authoring notifications");
-    expect(toaster).toHaveAttribute("data-mobile-top", "72");
+    expect(toaster).toHaveAttribute("data-expand", "false");
+    expect(toaster).toHaveAttribute("data-mobile-top", "80");
+    expect(toaster).toHaveAttribute("data-visible-toasts", "3");
 
     act(() => {
       requireNotifications().notify("info", "Document ready");

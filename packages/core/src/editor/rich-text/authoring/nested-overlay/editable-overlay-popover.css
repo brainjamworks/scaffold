@@ -1,0 +1,256 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-app-editable-overlay-popover {
+    box-sizing: border-box;
+    display: flex;
+    inline-size: min(25rem, var(--sc-overlay-available-inline-size, 25rem));
+    max-inline-size: min(100%, var(--sc-overlay-available-inline-size, 100%));
+    min-inline-size: 0;
+    max-block-size: min(20rem, var(--sc-overlay-available-block-size, 20rem));
+    min-block-size: 0;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-background);
+    box-shadow: var(--shadow-overlay);
+    color: var(--color-ink);
+    font-family: var(--default-font-family);
+  }
+
+  .sc-app-editable-overlay-popover__header {
+    display: flex;
+    min-inline-size: 0;
+    flex: none;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-block-end: 1px solid var(--color-border);
+    background: var(--color-canvas);
+  }
+
+  .sc-app-editable-overlay-popover__icon {
+    display: inline-flex;
+    inline-size: 1.75rem;
+    block-size: 1.75rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-pill);
+    background: var(--color-primary-muted);
+    color: var(--color-primary);
+  }
+
+  .sc-app-editable-overlay-popover__heading {
+    min-inline-size: 0;
+    flex: 1 1 auto;
+  }
+
+  .sc-app-editable-overlay-popover__title-row {
+    display: flex;
+    min-inline-size: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+  }
+
+  .sc-app-editable-overlay-popover__title,
+  .sc-app-editable-overlay-popover__description {
+    min-inline-size: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .sc-app-editable-overlay-popover__title {
+    color: var(--color-ink);
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.25rem;
+  }
+
+  .sc-app-editable-overlay-popover__description {
+    margin-block-start: 0.125rem;
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+
+  .sc-app-editable-overlay-popover__meta {
+    display: inline-flex;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 1.25rem;
+    align-items: center;
+    padding-inline: 0.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-muted);
+    color: var(--color-text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1rem;
+    overflow-wrap: anywhere;
+  }
+
+  .sc-app-editable-overlay-popover__header-actions {
+    display: inline-flex;
+    min-inline-size: 0;
+    flex: none;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .sc-app-editable-overlay-popover__body {
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 1 1 auto;
+    padding: 1rem;
+    overflow-y: auto;
+    color: var(--color-ink);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    overflow-wrap: anywhere;
+    overscroll-behavior: contain;
+  }
+
+  .sc-app-editable-overlay-popover__body > :first-child {
+    margin-block-start: 0;
+  }
+
+  .sc-app-editable-overlay-popover__body > :last-child {
+    margin-block-end: 0;
+  }
+
+  .sc-app-editable-overlay-popover__footer {
+    display: flex;
+    min-inline-size: 0;
+    flex: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-block-start: 1px solid var(--color-border);
+    background: var(--color-canvas);
+  }
+
+  .sc-app-editable-overlay-popover__footer-start,
+  .sc-app-editable-overlay-popover__footer-end {
+    display: flex;
+    min-inline-size: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .sc-app-editable-overlay-popover__footer-end {
+    justify-content: flex-end;
+    margin-inline-start: auto;
+  }
+
+  .sc-app-editable-overlay-popover__text-action,
+  .sc-app-editable-overlay-popover__pager-action {
+    display: inline-flex;
+    box-sizing: border-box;
+    min-block-size: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background-color 150ms var(--ease-out-soft),
+      color 150ms var(--ease-out-soft),
+      opacity 150ms var(--ease-out-soft);
+  }
+
+  .sc-app-editable-overlay-popover__text-action {
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    gap: 0.25rem;
+    padding-inline: 0.75rem;
+  }
+
+  .sc-app-editable-overlay-popover__text-action[data-tone="danger"] {
+    color: var(--sc-app-color-error-text);
+  }
+
+  .sc-app-editable-overlay-popover__pager {
+    display: inline-flex;
+    min-inline-size: 0;
+    min-block-size: 2.75rem;
+    flex: none;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .sc-app-editable-overlay-popover__pager-action {
+    inline-size: 2.75rem;
+    min-inline-size: 2.75rem;
+    block-size: 2.75rem;
+    flex: none;
+    padding: 0;
+  }
+
+  .sc-app-editable-overlay-popover__text-action:focus-visible,
+  .sc-app-editable-overlay-popover__pager-action:focus-visible {
+    outline: 2px solid var(--color-focus-outline);
+    outline-offset: -2px;
+  }
+
+  .sc-app-editable-overlay-popover__text-action:disabled,
+  .sc-app-editable-overlay-popover__pager-action:disabled {
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .sc-app-editable-overlay-popover__arrow {
+    fill: var(--color-background);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .sc-app-editable-overlay-popover__text-action:hover:not(:disabled),
+    .sc-app-editable-overlay-popover__pager-action:hover:not(:disabled) {
+      background: var(--color-muted);
+      color: var(--color-ink);
+    }
+
+    .sc-app-editable-overlay-popover__text-action[data-tone="danger"]:hover:not(:disabled) {
+      background: var(--sc-app-color-error-background);
+      color: var(--sc-app-color-error-text);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-app-editable-overlay-popover__text-action,
+    .sc-app-editable-overlay-popover__pager-action {
+      transition: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .sc-app-editable-overlay-popover {
+      border-color: CanvasText;
+    }
+
+    .sc-app-editable-overlay-popover__text-action,
+    .sc-app-editable-overlay-popover__pager-action {
+      color: ButtonText;
+    }
+
+    .sc-app-editable-overlay-popover__text-action:focus-visible,
+    .sc-app-editable-overlay-popover__pager-action:focus-visible {
+      outline-color: Highlight;
+    }
+
+    .sc-app-editable-overlay-popover__text-action:disabled,
+    .sc-app-editable-overlay-popover__pager-action:disabled {
+      color: GrayText;
+    }
+  }
+}

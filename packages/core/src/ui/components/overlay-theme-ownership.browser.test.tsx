@@ -10,6 +10,7 @@ import * as Popover from "./Popover/Popover";
 import { CoursePopoverSurface } from "./course/CoursePopoverSurface/CoursePopoverSurface";
 import * as Tooltip from "./Tooltip/Tooltip";
 import { WorkspaceDialog } from "./WorkspaceDialog/WorkspaceDialog";
+import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
 
 const mountedRoots: Root[] = [];
 
@@ -199,6 +200,32 @@ describe("overlay theme ownership", () => {
     expect(tooltip.closest(".sc-course-theme-scope")).toBeNull();
     expect(getComputedStyle(tooltip).borderTopWidth).toBe("1px");
     expect(getComputedStyle(tooltip).borderRadius).toBe("8px");
+  });
+
+  it("keeps editable popover surfaces on the application owner inside Course content", async () => {
+    const fixture = createOwnershipFixture("application");
+    fixture.root.render(
+      <OverlayBoundary container={fixture.boundaryContainer} kind="viewport">
+        <section className="sc-course sc-course-theme-scaffold-flow-v1">
+          <EditableOverlayPopover.Root open>
+            <EditableOverlayPopover.Trigger>Feedback editor</EditableOverlayPopover.Trigger>
+            <EditableOverlayPopover.Portal>
+              <EditableOverlayPopover.Content title="Feedback">
+                Edit learner feedback.
+              </EditableOverlayPopover.Content>
+            </EditableOverlayPopover.Portal>
+          </EditableOverlayPopover.Root>
+        </section>
+      </OverlayBoundary>,
+    );
+
+    const popover = await waitForElement('[role="dialog"][aria-labelledby]');
+    const surface = popover.querySelector<HTMLElement>(".sc-app-editable-overlay-popover");
+
+    expectThemeOwner(popover, "application");
+    expect(surface).not.toBeNull();
+    expect(popover.querySelector(".sc-course-popover-surface")).toBeNull();
+    expect(getComputedStyle(surface!).backgroundColor).toBe("rgb(10, 20, 30)");
   });
 });
 
