@@ -8,6 +8,32 @@ import {
 import { SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1 } from "./scaffold-indigo/v1";
 
 describe("Course colour-system registry", () => {
+  it("registers the complete Pocket Atlas light and dark colour system", () => {
+    const colourSystem = builtInCourseColourSystemRegistry.get({
+      id: "pocket-atlas",
+      revision: "1",
+    });
+
+    expect(colourSystem).toMatchObject({
+      id: "pocket-atlas",
+      revision: "1",
+      label: "Pocket Atlas",
+      radix: { accentColor: "violet", grayColor: "sand" },
+      semantics: {
+        info: "cyan",
+        warning: "orange",
+        success: "mint",
+        error: "tomato",
+        correct: "mint",
+        incorrect: "tomato",
+        completed: "violet",
+      },
+    });
+    expect(colourSystem?.dataSeries.light).toHaveLength(8);
+    expect(colourSystem?.dataSeries.dark).toHaveLength(8);
+    expect(Object.isFrozen(colourSystem)).toBe(true);
+  });
+
   it("registers the immutable Scaffold Indigo revision 1 definition", () => {
     expect(SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1).toEqual({
       id: "scaffold-indigo",

@@ -5,7 +5,14 @@
 @import "@radix-ui/themes/tokens/colors/amber.css";
 @import "@radix-ui/themes/tokens/colors/ruby.css";
 @import "@radix-ui/themes/tokens/colors/green.css";
+@import "@radix-ui/themes/tokens/colors/violet.css";
+@import "@radix-ui/themes/tokens/colors/sand.css";
+@import "@radix-ui/themes/tokens/colors/cyan.css";
+@import "@radix-ui/themes/tokens/colors/orange.css";
+@import "@radix-ui/themes/tokens/colors/mint.css";
+@import "@radix-ui/themes/tokens/colors/tomato.css";
 @import "@radix-ui/themes/components.css";
 @import "@radix-ui/themes/utilities.css";
 @import "./semantic-states.css";
 @import "./designs/scaffold-flow/v1/theme.css";
+@import "./designs/pocket-atlas/v1/theme.css";

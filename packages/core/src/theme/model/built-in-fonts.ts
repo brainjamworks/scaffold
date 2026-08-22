@@ -32,6 +32,22 @@ export const builtInThemeFonts = deepFreeze([
     weights: [400, 500, 600, 700, 800],
   },
   {
+    id: "scaffold-atkinson-hyperlegible",
+    label: "Atkinson Hyperlegible",
+    category: "sans",
+    family: "Atkinson Hyperlegible",
+    fallback: "sans-serif",
+    weights: [400, 700],
+  },
+  {
+    id: "scaffold-silkscreen",
+    label: "Silkscreen",
+    category: "sans",
+    family: "Silkscreen",
+    fallback: "sans-serif",
+    weights: [400, 700],
+  },
+  {
     id: "scaffold-jetbrains-mono",
     label: "JetBrains Mono",
     category: "mono",

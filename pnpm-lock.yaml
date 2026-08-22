@@ -259,12 +259,18 @@ importers:
       '@fontsource-variable/jetbrains-mono':
         specifier: 5.2.8
         version: 5.2.8
+      '@fontsource/atkinson-hyperlegible':
+        specifier: 5.2.8
+        version: 5.2.8
       '@fontsource/inter':
         specifier: 5.2.8
         version: 5.2.8
       '@fontsource/poppins':
         specifier: 5.2.7
         version: 5.2.7
+      '@fontsource/silkscreen':
+        specifier: 5.2.8
+        version: 5.2.8
       '@fontsource/source-serif-4':
         specifier: 5.2.8
         version: 5.2.8
@@ -832,11 +838,17 @@ packages:
   '@fontsource-variable/jetbrains-mono@5.2.8':
     resolution: {integrity: sha512-WBA9elru6Jdp5df2mES55wuOO0WIrn3kpXnI4+W2ek5u3ZgLS9XS4gmIlcQhiZOWEKl95meYdvK7xI+ETLCq/Q==}
 
+  '@fontsource/atkinson-hyperlegible@5.2.8':
+    resolution: {integrity: sha512-HciLcJ5DIK/OVOdo71EbEN4NnvDFlp6/SpAxtcbWf2aAdcsOuPqITxj5KNEXb48qSPSdnnZdGGnSJChPKi3/bA==}
+
   '@fontsource/inter@5.2.8':
     resolution: {integrity: sha512-P6r5WnJoKiNVV+zvW2xM13gNdFhAEpQ9dQJHt3naLvfg+LkF2ldgSLiF4T41lf1SQCM9QmkqPTn4TH568IRagg==}
 
   '@fontsource/poppins@5.2.7':
     resolution: {integrity: sha512-6uQyPmseo4FgI97WIhA4yWRlNaoLk4vSDK/PyRwdqqZb5zAEuc+Kunt8JTMcsHYUEGYBtN15SNkMajMdqUSUmg==}
+
+  '@fontsource/silkscreen@5.2.8':
+    resolution: {integrity: sha512-PfVe2BRZdjY/UIEXsrpzCo/W8FIGo6jEEMHuQiKfma+E5LXb6WfFFBfCEsO89ZWOSwl2mLE1Yq0d8gagmcaBpQ==}
 
   '@fontsource/source-serif-4@5.2.8':
     resolution: {integrity: sha512-Z8/igNA8UJ+QrFEaR2mk7oywizPSUuKhEurKpKpPnquKDOmCNAwBHYkIAyDtA91ZluiWf7jRcBl22d8pVagO6A==}
@@ -4605,9 +4617,13 @@ snapshots:
 
   '@fontsource-variable/jetbrains-mono@5.2.8': {}
 
+  '@fontsource/atkinson-hyperlegible@5.2.8': {}
+
   '@fontsource/inter@5.2.8': {}
 
   '@fontsource/poppins@5.2.7': {}
+
+  '@fontsource/silkscreen@5.2.8': {}
 
   '@fontsource/source-serif-4@5.2.8': {}
 

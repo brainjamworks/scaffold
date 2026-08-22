@@ -37,6 +37,41 @@ const COURSE_DATA_SERIES_PROPERTIES = [
 ] as const;
 
 describe("Course theme resolution", () => {
+  it.each(["light", "dark"] as const)(
+    "resolves Pocket Atlas into its isolated %s Course theme scope",
+    (appearance) => {
+      const result = resolveCourseTheme({
+        theme: {
+          schemaVersion: 1,
+          design: { id: "pocket-atlas", revision: "1" },
+          colourSystem: { id: "pocket-atlas", revision: "1" },
+          overrides: {},
+        },
+        appearance,
+        designs: builtInCourseDesignThemeRegistry,
+        colourSystems: builtInCourseColourSystemRegistry,
+      });
+
+      expect(result).toMatchObject({
+        status: "ready",
+        radixThemeProps: {
+          appearance,
+          radius: "none",
+          accentColor: "violet",
+          grayColor: "sand",
+        },
+        rootClassNames: ["sc-course", "sc-course-theme-pocket-atlas-v1"],
+        rootStyle: {
+          "--default-font-family": '"Atkinson Hyperlegible", sans-serif',
+          "--heading-font-family": '"Silkscreen", sans-serif',
+          "--code-font-family": '"JetBrains Mono Variable", monospace',
+          "--sc-course-author-stroke-width": "2px",
+          "--sc-course-author-shadow": "4px 4px 0 rgb(25 18 67 / 0.28)",
+        },
+      });
+    },
+  );
+
   it("creates the application-owned exact default references", () => {
     const theme = createDefaultPersistedCourseTheme();
 

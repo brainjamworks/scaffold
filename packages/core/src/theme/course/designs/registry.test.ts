@@ -28,6 +28,40 @@ const EXPECTED_SCAFFOLD_FLOW_AUTHOR_MAPPINGS_V1 = {
 } as const;
 
 describe("Course design theme registry", () => {
+  it("registers Pocket Atlas as a complete second built-in Course design", () => {
+    const design = builtInCourseDesignThemeRegistry.get({
+      id: "pocket-atlas",
+      revision: "1",
+    });
+
+    expect(design).toMatchObject({
+      id: "pocket-atlas",
+      revision: "1",
+      label: "Pocket Atlas",
+      defaultColourSystem: { id: "pocket-atlas", revision: "1" },
+      radix: {
+        radius: "none",
+        scaling: "100%",
+        panelBackground: "solid",
+      },
+      authorDefaults: {
+        typography: {
+          defaultFontId: "scaffold-atkinson-hyperlegible",
+          headingFontId: "scaffold-silkscreen",
+          codeFontId: "scaffold-jetbrains-mono",
+        },
+        design: {
+          roundness: "square",
+          stroke: "standard",
+          shadow: "defined",
+          density: "comfortable",
+        },
+      },
+      rootClassName: "sc-course-theme-pocket-atlas-v1",
+    });
+    expect(Object.isFrozen(design)).toBe(true);
+  });
+
   it("registers the immutable Scaffold Flow revision 1 definition", () => {
     expect(SCAFFOLD_FLOW_DESIGN_V1).toEqual({
       id: "scaffold-flow",

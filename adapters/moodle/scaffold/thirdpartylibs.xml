@@ -91,6 +91,14 @@
   </library>
   <library>
     <location>public</location>
+    <name>@fontsource/atkinson-hyperlegible</name>
+    <description>Self-host the Atkinson Hyperlegible font in a neatly bundled NPM package.</description>
+    <version>5.2.8</version>
+    <license>OFL-1.1</license>
+    <repository>https://github.com/fontsource/font-files</repository>
+  </library>
+  <library>
+    <location>public</location>
     <name>@fontsource/inter</name>
     <description>Self-host the Inter font in a neatly bundled NPM package.</description>
     <version>5.2.8</version>
@@ -102,6 +110,14 @@
     <name>@fontsource/poppins</name>
     <description>Self-host the Poppins font in a neatly bundled NPM package.</description>
     <version>5.2.7</version>
+    <license>OFL-1.1</license>
+    <repository>https://github.com/fontsource/font-files</repository>
+  </library>
+  <library>
+    <location>public</location>
+    <name>@fontsource/silkscreen</name>
+    <description>Self-host the Silkscreen font in a neatly bundled NPM package.</description>
+    <version>5.2.8</version>
     <license>OFL-1.1</license>
     <repository>https://github.com/fontsource/font-files</repository>
   </library>
@@ -1011,6 +1027,14 @@
   </library>
   <library>
     <location>public/assets</location>
+    <name>better-result</name>
+    <description>Lightweight Result type with generator-based composition</description>
+    <version>3.0.1</version>
+    <license>MIT</license>
+    <repository>https://github.com/dmmulroy/better-result</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
     <name>classnames</name>
     <description>A simple utility for conditionally joining classNames together</description>
     <version>2.5.1</version>
@@ -1344,6 +1368,14 @@
     <version>0.27.0</version>
     <license>MIT</license>
     <repository>https://github.com/facebook/react</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>sonner</name>
+    <description>An opinionated toast component for React.</description>
+    <version>2.0.8</version>
+    <license>MIT</license>
+    <repository>https://github.com/emilkowalski/sonner</repository>
   </library>
   <library>
     <location>public/assets</location>

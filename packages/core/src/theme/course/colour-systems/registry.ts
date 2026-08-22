@@ -2,6 +2,7 @@ import type { CourseThemeRef } from "@scaffold/contracts";
 import type { ThemeProps } from "@radix-ui/themes";
 
 import { SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1 } from "./scaffold-indigo/v1";
+import { POCKET_ATLAS_COLOUR_SYSTEM_V1 } from "./pocket-atlas/v1";
 
 export type RadixAccentColour = NonNullable<ThemeProps["accentColor"]>;
 export type RadixGrayColour = NonNullable<ThemeProps["grayColor"]>;
@@ -125,6 +126,7 @@ export function createCourseColourSystemRegistry(
 
 export const builtInCourseColourSystemRegistry = createCourseColourSystemRegistry([
   SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1,
+  POCKET_ATLAS_COLOUR_SYSTEM_V1,
 ]);
 
 function validateDefinition(definition: CourseColourSystemRevision): void {

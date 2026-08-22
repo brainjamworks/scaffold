@@ -4,206 +4,273 @@ This generated inventory records production dependencies that may be bundled
 in Scaffold adapter distributions. The packages remain subject to their own
 licence terms; project links identify their upstream source and notices.
 
-| Package                                | Version    | Licence                 | Project                                                                                                  |
-| -------------------------------------- | ---------- | ----------------------- | -------------------------------------------------------------------------------------------------------- |
-| @cortex-js/compute-engine              | 0.30.2     | MIT                     | [upstream](https://cortexjs.io/compute-engine/)                                                          |
-| @dnd-kit/abstract                      | 0.5.0      | MIT                     | [upstream](https://github.com/clauderic/dnd-kit#readme)                                                  |
-| @dnd-kit/collision                     | 0.5.0      | MIT                     | [upstream](https://github.com/clauderic/dnd-kit#readme)                                                  |
-| @dnd-kit/dom                           | 0.5.0      | MIT                     | [upstream](https://github.com/clauderic/dnd-kit#readme)                                                  |
-| @dnd-kit/geometry                      | 0.5.0      | MIT                     | [upstream](https://github.com/clauderic/dnd-kit#readme)                                                  |
-| @dnd-kit/react                         | 0.5.0      | MIT                     | [upstream](https://github.com/clauderic/dnd-kit#readme)                                                  |
-| @dnd-kit/state                         | 0.5.0      | MIT                     | [upstream](https://github.com/clauderic/dnd-kit#readme)                                                  |
-| @floating-ui/core                      | 1.7.5      | MIT                     | [upstream](https://floating-ui.com)                                                                      |
-| @floating-ui/dom                       | 1.7.6      | MIT                     | [upstream](https://floating-ui.com)                                                                      |
-| @floating-ui/react-dom                 | 2.1.8      | MIT                     | [upstream](https://floating-ui.com/docs/react-dom)                                                       |
-| @floating-ui/utils                     | 0.2.11     | MIT                     | [upstream](https://floating-ui.com)                                                                      |
-| @fontsource-variable/jetbrains-mono    | 5.2.8      | OFL-1.1                 | [upstream](https://fontsource.org/fonts/jetbrains-mono)                                                  |
-| @fontsource/inter                      | 5.2.8      | OFL-1.1                 | [upstream](https://fontsource.org/fonts/inter)                                                           |
-| @fontsource/poppins                    | 5.2.7      | OFL-1.1                 | [upstream](https://fontsource.org/fonts/poppins)                                                         |
-| @fontsource/source-serif-4             | 5.2.8      | OFL-1.1                 | [upstream](https://fontsource.org/fonts/source-serif-4)                                                  |
-| @hookform/resolvers                    | 5.4.0      | MIT                     | [upstream](https://react-hook-form.com)                                                                  |
-| @internationalized/date                | 3.12.2     | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum/tree/main#readme)                                     |
-| @internationalized/number              | 3.6.7      | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum#readme)                                               |
-| @internationalized/string              | 3.2.9      | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum#readme)                                               |
-| @napi-rs/canvas                        | 0.1.100    | MIT                     | [upstream](https://github.com/Brooooooklyn/canvas#readme)                                                |
-| @phosphor-icons/react                  | 2.1.10     | MIT                     | [upstream](https://phosphoricons.com)                                                                    |
-| @preact/signals-core                   | 1.14.4     | MIT                     | [upstream](https://preactjs.com)                                                                         |
-| @radix-ui/number                       | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/primitive                    | 1.1.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-accordion              | 1.2.13     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-arrow                  | 1.1.9      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-checkbox               | 1.3.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-collapsible            | 1.1.13     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-collection             | 1.1.10     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-collection             | 1.1.9      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-compose-refs           | 1.1.3      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-context                | 1.1.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-dialog                 | 1.1.16     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-direction              | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-dismissable-layer      | 1.1.12     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-dropdown-menu          | 2.1.17     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-focus-guards           | 1.1.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-focus-scope            | 1.1.9      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-id                     | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-menu                   | 2.1.17     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-popover                | 1.1.16     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-popper                 | 1.3.0      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-portal                 | 1.1.11     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-presence               | 1.1.6      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-primitive              | 2.1.5      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-primitive              | 2.1.6      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-radio-group            | 1.4.0      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-roving-focus           | 1.1.12     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-roving-focus           | 1.1.13     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-select                 | 2.3.0      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-separator              | 1.1.10     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-slot                   | 1.2.5      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-slot                   | 1.3.0      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-switch                 | 1.3.0      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-tabs                   | 1.1.14     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-toggle                 | 1.1.11     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-toggle                 | 1.1.12     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-toggle-group           | 1.1.13     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-toolbar                | 1.1.13     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-tooltip                | 1.2.9      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-use-callback-ref       | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-use-controllable-state | 1.2.3      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-use-effect-event       | 0.0.3      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-use-escape-keydown     | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-use-layout-effect      | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-use-previous           | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-use-rect               | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-use-size               | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/react-visually-hidden        | 1.2.5      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @radix-ui/rect                         | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
-| @react-types/shared                    | 3.36.0     | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum#readme)                                               |
-| @revolist/react-datagrid               | 4.21.9     | MIT                     | [upstream](https://github.com/revolist/revogrid#readme)                                                  |
-| @revolist/revogrid                     | 4.21.9     | MIT                     | [upstream](https://rv-grid.com)                                                                          |
-| @standard-schema/utils                 | 0.3.0      | MIT                     | [upstream](https://github.com/standard-schema/standard-schema#readme)                                    |
-| @swc/helpers                           | 0.5.23     | Apache-2.0              | [upstream](https://swc.rs)                                                                               |
-| @tiptap/core                           | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-blockquote           | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-bold                 | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-bubble-menu          | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-bullet-list          | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-code                 | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-code-block           | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-document             | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-dropcursor           | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-floating-menu        | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-gapcursor            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-hard-break           | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-heading              | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-highlight            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-horizontal-rule      | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-italic               | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-link                 | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-list                 | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-list-item            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-list-keymap          | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-mathematics          | 3.26.0     | MIT                     | [upstream](https://tiptap.dev/api/extensions/mathematics)                                                |
-| @tiptap/extension-ordered-list         | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-paragraph            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-strike               | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-subscript            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-superscript          | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-table                | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-table-cell           | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-table-header         | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-table-row            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-text                 | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-text-align           | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-text-style           | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-underline            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/extension-unique-id            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev/api/extensions/unique-id)                                                  |
-| @tiptap/extensions                     | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/html                           | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/pm                             | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/react                          | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/starter-kit                    | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @tiptap/suggestion                     | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
-| @types/hast                            | 3.0.4      | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/hast)                    |
-| @types/node                            | 22.19.20   | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node)                    |
-| @types/react                           | 19.2.17    | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react)                   |
-| @types/react-dom                       | 19.2.3     | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react-dom)               |
-| @types/trusted-types                   | 2.0.7      | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/trusted-types)           |
-| @types/unist                           | 3.0.3      | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/unist)                   |
-| @types/use-sync-external-store         | 0.0.6      | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/use-sync-external-store) |
-| @types/whatwg-mimetype                 | 3.0.2      | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/whatwg-mimetype)         |
-| @types/ws                              | 8.18.1     | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/ws)                      |
-| aria-hidden                            | 1.2.6      | MIT                     | [upstream](https://github.com/theKashey/aria-hidden#readme)                                              |
-| buffer-image-size                      | 0.6.4      | MIT                     | [upstream](https://github.com/evidentpoint/buffer-image-size#readme)                                     |
-| class-variance-authority               | 0.7.1      | Apache-2.0              | [upstream](https://github.com/joe-bell/cva#readme)                                                       |
-| client-only                            | 0.0.1      | MIT                     | [upstream](https://reactjs.org/)                                                                         |
-| clsx                                   | 2.1.1      | MIT                     | [upstream](https://github.com/lukeed/clsx#readme)                                                        |
-| commander                              | 8.3.0      | MIT                     | [upstream](https://github.com/tj/commander.js#readme)                                                    |
-| complex-esm                            | 2.1.1-esm1 | MIT                     | [upstream](https://raw.org/article/complex-numbers-in-javascript/)                                       |
-| csstype                                | 3.2.3      | MIT                     | [upstream](https://github.com/frenic/csstype#readme)                                                     |
-| culori                                 | 4.0.2      | MIT                     | [upstream](https://github.com/Evercoder/culori#readme)                                                   |
-| decimal.js                             | 10.6.0     | MIT                     | [upstream](https://github.com/MikeMcl/decimal.js#readme)                                                 |
-| dequal                                 | 2.0.3      | MIT                     | [upstream](https://github.com/lukeed/dequal#readme)                                                      |
-| detect-node-es                         | 1.1.0      | MIT                     | [upstream](https://github.com/thekashey/detect-node)                                                     |
-| devlop                                 | 1.1.0      | MIT                     | [upstream](https://github.com/wooorm/devlop#readme)                                                      |
-| dompurify                              | 3.4.12     | (MPL-2.0 OR Apache-2.0) | [upstream](https://github.com/cure53/DOMPurify)                                                          |
-| echarts                                | 6.1.0      | Apache-2.0              | [upstream](https://echarts.apache.org)                                                                   |
-| entities                               | 7.0.1      | BSD-2-Clause            | [upstream](https://github.com/fb55/entities#readme)                                                      |
-| fast-equals                            | 5.4.0      | MIT                     | [upstream](https://github.com/planttheidea/fast-equals#readme)                                           |
-| get-nonce                              | 1.0.1      | MIT                     | [upstream](https://github.com/theKashey/get-nonce)                                                       |
-| happy-dom                              | 20.10.2    | MIT                     | [upstream](https://github.com/capricorn86/happy-dom)                                                     |
-| highlight.js                           | 11.11.1    | BSD-3-Clause            | [upstream](https://highlightjs.org/)                                                                     |
-| idb                                    | 8.0.3      | ISC                     | [upstream](https://github.com/jakearchibald/idb#readme)                                                  |
-| js-tokens                              | 4.0.0      | MIT                     | [upstream](https://github.com/lydell/js-tokens#readme)                                                   |
-| katex                                  | 0.16.47    | MIT                     | [upstream](https://katex.org)                                                                            |
-| linkifyjs                              | 4.3.3      | MIT                     | [upstream](https://linkify.js.org)                                                                       |
-| loose-envify                           | 1.4.0      | MIT                     | [upstream](https://github.com/zertosh/loose-envify)                                                      |
-| lowlight                               | 3.3.0      | MIT                     | [upstream](https://github.com/wooorm/lowlight#readme)                                                    |
-| make-cancellable-promise               | 2.0.0      | MIT                     | [upstream](https://github.com/wojtekmaj/make-cancellable-promise#readme)                                 |
-| make-event-props                       | 2.0.0      | MIT                     | [upstream](https://github.com/wojtekmaj/make-event-props#readme)                                         |
-| mathlive                               | 0.108.3    | MIT                     | [upstream](https://github.com/arnog/mathlive#readme)                                                     |
-| merge-refs                             | 2.0.0      | MIT                     | [upstream](https://github.com/wojtekmaj/merge-refs#readme)                                               |
-| nanoid                                 | 5.1.16     | MIT                     | [upstream](https://github.com/ai/nanoid#readme)                                                          |
-| orderedmap                             | 2.1.1      | MIT                     | [upstream](https://github.com/marijnh/orderedmap#readme)                                                 |
-| pdfjs-dist                             | 5.4.296    | Apache-2.0              | [upstream](https://mozilla.github.io/pdf.js/)                                                            |
-| prosemirror-changeset                  | 2.4.1      | MIT                     |                                                                                                          |
-| prosemirror-commands                   | 1.7.1      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-commands#readme)                                   |
-| prosemirror-dropcursor                 | 1.8.2      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-dropcursor#readme)                                 |
-| prosemirror-gapcursor                  | 1.4.1      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-gapcursor#readme)                                  |
-| prosemirror-history                    | 1.5.0      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-history#readme)                                    |
-| prosemirror-inputrules                 | 1.5.1      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-inputrules#readme)                                 |
-| prosemirror-keymap                     | 1.2.3      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-keymap#readme)                                     |
-| prosemirror-model                      | 1.25.7     | MIT                     |                                                                                                          |
-| prosemirror-schema-list                | 1.5.1      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-schema-list#readme)                                |
-| prosemirror-state                      | 1.4.4      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-state#readme)                                      |
-| prosemirror-tables                     | 1.8.5      | MIT                     | [upstream](https://github.com/ProseMirror/prosemirror-tables#readme)                                     |
-| prosemirror-transform                  | 1.12.0     | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-transform#readme)                                  |
-| prosemirror-view                       | 1.41.8     | MIT                     |                                                                                                          |
-| react                                  | 19.2.7     | MIT                     | [upstream](https://react.dev/)                                                                           |
-| react-aria                             | 3.50.0     | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum#readme)                                               |
-| react-aria-components                  | 1.19.0     | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum#readme)                                               |
-| react-dom                              | 19.2.7     | MIT                     | [upstream](https://react.dev/)                                                                           |
-| react-hook-form                        | 7.77.0     | MIT                     | [upstream](https://react-hook-form.com)                                                                  |
-| react-pdf                              | 10.4.1     | MIT                     | [upstream](https://github.com/wojtekmaj/react-pdf#readme)                                                |
-| react-remove-scroll                    | 2.7.2      | MIT                     | [upstream](https://github.com/theKashey/react-remove-scroll#readme)                                      |
-| react-remove-scroll-bar                | 2.3.8      | MIT                     | [upstream](https://github.com/theKashey/react-remove-scroll-bar#readme)                                  |
-| react-stately                          | 3.48.0     | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum#readme)                                               |
-| react-style-singleton                  | 2.2.3      | MIT                     | [upstream](https://github.com/theKashey/react-style-singleton#readme)                                    |
-| rope-sequence                          | 1.3.4      | MIT                     | [upstream](https://github.com/marijnh/rope-sequence#readme)                                              |
-| scheduler                              | 0.27.0     | MIT                     | [upstream](https://react.dev/)                                                                           |
-| tiny-invariant                         | 1.3.3      | MIT                     | [upstream](https://github.com/alexreardon/tiny-invariant#readme)                                         |
-| tslib                                  | 2.3.0      | 0BSD                    | [upstream](https://www.typescriptlang.org/)                                                              |
-| tslib                                  | 2.8.1      | 0BSD                    | [upstream](https://www.typescriptlang.org/)                                                              |
-| undici-types                           | 6.21.0     | MIT                     | [upstream](https://undici.nodejs.org)                                                                    |
-| use-callback-ref                       | 1.3.3      | MIT                     | [upstream](https://github.com/theKashey/use-callback-ref#readme)                                         |
-| use-sidecar                            | 1.1.3      | MIT                     | [upstream](https://github.com/theKashey/use-sidecar)                                                     |
-| use-sync-external-store                | 1.6.0      | MIT                     | [upstream](https://github.com/facebook/react#readme)                                                     |
-| uuid                                   | 14.0.0     | MIT                     | [upstream](https://github.com/uuidjs/uuid#readme)                                                        |
-| w3c-keyname                            | 2.2.8      | MIT                     | [upstream](https://github.com/marijnh/w3c-keyname#readme)                                                |
-| warning                                | 4.0.3      | MIT                     | [upstream](https://github.com/BerkeleyTrue/warning)                                                      |
-| whatwg-mimetype                        | 3.0.0      | MIT                     | [upstream](https://github.com/jsdom/whatwg-mimetype#readme)                                              |
-| ws                                     | 8.21.0     | MIT                     | [upstream](https://github.com/websockets/ws)                                                             |
-| zod                                    | 3.25.76    | MIT                     | [upstream](https://zod.dev)                                                                              |
-| zrender                                | 6.1.0      | BSD-3-Clause            | [upstream](https://github.com/ecomfe/zrender#readme)                                                     |
-| zustand                                | 5.0.14     | MIT                     | [upstream](https://github.com/pmndrs/zustand)                                                            |
+| Package                                 | Version    | Licence                 | Project                                                                                                  |
+| --------------------------------------- | ---------- | ----------------------- | -------------------------------------------------------------------------------------------------------- |
+| @cortex-js/compute-engine               | 0.30.2     | MIT                     | [upstream](https://cortexjs.io/compute-engine/)                                                          |
+| @dnd-kit/abstract                       | 0.5.0      | MIT                     | [upstream](https://github.com/clauderic/dnd-kit#readme)                                                  |
+| @dnd-kit/collision                      | 0.5.0      | MIT                     | [upstream](https://github.com/clauderic/dnd-kit#readme)                                                  |
+| @dnd-kit/dom                            | 0.5.0      | MIT                     | [upstream](https://github.com/clauderic/dnd-kit#readme)                                                  |
+| @dnd-kit/geometry                       | 0.5.0      | MIT                     | [upstream](https://github.com/clauderic/dnd-kit#readme)                                                  |
+| @dnd-kit/react                          | 0.5.0      | MIT                     | [upstream](https://github.com/clauderic/dnd-kit#readme)                                                  |
+| @dnd-kit/state                          | 0.5.0      | MIT                     | [upstream](https://github.com/clauderic/dnd-kit#readme)                                                  |
+| @floating-ui/core                       | 1.7.5      | MIT                     | [upstream](https://floating-ui.com)                                                                      |
+| @floating-ui/dom                        | 1.7.6      | MIT                     | [upstream](https://floating-ui.com)                                                                      |
+| @floating-ui/react-dom                  | 2.1.8      | MIT                     | [upstream](https://floating-ui.com/docs/react-dom)                                                       |
+| @floating-ui/utils                      | 0.2.11     | MIT                     | [upstream](https://floating-ui.com)                                                                      |
+| @fontsource-variable/jetbrains-mono     | 5.2.8      | OFL-1.1                 | [upstream](https://fontsource.org/fonts/jetbrains-mono)                                                  |
+| @fontsource/atkinson-hyperlegible       | 5.2.8      | OFL-1.1                 | [upstream](https://fontsource.org/fonts/atkinson-hyperlegible)                                           |
+| @fontsource/inter                       | 5.2.8      | OFL-1.1                 | [upstream](https://fontsource.org/fonts/inter)                                                           |
+| @fontsource/poppins                     | 5.2.7      | OFL-1.1                 | [upstream](https://fontsource.org/fonts/poppins)                                                         |
+| @fontsource/silkscreen                  | 5.2.8      | OFL-1.1                 | [upstream](https://fontsource.org/fonts/silkscreen)                                                      |
+| @fontsource/source-serif-4              | 5.2.8      | OFL-1.1                 | [upstream](https://fontsource.org/fonts/source-serif-4)                                                  |
+| @hookform/resolvers                     | 5.4.0      | MIT                     | [upstream](https://react-hook-form.com)                                                                  |
+| @internationalized/date                 | 3.12.2     | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum/tree/main#readme)                                     |
+| @internationalized/number               | 3.6.7      | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum#readme)                                               |
+| @internationalized/string               | 3.2.9      | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum#readme)                                               |
+| @napi-rs/canvas                         | 0.1.100    | MIT                     | [upstream](https://github.com/Brooooooklyn/canvas#readme)                                                |
+| @phosphor-icons/react                   | 2.1.10     | MIT                     | [upstream](https://phosphoricons.com)                                                                    |
+| @preact/signals-core                    | 1.14.4     | MIT                     | [upstream](https://preactjs.com)                                                                         |
+| @radix-ui/colors                        | 3.0.0      | MIT                     |                                                                                                          |
+| @radix-ui/number                        | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/number                        | 1.1.3      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/primitive                     | 1.1.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/primitive                     | 1.1.7      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-accessible-icon         | 1.1.15     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-accordion               | 1.2.13     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-accordion               | 1.2.20     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-alert-dialog            | 1.1.23     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-arrow                   | 1.1.15     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-arrow                   | 1.1.9      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-aspect-ratio            | 1.1.15     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-avatar                  | 1.2.6      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-checkbox                | 1.3.11     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-checkbox                | 1.3.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-collapsible             | 1.1.13     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-collapsible             | 1.1.20     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-collection              | 1.1.10     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-collection              | 1.1.15     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-collection              | 1.1.9      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-compose-refs            | 1.1.3      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-compose-refs            | 1.1.5      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-context                 | 1.1.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-context                 | 1.2.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-context-menu            | 2.3.7      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-dialog                  | 1.1.16     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-dialog                  | 1.1.23     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-direction               | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-direction               | 1.1.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-dismissable-layer       | 1.1.12     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-dismissable-layer       | 1.1.19     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-dropdown-menu           | 2.1.17     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-dropdown-menu           | 2.1.24     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-focus-guards            | 1.1.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-focus-guards            | 1.1.6      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-focus-scope             | 1.1.16     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-focus-scope             | 1.1.9      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-form                    | 0.1.16     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-hover-card              | 1.1.23     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-id                      | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-id                      | 1.1.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-label                   | 2.1.15     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-menu                    | 2.1.17     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-menu                    | 2.1.24     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-menubar                 | 1.1.24     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-navigation-menu         | 1.2.22     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-one-time-password-field | 0.1.16     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-password-toggle-field   | 0.1.11     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-popover                 | 1.1.16     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-popover                 | 1.1.23     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-popper                  | 1.3.0      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-popper                  | 1.3.7      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-portal                  | 1.1.11     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-portal                  | 1.1.17     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-presence                | 1.1.10     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-presence                | 1.1.6      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-primitive               | 2.1.10     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-primitive               | 2.1.5      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-primitive               | 2.1.6      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-progress                | 1.1.16     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-radio-group             | 1.4.0      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-radio-group             | 1.4.7      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-roving-focus            | 1.1.12     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-roving-focus            | 1.1.13     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-roving-focus            | 1.1.19     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-scroll-area             | 1.2.18     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-select                  | 2.3.0      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-select                  | 2.3.7      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-separator               | 1.1.10     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-separator               | 1.1.15     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-slider                  | 1.4.7      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-slot                    | 1.2.5      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-slot                    | 1.3.0      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-slot                    | 1.3.3      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-switch                  | 1.3.0      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-switch                  | 1.3.7      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-tabs                    | 1.1.14     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-tabs                    | 1.1.21     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-toast                   | 1.2.23     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-toggle                  | 1.1.11     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-toggle                  | 1.1.12     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-toggle                  | 1.1.18     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-toggle-group            | 1.1.13     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-toggle-group            | 1.1.19     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-toolbar                 | 1.1.13     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-toolbar                 | 1.1.19     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-tooltip                 | 1.2.16     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-tooltip                 | 1.2.9      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-callback-ref        | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-callback-ref        | 1.1.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-controllable-state  | 1.2.3      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-controllable-state  | 1.2.6      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-effect-event        | 0.0.3      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-effect-event        | 0.0.5      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-escape-keydown      | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-escape-keydown      | 1.1.5      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-is-hydrated         | 0.1.3      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-layout-effect       | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-layout-effect       | 1.1.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-previous            | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-previous            | 1.1.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-rect                | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-rect                | 1.1.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-size                | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-use-size                | 1.1.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-visually-hidden         | 1.2.11     | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/react-visually-hidden         | 1.2.5      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/rect                          | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/rect                          | 1.1.3      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| @radix-ui/themes                        | 3.3.0      | MIT                     | [upstream](https://radix-ui.com/themes)                                                                  |
+| @react-types/shared                     | 3.36.0     | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum#readme)                                               |
+| @revolist/react-datagrid                | 4.21.9     | MIT                     | [upstream](https://github.com/revolist/revogrid#readme)                                                  |
+| @revolist/revogrid                      | 4.21.9     | MIT                     | [upstream](https://rv-grid.com)                                                                          |
+| @standard-schema/utils                  | 0.3.0      | MIT                     | [upstream](https://github.com/standard-schema/standard-schema#readme)                                    |
+| @swc/helpers                            | 0.5.23     | Apache-2.0              | [upstream](https://swc.rs)                                                                               |
+| @tiptap/core                            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-blockquote            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-bold                  | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-bubble-menu           | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-bullet-list           | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-code                  | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-code-block            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-document              | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-dropcursor            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-floating-menu         | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-gapcursor             | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-hard-break            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-heading               | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-highlight             | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-horizontal-rule       | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-italic                | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-link                  | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-list                  | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-list-item             | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-list-keymap           | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-mathematics           | 3.26.0     | MIT                     | [upstream](https://tiptap.dev/api/extensions/mathematics)                                                |
+| @tiptap/extension-ordered-list          | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-paragraph             | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-strike                | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-subscript             | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-superscript           | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-table                 | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-table-cell            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-table-header          | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-table-row             | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-text                  | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-text-align            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-text-style            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-underline             | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/extension-unique-id             | 3.26.0     | MIT                     | [upstream](https://tiptap.dev/api/extensions/unique-id)                                                  |
+| @tiptap/extensions                      | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/html                            | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/pm                              | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/react                           | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/starter-kit                     | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @tiptap/suggestion                      | 3.26.0     | MIT                     | [upstream](https://tiptap.dev)                                                                           |
+| @types/hast                             | 3.0.4      | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/hast)                    |
+| @types/node                             | 24.13.1    | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node)                    |
+| @types/react                            | 19.2.17    | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react)                   |
+| @types/react-dom                        | 19.2.3     | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react-dom)               |
+| @types/trusted-types                    | 2.0.7      | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/trusted-types)           |
+| @types/unist                            | 3.0.3      | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/unist)                   |
+| @types/use-sync-external-store          | 0.0.6      | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/use-sync-external-store) |
+| @types/whatwg-mimetype                  | 3.0.2      | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/whatwg-mimetype)         |
+| @types/ws                               | 8.18.1     | MIT                     | [upstream](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/ws)                      |
+| aria-hidden                             | 1.2.6      | MIT                     | [upstream](https://github.com/theKashey/aria-hidden#readme)                                              |
+| better-result                           | 3.0.1      | MIT                     | [upstream](https://better-result.dev)                                                                    |
+| buffer-image-size                       | 0.6.4      | MIT                     | [upstream](https://github.com/evidentpoint/buffer-image-size#readme)                                     |
+| class-variance-authority                | 0.7.1      | Apache-2.0              | [upstream](https://github.com/joe-bell/cva#readme)                                                       |
+| classnames                              | 2.5.1      | MIT                     | [upstream](https://github.com/JedWatson/classnames#readme)                                               |
+| client-only                             | 0.0.1      | MIT                     | [upstream](https://reactjs.org/)                                                                         |
+| clsx                                    | 2.1.1      | MIT                     | [upstream](https://github.com/lukeed/clsx#readme)                                                        |
+| commander                               | 8.3.0      | MIT                     | [upstream](https://github.com/tj/commander.js#readme)                                                    |
+| complex-esm                             | 2.1.1-esm1 | MIT                     | [upstream](https://raw.org/article/complex-numbers-in-javascript/)                                       |
+| csstype                                 | 3.2.3      | MIT                     | [upstream](https://github.com/frenic/csstype#readme)                                                     |
+| decimal.js                              | 10.6.0     | MIT                     | [upstream](https://github.com/MikeMcl/decimal.js#readme)                                                 |
+| dequal                                  | 2.0.3      | MIT                     | [upstream](https://github.com/lukeed/dequal#readme)                                                      |
+| detect-node-es                          | 1.1.0      | MIT                     | [upstream](https://github.com/thekashey/detect-node)                                                     |
+| devlop                                  | 1.1.0      | MIT                     | [upstream](https://github.com/wooorm/devlop#readme)                                                      |
+| dompurify                               | 3.4.12     | (MPL-2.0 OR Apache-2.0) | [upstream](https://github.com/cure53/DOMPurify)                                                          |
+| echarts                                 | 6.1.0      | Apache-2.0              | [upstream](https://echarts.apache.org)                                                                   |
+| entities                                | 7.0.1      | BSD-2-Clause            | [upstream](https://github.com/fb55/entities#readme)                                                      |
+| fast-equals                             | 5.4.0      | MIT                     | [upstream](https://github.com/planttheidea/fast-equals#readme)                                           |
+| get-nonce                               | 1.0.1      | MIT                     | [upstream](https://github.com/theKashey/get-nonce)                                                       |
+| happy-dom                               | 20.10.2    | MIT                     | [upstream](https://github.com/capricorn86/happy-dom)                                                     |
+| highlight.js                            | 11.11.1    | BSD-3-Clause            | [upstream](https://highlightjs.org/)                                                                     |
+| idb                                     | 8.0.3      | ISC                     | [upstream](https://github.com/jakearchibald/idb#readme)                                                  |
+| js-tokens                               | 4.0.0      | MIT                     | [upstream](https://github.com/lydell/js-tokens#readme)                                                   |
+| katex                                   | 0.16.47    | MIT                     | [upstream](https://katex.org)                                                                            |
+| linkifyjs                               | 4.3.3      | MIT                     | [upstream](https://linkify.js.org)                                                                       |
+| loose-envify                            | 1.4.0      | MIT                     | [upstream](https://github.com/zertosh/loose-envify)                                                      |
+| lowlight                                | 3.3.0      | MIT                     | [upstream](https://github.com/wooorm/lowlight#readme)                                                    |
+| make-cancellable-promise                | 2.0.0      | MIT                     | [upstream](https://github.com/wojtekmaj/make-cancellable-promise#readme)                                 |
+| make-event-props                        | 2.0.0      | MIT                     | [upstream](https://github.com/wojtekmaj/make-event-props#readme)                                         |
+| mathlive                                | 0.108.3    | MIT                     | [upstream](https://github.com/arnog/mathlive#readme)                                                     |
+| merge-refs                              | 2.0.0      | MIT                     | [upstream](https://github.com/wojtekmaj/merge-refs#readme)                                               |
+| nanoid                                  | 5.1.16     | MIT                     | [upstream](https://github.com/ai/nanoid#readme)                                                          |
+| orderedmap                              | 2.1.1      | MIT                     | [upstream](https://github.com/marijnh/orderedmap#readme)                                                 |
+| pdfjs-dist                              | 5.4.296    | Apache-2.0              | [upstream](https://mozilla.github.io/pdf.js/)                                                            |
+| prosemirror-changeset                   | 2.4.1      | MIT                     |                                                                                                          |
+| prosemirror-commands                    | 1.7.1      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-commands#readme)                                   |
+| prosemirror-dropcursor                  | 1.8.2      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-dropcursor#readme)                                 |
+| prosemirror-gapcursor                   | 1.4.1      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-gapcursor#readme)                                  |
+| prosemirror-history                     | 1.5.0      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-history#readme)                                    |
+| prosemirror-inputrules                  | 1.5.1      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-inputrules#readme)                                 |
+| prosemirror-keymap                      | 1.2.3      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-keymap#readme)                                     |
+| prosemirror-model                       | 1.25.7     | MIT                     |                                                                                                          |
+| prosemirror-schema-list                 | 1.5.1      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-schema-list#readme)                                |
+| prosemirror-state                       | 1.4.4      | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-state#readme)                                      |
+| prosemirror-tables                      | 1.8.5      | MIT                     | [upstream](https://github.com/ProseMirror/prosemirror-tables#readme)                                     |
+| prosemirror-transform                   | 1.12.0     | MIT                     | [upstream](https://github.com/prosemirror/prosemirror-transform#readme)                                  |
+| prosemirror-view                        | 1.41.8     | MIT                     |                                                                                                          |
+| radix-ui                                | 1.6.7      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
+| react                                   | 19.2.7     | MIT                     | [upstream](https://react.dev/)                                                                           |
+| react-aria                              | 3.50.0     | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum#readme)                                               |
+| react-aria-components                   | 1.19.0     | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum#readme)                                               |
+| react-dom                               | 19.2.7     | MIT                     | [upstream](https://react.dev/)                                                                           |
+| react-hook-form                         | 7.77.0     | MIT                     | [upstream](https://react-hook-form.com)                                                                  |
+| react-pdf                               | 10.4.1     | MIT                     | [upstream](https://github.com/wojtekmaj/react-pdf#readme)                                                |
+| react-remove-scroll                     | 2.7.2      | MIT                     | [upstream](https://github.com/theKashey/react-remove-scroll#readme)                                      |
+| react-remove-scroll-bar                 | 2.3.8      | MIT                     | [upstream](https://github.com/theKashey/react-remove-scroll-bar#readme)                                  |
+| react-stately                           | 3.48.0     | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum#readme)                                               |
+| react-style-singleton                   | 2.2.3      | MIT                     | [upstream](https://github.com/theKashey/react-style-singleton#readme)                                    |
+| rope-sequence                           | 1.3.4      | MIT                     | [upstream](https://github.com/marijnh/rope-sequence#readme)                                              |
+| scheduler                               | 0.27.0     | MIT                     | [upstream](https://react.dev/)                                                                           |
+| sonner                                  | 2.0.8      | MIT                     | [upstream](https://sonner.emilkowal.ski/)                                                                |
+| tiny-invariant                          | 1.3.3      | MIT                     | [upstream](https://github.com/alexreardon/tiny-invariant#readme)                                         |
+| tslib                                   | 2.3.0      | 0BSD                    | [upstream](https://www.typescriptlang.org/)                                                              |
+| tslib                                   | 2.8.1      | 0BSD                    | [upstream](https://www.typescriptlang.org/)                                                              |
+| undici-types                            | 7.18.2     | MIT                     | [upstream](https://undici.nodejs.org)                                                                    |
+| use-callback-ref                        | 1.3.3      | MIT                     | [upstream](https://github.com/theKashey/use-callback-ref#readme)                                         |
+| use-sidecar                             | 1.1.3      | MIT                     | [upstream](https://github.com/theKashey/use-sidecar)                                                     |
+| use-sync-external-store                 | 1.6.0      | MIT                     | [upstream](https://github.com/facebook/react#readme)                                                     |
+| uuid                                    | 14.0.0     | MIT                     | [upstream](https://github.com/uuidjs/uuid#readme)                                                        |
+| w3c-keyname                             | 2.2.8      | MIT                     | [upstream](https://github.com/marijnh/w3c-keyname#readme)                                                |
+| warning                                 | 4.0.3      | MIT                     | [upstream](https://github.com/BerkeleyTrue/warning)                                                      |
+| whatwg-mimetype                         | 3.0.0      | MIT                     | [upstream](https://github.com/jsdom/whatwg-mimetype#readme)                                              |
+| ws                                      | 8.21.0     | MIT                     | [upstream](https://github.com/websockets/ws)                                                             |
+| zod                                     | 3.25.76    | MIT                     | [upstream](https://zod.dev)                                                                              |
+| zrender                                 | 6.1.0      | BSD-3-Clause            | [upstream](https://github.com/ecomfe/zrender#readme)                                                     |
+| zustand                                 | 5.0.14     | MIT                     | [upstream](https://github.com/pmndrs/zustand)                                                            |
 
 Generated with `node scripts/generate-third-party-notices.mjs` from the
 production dependency graph locked by `pnpm-lock.yaml`.
@@ -417,6 +484,108 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 **Applies to:**
 
+- `@fontsource/atkinson-hyperlegible@5.2.8` — declared `OFL-1.1`
+
+```text
+Copyright 2020 Braille Institute of America, Inc. AtkinsonHyperlegible-Italic.ttf: Copyright 2020 Braille Institute of America, Inc. AtkinsonHyperlegible-Bold.ttf: Copyright 2020 Braille Institute of America, Inc. AtkinsonHyperlegible-BoldItalic.ttf: Copyright 2020 Braille Institute of America, Inc.
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+http://scripts.sil.org/OFL
+
+
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.
+```
+
+### Text 6: `LICENSE`
+
+**Applies to:**
+
 - `@fontsource/inter@5.2.8` — declared `OFL-1.1`
 
 ```text
@@ -515,7 +684,7 @@ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
 
-### Text 6: `LICENSE`
+### Text 7: `LICENSE`
 
 **Applies to:**
 
@@ -617,7 +786,109 @@ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
 
-### Text 7: `LICENSE`
+### Text 8: `LICENSE`
+
+**Applies to:**
+
+- `@fontsource/silkscreen@5.2.8` — declared `OFL-1.1`
+
+```text
+Copyright 2001 The Silkscreen Project Authors (https://github.com/googlefonts/silkscreen) Silkscreen-Bold.ttf: Copyright 2001 The Silkscreen Project Authors (https://github.com/googlefonts/silkscreen)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+http://scripts.sil.org/OFL
+
+
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.
+```
+
+### Text 9: `LICENSE`
 
 **Applies to:**
 
@@ -719,7 +990,7 @@ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
 
-### Text 8: `LICENSE`
+### Text 10: `LICENSE`
 
 **Applies to:**
 
@@ -750,7 +1021,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 9: `LICENSE`
+### Text 11: `LICENSE`
 
 **Applies to:**
 
@@ -966,7 +1237,7 @@ SOFTWARE.
    limitations under the License.
 ```
 
-### Text 10: `LICENSE`
+### Text 12: `LICENSE`
 
 **Applies to:**
 
@@ -996,7 +1267,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 11: `LICENSE`
+### Text 13: `LICENSE`
 
 **Applies to:**
 
@@ -1026,7 +1297,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 12: `LICENSE`
+### Text 14: `LICENSE`
 
 **Applies to:**
 
@@ -1056,58 +1327,149 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 13: `LICENSE`
+### Text 15: `LICENSE`
+
+**Applies to:**
+
+- `@radix-ui/colors@3.0.0` — declared `MIT`
+
+```text
+MIT License
+
+Copyright (c) 2021 Radix
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Text 16: `LICENSE`
 
 **Applies to:**
 
 - `@radix-ui/number@1.1.2` — declared `MIT`
+- `@radix-ui/number@1.1.3` — declared `MIT`
 - `@radix-ui/primitive@1.1.4` — declared `MIT`
+- `@radix-ui/primitive@1.1.7` — declared `MIT`
+- `@radix-ui/react-accessible-icon@1.1.15` — declared `MIT`
 - `@radix-ui/react-accordion@1.2.13` — declared `MIT`
+- `@radix-ui/react-accordion@1.2.20` — declared `MIT`
+- `@radix-ui/react-alert-dialog@1.1.23` — declared `MIT`
+- `@radix-ui/react-arrow@1.1.15` — declared `MIT`
 - `@radix-ui/react-arrow@1.1.9` — declared `MIT`
+- `@radix-ui/react-aspect-ratio@1.1.15` — declared `MIT`
+- `@radix-ui/react-avatar@1.2.6` — declared `MIT`
+- `@radix-ui/react-checkbox@1.3.11` — declared `MIT`
 - `@radix-ui/react-checkbox@1.3.4` — declared `MIT`
 - `@radix-ui/react-collapsible@1.1.13` — declared `MIT`
+- `@radix-ui/react-collapsible@1.1.20` — declared `MIT`
 - `@radix-ui/react-collection@1.1.10` — declared `MIT`
+- `@radix-ui/react-collection@1.1.15` — declared `MIT`
 - `@radix-ui/react-collection@1.1.9` — declared `MIT`
 - `@radix-ui/react-compose-refs@1.1.3` — declared `MIT`
+- `@radix-ui/react-compose-refs@1.1.5` — declared `MIT`
 - `@radix-ui/react-context@1.1.4` — declared `MIT`
+- `@radix-ui/react-context@1.2.2` — declared `MIT`
+- `@radix-ui/react-context-menu@2.3.7` — declared `MIT`
 - `@radix-ui/react-dialog@1.1.16` — declared `MIT`
+- `@radix-ui/react-dialog@1.1.23` — declared `MIT`
 - `@radix-ui/react-direction@1.1.2` — declared `MIT`
+- `@radix-ui/react-direction@1.1.4` — declared `MIT`
 - `@radix-ui/react-dismissable-layer@1.1.12` — declared `MIT`
+- `@radix-ui/react-dismissable-layer@1.1.19` — declared `MIT`
 - `@radix-ui/react-dropdown-menu@2.1.17` — declared `MIT`
+- `@radix-ui/react-dropdown-menu@2.1.24` — declared `MIT`
 - `@radix-ui/react-focus-guards@1.1.4` — declared `MIT`
+- `@radix-ui/react-focus-guards@1.1.6` — declared `MIT`
+- `@radix-ui/react-focus-scope@1.1.16` — declared `MIT`
 - `@radix-ui/react-focus-scope@1.1.9` — declared `MIT`
+- `@radix-ui/react-form@0.1.16` — declared `MIT`
+- `@radix-ui/react-hover-card@1.1.23` — declared `MIT`
 - `@radix-ui/react-id@1.1.2` — declared `MIT`
+- `@radix-ui/react-id@1.1.4` — declared `MIT`
+- `@radix-ui/react-label@2.1.15` — declared `MIT`
 - `@radix-ui/react-menu@2.1.17` — declared `MIT`
+- `@radix-ui/react-menu@2.1.24` — declared `MIT`
+- `@radix-ui/react-menubar@1.1.24` — declared `MIT`
+- `@radix-ui/react-navigation-menu@1.2.22` — declared `MIT`
+- `@radix-ui/react-one-time-password-field@0.1.16` — declared `MIT`
+- `@radix-ui/react-password-toggle-field@0.1.11` — declared `MIT`
 - `@radix-ui/react-popover@1.1.16` — declared `MIT`
+- `@radix-ui/react-popover@1.1.23` — declared `MIT`
 - `@radix-ui/react-popper@1.3.0` — declared `MIT`
+- `@radix-ui/react-popper@1.3.7` — declared `MIT`
 - `@radix-ui/react-portal@1.1.11` — declared `MIT`
+- `@radix-ui/react-portal@1.1.17` — declared `MIT`
+- `@radix-ui/react-presence@1.1.10` — declared `MIT`
 - `@radix-ui/react-presence@1.1.6` — declared `MIT`
+- `@radix-ui/react-primitive@2.1.10` — declared `MIT`
 - `@radix-ui/react-primitive@2.1.5` — declared `MIT`
 - `@radix-ui/react-primitive@2.1.6` — declared `MIT`
+- `@radix-ui/react-progress@1.1.16` — declared `MIT`
 - `@radix-ui/react-radio-group@1.4.0` — declared `MIT`
+- `@radix-ui/react-radio-group@1.4.7` — declared `MIT`
 - `@radix-ui/react-roving-focus@1.1.12` — declared `MIT`
 - `@radix-ui/react-roving-focus@1.1.13` — declared `MIT`
+- `@radix-ui/react-roving-focus@1.1.19` — declared `MIT`
+- `@radix-ui/react-scroll-area@1.2.18` — declared `MIT`
 - `@radix-ui/react-select@2.3.0` — declared `MIT`
+- `@radix-ui/react-select@2.3.7` — declared `MIT`
 - `@radix-ui/react-separator@1.1.10` — declared `MIT`
+- `@radix-ui/react-separator@1.1.15` — declared `MIT`
+- `@radix-ui/react-slider@1.4.7` — declared `MIT`
 - `@radix-ui/react-slot@1.2.5` — declared `MIT`
 - `@radix-ui/react-slot@1.3.0` — declared `MIT`
+- `@radix-ui/react-slot@1.3.3` — declared `MIT`
 - `@radix-ui/react-switch@1.3.0` — declared `MIT`
+- `@radix-ui/react-switch@1.3.7` — declared `MIT`
 - `@radix-ui/react-tabs@1.1.14` — declared `MIT`
+- `@radix-ui/react-tabs@1.1.21` — declared `MIT`
+- `@radix-ui/react-toast@1.2.23` — declared `MIT`
 - `@radix-ui/react-toggle@1.1.11` — declared `MIT`
 - `@radix-ui/react-toggle@1.1.12` — declared `MIT`
+- `@radix-ui/react-toggle@1.1.18` — declared `MIT`
 - `@radix-ui/react-toggle-group@1.1.13` — declared `MIT`
+- `@radix-ui/react-toggle-group@1.1.19` — declared `MIT`
 - `@radix-ui/react-toolbar@1.1.13` — declared `MIT`
+- `@radix-ui/react-toolbar@1.1.19` — declared `MIT`
+- `@radix-ui/react-tooltip@1.2.16` — declared `MIT`
 - `@radix-ui/react-tooltip@1.2.9` — declared `MIT`
 - `@radix-ui/react-use-callback-ref@1.1.2` — declared `MIT`
+- `@radix-ui/react-use-callback-ref@1.1.4` — declared `MIT`
 - `@radix-ui/react-use-controllable-state@1.2.3` — declared `MIT`
+- `@radix-ui/react-use-controllable-state@1.2.6` — declared `MIT`
 - `@radix-ui/react-use-effect-event@0.0.3` — declared `MIT`
+- `@radix-ui/react-use-effect-event@0.0.5` — declared `MIT`
 - `@radix-ui/react-use-escape-keydown@1.1.2` — declared `MIT`
+- `@radix-ui/react-use-escape-keydown@1.1.5` — declared `MIT`
+- `@radix-ui/react-use-is-hydrated@0.1.3` — declared `MIT`
 - `@radix-ui/react-use-layout-effect@1.1.2` — declared `MIT`
+- `@radix-ui/react-use-layout-effect@1.1.4` — declared `MIT`
 - `@radix-ui/react-use-previous@1.1.2` — declared `MIT`
+- `@radix-ui/react-use-previous@1.1.4` — declared `MIT`
 - `@radix-ui/react-use-rect@1.1.2` — declared `MIT`
+- `@radix-ui/react-use-rect@1.1.4` — declared `MIT`
 - `@radix-ui/react-use-size@1.1.2` — declared `MIT`
+- `@radix-ui/react-use-size@1.1.4` — declared `MIT`
+- `@radix-ui/react-visually-hidden@1.2.11` — declared `MIT`
 - `@radix-ui/react-visually-hidden@1.2.5` — declared `MIT`
 - `@radix-ui/rect@1.1.2` — declared `MIT`
+- `@radix-ui/rect@1.1.3` — declared `MIT`
+- `radix-ui@1.6.7` — declared `MIT`
 
 ```text
 MIT License
@@ -1133,7 +1495,37 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 14: `LICENSE`
+### Text 17: `LICENSE`
+
+**Applies to:**
+
+- `@radix-ui/themes@3.3.0` — declared `MIT`
+
+```text
+MIT License
+
+Copyright (c) 2023 WorkOS
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Text 18: `LICENSE`
 
 **Applies to:**
 
@@ -1164,7 +1556,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 15: `LICENSE`
+### Text 19: `LICENSE`
 
 **Applies to:**
 
@@ -1194,7 +1586,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 16: `LICENSE`
+### Text 20: `LICENSE`
 
 **Applies to:**
 
@@ -1404,7 +1796,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-### Text 17: `LICENSE`, `LICENSE.md`
+### Text 21: `LICENSE`, `LICENSE.md`
 
 **Applies to:**
 
@@ -1474,12 +1866,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 18: `LICENSE`
+### Text 22: `LICENSE`
 
 **Applies to:**
 
 - `@types/hast@3.0.4` — declared `MIT`
-- `@types/node@22.19.20` — declared `MIT`
+- `@types/node@24.13.1` — declared `MIT`
 - `@types/react@19.2.17` — declared `MIT`
 - `@types/react-dom@19.2.3` — declared `MIT`
 - `@types/trusted-types@2.0.7` — declared `MIT`
@@ -1512,7 +1904,7 @@ SOFTWARE.
     SOFTWARE
 ```
 
-### Text 19: `LICENSE`
+### Text 23: `LICENSE`
 
 **Applies to:**
 
@@ -1547,7 +1939,37 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 20: `LICENSE`
+### Text 24: `LICENSE`
+
+**Applies to:**
+
+- `better-result@3.0.1` — declared `MIT`
+
+```text
+MIT License
+
+Copyright (c) 2026 Dillon Mulroy
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Text 25: `LICENSE`
 
 **Applies to:**
 
@@ -1565,7 +1987,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 21: `LICENSE`
+### Text 26: `LICENSE`
 
 **Applies to:**
 
@@ -1764,7 +2186,37 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
    limitations under the License.
 ```
 
-### Text 22: `LICENSE`
+### Text 27: `LICENSE`
+
+**Applies to:**
+
+- `classnames@2.5.1` — declared `MIT`
+
+```text
+The MIT License (MIT)
+
+Copyright (c) 2018 Jed Watson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Text 28: `LICENSE`
 
 **Applies to:**
 
@@ -1798,7 +2250,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 23: `license`
+### Text 29: `license`
 
 **Applies to:**
 
@@ -1816,7 +2268,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 24: `LICENSE`
+### Text 30: `LICENSE`
 
 **Applies to:**
 
@@ -1847,7 +2299,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 25: `LICENSE`
+### Text 31: `LICENSE`
 
 **Applies to:**
 
@@ -1877,7 +2329,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 26: `LICENSE`
+### Text 32: `LICENSE`
 
 **Applies to:**
 
@@ -1905,37 +2357,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 27: `LICENSE`
-
-**Applies to:**
-
-- `culori@4.0.2` — declared `MIT`
-
-```text
-MIT License
-
-Copyright (c) 2018 Dan Burzo
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-### Text 28: `LICENCE.md`
+### Text 33: `LICENCE.md`
 
 **Applies to:**
 
@@ -1967,7 +2389,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ```
 
-### Text 29: `license`
+### Text 34: `license`
 
 **Applies to:**
 
@@ -1997,7 +2419,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 30: `LICENSE`
+### Text 35: `LICENSE`
 
 **Applies to:**
 
@@ -2027,7 +2449,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 31: `license`
+### Text 36: `license`
 
 **Applies to:**
 
@@ -2058,7 +2480,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 32: `LICENSE`
+### Text 37: `LICENSE`
 
 **Applies to:**
 
@@ -2269,7 +2691,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
    limitations under the License.
 ```
 
-### Text 33: `LICENSE-MPL`
+### Text 38: `LICENSE-MPL`
 
 **Applies to:**
 
@@ -2651,7 +3073,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 ```
 
-### Text 34: `LICENSE`
+### Text 39: `LICENSE`
 
 **Applies to:**
 
@@ -2882,7 +3304,7 @@ The following files embed [d3.js](https://github.com/d3/d3) BSD 3-Clause:
 See `/licenses/LICENSE-d3` for details of the license.
 ```
 
-### Text 35: `NOTICE`
+### Text 40: `NOTICE`
 
 **Applies to:**
 
@@ -2896,7 +3318,7 @@ This product includes software developed at
 The Apache Software Foundation (https://www.apache.org/).
 ```
 
-### Text 36: `LICENSE`
+### Text 41: `LICENSE`
 
 **Applies to:**
 
@@ -2916,7 +3338,7 @@ THIS IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRE
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Text 37: `LICENSE`
+### Text 42: `LICENSE`
 
 **Applies to:**
 
@@ -2946,7 +3368,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 38: `LICENSE`
+### Text 43: `LICENSE`
 
 **Applies to:**
 
@@ -2976,7 +3398,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 39: `LICENSE`
+### Text 44: `LICENSE`
 
 **Applies to:**
 
@@ -3006,7 +3428,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 40: `LICENSE`
+### Text 45: `LICENSE`
 
 **Applies to:**
 
@@ -3044,7 +3466,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Text 41: `LICENSE`
+### Text 46: `LICENSE`
 
 **Applies to:**
 
@@ -3059,7 +3481,7 @@ Permission to use, copy, modify, and/or distribute this software for any purpose
 THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### Text 42: `LICENSE`
+### Text 47: `LICENSE`
 
 **Applies to:**
 
@@ -3089,7 +3511,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 43: `LICENSE`
+### Text 48: `LICENSE`
 
 **Applies to:**
 
@@ -3119,7 +3541,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 44: `LICENSE`
+### Text 49: `LICENSE`
 
 **Applies to:**
 
@@ -3147,7 +3569,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 45: `LICENSE`
+### Text 50: `LICENSE`
 
 **Applies to:**
 
@@ -3177,7 +3599,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 46: `license`
+### Text 51: `license`
 
 **Applies to:**
 
@@ -3208,7 +3630,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 47: `LICENSE`
+### Text 52: `LICENSE`
 
 **Applies to:**
 
@@ -3238,7 +3660,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 48: `LICENSE`
+### Text 53: `LICENSE`
 
 **Applies to:**
 
@@ -3268,7 +3690,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 49: `LICENSE.txt`
+### Text 54: `LICENSE.txt`
 
 **Applies to:**
 
@@ -3296,7 +3718,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 50: `LICENSE`
+### Text 55: `LICENSE`
 
 **Applies to:**
 
@@ -3327,7 +3749,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 51: `LICENSE`
+### Text 56: `LICENSE`
 
 **Applies to:**
 
@@ -3356,7 +3778,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 52: `LICENSE`
+### Text 57: `LICENSE`
 
 **Applies to:**
 
@@ -3385,7 +3807,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 53: `LICENSE`
+### Text 58: `LICENSE`
 
 **Applies to:**
 
@@ -3571,7 +3993,7 @@ THE SOFTWARE.
    END OF TERMS AND CONDITIONS
 ```
 
-### Text 54: `LICENSE`
+### Text 59: `LICENSE`
 
 **Applies to:**
 
@@ -3599,7 +4021,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 55: `LICENSE`
+### Text 60: `LICENSE`
 
 **Applies to:**
 
@@ -3637,7 +4059,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 56: `LICENSE`
+### Text 61: `LICENSE`
 
 **Applies to:**
 
@@ -3665,7 +4087,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 57: `LICENSE`
+### Text 62: `LICENSE`
 
 **Applies to:**
 
@@ -3693,7 +4115,37 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 58: `LICENSE`
+### Text 63: `LICENSE.md`
+
+**Applies to:**
+
+- `sonner@2.0.8` — declared `MIT`
+
+```text
+MIT License
+
+Copyright (c) 2023 Emil Kowalski
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Text 64: `LICENSE`
 
 **Applies to:**
 
@@ -3723,7 +4175,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 59: `LICENSE.txt`
+### Text 65: `LICENSE.txt`
 
 **Applies to:**
 
@@ -3745,11 +4197,11 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### Text 60: `LICENSE`
+### Text 66: `LICENSE`
 
 **Applies to:**
 
-- `undici-types@6.21.0` — declared `MIT`
+- `undici-types@7.18.2` — declared `MIT`
 
 ```text
 MIT License
@@ -3775,7 +4227,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 61: `LICENSE.md`
+### Text 67: `LICENSE.md`
 
 **Applies to:**
 
@@ -3793,7 +4245,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 62: `LICENSE.md`
+### Text 68: `LICENSE.md`
 
 **Applies to:**
 
@@ -3823,7 +4275,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 63: `LICENSE.txt`
+### Text 69: `LICENSE.txt`
 
 **Applies to:**
 
@@ -3839,7 +4291,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 64: `LICENSE`
+### Text 70: `LICENSE`
 
 **Applies to:**
 
@@ -3868,7 +4320,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 65: `LICENSE`
+### Text 71: `LICENSE`
 
 **Applies to:**
 
@@ -3898,7 +4350,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 66: `LICENSE`
+### Text 72: `LICENSE`
 
 **Applies to:**
 
@@ -3936,7 +4388,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Text 67: `LICENSE`
+### Text 73: `LICENSE`
 
 **Applies to:**
 

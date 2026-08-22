@@ -1,7 +1,7 @@
 /* ─── Local fonts ───────────────────────────────────────────────
  * Satoshi is the application UI family. Poppins remains the brand
- * family and a curated course-theme choice. Source Serif 4 and Inter
- * are additional course-theme choices.
+ * family and a curated course-theme choice. Source Serif 4, Inter,
+ * Atkinson Hyperlegible and Silkscreen are additional Course choices.
  * CSS spec requires all @import rules to precede any other rule.
  * The static families load the five supported course-theme weights;
  * Satoshi and JetBrains Mono use variable files. */
@@ -20,6 +20,10 @@
 @import "@fontsource/inter/600.css";
 @import "@fontsource/inter/700.css";
 @import "@fontsource/inter/800.css";
+@import "@fontsource/atkinson-hyperlegible/400.css";
+@import "@fontsource/atkinson-hyperlegible/700.css";
+@import "@fontsource/silkscreen/400.css";
+@import "@fontsource/silkscreen/700.css";
 @import "@fontsource-variable/jetbrains-mono/wght.css";
 @import "../theme/course/styles.css";
 

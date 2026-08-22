@@ -14,6 +14,7 @@ import type { ThemeProps } from "@radix-ui/themes";
 import { builtInThemeFonts, type BuiltInThemeFontId } from "@/theme/model/built-in-fonts";
 
 import { SCAFFOLD_FLOW_DESIGN_V1 } from "./scaffold-flow/v1/definition";
+import { POCKET_ATLAS_DESIGN_V1 } from "./pocket-atlas/v1/definition";
 
 export type CourseDesignRadixConfig = Required<
   Pick<ThemeProps, "panelBackground" | "radius" | "scaling">
@@ -168,6 +169,7 @@ export function createCourseDesignThemeRegistry(
 
 export const builtInCourseDesignThemeRegistry = createCourseDesignThemeRegistry([
   SCAFFOLD_FLOW_DESIGN_V1,
+  POCKET_ATLAS_DESIGN_V1,
 ]);
 
 function validateDefinition(definition: CourseDesignThemeRevision): void {
