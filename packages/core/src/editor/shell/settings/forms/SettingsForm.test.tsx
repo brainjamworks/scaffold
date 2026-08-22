@@ -389,10 +389,12 @@ describe("SettingsForm", () => {
 
       const regionLabelledBy = region.getAttribute("aria-labelledby");
       const regionDescribedBy = region.getAttribute("aria-describedby");
+      const triggerControls = trigger.getAttribute("aria-controls");
       const fieldDescribedBy = input.getAttribute("aria-describedby")?.split(" ") ?? [];
 
       expect(regionLabelledBy).toBe(trigger.id);
       expect(document.getElementById(regionLabelledBy ?? "")).toBe(trigger);
+      expect(document.getElementById(triggerControls ?? "")).toBe(region);
       expect(document.getElementById(regionDescribedBy ?? "")?.textContent).toBe(
         "Section guidance",
       );

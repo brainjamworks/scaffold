@@ -247,6 +247,7 @@ export function ControlledImageField({
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         kind="media"
+        allowedMediaTypes={["image"]}
         defaultMediaType="image"
         title={descriptor.pickerTitle ?? (hasImage ? changeLabel : chooseLabel)}
         onResolved={(result) => {

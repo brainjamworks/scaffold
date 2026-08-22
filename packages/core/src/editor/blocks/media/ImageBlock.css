@@ -13,6 +13,15 @@
     width: 100%;
   }
 
+  .sc-course-image-block__stage:is(
+      [data-image-state="missing"],
+      [data-image-state="loading"],
+      [data-image-state="error"]
+    ) {
+    display: grid;
+    min-height: 12rem;
+  }
+
   .sc-course-image-block__fallback {
     width: 100%;
     min-height: 12rem;
@@ -27,6 +36,8 @@
 
   .sc-course-image-block__error,
   .sc-course-image-block__loading {
+    min-width: 0;
+    width: 100%;
     margin: 0;
     overflow-wrap: anywhere;
   }

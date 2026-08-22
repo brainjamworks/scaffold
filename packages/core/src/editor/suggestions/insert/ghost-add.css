@@ -118,4 +118,10 @@
       transition: none;
     }
   }
+
+  @media (forced-colors: active) {
+    .sc-app-block-add:focus-visible {
+      outline-color: Highlight;
+    }
+  }
 }

@@ -54,7 +54,6 @@ export function SettingsForm<TFieldValues extends FieldValues, TActionId extends
               {section.title}
             </Accordion.Header>
             <Accordion.Content
-              id={settingsSectionContentId(idPrefix, section.id)}
               role="region"
               aria-labelledby={settingsSectionTriggerId(idPrefix, section.id)}
               {...(section.description
@@ -236,10 +235,6 @@ function settingsSectionDomId(idPrefix: string, sectionId: string, suffix: strin
 
 function settingsSectionTriggerId(idPrefix: string, sectionId: string): string {
   return settingsSectionDomId(idPrefix, sectionId, "trigger");
-}
-
-function settingsSectionContentId(idPrefix: string, sectionId: string): string {
-  return settingsSectionDomId(idPrefix, sectionId, "content");
 }
 
 function settingsSectionDescriptionId(idPrefix: string, sectionId: string): string {

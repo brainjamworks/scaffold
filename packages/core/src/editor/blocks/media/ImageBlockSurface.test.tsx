@@ -8,6 +8,44 @@ import { ImageBlockSurface } from "./ImageBlockSurface";
 afterEach(cleanup);
 
 describe("ImageBlockSurface ownership", () => {
+  it.each([
+    {
+      expected: "missing",
+      props: { data: null, errorMessage: null, resolvedUrl: null },
+    },
+    {
+      expected: "loading",
+      props: {
+        data: { mode: "managed" as const, mediaId: "image-1" },
+        errorMessage: null,
+        resolvedUrl: null,
+      },
+    },
+    {
+      expected: "error",
+      props: {
+        data: { mode: "managed" as const, mediaId: "image-1" },
+        errorMessage: "Image unavailable",
+        resolvedUrl: null,
+      },
+    },
+    {
+      expected: "ready",
+      props: {
+        data: { mode: "external" as const, src: "https://example.com/image.jpg" },
+        errorMessage: null,
+        resolvedUrl: "https://example.com/image.jpg",
+      },
+    },
+  ])("projects the $expected state onto the shared Course stage", ({ expected, props }) => {
+    const { container } = render(<ImageBlockSurface {...props} />);
+
+    expect(container.querySelector(".sc-course-image-block__stage")).toHaveAttribute(
+      "data-image-state",
+      expected,
+    );
+  });
+
   it("uses Course presentation classes without an authoring host at runtime", () => {
     const { container } = render(
       <ImageBlockSurface

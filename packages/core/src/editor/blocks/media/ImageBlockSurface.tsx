@@ -26,11 +26,14 @@ export function ImageBlockSurface({
   replaceAction,
   resolvedUrl,
 }: ImageBlockSurfaceProps) {
+  const state = !data ? "missing" : errorMessage ? "error" : resolvedUrl ? "ready" : "loading";
+
   return (
     <>
       <div
         className={cn("sc-course-image-block__stage", replaceAction && "sc-app-media-replace-host")}
         contentEditable={false}
+        data-image-state={state}
       >
         {!data ? (
           (emptyAction ?? (

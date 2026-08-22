@@ -98,6 +98,7 @@ export function TextWrapImageAuthoringView(props: NodeViewProps) {
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         kind="media"
+        allowedMediaTypes={["image"]}
         defaultMediaType="image"
         title={data.source ? "Replace image" : "Add image"}
         onResolved={handlePickerResolved}

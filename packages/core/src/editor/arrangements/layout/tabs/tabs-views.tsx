@@ -12,7 +12,6 @@ import { projectInteractionContextOwners } from "@/editor/interactions/targets/p
 import { layoutSectionPositionAt } from "../model/layout-arrangement-helpers";
 import {
   activateLayoutInteractionTarget,
-  courseLayoutChromePresentation,
   LayoutAddGhost,
   SectionActionTrigger,
   SectionMovementHandle,
@@ -149,7 +148,6 @@ export function TabsLayoutView(props: LayoutComponentProps) {
         {props.editable ? (
           <LayoutAddGhost
             editor={props.editor}
-            chromePresentation={courseLayoutChromePresentation}
             getPos={props.getPos}
             label={addLabel}
             layoutId={layoutId}
@@ -159,7 +157,7 @@ export function TabsLayoutView(props: LayoutComponentProps) {
                 activateTab(sectionId, sectionIndex);
               }
             }}
-            className="sc-course-tabs__add"
+            className="sc-app-tabs-add"
           />
         ) : null}
       </TabsList>
@@ -216,7 +214,7 @@ function TabsAuthoringItem({
           projection={reorderProjection}
           sectionId={section.id}
           sectionIndex={sectionIndex}
-          className="sc-course-tabs__handle"
+          className="sc-app-tabs-handle"
         />
       ) : null}
       <TabsTrigger
@@ -248,8 +246,7 @@ function TabsAuthoringItem({
           layoutPos={layoutPos}
           sectionId={section.id}
           sectionIndex={sectionIndex}
-          chromePresentation={courseLayoutChromePresentation}
-          className="sc-course-tabs__action"
+          className="sc-app-tabs-action"
         />
       ) : null}
     </TabsItem>

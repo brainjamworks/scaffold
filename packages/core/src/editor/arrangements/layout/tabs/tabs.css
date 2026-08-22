@@ -66,13 +66,13 @@
     text-overflow: ellipsis;
   }
 
-  .sc-course-tabs__add {
+  .sc-app-tabs-add {
     flex: 0 0 auto;
     white-space: nowrap;
   }
 
-  .sc-course-tabs__handle,
-  .sc-course-tabs__action {
+  .sc-app-tabs-handle,
+  .sc-app-tabs-action {
     position: absolute;
     top: 50%;
     z-index: var(--z-interactive, 5);
@@ -80,30 +80,30 @@
     transform: translateY(-50%);
   }
 
-  .sc-course-tabs__handle {
+  .sc-app-tabs-handle {
     inset-inline-start: 0;
   }
 
-  .sc-course-tabs__action {
+  .sc-app-tabs-action {
     inset-inline-end: 0;
   }
 
-  .sc-course-tabs__item:focus-within .sc-course-tabs__handle,
-  .sc-course-tabs__item:focus-within .sc-course-tabs__action,
-  .sc-course-tabs__handle:focus-visible,
-  .sc-course-tabs__action:focus-visible,
+  .sc-course-tabs__item:focus-within .sc-app-tabs-handle,
+  .sc-course-tabs__item:focus-within .sc-app-tabs-action,
+  .sc-app-tabs-handle:focus-visible,
+  .sc-app-tabs-action:focus-visible,
   [data-authoring-frame="layout"][data-authoring-chrome-active]
     .sc-course-tabs__item[data-state="active"]
-    .sc-course-tabs__handle,
+    .sc-app-tabs-handle,
   [data-authoring-frame="layout"][data-authoring-chrome-active]
     .sc-course-tabs__item[data-state="active"]
-    .sc-course-tabs__action {
+    .sc-app-tabs-action {
     pointer-events: auto;
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .sc-course-tabs__item:hover .sc-course-tabs__handle,
-    .sc-course-tabs__item:hover .sc-course-tabs__action {
+    .sc-course-tabs__item:hover .sc-app-tabs-handle,
+    .sc-course-tabs__item:hover .sc-app-tabs-action {
       pointer-events: auto;
     }
   }
@@ -135,5 +135,54 @@
 
   .sc-course-tabs__panel-frame:has(> .sc-course-tabs__panel[hidden]) {
     display: none;
+  }
+}
+
+@layer sc-overlays {
+  .sc-app-tabs-action {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .sc-course-tabs__item:focus-within .sc-app-tabs-action,
+  .sc-app-tabs-action:focus-visible {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  [data-authoring-frame="layout"][data-authoring-chrome-active]
+    .sc-course-tabs__item[data-state="active"]
+    .sc-app-tabs-action {
+    opacity: 0.64;
+    visibility: visible;
+  }
+
+  .sc-app-block-add.sc-app-tabs-add {
+    min-height: 2.75rem;
+  }
+
+  .sc-course-tabs__list:is([data-variant="default"], [data-variant="underline"])
+    > .sc-app-block-add.sc-app-tabs-add {
+    align-self: stretch;
+    margin-bottom: -1px;
+    padding: 0.75rem 1rem;
+    border-top: 0;
+    border-right: 0;
+    border-bottom-width: 2px;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .sc-course-tabs__list[data-variant="pills"] > .sc-app-block-add.sc-app-tabs-add {
+    min-height: 2.25rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 9999px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .sc-course-tabs__item:hover .sc-app-tabs-action {
+      opacity: 1;
+      visibility: visible;
+    }
   }
 }

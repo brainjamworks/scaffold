@@ -125,6 +125,7 @@ export function IconPicker({
   const [, bumpCatalogRevision] = useReducer((current: number) => current + 1, 0);
   const [catalogState, setCatalogState] = useState(() => getIconCatalogState());
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const mediaPickerReturnFocusRef = useRef<HTMLElement | null>(null);
   const selectedValue = value ?? null;
   const displayValue = selectedValue || fallbackValue;
   const debouncedQuery = useDebouncedValue(query, 120);
@@ -155,6 +156,9 @@ export function IconPicker({
   };
 
   const handleOpenChange = (next: boolean) => {
+    if (next && document.activeElement instanceof HTMLElement) {
+      mediaPickerReturnFocusRef.current = document.activeElement;
+    }
     setOpen(next);
     if (!next) setQuery("");
     if (next && !catalogState.loaded && !catalogState.loading) {
@@ -417,6 +421,7 @@ export function IconPicker({
         title="Choose image icon"
         metadataFields={["alt"]}
         allowExternalUrl={false}
+        returnFocusRef={mediaPickerReturnFocusRef}
       />
     </>
   );

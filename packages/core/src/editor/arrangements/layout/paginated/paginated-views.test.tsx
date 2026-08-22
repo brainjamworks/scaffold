@@ -117,13 +117,24 @@ describe("paginated authoring", () => {
     });
     const addPage = screen.getByRole("button", { name: "Add page" });
     const sectionOptions = layout?.querySelector<HTMLElement>("[data-layout-section-menu-trigger]");
-    expect(addPage).toHaveClass("sc-course-layout-chrome__add", "sc-course-paginated__add");
-    expect(addPage).not.toHaveClass("sc-app-block-add", "sc-layout-add-ghost");
+    expect(addPage).toHaveClass(
+      "sc-app-block-add",
+      "sc-layout-add-ghost",
+      "sc-layout-add-ghost--icon",
+      "sc-app-paginated-add",
+    );
+    expect(addPage).not.toHaveClass(
+      "sc-course-layout-chrome__add",
+      "sc-course-paginated__add",
+    );
     expect(sectionOptions).toHaveClass(
+      "sc-layout-section-action-trigger",
+      "sc-app-paginated-action",
+    );
+    expect(sectionOptions).not.toHaveClass(
       "sc-course-layout-chrome__options",
       "sc-course-paginated__action",
     );
-    expect(sectionOptions).not.toHaveClass("sc-layout-section-action-trigger");
     expect(pageButtons[0]?.getAttribute("aria-current")).toBe("page");
     expect(panels[0]?.hidden).toBe(false);
     expect(panels[1]?.hidden).toBe(true);

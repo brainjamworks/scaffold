@@ -140,7 +140,7 @@
     justify-content: center;
   }
 
-  .sc-course-paginated__add {
+  .sc-app-paginated-add {
     width: 2.75rem;
     min-width: 2.75rem;
     height: 2.75rem;
@@ -174,7 +174,7 @@
     display: none;
   }
 
-  .sc-course-paginated__action {
+  .sc-app-paginated-action {
     position: absolute;
     top: 0.75rem;
     inset-inline-end: 0.5rem;
@@ -182,14 +182,38 @@
     pointer-events: none;
   }
 
-  .sc-course-paginated__panel:focus-within .sc-course-paginated__action,
-  .sc-course-paginated__action:focus-visible {
+  .sc-course-paginated__panel:focus-within .sc-app-paginated-action,
+  .sc-app-paginated-action:focus-visible {
     pointer-events: auto;
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .sc-course-paginated__panel:hover .sc-course-paginated__action {
+    .sc-course-paginated__panel:hover .sc-app-paginated-action {
       pointer-events: auto;
+    }
+  }
+}
+
+@layer sc-overlays {
+  .sc-app-block-add.sc-app-paginated-add {
+    width: 2.75rem;
+    min-width: 2.75rem;
+    height: 2.75rem;
+    min-height: 2.75rem;
+    flex: 0 0 auto;
+    padding: 0;
+  }
+
+  .sc-course-paginated__panel:focus-within .sc-app-paginated-action,
+  .sc-app-paginated-action:focus-visible {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .sc-course-paginated__panel:hover .sc-app-paginated-action {
+      opacity: 1;
+      visibility: visible;
     }
   }
 }

@@ -67,6 +67,7 @@ export function SlideImageBandSurfaceAuthoringView(props: SurfaceAuthoringViewPr
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         kind="media"
+        allowedMediaTypes={["image"]}
         defaultMediaType="image"
         title={settings.image.imageUrl ? "Replace band image" : "Choose band image"}
         onResolved={handlePickerResolved}

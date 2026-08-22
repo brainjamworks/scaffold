@@ -67,6 +67,7 @@ export function SlideImageCoverSurfaceAuthoringView(props: SurfaceAuthoringViewP
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         kind="media"
+        allowedMediaTypes={["image"]}
         defaultMediaType="image"
         title={settings.image.imageUrl ? "Replace cover image" : "Choose cover image"}
         onResolved={handlePickerResolved}

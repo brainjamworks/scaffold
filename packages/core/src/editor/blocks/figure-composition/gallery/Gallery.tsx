@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { GalleryItemDataSchema, type GalleryItemData } from "@scaffold/contracts";
 
 import { Lightbox } from "@/ui/components/Lightbox/Lightbox";
-import { CourseIconButton } from "@/ui/components/course/CourseActions/CourseActions";
+import { IconButton } from "@/ui/components/IconButton/IconButton";
 import type { CheckedMutationResult } from "@/document/model/commands/checked-transactions";
 import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
@@ -147,19 +147,19 @@ export function GalleryAuthoringView(props: NodeViewProps) {
               }}
               onBeforeTileClick={selectBlock}
               renderTileAction={(item, index) => (
-                <CourseIconButton
+                <IconButton
                   type="button"
-                  size="compact"
-                  emphasis="strong"
+                  size="sm"
+                  variant="danger"
                   onClick={(event) => {
                     event.stopPropagation();
                     removeItem(item.key);
                   }}
-                  className="sc-app-gallery__tile-delete sc-course-gallery__delete"
+                  className="sc-app-gallery__tile-delete"
                   aria-label={`Remove image ${index + 1}`}
                 >
                   <Trash size={14} aria-hidden />
-                </CourseIconButton>
+                </IconButton>
               )}
               renderAddTile={
                 <BlockAddGhost
@@ -188,19 +188,19 @@ export function GalleryAuthoringView(props: NodeViewProps) {
               onBeforeSelect={selectBlock}
               onBeforeOpenLightbox={selectBlock}
               renderThumbAction={(item, index) => (
-                <CourseIconButton
+                <IconButton
                   type="button"
-                  size="compact"
-                  emphasis="strong"
+                  size="sm"
+                  variant="danger"
                   onClick={(event) => {
                     event.stopPropagation();
                     removeItem(item.key);
                   }}
-                  className="sc-app-gallery__thumb-delete sc-course-gallery__delete"
+                  className="sc-app-gallery__thumb-delete"
                   aria-label={`Remove image ${index + 1}`}
                 >
                   <Trash size={14} aria-hidden />
-                </CourseIconButton>
+                </IconButton>
               )}
               renderAddThumb={
                 <BlockAddGhost
@@ -233,6 +233,7 @@ export function GalleryAuthoringView(props: NodeViewProps) {
         onOpenChange={setPickerOpen}
         onResolved={handlePickerResolved}
         kind="media"
+        allowedMediaTypes={["image"]}
         defaultMediaType="image"
         title="Add image"
       />

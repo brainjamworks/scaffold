@@ -10,9 +10,9 @@
     min-width: 0;
     width: auto;
     max-width: 14rem;
-    border-color: transparent;
-    background: transparent;
-    color: var(--sc-app-color-text-muted);
+    border-color: var(--sc-app-color-border);
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-ink);
     font-family: var(--font-ui);
     font-size: 0.75rem;
     font-weight: 600;
@@ -29,7 +29,8 @@
 
   .sc-app-code-block__language-trigger:focus-visible {
     border-color: var(--sc-app-color-primary);
-    outline-color: var(--sc-app-color-focus-outline);
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: -4px;
   }
 }
 

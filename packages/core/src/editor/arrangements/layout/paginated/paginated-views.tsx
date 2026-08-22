@@ -12,7 +12,6 @@ import { projectInteractionContextOwners } from "@/editor/interactions/targets/p
 import { layoutSectionPositionAt } from "../model/layout-arrangement-helpers";
 import {
   activateLayoutInteractionTarget,
-  courseLayoutChromePresentation,
   LayoutAddGhost,
   SectionActionTrigger,
 } from "../authoring/layout-chrome";
@@ -129,7 +128,6 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
         footer={
           props.editable && props.definition?.section ? (
             <LayoutAddGhost
-              chromePresentation={courseLayoutChromePresentation}
               editor={props.editor}
               getPos={props.getPos}
               label={addLabel}
@@ -139,7 +137,7 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
                 activateLayout();
               }}
               presentation="icon"
-              className="sc-course-paginated__add"
+              className="sc-app-paginated-add"
             />
           ) : null
         }
@@ -188,12 +186,11 @@ export function PaginatedSectionView(props: SectionComponentProps) {
       {props.editable && layoutPos !== null ? (
         <SectionActionTrigger
           blockDefinitions={props.blockDefinitions}
-          chromePresentation={courseLayoutChromePresentation}
           editor={props.editor}
           layoutPos={layoutPos}
           sectionId={liveState.pageId}
           sectionIndex={pageIndex}
-          className="sc-course-paginated__action"
+          className="sc-app-paginated-action"
         />
       ) : null}
       <div data-bounded-scroll-frame="">

@@ -356,9 +356,9 @@ it("separates Course gallery composition from App-only author controls", async (
     expect(element).toBeInstanceOf(HTMLElement);
     return element!;
   });
+  expect(authoring.querySelector(".sc-course-gallery__thumb")).not.toBeNull();
   expect(authoring.querySelector(".sc-app-gallery__thumb-delete")).toHaveClass(
-    "rt-IconButton",
-    "sc-course-gallery__delete",
+    "sc-icon-button",
   );
   expect(authoring.querySelector('[class^="sc-gallery"], [class*=" sc-gallery"]')).toBeNull();
 
@@ -376,6 +376,42 @@ it("separates Course gallery composition from App-only author controls", async (
   });
   expect(runtime.querySelector('[class*="sc-app-gallery"]')).toBeNull();
   expect(runtime.querySelector('[class^="sc-gallery"], [class*=" sc-gallery"]')).toBeNull();
+
+  editor.destroy();
+});
+
+it("uses an App-owned danger action for grid image removal", async () => {
+  const editor = renderGalleryEditor(galleryFixture("grid"));
+
+  const removeAction = await screen.findByRole("button", { name: "Remove image 1" });
+
+  expect(removeAction).toHaveClass("sc-icon-button", "sc-app-gallery__tile-delete");
+  expect(removeAction).toHaveAttribute("data-size", "sm");
+  expect(removeAction).toHaveAttribute("data-variant", "danger");
+  expect(removeAction).not.toHaveClass(
+    "rt-IconButton",
+    "sc-course-icon-action",
+    "sc-course-gallery__delete",
+  );
+
+  editor.destroy();
+});
+
+it("uses an App-owned danger action for carousel thumbnail removal", async () => {
+  const editor = renderGalleryEditor();
+
+  const carouselRemoveAction = await screen.findByRole("button", { name: "Remove image 1" });
+  const learnerThumbAction = screen.getByRole("button", { name: "Show image 1" });
+
+  expect(learnerThumbAction).toHaveClass("sc-course-gallery__thumb");
+  expect(carouselRemoveAction).toHaveClass("sc-icon-button", "sc-app-gallery__thumb-delete");
+  expect(carouselRemoveAction).toHaveAttribute("data-size", "sm");
+  expect(carouselRemoveAction).toHaveAttribute("data-variant", "danger");
+  expect(carouselRemoveAction).not.toHaveClass(
+    "rt-IconButton",
+    "sc-course-icon-action",
+    "sc-course-gallery__delete",
+  );
 
   editor.destroy();
 });

@@ -156,16 +156,108 @@ describe("Gallery container geometry", () => {
       ".sc-app-gallery__grid-add-action",
     );
     const style = getComputedStyle(addAction);
-    const deleteAction = authoringFrame.querySelector<HTMLElement>(".sc-course-gallery__delete");
-    if (!deleteAction) throw new Error("Expected a Course-owned Gallery delete action.");
-    const deleteRadius = Number.parseFloat(getComputedStyle(deleteAction).borderTopLeftRadius);
 
     expect(style.borderStyle).toBe("dashed");
     expect(style.boxShadow).toBe("none");
     expect(addAction.querySelector(".sc-app-block-add__icon")).not.toBeNull();
-    expect(deleteRadius).toBeGreaterThan(0);
-    expect(deleteRadius).toBeLessThan(deleteAction.getBoundingClientRect().width / 2);
     expect(galleryFrame(pair.runtime).querySelector(".sc-app-gallery__grid-add-action")).toBeNull();
+  });
+
+  it("keeps the grid remove action compact while giving it App ownership", async () => {
+    const pair = await mountPair(unboundedGalleryDocument(), "gallerypage1", true);
+    mountedPairs.push(pair);
+    await nextLayoutFrames(2);
+
+    const authoringFrame = galleryFrame(pair.authoring);
+    const removeActions = authoringFrame.querySelectorAll<HTMLButtonElement>(
+      ".sc-app-gallery__tile-delete",
+    );
+    expect(removeActions).toHaveLength(9);
+    const removeAction = removeActions[0]!;
+    const appStyle = getComputedStyle(requiredElement<HTMLElement>(pair.authoring.host, ".sc-app"));
+    const mutedColour = computedColor(appStyle.getPropertyValue("--sc-app-color-text-muted"));
+    const controlRadius = computedLength(appStyle.getPropertyValue("--sc-app-radius-control"));
+    const removeStyle = getComputedStyle(removeAction);
+
+    expect(removeAction).toHaveClass("sc-icon-button");
+    expect(removeAction).toHaveAttribute("data-size", "sm");
+    expect(removeAction).toHaveAttribute("data-variant", "danger");
+    expect(removeAction).not.toHaveClass(
+      "rt-IconButton",
+      "sc-course-icon-action",
+      "sc-course-gallery__delete",
+    );
+    expect(removeStyle.width).toBe("24px");
+    expect(removeStyle.height).toBe("24px");
+    expect(removeStyle.borderTopWidth).toBe("0px");
+    expect(Number.parseFloat(removeStyle.borderTopLeftRadius)).toBeCloseTo(controlRadius, 1);
+    expect(removeStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(removeStyle.color).toBe(mutedColour);
+    expect(removeStyle.opacity).toBe("1");
+    expect(removeStyle.position).toBe("absolute");
+    expect(removeStyle.insetBlockStart).toBe("6px");
+    expect(removeStyle.insetInlineEnd).toBe("6px");
+    expect(galleryFrame(pair.runtime).querySelector(".sc-app-gallery__tile-delete")).toBeNull();
+  });
+
+  it("keeps carousel thumbnail removal compact while giving only it App ownership", async () => {
+    const pair = await mountPair(unboundedGalleryDocument("carousel"), "gallerypage1", true);
+    mountedPairs.push(pair);
+    await nextLayoutFrames(2);
+
+    const authoringFrame = galleryFrame(pair.authoring);
+    const learnerThumbs = authoringFrame.querySelectorAll<HTMLButtonElement>(
+      ".sc-course-gallery__thumb",
+    );
+    const removeActions = authoringFrame.querySelectorAll<HTMLButtonElement>(
+      ".sc-app-gallery__thumb-delete",
+    );
+    expect(learnerThumbs).toHaveLength(8);
+    expect(removeActions).toHaveLength(8);
+    const removeAction = removeActions[0]!;
+    const appStyle = getComputedStyle(requiredElement<HTMLElement>(pair.authoring.host, ".sc-app"));
+    const mutedColour = computedColor(appStyle.getPropertyValue("--sc-app-color-text-muted"));
+    const controlRadius = computedLength(appStyle.getPropertyValue("--sc-app-radius-control"));
+    const removeStyle = getComputedStyle(removeAction);
+
+    expect(removeAction).toHaveClass("sc-icon-button");
+    expect(removeAction).toHaveAttribute("data-size", "sm");
+    expect(removeAction).toHaveAttribute("data-variant", "danger");
+    expect(removeAction).not.toHaveClass(
+      "rt-IconButton",
+      "sc-course-icon-action",
+      "sc-course-gallery__delete",
+    );
+    expect(removeStyle.width).toBe("24px");
+    expect(removeStyle.height).toBe("24px");
+    expect(removeStyle.borderTopWidth).toBe("0px");
+    expect(Number.parseFloat(removeStyle.borderTopLeftRadius)).toBeCloseTo(controlRadius, 1);
+    expect(removeStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(removeStyle.color).toBe(mutedColour);
+    expect(removeStyle.opacity).toBe("1");
+    expect(removeStyle.position).toBe("absolute");
+    expect(removeStyle.insetBlockStart).toBe("3px");
+    expect(removeStyle.insetInlineEnd).toBe("3px");
+    expect(galleryFrame(pair.runtime).querySelector(".sc-app-gallery__thumb-delete")).toBeNull();
+  });
+
+  it("keeps the empty-state add affordance pill-shaped under square Course roundness", async () => {
+    const pair = await mountPair(unboundedEmptyGalleryDocument(), "gallerypage1", true);
+    mountedPairs.push(pair);
+    await nextLayoutFrames(2);
+
+    const authoringFrame = galleryFrame(pair.authoring);
+    const courseTheme = authoringFrame.closest<HTMLElement>(".sc-course");
+    if (!courseTheme) throw new Error("Expected Gallery inside a Course theme boundary.");
+    courseTheme.style.setProperty("--radius-full", "0px");
+    await nextLayoutFrames(1);
+
+    const addAction = requiredElement<HTMLElement>(authoringFrame, ".sc-app-gallery__empty-add");
+    const addRadius = Number.parseFloat(getComputedStyle(addAction).borderTopLeftRadius);
+
+    expect(addAction).toHaveClass("sc-app-block-add");
+    expect(addRadius).toBeGreaterThanOrEqual(addAction.getBoundingClientRect().height / 2);
+    expect(galleryFrame(pair.runtime).querySelector(".sc-app-gallery__empty-add")).toBeNull();
   });
 
   it("scores narrow bounded tracks with the effective eight-pixel gap", async () => {
@@ -295,11 +387,19 @@ function boundedGallerySurfaceId(owner: BoundedOwner): EmbeddedNodeId {
   );
 }
 
-function unboundedGalleryDocument(): JSONContent {
+function unboundedGalleryDocument(layout: "carousel" | "grid" = "grid"): JSONContent {
   const content = createScaffoldDocumentContent({ mode: "page", surfaceId: "gallerypage1" });
   const surface = content.content?.[0]?.content?.[0];
   if (!surface) throw new Error("Page fixture has no Surface.");
-  surface.content = [galleryNode("grid", 9)];
+  surface.content = [galleryNode(layout, layout === "carousel" ? 8 : 9)];
+  return content;
+}
+
+function unboundedEmptyGalleryDocument(): JSONContent {
+  const content = createScaffoldDocumentContent({ mode: "page", surfaceId: "gallerypage1" });
+  const surface = content.content?.[0]?.content?.[0];
+  if (!surface) throw new Error("Page fixture has no Surface.");
+  surface.content = [galleryNode("grid", 0)];
   return content;
 }
 
@@ -503,6 +603,24 @@ function requiredElement<T extends Element>(root: ParentNode, selector: string):
     throw new Error(`Expected one element for ${selector}, found ${matches.length}.`);
   }
   return matches[0];
+}
+
+function computedColor(value: string, property: "color" | "background" = "color"): string {
+  const probe = document.createElement("div");
+  probe.style[property] = value;
+  document.body.append(probe);
+  const computed = getComputedStyle(probe)[property === "color" ? "color" : "backgroundColor"];
+  probe.remove();
+  return computed;
+}
+
+function computedLength(value: string): number {
+  const probe = document.createElement("div");
+  probe.style.width = value;
+  document.body.append(probe);
+  const computed = Number.parseFloat(getComputedStyle(probe).width);
+  probe.remove();
+  return computed;
 }
 
 async function waitForCondition(condition: () => unknown): Promise<void> {

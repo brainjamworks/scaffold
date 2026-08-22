@@ -155,4 +155,32 @@ describe("IconPicker", () => {
 
     expect(onValueChange).toHaveBeenCalledWith(mediaIconValue("logo-media-id"));
   });
+
+  it("returns focus to the icon trigger when the managed-image dialog closes", async () => {
+    const user = userEvent.setup();
+    const media: MediaPort = {
+      resolve: async () => "https://example.com/logo.png",
+      upload: async () => {
+        throw new Error("not used");
+      },
+      list: async () => [],
+    };
+
+    render(
+      <ScaffoldServicesProvider ports={{ media }}>
+        <IconPicker value={null} fallbackValue={catalogIconValue("info")} onValueChange={vi.fn()} />
+      </ScaffoldServicesProvider>,
+    );
+
+    const trigger = screen.getByRole("button", { name: /default icon/i });
+    await user.click(trigger);
+    await user.click(screen.getByRole("button", { name: "Image" }));
+    await screen.findByRole("dialog", { name: "Choose image icon" });
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Choose image icon" })).toBeNull();
+      expect(document.activeElement).toBe(trigger);
+    });
+  });
 });

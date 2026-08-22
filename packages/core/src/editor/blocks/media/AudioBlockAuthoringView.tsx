@@ -118,6 +118,7 @@ export function AudioBlockAuthoringView(props: NodeViewProps) {
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         kind="media"
+        allowedMediaTypes={["audio"]}
         defaultMediaType="audio"
         title={data ? "Replace audio" : "Add audio"}
         metadataFields={["title"]}

@@ -2,7 +2,6 @@ import { NodeViewContent } from "@tiptap/react";
 import { useCallback, useMemo } from "react";
 
 import {
-  courseLayoutChromePresentation,
   LayoutAddGhost,
   resolveSectionPresentationElement,
   SectionActionTrigger,
@@ -74,7 +73,6 @@ export function AccordionLayoutView(props: LayoutComponentProps) {
         footer={
           props.editable && props.definition?.section ? (
             <LayoutAddGhost
-              chromePresentation={courseLayoutChromePresentation}
               editor={props.editor}
               getPos={props.getPos}
               label={addLabel}
@@ -87,7 +85,7 @@ export function AccordionLayoutView(props: LayoutComponentProps) {
                 });
               }}
               presentation="full-width"
-              className="sc-course-accordion__add"
+              className="sc-app-accordion-add"
             />
           ) : null
         }
@@ -127,7 +125,7 @@ export function AccordionSectionView(props: SectionComponentProps) {
             getPos={props.getPos}
             projection={reorderProjection}
             sectionId={sectionId}
-            className="sc-course-accordion__handle"
+            className="sc-app-accordion-handle"
           />
         ) : null
       }
@@ -135,11 +133,10 @@ export function AccordionSectionView(props: SectionComponentProps) {
         props.editable ? (
           <SectionActionTrigger
             blockDefinitions={props.blockDefinitions}
-            chromePresentation={courseLayoutChromePresentation}
             editor={props.editor}
             getPos={props.getPos}
             sectionId={sectionId}
-            className="sc-course-accordion__action"
+            className="sc-app-accordion-action"
           />
         ) : null
       }

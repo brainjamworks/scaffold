@@ -1787,8 +1787,8 @@ describe("layout arrangement nodes", () => {
       expect(document.body.querySelector("[data-layout-add-ghost]")).not.toBeNull();
     });
     expect(document.body.querySelector("[data-layout-add-ghost]")).toHaveClass(
-      "sc-course-layout-chrome__add",
-      "sc-course-tabs__add",
+      "sc-app-block-add",
+      "sc-app-tabs-add",
     );
 
     fireEvent.click(document.body.querySelector("[data-layout-add-ghost]")!);
@@ -1977,8 +1977,8 @@ describe("layout arrangement nodes", () => {
     expect(move?.getAttribute("class")).toContain("sc-app-structure-movement-handle");
     expect(move?.getAttribute("class")).toContain("sc-app-structure-movement-handle--bare");
     expect(move?.getAttribute("class")).toContain("sc-app-compact-movement-handle");
-    expect(move?.getAttribute("class")).not.toContain("sc-course-layout-chrome__move");
-    expect(move?.getAttribute("class")).toContain("sc-course-tabs__handle");
+    expect(move?.getAttribute("class")).not.toContain("sc-course-tabs__handle");
+    expect(move?.getAttribute("class")).toContain("sc-app-tabs-handle");
     expect(move?.closest("[data-course-tabs-item]")).toBe(item);
     expect(menu?.closest("[data-course-tabs-item]")).toBe(item);
     expect(tab?.contains(move ?? null)).toBe(false);
@@ -2889,7 +2889,7 @@ describe("layout arrangement nodes", () => {
       expect(document.body.querySelector("[data-layout-add-ghost]")).not.toBeNull();
     });
     expect(document.body.querySelector("[data-layout-add-ghost]")?.getAttribute("class")).toContain(
-      "sc-course-layout-chrome__add",
+      "sc-app-accordion-add",
     );
 
     fireEvent.click(document.body.querySelector("[data-layout-add-ghost]")!);

@@ -153,15 +153,16 @@
   }
 
   .sc-layout-section-action-trigger {
+    position: relative;
     display: inline-flex;
     width: 1.5rem;
     height: 1.5rem;
     align-items: center;
     justify-content: center;
     border: 0;
-    border-radius: var(--radius-pill);
+    border-radius: var(--sc-app-radius-control);
     background: transparent;
-    color: var(--color-text-muted);
+    color: var(--sc-app-color-text-muted);
     opacity: 0;
     pointer-events: none;
     visibility: hidden;
@@ -169,6 +170,12 @@
       opacity 150ms var(--ease-out-soft),
       background-color 150ms var(--ease-out-soft),
       color 150ms var(--ease-out-soft);
+  }
+
+  .sc-layout-section-action-trigger::before {
+    content: "";
+    position: absolute;
+    inset: -0.625rem;
   }
 
   [data-authoring-frame="section"]:hover .sc-layout-section-action-trigger,
@@ -179,8 +186,8 @@
   }
 
   .sc-layout-section-action-trigger:hover {
-    background: var(--color-muted);
-    color: var(--color-text-primary);
+    background: var(--sc-app-color-muted);
+    color: var(--sc-app-color-text-primary);
   }
 
   .sc-layout-section-action-trigger:focus-visible {
@@ -188,7 +195,28 @@
     opacity: 1;
     pointer-events: auto;
     visibility: visible;
-    box-shadow: 0 0 0 2px var(--color-focus-ring);
+    box-shadow: 0 0 0 2px var(--sc-app-color-focus-outline);
+  }
+
+  .sc-layout-section-action-trigger:active:not(:focus-visible) > svg {
+    transform: scale(0.9);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-layout-section-action-trigger,
+    .sc-layout-section-action-trigger > svg {
+      transition: none;
+    }
+
+    .sc-layout-section-action-trigger:active:not(:focus-visible) > svg {
+      transform: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .sc-layout-section-action-trigger:focus-visible {
+      box-shadow: 0 0 0 2px Highlight;
+    }
   }
 
   .sc-layout-outline {

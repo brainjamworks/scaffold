@@ -101,18 +101,32 @@ describe("bounded accordion authoring", () => {
         "middle",
       ),
     ).toBe(false);
-    expect(screen.getByRole("button", { name: "Add section" })).toBeInTheDocument();
-    expect(layout?.querySelector("[data-authoring-move-handle]")).not.toBeNull();
-    expect(layout?.querySelector("[data-layout-section-menu-trigger]")).not.toBeNull();
+    const addSection = screen.getByRole("button", { name: "Add section" });
+    const moveSection = layout?.querySelector<HTMLElement>("[data-authoring-move-handle]");
+    const sectionOptions = layout?.querySelector<HTMLElement>(
+      "[data-layout-section-menu-trigger]",
+    );
+    expect(addSection).toBeInTheDocument();
+    expect(moveSection).not.toBeNull();
+    expect(sectionOptions).not.toBeNull();
     expect(layout?.querySelector(".sc-app-structure-movement-handle--bare")).not.toBeNull();
     expect(layout?.querySelector(".sc-app-compact-movement-handle")).not.toBeNull();
     expect(layout?.querySelector(".sc-course-layout-chrome__move")).toBeNull();
-    expect(layout?.querySelector(".sc-course-layout-chrome__options")).not.toBeNull();
-    expect(
-      screen
-        .getByRole("button", { name: "Add section" })
-        .classList.contains("sc-course-layout-chrome__add"),
-    ).toBe(true);
+    expect(addSection).toHaveClass("sc-app-block-add", "sc-app-accordion-add");
+    expect(addSection).not.toHaveClass(
+      "sc-course-layout-chrome__add",
+      "sc-course-accordion__add",
+    );
+    expect(moveSection).toHaveClass("sc-app-accordion-handle");
+    expect(moveSection).not.toHaveClass("sc-course-accordion__handle");
+    expect(sectionOptions).toHaveClass(
+      "sc-layout-section-action-trigger",
+      "sc-app-accordion-action",
+    );
+    expect(sectionOptions).not.toHaveClass(
+      "sc-course-layout-chrome__options",
+      "sc-course-accordion__action",
+    );
     expect(triggers[0]?.getAttribute("aria-label")).toBe("Before class");
     expect(fireEvent.mouseDown(triggers[0]!)).toBe(false);
     expect(panelViewport(panels[0])?.hasAttribute("data-bounded-scroll")).toBe(true);

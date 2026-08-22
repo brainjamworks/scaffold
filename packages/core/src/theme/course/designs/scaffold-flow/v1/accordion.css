@@ -82,47 +82,12 @@
   transform: rotate(180deg);
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-accordion__action {
-  opacity: 0;
-}
-
-.sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-course-accordion__section-frame:focus-within
-  .sc-course-accordion__action,
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-accordion__action:focus-visible {
-  opacity: 1;
-}
-
-.sc-course.sc-course-theme-scaffold-flow-v1
-  [data-authoring-frame="layout"][data-authoring-chrome-active]
-  .sc-course-accordion__section-frame[data-state="open"]
-  .sc-course-accordion__action {
-  opacity: 0.64;
-}
-
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-accordion__panel,
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-accordion__panel-content {
   color: var(--gray-12);
   font-family: var(--default-font-family);
   font-size: calc(var(--font-size-3) * var(--sc-course-author-text-scale));
   line-height: var(--sc-course-author-body-line-height);
-}
-
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-accordion__add {
-  justify-content: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
-  border-width: 0;
-  border-top-width: var(--sc-course-author-stroke-width);
-  border-radius: 0;
-  opacity: 0.72;
-}
-
-.sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-course-accordion__add
-  .sc-course-layout-chrome__add-icon {
-  order: 1;
-  margin-inline-start: auto;
 }
 
 @container (max-width: 20rem) {
@@ -136,13 +101,6 @@
     padding-inline: var(--space-3);
   }
 
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-accordion__handle {
-    inset-inline-start: var(--space-2);
-  }
-
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-accordion__action {
-    inset-inline-end: var(--space-2);
-  }
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -158,11 +116,7 @@
 
   .sc-course.sc-course-theme-scaffold-flow-v1
     .sc-course-accordion__title-row:hover
-    .sc-course-accordion__caret,
-  .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-course-accordion__section-frame:hover
-    .sc-course-accordion__action,
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-accordion__add:hover {
+    .sc-course-accordion__caret {
     color: var(--accent-11);
     opacity: 1;
   }

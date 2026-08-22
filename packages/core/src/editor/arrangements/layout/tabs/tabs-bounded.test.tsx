@@ -121,17 +121,20 @@ describe("bounded tabs authoring", () => {
     const addTab = screen.getByRole("button", { name: "Add tab" });
     const moveTab = layout?.querySelector<HTMLElement>("[data-authoring-move-handle]");
     const tabOptions = layout?.querySelector<HTMLElement>("[data-layout-section-menu-trigger]");
-    expect(addTab).toHaveClass("sc-course-layout-chrome__add", "sc-course-tabs__add");
-    expect(addTab).not.toHaveClass("sc-app-block-add");
+    expect(addTab).toHaveClass("sc-app-block-add", "sc-app-tabs-add");
+    expect(addTab).not.toHaveClass("sc-course-layout-chrome__add", "sc-course-tabs__add");
     expect(moveTab).toHaveClass(
       "sc-app-structure-movement-handle",
       "sc-app-structure-movement-handle--bare",
       "sc-app-compact-movement-handle",
-      "sc-course-tabs__handle",
+      "sc-app-tabs-handle",
     );
-    expect(moveTab).not.toHaveClass("sc-course-layout-chrome__move");
-    expect(tabOptions).toHaveClass("sc-course-layout-chrome__options", "sc-course-tabs__action");
-    expect(tabOptions).not.toHaveClass("sc-layout-section-action-trigger");
+    expect(moveTab).not.toHaveClass("sc-course-layout-chrome__move", "sc-course-tabs__handle");
+    expect(tabOptions).toHaveClass("sc-layout-section-action-trigger", "sc-app-tabs-action");
+    expect(tabOptions).not.toHaveClass(
+      "sc-course-layout-chrome__options",
+      "sc-course-tabs__action",
+    );
 
     await user.click(tabs[1]!);
 

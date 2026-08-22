@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
 
-import { fireEvent, render, screen, within, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { expect, it, vi } from "vite-plus/test";
 
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import type { MediaListItem, MediaPort } from "@/host/ports/media";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 
 import {
   FilePickerModal,
@@ -81,6 +82,7 @@ function renderFilePicker({
           onOpenChange={setOpen}
           onResolved={onResolved}
           kind="media"
+          allowedMediaTypes={["image"]}
           defaultMediaType="image"
           title="Add image"
         />
@@ -92,6 +94,55 @@ function renderFilePicker({
 
   return { onResolved };
 }
+
+function ContainedEditorFilePicker() {
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div ref={setContainer}>
+      <div data-testid="prosemirror-content">
+        <h2>Callout heading</h2>
+        <p>Callout content</p>
+      </div>
+      <OverlayBoundary container={container} kind="contained">
+        <button type="button" onClick={() => setOpen(true)}>
+          Open contained picker
+        </button>
+        <FilePickerModal
+          open={open}
+          onOpenChange={setOpen}
+          onResolved={() => undefined}
+          kind="media"
+          allowedMediaTypes={["image"]}
+          defaultMediaType="image"
+          title="Choose contained image"
+        />
+      </OverlayBoundary>
+    </div>
+  );
+}
+
+it("isolates a contained editor without mutating its ProseMirror descendants", async () => {
+  render(
+    <ScaffoldServicesProvider ports={{ media: mediaPortWithLibrary() }}>
+      <ContainedEditorFilePicker />
+    </ScaffoldServicesProvider>,
+  );
+  const editorContent = screen.getByTestId("prosemirror-content");
+  const heading = screen.getByRole("heading", { name: "Callout heading" });
+  const paragraph = screen.getByText("Callout content");
+
+  fireEvent.click(screen.getByRole("button", { name: "Open contained picker" }));
+
+  expect(await screen.findByRole("dialog", { name: "Choose contained image" })).toBeInTheDocument();
+  expect(editorContent).not.toHaveAttribute("data-aria-hidden");
+  expect(editorContent.querySelector("[data-aria-hidden]")).toBeNull();
+  expect(editorContent).toHaveAttribute("data-sc-file-picker-inert");
+  expect(editorContent).toHaveAttribute("inert");
+  expect(heading).not.toHaveAttribute("aria-hidden");
+  expect(paragraph).not.toHaveAttribute("aria-hidden");
+});
 
 it("labels source tabs, the active panel, and library choices", async () => {
   renderFilePicker();
@@ -109,6 +160,8 @@ it("labels source tabs, the active panel, and library choices", async () => {
   expect(uploadTab.getAttribute("aria-selected")).toBe("false");
   expect(urlTab.getAttribute("aria-selected")).toBe("false");
   expect(within(dialog).getByRole("tabpanel", { name: "Library" })).toBeInTheDocument();
+  expect(document.getElementById(uploadTab.getAttribute("aria-controls") ?? "")).not.toBeNull();
+  expect(document.getElementById(urlTab.getAttribute("aria-controls") ?? "")).not.toBeNull();
 
   expect(
     await within(dialog).findByRole("button", {
@@ -225,7 +278,7 @@ it("announces library loading and library errors", async () => {
 
   const alert = await within(dialog).findByRole("alert");
 
-  expect(alert.textContent).toBe("Library unavailable");
+  expect(alert.textContent).toBe("Files couldn’t be loaded. Try again or upload a new file.");
 });
 
 it("does not restart a pending library request across provider rerenders", async () => {
@@ -331,14 +384,81 @@ it("announces upload progress and exposes the current value", async () => {
   expect(progressbar.getAttribute("aria-valuetext")).toBe("42% uploaded");
   expect(status.textContent).toBe("Uploading photo.png, 42% uploaded.");
 
-  upload.resolve({
-    id: "uploaded-media",
-    url: "https://example.com/uploaded.jpg",
-    mediaType: "image",
-    fileName: "photo.png",
-    mimeType: "image/png",
-    size: file.size,
+  await act(async () => {
+    upload.resolve({
+      id: "uploaded-media",
+      url: "https://example.com/uploaded.jpg",
+      mediaType: "image",
+      fileName: "photo.png",
+      mimeType: "image/png",
+      size: file.size,
+    });
+    await upload.promise;
   });
+});
+
+it("does not resolve an upload after the author cancels it", async () => {
+  const upload = deferred<Awaited<ReturnType<MediaPort["upload"]>>>();
+  const { onResolved } = renderFilePicker({
+    media: {
+      resolve: async () => "https://example.com/image-1.jpg",
+      upload: async () => upload.promise,
+    },
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "Open picker" }));
+
+  const dialog = await screen.findByRole("dialog", { name: "Add image" });
+  const file = new File(["image"], "photo.png", { type: "image/png" });
+
+  fireEvent.change(within(dialog).getByLabelText("Choose image"), {
+    target: { files: [file] },
+  });
+  fireEvent.click(
+    await within(dialog).findByRole("button", {
+      name: "Cancel upload of photo.png",
+    }),
+  );
+
+  await act(async () => {
+    upload.resolve({
+      id: "uploaded-media",
+      url: "https://example.com/uploaded.jpg",
+      mediaType: "image",
+      fileName: "photo.png",
+      mimeType: "image/png",
+      size: file.size,
+    });
+    await upload.promise;
+  });
+
+  await waitFor(() => {
+    expect(onResolved).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Add image" })).toBeInTheDocument();
+  });
+});
+
+it("replaces host upload failures with recovery copy", async () => {
+  renderFilePicker({
+    media: {
+      resolve: async () => "https://example.com/image-1.jpg",
+      upload: async () => {
+        throw new Error("upstream storage token expired");
+      },
+    },
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "Open picker" }));
+
+  const dialog = await screen.findByRole("dialog", { name: "Add image" });
+  const file = new File(["image"], "photo.png", { type: "image/png" });
+  fireEvent.change(within(dialog).getByLabelText("Choose image"), {
+    target: { files: [file] },
+  });
+
+  expect((await within(dialog).findByRole("alert")).textContent).toBe(
+    "Upload failed. Check the file and try again.",
+  );
 });
 
 it("connects upload validation errors to the dropzone", async () => {

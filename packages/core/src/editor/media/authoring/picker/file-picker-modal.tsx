@@ -15,7 +15,19 @@ import {
   TableIcon as Spreadsheet,
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { FocusScope } from "@radix-ui/react-focus-scope";
+import { inertOthers } from "aria-hidden";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
+import { RemoveScroll } from "react-remove-scroll";
 
 import { Button } from "@/ui/components/Button/Button";
 import * as Dialog from "@/ui/components/Dialog/Dialog";
@@ -29,7 +41,11 @@ import {
   type MediaUploadResult,
   type MediaUploadType,
 } from "@/host/ports/media";
-import { isSafeExternalMediaUrl, validateMediaUploadFile } from "@/host/media-policy";
+import {
+  isSafeExternalMediaUrl,
+  MediaUploadValidationError,
+  validateMediaUploadFile,
+} from "@/host/media-policy";
 
 import "./file-picker-modal.css";
 
@@ -217,6 +233,14 @@ function isImageType(t: MediaUploadType): boolean {
   return t === "image";
 }
 
+const LIBRARY_ERROR_COPY = "Files couldn’t be loaded. Try again or upload a new file.";
+const UPLOAD_ERROR_COPY = "Upload failed. Check the file and try again.";
+
+function filePickerUploadError(error: unknown): string {
+  if (error instanceof MediaUploadValidationError) return error.message;
+  return UPLOAD_ERROR_COPY;
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
  * Public types
  * ────────────────────────────────────────────────────────────────────── */
@@ -241,6 +265,7 @@ export interface FilePickerModalProps {
   title?: string;
   metadataFields?: MetadataField[];
   allowExternalUrl?: boolean;
+  returnFocusRef?: RefObject<HTMLElement | null>;
 }
 
 function safeDomId(id: string): string {
@@ -261,6 +286,7 @@ export function FilePickerModal({
   title,
   metadataFields = defaultMetadataFields(kind),
   allowExternalUrl = defaultExternalUrlAllowed(kind),
+  returnFocusRef,
 }: FilePickerModalProps) {
   const mediaPort = useMediaPort();
   const browseEnabled = Boolean(mediaPort?.list);
@@ -285,25 +311,42 @@ export function FilePickerModal({
   const [library, setLibrary] = useState<MediaListItem[] | null>(null);
   const [libraryError, setLibraryError] = useState<string | null>(null);
   const [libraryLoading, setLibraryLoading] = useState(false);
+  const [overlayElement, setOverlayElement] = useState<HTMLDivElement | null>(null);
+  const [contentElement, setContentElement] = useState<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const libraryRequestRef = useRef<{
     key: FilePickerKind;
     sequence: number;
   } | null>(null);
   const libraryRequestSequenceRef = useRef(0);
+  const uploadRequestSequenceRef = useRef(0);
   const lastOpenRef = useRef(false);
-  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const fallbackReturnFocusRef = useRef<HTMLElement | null>(null);
   const idPrefix = `file-picker-${safeDomId(useId())}`;
   const errorId = `${idPrefix}-error`;
 
+  useLayoutEffect(() => {
+    if (contentElement === null || overlayElement === null) return;
+    const portalHost = contentElement.parentElement;
+    if (portalHost === null || overlayElement.parentElement !== portalHost) return;
+    const isolationRoot = portalHost.parentElement;
+    if (isolationRoot === null) return;
+    return inertOthers(
+      [overlayElement, contentElement],
+      isolationRoot,
+      "data-sc-file-picker-inert",
+    );
+  }, [contentElement, overlayElement]);
+
   useEffect(() => {
     if (open && !lastOpenRef.current) {
-      returnFocusRef.current =
+      fallbackReturnFocusRef.current =
         document.activeElement instanceof HTMLElement ? document.activeElement : null;
     }
     lastOpenRef.current = open;
 
     if (!open) {
+      uploadRequestSequenceRef.current += 1;
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setError(null);
       setProgress(null);
@@ -336,10 +379,10 @@ export function FilePickerModal({
         if (libraryRequestRef.current?.sequence !== sequence) return;
         setLibrary(items);
       })
-      .catch((e) => {
+      .catch(() => {
         if (libraryRequestRef.current?.sequence !== sequence) return;
         setLibrary([]);
-        setLibraryError(e instanceof Error ? e.message : "Could not load files");
+        setLibraryError(LIBRARY_ERROR_COPY);
       })
       .finally(() => {
         if (libraryRequestRef.current?.sequence !== sequence) return;
@@ -370,16 +413,33 @@ export function FilePickerModal({
     ...(metadataFields.includes("title") && externalTitle ? { title: externalTitle } : {}),
   });
 
+  const cancelUpload = useCallback(() => {
+    uploadRequestSequenceRef.current += 1;
+    setPendingFile(null);
+    setProgress(null);
+  }, []);
+
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen) cancelUpload();
+      onOpenChange(nextOpen);
+    },
+    [cancelUpload, onOpenChange],
+  );
+
   const handleFile = async (file: File) => {
+    const sequence = uploadRequestSequenceRef.current + 1;
+    uploadRequestSequenceRef.current = sequence;
     setError(null);
     setProgress(0);
     setPendingFile(file);
     try {
       if (!mediaPort) throw new Error("No upload destination is configured.");
       const inferred = validateMediaUploadFile(file, filter);
-      const result = await mediaPort.upload(file, { mediaType: inferred }, (pct) =>
-        setProgress(pct),
-      );
+      const result = await mediaPort.upload(file, { mediaType: inferred }, (pct) => {
+        if (uploadRequestSequenceRef.current === sequence) setProgress(pct);
+      });
+      if (uploadRequestSequenceRef.current !== sequence) return;
       const accepted = onResolved({
         source: "upload",
         mediaType: inferred,
@@ -387,13 +447,14 @@ export function FilePickerModal({
         ...collectMetadata(),
       });
       if (accepted !== false) {
-        onOpenChange(false);
+        handleOpenChange(false);
       } else {
         setProgress(null);
         setPendingFile(null);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed");
+      if (uploadRequestSequenceRef.current !== sequence) return;
+      setError(filePickerUploadError(e));
       setProgress(null);
       setPendingFile(null);
     }
@@ -414,7 +475,7 @@ export function FilePickerModal({
       url,
       ...collectMetadata(),
     });
-    if (accepted !== false) onOpenChange(false);
+    if (accepted !== false) handleOpenChange(false);
   };
 
   const handleBrowseSelect = (item: MediaListItem) => {
@@ -424,7 +485,7 @@ export function FilePickerModal({
       browse: item,
       ...collectMetadata(),
     });
-    if (accepted !== false) onOpenChange(false);
+    if (accepted !== false) handleOpenChange(false);
   };
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
@@ -444,146 +505,176 @@ export function FilePickerModal({
     { value: "upload", label: "Upload", icon: CloudUpload, visible: true },
     { value: "url", label: "URL", icon: Link, visible: allowExternalUrl },
   ];
+  const visibleViewOptions = VIEW_OPTIONS.filter((option) => option.visible);
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} onOpenChange={handleOpenChange} modal={false}>
       <Dialog.Portal>
-        <Dialog.Overlay
+        <div
+          ref={setOverlayElement}
+          aria-hidden="true"
           className="sc-file-picker-overlay"
+          data-state="open"
           style={{ zIndex: zIndex.modalBackdrop }}
         />
-        <Dialog.Content
-          className="sc-file-picker-dialog"
-          style={{ zIndex: zIndex.modal }}
-          onCloseAutoFocus={(event) => {
-            const target = returnFocusRef.current;
-            if (!target || !document.contains(target)) return;
-            event.preventDefault();
-            target.focus();
-          }}
-        >
-          {/* Header */}
-          <div className="sc-file-picker-header">
-            <Dialog.Title className="sc-file-picker-title">{headerTitle}</Dialog.Title>
-            <ViewSwitcher
-              options={VIEW_OPTIONS.filter((o) => o.visible)}
-              value={view}
-              onChange={setView}
-              idPrefix={idPrefix}
-            />
-            <VisuallyHidden.Root asChild>
-              <Dialog.Description>
-                Choose a file from the library, upload a new one
-                {allowExternalUrl ? ", or paste a URL" : ""}.
-              </Dialog.Description>
-            </VisuallyHidden.Root>
-          </div>
-
-          {/* Filter bar */}
-          {filters.length > 1 ? (
-            <div className="sc-file-picker-filter-bar">
-              <span className="sc-file-picker-filter-label">Filter</span>
-              {filters.map((value) => {
-                const spec = FILTER_SPECS[value];
-                const IconComponent = spec.icon;
-                const active = filter === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setFilter(value)}
-                    aria-pressed={active}
-                    className={cn("sc-file-picker-filter-button", active && "is-active")}
-                  >
-                    <IconComponent size={12} weight="bold" aria-hidden />
-                    {spec.label}
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-
-          {/* Main pane */}
-          <div
-            id={`${idPrefix}-panel-${view}`}
-            role="tabpanel"
-            aria-labelledby={`${idPrefix}-tab-${view}`}
-            tabIndex={0}
-            className="sc-file-picker-panel"
-          >
-            {view === "browse" ? (
-              <BrowsePane
-                loading={libraryLoading}
-                error={libraryError}
-                items={filteredLibrary}
-                spec={activeSpec}
-                onPick={handleBrowseSelect}
-                onUploadClick={() => setView("upload")}
-              />
-            ) : view === "upload" ? (
-              <UploadPane
-                spec={activeSpec}
-                dragActive={dragActive}
-                isUploading={isUploading}
-                pendingFile={pendingFile}
-                progress={progress}
-                uploadDisabled={uploadDisabled}
-                onPickFile={() => fileInputRef.current?.click()}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragActive(true);
-                }}
-                onDragLeave={() => setDragActive(false)}
-                onDrop={handleDrop}
-                onCancelUpload={() => {
-                  setPendingFile(null);
-                  setProgress(null);
-                }}
-                {...(error ? { errorId } : {})}
-              />
-            ) : (
-              <UrlPane
-                spec={activeSpec}
-                url={url}
-                onUrlChange={setUrl}
-                onSubmit={handleUrl}
-                error={error}
-                errorId={errorId}
-              />
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              {...(accepting ? { accept: accepting } : {})}
-              className="sc-sr-only"
-              tabIndex={-1}
-              aria-label={`Choose ${activeSpec.noun}`}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void handleFile(file);
+        <RemoveScroll allowPinchZoom forwardProps>
+          <FocusScope asChild loop trapped>
+            <Dialog.Content
+              ref={setContentElement}
+              className="sc-file-picker-dialog"
+              style={{ zIndex: zIndex.modal }}
+              onCloseAutoFocus={(event) => {
+                const preferredTarget = returnFocusRef?.current;
+                const target = preferredTarget?.isConnected
+                  ? preferredTarget
+                  : fallbackReturnFocusRef.current;
+                if (!target?.isConnected) return;
+                event.preventDefault();
+                target.focus({ preventScroll: true });
               }}
-            />
-            {error && (
-              <p id={errorId} role="alert" className="sc-file-picker-error">
-                {error}
-              </p>
-            )}
-          </div>
+              onFocusOutside={(event) => event.preventDefault()}
+            >
+              {/* Header */}
+              <div className="sc-file-picker-header">
+                <Dialog.Title className="sc-file-picker-title">{headerTitle}</Dialog.Title>
+                <ViewSwitcher
+                  options={visibleViewOptions}
+                  value={view}
+                  onChange={(nextView) => {
+                    setError(null);
+                    setView(nextView);
+                  }}
+                  idPrefix={idPrefix}
+                />
+                <VisuallyHidden.Root asChild>
+                  <Dialog.Description>
+                    Choose a file from the library, upload a new one
+                    {allowExternalUrl ? ", or paste a URL" : ""}.
+                  </Dialog.Description>
+                </VisuallyHidden.Root>
+              </div>
 
-          {/* Footer */}
-          <div className="sc-file-picker-footer">
-            <MetadataRow
-              metadataFields={metadataFields}
-              alt={alt}
-              setAlt={setAlt}
-              externalTitle={externalTitle}
-              setExternalTitle={setExternalTitle}
-            />
-            <Button type="button" variant="ghost" size="md" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-          </div>
-        </Dialog.Content>
+              {/* Filter bar */}
+              {filters.length > 1 ? (
+                <div role="group" aria-label="File type" className="sc-file-picker-filter-bar">
+                  <span className="sc-file-picker-filter-label">Filter</span>
+                  {filters.map((value) => {
+                    const spec = FILTER_SPECS[value];
+                    const IconComponent = spec.icon;
+                    const active = filter === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          setError(null);
+                          setFilter(value);
+                        }}
+                        aria-pressed={active}
+                        className={cn("sc-file-picker-filter-button", active && "is-active")}
+                      >
+                        <IconComponent size={12} weight="bold" aria-hidden />
+                        {spec.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {/* Main panes stay mounted so every tab owns a valid aria-controls target. */}
+              <div className="sc-file-picker-panels">
+                {visibleViewOptions.map((option) => {
+                  const active = view === option.value;
+                  return (
+                    <div
+                      key={option.value}
+                      id={`${idPrefix}-panel-${option.value}`}
+                      role="tabpanel"
+                      aria-labelledby={`${idPrefix}-tab-${option.value}`}
+                      tabIndex={active ? 0 : -1}
+                      hidden={!active}
+                      className="sc-file-picker-panel"
+                    >
+                      {option.value === "browse" ? (
+                        <BrowsePane
+                          loading={libraryLoading}
+                          error={libraryError}
+                          items={filteredLibrary}
+                          spec={activeSpec}
+                          onPick={handleBrowseSelect}
+                          onUploadClick={() => setView("upload")}
+                        />
+                      ) : option.value === "upload" ? (
+                        <UploadPane
+                          spec={activeSpec}
+                          dragActive={dragActive}
+                          isUploading={isUploading}
+                          pendingFile={pendingFile}
+                          progress={progress}
+                          uploadDisabled={uploadDisabled}
+                          onPickFile={() => fileInputRef.current?.click()}
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            setDragActive(true);
+                          }}
+                          onDragLeave={() => setDragActive(false)}
+                          onDrop={handleDrop}
+                          onCancelUpload={cancelUpload}
+                          {...(error ? { errorId } : {})}
+                        />
+                      ) : (
+                        <UrlPane
+                          spec={activeSpec}
+                          url={url}
+                          onUrlChange={setUrl}
+                          onSubmit={handleUrl}
+                          error={error}
+                          errorId={errorId}
+                        />
+                      )}
+                      {active && error ? (
+                        <p id={errorId} role="alert" className="sc-file-picker-error">
+                          {error}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                {...(accepting ? { accept: accepting } : {})}
+                className="sc-file-picker-file-input"
+                aria-label={`Choose ${activeSpec.noun}`}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.currentTarget.value = "";
+                  if (file) void handleFile(file);
+                }}
+              />
+
+              {/* Footer */}
+              <div className="sc-file-picker-footer">
+                <MetadataRow
+                  metadataFields={metadataFields}
+                  alt={alt}
+                  setAlt={setAlt}
+                  externalTitle={externalTitle}
+                  setExternalTitle={setExternalTitle}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="md"
+                  onClick={() => handleOpenChange(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </Dialog.Content>
+          </FocusScope>
+        </RemoveScroll>
       </Dialog.Portal>
     </Dialog.Root>
   );
@@ -992,7 +1083,7 @@ function UploadInProgress({
   progress: number | null;
   onCancel: () => void;
 }) {
-  const pct = progress ?? 0;
+  const pct = Math.min(100, Math.max(0, progress ?? 0));
   const progressId = useId();
   const uploadStatus = `Uploading ${file.name}, ${Math.round(pct)}% uploaded.`;
   return (
@@ -1030,7 +1121,7 @@ function UploadInProgress({
           aria-valuenow={Math.round(pct)}
           aria-valuetext={`${Math.round(pct)}% uploaded`}
           className="sc-file-picker-upload-progress-fill"
-          style={{ width: `${pct}%` }}
+          style={{ transform: `scaleX(${pct / 100})` }}
         />
       </div>
     </div>

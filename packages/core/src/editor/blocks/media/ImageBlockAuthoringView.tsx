@@ -83,6 +83,7 @@ export function ImageBlockAuthoringView(props: NodeViewProps) {
         open={open}
         onOpenChange={setOpen}
         kind="media"
+        allowedMediaTypes={["image"]}
         defaultMediaType="image"
         title={data ? "Replace image" : "Add image"}
         onResolved={handlePickerResolved}

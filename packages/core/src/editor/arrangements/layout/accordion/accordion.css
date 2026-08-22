@@ -149,7 +149,7 @@
     min-height: 0;
   }
 
-  .sc-course-accordion__add {
+  .sc-app-accordion-add {
     width: 100%;
   }
 
@@ -157,8 +157,8 @@
     position: relative;
   }
 
-  .sc-course-accordion__handle,
-  .sc-course-accordion__action {
+  .sc-app-accordion-handle,
+  .sc-app-accordion-action {
     position: absolute;
     top: 2.125rem;
     z-index: var(--z-interactive, 5);
@@ -166,54 +166,62 @@
     transform: translateY(-50%);
   }
 
-  .sc-course-accordion__handle {
+  .sc-app-accordion-handle {
     inset-inline-start: 0.625rem;
   }
 
-  .sc-course-accordion__action {
+  .sc-app-accordion-action {
     inset-inline-end: 0.625rem;
   }
 
-  .sc-course-accordion__section-frame:focus-within .sc-course-accordion__handle,
-  .sc-course-accordion__section-frame:focus-within .sc-course-accordion__action,
-  .sc-course-accordion__handle:focus-visible,
-  .sc-course-accordion__action:focus-visible,
+  .sc-course-accordion__section-frame:focus-within .sc-app-accordion-handle,
+  .sc-course-accordion__section-frame:focus-within .sc-app-accordion-action,
+  .sc-app-accordion-handle:focus-visible,
+  .sc-app-accordion-action:focus-visible,
   [data-authoring-frame="layout"][data-authoring-chrome-active]
     .sc-course-accordion__section-frame[data-state="open"]
-    .sc-course-accordion__handle,
+    .sc-app-accordion-handle,
   [data-authoring-frame="layout"][data-authoring-chrome-active]
     .sc-course-accordion__section-frame[data-state="open"]
-    .sc-course-accordion__action {
+    .sc-app-accordion-action {
     pointer-events: auto;
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .sc-course-accordion__section-frame:hover .sc-course-accordion__handle,
-    .sc-course-accordion__section-frame:hover .sc-course-accordion__action {
+    .sc-course-accordion__section-frame:hover .sc-app-accordion-handle,
+    .sc-course-accordion__section-frame:hover .sc-app-accordion-action {
       pointer-events: auto;
     }
   }
 
   @container (max-width: 20rem) {
+    .sc-app-accordion-handle {
+      inset-inline-start: 0.5rem;
+    }
+
+    .sc-app-accordion-action {
+      inset-inline-end: 0.5rem;
+    }
+
     [data-authoring-frame="layout"][data-authoring-chrome-active]
       .sc-course-accordion__section-frame[data-state="open"]
-      .sc-course-accordion__handle,
+      .sc-app-accordion-handle,
     [data-authoring-frame="layout"][data-authoring-chrome-active]
       .sc-course-accordion__section-frame[data-state="open"]
-      .sc-course-accordion__action {
+      .sc-app-accordion-action {
       pointer-events: none;
     }
 
-    .sc-course-accordion__section-frame:focus-within .sc-course-accordion__handle,
-    .sc-course-accordion__section-frame:focus-within .sc-course-accordion__action,
-    .sc-course-accordion__handle:focus-visible,
-    .sc-course-accordion__action:focus-visible {
+    .sc-course-accordion__section-frame:focus-within .sc-app-accordion-handle,
+    .sc-course-accordion__section-frame:focus-within .sc-app-accordion-action,
+    .sc-app-accordion-handle:focus-visible,
+    .sc-app-accordion-action:focus-visible {
       pointer-events: auto;
     }
 
     @media (hover: hover) and (pointer: fine) {
-      .sc-course-accordion__section-frame:hover .sc-course-accordion__handle,
-      .sc-course-accordion__section-frame:hover .sc-course-accordion__action {
+      .sc-course-accordion__section-frame:hover .sc-app-accordion-handle,
+      .sc-course-accordion__section-frame:hover .sc-app-accordion-action {
         pointer-events: auto;
       }
     }
@@ -272,5 +280,29 @@
 
   .sc-course-accordion__panel-content {
     min-width: 0;
+  }
+}
+
+@layer sc-overlays {
+  .sc-app-block-add.sc-app-accordion-add {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-width: 0;
+    border-top: 1px dashed var(--sc-app-color-border);
+    border-radius: 0;
+  }
+
+  .sc-app-accordion-add .sc-app-block-add__icon {
+    order: 1;
+    margin-inline-start: auto;
+  }
+
+  [data-authoring-frame="layout"][data-authoring-chrome-active]
+    .sc-course-accordion__section-frame[data-state="open"]
+    .sc-app-accordion-action {
+    opacity: 0.64;
+    visibility: visible;
   }
 }
