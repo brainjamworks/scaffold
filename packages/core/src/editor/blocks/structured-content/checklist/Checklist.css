@@ -63,3 +63,9 @@
     );
   }
 }
+
+.sc-course-checklist__checkbox {
+  /* Radix's unlayered button reset is later in the production bundle. */
+  min-width: var(--sc-course-checklist-row-control-size) !important;
+  min-height: var(--sc-course-checklist-row-control-size) !important;
+}

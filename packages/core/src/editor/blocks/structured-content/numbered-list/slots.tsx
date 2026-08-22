@@ -57,14 +57,18 @@ export const NumberedListItemNode = Node.create({
   },
 
   parseHTML() {
-    return [{ tag: 'li[data-node="numbered-list-item"]' }];
+    return [
+      { tag: 'div[data-node="numbered-list-item"]' },
+      { tag: 'li[data-node="numbered-list-item"]' },
+    ];
   },
 
   renderHTML({ HTMLAttributes }) {
     return [
-      "li",
+      "div",
       mergeAttributes(HTMLAttributes, {
         "data-node": "numbered-list-item",
+        role: "listitem",
       }),
       0,
     ];

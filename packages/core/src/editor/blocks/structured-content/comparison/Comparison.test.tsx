@@ -120,13 +120,15 @@ describe("comparison block", () => {
       name: "Before compared with After",
     });
 
-    expect(table.classList.contains("sc-course-comparison__surface")).toBe(true);
+    expect(table).toHaveClass("sc-course-comparison__table");
+    expect(table.closest(".sc-course-comparison__surface")).not.toBeNull();
     expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toEqual([
       "Before",
       "After",
     ]);
     expect(screen.getAllByRole("row")).toHaveLength(3);
-    expect(screen.getAllByRole("cell")).toHaveLength(4);
+    expect(screen.getAllByRole("cell")).toHaveLength(6);
+    expect(table.querySelectorAll(".sc-course-comparison__cell")).toHaveLength(4);
     expect(document.body.querySelector('[class*="sc-comparison"]')).toBeNull();
 
     fixture.destroy();
@@ -178,7 +180,23 @@ describe("comparison block", () => {
     expect(document.body.querySelector('[data-authoring-frame="block"]')).not.toBeNull();
     expect(document.body.querySelector('[data-authoring-frame="layout"]')).toBeNull();
     expect(document.body.querySelector("[data-layout-kind]")).toBeNull();
-    expect(await screen.findByRole("button", { name: "Delete comparison row 2" })).not.toBeNull();
+    const deleteActions = await screen.findAllByRole("button", {
+      name: /Delete comparison row \d+/,
+    });
+    expect(deleteActions).toHaveLength(2);
+    for (const deleteAction of deleteActions) {
+      expect(deleteAction).toHaveClass("sc-app-comparison-delete");
+      expect(deleteAction).not.toHaveClass("sc-course-comparison__delete");
+      expect(deleteAction.parentElement).toHaveClass("sc-app-comparison-row-actions");
+      expect(deleteAction.parentElement).toHaveAttribute("role", "cell");
+      expect(deleteAction.parentElement?.parentElement).toHaveAttribute("role", "row");
+    }
+
+    const table = await screen.findByRole("table", {
+      name: "Before compared with After",
+    });
+    const addAction = await screen.findByRole("button", { name: "Add row" });
+    expect(table.contains(addAction)).toBe(false);
 
     fixture.destroy();
   });
@@ -204,6 +222,7 @@ describe("comparison block", () => {
   });
 
   it("keeps the last row delete control focusable with a minimum-row explanation", async () => {
+    const user = userEvent.setup();
     const content = comparisonFixture();
     content.content![0]!.content = [createComparisonRow(0)];
     const fixture = renderComparisonEditor(content);
@@ -219,6 +238,11 @@ describe("comparison block", () => {
     expect(document.getElementById(explanationId!)?.textContent).toBe(
       "A comparison must contain at least one row.",
     );
+
+    deleteButton.focus();
+    expect(deleteButton).toHaveFocus();
+    await user.click(deleteButton);
+    expect(fixture.json().content?.[0]?.content).toHaveLength(1);
 
     fixture.destroy();
   });

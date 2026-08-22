@@ -14,7 +14,24 @@
     min-width: 0;
   }
 
+  .sc-course-callout {
+    --sc-course-callout-layout-gap: 0.75rem;
+    --sc-course-callout-content-gap: 0.25rem;
+    --sc-course-callout-icon-slot-size: 2rem;
+    --sc-course-callout-icon-glyph-size: 1.125rem;
+  }
+
+  .sc-course-callout__layout {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    column-gap: var(--sc-course-callout-layout-gap);
+  }
+
   .sc-course-callout__content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--sc-course-callout-content-gap);
     overflow-wrap: anywhere;
   }
 
@@ -24,7 +41,33 @@
   }
 
   .sc-course-callout__icon-slot {
+    display: inline-flex;
+    box-sizing: border-box;
+    width: var(--sc-course-callout-icon-slot-size);
+    height: var(--sc-course-callout-icon-slot-size);
     flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    margin-block-start: 0.125rem;
+  }
+
+  .sc-course-callout__icon-slot > .sc-course-callout__icon-glyph {
+    display: block;
+    flex-shrink: 0;
+    font-size: var(--sc-course-callout-icon-glyph-size);
+    line-height: 1;
+  }
+
+  .sc-course-callout__icon-slot > .sc-course-callout__icon-glyph:not([data-kind="media"]) {
+    width: var(--sc-course-callout-icon-glyph-size);
+    height: var(--sc-course-callout-icon-glyph-size);
+  }
+
+  .sc-course-callout__icon-slot > .sc-course-callout__icon-glyph[data-kind="media"] {
+    width: auto;
+    max-width: var(--sc-course-callout-icon-glyph-size);
+    height: var(--sc-course-callout-icon-glyph-size);
+    object-fit: contain;
   }
 
   .sc-course-callout__slot--hidden {

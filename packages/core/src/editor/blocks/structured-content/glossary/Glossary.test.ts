@@ -114,16 +114,55 @@ function renderGlossaryEditor(
 it("renders the live authoring glossary as a semantic definition list", async () => {
   const fixture = renderGlossaryEditor();
   const section = await screen.findByRole("region", { name: "Glossary" });
-  const list = section.querySelector(":scope > dl");
-  const firstEntry = list?.querySelector('[data-node="glossary-entry"]');
+  const list = section.querySelector(':scope > [role="list"]');
+  const firstEntry = list?.querySelector('[role="listitem"]');
 
   expect(list).not.toBeNull();
-  expect(firstEntry?.querySelector('dt[data-slot="glossary-term"]')).not.toBeNull();
-  expect(firstEntry?.querySelector('dd[data-slot="glossary-definition"]')).not.toBeNull();
+  expect(firstEntry?.querySelector('[role="term"][data-slot="glossary-term"]')).not.toBeNull();
+  expect(
+    firstEntry?.querySelector('[role="definition"][data-slot="glossary-definition"]'),
+  ).not.toBeNull();
 
   const add = within(section).getByRole("button", { name: "Add term" });
   expect(list?.contains(add)).toBe(false);
   expect(add.querySelector("svg")).toBeNull();
+
+  const deletes = within(section).getAllByRole("button", { name: /Delete term \d+/ });
+  for (const deleteButton of deletes) {
+    expect(deleteButton).toHaveClass("sc-app-glossary-delete");
+    expect(deleteButton).not.toHaveClass("sc-course-glossary__delete");
+  }
+
+  fixture.destroy();
+});
+
+it("preserves term and definition semantics through the live React node-view wrappers", async () => {
+  const fixture = renderGlossaryEditor();
+  const section = await screen.findByRole("region", { name: "Glossary" });
+  const list = section.querySelector<HTMLElement>(':scope > [role="list"]');
+  const firstEntry = list?.querySelector<HTMLElement>('[role="listitem"]');
+  const term = firstEntry?.querySelector<HTMLElement>('[role="term"]');
+  const definition = firstEntry?.querySelector<HTMLElement>('[role="definition"]');
+
+  expect(list).not.toBeNull();
+  expect(firstEntry).not.toBeNull();
+  expect(term?.id).not.toBe("");
+  expect(definition?.getAttribute("aria-labelledby")).toBe(term?.id);
+  expect(section.querySelector("dl, dt, dd")).toBeNull();
+
+  fixture.destroy();
+});
+
+it("serializes glossary content as a native definition list", () => {
+  const fixture = renderGlossaryEditor();
+  const document = new DOMParser().parseFromString(fixture.editor.getHTML(), "text/html");
+  const list = document.querySelector('dl[data-node="glossary"]');
+  const entries = Array.from(list?.children ?? []);
+
+  expect(list).not.toBeNull();
+  expect(entries).toHaveLength(3);
+  expect(entries.every((entry) => entry.matches('div[data-node="glossary-entry"]'))).toBe(true);
+  expect(entries.every((entry) => entry.querySelector(":scope > dt + dd") !== null)).toBe(true);
 
   fixture.destroy();
 });
@@ -171,6 +210,28 @@ it("deletes the requested glossary term from a disposable editor fixture", async
   fixture.destroy();
 });
 
+it("recomputes the remaining delete action after a sibling is deleted", async () => {
+  const user = userEvent.setup();
+  const content = glossaryFixture();
+  content.content![0]!.content = content.content![0]!.content?.slice(0, 2) ?? [];
+  const fixture = renderGlossaryEditor(content);
+
+  await user.click(await screen.findByRole("button", { name: "Delete term 1" }));
+
+  await waitFor(() => {
+    const deleteButton = screen.getByRole("button", { name: "Delete term 1" });
+    expect(deleteButton.getAttribute("aria-disabled")).toBe("true");
+    const explanationId = deleteButton.getAttribute("aria-describedby");
+    expect(explanationId).not.toBeNull();
+    expect(document.getElementById(explanationId!)).toHaveTextContent(
+      "A glossary must contain at least one term.",
+    );
+  });
+  expect(fixture.json().content?.[0]?.content).toHaveLength(1);
+
+  fixture.destroy();
+});
+
 it("keeps the final delete action focusable and explains why it is unavailable", async () => {
   const user = userEvent.setup();
   const content = glossaryFixture();
@@ -205,9 +266,11 @@ it("keeps semantic learner content while suppressing empty fields and authoring 
   ];
   const fixture = renderGlossaryEditor(content, { runtime: true });
   const section = await screen.findByRole("region", { name: "Glossary" });
-  const list = section.querySelector(":scope > dl");
-  const term = list?.querySelector('dt[data-slot="glossary-term"]');
-  const definition = list?.querySelector('dd[data-slot="glossary-definition"]');
+  const list = section.querySelector(':scope > [role="list"]');
+  const term = list?.querySelector('[role="term"][data-slot="glossary-term"]');
+  const definition = list?.querySelector(
+    '[role="definition"][data-slot="glossary-definition"]',
+  );
 
   expect(list).not.toBeNull();
   expect(term?.getAttribute("aria-hidden")).toBe("true");

@@ -76,31 +76,33 @@ export function ComparisonSurface({
   trailing,
 }: ComparisonSurfaceProps) {
   return (
-    <div
-      role="table"
-      aria-label={`${options.leftLabel} compared with ${options.rightLabel}`}
-      className="sc-course-comparison__surface"
-    >
-      <div role="rowgroup" contentEditable={false} className="sc-course-comparison__header">
-        <div role="row" className="sc-course-comparison__header-row">
-          <span
-            id={comparisonHeaderId(comparisonId, "left")}
-            role="columnheader"
-            className="sc-course-comparison__header-cell"
-          >
-            {options.leftLabel}
-          </span>
-          <span
-            id={comparisonHeaderId(comparisonId, "right")}
-            role="columnheader"
-            className="sc-course-comparison__header-cell"
-          >
-            {options.rightLabel}
-          </span>
+    <div className="sc-course-comparison__surface">
+      <div
+        role="table"
+        aria-label={`${options.leftLabel} compared with ${options.rightLabel}`}
+        className="sc-course-comparison__table"
+      >
+        <div role="rowgroup" contentEditable={false} className="sc-course-comparison__header">
+          <div role="row" className="sc-course-comparison__header-row">
+            <span
+              id={comparisonHeaderId(comparisonId, "left")}
+              role="columnheader"
+              className="sc-course-comparison__header-cell"
+            >
+              {options.leftLabel}
+            </span>
+            <span
+              id={comparisonHeaderId(comparisonId, "right")}
+              role="columnheader"
+              className="sc-course-comparison__header-cell"
+            >
+              {options.rightLabel}
+            </span>
+          </div>
         </div>
-      </div>
-      <div role="rowgroup" className="sc-course-comparison__body">
-        {children}
+        <div role="rowgroup" className="sc-course-comparison__body">
+          {children}
+        </div>
       </div>
       {trailing ?? null}
     </div>

@@ -135,13 +135,3 @@
   font-weight: var(--font-weight-bold);
   text-decoration: none;
 }
-
-@container sc-course-pdf-embed (max-width: 420px) {
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-pdf-embed__chrome {
-    justify-content: center;
-  }
-
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-pdf-embed__chrome-end {
-    margin-inline-start: 0;
-  }
-}

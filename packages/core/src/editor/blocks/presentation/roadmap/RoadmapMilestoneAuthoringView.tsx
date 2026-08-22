@@ -124,7 +124,7 @@ export function RoadmapMilestoneAuthoringView(props: NodeViewProps) {
               aria-describedby={!canDelete ? deleteExplanationId : undefined}
               aria-label={`Delete milestone ${index}`}
               onClick={deleteMilestone}
-              className="sc-app-roadmap-delete sc-course-roadmap__delete"
+              className="sc-app-roadmap-delete"
             >
               <Trash size={14} aria-hidden />
               {!canDelete ? (

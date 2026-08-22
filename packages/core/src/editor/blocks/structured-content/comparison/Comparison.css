@@ -10,6 +10,7 @@
   }
 
   .sc-course-comparison__surface,
+  .sc-course-comparison__table,
   .sc-course-comparison__header,
   .sc-course-comparison__header-row,
   .sc-course-comparison__body,
@@ -22,6 +23,11 @@
   .sc-course-comparison__surface {
     display: flex;
     overflow: hidden;
+    flex-direction: column;
+  }
+
+  .sc-course-comparison__table {
+    display: flex;
     flex-direction: column;
   }
 

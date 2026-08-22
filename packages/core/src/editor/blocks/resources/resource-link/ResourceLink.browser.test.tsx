@@ -8,7 +8,9 @@ import "@/styles/globals.css";
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import { Input } from "@/ui/components/Input/Input";
 
+import "@/theme/course/designs/pocket-atlas/v1/theme.css";
 import "@/theme/course/designs/scaffold-flow/v1/resource-link.css";
 import "./ResourceLinkAuthoringControls.css";
 import { ResourceLinkKindPicker } from "./ResourceLinkAuthoringView";
@@ -22,7 +24,70 @@ afterEach(() => {
 });
 
 describe("Resource Link presentation", () => {
-  it("themes the authoring kind selector from its active Course scope", async () => {
+  it("themes the author-only URL field from the App scope inside the Course card", async () => {
+    const application = document.createElement("div");
+    application.className = "sc-app";
+    application.style.setProperty("--sc-app-color-background", "rgb(240 241 242)");
+    application.style.setProperty("--sc-app-color-border", "rgb(63 63 70)");
+    application.style.setProperty("--sc-app-color-ink", "rgb(24 24 27)");
+    application.style.setProperty("--sc-app-color-text-placeholder", "rgb(113 113 122)");
+    application.style.setProperty("--sc-app-color-focus-outline", "rgb(22 29 119)");
+    application.style.setProperty("--sc-app-font-family", "Arial");
+    const host = document.createElement("div");
+    host.className = "radix-themes sc-course sc-course-theme-scaffold-flow-v1";
+    host.style.width = "480px";
+    host.style.setProperty("--gray-1", "rgb(12 34 56)");
+    host.style.setProperty("--gray-a6", "rgb(34 56 78)");
+    host.style.setProperty("--gray-a7", "rgb(56 78 90)");
+    application.append(host);
+    document.body.append(application);
+
+    const root = createRoot(host);
+    mountedRoots.push(root);
+    root.render(
+      <div className="sc-course-resource-link">
+        <div className="sc-app-resource-link__controls">
+          <Input
+            type="url"
+            aria-label="Resource URL"
+            placeholder="https://..."
+            className="sc-app-resource-link__url-input"
+          />
+          <KindPickerFixture />
+        </div>
+      </div>,
+    );
+
+    await waitForCondition(() => host.querySelector('input[aria-label="Resource URL"]'));
+    const input = requiredElement<HTMLInputElement>(host, 'input[aria-label="Resource URL"]');
+    const controls = requiredAncestor<HTMLElement>(input, ".sc-app-resource-link__controls");
+    const kindPicker = requiredElement<HTMLElement>(controls, '[role="radiogroup"]');
+
+    expect(input).toHaveClass("sc-input", "sc-app-resource-link__url-input");
+    expect(input).not.toHaveClass("sc-course-resource-link__url-input");
+    expect(controls).not.toHaveClass("sc-course-resource-link__controls");
+    expect(kindPicker).toHaveClass("sc-app-resource-link__kind-picker");
+    expect(kindPicker).not.toHaveClass("sc-course-resource-link__kind-picker");
+    expect(getComputedStyle(controls).display).toBe("flex");
+    expect(getComputedStyle(controls).borderTopColor).toBe("rgb(63, 63, 70)");
+    expect(getComputedStyle(input).backgroundColor).toBe("rgb(240, 241, 242)");
+    expect(getComputedStyle(input).borderColor).toBe("rgb(63, 63, 70)");
+    expect(getComputedStyle(input).color).toBe("rgb(24, 24, 27)");
+    expect(getComputedStyle(input).fontFamily).toContain("Arial");
+    expect(getComputedStyle(input).borderRadius).toBe("6px");
+    expect(input.getBoundingClientRect().height).toBeCloseTo(38, 0);
+
+    await userEvent.tab();
+    expect(document.activeElement).toBe(input);
+    await waitForCondition(() => getComputedStyle(input).outlineStyle !== "none");
+    expect(getComputedStyle(input).outlineWidth).toBe("2px");
+
+    host.style.width = "240px";
+    await waitForCondition(() => getComputedStyle(controls).flexDirection === "column");
+    expect(controls.scrollWidth - controls.clientWidth).toBeLessThanOrEqual(1);
+  });
+
+  it("themes the authoring kind selector from the App scope across Course scopes", async () => {
     const host = document.createElement("div");
     document.body.append(host);
 
@@ -55,13 +120,34 @@ describe("Resource Link presentation", () => {
       '[data-authoring-controls="dark"] [role="radiogroup"]',
     );
 
-    expect(lightPicker).toHaveClass("sc-course-resource-link__kind-picker");
+    const lightOptions = Array.from(lightPicker.querySelectorAll<HTMLElement>('[role="radio"]'));
+    const darkOptions = Array.from(darkPicker.querySelectorAll<HTMLElement>('[role="radio"]'));
+    const lightSelected = requiredElement<HTMLElement>(lightPicker, '[aria-label="Link"]');
+    const darkSelected = requiredElement<HTMLElement>(darkPicker, '[aria-label="Link"]');
+
+    expect(lightPicker).toHaveClass("sc-app-resource-link__kind-picker");
+    expect(lightPicker).not.toHaveClass("sc-course-resource-link__kind-picker");
     expect(
-      host.querySelector('[class^="sc-app-resource-link"], [class*=" sc-app-resource-link"]'),
-    ).toBeNull();
-    expect(getComputedStyle(lightPicker).backgroundColor).not.toBe(
+      lightOptions.every((option) =>
+        option.classList.contains("sc-app-resource-link__kind-option"),
+      ),
+    ).toBe(true);
+    expect(
+      lightOptions.every(
+        (option) => !option.classList.contains("sc-course-resource-link__kind-option"),
+      ),
+    ).toBe(true);
+    expect(getComputedStyle(lightPicker).backgroundColor).toBe(
       getComputedStyle(darkPicker).backgroundColor,
     );
+    expect(getComputedStyle(lightSelected).backgroundColor).toBe(
+      getComputedStyle(darkSelected).backgroundColor,
+    );
+    expect(lightSelected.getBoundingClientRect().width).toBeCloseTo(32, 0);
+    expect(lightSelected.getBoundingClientRect().height).toBeCloseTo(32, 0);
+    expect(lightPicker.getBoundingClientRect().width).toBeCloseTo(172, 0);
+    expect(lightPicker.getBoundingClientRect().height).toBeCloseTo(36, 0);
+    expect(darkOptions).toHaveLength(5);
   });
 
   it("keeps the Course card theme-aware and contained at narrow intrinsic widths", async () => {
@@ -159,6 +245,8 @@ describe("Resource Link presentation", () => {
     const selectedKind = requiredElement<HTMLElement>(kindPicker, '[aria-label="Link"]');
 
     expect(getComputedStyle(link).display).toBe("grid");
+    expect(kindPicker).toHaveClass("sc-app-resource-link__kind-picker");
+    expect(kindPicker).not.toHaveClass("sc-course-resource-link__kind-picker");
     expect(
       host.querySelector('[class^="sc-resource-link"], [class*=" sc-resource-link"]'),
     ).toBeNull();
@@ -213,6 +301,144 @@ describe("Resource Link presentation", () => {
     await waitForCondition(() => authoringCard.getBoundingClientRect().width === 240);
     expect(authoringCard.scrollWidth - authoringCard.clientWidth).toBeLessThanOrEqual(1);
     expect(getComputedStyle(kindPicker).flexWrap).toBe("wrap");
+  });
+
+  it("separates the Pocket Atlas icon from its content hierarchy", async () => {
+    const host = document.createElement("div");
+    host.className = "sc-course sc-course-theme-pocket-atlas-v1";
+    host.style.width = "480px";
+    host.style.setProperty("--sc-course-author-density", "1");
+    host.style.setProperty("--heading-font-family", '"Silkscreen", monospace');
+    host.style.setProperty(
+      "--default-font-family",
+      '"Atkinson Hyperlegible", sans-serif',
+    );
+    document.body.append(host);
+
+    const root = createRoot(host);
+    mountedRoots.push(root);
+    root.render(
+      <ResourceLinkSurface
+        data={{
+          type: "resource_link",
+          url: "https://docs.example.com/course",
+          kind: "article",
+          showDescription: true,
+        }}
+        editable={false}
+      >
+        <div className="sc-course-resource-link__title">Pocket guide</div>
+        <div className="sc-course-resource-link__description">
+          Read before starting the course.
+        </div>
+      </ResourceLinkSurface>,
+    );
+
+    await waitForCondition(() => host.querySelector(".sc-course-resource-link"));
+    const link = requiredElement<HTMLElement>(host, ".sc-course-resource-link");
+    const kindIcon = requiredElement<HTMLElement>(link, ".sc-course-resource-link__kind-icon");
+    const body = requiredElement<HTMLElement>(link, ".sc-course-resource-link__body");
+
+    expect(body.getBoundingClientRect().left - kindIcon.getBoundingClientRect().right).toBeCloseTo(
+      16,
+      0,
+    );
+    expect(Number.parseFloat(getComputedStyle(body).gap)).toBeCloseTo(8, 0);
+  });
+
+  it("gives Pocket Atlas descriptions, metadata, and the open affordance a clear hierarchy", async () => {
+    const host = document.createElement("div");
+    host.className = "sc-course sc-course-theme-pocket-atlas-v1";
+    host.style.width = "480px";
+    host.style.setProperty("--sc-course-author-density", "1");
+    host.style.setProperty("--heading-font-family", '"Silkscreen", monospace');
+    host.style.setProperty(
+      "--default-font-family",
+      '"Atkinson Hyperlegible", sans-serif',
+    );
+    document.body.append(host);
+
+    const root = createRoot(host);
+    mountedRoots.push(root);
+    root.render(
+      <ResourceLinkSurface
+        data={{
+          type: "resource_link",
+          url: "https://docs.example.com/course",
+          kind: "article",
+          showDescription: true,
+        }}
+        editable={false}
+      >
+        <div className="sc-course-resource-link__title">Pocket guide</div>
+        <div className="sc-course-resource-link__description">
+          Read before starting the course.
+        </div>
+      </ResourceLinkSurface>,
+    );
+
+    await waitForCondition(() => host.querySelector(".sc-course-resource-link"));
+    const link = requiredElement<HTMLElement>(host, ".sc-course-resource-link");
+    const description = requiredElement<HTMLElement>(
+      link,
+      ".sc-course-resource-link__description",
+    );
+    const meta = requiredElement<HTMLElement>(link, ".sc-course-resource-link__meta");
+    const resourceHost = requiredElement<HTMLElement>(link, ".sc-course-resource-link__host");
+    const openIcon = requiredElement<HTMLElement>(link, ".sc-course-resource-link__open-icon");
+
+    expect(Number.parseFloat(getComputedStyle(description).fontSize)).toBeCloseTo(15.2, 1);
+    expect(Number.parseFloat(getComputedStyle(description).lineHeight)).toBeCloseTo(22.8, 1);
+    expect(Number.parseFloat(getComputedStyle(meta).gap)).toBeCloseTo(8, 0);
+    expect(getComputedStyle(meta).fontFamily).toContain("Silkscreen");
+    expect(Number.parseFloat(getComputedStyle(meta).fontSize)).toBeCloseTo(11.2, 1);
+    expect(getComputedStyle(resourceHost).fontFamily).toContain("Atkinson Hyperlegible");
+    expect(getComputedStyle(resourceHost).textTransform).toBe("none");
+    expect(openIcon.getBoundingClientRect().width).toBeCloseTo(28, 0);
+    expect(openIcon.getBoundingClientRect().height).toBeCloseTo(28, 0);
+
+    await userEvent.unhover(link);
+    await waitForCondition(() => readTranslation(openIcon).x === 0);
+    await userEvent.hover(link);
+    await waitForCondition(() => readTranslation(openIcon).x >= 1.9);
+    expect(readTranslation(openIcon).x).toBeCloseTo(2, 0);
+    expect(readTranslation(openIcon).y).toBeCloseTo(-2, 0);
+  });
+
+  it("tightens the Pocket Atlas card without clipping at narrow intrinsic widths", async () => {
+    const host = document.createElement("div");
+    host.className = "sc-course sc-course-theme-pocket-atlas-v1";
+    host.style.width = "240px";
+    host.style.setProperty("--sc-course-author-density", "1");
+    document.body.append(host);
+
+    const root = createRoot(host);
+    mountedRoots.push(root);
+    root.render(
+      <div className="sc-course-resource-link-node">
+        <ResourceLinkSurface
+          data={{
+            type: "resource_link",
+            url: "https://docs.example.com/a/very/long/resource/path",
+            kind: "article",
+            showDescription: true,
+          }}
+          editable={false}
+        >
+          <div className="sc-course-resource-link__title">A compact Pocket guide</div>
+          <div className="sc-course-resource-link__description">
+            A longer description that must remain inside the card.
+          </div>
+        </ResourceLinkSurface>
+      </div>,
+    );
+
+    await waitForCondition(() => host.querySelector(".sc-course-resource-link"));
+    const link = requiredElement<HTMLElement>(host, ".sc-course-resource-link");
+
+    expect(Number.parseFloat(getComputedStyle(link).gap)).toBeCloseTo(12, 0);
+    expect(Number.parseFloat(getComputedStyle(link).paddingLeft)).toBeCloseTo(12, 0);
+    expect(link.scrollWidth - link.clientWidth).toBeLessThanOrEqual(1);
   });
 });
 

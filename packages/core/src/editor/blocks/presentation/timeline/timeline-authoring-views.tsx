@@ -111,7 +111,7 @@ export function TimelineItemAuthoringView(props: NodeViewProps) {
               aria-describedby={!canDelete ? deleteExplanationId : undefined}
               aria-label={`Delete timeline event ${itemIndex + 1}`}
               onClick={deleteItem}
-              className="sc-app-timeline-delete sc-course-timeline__delete"
+              className="sc-app-timeline-delete"
             >
               <Trash size={14} aria-hidden />
               {!canDelete ? (

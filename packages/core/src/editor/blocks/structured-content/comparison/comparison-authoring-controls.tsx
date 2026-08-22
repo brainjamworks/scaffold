@@ -82,23 +82,29 @@ export function ComparisonRowAuthoringView(props: NodeViewProps) {
     <ComparisonRow
       trailing={
         editable ? (
-          <button
-            type="button"
+          <div
             contentEditable={false}
-            aria-disabled={!canDelete || undefined}
-            aria-describedby={!canDelete ? deleteExplanationId : undefined}
-            aria-label={`Delete comparison row ${rowIndex + 1}`}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={deleteRow}
-            className="sc-app-comparison-delete sc-course-comparison__delete"
+            role="cell"
+            aria-label={`Actions for comparison row ${rowIndex + 1}`}
+            className="sc-app-comparison-row-actions"
           >
-            <Trash size={14} aria-hidden />
-            {!canDelete ? (
-              <span id={deleteExplanationId} className="sc-app-comparison-delete__explanation">
-                A comparison must contain at least one row.
-              </span>
-            ) : null}
-          </button>
+            <button
+              type="button"
+              aria-disabled={!canDelete || undefined}
+              aria-describedby={!canDelete ? deleteExplanationId : undefined}
+              aria-label={`Delete comparison row ${rowIndex + 1}`}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={deleteRow}
+              className="sc-app-comparison-delete"
+            >
+              <Trash size={14} aria-hidden />
+              {!canDelete ? (
+                <span id={deleteExplanationId} className="sc-app-comparison-delete__explanation">
+                  A comparison must contain at least one row.
+                </span>
+              ) : null}
+            </button>
+          </div>
         ) : null
       }
     >

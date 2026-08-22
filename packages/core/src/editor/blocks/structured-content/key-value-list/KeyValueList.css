@@ -1,7 +1,7 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-components {
-  /* Course structure only. Scaffold Flow owns the visual recipe. */
+  /* Course structure only. Course themes own the visual recipes. */
   .sc-course-key-value-list {
     display: block;
     min-width: 0;
@@ -14,6 +14,36 @@
   .sc-course-key-value-list__key,
   .sc-course-key-value-list__value {
     min-width: 0;
+  }
+
+  /* TipTap's React NodeViews add layout-neutral wrappers around child nodes.
+   * Flatten only those wrappers so authored row layouts behave like the
+   * portable document structure in both authoring and runtime. */
+  .sc-course-key-value-list__list > [data-node-view-content-react],
+  .sc-course-key-value-list__list > [data-node-view-content-react] > .react-renderer,
+  .sc-course-key-value-list__row > [data-node-view-content],
+  .sc-course-key-value-list__row > [data-node-view-content] > [data-node-view-content-react],
+  .sc-course-key-value-list__row
+    > [data-node-view-content]
+    > [data-node-view-content-react]
+    > .react-renderer {
+    display: contents;
+  }
+
+  .sc-course-key-value-list__row {
+    position: relative;
+  }
+
+  .sc-course-key-value-list__list[data-key-width="narrow"] {
+    --sc-course-key-value-list-key-width: 5rem;
+  }
+
+  .sc-course-key-value-list__list[data-key-width="medium"] {
+    --sc-course-key-value-list-key-width: 7.5rem;
+  }
+
+  .sc-course-key-value-list__list[data-key-width="wide"] {
+    --sc-course-key-value-list-key-width: 11.25rem;
   }
 
   .sc-course-key-value-list__list[data-layout="stacked"],
@@ -31,18 +61,62 @@
     display: flex;
   }
 
+  .sc-course-key-value-list__list[data-layout="inline"] .sc-course-key-value-list__value {
+    flex: 1 1 auto;
+  }
+
   .sc-course-key-value-list__list[data-layout="inline"]:not([data-key-width="auto"])
     .sc-course-key-value-list__key {
-    flex-grow: 0;
-    flex-shrink: 0;
+    min-width: var(--sc-course-key-value-list-key-width);
+    flex: 0 0 var(--sc-course-key-value-list-key-width);
   }
 
   .sc-course-key-value-list__list[data-layout="grid"] {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: var(--sc-course-key-value-list-key-width, auto) minmax(0, 1fr);
   }
 
   .sc-course-key-value-list__list[data-layout="grid"] .sc-course-key-value-list__row {
-    display: contents;
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+  }
+
+  .sc-course-key-value-list__list[data-layout="grid"]:has(.sc-app-key-value-list-delete) {
+    grid-template-columns:
+      var(--sc-course-key-value-list-key-width, auto) minmax(0, 1fr)
+      2.75rem;
+  }
+
+  .sc-course-key-value-list__list:is([data-layout="stacked"], [data-layout="inline"])
+    .sc-course-key-value-list__row:has(.sc-app-key-value-list-delete)
+    :is(.sc-course-key-value-list__key, .sc-course-key-value-list__value) {
+    padding-inline-end: 3rem;
+  }
+
+  @container sc-course-key-value-list (max-width: 360px) {
+    .sc-course-key-value-list__list:is([data-layout="inline"], [data-layout="grid"]) {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sc-course-key-value-list__list:is([data-layout="inline"], [data-layout="grid"])
+      .sc-course-key-value-list__row {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .sc-course-key-value-list__list:is([data-layout="inline"], [data-layout="grid"])
+      .sc-course-key-value-list__key {
+      min-width: 0;
+      flex: initial;
+    }
+
+    .sc-course-key-value-list__list[data-layout="grid"]
+      .sc-course-key-value-list__row:has(.sc-app-key-value-list-delete)
+      :is(.sc-course-key-value-list__key, .sc-course-key-value-list__value) {
+      padding-inline-end: 3rem;
+    }
   }
 }

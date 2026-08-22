@@ -54,6 +54,7 @@ interface ViewerProps {
 }
 
 const PDF_ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3] as const;
+const PDF_LOAD_ERROR_MESSAGE = "We couldn't load this PDF. Check the source or your network.";
 
 type PdfZoomScale = (typeof PDF_ZOOM_STEPS)[number];
 type PdfZoom = "fit" | PdfZoomScale;
@@ -83,9 +84,7 @@ const PdfViewer = lazy<ComponentType<ViewerProps>>(async () => {
         file={url}
         loading={<PdfStateMessage>{mediaLoadingMessage("pdf")}</PdfStateMessage>}
         error={
-          <PdfErrorMessage>
-            We couldn't load this PDF. Check the source or your network.
-          </PdfErrorMessage>
+          <PdfErrorMessage>{PDF_LOAD_ERROR_MESSAGE}</PdfErrorMessage>
         }
         noData={<PdfErrorMessage>{mediaMissingMessage("pdf")}</PdfErrorMessage>}
         onLoadSuccess={({ numPages }) => onLoadSuccess(numPages)}
@@ -151,6 +150,7 @@ export function PdfEmbedSurface({
   } | null>(null);
 
   const source = data.source;
+  const hasSource = source !== null;
   const pdfTitle = data.title.trim();
   const pdfLabel = pdfTitle || "PDF";
   const captionId = `${generatedId}-caption`;
@@ -230,7 +230,7 @@ export function PdfEmbedSurface({
     const observer = new ResizeObserver(update);
     observer.observe(stage);
     return () => observer.disconnect();
-  }, []);
+  }, [hasSource]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -274,10 +274,10 @@ export function PdfEmbedSurface({
     ? `Page ${pageNumber} of ${numPages}`
     : "Page count unavailable";
 
-  const loadFailure =
+  const hasLoadFailure =
     resolveError && managedMediaId && resolveError.mediaId === managedMediaId
-      ? resolveError.message
-      : errorMessage;
+      ? true
+      : errorMessage !== null;
   const activePageDimensions = pageDimensions?.pageNumber === pageNumber ? pageDimensions : null;
   const fittedPageWidth = resolvePdfPageWidth({
     availableHeight: stageSize.boundedHeight,
@@ -348,8 +348,8 @@ export function PdfEmbedSurface({
               }}
             />
           </Suspense>
-        ) : loadFailure ? (
-          <PdfErrorMessage>{loadFailure}</PdfErrorMessage>
+        ) : hasLoadFailure ? (
+          <PdfErrorMessage>{PDF_LOAD_ERROR_MESSAGE}</PdfErrorMessage>
         ) : (
           <PdfStateMessage>{mediaLoadingMessage("pdf")}</PdfStateMessage>
         )}

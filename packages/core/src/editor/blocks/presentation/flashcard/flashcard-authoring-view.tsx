@@ -134,7 +134,7 @@ export function FlashcardCardAuthoringView(props: NodeViewProps) {
             aria-describedby={!canDelete ? deleteExplanationId : undefined}
             aria-label={`Delete flashcard card ${cardIndex + 1}`}
             onClick={deleteCard}
-            className="sc-app-flashcard-card-delete sc-course-flashcard__delete"
+            className="sc-app-flashcard-card-delete"
           >
             <Trash size={16} aria-hidden />
             {!canDelete ? (

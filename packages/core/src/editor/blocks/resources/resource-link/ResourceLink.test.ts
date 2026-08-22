@@ -163,28 +163,43 @@ it("suppresses the description without deleting its document content", async () 
   editor.destroy();
 });
 
-it("keeps the Course-owned authoring controls wired to the resource document", async () => {
+it("keeps the App-owned URL field and kind picker wired to the Course resource document", async () => {
   const user = userEvent.setup();
   const fixture = renderAuthoringResourceLink();
   const group = await screen.findByRole("radiogroup", { name: "Resource kind" });
   const urlInput = screen.getByRole("textbox", { name: "Resource URL" });
+  const controls = urlInput.parentElement;
   const radios = within(group).getAllByRole("radio");
   const selected = within(group).getByRole("radio", { name: "Link" });
 
+  expect(controls).toHaveClass("sc-app-resource-link__controls");
+  expect(controls).not.toHaveClass("sc-course-resource-link__controls");
+  expect(urlInput).toHaveClass("sc-input", "sc-app-resource-link__url-input");
+  expect(urlInput).not.toHaveClass("sc-course-resource-link__url-input");
   expect(group.tabIndex).toBe(0);
   expect(radios.every((radio) => radio.tabIndex === -1)).toBe(true);
   expect(selected).toHaveAttribute("aria-checked", "true");
-  expect(group).toHaveClass("sc-course-resource-link__kind-picker");
-  expect(urlInput).toHaveClass("sc-course-resource-link__url-input");
-  expect(document.querySelector(".sc-course-resource-link")).not.toBeNull();
+  expect(group).toHaveClass("sc-app-resource-link__kind-picker");
+  expect(group).not.toHaveClass("sc-course-resource-link__kind-picker");
+  expect(radios.every((radio) => radio.classList.contains("sc-app-resource-link__kind-option"))).toBe(
+    true,
+  );
   expect(
-    document.querySelector(
-      '[class^="sc-app-resource-link"], [class*=" sc-app-resource-link"]',
-    ),
-  ).toBeNull();
+    radios.every((radio) => !radio.classList.contains("sc-course-resource-link__kind-option")),
+  ).toBe(true);
+  expect(document.querySelector(".sc-course-resource-link")).not.toBeNull();
   expect(
     document.querySelector('[class^="sc-resource-link"], [class*=" sc-resource-link"]'),
   ).toBeNull();
+
+  await user.clear(urlInput);
+  await user.type(urlInput, "https://docs.example.com/course");
+
+  await waitFor(() => {
+    expect(fixture.json().content?.[0]?.attrs?.["data"]).toMatchObject({
+      url: "https://docs.example.com/course",
+    });
+  });
 
   await user.click(within(group).getByRole("radio", { name: "Article" }));
 

@@ -47,11 +47,13 @@ export function renderNumberedListIconControl({
           onClick={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
         >
-          <IconRenderer
-            value={displayValue}
-            fallbackValue={fallbackValue}
-            className="sc-course-numbered-list__header-icon-glyph"
-          />
+          <span aria-hidden className="sc-course-numbered-list__header-icon">
+            <IconRenderer
+              value={displayValue}
+              fallbackValue={fallbackValue}
+              className="sc-course-numbered-list__header-icon-glyph"
+            />
+          </span>
         </button>
       )}
     />

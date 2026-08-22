@@ -40,12 +40,12 @@ export function createGlossaryNode(options: GlossaryNodeOptions = {}) {
     },
 
     parseHTML() {
-      return [{ tag: 'section[data-node="glossary"]' }];
+      return [{ tag: 'dl[data-node="glossary"]' }, { tag: 'section[data-node="glossary"]' }];
     },
 
     renderHTML({ HTMLAttributes }) {
       return [
-        "section",
+        "dl",
         mergeAttributes(HTMLAttributes, {
           "data-node": "glossary",
         }),

@@ -57,12 +57,11 @@
   }
 
   .sc-course-process-flow__header,
-  .sc-course-process-flow__controls,
+  .sc-app-process-flow-controls,
   .sc-course-process-flow__number,
-  .sc-course-process-flow__move,
-  .sc-course-process-flow__delete,
-  .sc-course-process-flow__add,
-  .sc-course-process-flow__add-icon {
+  .sc-app-process-flow-move,
+  .sc-app-process-flow-delete,
+  .sc-app-process-flow-add {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -86,14 +85,14 @@
     overflow-wrap: anywhere;
   }
 
-  .sc-course-process-flow__move,
-  .sc-course-process-flow__delete,
-  .sc-course-process-flow__add {
+  .sc-app-process-flow-move,
+  .sc-app-process-flow-delete,
+  .sc-app-process-flow-add {
     min-width: 44px;
     min-height: 44px;
   }
 
-  .sc-course-process-flow__control-explanation {
+  .sc-app-process-flow-delete__explanation {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -122,7 +121,7 @@
   }
 
   .sc-course-process-flow[data-orientation="horizontal"] .sc-course-process-flow__step,
-  .sc-course-process-flow[data-orientation="horizontal"] .sc-course-process-flow__add {
+  .sc-course-process-flow[data-orientation="horizontal"] .sc-app-process-flow-add {
     width: var(--sc-course-process-flow-card-size);
     max-width: none;
     flex: 0 0 var(--sc-course-process-flow-card-size);
@@ -194,5 +193,103 @@
     .sc-course-process-flow__scrollport {
     overflow-y: auto;
     overscroll-behavior-block: contain;
+  }
+}
+
+@layer sc-overlays {
+  .sc-app-process-flow-controls {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+
+  .sc-app-process-flow-delete {
+    display: inline-flex;
+    width: 2.75rem;
+    height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--sc-app-radius-control);
+    background: transparent;
+    color: var(--sc-app-color-text-muted);
+    cursor: pointer;
+    transition:
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-app-process-flow-delete:not([aria-disabled="true"]):focus-visible {
+    background: var(--sc-app-color-error-background);
+    color: var(--sc-app-color-error);
+  }
+
+  .sc-app-process-flow-delete:focus-visible,
+  .sc-app-block-add.sc-app-process-flow-add:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+
+  .sc-app-process-flow-delete[aria-disabled="true"] {
+    color: var(--sc-app-color-text-muted);
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .sc-app-block-add.sc-app-process-flow-add {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    flex-direction: column;
+    gap: 0.5rem;
+    border-radius: var(--sc-app-radius-surface);
+    background: var(--sc-app-color-canvas);
+  }
+
+  .sc-course-process-flow[data-orientation="vertical"]
+    .sc-app-block-add.sc-app-process-flow-add {
+    width: 100%;
+    min-height: 4.5rem;
+    flex-direction: row;
+  }
+
+  .sc-app-process-flow-delete:active:not([aria-disabled="true"]) {
+    transform: scale(0.96);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .sc-app-process-flow-delete:not([aria-disabled="true"]):hover {
+      background: var(--sc-app-color-error-background);
+      color: var(--sc-app-color-error);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-app-process-flow-delete {
+      transition: none;
+    }
+
+    .sc-app-process-flow-delete:active {
+      transform: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .sc-app-process-flow-delete {
+      color: ButtonText;
+    }
+
+    .sc-app-process-flow-delete:focus-visible,
+    .sc-app-block-add.sc-app-process-flow-add:focus-visible {
+      outline-color: Highlight;
+    }
+
+    .sc-app-process-flow-delete[aria-disabled="true"] {
+      color: GrayText;
+    }
   }
 }

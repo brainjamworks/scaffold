@@ -137,8 +137,17 @@ describe("Timeline layout and ownership", () => {
     },
   );
 
-  it("recolours Course content and its embedded delete action together", async () => {
+  it("recolours Course content without recolouring the App-owned delete action", async () => {
     const fixture = createTimelineFixture({ bounded: false, presentation: "vertical" });
+    expect(fixture.deleteButton.classList.contains("sc-course-timeline__delete")).toBe(false);
+    expect(fixture.deleteButton.getBoundingClientRect().width).toBeCloseTo(36, 0);
+    expect(fixture.deleteButton.getBoundingClientRect().height).toBeCloseTo(36, 0);
+    expect(getComputedStyle(fixture.deleteButton).borderTopWidth).toBe("0px");
+    expect(getComputedStyle(fixture.deleteButton).borderTopLeftRadius).toBe("6px");
+    expect(getComputedStyle(fixture.deleteButton).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(getComputedStyle(fixture.deleteButton).color).toBe("rgb(113, 113, 122)");
+    expect(getComputedStyle(fixture.deleteButton).opacity).toBe("0.72");
+
     fixture.host.style.setProperty("--gray-1", "rgb(24 24 27)");
     fixture.host.style.setProperty("--gray-11", "rgb(212 212 216)");
     fixture.host.style.setProperty("--gray-12", "rgb(250 250 250)");
@@ -153,12 +162,25 @@ describe("Timeline layout and ownership", () => {
 
     expect(getComputedStyle(fixture.firstCard).backgroundColor).toBe("rgb(24, 24, 27)");
     expect(getComputedStyle(fixture.firstCard).borderColor).toBe("rgb(63, 63, 70)");
-    expect(getComputedStyle(fixture.deleteButton).color).toBe("rgb(212, 212, 216)");
-    expect(Number.parseFloat(getComputedStyle(fixture.deleteButton).opacity)).toBeGreaterThan(0);
+    expect(getComputedStyle(fixture.deleteButton).color).toBe("rgb(113, 113, 122)");
 
     fixture.deleteButton.style.transition = "none";
     await userEvent.hover(fixture.deleteButton);
-    expect(getComputedStyle(fixture.deleteButton).color).toBe("rgb(244, 63, 94)");
+    expect(getComputedStyle(fixture.deleteButton).color).toBe("rgb(225, 29, 72)");
+    expect(getComputedStyle(fixture.deleteButton).backgroundColor).toBe("rgb(63, 29, 36)");
+    expect(getComputedStyle(fixture.deleteButton).opacity).toBe("1");
+
+    await userEvent.unhover(fixture.deleteButton);
+    fixture.deleteButton.focus();
+    expect(getComputedStyle(fixture.deleteButton).color).toBe("rgb(225, 29, 72)");
+    expect(getComputedStyle(fixture.deleteButton).outlineStyle).toBe("solid");
+
+    fixture.deleteButton.setAttribute("aria-disabled", "true");
+    expect(getComputedStyle(fixture.deleteButton).color).toBe("rgb(113, 113, 122)");
+    expect(getComputedStyle(fixture.deleteButton).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(getComputedStyle(fixture.deleteButton).cursor).toBe("not-allowed");
+    expect(getComputedStyle(fixture.deleteButton).opacity).toBe("0.45");
+    expect(document.activeElement).toBe(fixture.deleteButton);
   });
 
   it("enables edge treatment only while a vertical Timeline actually overflows", async () => {
@@ -360,7 +382,7 @@ function createTimelineFixture(input: {
       movementButton.append(movementVisual);
       deleteButton = document.createElement("button");
       deleteButton.type = "button";
-      deleteButton.className = "sc-app-timeline-delete sc-course-timeline__delete";
+      deleteButton.className = "sc-app-timeline-delete";
       deleteButton.textContent = "Delete event";
       chrome.append(movementButton, deleteButton);
       card.append(chrome);
@@ -421,6 +443,8 @@ function createCourseHost(width: number) {
   host.style.setProperty("--sc-app-color-text-muted", "rgb(113 113 122)");
   host.style.setProperty("--sc-app-color-error", "rgb(185 28 28)");
   host.style.setProperty("--sc-app-color-error-background", "rgb(254 226 226)");
+  host.style.setProperty("--sc-app-color-focus-outline", "rgb(79 70 229)");
+  host.style.setProperty("--sc-app-radius-control", "6px");
   return host;
 }
 

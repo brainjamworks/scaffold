@@ -1,4 +1,4 @@
-import { PlusIcon as Plus, TrashIcon as Trash } from "@phosphor-icons/react";
+import { TrashIcon as Trash } from "@phosphor-icons/react";
 import {
   NodeViewContent,
   NodeViewWrapper,
@@ -15,6 +15,7 @@ import {
   authoringMovementSnapshotChromeAttributes,
 } from "@/editor/movement/view/authoring-movement-presentation";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
+import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
 
 import { PROCESS_FLOW_NODE, PROCESS_FLOW_STEP_NODE, createProcessFlowStep } from "./content";
 import { ProcessFlowStepCard, ProcessFlowView } from "./ProcessFlow";
@@ -44,19 +45,14 @@ export function ProcessFlowAuthoringView(props: NodeViewProps) {
   };
 
   const footer = (
-    <button
-      type="button"
+    <BlockAddGhost
       contentEditable={false}
-      aria-label="Add step"
+      label="Add step"
+      presentation="tile"
       onMouseDown={(event) => event.preventDefault()}
       onClick={addStep}
-      className="sc-course-process-flow__add"
-    >
-      <span aria-hidden className="sc-course-process-flow__add-icon">
-        <Plus size={16} weight="bold" />
-      </span>
-      <span>Add step</span>
-    </button>
+      className="sc-app-process-flow-add"
+    />
   );
 
   return <ProcessFlowView props={props} footer={footer} />;
@@ -96,10 +92,10 @@ export function ProcessFlowStepAuthoringView(props: NodeViewProps) {
   };
 
   const chrome = (
-    <div className="sc-course-process-flow__controls">
+    <div className="sc-app-process-flow-controls">
       <ContainedMovementHandle
         axis={data.orientation}
-        className="sc-course-process-flow__move"
+        className="sc-app-process-flow-move"
         getPresentationElement={() => presentationRef.current}
         getSourcePos={() => readProcessFlowNodePos(props) ?? null}
         label="process flow step"
@@ -115,11 +111,11 @@ export function ProcessFlowStepAuthoringView(props: NodeViewProps) {
         aria-describedby={!canDelete ? deleteExplanationId : undefined}
         aria-label={`Delete process flow step ${index}`}
         onClick={deleteStep}
-        className="sc-course-process-flow__delete"
+        className="sc-app-process-flow-delete"
       >
         <Trash size={15} aria-hidden />
         {!canDelete ? (
-          <span id={deleteExplanationId} className="sc-course-process-flow__control-explanation">
+          <span id={deleteExplanationId} className="sc-app-process-flow-delete__explanation">
             A process flow must contain at least one step.
           </span>
         ) : null}

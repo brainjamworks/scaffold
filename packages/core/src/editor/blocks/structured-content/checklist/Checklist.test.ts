@@ -126,9 +126,46 @@ function renderChecklistEditor(content: JSONContent = checklistFixture()) {
 it("renders an item-shaped add checklist affordance", async () => {
   const fixture = renderChecklistEditor();
   const add = await screen.findByRole("button", { name: "Add item" });
+  const deleteActions = await screen.findAllByRole("button", {
+    name: /Delete checklist item \d+/,
+  });
 
   expect(add.classList.contains("sc-app-checklist-add")).toBe(true);
   expect(add.querySelector(".sc-app-checklist-add__checkbox")).not.toBeNull();
+  expect(deleteActions).toHaveLength(3);
+  for (const deleteAction of deleteActions) {
+    expect(deleteAction).toHaveClass("sc-app-checklist-item-delete");
+    expect(deleteAction).not.toHaveClass("sc-course-checklist__delete");
+  }
+  fixture.destroy();
+});
+
+it("keeps the final checklist item delete action focusable with its explanation", async () => {
+  const user = userEvent.setup();
+  const content = checklistFixture();
+  const checklist = content.content?.[0];
+  if (!checklist?.content) throw new Error("Expected checklist fixture items.");
+  checklist.content = checklist.content.slice(0, 1);
+  const fixture = renderChecklistEditor(content);
+
+  const deleteAction = await screen.findByRole("button", {
+    name: "Delete checklist item 1",
+  });
+  const explanationId = deleteAction.getAttribute("aria-describedby");
+
+  expect(deleteAction).toHaveAttribute("aria-disabled", "true");
+  expect(deleteAction).not.toBeDisabled();
+  expect(explanationId).not.toBeNull();
+  expect(document.getElementById(explanationId!)).toHaveTextContent(
+    "A checklist must contain at least one item.",
+  );
+
+  deleteAction.focus();
+  expect(deleteAction).toHaveFocus();
+  await user.click(deleteAction);
+  expect(fixture.editor.state.doc.textContent).toContain("First checklist item");
+  expect(fixture.json().content?.[0]?.content).toHaveLength(1);
+
   fixture.destroy();
 });
 

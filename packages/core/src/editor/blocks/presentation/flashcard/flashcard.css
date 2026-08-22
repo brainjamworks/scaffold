@@ -23,6 +23,85 @@
     width: 100%;
     min-width: 0;
     flex-direction: column;
+    gap: var(--sc-course-flashcard-deck-gap, 1rem);
+  }
+
+  .sc-course-flashcard-deck-header,
+  .sc-course-flashcard-reader-controls {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+  }
+
+  .sc-course-flashcard-deck-header {
+    gap: var(--sc-course-flashcard-header-gap, 0.5rem);
+  }
+
+  .sc-course-flashcard-deck-header__row {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sc-course-flashcard-header-row-gap, 0.75rem);
+  }
+
+  .sc-course-flashcard-deck-header__status {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .sc-course-flashcard-deck-header__counter {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .sc-course-flashcard-reader-controls {
+    gap: var(--sc-course-flashcard-controls-gap, 0.75rem);
+  }
+
+  .sc-course-flashcard-reader-controls__nav {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sc-course-flashcard-nav-gap, 0.75rem);
+  }
+
+  .sc-course-flashcard-reader-controls__ratings {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sc-course-flashcard-ratings-gap, 0.5rem);
+  }
+
+  .sc-course-flashcard-reader-controls__reset-row {
+    display: flex;
+    justify-content: center;
+  }
+
+  :is(
+    .sc-course-flashcard-reader-controls__flip-button,
+    .sc-course-flashcard-reader-controls__icon-button,
+    .sc-course-flashcard-rating-button,
+    .sc-course-flashcard-reader-controls__reset-button,
+    .sc-course-flashcard-mastered__reset
+  ) {
+    /* Radix ships unlayered fixed heights; this invariant must survive that reset. */
+    min-height: 2.75rem !important;
+  }
+
+  .sc-course-flashcard-reader-controls__icon-button {
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem !important;
+    flex: 0 0 2.75rem;
+  }
+
+  .sc-course-flashcard-keycap {
+    display: inline-flex;
+    min-width: 1.5rem;
+    align-items: center;
+    justify-content: center;
   }
 
   .sc-course-flashcard-content {
@@ -143,6 +222,35 @@
   .sc-course-flashcard-block[data-bounded-placement="fill"] .sc-course-flashcard-mastered {
     max-height: 100%;
     overflow: auto;
+  }
+
+  @container sc-course-flashcard (max-width: 20rem) {
+    .sc-course-flashcard-reader-controls__nav {
+      display: grid;
+      grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+      gap: var(--sc-course-flashcard-nav-compact-gap, 0.5rem);
+    }
+
+    .sc-course-flashcard-reader-controls__flip-button {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .sc-course-flashcard-keycap {
+      display: none;
+    }
+  }
+
+  @container sc-course-flashcard (max-width: 16rem) {
+    .sc-course-flashcard-deck-header__row {
+      align-items: flex-start;
+    }
+  }
+
+  @media (hover: none), (pointer: coarse) {
+    .sc-course-flashcard-keycap {
+      display: none;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {

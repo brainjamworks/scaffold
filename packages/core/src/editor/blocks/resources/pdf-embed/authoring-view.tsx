@@ -90,6 +90,7 @@ export function PdfEmbedAuthoringView(props: NodeViewProps) {
           open={pickerOpen}
           onOpenChange={setPickerOpen}
           kind="documents"
+          allowedMediaTypes={["pdf"]}
           defaultMediaType="pdf"
           title={data.source ? "Replace PDF" : "Add PDF"}
           onResolved={handlePickerResolved}

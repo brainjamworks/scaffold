@@ -8,6 +8,7 @@ import {
 import { useId } from "react";
 
 import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
+import { Input } from "@/ui/components/Input/Input";
 import { RadioGroup, RadioItem } from "@/ui/components/Radio/Radio";
 import { emptyResourceLinkData } from "./content";
 import { RESOURCE_LINK_KIND_LABELS } from "./resource-link-presentation";
@@ -62,20 +63,20 @@ function ResourceLinkAuthoringControls({
     <div
       {...authoringMovementSnapshotChromeAttributes()}
       contentEditable={false}
-      className="sc-course-resource-link__controls"
+      className="sc-app-resource-link__controls"
       onMouseDown={(event) => event.stopPropagation()}
     >
       <label htmlFor={urlInputId} className="sc-sr-only">
         Resource URL
       </label>
-      <input
+      <Input
         id={urlInputId}
         type="url"
         value={data.url}
         placeholder="https://..."
         onChange={(event) => onUpdate({ url: event.target.value })}
         onMouseDown={(event) => event.stopPropagation()}
-        className="sc-course-resource-link__url-input"
+        className="sc-app-resource-link__url-input"
       />
       <ResourceLinkKindPicker value={data.kind} onChange={(kind) => onUpdate({ kind })} />
     </div>
@@ -92,7 +93,7 @@ export function ResourceLinkKindPicker({
   return (
     <RadioGroup
       aria-label="Resource kind"
-      className="sc-course-resource-link__kind-picker"
+      className="sc-app-resource-link__kind-picker"
       orientation="horizontal"
       value={value}
       onValueChange={(next) => onChange(ResourceLinkKindSchema.parse(next))}
@@ -107,7 +108,7 @@ export function ResourceLinkKindPicker({
             showIndicator={false}
             aria-label={RESOURCE_LINK_KIND_LABELS[kind]}
             title={RESOURCE_LINK_KIND_LABELS[kind]}
-            className="sc-course-resource-link__kind-option"
+            className="sc-app-resource-link__kind-option"
           >
             <Icon size={16} weight={selected ? "fill" : "regular"} aria-hidden />
           </RadioItem>

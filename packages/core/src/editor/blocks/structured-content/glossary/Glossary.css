@@ -23,7 +23,13 @@
   }
 
   .sc-course-glossary__entry:has(.sc-app-glossary-delete) .sc-course-glossary__definition {
-    padding-inline-end: 2.25rem;
+    padding-inline-end: 2.75rem;
+  }
+
+  @container sc-course-glossary (max-width: 42rem) {
+    .sc-course-glossary__entry:has(.sc-app-glossary-delete) .sc-course-glossary__term {
+      padding-inline-end: 2.75rem;
+    }
   }
 
   .sc-course-glossary__suppressed,

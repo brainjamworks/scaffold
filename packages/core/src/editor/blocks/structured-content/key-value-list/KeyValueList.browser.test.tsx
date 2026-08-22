@@ -7,6 +7,7 @@ import "@/styles/globals.css";
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import "@/theme/course/designs/pocket-atlas/v1/theme.css";
 
 import "./KeyValueList.css";
 import "./KeyValueListAuthoringControls.css";
@@ -72,9 +73,9 @@ describe("Key-Value List presentation", () => {
     list.dataset["layout"] = "grid";
     list.dataset["keyWidth"] = "wide";
     await waitForCondition(
-      () =>
-        getComputedStyle(list).display === "grid" && getComputedStyle(row).display === "contents",
+      () => getComputedStyle(list).display === "grid" && getComputedStyle(row).display === "grid",
     );
+    expect(getComputedStyle(row).gridTemplateColumns).not.toBe("none");
     expect(key.getBoundingClientRect().width).toBeCloseTo(180, 0);
     expect(value.getBoundingClientRect().left).toBeGreaterThan(key.getBoundingClientRect().right);
     expect(getComputedStyle(key).textAlign).toBe("right");
@@ -138,42 +139,142 @@ describe("Key-Value List presentation", () => {
     );
     expect(getComputedStyle(addButtons[0]!).color).toBe(getComputedStyle(addButtons[1]!).color);
   });
+
+  it("preserves authored key widths and narrow collapse in Pocket Atlas", async () => {
+    await page.viewport(900, 700);
+    const host = document.createElement("div");
+    host.style.width = "600px";
+    document.body.append(host);
+    const root = createRoot(host);
+    mountedRoots.push(root);
+    root.render(
+      <AppThemeProvider appearance="light">
+        <CourseThemeProvider
+          appearance="light"
+          theme={{
+            schemaVersion: 1,
+            design: { id: "pocket-atlas", revision: "1" },
+            colourSystem: { id: "pocket-atlas", revision: "1" },
+            overrides: {},
+          }}
+        >
+          <KeyValueListSpecimen />
+        </CourseThemeProvider>
+      </AppThemeProvider>,
+    );
+
+    await waitForCondition(() => host.querySelector(".sc-course-key-value-list__list"));
+    const list = requiredElement<HTMLElement>(host, ".sc-course-key-value-list__list");
+    const row = requiredElement<HTMLElement>(list, ".sc-course-key-value-list__row");
+    const key = requiredElement<HTMLElement>(row, ".sc-course-key-value-list__key");
+
+    list.dataset["layout"] = "inline";
+    list.dataset["keyWidth"] = "wide";
+    await waitForCondition(() => Math.abs(key.getBoundingClientRect().width - 180) <= 1);
+    expect(key.getBoundingClientRect().width).toBeCloseTo(180, 0);
+
+    list.dataset["layout"] = "grid";
+    list.dataset["keyWidth"] = "narrow";
+    await waitForCondition(() => getComputedStyle(list).display === "grid");
+    expect(key.getBoundingClientRect().width).toBeCloseTo(80, 0);
+
+    host.style.width = "320px";
+    await waitForCondition(
+      () => getComputedStyle(list).display === "flex" && getComputedStyle(row).display === "flex",
+    );
+    expect(getComputedStyle(row).flexDirection).toBe("column");
+    expect(key.getBoundingClientRect().right).toBeLessThanOrEqual(
+      row.getBoundingClientRect().right,
+    );
+    expect(window.innerWidth).toBe(900);
+  });
+
+  it("gives Pocket Atlas content an intentional Course recipe and keeps delete App-owned", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mountedRoots.push(root);
+    root.render(
+      <AppThemeProvider appearance="light">
+        <CourseThemeProvider
+          appearance="light"
+          theme={{
+            schemaVersion: 1,
+            design: { id: "pocket-atlas", revision: "1" },
+            colourSystem: { id: "pocket-atlas", revision: "1" },
+            overrides: {},
+          }}
+        >
+          <KeyValueListSpecimen />
+        </CourseThemeProvider>
+      </AppThemeProvider>,
+    );
+
+    await waitForCondition(() => host.querySelector(".sc-app-key-value-list-delete"));
+    const list = requiredElement<HTMLElement>(host, ".sc-course-key-value-list__list");
+    const row = requiredElement<HTMLElement>(list, ".sc-course-key-value-list__row");
+    const key = requiredElement<HTMLElement>(row, ".sc-course-key-value-list__key");
+    const value = requiredElement<HTMLElement>(row, ".sc-course-key-value-list__value");
+    const deleteButton = requiredElement<HTMLButtonElement>(row, ".sc-app-key-value-list-delete");
+
+    expect(getComputedStyle(list).gap).toBe("12px");
+    expect(getComputedStyle(row).borderTopWidth).toBe("2px");
+    expect(getComputedStyle(row).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    expect(getComputedStyle(row).boxShadow).not.toBe("none");
+    expect(getComputedStyle(key).fontFamily).toContain("Silkscreen");
+    expect(getComputedStyle(key).color).not.toBe(getComputedStyle(value).color);
+    expect(deleteButton.getBoundingClientRect().width).toBe(44);
+    expect(deleteButton.getBoundingClientRect().height).toBe(44);
+    expect(deleteButton).not.toHaveClass("sc-course-key-value-list__delete");
+  });
 });
 
 function KeyValueListSpecimen({ label = "Key-value list" }: { label?: string }) {
   return (
     <div className="sc-course-key-value-list" aria-label={label}>
-      <dl
+      <div
+        role="list"
         data-node="key-value-list"
         data-layout="stacked"
         data-key-width="auto"
         className="sc-course-key-value-list__list"
       >
-        <div data-node="key-value-row" className="sc-course-key-value-list__row">
-          <dt data-slot="key-value-row-key" className="sc-course-key-value-list__key">
+        <div role="listitem" data-node="key-value-row" className="sc-course-key-value-list__row">
+          <div role="term" data-slot="key-value-row-key" className="sc-course-key-value-list__key">
             <div data-node-view-content-react="">
               <p>Duration</p>
             </div>
-          </dt>
-          <dd data-slot="key-value-row-value" className="sc-course-key-value-list__value">
+          </div>
+          <div
+            role="definition"
+            data-slot="key-value-row-value"
+            className="sc-course-key-value-list__value"
+          >
             <div data-node-view-content-react="">
               <p>Six weeks</p>
             </div>
-          </dd>
+          </div>
+          <button type="button" className="sc-app-key-value-list-delete" aria-label="Delete item 1">
+            Delete
+          </button>
         </div>
-        <div data-node="key-value-row" className="sc-course-key-value-list__row">
-          <dt data-slot="key-value-row-key" className="sc-course-key-value-list__key">
+        <div role="listitem" data-node="key-value-row" className="sc-course-key-value-list__row">
+          <div role="term" data-slot="key-value-row-key" className="sc-course-key-value-list__key">
             <div data-node-view-content-react="">
               <p className="is-empty" />
             </div>
-          </dt>
-          <dd data-slot="key-value-row-value" className="sc-course-key-value-list__value">
+          </div>
+          <div
+            role="definition"
+            data-slot="key-value-row-value"
+            className="sc-course-key-value-list__value"
+          >
             <div data-node-view-content-react="">
               <p className="is-empty" />
             </div>
-          </dd>
+          </div>
         </div>
-      </dl>
+      </div>
       <button
         type="button"
         className="sc-app-block-add sc-app-block-add--item sc-app-key-value-list-add"

@@ -42,7 +42,7 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-function keyValueListFixture(): JSONContent {
+function keyValueListFixture({ rowCount = 1 }: { rowCount?: number } = {}): JSONContent {
   return {
     type: "doc",
     content: [
@@ -52,22 +52,23 @@ function keyValueListFixture(): JSONContent {
           id: "kv-list-0001",
           data: { type: "keyValueList", layout: "stacked", keyWidth: "auto" },
         },
-        content: [
-          {
-            type: KEY_VALUE_ROW_NODE,
-            attrs: { id: "kv-row-00001" },
-            content: [
-              { type: KEY_VALUE_ROW_KEY_NODE, content: [{ type: "paragraph" }] },
-              { type: KEY_VALUE_ROW_VALUE_NODE, content: [{ type: "paragraph" }] },
-            ],
-          },
-        ],
+        content: Array.from({ length: rowCount }, (_, index) => ({
+          type: KEY_VALUE_ROW_NODE,
+          attrs: { id: `kv-row-${String(index + 1).padStart(5, "0")}` },
+          content: [
+            { type: KEY_VALUE_ROW_KEY_NODE, content: [{ type: "paragraph" }] },
+            { type: KEY_VALUE_ROW_VALUE_NODE, content: [{ type: "paragraph" }] },
+          ],
+        })),
       },
     ],
   };
 }
 
-function renderKeyValueListEditor({ runtime = false }: { runtime?: boolean } = {}) {
+function renderKeyValueListEditor({
+  runtime = false,
+  rowCount = 1,
+}: { runtime?: boolean; rowCount?: number } = {}) {
   const fixture = createDisposableEditor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
@@ -76,7 +77,7 @@ function renderKeyValueListEditor({ runtime = false }: { runtime?: boolean } = {
       createRuntimeBlockFrameAttributesExtension([KEY_VALUE_LIST_NODE]),
       runtime ? KeyValueListRuntimeExtension : KeyValueListAuthoringExtension,
     ],
-    content: keyValueListFixture(),
+    content: keyValueListFixture({ rowCount }),
     editable: !runtime,
   });
 
@@ -98,34 +99,40 @@ describe("key-value list block", () => {
     });
   });
 
-  it("renders live authoring as a semantic definition list with the Add control outside it", async () => {
+  it("renders live authoring with valid definition semantics and App controls outside the list", async () => {
     const fixture = renderKeyValueListEditor();
     const add = await screen.findByRole("button", { name: "Add item" });
     const outer = document.querySelector("div.sc-course-key-value-list");
-    const list = outer?.querySelector(':scope > dl[data-node="key-value-list"]');
-    const row = list?.querySelector('div[data-node="key-value-row"]');
+    const list = outer?.querySelector(':scope > [role="list"][data-node="key-value-list"]');
+    const row = list?.querySelector('[role="listitem"][data-node="key-value-row"]');
+    const key = row?.querySelector('[role="term"][data-slot="key-value-row-key"]');
+    const value = row?.querySelector('[role="definition"][data-slot="key-value-row-value"]');
 
     expect(outer).not.toBeNull();
+    expect(list?.tagName).toBe("DIV");
     expect(list?.getAttribute("data-layout")).toBe("stacked");
     expect(list?.getAttribute("data-key-width")).toBe("auto");
-    expect(row?.querySelector('dt[data-slot="key-value-row-key"]')).not.toBeNull();
-    expect(row?.querySelector('dd[data-slot="key-value-row-value"]')).not.toBeNull();
+    expect(key?.id).toBe("sc-key-value-key-kv-row-00001");
+    expect(value?.getAttribute("aria-labelledby")).toBe(key?.id);
     expect(list?.contains(add)).toBe(false);
 
     fixture.destroy();
   });
 
-  it("renders the same semantic definition list at runtime without authoring affordances", async () => {
+  it("renders the same valid definition semantics at runtime without authoring affordances", async () => {
     const fixture = renderKeyValueListEditor({ runtime: true });
     await waitFor(() => {
       expect(document.querySelector("div.sc-course-key-value-list")).not.toBeNull();
     });
     const outer = document.querySelector("div.sc-course-key-value-list");
-    const list = outer?.querySelector(':scope > dl[data-node="key-value-list"]');
-    const row = list?.querySelector('div[data-node="key-value-row"]');
+    const list = outer?.querySelector(':scope > [role="list"][data-node="key-value-list"]');
+    const row = list?.querySelector('[role="listitem"][data-node="key-value-row"]');
+    const key = row?.querySelector('[role="term"][data-slot="key-value-row-key"]');
+    const value = row?.querySelector('[role="definition"][data-slot="key-value-row-value"]');
 
-    expect(row?.querySelector('dt[data-slot="key-value-row-key"]')).not.toBeNull();
-    expect(row?.querySelector('dd[data-slot="key-value-row-value"]')).not.toBeNull();
+    expect(list?.tagName).toBe("DIV");
+    expect(key?.id).toBe("sc-key-value-key-kv-row-00001");
+    expect(value?.getAttribute("aria-labelledby")).toBe(key?.id);
     expect(outer?.querySelector("button")).toBeNull();
     expect(outer?.querySelector('[class*="sc-app-key-value-list"]')).toBeNull();
     expect(outer?.querySelector("p.is-empty")).toBeNull();
@@ -145,6 +152,35 @@ describe("key-value list block", () => {
     expect(fixture.json().content?.[0]?.content?.[1]?.type).toBe(KEY_VALUE_ROW_NODE);
     expect(fixture.json().content?.[0]?.content?.[0]?.attrs?.["id"]).toBe("kv-row-00001");
     expect(fixture.json().content?.[0]?.content?.[1]?.attrs?.["id"]).toEqual(expect.any(String));
+
+    fixture.destroy();
+  });
+
+  it("deletes one pair without changing the remaining row identity", async () => {
+    const user = userEvent.setup();
+    const fixture = renderKeyValueListEditor({ rowCount: 2 });
+
+    await user.click(await screen.findByRole("button", { name: "Delete item 2" }));
+
+    await waitFor(() => {
+      expect(fixture.json().content?.[0]?.content).toHaveLength(1);
+    });
+    expect(fixture.json().content?.[0]?.content?.[0]?.attrs?.["id"]).toBe("kv-row-00001");
+
+    fixture.destroy();
+  });
+
+  it("keeps the final pair and explains why its delete action is unavailable", async () => {
+    const user = userEvent.setup();
+    const fixture = renderKeyValueListEditor();
+    const deleteButton = await screen.findByRole("button", { name: "Delete item 1" });
+
+    expect(deleteButton).toHaveAttribute("aria-disabled", "true");
+    expect(deleteButton).toHaveAccessibleDescription(
+      "A key-value list must contain at least one item.",
+    );
+    await user.click(deleteButton);
+    expect(fixture.json().content?.[0]?.content).toHaveLength(1);
 
     fixture.destroy();
   });

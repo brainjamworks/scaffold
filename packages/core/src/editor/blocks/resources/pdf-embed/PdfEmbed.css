@@ -107,4 +107,14 @@
   .sc-course-pdf-embed__pager {
     justify-content: center;
   }
+
+  @container sc-course-pdf-embed (max-width: 420px) {
+    .sc-course-pdf-embed__chrome {
+      justify-content: center;
+    }
+
+    .sc-course-pdf-embed__chrome-end {
+      margin-inline-start: 0;
+    }
+  }
 }

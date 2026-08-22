@@ -147,7 +147,11 @@ describe("roadmap node", () => {
     const user = userEvent.setup();
     const fixture = renderRoadmapEditor();
 
-    await user.click(await screen.findByRole("button", { name: "Delete milestone 2" }));
+    const deleteButton = await screen.findByRole("button", { name: "Delete milestone 2" });
+    expect(deleteButton.classList.contains("sc-app-roadmap-delete")).toBe(true);
+    expect(deleteButton.classList.contains("sc-course-roadmap__delete")).toBe(false);
+
+    await user.click(deleteButton);
 
     await waitFor(() => {
       expect(screen.queryByText("Practice")).toBeNull();
@@ -161,6 +165,27 @@ describe("roadmap node", () => {
     expect(fixture.editor.state.doc.textContent).toContain("Foundations");
     expect(fixture.editor.state.doc.textContent).toContain("Reflect");
     expect(milestoneIds).toEqual(["milestone001", "milestone003"]);
+
+    fixture.destroy();
+  });
+
+  it("keeps the last milestone delete action focusable with an explanation", async () => {
+    const user = userEvent.setup();
+    const content = roadmapFixture();
+    const roadmap = content.content?.[0];
+    if (!roadmap?.content) throw new Error("Expected the Roadmap fixture to contain milestones.");
+    roadmap.content = roadmap.content.slice(0, 1);
+    const fixture = renderRoadmapEditor(content);
+
+    const deleteButton = await screen.findByRole("button", { name: "Delete milestone 1" });
+    expect(deleteButton).toHaveAttribute("aria-disabled", "true");
+    expect(deleteButton).toHaveAccessibleDescription("A Roadmap requires at least one milestone.");
+    expect(deleteButton.hasAttribute("disabled")).toBe(false);
+
+    deleteButton.focus();
+    expect(deleteButton).toHaveFocus();
+    await user.click(deleteButton);
+    expect(fixture.json().content?.[0]?.content).toHaveLength(1);
 
     fixture.destroy();
   });

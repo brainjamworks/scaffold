@@ -69,7 +69,10 @@ export function GlossaryEntryNodeView(props: NodeViewProps) {
     editor: props.editor,
     selector: ({ editor }) => editor.isEditable,
   });
-  const { count, index } = readEntryPosition(props);
+  const { count, index } = useEditorState({
+    editor: props.editor,
+    selector: () => readEntryPosition(props),
+  });
   const canDelete = editable && count > 1;
   const deleteExplanationId = useId();
 
@@ -86,7 +89,12 @@ export function GlossaryEntryNodeView(props: NodeViewProps) {
   };
 
   return (
-    <NodeViewWrapper as="div" data-node="glossary-entry" className="sc-course-glossary__entry">
+    <NodeViewWrapper
+      as="div"
+      role="listitem"
+      data-node="glossary-entry"
+      className="sc-course-glossary__entry"
+    >
       <NodeViewContent as="div" />
       {editable ? (
         <button
@@ -96,7 +104,7 @@ export function GlossaryEntryNodeView(props: NodeViewProps) {
           aria-describedby={!canDelete ? deleteExplanationId : undefined}
           aria-label={`Delete term ${index}`}
           onClick={deleteEntry}
-          className="sc-app-glossary-delete sc-course-glossary__delete"
+          className="sc-app-glossary-delete"
         >
           <Trash size={14} aria-hidden />
           {!canDelete ? (
@@ -120,11 +128,14 @@ export function GlossaryTermNodeView(props: NodeViewProps) {
     selector: ({ editor }) => editor.isEditable,
   });
   const isEmpty = isFieldContentEmpty(props.node);
+  const termId = readGlossaryEntryTermId(props);
 
   if (!editable && isEmpty) {
     return (
       <NodeViewWrapper
-        as="dt"
+        as="div"
+        role="term"
+        id={termId}
         data-slot="glossary-term"
         aria-hidden
         className="sc-course-glossary__suppressed"
@@ -135,7 +146,13 @@ export function GlossaryTermNodeView(props: NodeViewProps) {
   }
 
   return (
-    <NodeViewWrapper as="dt" data-slot="glossary-term" className="sc-course-glossary__term">
+    <NodeViewWrapper
+      as="div"
+      role="term"
+      id={termId}
+      data-slot="glossary-term"
+      className="sc-course-glossary__term"
+    >
       <NodeViewContent as="div" />
     </NodeViewWrapper>
   );
@@ -151,11 +168,14 @@ export function GlossaryDefinitionNodeView(props: NodeViewProps) {
     selector: ({ editor }) => editor.isEditable,
   });
   const isEmpty = isFieldContentEmpty(props.node);
+  const termId = readGlossaryEntryTermId(props);
 
   if (!editable && isEmpty) {
     return (
       <NodeViewWrapper
-        as="dd"
+        as="div"
+        role="definition"
+        aria-labelledby={termId}
         data-slot="glossary-definition"
         aria-hidden
         className="sc-course-glossary__suppressed"
@@ -167,7 +187,9 @@ export function GlossaryDefinitionNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
-      as="dd"
+      as="div"
+      role="definition"
+      aria-labelledby={termId}
       data-slot="glossary-definition"
       className="sc-course-glossary__definition"
     >
@@ -186,6 +208,17 @@ function readNodePos(props: NodeViewProps): number | undefined {
   } catch {
     return undefined;
   }
+}
+
+function readGlossaryEntryTermId(props: NodeViewProps): string | undefined {
+  const pos = readNodePos(props);
+  if (!isValidEditorDocPos(props.editor, pos)) return undefined;
+  const parent = props.editor.state.doc.resolve(pos).parent;
+  if (parent.type.name !== GLOSSARY_ENTRY_NODE) return undefined;
+
+  const entryId = parent.attrs["id"];
+  const source = typeof entryId === "string" && entryId.length > 0 ? entryId : String(pos);
+  return `sc-glossary-term-${source.replace(/[^A-Za-z0-9_-]/g, "-")}`;
 }
 
 function readEntryPosition(props: NodeViewProps): {

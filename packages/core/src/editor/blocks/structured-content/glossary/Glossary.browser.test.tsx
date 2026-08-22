@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe("Glossary presentation", () => {
-  it("keeps its row recipe and Course-owned delete action correct when the container narrows", async () => {
+  it("keeps its row recipe and App-owned delete action correct when the container narrows", async () => {
     await page.viewport(900, 700);
     const host = document.createElement("div");
     host.style.width = "800px";
@@ -38,9 +38,14 @@ describe("Glossary presentation", () => {
     );
 
     await waitForCondition(() => host.querySelector(".sc-course-glossary__entry"));
-    const courseStyle = getComputedStyle(requiredElement<HTMLElement>(host, ".sc-course"));
-    const mutedColour = computedColor(courseStyle.getPropertyValue("--gray-11"));
-    const errorColour = computedColor(courseStyle.getPropertyValue("--sc-course-state-error-text"));
+    const appStyle = getComputedStyle(requiredElement<HTMLElement>(host, ".sc-app"));
+    const mutedColour = computedColor(appStyle.getPropertyValue("--sc-app-color-text-muted"));
+    const errorColour = computedColor(appStyle.getPropertyValue("--sc-app-color-error"));
+    const errorBackground = computedColor(
+      appStyle.getPropertyValue("--sc-app-color-error-background"),
+      "background",
+    );
+    const controlRadius = computedLength(appStyle.getPropertyValue("--sc-app-radius-control"));
 
     const entry = requiredElement<HTMLElement>(host, ".sc-course-glossary__entry");
     const term = requiredElement<HTMLElement>(entry, ".sc-course-glossary__term");
@@ -50,20 +55,44 @@ describe("Glossary presentation", () => {
 
     const desktopTerm = term.getBoundingClientRect();
     const desktopDefinition = definition.getBoundingClientRect();
+    const deleteTarget = deleteButton.getBoundingClientRect();
+    const deleteVisual = getComputedStyle(deleteButton, "::before");
     expect(getComputedStyle(entry).display).toBe("grid");
     expect(desktopTerm.width).toBeCloseTo(176, 0);
     expect(desktopDefinition.left - desktopTerm.right).toBeCloseTo(24, 0);
     expect(Math.abs(desktopDefinition.top - desktopTerm.top)).toBeLessThanOrEqual(2);
+    expect(deleteButton).not.toHaveClass("sc-course-glossary__delete");
+    expect(deleteTarget.width).toBeCloseTo(44, 0);
+    expect(deleteTarget.height).toBeCloseTo(44, 0);
+    expect(Number.parseFloat(deleteVisual.width)).toBeCloseTo(28, 0);
+    expect(Number.parseFloat(deleteVisual.height)).toBeCloseTo(28, 0);
+    expect(Number.parseFloat(deleteVisual.borderTopLeftRadius)).toBeCloseTo(controlRadius, 1);
+    expect(entry.scrollWidth).toBe(entry.clientWidth);
     expect(getComputedStyle(deleteButton).opacity).toBe("1");
     expect(getComputedStyle(deleteButton).color).toBe(mutedColour);
+    expect(deleteVisual.backgroundColor).toBe("rgba(0, 0, 0, 0)");
     expect(addButton.querySelector("svg")).toBeNull();
 
     await userEvent.hover(deleteButton);
     await waitForCondition(() => getComputedStyle(deleteButton).color === errorColour);
+    expect(getComputedStyle(deleteButton, "::before").backgroundColor).toBe(errorBackground);
+    expect(getComputedStyle(deleteButton).backgroundColor).toBe("rgba(0, 0, 0, 0)");
 
     await userEvent.unhover(deleteButton);
     deleteButton.focus();
     await waitForCondition(() => getComputedStyle(deleteButton).color === errorColour);
+
+    deleteButton.setAttribute("aria-disabled", "true");
+    await waitForCondition(
+      () =>
+        getComputedStyle(deleteButton).opacity === "0.45" &&
+        getComputedStyle(deleteButton).color === mutedColour,
+    );
+    expect(document.activeElement).toBe(deleteButton);
+    expect(getComputedStyle(deleteButton).color).toBe(mutedColour);
+    expect(getComputedStyle(deleteButton, "::before").backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(getComputedStyle(deleteButton).cursor).toBe("not-allowed");
+    expect(getComputedStyle(deleteButton).outlineStyle).toBe("solid");
 
     host.style.width = "560px";
     await waitForCondition(() => getComputedStyle(definition).gridRowStart === "2");
@@ -71,10 +100,12 @@ describe("Glossary presentation", () => {
     const narrowDefinition = definition.getBoundingClientRect();
     expect(narrowDefinition.left).toBeCloseTo(narrowTerm.left, 0);
     expect(narrowDefinition.top).toBeGreaterThanOrEqual(narrowTerm.bottom);
+    expect(Number.parseFloat(getComputedStyle(term).paddingInlineEnd)).toBeGreaterThanOrEqual(44);
+    expect(entry.scrollWidth).toBe(entry.clientWidth);
     expect(window.innerWidth).toBe(900);
   });
 
-  it("lets Course appearance recolour content and its embedded delete action", async () => {
+  it("lets Course appearance recolour content without recolouring the App-owned delete action", async () => {
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);
@@ -97,7 +128,7 @@ describe("Glossary presentation", () => {
     const deletes = host.querySelectorAll<HTMLElement>(".sc-app-glossary-delete");
 
     expect(getComputedStyle(terms[0]!).color).not.toBe(getComputedStyle(terms[1]!).color);
-    expect(getComputedStyle(deletes[0]!).color).not.toBe(getComputedStyle(deletes[1]!).color);
+    expect(getComputedStyle(deletes[0]!).color).toBe(getComputedStyle(deletes[1]!).color);
   });
 });
 
@@ -113,11 +144,7 @@ function GlossarySpecimen({ label = "Glossary" }: { label?: string }) {
             <dd data-slot="glossary-definition" className="sc-course-glossary__definition">
               <p>The process plants use to convert light into chemical energy.</p>
             </dd>
-            <button
-              type="button"
-              className="sc-app-glossary-delete sc-course-glossary__delete"
-              aria-label="Delete term 1"
-            >
+            <button type="button" className="sc-app-glossary-delete" aria-label="Delete term 1">
               Delete
             </button>
           </div>
@@ -136,11 +163,20 @@ function requiredElement<T extends Element>(root: ParentNode, selector: string):
   return element;
 }
 
-function computedColor(value: string): string {
+function computedColor(value: string, property: "color" | "background" = "color"): string {
   const probe = document.createElement("span");
-  probe.style.color = value;
+  probe.style[property] = value;
   document.body.append(probe);
-  const resolved = getComputedStyle(probe).color;
+  const resolved = getComputedStyle(probe)[property === "background" ? "backgroundColor" : "color"];
+  probe.remove();
+  return resolved;
+}
+
+function computedLength(value: string): number {
+  const probe = document.createElement("span");
+  probe.style.borderRadius = value;
+  document.body.append(probe);
+  const resolved = Number.parseFloat(getComputedStyle(probe).borderTopLeftRadius);
   probe.remove();
   return resolved;
 }

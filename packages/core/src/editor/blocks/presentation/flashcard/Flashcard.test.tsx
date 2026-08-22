@@ -234,7 +234,9 @@ describe("flashcard block", () => {
       screen.getByRole("button", { name: /Card 2: Front 2\. Drag to reorder/u }),
     ).not.toBeNull();
     expect(document.body.querySelector(".sc-app-flashcard-card-movement")).toBeNull();
-    expect(screen.getByRole("button", { name: "Delete flashcard card 2" })).not.toBeNull();
+    const deleteButton = screen.getByRole("button", { name: "Delete flashcard card 2" });
+    expect(deleteButton).toHaveClass("sc-app-flashcard-card-delete");
+    expect(deleteButton).not.toHaveClass("sc-course-flashcard__delete");
     expect(screen.queryByRole("button", { name: /Mark as/u })).toBeNull();
     expect(document.body.querySelector(".sc-course-flashcard-deck-header__progress")).toBeNull();
 

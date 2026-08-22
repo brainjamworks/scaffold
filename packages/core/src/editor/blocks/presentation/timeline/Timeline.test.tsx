@@ -246,7 +246,7 @@ describe("timeline block", () => {
       name: "Delete timeline event 2",
     });
     expect(deleteButton.classList.contains("sc-app-timeline-delete")).toBe(true);
-    expect(deleteButton.classList.contains("sc-course-timeline__delete")).toBe(true);
+    expect(deleteButton.classList.contains("sc-course-timeline__delete")).toBe(false);
     const addButton = screen.getByRole("button", { name: "Add event" });
     expect(addButton.closest("ol")).toBeNull();
     expect(document.body.querySelector(".sc-course-timeline")).not.toBeNull();
@@ -269,6 +269,8 @@ describe("timeline block", () => {
     expect(deleteButton.hasAttribute("disabled")).toBe(false);
     expect(screen.getByText("A timeline must contain at least one event.")).not.toBeNull();
 
+    deleteButton.focus();
+    expect(deleteButton).toHaveFocus();
     await user.click(deleteButton);
     expect(fixture.json().content?.[0]?.content).toHaveLength(1);
 

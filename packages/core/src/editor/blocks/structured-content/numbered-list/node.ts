@@ -45,14 +45,19 @@ export function createNumberedListNode(options: NumberedListNodeOptions = {}) {
     },
 
     parseHTML() {
-      return [{ tag: 'section[data-node="numbered_list"]' }];
+      return [
+        { tag: 'div[data-node="numbered_list"]' },
+        { tag: 'section[data-node="numbered_list"]' },
+      ];
     },
 
     renderHTML({ HTMLAttributes }) {
       return [
-        "section",
+        "div",
         mergeAttributes(HTMLAttributes, {
           "data-node": "numbered_list",
+          role: "list",
+          "aria-label": "Numbered list",
         }),
         0,
       ];

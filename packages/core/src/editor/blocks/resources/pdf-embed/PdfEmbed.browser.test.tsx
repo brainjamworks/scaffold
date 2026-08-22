@@ -223,11 +223,27 @@ describe("PDF bounded geometry", () => {
       stage.getBoundingClientRect().right + 1,
     );
   });
+
+  it("centres and wraps the PDF chrome structurally in a narrow host", async () => {
+    const mounted = await mountPdf({ bounded: false, kind: "runtime", width: 360 });
+    const chrome = requiredElement<HTMLElement>(mounted.frame, ".sc-course-pdf-embed__chrome");
+    const chromeEnd = requiredElement<HTMLElement>(
+      mounted.frame,
+      ".sc-course-pdf-embed__chrome-end",
+    );
+
+    expect(getComputedStyle(chrome).justifyContent).toBe("center");
+    expect(getComputedStyle(chromeEnd).marginInlineStart).toBe("0px");
+  });
 });
 
-async function mountPdf(input: { bounded: boolean; kind: RendererKind }): Promise<MountedPdf> {
+async function mountPdf(input: {
+  bounded: boolean;
+  kind: RendererKind;
+  width?: number;
+}): Promise<MountedPdf> {
   const host = document.createElement("div");
-  host.style.width = "640px";
+  host.style.width = `${input.width ?? 640}px`;
   if (input.bounded) host.style.height = "300px";
 
   const frame = document.createElement("div");

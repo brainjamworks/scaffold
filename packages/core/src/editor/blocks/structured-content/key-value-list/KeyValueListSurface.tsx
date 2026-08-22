@@ -16,8 +16,9 @@ export function KeyValueListSurface({ node, trailing }: KeyValueListSurfaceProps
 
   return (
     <>
-      <NodeViewContent<"dl">
-        as="dl"
+      <NodeViewContent<"div">
+        as="div"
+        role="list"
         data-node="key-value-list"
         data-layout={data.layout}
         data-key-width={data.keyWidth}

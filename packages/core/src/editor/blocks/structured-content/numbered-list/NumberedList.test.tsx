@@ -184,19 +184,39 @@ it("separates Course presentation from App authoring controls and maps semantic 
   const fixture = makeDisposableNumberedListEditor();
 
   await waitFor(() => {
-    expect(
-      document.querySelectorAll(".sc-course-numbered-list section[role='list'] [role='listitem']"),
-    ).toHaveLength(3);
+    expect(document.querySelectorAll(".sc-course-numbered-list [role='listitem']")).toHaveLength(3);
   });
 
-  const list = document.querySelector<HTMLElement>(".sc-course-numbered-list section[role='list']");
-  const markers = list?.querySelectorAll<HTMLElement>(".sc-course-numbered-list__marker");
+  const section = document.querySelector<HTMLElement>(".sc-course-numbered-list__section");
+  const list = section?.querySelector<HTMLElement>(".sc-course-numbered-list__semantic-list");
+  const items = section?.querySelectorAll<HTMLElement>("[role='listitem']");
+  expect(section?.hasAttribute("role")).toBe(false);
+  expect(list?.getAttribute("role")).toBe("list");
+  expect(list?.getAttribute("aria-owns")?.split(" ")).toEqual(
+    Array.from(items ?? []).map((item) => item.id),
+  );
+  const title = section?.querySelector<HTMLElement>(".sc-course-numbered-list__title");
+  expect((title?.compareDocumentPosition(list!) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(
+    0,
+  );
+  expect(list?.contains(document.querySelector(".sc-app-numbered-list-icon-picker"))).toBe(false);
+  expect(list?.contains(document.querySelector(".sc-app-numbered-list-add"))).toBe(false);
+
+  const markers = section?.querySelectorAll<HTMLElement>(".sc-course-numbered-list__marker");
   expect(markers?.[0]?.getAttribute("data-course-state")).toBeNull();
   expect(markers?.[1]?.getAttribute("data-course-state")).toBe("current");
   expect(markers?.[2]?.getAttribute("data-course-state")).toBe("completed");
-  expect(markers?.[0]?.classList.contains("sc-app-numbered-list-status-cycle")).toBe(true);
-  expect(document.querySelector(".sc-app-numbered-list-icon-picker")).not.toBeNull();
-  expect(document.querySelector(".sc-course-numbered-list__delete")).not.toBeNull();
+  expect(markers?.[0]?.classList.contains("sc-app-numbered-list-status-cycle")).toBe(false);
+  expect(markers?.[0]?.parentElement).toHaveClass("sc-app-numbered-list-status-cycle");
+  const iconPicker = document.querySelector(".sc-app-numbered-list-icon-picker");
+  expect(iconPicker).not.toBeNull();
+  expect(iconPicker).not.toHaveClass("sc-course-numbered-list__header-icon");
+  expect(iconPicker?.querySelector(".sc-course-numbered-list__header-icon")).not.toBeNull();
+  const deleteButtons = document.querySelectorAll(".sc-app-numbered-list-delete");
+  expect(deleteButtons).toHaveLength(3);
+  for (const deleteButton of deleteButtons) {
+    expect(deleteButton).not.toHaveClass("sc-course-numbered-list__delete");
+  }
   expect(
     document.querySelector('[class^="sc-numbered-list"], [class*=" sc-numbered-list"]'),
   ).toBeNull();
@@ -232,13 +252,18 @@ it("exposes numbered state text at runtime while keeping markers noninteractive"
   const fixture = makeDisposableNumberedListEditor(numberedListFixture(), { runtime: true });
 
   await waitFor(() => {
-    expect(
-      document.querySelectorAll(".sc-course-numbered-list section[role='list'] [role='listitem']"),
-    ).toHaveLength(3);
+    expect(document.querySelectorAll(".sc-course-numbered-list [role='listitem']")).toHaveLength(3);
   });
 
-  const list = document.querySelector<HTMLElement>(".sc-course-numbered-list section[role='list']");
-  const markers = list?.querySelectorAll<HTMLElement>(".sc-course-numbered-list__marker");
+  const section = document.querySelector<HTMLElement>(".sc-course-numbered-list__section");
+  const list = section?.querySelector<HTMLElement>(".sc-course-numbered-list__semantic-list");
+  const markers = section?.querySelectorAll<HTMLElement>(".sc-course-numbered-list__marker");
+  expect(list?.getAttribute("role")).toBe("list");
+  expect(list?.getAttribute("aria-owns")?.split(" ")).toEqual(
+    Array.from(section?.querySelectorAll<HTMLElement>("[role='listitem']") ?? []).map(
+      (item) => item.id,
+    ),
+  );
   expect(markers?.[0]).toHaveTextContent("Item 1");
   expect(markers?.[1]).toHaveTextContent("Item 2, in progress");
   expect(markers?.[2]).toHaveTextContent("Item 3, complete");
@@ -426,6 +451,24 @@ describe("numbered list node", () => {
       status: "complete",
     });
     expect(item?.attrs["status"]).toBe("complete");
+
+    editor.destroy();
+  });
+
+  it("serializes a valid ARIA list instead of orphaning native list items under a section", () => {
+    const editor = makeEditor();
+    editor.commands.setContent(numberedListFixture());
+
+    const template = document.createElement("template");
+    template.innerHTML = editor.getHTML();
+    const list = template.content.querySelector<HTMLElement>('[data-node="numbered_list"]');
+
+    expect(list?.tagName).toBe("DIV");
+    expect(list?.getAttribute("role")).toBe("list");
+    expect(
+      list?.querySelectorAll('[data-node="numbered-list-item"][role="listitem"]'),
+    ).toHaveLength(3);
+    expect(list?.querySelector("li[data-node='numbered-list-item']")).toBeNull();
 
     editor.destroy();
   });

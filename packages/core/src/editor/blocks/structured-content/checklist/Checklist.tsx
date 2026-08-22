@@ -148,7 +148,7 @@ export function ChecklistItemNodeView(props: NodeViewProps) {
             aria-describedby={!canDelete ? deleteExplanationId : undefined}
             aria-label={`Delete checklist item ${index}`}
             onClick={deleteItem}
-            className="sc-app-checklist-item-delete sc-course-checklist__delete"
+            className="sc-app-checklist-item-delete"
           >
             <Trash size={13} aria-hidden />
             {!canDelete ? (

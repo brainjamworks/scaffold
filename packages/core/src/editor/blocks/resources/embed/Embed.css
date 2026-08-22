@@ -52,7 +52,23 @@
     overflow-wrap: anywhere;
   }
 
+  .sc-course-embed__empty {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .sc-course-embed__empty-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
   .sc-course-embed__empty-text {
+    display: flex;
+    flex-direction: column;
     min-width: 0;
   }
 
@@ -60,5 +76,13 @@
   .sc-course-embed__empty-hint,
   .sc-course-embed__caption {
     margin: 0;
+  }
+
+  @container sc-course-embed (max-width: 320px) {
+    .sc-course-embed__empty {
+      grid-template-columns: minmax(0, 1fr);
+      justify-items: center;
+      text-align: center;
+    }
   }
 }

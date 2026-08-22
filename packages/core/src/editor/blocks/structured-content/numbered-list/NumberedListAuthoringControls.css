@@ -13,7 +13,7 @@
   .sc-app-block-add.sc-app-numbered-list-add {
     display: flex;
     width: 100%;
-    min-height: 2.25rem;
+    min-height: 2.75rem;
     align-items: center;
     gap: 0.875rem;
     margin-top: 0.75rem;
@@ -61,50 +61,104 @@
 
   .sc-app-numbered-list-status-cycle,
   .sc-app-numbered-list-icon-picker {
+    display: inline-flex;
+    width: 2.75rem;
+    height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--sc-app-radius-control);
+    background: transparent;
+    color: inherit;
     cursor: pointer;
     transition:
+      background-color 150ms ease,
       outline-color 150ms ease,
       transform 150ms ease;
   }
 
-  .sc-app-numbered-list-status-cycle:hover:not(:focus-visible) {
-    outline: 4px solid var(--sc-app-color-focus-ring);
-    outline-offset: 0;
+  .sc-app-numbered-list-status-cycle:hover:not(:focus-visible),
+  .sc-app-numbered-list-icon-picker:hover:not(:focus-visible) {
+    background: var(--sc-app-color-primary-muted);
   }
 
-  .sc-app-numbered-list-status-cycle:active {
+  .sc-app-numbered-list-status-cycle:active .sc-course-numbered-list__marker,
+  .sc-app-numbered-list-icon-picker:active .sc-course-numbered-list__header-icon {
     transform: scale(0.95);
-  }
-
-  .sc-app-numbered-list-icon-picker:hover {
-    outline: 1px solid var(--sc-app-color-primary);
-    outline-offset: -1px;
   }
 
   .sc-app-numbered-list-delete {
     display: inline-flex;
-    width: 1.75rem;
-    height: 1.75rem;
+    width: 2.75rem;
+    height: 2.75rem;
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
     margin-left: 0.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--sc-app-radius-control);
+    background: transparent;
+    color: var(--sc-app-color-text-muted);
     cursor: pointer;
+    opacity: 1;
+    transition:
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-app-numbered-list-delete:not([aria-disabled="true"]):focus-visible {
+    background: var(--sc-app-color-error-background);
+    color: var(--sc-app-color-error);
+  }
+
+  .sc-app-numbered-list-delete:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+    box-shadow: none;
   }
 
   .sc-app-numbered-list-delete[aria-disabled="true"] {
+    background: transparent;
+    color: var(--sc-app-color-text-muted);
     cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .sc-app-numbered-list-delete:not([aria-disabled="true"]):hover {
+      background: var(--sc-app-color-error-background);
+      color: var(--sc-app-color-error);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .sc-app-numbered-list-delete {
+      color: ButtonText;
+    }
+
+    .sc-app-numbered-list-delete:focus-visible {
+      outline-color: Highlight;
+    }
+
+    .sc-app-numbered-list-delete[aria-disabled="true"] {
+      color: GrayText;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .sc-app-numbered-list-add,
     .sc-app-numbered-list-add__marker,
     .sc-app-numbered-list-status-cycle,
-    .sc-app-numbered-list-icon-picker {
+    .sc-app-numbered-list-icon-picker,
+    .sc-app-numbered-list-delete {
       transition: none;
     }
 
-    .sc-app-numbered-list-status-cycle:active {
+    .sc-app-numbered-list-status-cycle:active .sc-course-numbered-list__marker,
+    .sc-app-numbered-list-icon-picker:active .sc-course-numbered-list__header-icon {
       transform: none;
     }
   }

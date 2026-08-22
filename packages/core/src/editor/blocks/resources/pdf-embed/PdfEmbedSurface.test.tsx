@@ -224,7 +224,7 @@ it("waits until an already-rendered PDF page is presented", async () => {
   });
 });
 
-it("keeps PDF loading, empty, and error states semantic", async () => {
+it("keeps PDF loading, empty, and error states semantic without exposing diagnostics", async () => {
   render(
     <PdfEmbedSurface
       data={emptyPdfEmbedData()}
@@ -247,16 +247,16 @@ it("keeps PDF loading, empty, and error states semantic", async () => {
       })}
       mediaPort={{
         resolve: async () => {
-          throw new Error("PDF unavailable");
+          throw new Error("Private storage adapter diagnostic");
         },
       }}
     />,
   );
 
-  expect((await screen.findByRole("alert")).textContent).toContain("PDF unavailable");
-  expect(screen.getByRole("group", { name: "PDF preview" }).textContent).toContain(
-    "PDF unavailable",
+  expect((await screen.findByRole("alert")).textContent).toBe(
+    "We couldn't load this PDF. Check the source or your network.",
   );
+  expect(screen.queryByText("Private storage adapter diagnostic")).not.toBeInTheDocument();
 });
 
 it("fits portrait and landscape pages within a bounded stage", async () => {
@@ -323,6 +323,32 @@ it("keeps ordinary page-flow rendering width-driven", async () => {
   await waitFor(() => {
     expect(screen.getByTestId("pdf-page").dataset["renderWidth"]).toBe("640");
   });
+});
+
+it("starts measuring when a PDF is added to an already-mounted empty surface", async () => {
+  const { rerender } = render(
+    <PdfEmbedSurface
+      data={emptyPdfEmbedData()}
+      mediaPort={null}
+      emptyAction={<button type="button">Add PDF</button>}
+    />,
+  );
+
+  expect(screen.getByRole("button", { name: "Add PDF" })).toBeInTheDocument();
+
+  rerender(
+    <PdfEmbedSurface
+      data={emptyPdfEmbedData({
+        source: {
+          mode: "external",
+          src: "https://example.com/sample.pdf",
+        },
+      })}
+      mediaPort={null}
+    />,
+  );
+
+  expect(await screen.findByText("PDF page 1")).toBeInTheDocument();
 });
 
 it("starts in fit mode and advances to the next fixed zoom step", async () => {

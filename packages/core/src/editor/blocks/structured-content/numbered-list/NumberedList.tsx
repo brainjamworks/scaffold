@@ -19,7 +19,7 @@ import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { catalogIconValue, type IconValue } from "@/schemas/media/icon";
 
 import { normalizeNumberedListData, parseNumberedListData } from "./NumberedListModel";
-import { NumberedListSection } from "./NumberedListSurface";
+import { NumberedListSection, numberedListItemOwnerId } from "./NumberedListSurface";
 import { NUMBERED_LIST_ITEM_NODE, NUMBERED_LIST_NODE, numberedListItemContent } from "./content";
 import "./NumberedList.css";
 
@@ -29,12 +29,6 @@ const MARKER_STATE_LABELS: Record<NumberedListMarkerState, string> = {
   inProgress: "in progress",
   complete: "complete",
 };
-
-function headerIconClassName(interactive: boolean): string {
-  return `sc-course-numbered-list__header-icon${
-    interactive ? " sc-app-numbered-list-icon-picker" : ""
-  }`;
-}
 
 function markerClassName(state: NumberedListMarkerState): string {
   return `sc-course-numbered-list__marker sc-course-numbered-list__marker--${state}`;
@@ -93,6 +87,12 @@ export function NumberedListView(props: NumberedListViewProps) {
     selector: ({ editor }) => editor.isEditable,
   });
   const data = parseNumberedListData(props.node.attrs["data"]);
+  const itemOwnerIds: string[] = [];
+  props.node.forEach((child) => {
+    if (child.type.name !== NUMBERED_LIST_ITEM_NODE) return;
+    const ownerId = numberedListItemOwnerId(child.attrs["id"]);
+    if (ownerId) itemOwnerIds.push(ownerId);
+  });
 
   const addItem = () => {
     const pos = readNodePos(props);
@@ -122,7 +122,7 @@ export function NumberedListView(props: NumberedListViewProps) {
     : null;
 
   return (
-    <NumberedListSection showTitle={data.showTitle} addGhost={addGhost}>
+    <NumberedListSection showTitle={data.showTitle} addGhost={addGhost} itemOwnerIds={itemOwnerIds}>
       <NodeViewContent />
     </NumberedListSection>
   );
@@ -170,22 +170,24 @@ export function NumberedListTitleNodeView(props: NumberedListTitleNodeViewProps)
   return (
     <NodeViewWrapper data-slot="numbered-list-title" className="sc-course-numbered-list__title">
       {data.showIcon ? (
-        editable && props.renderIconControl ? (
-          props.renderIconControl({
-            className: headerIconClassName(true),
-            value: data.icon,
-            fallbackValue: HEADER_ICON_FALLBACK,
-            onValueChange: (icon) => updateData({ icon }),
-          })
-        ) : (
-          <span contentEditable={false} aria-hidden className={headerIconClassName(false)}>
-            <IconRenderer
-              value={data.icon}
-              fallbackValue={HEADER_ICON_FALLBACK}
-              className="sc-course-numbered-list__header-icon-glyph"
-            />
-          </span>
-        )
+        <span contentEditable={false} className="sc-course-numbered-list__header-icon-slot">
+          {editable && props.renderIconControl ? (
+            props.renderIconControl({
+              className: "sc-app-numbered-list-icon-picker",
+              value: data.icon,
+              fallbackValue: HEADER_ICON_FALLBACK,
+              onValueChange: (icon) => updateData({ icon }),
+            })
+          ) : (
+            <span aria-hidden className="sc-course-numbered-list__header-icon">
+              <IconRenderer
+                value={data.icon}
+                fallbackValue={HEADER_ICON_FALLBACK}
+                className="sc-course-numbered-list__header-icon-glyph"
+              />
+            </span>
+          )}
+        </span>
       ) : null}
       <div className="sc-course-numbered-list__title-content">
         <NodeViewContent />
@@ -204,6 +206,7 @@ export function NumberedListItemNodeView(props: NodeViewProps) {
   const courseState = courseStateForMarker(markerState);
   const canDelete = editable && count > 1;
   const deleteExplanationId = useId();
+  const itemOwnerId = numberedListItemOwnerId(props.node.attrs["id"]);
 
   const cycleMarkerState = () => {
     if (!editable) return;
@@ -225,38 +228,44 @@ export function NumberedListItemNodeView(props: NodeViewProps) {
   return (
     <NodeViewWrapper
       data-node="numbered-list-item"
+      id={itemOwnerId ?? undefined}
       role="listitem"
       className="sc-course-numbered-list__item"
     >
       <div className="sc-course-numbered-list__item-shell">
-        {editable ? (
-          <button
-            type="button"
-            contentEditable={false}
-            data-status={markerState}
-            data-course-state={courseState}
-            aria-label={`Set item ${index} status. Current: ${MARKER_STATE_LABELS[markerState]}.`}
-            onClick={cycleMarkerState}
-            onMouseDown={(event) => event.preventDefault()}
-            className={`${markerClassName(markerState)} sc-app-numbered-list-status-cycle`}
-          >
-            {renderMarkerContent(markerState, index)}
-          </button>
-        ) : (
-          <span
-            contentEditable={false}
-            data-status={markerState}
-            data-course-state={courseState}
-            className={markerClassName(markerState)}
-          >
-            <span aria-hidden className="sc-course-numbered-list__marker-visual">
-              {renderMarkerContent(markerState, index)}
+        <span contentEditable={false} className="sc-course-numbered-list__marker-slot">
+          {editable ? (
+            <button
+              type="button"
+              aria-label={`Set item ${index} status. Current: ${MARKER_STATE_LABELS[markerState]}.`}
+              onClick={cycleMarkerState}
+              onMouseDown={(event) => event.preventDefault()}
+              className="sc-app-numbered-list-status-cycle"
+            >
+              <span
+                aria-hidden
+                data-status={markerState}
+                data-course-state={courseState}
+                className={markerClassName(markerState)}
+              >
+                {renderMarkerContent(markerState, index)}
+              </span>
+            </button>
+          ) : (
+            <span
+              data-status={markerState}
+              data-course-state={courseState}
+              className={markerClassName(markerState)}
+            >
+              <span aria-hidden className="sc-course-numbered-list__marker-visual">
+                {renderMarkerContent(markerState, index)}
+              </span>
+              <span className="sc-course-numbered-list__runtime-status">
+                {runtimeMarkerLabel(markerState, index)}
+              </span>
             </span>
-            <span className="sc-course-numbered-list__runtime-status">
-              {runtimeMarkerLabel(markerState, index)}
-            </span>
-          </span>
-        )}
+          )}
+        </span>
         <div className="sc-course-numbered-list__item-content">
           <NodeViewContent />
         </div>
@@ -268,7 +277,7 @@ export function NumberedListItemNodeView(props: NodeViewProps) {
             aria-describedby={!canDelete ? deleteExplanationId : undefined}
             aria-label={`Delete numbered list item ${index}`}
             onClick={deleteItem}
-            className="sc-app-numbered-list-delete sc-course-numbered-list__delete"
+            className="sc-app-numbered-list-delete"
           >
             <Trash size={14} aria-hidden />
             {!canDelete ? (

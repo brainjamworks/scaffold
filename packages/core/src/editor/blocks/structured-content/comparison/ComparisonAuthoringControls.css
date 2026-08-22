@@ -16,6 +16,17 @@
     margin-inline-end: 2.75rem;
   }
 
+  .sc-app-comparison-row-actions {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .sc-course-comparison__cell-content
+    :is(p.is-empty:not(.is-editor-empty), p.is-editor-empty:first-child)::before {
+    opacity: 0.65;
+  }
+
   .sc-app-comparison-delete {
     position: absolute;
     inset-block-start: 50%;
@@ -26,12 +37,58 @@
     height: 1.75rem;
     align-items: center;
     justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--sc-app-radius-control);
+    background: transparent;
+    color: var(--sc-app-color-text-muted);
     cursor: pointer;
+    opacity: 1;
+    pointer-events: auto;
     transform: translateY(-50%);
+    transition:
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-app-comparison-delete:not([aria-disabled="true"]):focus-visible {
+    background: var(--sc-app-color-error-background);
+    color: var(--sc-app-color-error);
+  }
+
+  .sc-app-comparison-delete:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+    box-shadow: none;
   }
 
   .sc-app-comparison-delete[aria-disabled="true"] {
+    background: transparent;
+    color: var(--sc-app-color-text-muted);
     cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .sc-app-comparison-delete:not([aria-disabled="true"]):hover {
+      background: var(--sc-app-color-error-background);
+      color: var(--sc-app-color-error);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .sc-app-comparison-delete {
+      color: ButtonText;
+    }
+
+    .sc-app-comparison-delete:focus-visible {
+      outline-color: Highlight;
+    }
+
+    .sc-app-comparison-delete[aria-disabled="true"] {
+      color: GrayText;
+    }
   }
 
   .sc-app-block-add.sc-app-comparison-add {
@@ -62,8 +119,28 @@
     outline-offset: -3px;
   }
 
+  @container sc-course-comparison (max-width: 26rem) {
+    .sc-course-comparison__row:has(.sc-app-comparison-delete)
+      .sc-course-comparison__cell--right
+      .sc-course-comparison__cell-content {
+      margin-inline-end: 0;
+    }
+
+    .sc-course-comparison__row:has(.sc-app-comparison-delete)
+      .sc-course-comparison__cell--left
+      :is(.sc-course-comparison__cell-label, .sc-course-comparison__cell-content) {
+      margin-inline-end: 2.75rem;
+    }
+
+    .sc-app-comparison-delete {
+      inset-block-start: 0.5rem;
+      transform: none;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .sc-app-comparison-add {
+    .sc-app-comparison-add,
+    .sc-app-comparison-delete {
       transition: none;
     }
   }

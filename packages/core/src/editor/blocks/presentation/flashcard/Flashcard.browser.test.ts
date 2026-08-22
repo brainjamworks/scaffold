@@ -27,6 +27,7 @@ import {
   FLASHCARD_CARD_NODE,
   FLASHCARD_NODE,
 } from "./content";
+import "./FlashcardAuthoringControls.css";
 import "./flashcard.css";
 
 const mountedPairs: MountedFlashcardPair[] = [];
@@ -145,6 +146,127 @@ describe("Flashcard authoring filmstrip", () => {
   });
 });
 
+describe("Flashcard authoring delete presentation", () => {
+  it("uses App destructive semantics inside Course content", async () => {
+    const host = document.createElement("div");
+    host.className = "sc-course sc-course-theme-scaffold-flow-v1";
+    host.style.setProperty("--sc-app-color-error", "rgb(185 28 28)");
+    host.style.setProperty("--sc-app-color-error-background", "rgb(254 226 226)");
+    host.style.setProperty("--sc-app-color-focus-outline", "rgb(79 70 229)");
+
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "sc-app-flashcard-card-delete";
+    deleteButton.ariaLabel = "Delete flashcard card 1";
+    deleteButton.style.transition = "none";
+    host.append(deleteButton);
+    document.body.append(host);
+
+    expect(deleteButton.getBoundingClientRect().width).toBeCloseTo(44, 0);
+    expect(deleteButton.getBoundingClientRect().height).toBeCloseTo(44, 0);
+
+    await userEvent.tab();
+    expect(document.activeElement).toBe(deleteButton);
+    expect(getComputedStyle(deleteButton).color).toBe("rgb(185, 28, 28)");
+    expect(getComputedStyle(deleteButton).backgroundColor).toBe("rgb(254, 226, 226)");
+    expect(getComputedStyle(deleteButton).outlineColor).toBe("rgb(79, 70, 229)");
+  });
+});
+
+describe("Flashcard shared presentation invariants", () => {
+  it("keeps status and learner controls usable without a Course design recipe", async () => {
+    const block = document.createElement("section");
+    block.className = "sc-course-flashcard-block";
+    block.style.width = "480px";
+    block.innerHTML = `
+      <div class="sc-course-flashcard-deck">
+        <div class="sc-course-flashcard-deck-header">
+          <div class="sc-course-flashcard-deck-header__row">
+            <span class="sc-course-flashcard-deck-header__status">Flip to study, rate as you go</span>
+            <span class="sc-course-flashcard-deck-header__counter">1 / 3</span>
+          </div>
+        </div>
+        <div class="sc-course-flashcard-reader-controls">
+          <div class="sc-course-flashcard-reader-controls__nav">
+            <button class="rt-reset rt-BaseButton rt-r-size-2 rt-variant-surface rt-IconButton sc-course-icon-action sc-course-flashcard-reader-controls__icon-button" type="button">Previous</button>
+            <button class="sc-course-flashcard-reader-controls__flip-button" type="button">Flip card</button>
+            <button class="rt-reset rt-BaseButton rt-r-size-2 rt-variant-surface rt-IconButton sc-course-icon-action sc-course-flashcard-reader-controls__icon-button" type="button">Next</button>
+          </div>
+          <div class="sc-course-flashcard-reader-controls__ratings">
+            <button class="sc-course-flashcard-rating-button" type="button">Not yet</button>
+            <button class="sc-course-flashcard-rating-button" type="button">Got it</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.append(block);
+    await nextLayoutFrame();
+
+    const headerRow = requiredElement<HTMLElement>(block, ".sc-course-flashcard-deck-header__row");
+    const counter = requiredElement<HTMLElement>(
+      block,
+      ".sc-course-flashcard-deck-header__counter",
+    );
+    const controls = requiredElement<HTMLElement>(block, ".sc-course-flashcard-reader-controls");
+    const nav = requiredElement<HTMLElement>(block, ".sc-course-flashcard-reader-controls__nav");
+    const ratings = requiredElement<HTMLElement>(
+      block,
+      ".sc-course-flashcard-reader-controls__ratings",
+    );
+    const iconButtons = block.querySelectorAll<HTMLElement>(
+      ".sc-course-flashcard-reader-controls__icon-button",
+    );
+
+    expect(getComputedStyle(headerRow).display).toBe("flex");
+    expect(getComputedStyle(headerRow).justifyContent).toBe("space-between");
+    expect(getComputedStyle(counter).whiteSpace).toBe("nowrap");
+    expect(getComputedStyle(controls).display).toBe("flex");
+    expect(getComputedStyle(controls).flexDirection).toBe("column");
+    expect(getComputedStyle(nav).display).toBe("flex");
+    expect(getComputedStyle(nav).justifyContent).toBe("space-between");
+    expect(getComputedStyle(ratings).display).toBe("grid");
+    expect(getComputedStyle(ratings).gridTemplateColumns.split(" ")).toHaveLength(2);
+    for (const button of iconButtons) {
+      expect(button.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
+      expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  it("keeps navigation inside a narrow Flashcard container", async () => {
+    const block = document.createElement("section");
+    block.className = "sc-course-flashcard-block";
+    block.style.width = "300px";
+    block.innerHTML = `
+      <div class="sc-course-flashcard-deck">
+        <div class="sc-course-flashcard-reader-controls">
+          <div class="sc-course-flashcard-reader-controls__nav">
+            <button class="rt-reset rt-BaseButton rt-r-size-2 rt-variant-surface rt-IconButton sc-course-icon-action sc-course-flashcard-reader-controls__icon-button" type="button">Previous</button>
+            <button class="sc-course-flashcard-reader-controls__flip-button" type="button">
+              Flip card <kbd class="sc-course-flashcard-keycap">Space</kbd>
+            </button>
+            <button class="rt-reset rt-BaseButton rt-r-size-2 rt-variant-surface rt-IconButton sc-course-icon-action sc-course-flashcard-reader-controls__icon-button" type="button">Next</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.append(block);
+    await nextLayoutFrame();
+
+    const nav = requiredElement<HTMLElement>(block, ".sc-course-flashcard-reader-controls__nav");
+    const flip = requiredElement<HTMLElement>(
+      block,
+      ".sc-course-flashcard-reader-controls__flip-button",
+    );
+    const keycap = requiredElement<HTMLElement>(block, ".sc-course-flashcard-keycap");
+
+    expect(getComputedStyle(nav).display).toBe("grid");
+    expect(getComputedStyle(nav).gridTemplateColumns.split(" ")).toHaveLength(3);
+    expect(flip.getBoundingClientRect().right).toBeLessThanOrEqual(
+      nav.getBoundingClientRect().right + 1,
+    );
+    expect(getComputedStyle(keycap).display).toBe("none");
+  });
+});
+
 describe("Flashcard bounded geometry", () => {
   it.each(["authoring", "runtime"] as const)(
     "scales a %s card down at 5:3 while keeping chrome and scrolling internal",
@@ -224,7 +346,8 @@ describe("Flashcard bounded geometry", () => {
     }
 
     expect(pair.authoring.frame.querySelector(".sc-app-flashcard-card-chrome")).not.toBeNull();
-    expect(pair.authoring.frame.querySelector(".sc-course-flashcard__delete")).not.toBeNull();
+    expect(pair.authoring.frame.querySelector(".sc-app-flashcard-card-delete")).not.toBeNull();
+    expect(pair.authoring.frame.querySelector(".sc-course-flashcard__delete")).toBeNull();
     expect(pair.authoring.frame.querySelector(".sc-course-flashcard-rating-button")).toBeNull();
     expect(pair.authoring.frame.querySelector('[role="progressbar"]')).toBeNull();
     expect(pair.runtime.frame.querySelector('[class*="sc-app-flashcard-"]')).toBeNull();

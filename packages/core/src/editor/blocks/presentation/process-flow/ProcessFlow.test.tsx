@@ -107,8 +107,12 @@ describe("Process Flow presentation block", () => {
     expect(items[0]).toHaveAttribute("data-movement-target-axis", "horizontal");
     expect(region.querySelector(".sc-app-contained-movement-handle")).not.toBeNull();
     expect(region.querySelector(".sc-app-compact-movement-handle")).not.toBeNull();
-    expect(region.querySelector(".sc-course-process-flow__add")).not.toBeNull();
-    expect(region.querySelector(".sc-course-process-flow__move")).not.toBeNull();
+    expect(region.querySelector(".sc-app-block-add.sc-app-process-flow-add")).not.toBeNull();
+    expect(region.querySelector(".sc-app-process-flow-move")).not.toBeNull();
+    expect(region.querySelector(".sc-app-process-flow-delete")).not.toBeNull();
+    expect(region.querySelector(".sc-course-process-flow__add")).toBeNull();
+    expect(region.querySelector(".sc-course-process-flow__move")).toBeNull();
+    expect(region.querySelector(".sc-course-process-flow__delete")).toBeNull();
     expect(region.querySelector(".sc-course-process-flow__move-visual")).toBeNull();
 
     fixture.destroy();

@@ -58,7 +58,7 @@ describe("Roadmap responsive ownership", () => {
     );
   });
 
-  it("adapts the embedded delete action to every Course roundness value", async () => {
+  it("keeps the App-owned delete action stable across Course roundness values", async () => {
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);
@@ -86,22 +86,23 @@ describe("Roadmap responsive ownership", () => {
         host.querySelectorAll('[data-specimen^="roundness-"]').length === roundnessValues.length,
     );
 
-    const radii = Object.fromEntries(
-      roundnessValues.map((roundness) => {
-        const roadmap = requiredElement<HTMLElement>(
-          host,
-          `[data-specimen="roundness-${roundness}"]`,
-        );
-        const deleteAction = requiredElement<HTMLElement>(roadmap, ".sc-course-roadmap__delete");
-        return [roundness, Number.parseFloat(getComputedStyle(deleteAction).borderTopLeftRadius)];
-      }),
-    ) as Record<(typeof roundnessValues)[number], number>;
+    for (const roundness of roundnessValues) {
+      const roadmap = requiredElement<HTMLElement>(
+        host,
+        `[data-specimen="roundness-${roundness}"]`,
+      );
+      const deleteAction = requiredElement<HTMLElement>(roadmap, ".sc-app-roadmap-delete");
+      const styles = getComputedStyle(deleteAction);
 
-    expect(radii.square).toBe(0);
-    expect(radii.subtle).toBeGreaterThan(radii.square);
-    expect(radii.rounded).toBeGreaterThan(radii.subtle);
-    expect(radii.rounded).toBeLessThan(22);
-    expect(radii.full).toBeGreaterThanOrEqual(22);
+      expect(deleteAction.classList.contains("sc-course-roadmap__delete")).toBe(false);
+      expect(deleteAction.getBoundingClientRect().width).toBeCloseTo(44, 0);
+      expect(deleteAction.getBoundingClientRect().height).toBeCloseTo(44, 0);
+      expect(styles.borderTopWidth).toBe("0px");
+      expect(styles.borderTopLeftRadius).toBe("6px");
+      expect(styles.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+      expect(styles.color).toBe("rgb(113, 113, 122)");
+      expect(styles.opacity).toBe("0.72");
+    }
   });
 
   it("keeps Course status readable, App controls stable, and horizontal milestones intact narrow", async () => {
@@ -142,8 +143,9 @@ describe("Roadmap responsive ownership", () => {
     const lightMarkers = light.querySelectorAll<HTMLElement>(".sc-course-roadmap__marker");
     const darkMarkers = dark.querySelectorAll<HTMLElement>(".sc-course-roadmap__marker");
     const lightItems = light.querySelectorAll<HTMLElement>(".sc-course-roadmap__milestone");
-    const lightDelete = requiredElement<HTMLElement>(light, ".sc-course-roadmap__delete");
-    const darkDelete = requiredElement<HTMLElement>(dark, ".sc-course-roadmap__delete");
+    const lightDelete = requiredElement<HTMLElement>(light, ".sc-app-roadmap-delete");
+    const darkDelete = requiredElement<HTMLElement>(dark, ".sc-app-roadmap-delete");
+    const darkAppDelete = requiredElement<HTMLElement>(appDark, ".sc-app-roadmap-delete");
     const lightMovementVisual = requiredElement<HTMLElement>(
       light,
       ".sc-app-compact-movement-handle__visual",
@@ -174,7 +176,8 @@ describe("Roadmap responsive ownership", () => {
     expect(getComputedStyle(requiredElement(light, ".sc-course-roadmap__content")).color).not.toBe(
       getComputedStyle(requiredElement(dark, ".sc-course-roadmap__content")).color,
     );
-    expect(getComputedStyle(lightDelete).color).not.toBe(getComputedStyle(darkDelete).color);
+    expect(getComputedStyle(lightDelete).color).toBe(getComputedStyle(darkDelete).color);
+    expect(getComputedStyle(lightDelete).color).not.toBe(getComputedStyle(darkAppDelete).color);
     expect(getComputedStyle(lightMovementVisual).color).toBe(
       getComputedStyle(darkCourseMovementVisual).color,
     );
@@ -184,6 +187,11 @@ describe("Roadmap responsive ownership", () => {
     expect(getComputedStyle(lightMovementVisual).borderRadius).toBe("6px");
     expect(lightDelete.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
     expect(lightDelete.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+
+    const firstMarker = requiredElement<HTMLElement>(lightItems[0]!, ".sc-course-roadmap__marker");
+    expect(
+      firstMarker.getBoundingClientRect().top - lightDelete.getBoundingClientRect().bottom,
+    ).toBe(4);
 
     const statusMarker = requiredElement<HTMLElement>(light, ".sc-app-roadmap-status");
     const markerRect = statusMarker.getBoundingClientRect();
@@ -259,10 +267,7 @@ function RoadmapSpecimen({
                         Move
                       </span>
                     </button>
-                    <button
-                      type="button"
-                      className="sc-app-roadmap-delete sc-course-roadmap__delete"
-                    >
+                    <button type="button" className="sc-app-roadmap-delete">
                       Delete
                     </button>
                   </div>
