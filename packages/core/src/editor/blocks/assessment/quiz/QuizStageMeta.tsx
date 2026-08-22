@@ -7,8 +7,7 @@ import {
   TrashIcon as Trash,
 } from "@phosphor-icons/react";
 
-import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
-import { CourseIconButton } from "@/ui/components/course/CourseActions/CourseActions";
+import { IconButton } from "@/ui/components/IconButton/IconButton";
 import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
 import { zIndex } from "@/ui/overlays/z-index";
 import { iconSm } from "@/ui/tokens/icon-sizes";
@@ -26,9 +25,9 @@ import type { ResolvedQuickAction } from "./quick-actions";
  *     authoringControls. Path-based settings are kept off this row.
  *   - standard authoring actions: settings, duplicate, delete.
  *
- * Every visible action is Course-owned because this row sits inside the
- * Course canvas. The owned Tooltip retains Radix behaviour while its
- * portal content restores the active Course theme boundary.
+ * This metadata and every visible action are author-only App chrome.
+ * The owned Tooltip retains Radix behaviour while the portal content
+ * remains within the authoring overlay boundary.
  */
 export function QuizStageMeta({
   activeIndex,
@@ -51,24 +50,24 @@ export function QuizStageMeta({
 }) {
   return (
     <div
-      className="sc-course-quiz__stage-meta"
+      className="sc-app-quiz__stage-meta"
       contentEditable={false}
       data-testid="quiz-stage-meta"
     >
-      <div className="sc-course-quiz__stage-meta-left">
-        <span className="sc-course-quiz__stage-meta-position">
+      <div className="sc-app-quiz__stage-meta-left">
+        <span className="sc-app-quiz__stage-meta-position">
           {total > 1 ? `Question ${activeIndex + 1} of ${total}` : `Question ${activeIndex + 1}`}
         </span>
-        <span className="sc-course-quiz__stage-meta-sep">·</span>
-        <span className="sc-course-quiz__stage-meta-type">{questionTypeTag(type)}</span>
+        <span className="sc-app-quiz__stage-meta-sep">·</span>
+        <span className="sc-app-quiz__stage-meta-type">{questionTypeTag(type)}</span>
       </div>
       <Tooltip.Provider delayDuration={300}>
-        <div className="sc-course-quiz__stage-meta-actions">
+        <div className="sc-app-quiz__stage-meta-actions">
           {quickActions.map((action) => (
             <QuizQuickActionButton key={action.id} action={action} editor={editor} />
           ))}
           {quickActions.length > 0 ? (
-            <span aria-hidden className="sc-course-quiz__stage-meta-divider" />
+            <span aria-hidden className="sc-app-quiz__stage-meta-divider" />
           ) : null}
           <QuizStageAction icon={GearSix} label="Question settings" onClick={onSettings} />
           <QuizStageAction icon={Copy} label="Duplicate question" onClick={onDuplicate} />
@@ -102,7 +101,7 @@ function QuizQuickActionButton({
     <QuizStageAction
       icon={Icon}
       label={action.label}
-      className="sc-course-quiz__quick-action"
+      className="sc-app-quiz__quick-action"
       disabled={!canRun}
       onClick={action.run}
     />
@@ -127,10 +126,11 @@ function QuizStageAction({
   return (
     <Tooltip.Root>
       <Tooltip.Trigger asChild>
-        <CourseIconButton
+        <IconButton
           type="button"
-          emphasis="quiet"
-          className={`sc-course-quiz__stage-action${className ? ` ${className}` : ""}`}
+          size="lg"
+          variant={tone === "danger" ? "danger" : "ghost"}
+          className={`sc-app-quiz__stage-action${className ? ` ${className}` : ""}`}
           data-tone={tone}
           aria-label={label}
           disabled={disabled}
@@ -138,20 +138,18 @@ function QuizStageAction({
           onClick={onClick}
         >
           <Icon size={iconSm} aria-hidden />
-        </CourseIconButton>
+        </IconButton>
       </Tooltip.Trigger>
       <Tooltip.Portal>
-        <CourseThemePortalBoundary>
-          <Tooltip.Content
-            side="top"
-            sideOffset={7}
-            className="sc-course-quiz__action-tooltip"
-            presentation="unskinned"
-            style={{ zIndex: zIndex.tooltip }}
-          >
-            {label}
-          </Tooltip.Content>
-        </CourseThemePortalBoundary>
+        <Tooltip.Content
+          side="top"
+          sideOffset={7}
+          className="sc-app-quiz__action-tooltip"
+          presentation="unskinned"
+          style={{ zIndex: zIndex.tooltip }}
+        >
+          {label}
+        </Tooltip.Content>
       </Tooltip.Portal>
     </Tooltip.Root>
   );

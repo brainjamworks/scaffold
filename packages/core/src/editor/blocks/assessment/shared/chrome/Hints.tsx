@@ -16,6 +16,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 
+import { Button } from "@/ui/components/Button/Button";
 import * as Popover from "@/ui/components/Popover/Popover";
 import { cn } from "@/lib/cn";
 import { zIndex } from "@/ui/overlays/z-index";
@@ -231,16 +232,41 @@ export function Hints({
       <div className="sc-assessment-hints__bar">
         <HintPopover.Root open={open} onOpenChange={setOpen}>
           <HintPopover.Trigger asChild>
-            <AssessmentSupportButton
-              intent="hint"
-              icon={<Lightbulb size={iconSm} weight="fill" />}
-              endIcon={hasVisibleHints ? <CaretDown size={iconXs} weight="bold" /> : undefined}
-              expanded={open}
-              onClick={onTriggerClick}
-              disabled={!isEditable && !hasMoreRuntimeHints && hintsShown === 0}
-            >
-              {label}
-            </AssessmentSupportButton>
+            {isEditable ? (
+              <Button
+                aria-expanded={open}
+                className="sc-app-assessment-hints-trigger"
+                data-no-select
+                onClick={onTriggerClick}
+                size="lg"
+                variant="ghost"
+              >
+                <span className="sc-app-assessment-hints-trigger__icon" aria-hidden>
+                  <Lightbulb size={iconSm} weight="fill" />
+                </span>
+                <span className="sc-app-assessment-hints-trigger__label">{label}</span>
+                {hasVisibleHints ? (
+                  <span
+                    className="sc-app-assessment-hints-trigger__end-icon"
+                    data-expanded={open ? "true" : undefined}
+                    aria-hidden
+                  >
+                    <CaretDown size={iconXs} weight="bold" />
+                  </span>
+                ) : null}
+              </Button>
+            ) : (
+              <AssessmentSupportButton
+                intent="hint"
+                icon={<Lightbulb size={iconSm} weight="fill" />}
+                endIcon={hasVisibleHints ? <CaretDown size={iconXs} weight="bold" /> : undefined}
+                expanded={open}
+                onClick={onTriggerClick}
+                disabled={!hasMoreRuntimeHints && hintsShown === 0}
+              >
+                {label}
+              </AssessmentSupportButton>
+            )}
           </HintPopover.Trigger>
           {isEditable ? (
             renderAuthorPopover?.({

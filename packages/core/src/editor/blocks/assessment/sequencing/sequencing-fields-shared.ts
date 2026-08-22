@@ -43,7 +43,7 @@ export function sequencingItemPublicLabel(text: string): string {
 }
 
 export function sequencingReorderLabel(text: string, position: number, total: number): string {
-  return `Reorder ‘${sequencingItemPublicLabel(text)}’, position ${position} of ${total}`;
+  return `‘${sequencingItemPublicLabel(text)}’, position ${position} of ${total}`;
 }
 
 export function deterministicShuffle<T>(input: readonly T[], seed: string): T[] {

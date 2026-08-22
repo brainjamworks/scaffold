@@ -12,7 +12,7 @@ const CATEGORISE_ITEM_SELECTOR = '[data-node="categorise-item"]';
 const CATEGORISE_BIN_SELECTOR = '[data-node="categorise-bin"]';
 const CATEGORISE_BINS_SELECTOR = '[data-slot="categorise-bins-group"]';
 const CATEGORISE_BIN_CONTENT_SELECTOR = ".sc-course-categorise__bin-content";
-const CATEGORISE_ADD_ITEM_SELECTOR = ".sc-course-categorise__add";
+const CATEGORISE_ADD_ITEM_SELECTOR = ".sc-app-categorise__add";
 const CATEGORISE_DESTINATION_CHROME_SUPPRESSED_ATTR =
   "data-categorise-destination-chrome-suppressed";
 

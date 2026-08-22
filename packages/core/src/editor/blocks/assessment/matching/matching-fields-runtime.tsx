@@ -516,31 +516,38 @@ function MatchingRuntimeTarget({
     id: `matching-runtime-target:${targetId}`,
   });
   const isActiveDrop = drop.isDropTarget || activeDrop;
+  const placementUnavailable = interactionLocked || selectedItemId === null;
 
   return (
     <div
       ref={drop.targetRef}
-      role="button"
-      tabIndex={interactionLocked ? -1 : 0}
-      aria-disabled={interactionLocked || undefined}
-      aria-label={`Match target ${index + 1}`}
-      aria-describedby={descriptionId}
       data-matching-drop-target=""
       data-target-id={targetId}
       data-active={isActiveDrop || undefined}
       data-course-state={
         showFeedback && correct !== null ? (correct ? "correct" : "incorrect") : undefined
       }
-      onClick={onCommitSelected}
-      onKeyDown={(e) => {
-        if (interactionLocked) return;
-        if ((e.key === "Enter" || e.key === " ") && selectedItemId) {
-          e.preventDefault();
-          onCommitSelected();
-        }
-      }}
       className="sc-course-matching__target"
     >
+      <button
+        type="button"
+        tabIndex={interactionLocked ? -1 : 0}
+        aria-disabled={placementUnavailable || undefined}
+        aria-label={`Match target ${index + 1}`}
+        aria-describedby={descriptionId}
+        onClick={() => {
+          if (placementUnavailable) return;
+          onCommitSelected();
+        }}
+        onKeyDown={(event) => {
+          if (placementUnavailable) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onCommitSelected();
+          }
+        }}
+        className="sc-course-matching__place-action"
+      />
       {children}
       <span id={descriptionId} className="sc-sr-only">
         {description}

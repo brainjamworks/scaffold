@@ -37,6 +37,7 @@ interface DropdownCourseSelectProps {
   onValueChange: (value: string) => void;
   options: readonly DropdownCourseOption[];
   placeholder: string;
+  promptHasText?: boolean;
   promptId?: string | undefined;
   state: ChoiceState | null;
   value: string;
@@ -54,14 +55,17 @@ export function DropdownCourseSelect({
   onValueChange,
   options,
   placeholder,
+  promptHasText = false,
   promptId,
   state,
   value,
 }: DropdownCourseSelectProps) {
   const labelId = useId();
   const descriptionId = useId();
+  const fallbackLabelId = useId();
   const selected = options.find((option) => option.id === value) ?? null;
   const courseState = state === "missed" ? "correct" : state;
+  const usesPromptLabel = !label && promptHasText && Boolean(promptId);
 
   return (
     <div className="sc-course-dropdown-select">
@@ -79,7 +83,7 @@ export function DropdownCourseSelect({
           {...(name ? { name } : {})}
         >
           <Select.Trigger
-            aria-labelledby={label ? labelId : promptId}
+            aria-labelledby={label ? labelId : usesPromptLabel ? promptId : fallbackLabelId}
             aria-describedby={accessibilityDescription ? descriptionId : undefined}
             className="sc-course-dropdown-select__trigger"
             data-course-state={courseState ?? undefined}
@@ -151,6 +155,9 @@ export function DropdownCourseSelect({
         <VisuallyHidden.Root role="status" aria-live="polite" aria-atomic="true">
           {immediateAnnouncement}
         </VisuallyHidden.Root>
+      ) : null}
+      {!label && !usesPromptLabel ? (
+        <VisuallyHidden.Root id={fallbackLabelId}>Dropdown response</VisuallyHidden.Root>
       ) : null}
     </div>
   );

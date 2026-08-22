@@ -353,6 +353,58 @@ describe("composite sequencing node", () => {
     editor.destroy();
   });
 
+  it("uses authoring list semantics that remain valid through React node-view wrappers", async () => {
+    const editor = makeEditor();
+    editor.commands.setContent(sequencingRuntimeDoc());
+
+    renderAssessmentEditor(editor);
+
+    const list = await screen.findByRole("list", { name: "Order the steps" });
+    const items = within(list).getAllByRole("listitem");
+
+    expect(list.tagName).toBe("DIV");
+    expect(items).toHaveLength(3);
+    expect(items.every((item) => item.tagName === "DIV")).toBe(true);
+    expect(list.querySelector("li")).toBeNull();
+
+    editor.destroy();
+  });
+
+  it("keeps authored rows Course-owned while placing Sequencing author controls in the App theme", async () => {
+    const editor = makeEditor();
+    editor.commands.setContent(sequencingRuntimeDoc());
+
+    renderAssessmentEditor(editor);
+
+    const firstItem = await waitFor(() => {
+      const element = document.body.querySelector<HTMLElement>(
+        '[data-node="sequencing-item"][data-item-id="seqitm_00001"]',
+      );
+      expect(element).toBeInstanceOf(HTMLElement);
+      return element as HTMLElement;
+    });
+    const movement = within(firstItem).getByRole("button", {
+      name: "Move ‘Alpha’, position 1 of 3 within its group",
+    });
+    const feedback = within(firstItem).getByRole("button", { name: "Add feedback" });
+    const remove = within(firstItem).getByRole("button", {
+      name: "Delete sequencing item 1",
+    });
+    const add = screen.getByRole("button", { name: "Add item" });
+
+    expect(firstItem).toHaveClass("sc-course-sequencing__item");
+    expect(movement).toHaveClass("sc-app-contained-movement-handle");
+    expect(movement).not.toHaveClass("sc-course-sequencing__movement-action");
+    for (const action of [feedback, remove]) {
+      expect(action).toHaveClass("sc-app-assessment-choice__authoring-action");
+      expect(action).not.toHaveClass("sc-course-assessment-choice__authoring-action");
+    }
+    expect(add).toHaveClass("sc-app-assessment-choice-add");
+    expect(add).not.toHaveClass("sc-course-sequencing__add");
+
+    editor.destroy();
+  });
+
   it("reorders authored items through a ProseMirror transaction", () => {
     const editor = makeEditor();
     editor.commands.setContent({

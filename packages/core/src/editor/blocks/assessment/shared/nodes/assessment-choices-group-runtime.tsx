@@ -78,7 +78,6 @@ function AssessmentChoicesGroupRuntimeNodeView(props: NodeViewProps) {
       <div data-bounded-scroll="" className="sc-course-assessment-choices-scroll">
         <fieldset
           className="sc-course-assessment-choices-fieldset"
-          aria-required="true"
           aria-labelledby={legend ? undefined : promptId}
         >
           {legend && <legend className="sc-course-assessment-choices-legend">{legend}</legend>}

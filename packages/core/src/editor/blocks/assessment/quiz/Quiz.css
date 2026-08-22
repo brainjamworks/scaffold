@@ -1,8 +1,9 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-components {
-  /* Quiz.css owns only layout and interaction mechanics. Scaffold Flow
-   * presentation lives in assessment-quiz.css. */
+  /* Quiz.css owns shared layout and interaction mechanics. Course
+   * presentation lives in assessment-quiz.css; author-only App
+   * presentation lives in QuizAuthoringControls.css. */
 
   .sc-course-quiz {
     position: relative;
@@ -57,7 +58,7 @@
     )[data-bounded-placement="fill"]
     > .sc-course-quiz
     > .sc-course-quiz__container
-    > :where(.sc-course-quiz__strip, .sc-course-quiz__request-feedback) {
+    > :where(.sc-app-quiz__strip, .sc-course-quiz__request-feedback) {
     grid-row: 2;
     min-width: 0;
   }
@@ -68,7 +69,7 @@
     )[data-bounded-placement="fill"]
     > .sc-course-quiz
     > .sc-course-quiz__container
-    > .sc-course-quiz__stage-meta {
+    > .sc-app-quiz__stage-meta {
     grid-row: 3;
   }
 
@@ -80,7 +81,7 @@
     > .sc-course-quiz__container
     > :where(
       .sc-course-quiz__stage,
-      .sc-course-quiz__empty,
+      .sc-app-quiz__empty,
       .sc-course-quiz__runtime-card,
       .sc-course-quiz__runtime-incomplete,
       .sc-course-quiz__timesup,
@@ -154,7 +155,7 @@
   }
 
   .sc-course-quiz__header,
-  .sc-course-quiz__stage-meta,
+  .sc-app-quiz__stage-meta,
   .sc-course-quiz__runtime-controls,
   .sc-course-quiz__review-context {
     display: flex;
@@ -165,8 +166,8 @@
   .sc-course-quiz__brand,
   .sc-course-quiz__brand-meta,
   .sc-course-quiz__header-actions,
-  .sc-course-quiz__stage-meta-left,
-  .sc-course-quiz__stage-meta-actions,
+  .sc-app-quiz__stage-meta-left,
+  .sc-app-quiz__stage-meta-actions,
   .sc-course-quiz__runtime-nav,
   .sc-course-quiz__timer {
     display: inline-flex;
@@ -174,16 +175,15 @@
   }
 
   .sc-course-quiz__brand,
-  .sc-course-quiz__stage-meta-left {
+  .sc-app-quiz__stage-meta-left {
     min-width: 0;
   }
 
   .sc-course-quiz__brand-mark,
-  .sc-course-quiz__strip-pill-drag,
-  .sc-course-quiz__strip-pill-kebab,
-  .sc-course-quiz__strip-add-icon,
-  .sc-course-quiz__add-option-icon,
-  .sc-course-quiz__empty-card-icon,
+  .sc-app-quiz__strip-pill-drag,
+  .sc-app-quiz__strip-pill-kebab,
+  .sc-app-quiz__add-option-icon,
+  .sc-app-quiz__empty-card-icon,
   .sc-course-quiz__completion-mark,
   .sc-course-quiz__expired-mark,
   .sc-course-quiz__timesup-mark {
@@ -192,45 +192,45 @@
     justify-content: center;
   }
 
-  .sc-course-quiz__strip {
+  .sc-app-quiz__strip {
     display: flex;
     align-items: center;
     overflow-x: auto;
     scrollbar-width: thin;
   }
 
-  .sc-course-quiz__strip-sortable-items,
-  .sc-course-quiz__strip-pill,
-  .sc-course-quiz__strip-button,
-  .sc-course-quiz__strip-add {
+  .sc-app-quiz__strip-sortable-items,
+  .sc-app-quiz__strip-pill,
+  .sc-app-quiz__strip-button,
+  .sc-app-quiz__strip-add {
     display: inline-flex;
     align-items: center;
   }
 
-  .sc-course-quiz__strip-pill {
+  .sc-app-quiz__strip-pill {
     position: relative;
     align-items: stretch;
     flex-shrink: 0;
     overflow: hidden;
   }
 
-  .sc-course-quiz__strip-pill[data-interaction-drag-placeholder] {
+  .sc-app-quiz__strip-pill[data-interaction-drag-placeholder] {
     pointer-events: none;
   }
 
-  .sc-course-quiz__strip-pill--preview {
+  .sc-app-quiz__strip-pill--preview {
     width: 100%;
     height: 100%;
   }
 
-  .sc-course-quiz__strip-pill-drag {
+  .sc-app-quiz__strip-pill-drag {
     touch-action: none;
   }
 
-  .sc-course-quiz__strip-menu,
-  .sc-course-quiz__add-popover,
-  .sc-course-quiz__empty,
-  .sc-course-quiz__empty-card,
+  .sc-app-quiz__strip-menu,
+  .sc-app-quiz__add-popover,
+  .sc-app-quiz__empty,
+  .sc-app-quiz__empty-card,
   .sc-course-quiz__runtime-card,
   .sc-course-quiz__completion,
   .sc-course-quiz__expired,
@@ -239,22 +239,22 @@
     flex-direction: column;
   }
 
-  .sc-course-quiz__strip-menu-item,
-  .sc-course-quiz__add-option {
+  .sc-app-quiz__strip-menu-item,
+  .sc-app-quiz__add-option {
     display: flex;
     align-items: center;
   }
 
-  .sc-course-quiz__add-grid,
-  .sc-course-quiz__empty-grid {
+  .sc-app-quiz__add-grid,
+  .sc-app-quiz__empty-grid {
     display: grid;
   }
 
-  .sc-course-quiz__add-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .sc-app-quiz__add-grid {
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   }
 
-  .sc-course-quiz__add-option-title {
+  .sc-app-quiz__add-option-title {
     min-width: 0;
     flex: 1;
   }
@@ -303,16 +303,16 @@
     )[data-bounded-placement="fill"]
     > .sc-course-quiz
     > .sc-course-quiz__container
-    > .sc-course-quiz__empty {
+    > .sc-app-quiz__empty {
     overflow-y: auto;
     overscroll-behavior: contain;
   }
 
-  .sc-course-quiz__empty-grid {
+  .sc-app-quiz__empty-grid {
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   }
 
-  .sc-course-quiz__empty-card {
+  .sc-app-quiz__empty-card {
     align-items: flex-start;
   }
 

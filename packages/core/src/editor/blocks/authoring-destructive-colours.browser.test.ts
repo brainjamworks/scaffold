@@ -9,7 +9,6 @@ import "@/ui/components/IconButton/IconButton.css";
 import "./assessment/shared/chrome/assessment-hints.css";
 import "@/ui/components/app/AssessmentAuthoringIconAction/AssessmentAuthoringIconAction.css";
 import "@/theme/course/designs/scaffold-flow/v1/assessment-matching.css";
-import "@/theme/course/designs/scaffold-flow/v1/checklist.css";
 import "./structured-content/checklist/ChecklistAuthoringControls.css";
 
 afterEach(() => {
@@ -31,13 +30,9 @@ describe("authoring destructive colours", () => {
     expect(getComputedStyle(iconButton).color).toBe("rgb(185, 28, 28)");
   });
 
-  it("keeps Course-embedded and App-owned delete controls on their owner semantics", async () => {
+  it("keeps App-owned delete controls on the application semantic inside Course content", async () => {
     const course = createThemedAuthoringFixture();
-    const checklistDelete = appendButton(
-      course,
-      "sc-app-checklist-item-delete sc-course-checklist__delete",
-      "Delete item",
-    );
+    const checklistDelete = appendButton(course, "sc-app-checklist-item-delete", "Delete item");
     const choiceDelete = appendButton(
       course,
       "sc-app-assessment-authoring-icon-action",
@@ -46,7 +41,7 @@ describe("authoring destructive colours", () => {
     choiceDelete.dataset["tone"] = "danger";
 
     await userEvent.hover(checklistDelete);
-    expect(getComputedStyle(checklistDelete).color).toBe("rgb(220, 38, 38)");
+    expect(getComputedStyle(checklistDelete).color).toBe("rgb(185, 28, 28)");
 
     await userEvent.hover(choiceDelete);
     expect(getComputedStyle(choiceDelete).color).toBe("rgb(185, 28, 28)");

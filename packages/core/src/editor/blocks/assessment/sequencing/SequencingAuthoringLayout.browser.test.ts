@@ -37,17 +37,17 @@ function createConstrainedItem() {
   item.setAttribute("data-contained-movement-target", "");
   item.innerHTML = `
     <button
-      class="sc-app-contained-movement-handle sc-course-sequencing__movement-action"
+      class="sc-app-contained-movement-handle"
       type="button"
     >Move</button>
     <div class="sc-course-sequencing__item-content">A sequencing item with wrapping text</div>
     <button
-      class="sc-course-assessment-choice__authoring-action"
+      class="sc-app-assessment-choice__authoring-action"
       data-intent="feedback"
       type="button"
     >Feedback</button>
     <button
-      class="sc-course-assessment-choice__authoring-action"
+      class="sc-app-assessment-choice__authoring-action"
       data-intent="delete"
       type="button"
     >Delete</button>
@@ -58,7 +58,7 @@ function createConstrainedItem() {
   return {
     content: requireElement<HTMLElement>(item, ".sc-course-sequencing__item-content"),
     feedback: requireElement<HTMLButtonElement>(item, '[data-intent="feedback"]'),
-    movement: requireElement<HTMLButtonElement>(item, ".sc-course-sequencing__movement-action"),
+    movement: requireElement<HTMLButtonElement>(item, ".sc-app-contained-movement-handle"),
     remove: requireElement<HTMLButtonElement>(item, '[data-intent="delete"]'),
   };
 }

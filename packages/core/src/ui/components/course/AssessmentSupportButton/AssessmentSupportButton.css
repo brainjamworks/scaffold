@@ -1,5 +1,15 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
+/* Radix ghost buttons deliberately use content-box sizing and negative
+ * margins. Those mechanics are unsuitable inside the shared assessment
+ * control layout, so the Course component normalises them before a theme
+ * supplies presentation. This unlayered structural rule must outrank the
+ * unlayered Radix reset. */
+.sc-course .sc-course-assessment-support-button {
+  box-sizing: border-box;
+  margin: 0;
+}
+
 @layer sc-components {
   .sc-course-assessment-support-button {
     box-sizing: border-box;

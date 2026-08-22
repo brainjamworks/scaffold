@@ -196,7 +196,13 @@ export function choiceCorrectnessUnavailableReason(
   if (!attrs.success || !attrs.data.id) return undefined;
 
   const parent = resolveChoiceAssessmentParent(editor, choicePos);
-  if (!parent || parent.typeName !== "multiselect") return undefined;
+  if (!parent) return undefined;
+  if (parent.typeName === "mcq") {
+    const assessment = McqPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
+    return assessment.correctOptionId === attrs.data.id
+      ? "A multiple-choice assessment must have one correct answer. Select another choice instead."
+      : undefined;
+  }
   const assessment = MultiselectPrivateAssessmentSchema.parse(
     parent.node.attrs["assessment"] ?? {},
   );

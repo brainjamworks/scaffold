@@ -171,6 +171,7 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
           active={hasFeedback}
           intent="feedback"
           label={hasFeedback ? "Edit feedback" : "Add feedback"}
+          owner="app"
         >
           <Info size={iconSm} weight={hasFeedback ? "fill" : "regular"} />
         </AssessmentChoiceAuthoringAction>

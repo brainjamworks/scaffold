@@ -149,9 +149,13 @@ const richFeedback = (text: string) => ({
 
 function dropdownBlockContent({
   id = "dropdown-1",
+  label = "Pick a term",
+  prompt = "",
   showAnswer = true,
 }: {
   id?: string;
+  label?: string;
+  prompt?: string;
   showAnswer?: boolean;
 } = {}): JSONContent {
   return {
@@ -162,7 +166,7 @@ function dropdownBlockContent({
         feedbackMode: "on_submit",
         isGraded: true,
         showAnswer,
-        label: "Pick a term",
+        label,
         placeholder: "Choose...",
         points: 1,
         maxAttempts: null,
@@ -176,7 +180,17 @@ function dropdownBlockContent({
     content: [
       emptyContent("assessment_title"),
       emptyContent("assessment_instructions"),
-      emptyContent("assessment_prompt"),
+      prompt
+        ? {
+            type: "assessment_prompt",
+            content: [
+              {
+                type: "paragraph",
+                content: [{ type: "text", text: prompt }],
+              },
+            ],
+          }
+        : emptyContent("assessment_prompt"),
       {
         type: "dropdown_choices_group",
         content: [
@@ -343,6 +357,65 @@ describe("composite dropdown node", () => {
     editor.destroy();
   });
 
+  it("renders dropdown feedback as an App-owned authoring action", async () => {
+    const editor = makeEditor();
+    editor.commands.setContent({ type: "doc", content: [dropdownBlockContent()] });
+
+    renderAssessmentEditor(editor);
+
+    const feedbackActions = await screen.findAllByRole("button", { name: "Add feedback" });
+    for (const feedback of feedbackActions) {
+      expect(feedback).toHaveClass("sc-app-assessment-choice__authoring-action");
+      expect(feedback).not.toHaveClass("sc-course-assessment-choice__authoring-action");
+    }
+
+    editor.destroy();
+  });
+
+  it("gives an empty dropdown prompt a stable learner-facing accessible name", async () => {
+    const editor = makeEditor(false);
+    editor.commands.setContent({
+      type: "doc",
+      content: [dropdownBlockContent({ label: "" })],
+    });
+
+    renderRuntimeEditor(editor, {
+      type: "runtime",
+      submit: async (args) =>
+        assessmentProblemOutcome(
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
+          { response: args.response },
+        ),
+    });
+
+    expect(await screen.findByRole("combobox", { name: "Dropdown response" })).toBeVisible();
+
+    editor.destroy();
+  });
+
+  it("uses the assessment prompt to name a dropdown without a configured label", async () => {
+    const editor = makeEditor(false);
+    editor.commands.setContent({
+      type: "doc",
+      content: [dropdownBlockContent({ label: "", prompt: "Which term completes the sentence?" })],
+    });
+
+    renderRuntimeEditor(editor, {
+      type: "runtime",
+      submit: async (args) =>
+        assessmentProblemOutcome(
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
+          { response: args.response },
+        ),
+    });
+
+    expect(
+      await screen.findByRole("combobox", { name: "Which term completes the sentence?" }),
+    ).toBeVisible();
+
+    editor.destroy();
+  });
+
   it("marks bounded authoring dropdown choices as the internal scroll lane", async () => {
     const editor = makeEditor();
     editor.commands.setContent({
@@ -376,6 +449,7 @@ describe("composite dropdown node", () => {
     expect(choices?.getAttribute("data-bounded-scroll-frame")).toBe("");
     expect(choices?.hasAttribute("data-bounded-scroll")).toBe(false);
     expect(scrollLane?.getAttribute("data-bounded-scroll")).toBe("");
+    expect(scrollLane).toHaveClass("sc-app-assessment-choices-scroll--authoring");
     expect(hint?.textContent).toBe("Scroll for more ↓");
     expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
     expect(frame?.hasAttribute("data-bounded-scroll")).toBe(false);

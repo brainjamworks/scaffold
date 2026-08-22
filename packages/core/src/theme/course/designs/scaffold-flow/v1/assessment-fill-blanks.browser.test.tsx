@@ -1,9 +1,12 @@
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import "@/styles/globals.css";
+import "@/editor/blocks/assessment/fill-blanks/FillBlanks.css";
+import "@/editor/blocks/assessment/shared/chrome/assessment-feedback-popover.css";
 import "./theme.css";
 
 const mountedRoots: Root[] = [];
@@ -55,7 +58,102 @@ describe("Scaffold Flow Fill-in-the-blanks runtime recipe", () => {
       first.getBoundingClientRect().bottom,
     );
   });
+
+  it("keeps its compact feedback target clear of answer text", async () => {
+    const { feedbackAction, feedbackInput } = await mountRuntimeFill("light");
+    const actionWidth = feedbackAction.getBoundingClientRect().width;
+    const paddingInlineEnd = Number.parseFloat(getComputedStyle(feedbackInput).paddingInlineEnd);
+
+    expect(actionWidth).toBe(28);
+    expect(feedbackAction.getBoundingClientRect().height).toBe(28);
+    expect(paddingInlineEnd).toBeGreaterThanOrEqual(actionWidth + 12);
+  });
 });
+
+describe("Fill-in-the-blanks authoring control ownership", () => {
+  it("themes the accepted-answer trigger from the App scope across Course appearances", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mountedRoots.push(root);
+    root.render(
+      <AppThemeProvider appearance="light">
+        <main>
+          <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+            <AuthorTriggerSpecimen appearance="light" />
+          </CourseThemeProvider>
+          <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="dark">
+            <AuthorTriggerSpecimen appearance="dark" />
+          </CourseThemeProvider>
+        </main>
+      </AppThemeProvider>,
+    );
+
+    await waitForCondition(() => host.querySelectorAll(".sc-app-fill-blank__author-trigger").length === 2);
+    const light = requireElement<HTMLButtonElement>(
+      host,
+      '[data-author-trigger-appearance="light"]',
+    );
+    const dark = requireElement<HTMLButtonElement>(
+      host,
+      '[data-author-trigger-appearance="dark"]',
+    );
+    const lightProbe = appendAppTokenProbe(light);
+    const darkProbe = appendAppTokenProbe(dark);
+    const lightStyle = getComputedStyle(light);
+    const darkStyle = getComputedStyle(dark);
+    const lightProbeStyle = getComputedStyle(lightProbe);
+    const darkProbeStyle = getComputedStyle(darkProbe);
+
+    expect(light).not.toHaveClass("sc-course-fill-blank__author-trigger");
+    expect(lightStyle.backgroundColor).toBe(lightProbeStyle.backgroundColor);
+    expect(lightStyle.backgroundColor).toBe(darkStyle.backgroundColor);
+    expect(lightStyle.borderColor).toBe(lightProbeStyle.borderColor);
+    expect(lightStyle.color).toBe(lightProbeStyle.color);
+    expect(lightStyle.fontFamily).toBe(lightProbeStyle.fontFamily);
+    expect(lightStyle.borderRadius).toBe(lightProbeStyle.borderRadius);
+    expect(lightStyle.outlineColor).toBe(lightProbeStyle.outlineColor);
+    expect(lightStyle.outlineWidth).toBe("2px");
+    expect(darkStyle.backgroundColor).toBe(darkProbeStyle.backgroundColor);
+    expect(darkStyle.borderColor).toBe(darkProbeStyle.borderColor);
+    expect(light.getBoundingClientRect().height).toBeCloseTo(28, 0);
+    expect(light.scrollWidth - light.clientWidth).toBeLessThanOrEqual(1);
+  });
+});
+
+function appendAppTokenProbe(control: HTMLElement): HTMLElement {
+  const probe = document.createElement("span");
+  probe.style.position = "absolute";
+  probe.style.visibility = "hidden";
+  probe.style.backgroundColor = "var(--sc-app-color-primary-muted)";
+  probe.style.border = "1px solid var(--sc-app-color-primary)";
+  probe.style.borderRadius = "var(--sc-app-radius-control)";
+  probe.style.color = "var(--sc-app-color-primary)";
+  probe.style.fontFamily = "var(--sc-app-font-family)";
+  probe.style.outline = "2px solid var(--sc-app-color-focus-outline)";
+  control.after(probe);
+  return probe;
+}
+
+function AuthorTriggerSpecimen({ appearance }: { appearance: "light" | "dark" }) {
+  return (
+    <p className="sc-course-fill-blanks__body" data-course-mode="authoring">
+      The capital of France is
+      <span className="sc-course-fill-blank" data-course-mode="authoring">
+        <button
+          type="button"
+          className="sc-app-fill-blank__author-trigger"
+          data-author-trigger-appearance={appearance}
+          data-selected="true"
+        >
+          <span aria-hidden>{"{}"}</span>
+          <span className="sc-app-fill-blank__label">A deliberately long accepted answer</span>
+          <span className="sc-app-fill-blank__count">+1</span>
+        </button>
+      </span>
+    </p>
+  );
+}
 
 async function mountRuntimeFill(appearance: "light" | "dark") {
   const host = document.createElement("div");
@@ -91,6 +189,32 @@ async function mountRuntimeFill(appearance: "light" | "dark") {
               />
             </span>
             .
+            <br />
+            The capital is{" "}
+            <span
+              className="sc-course-fill-blank"
+              data-course-mode="runtime"
+              data-has-feedback="true"
+            >
+              <input
+                aria-label="Blank with feedback"
+                className="sc-course-fill-blank__input"
+                data-course-state="incorrect"
+                readOnly
+                value="London"
+                style={{ width: "16ch" }}
+              />
+              <span className="sc-course-fill-blank__feedback-anchor">
+                <button
+                  aria-label="Show feedback"
+                  className="sc-course-assessment-feedback-action"
+                  type="button"
+                >
+                  i
+                </button>
+              </span>
+            </span>
+            .
           </p>
         </div>
       </section>
@@ -101,9 +225,14 @@ async function mountRuntimeFill(appearance: "light" | "dark") {
   const input = requireElement<HTMLInputElement>(host, ".sc-course-fill-blank__input");
   const body = requireElement<HTMLElement>(host, ".sc-course-fill-blanks__body");
   const shell = requireElement<HTMLElement>(host, ".sc-course-fill-blanks");
+  const feedbackInput = requireElement<HTMLInputElement>(host, '[aria-label="Blank with feedback"]');
+  const feedbackAction = requireElement<HTMLButtonElement>(
+    host,
+    ".sc-course-assessment-feedback-action",
+  );
   const courseRoot = shell.parentElement;
   if (!courseRoot) throw new Error("Expected a Course theme root");
-  return { body, courseRoot, input, shell };
+  return { body, courseRoot, feedbackAction, feedbackInput, input, shell };
 }
 
 function requireElement<T extends Element>(container: ParentNode, selector: string): T {

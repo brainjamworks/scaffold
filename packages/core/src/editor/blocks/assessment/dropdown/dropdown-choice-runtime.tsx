@@ -94,6 +94,7 @@ export function DropdownChoicesRuntimeNodeView(props: NodeViewProps) {
   ]);
   const assessment = useAssessmentRuntimeById(authoredBlockId, "single-select");
   const dropdown = assessment?.interaction ?? null;
+  const promptHasText = assessmentPromptText(props.editor, props.getPos).length > 0;
 
   return (
     <DropdownChoicesRuntime
@@ -102,6 +103,7 @@ export function DropdownChoicesRuntimeNodeView(props: NodeViewProps) {
       assessment={assessment}
       dropdown={dropdown}
       label={assessment?.problem?.state.legend ?? ""}
+      promptHasText={promptHasText}
       authoredBlockId={authoredBlockId}
     />
   );
@@ -114,6 +116,7 @@ interface DropdownChoicesRuntimeProps {
   assessment: AssessmentRuntimeController<"single-select"> | null;
   dropdown: SingleSelectInteractionRuntime | null;
   label: string;
+  promptHasText: boolean;
 }
 
 function DropdownChoicesRuntime({
@@ -123,6 +126,7 @@ function DropdownChoicesRuntime({
   assessment,
   dropdown,
   label,
+  promptHasText,
 }: DropdownChoicesRuntimeProps) {
   const serializer = useMemo(() => DOMSerializer.fromSchema(editor.schema), [editor.schema]);
   const options = useMemo(() => dropdownOptionsFromNode(node, serializer), [node, serializer]);
@@ -203,12 +207,32 @@ function DropdownChoicesRuntime({
         onValueChange={(next) => dropdown?.select(next)}
         options={courseOptions}
         placeholder={placeholder}
+        promptHasText={promptHasText}
         promptId={promptId}
         state={state}
         value={selectedId}
       />
     </NodeViewWrapper>
   );
+}
+
+function assessmentPromptText(editor: Editor, getPos: NodeViewProps["getPos"]): string {
+  const pos = safeGetPos(getPos);
+  if (pos < 0 || pos > editor.state.doc.content.size) return "";
+
+  const $pos = editor.state.doc.resolve(pos);
+  for (let depth = $pos.depth; depth >= 0; depth -= 1) {
+    const ancestor = $pos.node(depth);
+    if (ancestor.type.name !== "dropdown") continue;
+
+    let prompt = "";
+    ancestor.forEach((child) => {
+      if (child.type.name === "assessment_prompt") prompt = child.textContent.trim();
+    });
+    return prompt;
+  }
+
+  return "";
 }
 
 function renderOptionContent(option: DropdownChoiceOption) {

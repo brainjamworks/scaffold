@@ -474,6 +474,54 @@ describe("composite matching node", () => {
     fixture.destroy();
   });
 
+  it("uses App-owned controls throughout matching authoring", async () => {
+    const editor = makeEditor();
+    editor.commands.setContent(matchingDoc());
+    renderAssessmentEditor(editor);
+
+    const feedback = await waitFor(() => {
+      const element = document.body.querySelector<HTMLButtonElement>(
+        'button[aria-label^="Add feedback for item"]',
+      );
+      expect(element).toBeInstanceOf(HTMLButtonElement);
+      return element as HTMLButtonElement;
+    });
+    const deleteAction = screen.getByRole("button", { name: "Delete matching pair 1" });
+    const moveAction = screen.getByRole("button", {
+      name: "Move matching pair 1, Term 1 within its group",
+    });
+    const addAction = screen.getByRole("button", { name: "Add pair" });
+
+    expect(feedback).toHaveClass("sc-app-assessment-choice__authoring-action");
+    expect(feedback).not.toHaveClass("sc-course-assessment-choice__authoring-action");
+    expect(deleteAction).toHaveClass("sc-app-assessment-choice__authoring-action");
+    expect(deleteAction).not.toHaveClass("sc-course-assessment-choice__authoring-action");
+    expect(moveAction).toHaveClass("sc-app-matching__move-action");
+    expect(moveAction).not.toHaveClass("sc-course-matching__move-action");
+    expect(addAction).toHaveClass("sc-app-matching__add");
+    expect(addAction).not.toHaveClass("sc-course-matching__add");
+
+    editor.destroy();
+  });
+
+  it("keeps the required final-pair delete explanation keyboard discoverable", async () => {
+    const editor = makeEditor();
+    const doc = matchingDoc();
+    const pairs = doc.content[0]?.content[3];
+    if (!pairs) throw new Error("Expected matching pair group fixture");
+    pairs.content = pairs.content?.slice(0, 1);
+    editor.commands.setContent(doc);
+    renderAssessmentEditor(editor);
+
+    const deleteAction = await screen.findByRole("button", { name: "Delete matching pair 1" });
+
+    expect(deleteAction).not.toBeDisabled();
+    expect(deleteAction).toHaveAttribute("aria-disabled", "true");
+    expect(deleteAction).toHaveAccessibleDescription("Matching requires at least one pair.");
+
+    editor.destroy();
+  });
+
   it("exposes contained movement anchors and handles in editable mode only", async () => {
     const editableEditor = makeEditor(true);
     editableEditor.commands.setContent(matchingDoc());
@@ -632,6 +680,43 @@ describe("composite matching node", () => {
     editor.destroy();
   });
 
+  it("uses a sibling placement action with discoverable unavailable state", async () => {
+    const editor = makeEditor(false);
+    editor.commands.setContent(matchingRuntimeDoc());
+    renderAssessmentEditor(editor);
+
+    await waitFor(() => {
+      expect(document.body.querySelectorAll("[data-matching-drop-target]")).toHaveLength(2);
+    });
+
+    const target = document.body.querySelector<HTMLElement>(
+      '[data-target-id="target_00002"][data-matching-drop-target]',
+    );
+    expect(target).toBeInstanceOf(HTMLElement);
+    expect(target).not.toHaveAttribute("role");
+    const placement = within(target!).getByRole("button");
+    expect(placement).toHaveClass("sc-course-matching__place-action");
+    expect(placement).toHaveAttribute("aria-disabled", "true");
+    expect(placement).toHaveAttribute("tabindex", "0");
+
+    fireEvent.click(screen.getByRole("button", { name: "Select matching item 1" }));
+    await waitFor(() => {
+      expect(placement).not.toHaveAttribute("aria-disabled");
+    });
+    fireEvent.click(placement);
+
+    await waitFor(() => {
+      expect(target!.querySelector(".sc-course-matching__remove-action")).toBeInstanceOf(
+        HTMLButtonElement,
+      );
+    });
+    const remove = target!.querySelector<HTMLButtonElement>(".sc-course-matching__remove-action")!;
+    expect(placement).toHaveAttribute("aria-disabled", "true");
+    expect(placement.contains(remove)).toBe(false);
+
+    editor.destroy();
+  });
+
   it("pairs once through the Enter then Space selection contract", async () => {
     const editor = makeEditor(false);
     const problemId = "artifact:artifact-1/block:matching-1";
@@ -644,7 +729,7 @@ describe("composite matching node", () => {
 
     const item = screen.getByRole("button", { name: "Select matching item 1" });
     const target = document.body.querySelector<HTMLElement>(
-      '[data-target-id="target_00002"][data-matching-drop-target]',
+      '[data-target-id="target_00002"][data-matching-drop-target] .sc-course-matching__place-action',
     );
     expect(target).toBeInstanceOf(HTMLElement);
     fireEvent.keyDown(item, { key: "Enter" });
@@ -687,7 +772,9 @@ describe("composite matching node", () => {
     });
 
     fireEvent.click(
-      document.body.querySelector('[data-target-id="target_00002"][data-matching-drop-target]')!,
+      document.body.querySelector(
+        '[data-target-id="target_00002"][data-matching-drop-target] .sc-course-matching__place-action',
+      )!,
     );
     expect(localAssessmentResponse(assessmentStore, problemId)).toMatchObject({
       matches: { item__000001: "target_00001" },
@@ -834,22 +921,28 @@ describe("composite matching node", () => {
       expect(describedText('[data-item-id="item__000001"][data-matching-draggable-item]')).toBe(
         "Selected item",
       );
-      expect(describedText('[data-target-id="target_00002"][data-matching-drop-target]')).toBe(
-        "Ready to match selected item",
-      );
+      expect(
+        describedText(
+          '[data-target-id="target_00002"][data-matching-drop-target] .sc-course-matching__place-action',
+        ),
+      ).toBe("Ready to match selected item");
     });
 
     fireEvent.click(
-      document.body.querySelector('[data-target-id="target_00002"][data-matching-drop-target]')!,
+      document.body.querySelector(
+        '[data-target-id="target_00002"][data-matching-drop-target] .sc-course-matching__place-action',
+      )!,
     );
 
     await waitFor(() => {
       expect(describedText('[data-item-id="item__000001"][data-matching-draggable-item]')).toBe(
         "Matched item",
       );
-      expect(describedText('[data-target-id="target_00002"][data-matching-drop-target]')).toBe(
-        "Matched with ‘Term 1’",
-      );
+      expect(
+        describedText(
+          '[data-target-id="target_00002"][data-matching-drop-target] .sc-course-matching__place-action',
+        ),
+      ).toBe("Matched with ‘Term 1’");
     });
     const matchedSource = document.body.querySelector(
       '[data-item-id="item__000001"][data-matching-draggable-item]',
@@ -889,9 +982,11 @@ describe("composite matching node", () => {
     });
 
     await waitFor(() => {
-      expect(describedText('[data-target-id="target_00001"][data-matching-drop-target]')).toBe(
-        "Matched with ‘Term 1’",
-      );
+      expect(
+        describedText(
+          '[data-target-id="target_00001"][data-matching-drop-target] .sc-course-matching__place-action',
+        ),
+      ).toBe("Matched with ‘Term 1’");
       expect(
         screen.getByRole("button", {
           name: "Submit",
@@ -954,17 +1049,23 @@ describe("composite matching node", () => {
     });
 
     await waitFor(() => {
-      expect(describedText('[data-target-id="target_00002"][data-matching-drop-target]')).toBe(
-        "Matched with ‘Term 1’",
-      );
+      expect(
+        describedText(
+          '[data-target-id="target_00002"][data-matching-drop-target] .sc-course-matching__place-action',
+        ),
+      ).toBe("Matched with ‘Term 1’");
     });
     fireEvent.click(screen.getByText("Submit"));
 
     await waitFor(() => {
-      expect(describedText('[data-target-id="target_00002"][data-matching-drop-target]')).toBe(
-        "Matched with ‘Term 1’. Submitted match, incorrect",
-      );
-      for (const target of document.body.querySelectorAll("[data-matching-drop-target]")) {
+      expect(
+        describedText(
+          '[data-target-id="target_00002"][data-matching-drop-target] .sc-course-matching__place-action',
+        ),
+      ).toBe("Matched with ‘Term 1’. Submitted match, incorrect");
+      for (const target of document.body.querySelectorAll(
+        "[data-matching-drop-target] .sc-course-matching__place-action",
+      )) {
         expect(target).toHaveAttribute("aria-disabled", "true");
         expect(target).toHaveAttribute("tabindex", "-1");
       }
@@ -1017,9 +1118,11 @@ describe("composite matching node", () => {
     });
 
     await waitFor(() => {
-      expect(describedText('[data-target-id="target_00002"][data-matching-drop-target]')).toBe(
-        "Matched with ‘Term 1’",
-      );
+      expect(
+        describedText(
+          '[data-target-id="target_00002"][data-matching-drop-target] .sc-course-matching__place-action',
+        ),
+      ).toBe("Matched with ‘Term 1’");
     });
     fireEvent.click(screen.getByText("Submit"));
 
@@ -1034,9 +1137,11 @@ describe("composite matching node", () => {
       expect(document.body.querySelector('[data-target-id="target_00001"]')?.textContent).toContain(
         "Term 1",
       );
-      expect(describedText('[data-target-id="target_00001"][data-matching-drop-target]')).toBe(
-        "Matched with ‘Term 1’. Revealed correct match. Feedback available",
-      );
+      expect(
+        describedText(
+          '[data-target-id="target_00001"][data-matching-drop-target] .sc-course-matching__place-action',
+        ),
+      ).toBe("Matched with ‘Term 1’. Revealed correct match. Feedback available");
     });
 
     editor.destroy();

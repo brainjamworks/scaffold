@@ -722,8 +722,9 @@ describe("composite categorise node", () => {
     editor.destroy();
   });
 
-  it("marks author-only category selectors for exclusion from movement snapshots", async () => {
+  it("keeps author-only category selectors App-owned and excludes them from movement snapshots", async () => {
     const editor = makeEditor(true);
+    const user = userEvent.setup();
     editor.commands.setContent(categoriseDoc());
     const view = renderMovementEditor(editor);
 
@@ -734,13 +735,13 @@ describe("composite categorise node", () => {
       expect(element).toBeInstanceOf(HTMLElement);
       return element!;
     });
-    await userEvent
-      .setup()
-      .click(within(salmonItem).getByRole("button", { name: "Item options for ‘Salmon’" }));
+    await user.click(
+      within(salmonItem).getByRole("button", { name: "Item options for ‘Salmon’" }),
+    );
 
     const selectors = await waitFor(() => {
       const elements = document.body.querySelectorAll<HTMLElement>(
-        ".sc-course-categorise__category-select",
+        ".sc-app-categorise__category-select",
       );
       expect(elements.length).toBeGreaterThan(0);
       return elements;
@@ -748,6 +749,8 @@ describe("composite categorise node", () => {
 
     for (const selector of selectors) {
       expect(selector).toHaveAttribute("data-authoring-movement-snapshot-chrome", "");
+      expect(selector).toHaveClass("sc-select-trigger");
+      expect(selector.className).not.toContain("sc-course-");
     }
 
     view.unmount();
@@ -790,7 +793,7 @@ describe("composite categorise node", () => {
     editor.destroy();
   });
 
-  it("keeps the required two categories by disabling their delete controls", async () => {
+  it("keeps author-exclusive categorise controls App-owned", async () => {
     const editor = makeEditor(true);
     editor.commands.setContent(categoriseDoc());
     const view = renderMovementEditor(editor);
@@ -798,9 +801,30 @@ describe("composite categorise node", () => {
     await waitFor(() => {
       expect(screen.getByRole("group", { name: "Category ‘Birds’" })).toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: "Delete category 1" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Delete category 2" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Add category" })).toBeInTheDocument();
+    const deleteCategory = screen.getByRole("button", { name: "Delete category 1" });
+    expect(deleteCategory).not.toBeDisabled();
+    expect(deleteCategory).toHaveAttribute("aria-disabled", "true");
+    expect(deleteCategory).toHaveClass("sc-app-assessment-choice__authoring-action");
+    expect(deleteCategory).not.toHaveClass("sc-course-assessment-choice__authoring-action");
+
+    const addCategory = screen.getByRole("button", { name: "Add category" });
+    expect(addCategory).toHaveClass("sc-app-assessment-choice-add", "sc-app-categorise__add");
+    expect(addCategory).not.toHaveClass("sc-course-categorise__add");
+
+    const birdsBin = screen.getByRole("group", { name: "Category ‘Birds’" });
+    const addItem = within(birdsBin).getByRole("button", { name: "Add item to category 1" });
+    expect(addItem).toHaveClass("sc-app-assessment-choice-add", "sc-app-categorise__add");
+    expect(addItem).not.toHaveClass("sc-course-categorise__add");
+
+    const itemOptions = within(birdsBin).getByRole("button", {
+      name: "Item options for ‘Eagle’",
+    });
+    expect(itemOptions).toHaveClass("sc-app-assessment-choice__authoring-action");
+    expect(itemOptions).not.toHaveClass("sc-course-assessment-choice__authoring-action");
+
+    const categoryMoveAction = birdsBin.querySelector(".sc-app-categorise__move-action");
+    expect(categoryMoveAction).toBeInstanceOf(HTMLButtonElement);
+    expect(categoryMoveAction).not.toHaveClass("sc-course-categorise__move-action");
 
     view.unmount();
     editor.destroy();
@@ -823,7 +847,10 @@ describe("composite categorise node", () => {
     const user = userEvent.setup();
 
     expect(screen.queryByRole("button", { name: /remove item .* from category/i })).toBeNull();
-    expect(screen.getByRole("button", { name: "Delete category 2" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Delete category 2" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
 
     const salmonItem = document.body.querySelector<HTMLElement>(
       '[data-node="categorise-item"][data-item-id="salmon_00001"]',
@@ -1151,6 +1178,10 @@ describe("composite categorise node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
 
+    const category = screen.getByRole("button", { name: "Category 1" });
+    expect(category).toHaveAttribute("aria-disabled", "true");
+    expect(category).toHaveAttribute("tabindex", "0");
+
     const source = screen.getByRole("button", { name: "Select item 1" });
     const selectedItemId = source.getAttribute("data-id");
     expect(selectedItemId).not.toBeNull();
@@ -1159,6 +1190,7 @@ describe("composite categorise node", () => {
     await waitFor(() => {
       expect(describedText(`[data-id="${selectedItemId}"]`)).toBe("Selected item");
       expect(describedText('[data-id="birds_000001"]')).toBe("Ready to place selected item");
+      expect(category).not.toHaveAttribute("aria-disabled");
     });
 
     fireEvent.click(document.body.querySelector('[data-id="birds_000001"]')!);
@@ -1166,6 +1198,7 @@ describe("composite categorise node", () => {
     await waitFor(() => {
       expect(describedText('[data-id="birds_000001"]')).toBe("Contains 1 item");
       expect(describedText(`[data-placed-item-id="${selectedItemId}"]`)).toBe("Placed item");
+      expect(category).toHaveAttribute("aria-disabled", "true");
     });
 
     editor.destroy();

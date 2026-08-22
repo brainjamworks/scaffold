@@ -26,7 +26,7 @@
 
   .sc-course-matching__header,
   .sc-course-matching__pair-list,
-  .sc-course-matching__add {
+  .sc-app-matching__add {
     flex: 0 0 auto;
   }
 
@@ -186,6 +186,10 @@
     cursor: pointer;
   }
 
+  .sc-course-matching__place-action[aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
   .sc-course-matching__target-content,
   .sc-course-matching__matched-item,
   .sc-course-matching__empty-target {
@@ -253,6 +257,24 @@
     fill: currentColor;
     stroke: currentColor;
     vector-effect: non-scaling-stroke;
+  }
+
+  @container sc-course-matching-lane (min-width: 44rem) {
+    .sc-course-matching__canvas {
+      grid-template-columns: minmax(0, 1fr) 4rem minmax(0, 1fr);
+    }
+
+    .sc-course-matching__column--items {
+      grid-column: 1;
+    }
+
+    .sc-course-matching__column--targets {
+      grid-column: 3;
+    }
+
+    .sc-course-matching__connectors {
+      display: block;
+    }
   }
 
   .sc-course-matching__drag-preview {

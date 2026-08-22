@@ -6,6 +6,8 @@ import { QuizNodeView } from "./Quiz";
 import { quizBlockDefinition } from "./quiz-definition";
 import { createQuizNode } from "./node";
 
+import "./QuizAuthoringControls.css";
+
 const QuizAuthoringNode = createQuizNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({

@@ -15,6 +15,7 @@ interface AssessmentSelectableChoiceRowProps {
   disabledReason?: string;
   feedbackControl?: ReactNode;
   id: string;
+  inputLabel?: string;
   inputType: "radio" | "checkbox";
   name?: string;
   onSelect: () => void;
@@ -30,6 +31,7 @@ export function AssessmentSelectableChoiceRow({
   disabledReason,
   feedbackControl,
   id,
+  inputLabel,
   inputType,
   name,
   onSelect,
@@ -85,6 +87,7 @@ export function AssessmentSelectableChoiceRow({
               disabled={disabled}
               required={inputType === "radio"}
               onChange={onSelect}
+              aria-label={inputLabel}
               aria-describedby={accessibilityText ? descriptionId : undefined}
               className="sc-course-assessment-choice__input"
             />

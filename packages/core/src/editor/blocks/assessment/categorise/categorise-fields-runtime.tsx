@@ -356,6 +356,7 @@ function CategoriseRuntimeCategory({
     drop.isDropTarget ||
     hoveredCategoryId === category.id ||
     (selectedItemId !== null && !interactionLocked);
+  const placementUnavailable = interactionLocked || selectedItemId === null;
   const categoryDescription = describeCategoriseCategoryAccessibilityState({
     activeDrop,
     placedCount: items.length,
@@ -367,7 +368,7 @@ function CategoriseRuntimeCategory({
       ref={drop.targetRef}
       role="button"
       tabIndex={interactionLocked ? -1 : 0}
-      aria-disabled={interactionLocked || undefined}
+      aria-disabled={placementUnavailable || undefined}
       aria-label={`Category ${index + 1}`}
       aria-describedby={categoryDescriptionId}
       data-id={category.id}

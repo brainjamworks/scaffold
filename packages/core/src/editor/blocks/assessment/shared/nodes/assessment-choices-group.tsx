@@ -86,7 +86,10 @@ function AssessmentChoicesGroupNodeView(props: NodeViewProps) {
       data-slot="assessment-choices-group"
       className="sc-course-assessment-choices-group"
     >
-      <div data-bounded-scroll="" className="sc-course-assessment-choices-scroll">
+      <div
+        data-bounded-scroll=""
+        className="sc-course-assessment-choices-scroll sc-app-assessment-choices-scroll--authoring"
+      >
         <NodeViewContent />
         {isEditable ? (
           <AssessmentChoiceAddButton

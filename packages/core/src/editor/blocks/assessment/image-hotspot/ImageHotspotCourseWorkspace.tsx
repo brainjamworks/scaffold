@@ -168,26 +168,12 @@ export const ImageHotspotCourseWorkspaceContent = forwardRef<
   );
 });
 
-export function ImageHotspotCourseWorkspaceToolbar({
-  children,
-  label,
-}: {
-  children: ReactNode;
-  label: string;
-}) {
-  return (
-    <div role="toolbar" aria-label={label} className="sc-course-image-hotspot-workspace__toolbar">
-      {children}
-    </div>
-  );
-}
-
 export const ImageHotspotCourseAction = forwardRef<
   HTMLButtonElement,
   Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
     children: ReactNode;
     label: string;
-    intent?: "add" | "delete" | "edit" | "replace" | "select";
+    intent?: "edit";
   }
 >(function ImageHotspotCourseAction(
   {
@@ -235,6 +221,5 @@ export const ImageHotspotCourseWorkspace = {
   Action: ImageHotspotCourseAction,
   Content: ImageHotspotCourseWorkspaceContent,
   Root: ImageHotspotCourseWorkspaceRoot,
-  Toolbar: ImageHotspotCourseWorkspaceToolbar,
   Trigger: ImageHotspotCourseWorkspaceTrigger,
 } as const;

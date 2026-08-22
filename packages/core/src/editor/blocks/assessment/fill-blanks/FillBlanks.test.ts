@@ -400,6 +400,24 @@ describe("composite fill_blanks node", () => {
     editor.destroy();
   });
 
+  it("keeps the accepted-answer trigger App-owned inside Course-authored prose", async () => {
+    const editor = makeEditor();
+    editor.commands.setContent(fillBlanksDoc());
+    renderAssessmentEditor(editor);
+
+    const trigger = await screen.findByRole("button", {
+      name: "Edit blank: 0°C, 1 alternative answer",
+    });
+
+    expect(trigger).toHaveClass("sc-app-fill-blank__author-trigger");
+    expect(trigger).not.toHaveClass("sc-course-fill-blank__author-trigger");
+    expect(trigger.querySelector(".sc-app-fill-blank__label")?.textContent).toBe("0°C");
+    expect(trigger.querySelector(".sc-app-fill-blank__count")?.textContent).toBe("+1");
+    expect(trigger.querySelector('[class^="sc-course-fill-blank__"]')).toBeNull();
+
+    editor.destroy();
+  });
+
   it("describes fill blank runtime accessibility states", () => {
     expect(
       describeFillBlankAccessibilityState({
@@ -933,7 +951,7 @@ describe("composite fill_blanks node", () => {
   it("removes keyed feedback when conversion deletes an empty blank", async () => {
     const editor = makeEditor();
     editor.commands.setContent(fillBlanksDoc({ acceptedAnswers: [""], placeholder: "" }));
-    const sheet = await openBlankFeedbackSheet(editor, "Blank");
+    const sheet = await openBlankFeedbackSheet(editor, /Edit blank: Blank/);
 
     fireEvent.click(within(sheet).getByRole("button", { name: "Convert to text" }));
 

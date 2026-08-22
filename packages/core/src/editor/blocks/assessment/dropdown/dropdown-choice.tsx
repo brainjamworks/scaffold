@@ -253,6 +253,7 @@ function DropdownChoiceNodeView(props: NodeViewProps) {
           active={hasFeedback}
           intent="feedback"
           label={hasFeedback ? "Edit feedback" : "Add feedback"}
+          owner="app"
         >
           <Info size={iconSm} weight={hasFeedback ? "fill" : "regular"} />
         </AssessmentChoiceAuthoringAction>
@@ -388,7 +389,7 @@ function DropdownChoicesGroupNodeView(props: NodeViewProps) {
     >
       <div
         data-bounded-scroll=""
-        className="sc-course-assessment-choices-scroll sc-course-dropdown-choices-scroll"
+        className="sc-course-assessment-choices-scroll sc-course-dropdown-choices-scroll sc-app-assessment-choices-scroll--authoring"
       >
         <NodeViewContent />
         {isEditable && (

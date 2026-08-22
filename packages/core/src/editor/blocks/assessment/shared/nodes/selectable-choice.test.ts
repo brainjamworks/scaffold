@@ -729,6 +729,9 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
     const addFeedback = await screen.findByRole("button", {
       name: "Add feedback",
     });
+    expect(addFeedback.closest(".sc-app-assessment-choices-scroll--authoring")).not.toBeNull();
+    expect(addFeedback).toHaveClass("sc-app-assessment-choice__authoring-action");
+    expect(addFeedback).not.toHaveClass("sc-course-assessment-choice__authoring-action");
     fireEvent.click(addFeedback);
 
     await waitFor(() => {
@@ -737,6 +740,28 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
     expect(Boolean(screen.queryByText("Shown to learners after they answer."))).toBe(true);
     expect(Boolean(screen.queryByRole("button", { name: "Done" }))).toBe(false);
     expect(Boolean(screen.queryByRole("button", { name: "Remove" }))).toBe(false);
+
+    editor.destroy();
+  });
+
+  it("explains why the current MCQ answer cannot be unmarked", async () => {
+    const editor = makeEditor(
+      [
+        { id: CHOICE_A_ID, isCorrect: true, text: "Alpha" },
+        { id: CHOICE_B_ID, isCorrect: false, text: "Beta" },
+      ],
+      true,
+    );
+
+    renderAssessmentEditor(editor);
+
+    const correctness = await screen.findByRole("button", {
+      name: "Toggle whether Alpha is correct",
+    });
+    expect(correctness).toHaveAttribute("aria-disabled", "true");
+    expect(correctness).toHaveAccessibleDescription(
+      "A multiple-choice assessment must have one correct answer. Select another choice instead.",
+    );
 
     editor.destroy();
   });
@@ -1065,6 +1090,33 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
     editor.destroy();
   });
 
+  it("gives empty runtime MCQ choices stable positional names", async () => {
+    const editor = makeEditor(
+      [
+        { id: CHOICE_A_ID, isCorrect: true },
+        { id: CHOICE_B_ID, isCorrect: false },
+      ],
+      false,
+    );
+    const assessmentPort: AssessmentPort = {
+      type: "runtime",
+      submit: async (args) =>
+        assessmentProblemOutcome(
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
+          { response: args.response },
+        ),
+    };
+
+    renderRuntimeEditor(editor, assessmentPort);
+
+    await waitFor(() => {
+      expect(screen.getByRole("radio", { name: "Choice 1" })).toBeRequired();
+      expect(screen.getByRole("radio", { name: "Choice 2" })).toBeRequired();
+    });
+
+    editor.destroy();
+  });
+
   it("opens runtime summary feedback from a show feedback action", async () => {
     const editor = makeEditor(
       [
@@ -1232,7 +1284,10 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
 
     await waitFor(() => {
       const group = screen.getByRole("group", { name: "Choose one option" });
-      expect(group.getAttribute("aria-required")).toBe("true");
+      expect(group.getAttribute("aria-required")).toBeNull();
+      expect(screen.getAllByRole("radio").every((radio) => radio.hasAttribute("required"))).toBe(
+        true,
+      );
     });
 
     editor.destroy();
@@ -1263,7 +1318,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
 
     await waitFor(() => {
       const group = screen.getByRole("group", { name: "Choose a response" });
-      expect(group.getAttribute("aria-required")).toBe("true");
+      expect(group.getAttribute("aria-required")).toBeNull();
     });
 
     editor.destroy();
@@ -1453,7 +1508,7 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
       const group = screen.getByRole("group", {
         name: "Choose all that apply",
       });
-      expect(group.getAttribute("aria-required")).toBe("true");
+      expect(group.getAttribute("aria-required")).toBeNull();
     });
 
     editor.destroy();

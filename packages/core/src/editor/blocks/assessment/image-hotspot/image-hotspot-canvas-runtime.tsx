@@ -1,6 +1,7 @@
 import {
   ArrowsOutIcon as ArrowsOut,
   CheckIcon as Check,
+  CircleIcon as Circle,
   InfoIcon as Info,
   XIcon as XMark,
 } from "@phosphor-icons/react";
@@ -12,6 +13,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
+  type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
 } from "react";
@@ -66,6 +69,17 @@ interface RuntimeCanvasProps {
   presentation?: "compact" | "expanded";
   onAnnounce?: ((message: string) => void) | undefined;
   renderLiveRegion?: boolean | undefined;
+}
+
+function clampPercent(value: number) {
+  return Math.min(100, Math.max(0, value));
+}
+
+function edgeSafeMarkerStyle(x: number, y: number) {
+  return {
+    "--sc-image-hotspot-marker-x": `${x}%`,
+    "--sc-image-hotspot-marker-y": `${y}%`,
+  } as CSSProperties;
 }
 
 function readSpatialHotspotReveal(answers: unknown) {
@@ -189,9 +203,11 @@ function RuntimeCanvas({
   });
   const [workspaceOpen, setWorkspaceOpen] = useNodeViewOpenState(workspaceKey);
   const [announcement, setAnnouncement] = useState("");
+  const [keyboardCursor, setKeyboardCursor] = useState({ x: 50, y: 50 });
   const [mediaStatus, setMediaStatus] = useState<"idle" | "loading" | "error">("idle");
   const [imageError, setImageError] = useState(false);
   const surfaceDescriptionId = useId();
+  const keyboardInstructionsId = useId();
   const announce = useCallback(
     (message: string) => {
       if (onAnnounce) onAnnounce(message);
@@ -296,8 +312,8 @@ function RuntimeCanvas({
     }
   };
 
-  const handleImageClick = (e: MouseEvent<HTMLDivElement>, aspectRatio: number) => {
-    if (!problem || !containerRef.current) {
+  const placeClick = (x: number, y: number, aspectRatio: number) => {
+    if (!problem) {
       announce("This answer is not accepting selections.");
       return;
     }
@@ -305,15 +321,49 @@ function RuntimeCanvas({
       announce(capped && !responseLocked ? "Selection limit reached." : "This answer is locked.");
       return;
     }
-    const pct = eventToPercent(e, containerRef.current);
-    const hit = findHitHotspot(pct.x, pct.y, data.hotspots, aspectRatio);
+    const hit = findHitHotspot(x, y, data.hotspots, aspectRatio);
     const click: HotspotClickRecord = {
       id: createEmbeddedDataId(),
-      x: pct.x,
-      y: pct.y,
+      x,
+      y,
       hotspotId: hit?.id ?? null,
     };
     announceAddResult(problem.addClick(click), hit);
+  };
+
+  const handleImageClick = (event: MouseEvent<HTMLDivElement>, aspectRatio: number) => {
+    if (!containerRef.current) {
+      announce("This answer is not accepting selections.");
+      return;
+    }
+    const position = eventToPercent(event, containerRef.current);
+    placeClick(position.x, position.y, aspectRatio);
+  };
+
+  const handleImageKeyDown = (event: KeyboardEvent<HTMLDivElement>, aspectRatio: number) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      placeClick(keyboardCursor.x, keyboardCursor.y, aspectRatio);
+      return;
+    }
+    const step = event.shiftKey ? 10 : 5;
+    const movement = {
+      ArrowDown: { x: 0, y: step },
+      ArrowLeft: { x: -step, y: 0 },
+      ArrowRight: { x: step, y: 0 },
+      ArrowUp: { x: 0, y: -step },
+    }[event.key];
+    if (!movement) return;
+    event.preventDefault();
+    setKeyboardCursor((current) => {
+      const next = {
+        x: clampPercent(current.x + movement.x),
+        y: clampPercent(current.y + movement.y),
+      };
+      announce(`Selection cursor at ${next.x}% horizontal, ${next.y}% vertical.`);
+      return next;
+    });
   };
 
   if (!data.image) {
@@ -383,7 +433,9 @@ function RuntimeCanvas({
       src={resolvedSrc}
       alt={data.image.alt ?? ""}
       ariaLabel="Image hotspot response area"
-      ariaDescribedBy={surfaceDescriptionId}
+      ariaDescribedBy={`${surfaceDescriptionId} ${keyboardInstructionsId}`}
+      ariaDisabled={disabled}
+      ariaKeyShortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Enter Space"
       className={cn(
         disabled
           ? "sc-course-image-hotspot-canvas--runtime-disabled"
@@ -391,6 +443,8 @@ function RuntimeCanvas({
       )}
       onImageError={() => setImageError(true)}
       onSurfaceClick={(event, surface) => handleImageClick(event, surface.aspectRatio)}
+      onSurfaceKeyDown={(event, surface) => handleImageKeyDown(event, surface.aspectRatio)}
+      tabIndex={0}
     >
       {({ naturalSize }) => (
         <>
@@ -413,6 +467,16 @@ function RuntimeCanvas({
           <span id={surfaceDescriptionId} className="sc-sr-only">
             {surfaceDescription}
           </span>
+          <span id={keyboardInstructionsId} className="sc-sr-only">
+            Use the arrow keys to move the selection cursor. Press Enter or Space to place a click.
+          </span>
+          <span
+            aria-hidden
+            data-image-hotspot-keyboard-cursor=""
+            data-testid="image-hotspot-keyboard-cursor"
+            className="sc-course-image-hotspot__keyboard-cursor"
+            style={{ left: `${keyboardCursor.x}%`, top: `${keyboardCursor.y}%` }}
+          />
 
           {answerKeyVisible && naturalSize && (
             <svg
@@ -635,10 +699,7 @@ function ClickMarker({
                 : undefined
           }
           className="sc-course-image-hotspot-marker"
-          style={{
-            left: `${click.x}%`,
-            top: `${click.y}%`,
-          }}
+          style={edgeSafeMarkerStyle(click.x, click.y)}
         >
           <span id={descriptionId} className="sc-sr-only">
             {description}
@@ -660,7 +721,20 @@ function ClickMarker({
               ?
             </span>
           )}
-          {isMiss && <span className="sc-sr-only">Miss</span>}
+          {state === "submitted" && (
+            <Circle
+              size={10}
+              weight="fill"
+              aria-hidden
+              data-hotspot-marker-state-icon="submitted"
+            />
+          )}
+          {isMiss && (
+            <>
+              <XMark size={14} weight="bold" aria-hidden data-hotspot-marker-state-icon="miss" />
+              <span className="sc-sr-only">Miss</span>
+            </>
+          )}
         </button>
       </Popover.Anchor>
       {hasFeedback && (

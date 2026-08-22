@@ -12,6 +12,7 @@ import "@/styles/globals.css";
 
 import { QuizStrip } from "./QuizStrip";
 import "./Quiz.css";
+import "./QuizAuthoringControls.css";
 
 interface MoveCall {
   readonly childKey: string;

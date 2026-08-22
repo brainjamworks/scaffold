@@ -13,6 +13,7 @@ import { SelectableChoiceAttrsSchema, type SelectableChoiceAttrs } from "@/schem
 
 import { createSelectableChoiceNode, selectableChoiceBodyContent } from "./selectable-choice";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
+import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { serializeStaticRichTextHtml } from "@/editor/rich-text/static/render-rich-text";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 import { describeMultiSelectLimitState } from "../runtime/assessment-interaction-runtime";
@@ -96,7 +97,9 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
         .trim(),
     [props.node],
   );
-  const feedbackTriggerLabel = choiceText ? `Show feedback for ${choiceText}` : "Show feedback";
+  const fallbackChoiceLabel = `Choice ${readRuntimeChoiceIndex(props.editor, pos)}`;
+  const accessibleChoiceLabel = choiceText || fallbackChoiceLabel;
+  const feedbackTriggerLabel = `Show feedback for ${accessibleChoiceLabel}`;
 
   const runtimeFeedback = AssessmentFeedbackContentSchema.safeParse(
     assessment?.feedback.items?.[attrs.id]?.feedback,
@@ -165,6 +168,7 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
           ? { name: assessment.problem.state.responseName }
           : {})}
         inputType={inputType}
+        {...(!choiceText ? { inputLabel: accessibleChoiceLabel } : {})}
         feedbackControl={feedbackControl}
         state={state}
         checked={checked}
@@ -177,6 +181,23 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
       </AssessmentSelectableChoiceRow>
     </NodeViewWrapper>
   );
+}
+
+function readRuntimeChoiceIndex(editor: NodeViewProps["editor"], pos: number | undefined): number {
+  if (!isValidEditorDocPos(editor, pos)) return 1;
+  const $pos = editor.state.doc.resolve(pos);
+  const parent = $pos.parent;
+  const parentStart = $pos.start();
+  let index = 1;
+  let seen = 0;
+
+  parent.forEach((child, offset) => {
+    if (child.type.name !== "selectable_choice") return;
+    seen += 1;
+    if (parentStart + offset <= pos) index = seen;
+  });
+
+  return index;
 }
 
 function useScrollRuntimeChoiceIntoView({

@@ -928,7 +928,12 @@ describe("quiz block skeleton", () => {
     expect(
       (await screen.findByTestId("quiz-add-question-stage")).getAttribute("contenteditable"),
     ).toBe("false");
-    expect(screen.getByText("Pick a question type")).toBeInTheDocument();
+    const pickerTitle = screen.getByText("Pick a question type");
+    expect(pickerTitle.tagName).toBe("P");
+    expect(screen.queryByRole("heading", { name: "Pick a question type" })).toBeNull();
+    expect(screen.getByRole("group", { name: "Pick a question type" })).toContainElement(
+      screen.getByRole("button", { name: /Dropdown/i }),
+    );
     expect(editor.getJSON()).toMatchObject({
       type: "doc",
       content: [{ type: "quiz" }],
@@ -937,7 +942,7 @@ describe("quiz block skeleton", () => {
     editor.destroy();
   });
 
-  it("uses Course-owned Quiz classes and controls throughout the authoring canvas", async () => {
+  it("keeps the shared Quiz shell Course-owned while authoring controls use App ownership", async () => {
     const user = userEvent.setup();
     const editor = createQuizEditor({
       editable: true,
@@ -949,24 +954,35 @@ describe("quiz block skeleton", () => {
     const stage = await screen.findByTestId("quiz-stage-viewport");
     const quiz = stage.closest("[data-quiz-view-id]");
     expect(quiz).toHaveClass("sc-course-quiz");
-    expect(quiz?.querySelector('[class^="sc-quiz"], [class*=" sc-quiz"]')).toBeNull();
+    expect(screen.getByTestId("quiz-stage-selector")).toHaveClass("sc-app-quiz__strip");
+    expect(screen.getByTestId("quiz-stage-meta")).toHaveClass("sc-app-quiz__stage-meta");
     expect(screen.getByRole("button", { name: "Question settings" })).toHaveClass(
-      "sc-course-quiz__stage-action",
+      "sc-icon-button",
+      "sc-app-quiz__stage-action",
     );
     expect(screen.getByRole("button", { name: "Duplicate question" })).toHaveClass(
-      "sc-course-quiz__stage-action",
+      "sc-icon-button",
+      "sc-app-quiz__stage-action",
     );
     expect(screen.getByRole("button", { name: "Delete question" })).toHaveClass(
-      "sc-course-quiz__stage-action",
+      "sc-icon-button",
+      "sc-app-quiz__stage-action",
     );
     const addQuestion = screen.getByRole("button", { name: "Add question" });
-    expect(addQuestion).toHaveClass("sc-course-quiz__strip-add");
-    expect(addQuestion).not.toHaveClass("sc-app-block-add");
+    expect(addQuestion).toHaveClass("sc-app-block-add", "sc-app-quiz__strip-add");
 
     await user.click(addQuestion);
     const picker = await screen.findByRole("dialog");
-    expect(picker).toHaveClass("sc-course-quiz__add-popover");
-    expect(picker.closest(".sc-course-theme-scaffold-flow-v1")).not.toBeNull();
+    expect(picker).toHaveClass("sc-app-quiz__add-popover");
+    expect(picker).toHaveAttribute("data-authoring-chrome", "popover");
+    expect(picker).not.toHaveClass("sc-course", "sc-course-theme-scaffold-flow-v1");
+
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button", { name: "Question 1 options" }));
+    const questionMenu = await screen.findByRole("menu");
+    expect(questionMenu).toHaveClass("sc-app-quiz__strip-menu");
+    expect(questionMenu).toHaveAttribute("data-authoring-chrome", "menu");
+    expect(questionMenu).not.toHaveClass("sc-course", "sc-course-theme-scaffold-flow-v1");
 
     editor.destroy();
   });
@@ -2229,7 +2245,7 @@ describe("quiz block skeleton", () => {
     editor.destroy();
   });
 
-  it("renders the in-canvas Fill quick action through the Course control", async () => {
+  it("renders the in-canvas Fill quick action through the App control", async () => {
     const editor = createQuizEditor({
       editable: true,
       content: runtimeQuizFillBlanksDocument("quiz-fill-authoring"),
@@ -2238,7 +2254,7 @@ describe("quiz block skeleton", () => {
     renderEditor(editor);
 
     const action = await screen.findByRole("button", { name: "Create blank" });
-    expect(action).toHaveClass("sc-course-quiz__quick-action");
+    expect(action).toHaveClass("sc-icon-button", "sc-app-quiz__quick-action");
     expect(action).not.toHaveClass("sc-menu-icon-button");
 
     editor.destroy();

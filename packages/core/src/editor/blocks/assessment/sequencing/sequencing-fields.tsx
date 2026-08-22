@@ -155,8 +155,8 @@ function SequencingItemNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
-      as="li"
       ref={presentationRef}
+      role="listitem"
       data-node="sequencing-item"
       data-item-id={itemId}
       {...containedMovementTargetAttributes()}
@@ -179,6 +179,7 @@ function SequencingItemNodeView(props: NodeViewProps) {
             active={hasFeedback}
             intent="feedback"
             label={hasFeedback ? "Edit feedback" : "Add feedback"}
+            owner="app"
           >
             <Info size={iconSm} weight={hasFeedback ? "fill" : "regular"} />
           </AssessmentChoiceAuthoringAction>
@@ -213,6 +214,7 @@ function SequencingItemNodeView(props: NodeViewProps) {
           deleteItem();
         }}
         label={`Delete sequencing item ${itemIndex}`}
+        owner="app"
         {...(deleteUnavailable
           ? { unavailableReason: "Sequencing requires at least two items." }
           : {})}
@@ -242,7 +244,6 @@ function SequencingAuthoringMovementAction({
     <ContainedMovementHandle
       getPresentationElement={getPresentationElement}
       getSourcePos={getSourcePos}
-      className="sc-course-sequencing__movement-action"
       label={label}
       projection={projection}
       sourceKey={sourceKey}
@@ -290,8 +291,8 @@ function SequencingItemsGroupNodeView(props: NodeViewProps) {
       className="sc-course-sequencing__group"
     >
       <div data-bounded-scroll="" className="sc-course-sequencing__scroll">
-        <NodeViewContent<"ol">
-          as="ol"
+        <NodeViewContent<"div">
+          as="div"
           role="list"
           aria-label={group.legend || undefined}
           aria-labelledby={group.legend ? undefined : assessmentPromptDomId(group.authoredBlockId)}
@@ -301,7 +302,6 @@ function SequencingItemsGroupNodeView(props: NodeViewProps) {
           label="Add item"
           contentEditable={false}
           onClick={addItem}
-          className="sc-course-sequencing__add"
         />
       </div>
       <SequencingBoundedScrollHint />

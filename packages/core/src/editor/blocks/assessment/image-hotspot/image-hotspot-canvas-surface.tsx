@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
   type ReactNode,
@@ -38,11 +39,18 @@ interface ImageHotspotCanvasSurfaceProps {
   alt: string;
   ariaLabel: string;
   ariaDescribedBy?: string | undefined;
+  ariaDisabled?: boolean | undefined;
+  ariaKeyShortcuts?: string | undefined;
   className?: string | undefined;
   contentEditable?: boolean | undefined;
+  tabIndex?: number | undefined;
   role?: "group" | undefined;
   onSurfaceClick?: (
     event: MouseEvent<HTMLDivElement>,
+    state: ImageHotspotCanvasSurfaceState,
+  ) => void;
+  onSurfaceKeyDown?: (
+    event: KeyboardEvent<HTMLDivElement>,
     state: ImageHotspotCanvasSurfaceState,
   ) => void;
   onSurfacePointerDown?: (
@@ -64,6 +72,8 @@ interface ImageHotspotCanvasSurfaceProps {
 export function ImageHotspotCanvasSurface({
   alt,
   ariaDescribedBy,
+  ariaDisabled,
+  ariaKeyShortcuts,
   ariaLabel,
   children,
   className,
@@ -73,12 +83,14 @@ export function ImageHotspotCanvasSurface({
   fitStrategy = "contain",
   mode,
   onSurfaceClick,
+  onSurfaceKeyDown,
   onImageError,
   onSurfacePointerDown,
   onSurfacePointerMove,
   onSurfacePointerUp,
   role = "group",
   src,
+  tabIndex,
 }: ImageHotspotCanvasSurfaceProps) {
   const imgRef = useRef<HTMLImageElement>(null);
   const [naturalSize, setNaturalSize] = useState<ImageHotspotNaturalSize | null>(null);
@@ -165,12 +177,16 @@ export function ImageHotspotCanvasSurface({
       role={role}
       aria-label={ariaLabel}
       aria-describedby={ariaDescribedBy}
+      aria-disabled={ariaDisabled || undefined}
+      aria-keyshortcuts={ariaKeyShortcuts}
       data-image-hotspot-canvas-surface={mode}
       data-image-hotspot-fit={fitStrategy}
       className={cn("sc-course-image-hotspot-canvas", className)}
       contentEditable={contentEditable}
+      tabIndex={tabIndex}
       style={surfaceStyle}
       onClick={onSurfaceClick ? (event) => onSurfaceClick(event, state) : undefined}
+      onKeyDown={onSurfaceKeyDown ? (event) => onSurfaceKeyDown(event, state) : undefined}
       onPointerDown={
         onSurfacePointerDown ? (event) => onSurfacePointerDown(event, state) : undefined
       }

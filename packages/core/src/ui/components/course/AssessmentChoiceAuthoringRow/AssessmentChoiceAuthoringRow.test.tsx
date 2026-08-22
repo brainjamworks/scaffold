@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
+  AssessmentChoiceAddButton,
   AssessmentChoiceAuthoringAction,
   AssessmentChoiceAuthoringRow,
 } from "./AssessmentChoiceAuthoringRow";
@@ -12,7 +13,7 @@ import {
 afterEach(cleanup);
 
 describe("AssessmentChoiceAuthoringRow", () => {
-  it("uses the Course choice surface while keeping author actions independent", async () => {
+  it("uses the Course choice surface with App-owned selectable-choice actions", async () => {
     const user = userEvent.setup();
     const onToggleCorrect = vi.fn();
     const onDelete = vi.fn();
@@ -41,7 +42,13 @@ describe("AssessmentChoiceAuthoringRow", () => {
     const row = screen.getByText("Editable answer").closest(".sc-course-assessment-choice");
     expect(row).not.toBeNull();
     expect(row).toHaveClass("sc-course-assessment-choice--authoring");
-    expect(row?.querySelector("[class*='sc-app-']")).toBeNull();
+    expect(row).toHaveClass("sc-app-assessment-choice-authoring-surface");
+    expect(
+      screen.getByRole("button", { name: "Toggle whether Editable answer is correct" }),
+    ).toHaveClass("sc-app-assessment-choice__authoring-action");
+    expect(screen.getByRole("button", { name: "Delete choice 1" })).toHaveClass(
+      "sc-app-assessment-choice__authoring-action",
+    );
 
     await user.click(screen.getByText("Editable answer"));
     expect(onToggleCorrect).not.toHaveBeenCalled();
@@ -55,7 +62,7 @@ describe("AssessmentChoiceAuthoringRow", () => {
     expect(onDelete).toHaveBeenCalledOnce();
   });
 
-  it("keeps the final Course delete action focusable and explains why it is unavailable", async () => {
+  it("keeps the final App delete action focusable and explains why it is unavailable", async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
 
@@ -82,5 +89,13 @@ describe("AssessmentChoiceAuthoringRow", () => {
 
     await user.click(deleteButton);
     expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it("owns the add-choice action in the App theme", () => {
+    render(<AssessmentChoiceAddButton />);
+
+    const addButton = screen.getByRole("button", { name: "Add choice" });
+    expect(addButton).toHaveClass("sc-app-assessment-choice-add");
+    expect(addButton).not.toHaveClass("sc-course-assessment-choice-add");
   });
 });

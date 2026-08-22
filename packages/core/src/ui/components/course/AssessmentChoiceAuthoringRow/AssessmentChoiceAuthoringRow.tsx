@@ -16,10 +16,11 @@ export interface AssessmentChoiceAuthoringActionProps extends Omit<
   children: ReactNode;
   intent: "move" | "correctness" | "feedback" | "options" | "delete";
   label: string;
+  owner?: "app" | "course";
   unavailableReason?: string;
 }
 
-/** Course-themed action embedded in an authoring choice surface. */
+/** Authoring action that can bridge a Course surface into App-owned chrome. */
 export const AssessmentChoiceAuthoringAction = forwardRef<
   HTMLButtonElement,
   AssessmentChoiceAuthoringActionProps
@@ -31,6 +32,7 @@ export const AssessmentChoiceAuthoringAction = forwardRef<
     intent,
     label,
     onClick,
+    owner = "course",
     type = "button",
     unavailableReason,
     ...props
@@ -48,7 +50,12 @@ export const AssessmentChoiceAuthoringAction = forwardRef<
       aria-disabled={unavailable || undefined}
       aria-describedby={unavailable ? explanationId : props["aria-describedby"]}
       aria-label={label}
-      className={cn("sc-course-assessment-choice__authoring-action", className)}
+      className={cn(
+        owner === "app"
+          ? "sc-app-assessment-choice__authoring-action"
+          : "sc-course-assessment-choice__authoring-action",
+        className,
+      )}
       contentEditable={false}
       data-authoring-movement-snapshot-chrome=""
       data-active={active || undefined}
@@ -99,19 +106,20 @@ export function AssessmentChoiceAuthoringRow({
   return (
     <div
       {...authoringMovementSilhouetteSurfaceAttributes()}
-      className="sc-course-assessment-choice sc-course-assessment-choice--authoring"
+      className="sc-course-assessment-choice sc-course-assessment-choice--authoring sc-app-assessment-choice-authoring-surface"
       data-author-correct={correct || undefined}
     >
       {movementControl ? (
-        <div className="sc-course-assessment-choice__authoring-movement">{movementControl}</div>
+        <div className="sc-app-assessment-choice__authoring-movement">{movementControl}</div>
       ) : null}
       <AssessmentChoiceAuthoringAction
         active={correct}
         aria-pressed={correct}
-        className="sc-course-assessment-choice__authoring-correctness"
+        className="sc-app-assessment-choice__authoring-correctness"
         intent="correctness"
         label={correctnessLabel}
         onClick={onToggleCorrect}
+        owner="app"
         {...(correctnessUnavailableReason
           ? { unavailableReason: correctnessUnavailableReason }
           : {})}
@@ -120,13 +128,14 @@ export function AssessmentChoiceAuthoringRow({
       </AssessmentChoiceAuthoringAction>
       <div className="sc-course-assessment-choice__authoring-content">{children}</div>
       {feedbackControl ? (
-        <div className="sc-course-assessment-choice__authoring-feedback">{feedbackControl}</div>
+        <div className="sc-app-assessment-choice__authoring-feedback">{feedbackControl}</div>
       ) : null}
       <AssessmentChoiceAuthoringAction
-        className="sc-course-assessment-choice__authoring-delete"
+        className="sc-app-assessment-choice__authoring-delete"
         intent="delete"
         label={deleteAction.label}
         onClick={deleteAction.onAction}
+        owner="app"
         {...(deleteAction.unavailableReason
           ? { unavailableReason: deleteAction.unavailableReason }
           : {})}
@@ -144,7 +153,7 @@ export interface AssessmentChoiceAddButtonProps extends Omit<
   label?: string;
 }
 
-/** Course-themed add action embedded beneath authored choices. */
+/** App-owned add action embedded beneath authored Course choices. */
 export function AssessmentChoiceAddButton({
   className,
   label = "Add choice",
@@ -155,12 +164,12 @@ export function AssessmentChoiceAddButton({
     <button
       {...props}
       type={type}
-      className={cn("sc-course-assessment-choice-add", className)}
+      className={cn("sc-app-assessment-choice-add", className)}
       contentEditable={false}
       data-authoring-movement-snapshot-chrome=""
       data-no-select=""
     >
-      <span className="sc-course-assessment-choice-add__icon" aria-hidden>
+      <span className="sc-app-assessment-choice-add__icon" aria-hidden>
         <Plus size={iconSm} />
       </span>
       <span>{label}</span>

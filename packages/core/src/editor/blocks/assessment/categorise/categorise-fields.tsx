@@ -1,8 +1,4 @@
-import {
-  CaretDownIcon as CaretDown,
-  DotsThreeIcon as DotsThree,
-  TrashIcon as Trash,
-} from "@phosphor-icons/react";
+import { DotsThreeIcon as DotsThree, TrashIcon as Trash } from "@phosphor-icons/react";
 import {
   NodeViewContent,
   NodeViewWrapper,
@@ -41,6 +37,11 @@ import { containedMovementTargetAttributes } from "@/editor/movement/view/moveme
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
+import {
+  AUTHORING_CHROME_SUPPRESSION_ATTR,
+  AuthoringChromeKind,
+  authoringChromeAttributes,
+} from "@/editor/interactions/dom/authoring-chrome";
 import { currentNodeViewPos, safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { assessmentPromptDomId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import {
@@ -49,9 +50,9 @@ import {
   type ScaffoldRichTextDocument,
 } from "@/schemas/rich-text";
 import { iconSm } from "@/ui/tokens/icon-sizes";
-import * as Select from "@/ui/components/Select/SelectMenu";
+import { Select } from "@/ui/components/Select/Select";
+import * as SelectMenu from "@/ui/components/Select/SelectMenu";
 import { zIndex } from "@/ui/overlays/z-index";
-import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
 import "@/editor/blocks/assessment/shared/chrome/assessment-feedback-popover.css";
 
 import {
@@ -164,13 +165,13 @@ function CategoriseBinNodeView(props: NodeViewProps) {
         <NodeViewContent className="sc-course-categorise__bin-content" />
         {isEditable && (
           <AssessmentChoiceAuthoringAction
-            className="sc-course-categorise__delete-category"
-            disabled={deleteUnavailable}
+            className="sc-app-categorise__delete-category"
             onClick={() => {
               deleteBin();
             }}
             label={`Delete category ${binPosition.index}`}
             intent="delete"
+            owner="app"
             {...(deleteUnavailable
               ? { unavailableReason: "Categorise requires two categories and one item." }
               : {})}
@@ -216,7 +217,7 @@ function CategoriseBinsGroupNodeView(props: NodeViewProps) {
           label="Add category"
           contentEditable={false}
           onClick={addBin}
-          className="sc-course-categorise__add"
+          className="sc-app-categorise__add"
         />
       )}
     </NodeViewWrapper>
@@ -403,9 +404,10 @@ function CategoriseEditableItemNodeView(props: NodeViewProps) {
           <EditableOverlayPopover.Trigger asChild>
             <AssessmentChoiceAuthoringAction
               active={hasFeedback}
-              className="sc-course-categorise__item-options-trigger"
+              className="sc-app-categorise__item-options-trigger"
               intent="options"
               label={`Item options for ‘${itemLabel}’`}
+              owner="app"
             >
               <DotsThree size={iconSm} weight="bold" />
             </AssessmentChoiceAuthoringAction>
@@ -415,8 +417,8 @@ function CategoriseEditableItemNodeView(props: NodeViewProps) {
               align="start"
               description="Move this answer, edit its feedback or remove it."
               footerStart={
-                <div className="sc-course-categorise__item-options-move">
-                  <span className="sc-course-categorise__item-options-label">Move to</span>
+                <div className="sc-app-categorise__item-options-move">
+                  <span className="sc-app-categorise__item-options-label">Move to</span>
                   <CategoriseAuthoringCategorySelect
                     categories={categoryOptions.options}
                     itemLabel={itemLabel}
@@ -503,7 +505,7 @@ function CategoriseItemsGroupNodeView(props: NodeViewProps) {
           label={`Add item to category ${categoryIndex}`}
           contentEditable={false}
           onClick={addItem}
-          className="sc-course-categorise__add"
+          className="sc-app-categorise__add"
         />
       )}
     </NodeViewWrapper>
@@ -557,7 +559,7 @@ function CategoriseAuthoringMovementAction({
     <ContainedMovementHandle
       getPresentationElement={getPresentationElement}
       getSourcePos={getSourcePos}
-      className="sc-course-categorise__move-action"
+      className="sc-app-categorise__move-action"
       label={label}
       projection={projection}
       sourceKey={sourceKey}
@@ -586,40 +588,39 @@ function CategoriseAuthoringCategorySelect({
       <Select.Trigger
         {...authoringMovementSnapshotChromeAttributes()}
         aria-label={`Move ‘${itemLabel}’ to category. Current category: ‘${currentLabel}’`}
-        className="sc-course-categorise__category-select"
+        className="sc-app-categorise__category-select"
         contentEditable={false}
+        data-no-select
       >
-        <Select.Value className="sc-course-categorise__category-select-value">
+        <Select.Value className="sc-app-categorise__category-select-value">
           {currentLabel}
         </Select.Value>
-        <Select.Icon className="sc-course-categorise__category-select-caret">
-          <CaretDown size={iconSm} aria-hidden />
-        </Select.Icon>
       </Select.Trigger>
-      <Select.Portal>
-        <CourseThemePortalBoundary>
-          <Select.Content
-            aria-label={`Move ‘${itemLabel}’ to another category`}
-            position="popper"
-            sideOffset={6}
-            className="sc-course-categorise__category-select-content"
-            style={{ zIndex: zIndex.popover }}
-          >
-            <Select.Viewport className="sc-course-categorise__category-select-viewport">
-              {destinations.map((category) => (
-                <Select.Item
-                  key={category.id}
-                  value={category.id}
-                  textValue={category.label}
-                  className="sc-course-categorise__category-select-item"
-                >
-                  <Select.ItemText>{category.label}</Select.ItemText>
-                </Select.Item>
-              ))}
-            </Select.Viewport>
-          </Select.Content>
-        </CourseThemePortalBoundary>
-      </Select.Portal>
+      <SelectMenu.Portal>
+        <SelectMenu.Content
+          {...authoringChromeAttributes(AuthoringChromeKind.Popover)}
+          {...{ [AUTHORING_CHROME_SUPPRESSION_ATTR]: "" }}
+          aria-label={`Move ‘${itemLabel}’ to another category`}
+          contentEditable={false}
+          position="popper"
+          sideOffset={6}
+          className="sc-select-content sc-app-categorise__category-select-content"
+          style={{ zIndex: zIndex.popover }}
+        >
+          <SelectMenu.Viewport className="sc-select-viewport">
+            {destinations.map((category) => (
+              <SelectMenu.Item
+                key={category.id}
+                value={category.id}
+                textValue={category.label}
+                className="sc-select-item sc-app-categorise__category-select-item"
+              >
+                <SelectMenu.ItemText>{category.label}</SelectMenu.ItemText>
+              </SelectMenu.Item>
+            ))}
+          </SelectMenu.Viewport>
+        </SelectMenu.Content>
+      </SelectMenu.Portal>
     </Select.Root>
   );
 }

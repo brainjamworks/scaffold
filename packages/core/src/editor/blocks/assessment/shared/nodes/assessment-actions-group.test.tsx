@@ -218,6 +218,12 @@ describe("assessment_actions_group", () => {
     await waitFor(() => {
       const group = actionGroup();
       expect(within(group).getByRole("button", { name: "Add hint" })).toHaveClass(
+        "sc-button",
+      );
+      expect(within(group).getByRole("button", { name: "Add hint" })).not.toHaveClass(
+        "sc-app-block-add",
+      );
+      expect(within(group).getByRole("button", { name: "Add hint" })).not.toHaveClass(
         "sc-course-assessment-support-button",
       );
       expect(within(group).getByRole("button", { name: "Show feedback" })).toHaveClass(
@@ -245,6 +251,12 @@ describe("assessment_actions_group", () => {
         HTMLButtonElement,
       );
     });
+    expect(within(actionGroup()).getByRole("button", { name: "Edit 1 hint" })).toHaveClass(
+      "sc-button",
+    );
+    expect(within(actionGroup()).getByRole("button", { name: "Edit 1 hint" })).not.toHaveClass(
+      "sc-course-assessment-support-button",
+    );
 
     await user.click(within(actionGroup()).getByRole("button", { name: "Edit 1 hint" }));
 

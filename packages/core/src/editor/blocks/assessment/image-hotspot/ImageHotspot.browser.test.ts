@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page } from "vite-plus/test/browser/context";
 
 import "@/styles/globals.css";
+import "@/theme/app/AppThemeProvider.css";
 import "@/ui/components/course/AssessmentShell/AssessmentShell.css";
+import "@/theme/course/designs/pocket-atlas/v1/theme.css";
 import "@/theme/course/designs/scaffold-flow/v1/theme.css";
 
 import "../shared/chrome/assessment-node-view.css";
@@ -68,6 +70,149 @@ describe("bounded image hotspot layout", () => {
     expect(Number.parseFloat(getComputedStyle(stage).borderTopWidth)).toBeGreaterThan(0);
     expect(getComputedStyle(canvas).borderTopWidth).toBe("0px");
     expect(getComputedStyle(canvas).boxShadow).toBe("none");
+  });
+
+  it("keeps authoring controls App-owned while runtime markers remain Course-themed", async () => {
+    host = document.createElement("div");
+    host.className = "sc-app";
+    host.innerHTML = `
+      <div class="sc-course sc-course-theme-scaffold-flow-v1 radix-themes light">
+        <button class="sc-icon-button sc-app-image-hotspot__icon-action" data-size="lg" data-variant="ghost">
+          Edit
+        </button>
+        <button class="sc-app-image-hotspot-author-marker" style="left: 50%; top: 50%">
+          <span class="sc-app-image-hotspot-author-marker__number">1</span>
+        </button>
+        <button class="sc-course-image-hotspot-marker">?</button>
+      </div>
+      <div class="sc-course sc-course-theme-pocket-atlas-v1 radix-themes light">
+        <button class="sc-icon-button sc-app-image-hotspot__icon-action" data-size="lg" data-variant="ghost">
+          Edit
+        </button>
+        <button class="sc-app-image-hotspot-author-marker" style="left: 50%; top: 50%">
+          <span class="sc-app-image-hotspot-author-marker__number">1</span>
+        </button>
+        <button class="sc-course-image-hotspot-marker">?</button>
+      </div>
+    `;
+    document.body.append(host);
+
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    const actions = Array.from(
+      host.querySelectorAll<HTMLElement>(".sc-app-image-hotspot__icon-action"),
+    );
+    const authorMarkers = Array.from(
+      host.querySelectorAll<HTMLElement>(".sc-app-image-hotspot-author-marker"),
+    );
+    const runtimeMarkers = Array.from(
+      host.querySelectorAll<HTMLElement>(".sc-course-image-hotspot-marker"),
+    );
+
+    expect(actions).toHaveLength(2);
+    expect(authorMarkers).toHaveLength(2);
+    expect(runtimeMarkers).toHaveLength(2);
+    expect(actions.map((action) => getComputedStyle(action).width)).toEqual(["44px", "44px"]);
+    expect(authorMarkers.map((marker) => getComputedStyle(marker).width)).toEqual(["44px", "44px"]);
+    expect(
+      authorMarkers.map((marker) => getComputedStyle(marker, "::before").borderTopColor),
+    ).toEqual([
+      getComputedStyle(authorMarkers[0]!, "::before").borderTopColor,
+      getComputedStyle(authorMarkers[0]!, "::before").borderTopColor,
+    ]);
+    expect(getComputedStyle(runtimeMarkers[0]!).borderRadius).not.toBe(
+      getComputedStyle(runtimeMarkers[1]!).borderRadius,
+    );
+  });
+
+  it("uses the authored region as the single visible boundary for its centre marker", async () => {
+    host = document.createElement("div");
+    host.className = "sc-app";
+    host.innerHTML = `
+      <div class="sc-course-image-hotspot-canvas">
+        <svg class="sc-course-image-hotspot-overlay" viewBox="0 0 320 180">
+          <g class="sc-app-image-hotspot__author-region" data-hotspot-state="selected">
+            <circle class="sc-app-image-hotspot__author-region-shape" cx="160" cy="90" r="24"></circle>
+          </g>
+        </svg>
+        <span
+          class="sc-app-image-hotspot__author-resize-handle"
+          data-hotspot-resize-handle-id="hotspot-1"
+        ></span>
+        <button class="sc-app-image-hotspot-author-marker" data-hotspot-selected="true">
+          <span class="sc-app-image-hotspot-author-marker__number">1</span>
+        </button>
+      </div>
+    `;
+    document.body.append(host);
+
+    const marker = requireElement<HTMLButtonElement>(host, ".sc-app-image-hotspot-author-marker");
+    const region = requireElement<SVGCircleElement>(
+      host,
+      ".sc-app-image-hotspot__author-region-shape",
+    );
+    const number = requireElement<HTMLElement>(host, ".sc-app-image-hotspot-author-marker__number");
+    const resizeHandle = requireElement<HTMLElement>(
+      host,
+      ".sc-app-image-hotspot__author-resize-handle",
+    );
+    marker.focus();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    expect(getComputedStyle(marker, "::before").content).toBe("none");
+    expect(getComputedStyle(marker).outlineStyle).toBe("none");
+    expect(getComputedStyle(region).strokeWidth).toBe("4px");
+    expect(getComputedStyle(number).outlineStyle).toBe("solid");
+    expect(getComputedStyle(number).outlineWidth).toBe("2px");
+    expect(getComputedStyle(number).width).toBe("24px");
+    expect(getComputedStyle(number).height).toBe("24px");
+    expect(getComputedStyle(number).borderRadius).toBe("50%");
+    expect(getComputedStyle(resizeHandle).width).toBe("24px");
+    expect(getComputedStyle(resizeHandle).height).toBe("24px");
+    expect(getComputedStyle(resizeHandle).cursor).toBe("ew-resize");
+    expect(getComputedStyle(resizeHandle, "::before").width).toBe("10px");
+    expect(getComputedStyle(resizeHandle, "::before").borderRadius).toBe("0px");
+  });
+
+  it("gives Pocket Atlas runtime states visible markers and a non-filling revealed region", async () => {
+    host = document.createElement("div");
+    host.className = "sc-course sc-course-theme-pocket-atlas-v1 radix-themes light";
+    host.innerHTML = `
+      <div class="sc-course-image-hotspot-canvas" style="width: 320px; height: 180px">
+        <button class="sc-course-image-hotspot-marker" data-hotspot-state="pending">?</button>
+        <button class="sc-course-image-hotspot-marker" data-hotspot-state="submitted">●</button>
+        <button class="sc-course-image-hotspot-marker" data-course-state="correct">✓</button>
+        <button class="sc-course-image-hotspot-marker" data-course-state="incorrect">×</button>
+        <button class="sc-course-image-hotspot-marker" data-hotspot-state="miss">×</button>
+        <svg class="sc-course-image-hotspot-overlay" viewBox="0 0 320 180">
+          <circle class="sc-course-image-hotspot__revealed-region" cx="160" cy="90" r="24"></circle>
+        </svg>
+      </div>
+    `;
+    document.body.append(host);
+
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    const pending = requireElement<HTMLElement>(host, '[data-hotspot-state="pending"]');
+    const submitted = requireElement<HTMLElement>(host, '[data-hotspot-state="submitted"]');
+    const correct = requireElement<HTMLElement>(host, '[data-course-state="correct"]');
+    const miss = requireElement<HTMLElement>(host, '[data-hotspot-state="miss"]');
+    const revealed = requireElement<SVGCircleElement>(
+      host,
+      ".sc-course-image-hotspot__revealed-region",
+    );
+
+    expect(getComputedStyle(pending).backgroundColor).not.toBe(
+      getComputedStyle(correct).backgroundColor,
+    );
+    expect(getComputedStyle(submitted).backgroundColor).not.toBe(
+      getComputedStyle(pending).backgroundColor,
+    );
+    expect(getComputedStyle(miss).backgroundColor).not.toBe(
+      getComputedStyle(correct).backgroundColor,
+    );
+    expect(getComputedStyle(revealed).fill).toBe("none");
+    expect(getComputedStyle(revealed).stroke).not.toBe("none");
   });
 });
 

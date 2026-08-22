@@ -215,11 +215,11 @@ function MatchingPairNodeView(props: NodeViewProps) {
           <ContainedMovementHandle
             getPresentationElement={() => presentationRef.current}
             getSourcePos={() => safeGetPos(props.getPos)}
-            label={`Move matching pair ${pairIndex}, ${itemLabel}`}
+            label={`matching pair ${pairIndex}, ${itemLabel}`}
             projection={reorderProjection}
             sourceKey={`${itemId}:${targetId}`}
             sourcePos={pos}
-            className="sc-course-matching__move-action"
+            className="sc-app-matching__move-action"
           />
         </div>
         <NodeViewContent className="sc-course-matching__pair-content" />
@@ -229,6 +229,7 @@ function MatchingPairNodeView(props: NodeViewProps) {
               <AssessmentChoiceAuthoringAction
                 active={hasFeedback}
                 intent="feedback"
+                owner="app"
                 label={
                   hasFeedback
                     ? `Edit feedback for item ‘${itemLabel}’`
@@ -262,7 +263,7 @@ function MatchingPairNodeView(props: NodeViewProps) {
             </EditableOverlayPopover.Portal>
           </EditableOverlayPopover.Root>
           <AssessmentChoiceAuthoringAction
-            disabled={deleteUnavailable}
+            owner="app"
             onClick={() => {
               deletePair();
             }}
@@ -327,7 +328,7 @@ function MatchingPairsGroupNodeView(props: NodeViewProps) {
           label="Add pair"
           contentEditable={false}
           onClick={addPair}
-          className="sc-course-matching__add"
+          className="sc-app-matching__add"
         />
       </div>
       <MatchingBoundedScrollHint />

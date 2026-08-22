@@ -113,7 +113,7 @@
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__completeness,
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__empty-target {
-  color: var(--gray-10);
+  color: var(--gray-11);
   font-size: calc(var(--font-size-2) * var(--sc-course-author-text-scale));
   line-height: var(--line-height-2);
 }
@@ -140,16 +140,11 @@
   opacity: 0.55;
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__item-handle:focus-visible,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__item:focus-visible,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__place-action:focus-visible,
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__remove-action:focus-visible {
   outline: 2px solid var(--accent-9);
   outline-offset: -2px;
-}
-
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__place-action:focus-visible {
-  outline: 2px solid var(--accent-9);
-  outline-offset: -3px;
-  border-radius: var(--radius-3);
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__state-cue {
@@ -190,10 +185,6 @@
   stroke-dasharray: 7 5;
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__add {
-  border-radius: var(--radius-3);
-}
-
 @media (hover: hover) and (pointer: fine) {
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__field:hover,
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__item:not([data-matched]):hover,
@@ -217,20 +208,7 @@
 @container sc-course-matching-lane (min-width: 44rem) {
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__canvas {
     min-block-size: 25rem;
-    grid-template-columns: minmax(0, 1fr) 4rem minmax(0, 1fr);
     gap: calc(var(--space-4) * var(--sc-course-author-density));
-  }
-
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__column--items {
-    grid-column: 1;
-  }
-
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__column--targets {
-    grid-column: 3;
-  }
-
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__connectors {
-    display: block;
   }
 }
 
@@ -273,9 +251,9 @@
     stroke-width: 5;
   }
 
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__item-handle:focus-visible,
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__remove-action:focus-visible,
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__place-action:focus-visible {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__item:focus-visible,
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__place-action:focus-visible,
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching__remove-action:focus-visible {
     outline-color: Highlight;
   }
 }

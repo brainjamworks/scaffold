@@ -21,6 +21,13 @@
     align-items: stretch;
   }
 
+  .sc-course-assessment-choices-scroll {
+    padding-block-end: var(--sc-course-assessment-control-shadow-bleed-block-end, 0);
+    padding-block-start: var(--sc-course-assessment-choice-motion-bleed-block-start, 0);
+    padding-inline-end: var(--sc-course-assessment-control-shadow-bleed-inline-end, 0);
+    padding-inline-start: var(--sc-course-assessment-choice-motion-bleed-inline-start, 0);
+  }
+
   .sc-course-assessment-choices-fieldset {
     width: 100%;
     min-width: 0;

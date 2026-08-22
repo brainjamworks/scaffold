@@ -181,6 +181,12 @@ function AuthorFillBlank({
 }) {
   const label = firstAnswer(blankAssessment) || blank.placeholder || "Blank";
   const count = answerCount(blankAssessment);
+  const alternativeCount = Math.max(0, count - 1);
+  const triggerLabel = `Edit blank: ${label}${
+    alternativeCount > 0
+      ? `, ${alternativeCount} alternative answer${alternativeCount === 1 ? "" : "s"}`
+      : ""
+  }`;
   const feedbackLabelId = useId();
   const sheetContentRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -262,12 +268,13 @@ function AuthorFillBlank({
           selectNode();
           setOpen(true);
         }}
-        className="sc-course-fill-blank__author-trigger"
+        aria-label={triggerLabel}
+        className="sc-app-fill-blank__author-trigger"
         data-selected={selected ? "true" : "false"}
       >
         <BracketsCurly size={iconXs} weight="bold" aria-hidden />
-        <span className="sc-course-fill-blank__label">{label}</span>
-        {count > 1 && <span className="sc-course-fill-blank__count">+{count - 1}</span>}
+        <span className="sc-app-fill-blank__label">{label}</span>
+        {count > 1 && <span className="sc-app-fill-blank__count">+{count - 1}</span>}
       </button>
 
       <Sheet.Root open={open} onOpenChange={setOpen}>

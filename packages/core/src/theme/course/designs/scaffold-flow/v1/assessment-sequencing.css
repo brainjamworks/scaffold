@@ -100,10 +100,6 @@
   line-height: var(--line-height-1);
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-sequencing__add {
-  border-radius: var(--radius-3);
-}
-
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-sequencing__drag-preview {
   box-shadow: var(--shadow-4);
 }

@@ -1,5 +1,4 @@
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choices-group,
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choices-scroll,
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choices-list {
   gap: var(--space-2);
 }
@@ -41,12 +40,6 @@
     border-color 150ms ease-out,
     background-color 150ms ease-out,
     color 150ms ease-out;
-}
-
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choice[data-author-correct] {
-  border-color: var(--sc-course-state-correct-border);
-  background: var(--sc-course-state-correct-background);
-  color: var(--sc-course-state-correct-text);
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choice__label {

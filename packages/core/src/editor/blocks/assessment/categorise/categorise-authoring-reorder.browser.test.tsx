@@ -323,7 +323,7 @@ function expectItemSilhouette(
   expect(getComputedStyle(content).visibility).toBe("hidden");
   expect(draggedRect.width).toBeCloseTo(initialRect.width, 1);
   expect(draggedRect.height).toBeCloseTo(initialRect.height, 1);
-  expect(overlay.querySelector(".sc-course-categorise__category-select")).toBeNull();
+  expect(overlay.querySelector(".sc-app-categorise__category-select")).toBeNull();
 }
 
 async function mountCategoriseAuthoringHarness(): Promise<CategoriseAuthoringHarness> {
@@ -396,14 +396,11 @@ async function mountCategoriseAuthoringHarness(): Promise<CategoriseAuthoringHar
     rendered,
     category,
     categoryHandle: (categoryId) =>
-      requiredElement<HTMLButtonElement>(
-        category(categoryId),
-        ".sc-course-categorise__move-action",
-      ),
+      requiredElement<HTMLButtonElement>(category(categoryId), ".sc-app-categorise__move-action"),
     categoryIdsInDocument: () => categoriseCategoryIdsInDocument(editor),
     item,
     itemAddAction: (categoryId) =>
-      requiredElement<HTMLButtonElement>(category(categoryId), ".sc-course-categorise__add"),
+      requiredElement<HTMLButtonElement>(category(categoryId), ".sc-app-categorise__add"),
     itemHandle: (itemId) =>
       requiredElement<HTMLButtonElement>(item(itemId), "[data-contained-movement-handle]"),
     itemIdsInCategory: (categoryId) => categoriseItemIdsInCategory(editor, categoryId),

@@ -22,6 +22,39 @@
     gap: 0.5rem;
   }
 
+  .sc-app-assessment-hints-trigger {
+    box-sizing: border-box;
+    width: max-content;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+    height: auto;
+    padding: 0.5rem 0.75rem;
+    font-family: var(--font-ui);
+    white-space: normal;
+  }
+
+  .sc-app-assessment-hints-trigger__icon,
+  .sc-app-assessment-hints-trigger__end-icon {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sc-app-assessment-hints-trigger__label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .sc-app-assessment-hints-trigger__end-icon {
+    transition: transform 150ms ease-out;
+  }
+
+  .sc-app-assessment-hints-trigger__end-icon[data-expanded="true"] {
+    transform: rotate(180deg);
+  }
+
   .sc-course-assessment-hint-pager {
     display: inline-flex;
     min-height: 2.75rem;
@@ -104,7 +137,7 @@
     overflow: hidden;
   }
 
-  .sc-course-assessment-hint-popover--authoring .sc-course-popover-surface__body {
+  .sc-course-assessment-hint-popover--authoring .sc-app-editable-overlay-popover__body {
     min-height: 3rem;
     padding-block: 0;
   }
@@ -134,5 +167,11 @@
 
   .sc-course-assessment-hint-popover__editor p:last-child {
     margin-bottom: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-app-assessment-hints-trigger__end-icon {
+      transition: none;
+    }
   }
 }
