@@ -105,6 +105,14 @@ describe("standard rich-text semantic publication", () => {
       `${"A".repeat(MAX_SEMANTIC_LABEL_LENGTH - 1)}…`,
       "const value = 1;",
     ]);
+    expect(candidates.map(({ relativePos }) => owner.nodeAt(relativePos)?.type.name)).toEqual([
+      "heading",
+      "paragraph",
+      "paragraph",
+      "paragraph",
+      "heading",
+      "codeBlock",
+    ]);
     expect(candidates.every(({ semanticRole }) => semanticRole === "rich-text")).toBe(true);
     expect(Object.isFrozen(candidates)).toBe(true);
     expect(candidates.every(Object.isFrozen)).toBe(true);
@@ -140,6 +148,26 @@ describe("standard rich-text semantic publication", () => {
       IDS.blockquote,
       IDS.quoteParagraph,
     ]);
+    expect(candidates.map(({ relativePos }) => owner.nodeAt(relativePos)?.type.name)).toEqual([
+      "bulletList",
+      "listItem",
+      "bulletList",
+      "listItem",
+      "blockquote",
+      "paragraph",
+    ]);
+    const candidateById = new Map(
+      candidates.map((candidate) => [
+        owner.nodeAt(candidate.relativePos)?.attrs["id"] as EmbeddedNodeId,
+        candidate,
+      ]),
+    );
+    for (const candidateId of candidateIds) {
+      expect(candidateById.get(candidateId)).toMatchObject({
+        relativePos: relativePosOf(owner, candidateId),
+        semanticRole: "rich-text",
+      });
+    }
     expect(candidateIds).not.toContain(IDS.bulletParagraph);
     expect(candidateIds).not.toContain(IDS.nestedParagraph);
     expect(candidates.map(({ label }) => label)).toEqual([
@@ -164,6 +192,9 @@ describe("standard rich-text semantic publication", () => {
     expect(candidates.map(({ relativePos }) => owner.nodeAt(relativePos)?.attrs["id"])).toEqual([
       IDS.quoteParagraph,
     ]);
+    expect(candidates.some(({ relativePos }) => owner.nodeAt(relativePos)?.attrs["id"] === first.attrs["id"])).toBe(
+      false,
+    );
     const detachedRoot = schema.node("blockquote", { id: IDS.blockquote }, [
       textblock("paragraph", IDS.quoteParagraph, "Detached"),
     ]);
@@ -177,6 +208,17 @@ function contentRoot(content: readonly ProseMirrorNode[]): ProseMirrorNode {
 
 function textblock(type: string, nodeId: EmbeddedNodeId, text: string): ProseMirrorNode {
   return schema.node(type, { id: nodeId }, text.length === 0 ? [] : [schema.text(text)]);
+}
+
+function relativePosOf(owner: ProseMirrorNode, nodeId: EmbeddedNodeId): number {
+  let result: number | null = null;
+  owner.descendants((node, pos) => {
+    if (node.attrs["id"] !== nodeId) return result === null;
+    result = pos;
+    return false;
+  });
+  if (result === null) throw new Error(`Missing test node ${nodeId}.`);
+  return result;
 }
 
 function id(value: string): EmbeddedNodeId {

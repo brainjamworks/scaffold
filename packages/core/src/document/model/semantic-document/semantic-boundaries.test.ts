@@ -35,6 +35,8 @@ const IDS = {
   hintsParagraph: id("hintspara001"),
   feedback: id("feedback0001"),
   feedbackParagraph: id("feedpara0001"),
+  nestedBlock: id("nestedblk001"),
+  nestedBlockParagraph: id("nestedprv001"),
   after: id("after0000001"),
   unavailableBlock: id("availblk0001"),
   unavailableLayout: id("availlay0001"),
@@ -60,6 +62,8 @@ const privateAssessmentIds = [
   IDS.hintsParagraph,
   IDS.feedback,
   IDS.feedbackParagraph,
+  IDS.nestedBlock,
+  IDS.nestedBlockParagraph,
 ] as const;
 
 const schema = new Schema({
@@ -105,6 +109,7 @@ const schema = new Schema({
     assessment_actions_group: blockContainer(),
     assessment_hints_group: blockContainer(),
     assessment_summary_feedback: blockContainer(),
+    nested_registered_block: blockContainer(),
     paragraph: {
       group: "block",
       content: "inline*",
@@ -118,20 +123,27 @@ const schema = new Schema({
 
 const definitions: SemanticDefinitionLookup = Object.freeze({
   blocks: Object.freeze({
-    get: (nodeType: string) =>
-      nodeType === "mcq"
-        ? {
-            nodeType: "mcq",
-            title: "Multiple choice",
-            isAssessment: true,
-            documentSemantics: {
-              presentation: { actionIds: ["reveal", "highlight"] },
-              projectChildren: () => {
-                throw new Error("Assessment child publication must remain closed.");
-              },
-            },
-          }
-        : undefined,
+    get: (nodeType: string) => {
+      if (nodeType === "nested_registered_block") {
+        return {
+          nodeType: "nested_registered_block",
+          title: "Nested registered Block",
+          isAssessment: false,
+        };
+      }
+      if (nodeType !== "mcq") return undefined;
+      return {
+        nodeType: "mcq",
+        title: "Multiple choice",
+        isAssessment: true,
+        documentSemantics: {
+          presentation: { actionIds: ["reveal", "highlight"] },
+          projectChildren: () => {
+            throw new Error("Assessment child publication must remain closed.");
+          },
+        },
+      };
+    },
   }),
   layouts: Object.freeze({ get: (_variant: string) => undefined }),
   surfaces: Object.freeze({
@@ -153,6 +165,9 @@ describe("semantic content boundaries", () => {
       ]),
       node("assessment_prompt", IDS.promptWrapper, {}, [
         paragraph(IDS.promptParagraph, "Which answer is correct?"),
+      ]),
+      node("nested_registered_block", IDS.nestedBlock, {}, [
+        paragraph(IDS.nestedBlockParagraph, "Private nested Block prose"),
       ]),
       node("assessment_choices_group", IDS.choicesGroup, {}, [
         node("selectable_choice", IDS.choice, {}, [
@@ -195,10 +210,24 @@ describe("semantic content boundaries", () => {
     });
     expect(snapshot.locationById.has(IDS.assessment)).toBe(true);
     expect(snapshot.diagnostics).toEqual([]);
-    expect(snapshot.itemById.has(IDS.deepWrapper)).toBe(false);
-    for (const privateId of privateAssessmentIds) {
+    for (const privateId of [IDS.deepWrapper, ...privateAssessmentIds]) {
       expect(snapshot.itemById.has(privateId)).toBe(false);
+      expect(snapshot.parentById.has(privateId)).toBe(false);
       expect(snapshot.locationById.has(privateId)).toBe(false);
+    }
+    const publicDescriptions = JSON.stringify(
+      [...snapshot.itemById.values()].map(({ label, summary }) => ({ label, summary })),
+    );
+    for (const privateText of [
+      "Secret assessment title",
+      "Which answer is correct?",
+      "The private correct answer",
+      "Private hint",
+      "Private feedback",
+      "Private nested Block prose",
+    ]) {
+      expect(publicDescriptions).not.toContain(privateText);
+      expect(JSON.stringify(snapshot.diagnostics)).not.toContain(privateText);
     }
   });
 
@@ -284,6 +313,7 @@ describe("semantic content boundaries", () => {
       IDS.opaqueSurface,
     ]) {
       expect(snapshot.itemById.has(opaqueId)).toBe(false);
+      expect(snapshot.parentById.has(opaqueId)).toBe(false);
       expect(snapshot.locationById.has(opaqueId)).toBe(false);
     }
     expect(JSON.stringify(snapshot)).not.toContain("opaque eligible-looking prose");

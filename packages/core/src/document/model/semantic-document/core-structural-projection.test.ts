@@ -156,9 +156,12 @@ describe("Core structural semantic projection", () => {
         [["region000001:region:Main", ["block0000001:block:Host card"]]],
       ],
     ]);
-    expect(snapshot.itemById.has(IDS.privateWrapper)).toBe(false);
-    expect(snapshot.itemById.has(IDS.privateParagraph)).toBe(false);
-    expect(snapshot.itemById.has(IDS.block2)).toBe(false);
+    expectExactSemanticIndexes(snapshot, [
+      { id: IDS.surface1, parentId: null, surfaceId: IDS.surface1 },
+      { id: IDS.region, parentId: IDS.surface1, surfaceId: IDS.surface1 },
+      { id: IDS.block1, parentId: IDS.region, surfaceId: IDS.surface1 },
+    ]);
+    expectPrivateSemanticIds(snapshot, [IDS.privateWrapper, IDS.privateParagraph, IDS.block2]);
     expect(snapshot.locationById.get(IDS.surface1)).toMatchObject({
       nodeType: "surface",
       selectionTarget: { kind: "near" },
@@ -263,6 +266,19 @@ describe("Core structural semantic projection", () => {
         ],
       ],
     ]);
+    expectExactSemanticIndexes(snapshot, [
+      { id: IDS.courseSection, parentId: null, surfaceId: null },
+      { id: IDS.surface1, parentId: IDS.courseSection, surfaceId: IDS.surface1 },
+      { id: IDS.grid, parentId: IDS.surface1, surfaceId: IDS.surface1 },
+      { id: IDS.cell1, parentId: IDS.grid, surfaceId: IDS.surface1 },
+      { id: IDS.cellParagraph, parentId: IDS.cell1, surfaceId: IDS.surface1 },
+      { id: IDS.block1, parentId: IDS.cell1, surfaceId: IDS.surface1 },
+      { id: IDS.cell2, parentId: IDS.grid, surfaceId: IDS.surface1 },
+      { id: IDS.emptyCellParagraph, parentId: IDS.cell2, surfaceId: IDS.surface1 },
+      { id: IDS.layout, parentId: IDS.cell2, surfaceId: IDS.surface1 },
+      { id: IDS.layoutSection1, parentId: IDS.layout, surfaceId: IDS.surface1 },
+      { id: IDS.block2, parentId: IDS.layoutSection1, surfaceId: IDS.surface1 },
+    ]);
     expect(snapshot.parentById.get(IDS.surface1)).toBe(IDS.courseSection);
     expect(snapshot.parentById.get(IDS.courseSection)).toBeNull();
     expect(snapshot.locationById.get(IDS.courseSection)?.surfaceId).toBeNull();
@@ -272,7 +288,7 @@ describe("Core structural semantic projection", () => {
     expect(snapshot.parentById.get(IDS.emptyCellParagraph)).toBe(IDS.cell2);
     expect(snapshot.parentById.get(IDS.layout)).toBe(IDS.cell2);
     expect(snapshot.parentById.get(IDS.block2)).toBe(IDS.layoutSection1);
-    expect(snapshot.itemById.has(IDS.privateParagraph)).toBe(false);
+    expectPrivateSemanticIds(snapshot, [IDS.privateParagraph]);
   });
 
   it("publishes only eligible Slideshow container layouts and preserves indexes", () => {
@@ -579,6 +595,46 @@ function tree(
     const children = tree(item.children as Parameters<typeof tree>[0]);
     return children.length === 0 ? value : [value, children];
   });
+}
+
+function expectExactSemanticIndexes(
+  snapshot: ReturnType<typeof project>,
+  expected: readonly {
+    readonly id: EmbeddedNodeId;
+    readonly parentId: EmbeddedNodeId | null;
+    readonly surfaceId: EmbeddedNodeId | null;
+  }[],
+): void {
+  const expectedIds = expected.map(({ id: itemId }) => itemId);
+  expect(semanticTreeIds(snapshot.roots)).toEqual(expectedIds);
+  const sortedExpectedIds = [...expectedIds].sort();
+  expect([...snapshot.itemById.keys()].sort()).toEqual(sortedExpectedIds);
+  expect([...snapshot.parentById.keys()].sort()).toEqual(sortedExpectedIds);
+  expect([...snapshot.locationById.keys()].sort()).toEqual(sortedExpectedIds);
+  for (const { id: itemId, parentId, surfaceId } of expected) {
+    expect(snapshot.itemById.get(itemId)?.id).toBe(itemId);
+    expect(snapshot.parentById.get(itemId)).toBe(parentId);
+    expect(snapshot.locationById.get(itemId)).toMatchObject({ id: itemId, surfaceId });
+  }
+}
+
+function expectPrivateSemanticIds(
+  snapshot: ReturnType<typeof project>,
+  privateIds: readonly EmbeddedNodeId[],
+): void {
+  const publicIds = semanticTreeIds(snapshot.roots);
+  for (const privateId of privateIds) {
+    expect(publicIds).not.toContain(privateId);
+    expect(snapshot.itemById.has(privateId)).toBe(false);
+    expect(snapshot.parentById.has(privateId)).toBe(false);
+    expect(snapshot.locationById.has(privateId)).toBe(false);
+  }
+}
+
+function semanticTreeIds(
+  items: ReturnType<typeof project>["roots"],
+): EmbeddedNodeId[] {
+  return items.flatMap((item) => [item.id, ...semanticTreeIds(item.children)]);
 }
 
 function id(value: string): EmbeddedNodeId {
