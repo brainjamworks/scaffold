@@ -4,8 +4,36 @@ import type { EmbeddedNodeId } from "@scaffold/contracts";
 
 /** Pure projection helpers supplied by Core while evaluating one owning definition. */
 export interface SemanticProjectionHelpers {
+  projectDirectOwnedMembers?(
+    input: ProjectDirectOwnedMembersInput,
+  ): readonly PublishedSemanticChild[];
   projectStandardRichText(contentRoot?: ProseMirrorNode): readonly PublishedSemanticChild[];
   projectStructuralChildren(contentRoot?: ProseMirrorNode): readonly PublishedSemanticChild[];
+}
+
+export interface DirectOwnedMemberProjectionHelpers extends SemanticProjectionHelpers {
+  projectDirectOwnedMembers(
+    input: ProjectDirectOwnedMembersInput,
+  ): readonly PublishedSemanticChild[];
+}
+
+export interface DirectOwnedMemberDescriptionInput {
+  readonly node: ProseMirrorNode;
+  readonly ordinal: number;
+}
+
+export interface DirectOwnedMemberDescription {
+  readonly label?: string;
+  readonly summary?: string;
+  readonly authoringAnchorId?: EmbeddedNodeId;
+  readonly activation?: readonly SemanticActivationRelationship[];
+}
+
+export interface ProjectDirectOwnedMembersInput {
+  readonly nodeType: string;
+  readonly describe: (
+    input: DirectOwnedMemberDescriptionInput,
+  ) => DirectOwnedMemberDescription;
 }
 
 export interface SemanticDefinitionOwnerInput {

@@ -1,19 +1,51 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
-import type { PublishedSemanticChild, SemanticProjectionHelpers } from "./definition";
+import type {
+  DirectOwnedMemberProjectionHelpers,
+  ProjectDirectOwnedMembersInput,
+  PublishedSemanticChild,
+} from "./definition";
 import type { SemanticDefinitionLookup } from "./definition-lookup";
 import { projectStandardRichText } from "./rich-text-publication";
 
 export function createSemanticProjectionHelpers(
   owner: ProseMirrorNode,
   definitions: SemanticDefinitionLookup,
-): SemanticProjectionHelpers {
+): DirectOwnedMemberProjectionHelpers {
   return Object.freeze({
+    projectDirectOwnedMembers: (input: ProjectDirectOwnedMembersInput) =>
+      projectDirectOwnedMembers(owner, input),
     projectStandardRichText: (contentRoot?: ProseMirrorNode) =>
       projectStandardRichText({ owner, ...(contentRoot ? { contentRoot } : {}) }),
     projectStructuralChildren: (contentRoot?: ProseMirrorNode) =>
       projectStructuralChildren(owner, definitions, contentRoot),
   });
+}
+
+function projectDirectOwnedMembers(
+  owner: ProseMirrorNode,
+  input: ProjectDirectOwnedMembersInput,
+): readonly PublishedSemanticChild[] {
+  const candidates: PublishedSemanticChild[] = [];
+  let ordinal = 0;
+
+  owner.forEach((node, relativePos) => {
+    if (node.type.name !== input.nodeType) return;
+    const { label, summary, authoringAnchorId, activation } = input.describe({ node, ordinal });
+    candidates.push(
+      Object.freeze({
+        relativePos,
+        semanticRole: "published-child",
+        ...(label === undefined ? {} : { label }),
+        ...(summary === undefined ? {} : { summary }),
+        ...(authoringAnchorId === undefined ? {} : { authoringAnchorId }),
+        ...(activation === undefined ? {} : { activation }),
+      }),
+    );
+    ordinal += 1;
+  });
+
+  return Object.freeze(candidates);
 }
 
 function projectStructuralChildren(
