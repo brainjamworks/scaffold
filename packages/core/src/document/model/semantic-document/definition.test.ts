@@ -80,6 +80,7 @@ describe("semantic document definition contracts", () => {
       ownerId,
       definitionId: "host-card",
       helpers: Object.freeze({
+        projectDirectOwnedMembers: () => Object.freeze([]),
         projectStandardRichText: () => Object.freeze([]),
         projectStructuralChildren: () => Object.freeze([]),
       }),
