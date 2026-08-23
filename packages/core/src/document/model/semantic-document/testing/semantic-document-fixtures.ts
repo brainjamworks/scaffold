@@ -1,4 +1,9 @@
-import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
+import {
+  EmbeddedNodeIdSchema,
+  PresentationContentLayout,
+  PresentationContentLayoutSchema,
+  type EmbeddedNodeId,
+} from "@scaffold/contracts";
 import { Schema, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import {
@@ -31,7 +36,11 @@ const schema = new Schema({
       group: "block",
       content: "block+",
       selectable: false,
-      attrs: { id: { default: null }, role: { default: "main" } },
+      attrs: {
+        id: { default: null },
+        role: { default: "main" },
+        contentLayout: contentLayoutAttr(),
+      },
     },
     layout: {
       group: "block",
@@ -40,7 +49,11 @@ const schema = new Schema({
     },
     section: {
       content: "block+",
-      attrs: { id: { default: null }, label: { default: null } },
+      attrs: {
+        id: { default: null },
+        label: { default: null },
+        contentLayout: contentLayoutAttr(),
+      },
     },
     grid: {
       group: "block",
@@ -51,7 +64,7 @@ const schema = new Schema({
     cell: {
       content: "block+",
       selectable: false,
-      attrs: { id: { default: null } },
+      attrs: { id: { default: null }, contentLayout: contentLayoutAttr() },
     },
     owner_block: {
       group: "block",
@@ -121,6 +134,13 @@ const schema = new Schema({
     },
   },
 });
+
+function contentLayoutAttr() {
+  return {
+    default: PresentationContentLayout.Flow,
+    validate: (value: unknown) => PresentationContentLayoutSchema.parse(value),
+  };
+}
 
 export interface SemanticFixtureCallbackCounts {
   layoutSection: number;
