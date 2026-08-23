@@ -113,6 +113,7 @@ describe("built-in Surface document semantics", () => {
       ownerId: surfaceId,
       definitionId: "page-default",
       helpers: {
+        projectDirectOwnedMembers: () => Object.freeze([]),
         projectStandardRichText: () => orderedCandidates,
         projectStructuralChildren: () => Object.freeze([]),
       },

@@ -27,6 +27,7 @@ describe("hidden Layout Section semantic publication", () => {
     const children = hiddenLayoutSectionDocumentSemantics.projectChildren?.({
       definitionId: "hidden-layout",
       helpers: {
+        projectDirectOwnedMembers: () => [],
         projectStandardRichText: () => [],
         projectStructuralChildren: () => [],
       },

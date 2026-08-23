@@ -1,9 +1,9 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import type {
-  DirectOwnedMemberProjectionHelpers,
   ProjectDirectOwnedMembersInput,
   PublishedSemanticChild,
+  SemanticProjectionHelpers,
 } from "./definition";
 import type { SemanticDefinitionLookup } from "./definition-lookup";
 import { projectStandardRichText } from "./rich-text-publication";
@@ -11,7 +11,7 @@ import { projectStandardRichText } from "./rich-text-publication";
 export function createSemanticProjectionHelpers(
   owner: ProseMirrorNode,
   definitions: SemanticDefinitionLookup,
-): DirectOwnedMemberProjectionHelpers {
+): SemanticProjectionHelpers {
   return Object.freeze({
     projectDirectOwnedMembers: (input: ProjectDirectOwnedMembersInput) =>
       projectDirectOwnedMembers(owner, input),

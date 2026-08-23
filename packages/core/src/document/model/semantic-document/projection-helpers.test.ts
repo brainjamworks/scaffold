@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 
+import type { SemanticChildProjector } from "./definition";
 import type { SemanticDefinitionLookup } from "./definition-lookup";
 import { createSemanticProjectionHelpers } from "./projection-helpers";
 
@@ -24,6 +25,30 @@ const definitions: SemanticDefinitionLookup = Object.freeze({
 });
 
 describe("semantic projection helpers", () => {
+  it("guarantees direct-member projection to feature projectors", () => {
+    const projectChildren: SemanticChildProjector = ({ helpers }) =>
+      helpers.projectDirectOwnedMembers({
+        nodeType: "member",
+        describe: ({ ordinal }) => ({ label: `Member ${ordinal + 1}` }),
+      });
+    const owner = schema.node("owner", null, [member("member00001")]);
+
+    expect(
+      projectChildren({
+        owner,
+        ownerId: "owner0000001" as EmbeddedNodeId,
+        definitionId: "owner",
+        helpers: createSemanticProjectionHelpers(owner, definitions),
+      }),
+    ).toEqual([
+      {
+        relativePos: 0,
+        semanticRole: "published-child",
+        label: "Member 1",
+      },
+    ]);
+  });
+
   it("projects matching direct members in document order with descriptions and matching ordinals", () => {
     const before = paragraph("Before");
     const first = member("member00001", [paragraph("First child")]);
