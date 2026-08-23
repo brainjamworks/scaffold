@@ -110,7 +110,7 @@ describe("Layout semantic navigation", () => {
 
       expect(
         controller.getSnapshot().semantics.locationById.get(targetId)?.activationPath,
-      ).toContainEqual({ ownerId: layoutId, childId: targetId, ownerKind: "layout" });
+      ).toEqual([{ ownerId: layoutId, childId: targetId, ownerKind: "layout" }]);
       const adapter = controller.containerAdapters.get(layoutId);
       if (!adapter) throw new Error(`Missing ${testCase.variant} adapter`);
       const authoredDocument = editor.getJSON();
@@ -122,6 +122,12 @@ describe("Layout semantic navigation", () => {
       await expect(adapter.reveal(targetId, "navigate")).resolves.toBe("revealed");
       expect(visibleSectionId(testCase, getLayoutInteractionStoreState(editor))).toBe(targetId);
       expect(targetPanel.hidden).toBe(false);
+      expect(controller.getSnapshot().semantics.itemById.get(targetId)?.id).toBe(targetId);
+      controller.reportComponentSelection(targetId);
+      expect(controller.getSnapshot()).toMatchObject({
+        selectedId: targetId,
+        selectionOrigin: "component",
+      });
       await expect(adapter.reveal(targetId, "navigate")).resolves.toBe("already-visible");
       expect(click).not.toHaveBeenCalled();
       expect(editor.getJSON()).toEqual(authoredDocument);

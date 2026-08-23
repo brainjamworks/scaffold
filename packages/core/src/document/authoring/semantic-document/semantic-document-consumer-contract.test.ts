@@ -30,6 +30,8 @@ describe("semantic document internal consumer contract", () => {
     const editor = createEditor();
     const controller = getSemanticDocumentControllerForEditor(editor);
     expect(getSemanticDocumentControllerForEditor(editor)).toBe(controller);
+    const semanticSnapshot = controller.getSnapshot().semantics;
+    expect(Object.isFrozen(semanticSnapshot)).toBe(true);
     const outlineViewport = new RecordingViewport();
     const timelineViewport = new RecordingViewport();
     const outline = new SemanticHierarchyViewController({
@@ -58,6 +60,7 @@ describe("semantic document internal consumer contract", () => {
     controller.reportComponentSelection(PARAGRAPH_ID);
     expect(outline.getSnapshot().selectedId).toBe(PARAGRAPH_ID);
     expect(timeline.getSnapshot().selectedId).toBe(PARAGRAPH_ID);
+    expect(controller.getSnapshot().semantics).toBe(semanticSnapshot);
     expect(outline.getSnapshot().expandedIds.has(SURFACE_ID)).toBe(true);
     expect(timeline.getSnapshot().expandedIds.has(SURFACE_ID)).toBe(true);
     await Promise.resolve();
@@ -82,8 +85,9 @@ describe("semantic document internal consumer contract", () => {
     expect(authoringEntrypoint).not.toContain("SemanticDocumentController");
     expect(authoringEntrypoint).not.toContain("SemanticHierarchyViewController");
     expect(outlineSource).toContain("@/document/authoring/semantic-document");
-    expect(outlineSource).toContain("@/document/model/semantic-document");
-    expect(outlineSource).not.toMatch(/@tiptap|ProseMirror|descendants\(|TableOfContents|builtIn/);
+    expect(outlineSource).not.toMatch(
+      /@tiptap|ProseMirror|descendants\(|TableOfContents|builtIn|projectSemanticDocument|projectStandardRichText|projectStructuralChildren/,
+    );
   });
 });
 
