@@ -144,55 +144,11 @@ describe("built-in Surface document semantics", () => {
     const subtitleWrapperId = id("subtitle0001");
     const subtitleId = id("subtitle0002");
     const privateRegionParagraphId = id("privatepara1");
-    const privateSlotFamilies = [
-      {
-        family: "image",
-        slotId: id("imageslot001"),
-        proseId: id("imageprv0001"),
-        text: "Private image slot prose",
-      },
-      {
-        family: "background",
-        slotId: id("backgrnd0001"),
-        proseId: id("backprv00001"),
-        text: "Private background slot prose",
-      },
-      {
-        family: "band",
-        slotId: id("bandslot0001"),
-        proseId: id("bandprv00001"),
-        text: "Private band slot prose",
-      },
-      {
-        family: "backdrop",
-        slotId: id("backdrop0001"),
-        proseId: id("dropprv00001"),
-        text: "Private backdrop slot prose",
-      },
-      {
-        family: "diptych",
-        slotId: id("diptych00001"),
-        proseId: id("dipprv000001"),
-        text: "Private diptych slot prose",
-      },
-      {
-        family: "triptych",
-        slotId: id("triptych0001"),
-        proseId: id("triprv000001"),
-        text: "Private triptych slot prose",
-      },
-    ] as const;
     const surface = schema.node(
       "surface",
       {
         id: id("surface00002"),
         variant: "slide-cover",
-        settings: Object.fromEntries(
-          privateSlotFamilies.map(({ family, slotId, proseId, text }) => [
-            family,
-            { id: slotId, privateProse: { id: proseId, text } },
-          ]),
-        ),
       },
       [
         textblock("heading", titleId, "Authored title"),
@@ -211,29 +167,99 @@ describe("built-in Surface document semantics", () => {
     expect(snapshot.itemById.get(subtitleId)?.label).toBe("Authored subtitle");
     expect(snapshot.parentById.get(titleId)).toBe(surface.attrs["id"]);
     expect(snapshot.parentById.get(subtitleId)).toBe(surface.attrs["id"]);
-    for (const privateId of [
-      subtitleWrapperId,
-      ...privateSlotFamilies.flatMap(({ slotId, proseId }) => [slotId, proseId]),
-    ]) {
-      expect(snapshot.itemById.has(privateId)).toBe(false);
-      expect(snapshot.parentById.has(privateId)).toBe(false);
-      expect(snapshot.locationById.has(privateId)).toBe(false);
-      expect(
-        snapshot.itemById
-          .get(surface.attrs["id"])
-          ?.children.map(({ id: childId }) => childId),
-      ).not.toContain(privateId);
-    }
-    const publicDescriptions = JSON.stringify(
-      [...snapshot.itemById.values()].map(({ label, summary }) => ({ label, summary })),
-    );
-    for (const { text } of privateSlotFamilies) {
-      expect(publicDescriptions).not.toContain(text);
-      expect(JSON.stringify(snapshot.diagnostics)).not.toContain(text);
-    }
+    expect(snapshot.itemById.has(subtitleWrapperId)).toBe(false);
+    expect(snapshot.parentById.has(subtitleWrapperId)).toBe(false);
+    expect(snapshot.locationById.has(subtitleWrapperId)).toBe(false);
     expect(snapshot.parentById.get(privateRegionParagraphId)).toBe(id("region000002"));
   });
+
+  it.each([
+    "slide-image-cover",
+    "slide-image-band",
+    "slide-image-content-split",
+    "slide-image-content-stacked",
+    "slide-full-bleed-image",
+    "slide-image-backdrop-panel",
+    "slide-diptych",
+    "slide-triptych",
+  ])("keeps schema-valid private media settings out of %s semantics", (variant) => {
+    const definition = builtInSurfaceVariantRegistry.get(variant);
+    if (!definition) throw new Error(`Missing built-in Surface definition: ${variant}`);
+    const created = definition.createSurface({ surfaceId: id("surface00004") });
+    const baselineSettings = definition.settingsSchema.parse(created.attrs?.["settings"] ?? {});
+    const privateSettings = definition.settingsSchema.parse(
+      addPrivateMediaSettings(variant, baselineSettings),
+    );
+    const baselineSurface = surfaceFromDefinition(created, baselineSettings);
+    const privateSurface = surfaceFromDefinition(created, privateSettings);
+
+    const baseline = project(documentNode("slideshow", baselineSurface));
+    const withPrivateMedia = project(documentNode("slideshow", privateSurface));
+
+    expect(publicSemanticShape(withPrivateMedia)).toEqual(publicSemanticShape(baseline));
+    expect(JSON.stringify(publicSemanticShape(withPrivateMedia))).not.toContain(PRIVATE_MEDIA_TEXT);
+    expect(JSON.stringify(withPrivateMedia.diagnostics)).not.toContain(PRIVATE_MEDIA_TEXT);
+  });
 });
+
+const PRIVATE_MEDIA_TEXT = "Private Surface media must not enter semantic publication";
+
+function addPrivateMediaSettings(variant: string, settings: unknown): unknown {
+  if (typeof settings !== "object" || settings === null) {
+    throw new Error(`Invalid settings fixture for ${variant}`);
+  }
+  const base = settings as Record<string, unknown>;
+  const image = {
+    imageUrl: "https://private.example.test/surface-media.png",
+    imageAlt: PRIVATE_MEDIA_TEXT,
+  };
+
+  if (variant === "slide-image-cover" || variant === "slide-image-band") {
+    return { ...base, image };
+  }
+  if (variant === "slide-full-bleed-image" || variant === "slide-image-backdrop-panel") {
+    return { ...base, background: image };
+  }
+
+  const roles =
+    variant === "slide-diptych"
+      ? ["primary", "secondary"]
+      : variant === "slide-triptych"
+        ? ["primary", "secondary", "tertiary"]
+        : ["primary"];
+  return { ...base, images: Object.fromEntries(roles.map((role) => [role, image])) };
+}
+
+function surfaceFromDefinition(
+  created: ReturnType<
+    NonNullable<ReturnType<typeof builtInSurfaceVariantRegistry.get>>["createSurface"]
+  >,
+  settings: unknown,
+): ProseMirrorNode {
+  let nextId = 0;
+  const withIds = (content: typeof created): typeof created => ({
+    ...content,
+    attrs: {
+      ...content.attrs,
+      id:
+        content.type === "surface"
+          ? id("surface00004")
+          : id(`slot${String(nextId++).padStart(8, "0")}`),
+      ...(content.type === "surface" ? { settings } : {}),
+    },
+    ...(content.content ? { content: content.content.map(withIds) } : {}),
+  });
+  return schema.nodeFromJSON(withIds(created));
+}
+
+function publicSemanticShape(snapshot: ReturnType<typeof project>) {
+  return {
+    roots: snapshot.roots,
+    parents: [...snapshot.parentById],
+    locations: [...snapshot.locationById],
+    diagnostics: snapshot.diagnostics,
+  };
+}
 
 function project(doc: ProseMirrorNode) {
   const courseStructure = projectCourseStructure(doc.toJSON());
