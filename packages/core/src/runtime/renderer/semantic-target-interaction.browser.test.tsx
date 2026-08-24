@@ -152,20 +152,7 @@ describe("mounted semantic target interaction runtime", () => {
         "data-flashcard-mastery",
         "unrated",
       );
-      expect(save).toHaveBeenLastCalledWith({
-        artifactId: "semantic-runtime-browser",
-        blockId: IDS.flashcard,
-        record: {
-          activityKind: "flashcard",
-          completed: false,
-          data: {
-            currentCardId: IDS.secondFlashcardCard,
-            flipped: {},
-            mastery: {},
-            total: 2,
-          },
-        },
-      });
+      expect(save).not.toHaveBeenCalled();
 
       await expect(
         environment.coordinator.activate(IDS.secondTimelineEntry, {

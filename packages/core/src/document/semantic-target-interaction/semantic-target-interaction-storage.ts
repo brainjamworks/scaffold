@@ -34,16 +34,23 @@ export function createSemanticTargetInteractionEnvironmentStorageExtension({
 export function getSemanticTargetInteractionEnvironmentForEditor(
   editor: Editor,
 ): SemanticTargetInteractionEnvironment {
+  const environment = tryGetSemanticTargetInteractionEnvironmentForEditor(editor);
+  if (environment) return environment;
+
+  throw new Error(
+    "Semantic Target Interaction Environment extension is not installed for this editor",
+  );
+}
+
+export function tryGetSemanticTargetInteractionEnvironmentForEditor(
+  editor: Editor,
+): SemanticTargetInteractionEnvironment | null {
   const editorStorage = editor.storage as unknown as Record<string, unknown>;
   const storage = editorStorage[SEMANTIC_TARGET_INTERACTION_ENVIRONMENT_STORAGE] as
     | Partial<SemanticTargetInteractionEnvironmentStorage>
     | undefined;
 
-  if (!storage?.getEnvironment) {
-    throw new Error(
-      "Semantic Target Interaction Environment extension is not installed for this editor",
-    );
-  }
+  if (!storage?.getEnvironment) return null;
 
   return storage.getEnvironment();
 }

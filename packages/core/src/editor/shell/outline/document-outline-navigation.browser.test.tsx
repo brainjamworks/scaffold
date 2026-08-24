@@ -557,7 +557,9 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
   document.querySelector<HTMLButtonElement>('button[aria-label^="Show structure for "]')!.click();
   await expect.element(page.getByRole("tree", { name: /structure$/ })).toBeVisible();
   await expect
-    .poll(() => controller.semanticActivations.resolve(IDS.tabs).kind === "resolved")
+    .poll(
+      () => controller.semanticTargetInteractions.registry.resolve(IDS.tabs).kind === "resolved",
+    )
     .toBe(true);
 
   return {
@@ -1022,7 +1024,7 @@ function galleryItem(itemId: EmbeddedNodeId, alt: string): JSONContent {
 function processFlowContent(): JSONContent {
   const processFlow = createProcessFlowContent({ orientation: "horizontal" });
   processFlow.attrs = { ...processFlow.attrs, id: IDS.processFlow };
-  processFlow.content = processFlow.content?.slice(0, 2).map((step, index) => ({
+  processFlow.content = (processFlow.content ?? []).slice(0, 2).map((step, index) => ({
     ...step,
     attrs: {
       ...step.attrs,
@@ -1054,7 +1056,7 @@ function roadmapContent(): JSONContent {
 function timelineContent(): JSONContent {
   const timeline = createTimelineContent({ presentation: "carousel" });
   timeline.attrs = { ...timeline.attrs, id: IDS.timeline };
-  timeline.content = timeline.content?.slice(0, 2).map((entry, index) => ({
+  timeline.content = (timeline.content ?? []).slice(0, 2).map((entry, index) => ({
     ...entry,
     attrs: {
       ...entry.attrs,

@@ -253,7 +253,7 @@ describe("Glossary document semantics", () => {
     controller.setNavigationEnvironment(environment);
     const glossaryLocation = controller.getSnapshot().semantics.locationById.get(glossaryId)!;
     const activationLookup = vi
-      .spyOn(controller.semanticActivations, "resolve")
+      .spyOn(controller.semanticTargetInteractions.registry, "resolve")
       .mockImplementation(() => {
         throw new Error("Anchor-only navigation must not resolve an activation binding");
       });

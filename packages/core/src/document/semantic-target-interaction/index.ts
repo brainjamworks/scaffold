@@ -16,6 +16,7 @@ export {
 export {
   createSemanticTargetInteractionEnvironmentStorageExtension,
   getSemanticTargetInteractionEnvironmentForEditor,
+  tryGetSemanticTargetInteractionEnvironmentForEditor,
 } from "./semantic-target-interaction-storage";
 export type {
   MountedSemanticActivationBinding,

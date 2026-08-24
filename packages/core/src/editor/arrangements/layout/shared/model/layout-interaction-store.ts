@@ -24,6 +24,8 @@ export interface LayoutInteractionStoreState {
   activeTabByLayoutId: Record<string, string>;
   lastSectionChangeByLayoutId: Record<string, LayoutSectionChange>;
   openAccordionSectionsByLayoutId: Record<string, readonly string[]>;
+  pendingSemanticAccordionOpenIdsByLayoutId: Record<string, readonly string[]>;
+  consumePendingSemanticAccordionOpenIds: (layoutId: string) => void;
   setAccordionSectionOpen: (
     layoutId: string,
     sectionId: string,
@@ -48,6 +50,15 @@ function createLayoutInteractionStore(): LayoutInteractionStore {
     activeTabByLayoutId: {},
     lastSectionChangeByLayoutId: {},
     openAccordionSectionsByLayoutId: {},
+    pendingSemanticAccordionOpenIdsByLayoutId: {},
+    consumePendingSemanticAccordionOpenIds: (layoutId) => {
+      set((state) => {
+        if (!(layoutId in state.pendingSemanticAccordionOpenIdsByLayoutId)) return state;
+        const { [layoutId]: _consumed, ...remaining } =
+          state.pendingSemanticAccordionOpenIdsByLayoutId;
+        return { pendingSemanticAccordionOpenIdsByLayoutId: remaining };
+      });
+    },
     setActivePage: (layoutId, sectionId, input) => {
       set((state) => ({
         activePageByLayoutId: {
@@ -89,6 +100,17 @@ function createLayoutInteractionStore(): LayoutInteractionStore {
           ...state.lastSectionChangeByLayoutId,
           [layoutId]: { origin: input.origin ?? "direct", sectionId },
         },
+        ...(input.origin === "semantic-activation" && !current.includes(sectionId)
+          ? {
+              pendingSemanticAccordionOpenIdsByLayoutId: {
+                ...state.pendingSemanticAccordionOpenIdsByLayoutId,
+                [layoutId]: [
+                  ...(state.pendingSemanticAccordionOpenIdsByLayoutId[layoutId] ?? []),
+                  sectionId,
+                ],
+              },
+            }
+          : {}),
       }));
     },
     toggleAccordionSection: (layoutId, sectionId, input) => {

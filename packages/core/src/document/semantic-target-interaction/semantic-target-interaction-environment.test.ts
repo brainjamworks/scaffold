@@ -15,6 +15,7 @@ import { createSemanticTargetInteractionEnvironment } from "./semantic-target-in
 import {
   createSemanticTargetInteractionEnvironmentStorageExtension,
   getSemanticTargetInteractionEnvironmentForEditor,
+  tryGetSemanticTargetInteractionEnvironmentForEditor,
 } from "./semantic-target-interaction-storage";
 
 describe("SemanticTargetInteractionEnvironment", () => {
@@ -47,6 +48,7 @@ describe("SemanticTargetInteractionEnvironment", () => {
     second.environment.registry.register(binding);
 
     expect(first.environment).not.toBe(second.environment);
+    expect(first).not.toHaveProperty("activationRegistry");
     expect(first.environment.registry).not.toBe(second.environment.registry);
     expect(Object.keys(first.environment).sort()).toEqual(["coordinator", "registry"]);
     expect(first.environment).not.toHaveProperty("dispose");
@@ -98,6 +100,10 @@ describe("SemanticTargetInteractionEnvironment", () => {
 
     try {
       expect(getSemanticTargetInteractionEnvironmentForEditor(editor)).toBe(owner.environment);
+      expect(tryGetSemanticTargetInteractionEnvironmentForEditor(editor)).toBe(owner.environment);
+      expect(tryGetSemanticTargetInteractionEnvironmentForEditor(editorWithoutEnvironment)).toBe(
+        null,
+      );
       expect(getSemanticTargetInteractionEnvironmentForEditor(editor)).not.toHaveProperty(
         "dispose",
       );
@@ -110,6 +116,26 @@ describe("SemanticTargetInteractionEnvironment", () => {
       editor.destroy();
       editorWithoutEnvironment.destroy();
       owner.dispose();
+    }
+  });
+
+  it("keeps storage getter defects observable through the optional accessor", () => {
+    const defect = new Error("environment getter defect");
+    const editor = new Editor({
+      extensions: [
+        StarterKit,
+        createSemanticTargetInteractionEnvironmentStorageExtension({
+          getEnvironment: () => {
+            throw defect;
+          },
+        }),
+      ],
+    });
+
+    try {
+      expect(() => tryGetSemanticTargetInteractionEnvironmentForEditor(editor)).toThrow(defect);
+    } finally {
+      editor.destroy();
     }
   });
 
@@ -213,7 +239,7 @@ describe("SemanticTargetInteractionEnvironment", () => {
       const beforeSelection = firstEditor.state.selection.toJSON();
 
       expect(firstEnvironment).toBe(firstController.semanticTargetInteractions);
-      expect(firstEnvironment.registry).not.toBe(firstController.semanticActivations);
+      expect(firstController).not.toHaveProperty("semanticActivations");
       expect(firstEnvironment.registry.resolve).toBeDefined();
       expect(firstEnvironment).not.toBe(secondEnvironment);
       await expect(

@@ -40,6 +40,7 @@ describe("semantic document internal consumer contract", () => {
     };
 
     expect(outlineBorrower).toBe(controller.semanticTargetInteractions);
+    expect(controller).not.toHaveProperty("semanticActivations");
     expect(timelineBorrower).toBe(outlineBorrower);
     expect(outlineBorrower).not.toHaveProperty("dispose");
     expect(outlineBorrower.registry).not.toHaveProperty("dispose");

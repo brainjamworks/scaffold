@@ -257,7 +257,7 @@ describe("Numbered List document semantics", () => {
     controller.setNavigationEnvironment(environment);
     const listLocation = controller.getSnapshot().semantics.locationById.get(listId)!;
     const activationLookup = vi
-      .spyOn(controller.semanticActivations, "resolve")
+      .spyOn(controller.semanticTargetInteractions.registry, "resolve")
       .mockImplementation(() => {
         throw new Error("Anchor-only navigation must not resolve an activation binding");
       });

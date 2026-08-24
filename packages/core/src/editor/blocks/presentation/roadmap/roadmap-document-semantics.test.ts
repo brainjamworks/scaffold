@@ -270,8 +270,8 @@ describe("Roadmap document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const roadmapLocation = controller.getSnapshot().semantics.locationById.get(roadmapId)!;
-    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
-    controller.semanticActivations.register({
+    const activationLookup = vi.spyOn(controller.semanticTargetInteractions.registry, "resolve");
+    controller.semanticTargetInteractions.registry.register({
       ownerId: roadmapId,
       activate: async ({ relationship }) => {
         const childId = relationship.childId;

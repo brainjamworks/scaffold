@@ -240,6 +240,65 @@ describe("layout runtime nodes", () => {
     }
   });
 
+  it("suppresses learner events for back-to-back semantic Accordion openings", async () => {
+    learningEventReport.mockClear();
+    const testCase = {
+      variant: "accordion",
+      layoutId: "layoutAccMul",
+      sectionIds: ["sectionAccM1", "sectionAccM2", "sectionAccM3"],
+      allowMultiple: true,
+    } as const satisfies RuntimeSemanticLayoutCase;
+    const editor = new Editor({
+      editable: false,
+      extensions: createCourseDocumentRuntimeExtensions({
+        composition: semanticRuntimeComposition,
+      }),
+      content: runtimeSemanticLayoutDocument(testCase),
+    });
+
+    try {
+      render(createElement(EditorContent, { editor }));
+      const layoutId = EmbeddedNodeIdSchema.parse(testCase.layoutId);
+      const secondSectionId = EmbeddedNodeIdSchema.parse(testCase.sectionIds[1]);
+      const thirdSectionId = EmbeddedNodeIdSchema.parse(testCase.sectionIds[2]);
+
+      await waitFor(() => {
+        expect(environmentRegistryResolution(editor, layoutId).kind).toBe("resolved");
+        expect(learningEventReport).toHaveBeenCalledWith(
+          expect.objectContaining({ sectionId: testCase.sectionIds[0] }),
+        );
+      });
+      learningEventReport.mockClear();
+
+      const binding = requireRuntimeSemanticActivationBinding(editor, layoutId);
+      const secondActivation = binding.activate(
+        semanticActivationRequest(layoutId, secondSectionId, { ownerKind: "layout" }),
+      );
+      const thirdActivation = binding.activate(
+        semanticActivationRequest(layoutId, thirdSectionId, { ownerKind: "layout" }),
+      );
+
+      await expect(secondActivation).resolves.toEqual({
+        kind: "interrupted",
+        ownerId: layoutId,
+        childId: secondSectionId,
+      });
+      await expect(thirdActivation).resolves.toEqual({
+        kind: "revealed",
+        ownerId: layoutId,
+        childId: thirdSectionId,
+      });
+      await waitFor(() => {
+        expect(
+          getLayoutInteractionStoreState(editor).openAccordionSectionsByLayoutId[layoutId],
+        ).toEqual([testCase.sectionIds[0], secondSectionId, thirdSectionId]);
+      });
+      expect(learningEventReport).not.toHaveBeenCalled();
+    } finally {
+      editor.destroy();
+    }
+  });
+
   it.each(SEMANTIC_RUNTIME_CASES)(
     "reports genuine learner interaction with the $variant runtime",
     async (testCase) => {
@@ -571,7 +630,7 @@ function runtimeTabSection(id: string, label: string) {
 interface RuntimeSemanticLayoutCase {
   readonly variant: "tabs" | "accordion" | "paginated";
   readonly layoutId: string;
-  readonly sectionIds: readonly [string, string];
+  readonly sectionIds: readonly [string, string, ...string[]];
   readonly allowMultiple?: boolean;
 }
 
@@ -585,10 +644,10 @@ function runtimeSemanticLayoutDocument(testCase: RuntimeSemanticLayoutCase): JSO
   const layout = definition.createContent({
     options:
       testCase.variant === "tabs"
-        ? { sections: 2 }
+        ? { sections: testCase.sectionIds.length }
         : testCase.variant === "accordion"
-          ? { sections: 2, allowMultiple: testCase.allowMultiple ?? false }
-          : { pages: 2 },
+          ? { sections: testCase.sectionIds.length, allowMultiple: testCase.allowMultiple ?? false }
+          : { pages: testCase.sectionIds.length },
   });
 
   return {

@@ -1,4 +1,5 @@
 import { NodeViewContent, type NodeViewProps } from "@tiptap/react";
+import { useEffect } from "react";
 
 import { useStatefulBlockSemanticActivationBinding } from "@/document/semantic-target-interaction/use-stateful-block-semantic-activation-binding";
 
@@ -9,13 +10,19 @@ import {
   useFlashcardCardController,
   useFlashcardDeckController,
 } from "./flashcard-runtime-controller";
+import { useFlashcardRuntimePresentation } from "./flashcard-runtime-presentation";
 
 export function FlashcardRuntimeView(props: NodeViewProps) {
   const blockId = readRequiredNodeId(props.node.attrs["id"], "flashcard block");
+  const presentation = useFlashcardRuntimePresentation(props.editor, blockId);
   const deckController = useFlashcardDeckController({
     blockId,
     deckNode: props.node,
+    presentation,
   });
+  const clearPresentedCard = presentation.setCurrentCardId;
+
+  useEffect(() => () => clearPresentedCard(null), [clearPresentedCard]);
 
   useStatefulBlockSemanticActivationBinding({
     childNodeType: FLASHCARD_CARD_NODE,
@@ -41,10 +48,12 @@ export function FlashcardCardRuntimeView(props: NodeViewProps) {
   const parent = resolveParentFlashcardBlock(props);
   const blockId = parent?.id ?? null;
   const cardId = readRequiredNodeId(props.node.attrs["id"], "flashcard card");
+  const presentation = useFlashcardRuntimePresentation(props.editor, blockId ?? cardId);
   const controller = useFlashcardCardController({
     blockId,
     deckNode: parent?.node,
     cardId,
+    presentation,
   });
   return <FlashcardCardView editable={false} cardId={cardId} controller={controller} />;
 }

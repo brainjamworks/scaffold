@@ -52,8 +52,10 @@ describe("semantic document lifecycle", () => {
       createActivationTransaction,
       bringIntoView,
     });
-    expect(controller.semanticActivations.resolve(family.ownerId).kind).toBe("unavailable");
-    controller.semanticActivations.register({
+    expect(controller.semanticTargetInteractions.registry.resolve(family.ownerId).kind).toBe(
+      "unavailable",
+    );
+    controller.semanticTargetInteractions.registry.register({
       ownerId: family.ownerId,
       async activate({ relationship }) {
         started.resolve(undefined);

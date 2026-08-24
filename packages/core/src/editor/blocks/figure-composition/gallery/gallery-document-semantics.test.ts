@@ -210,8 +210,8 @@ describe("Gallery document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const galleryLocation = controller.getSnapshot().semantics.locationById.get(galleryId)!;
-    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
-    controller.semanticActivations.register({
+    const activationLookup = vi.spyOn(controller.semanticTargetInteractions.registry, "resolve");
+    controller.semanticTargetInteractions.registry.register({
       ownerId: galleryId,
       activate: async ({ relationship }) => {
         const childId = relationship.childId;

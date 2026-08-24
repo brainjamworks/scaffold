@@ -246,7 +246,7 @@ describe("Annotated Figure document semantics", () => {
     );
     const currentFigureLocation = controller.getSnapshot().semantics.locationById.get(figureId)!;
     const activationLookup = vi
-      .spyOn(controller.semanticActivations, "resolve")
+      .spyOn(controller.semanticTargetInteractions.registry, "resolve")
       .mockImplementation(() => {
         throw new Error("Anchor-only navigation must not resolve an activation binding");
       });

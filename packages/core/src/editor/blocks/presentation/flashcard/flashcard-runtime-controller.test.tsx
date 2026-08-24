@@ -2,6 +2,7 @@
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { LearnerActivityPort, LearningEventPort } from "@/host/ports";
@@ -57,19 +58,24 @@ function createLearningEventPort() {
 }
 
 function RuntimeControllerProbe() {
+  const [presentedCardId, setPresentedCardId] = useState<string | null>(null);
+  const presentation = { currentCardId: presentedCardId, setCurrentCardId: setPresentedCardId };
   const deck = useFlashcardDeckController({
     blockId: "flash0000001",
     deckNode,
+    presentation,
   });
   const cardA = useFlashcardCardController({
     blockId: "flash0000001",
     deckNode,
     cardId: "flashcard001",
+    presentation,
   });
   const cardB = useFlashcardCardController({
     blockId: "flash0000001",
     deckNode,
     cardId: "flashcard002",
+    presentation,
   });
 
   return (

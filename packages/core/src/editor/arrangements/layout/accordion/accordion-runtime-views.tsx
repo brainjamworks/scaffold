@@ -47,9 +47,13 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
     (state) => state.setAccordionSectionOpen,
   );
   const openSectionIds = accordionOpenSectionIds({ defaultOpenIds, storedOpenIds });
-  const lastSectionChange = useLayoutInteractionStore(
+  const pendingSemanticOpenIds = useLayoutInteractionStore(
     props.editor,
-    (state) => state.lastSectionChangeByLayoutId[layoutId],
+    (state) => state.pendingSemanticAccordionOpenIdsByLayoutId[layoutId],
+  );
+  const consumePendingSemanticOpenIds = useLayoutInteractionStore(
+    props.editor,
+    (state) => state.consumePendingSemanticAccordionOpenIds,
   );
   const learningEventReporter = useLearningEventReporter();
   const presentedSurfaceId = useRuntimePresentedSurfaceId();
@@ -94,15 +98,11 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
       recordedOpenRef.current?.reporter === learningEventReporter
         ? recordedOpenRef.current.sectionIds
         : new Set<string>();
+    const semanticOpenIds = new Set(pendingSemanticOpenIds ?? []);
 
     for (const sectionId of openSectionIds) {
       if (previous.has(sectionId)) continue;
-      if (
-        lastSectionChange?.origin === "semantic-activation" &&
-        lastSectionChange.sectionId === sectionId
-      ) {
-        continue;
-      }
+      if (semanticOpenIds.has(sectionId)) continue;
       const sectionIndex = sections.findIndex((section) => section.id === sectionId);
       if (sectionIndex < 0) continue;
 
@@ -124,7 +124,16 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
       reporter: learningEventReporter,
       sectionIds: new Set(openSectionIds),
     };
-  }, [isPresented, lastSectionChange, layoutId, learningEventReporter, openSectionIds, sections]);
+    if (pendingSemanticOpenIds?.length) consumePendingSemanticOpenIds(layoutId);
+  }, [
+    consumePendingSemanticOpenIds,
+    isPresented,
+    layoutId,
+    learningEventReporter,
+    openSectionIds,
+    pendingSemanticOpenIds,
+    sections,
+  ]);
 
   return (
     <div className="sc-course-accordion">

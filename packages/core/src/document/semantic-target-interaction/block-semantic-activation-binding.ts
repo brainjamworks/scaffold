@@ -1,7 +1,7 @@
 import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import type { Editor } from "@tiptap/core";
 
-import { getSemanticTargetInteractionEnvironmentForEditor } from "./semantic-target-interaction-storage";
+import { tryGetSemanticTargetInteractionEnvironmentForEditor } from "./semantic-target-interaction-storage";
 import type { SemanticActivationRegistryPort } from "./semantic-target-interaction-environment";
 
 export type CurrentDirectChildStatus = "current" | "owner-missing" | "child-missing";
@@ -50,16 +50,5 @@ export function currentDirectChildStatus({
 export function semanticActivationRegistryForEditor(
   editor: Editor,
 ): SemanticActivationRegistryPort | null {
-  try {
-    return getSemanticTargetInteractionEnvironmentForEditor(editor).registry;
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message ===
-        "Semantic Target Interaction Environment extension is not installed for this editor"
-    ) {
-      return null;
-    }
-    throw error;
-  }
+  return tryGetSemanticTargetInteractionEnvironmentForEditor(editor)?.registry ?? null;
 }

@@ -6,7 +6,7 @@ import {
   createSemanticActivationRegistry,
   createSemanticTargetInteractionEnvironmentStorageExtension,
   type MountedSemanticActivationBinding,
-  type SemanticActivationRegistry,
+  type SemanticActivationRegistryPort,
   type SemanticActivationRequest,
   type SemanticInteractionOrigin,
   type SemanticTargetInteractionEnvironment,
@@ -39,7 +39,7 @@ export function createSemanticActivationBindingTestExtension() {
 }
 
 export function requireSemanticActivationBinding(
-  registry: SemanticActivationRegistry,
+  registry: Pick<SemanticActivationRegistryPort, "resolve">,
   ownerId: EmbeddedNodeId,
 ): MountedSemanticActivationBinding {
   const resolution = registry.resolve(ownerId);

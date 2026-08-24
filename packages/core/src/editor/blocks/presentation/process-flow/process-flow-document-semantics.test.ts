@@ -242,8 +242,8 @@ describe("Process Flow document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const processFlowLocation = controller.getSnapshot().semantics.locationById.get(processFlowId)!;
-    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
-    controller.semanticActivations.register({
+    const activationLookup = vi.spyOn(controller.semanticTargetInteractions.registry, "resolve");
+    controller.semanticTargetInteractions.registry.register({
       ownerId: processFlowId,
       activate: async ({ relationship }) => {
         const childId = relationship.childId;

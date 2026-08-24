@@ -110,21 +110,8 @@ describe("Flashcard semantic runtime", () => {
         expect(flashcardElement(editor, targetId)).not.toHaveClass(
           "sc-course-flashcard-card--inactive",
         );
-        expect(save).toHaveBeenLastCalledWith({
-          artifactId: "flashcard-semantic-runtime",
-          blockId: ownerId,
-          record: {
-            activityKind: "flashcard",
-            completed: false,
-            data: {
-              currentCardId: targetId,
-              flipped: {},
-              mastery: {},
-              total: 2,
-            },
-          },
-        });
       });
+      expect(save).not.toHaveBeenCalled();
       expect(flashcardElement(editor, targetId)).toHaveAttribute("data-flashcard-flipped", "false");
       expect(flashcardElement(editor, targetId)).toHaveAttribute(
         "data-flashcard-mastery",

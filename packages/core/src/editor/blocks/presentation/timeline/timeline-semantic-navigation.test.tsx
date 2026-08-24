@@ -135,7 +135,9 @@ describe("Timeline semantic navigation", () => {
     const controller = getSemanticDocumentControllerForEditor(editor);
 
     await waitFor(() => {
-      expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("resolved");
+      expect(controller.semanticTargetInteractions.registry.resolve(TIMELINE_ID).kind).toBe(
+        "resolved",
+      );
     });
     expect(
       Array.from(document.querySelectorAll<HTMLElement>("[data-timeline-entry-id]")).map(
@@ -144,7 +146,7 @@ describe("Timeline semantic navigation", () => {
     ).toEqual(ENTRY_IDS);
 
     rendered.unmount();
-    expect(controller.semanticActivations.resolve(TIMELINE_ID)).toEqual({
+    expect(controller.semanticTargetInteractions.registry.resolve(TIMELINE_ID)).toEqual({
       kind: "unavailable",
       ownerId: TIMELINE_ID,
       reason: "owner-unmounted",
@@ -159,7 +161,9 @@ describe("Timeline semantic navigation", () => {
       const controller = getSemanticDocumentControllerForEditor(editor);
       const targetId = ENTRY_IDS[1];
       await waitFor(() =>
-        expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("resolved"),
+        expect(controller.semanticTargetInteractions.registry.resolve(TIMELINE_ID).kind).toBe(
+          "resolved",
+        ),
       );
       const track = timelineTrack(TIMELINE_ID);
       const target = timelineEntry(track, targetId);
@@ -217,9 +221,14 @@ describe("Timeline semantic navigation", () => {
     renderEditor(editor);
     const controller = getSemanticDocumentControllerForEditor(editor);
     await waitFor(() =>
-      expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("resolved"),
+      expect(controller.semanticTargetInteractions.registry.resolve(TIMELINE_ID).kind).toBe(
+        "resolved",
+      ),
     );
-    const binding = requireSemanticActivationBinding(controller.semanticActivations, TIMELINE_ID);
+    const binding = requireSemanticActivationBinding(
+      controller.semanticTargetInteractions.registry,
+      TIMELINE_ID,
+    );
     const track = timelineTrack(TIMELINE_ID);
     const target = timelineEntry(track, ENTRY_IDS[0]);
     const scrollTo = installGeometry(track, target, "vertical", true);
@@ -244,10 +253,17 @@ describe("Timeline semantic navigation", () => {
     renderEditor(editor);
     const controller = getSemanticDocumentControllerForEditor(editor);
     await waitFor(() => {
-      expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("resolved");
-      expect(controller.semanticActivations.resolve(SECOND_TIMELINE_ID).kind).toBe("resolved");
+      expect(controller.semanticTargetInteractions.registry.resolve(TIMELINE_ID).kind).toBe(
+        "resolved",
+      );
+      expect(controller.semanticTargetInteractions.registry.resolve(SECOND_TIMELINE_ID).kind).toBe(
+        "resolved",
+      );
     });
-    const binding = requireSemanticActivationBinding(controller.semanticActivations, TIMELINE_ID);
+    const binding = requireSemanticActivationBinding(
+      controller.semanticTargetInteractions.registry,
+      TIMELINE_ID,
+    );
     const firstTrack = timelineTrack(TIMELINE_ID);
     const firstEntry = timelineEntry(firstTrack, ENTRY_IDS[0]);
     const scrollTo = installGeometry(firstTrack, firstEntry, "vertical", true);
@@ -269,9 +285,14 @@ describe("Timeline semantic navigation", () => {
     renderEditor(editor);
     const controller = getSemanticDocumentControllerForEditor(editor);
     await waitFor(() =>
-      expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("resolved"),
+      expect(controller.semanticTargetInteractions.registry.resolve(TIMELINE_ID).kind).toBe(
+        "resolved",
+      ),
     );
-    const binding = requireSemanticActivationBinding(controller.semanticActivations, TIMELINE_ID);
+    const binding = requireSemanticActivationBinding(
+      controller.semanticTargetInteractions.registry,
+      TIMELINE_ID,
+    );
     const track = timelineTrack(TIMELINE_ID);
     const target = timelineEntry(track, ENTRY_IDS[1]);
     const scrollTo = installGeometry(track, target, "vertical", false);
@@ -296,9 +317,14 @@ describe("Timeline semantic navigation", () => {
     renderEditor(editor);
     const controller = getSemanticDocumentControllerForEditor(editor);
     await waitFor(() =>
-      expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("resolved"),
+      expect(controller.semanticTargetInteractions.registry.resolve(TIMELINE_ID).kind).toBe(
+        "resolved",
+      ),
     );
-    const binding = requireSemanticActivationBinding(controller.semanticActivations, TIMELINE_ID);
+    const binding = requireSemanticActivationBinding(
+      controller.semanticTargetInteractions.registry,
+      TIMELINE_ID,
+    );
     const track = timelineTrack(TIMELINE_ID);
     const target = timelineEntry(track, ENTRY_IDS[1]);
     const scrollTo = installGeometry(track, target, "vertical", false);
@@ -327,9 +353,14 @@ describe("Timeline semantic navigation", () => {
     const rendered = renderEditor(editor);
     const controller = getSemanticDocumentControllerForEditor(editor);
     await waitFor(() =>
-      expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("resolved"),
+      expect(controller.semanticTargetInteractions.registry.resolve(TIMELINE_ID).kind).toBe(
+        "resolved",
+      ),
     );
-    const binding = requireSemanticActivationBinding(controller.semanticActivations, TIMELINE_ID);
+    const binding = requireSemanticActivationBinding(
+      controller.semanticTargetInteractions.registry,
+      TIMELINE_ID,
+    );
     const track = timelineTrack(TIMELINE_ID);
     const target = timelineEntry(track, ENTRY_IDS[1]);
     const scrollTo = installGeometry(track, target, "vertical", false);
@@ -345,7 +376,9 @@ describe("Timeline semantic navigation", () => {
       reason: "owner-unmounted",
     });
     expect(scrollTo).not.toHaveBeenCalled();
-    expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("unavailable");
+    expect(controller.semanticTargetInteractions.registry.resolve(TIMELINE_ID).kind).toBe(
+      "unavailable",
+    );
   });
 });
 

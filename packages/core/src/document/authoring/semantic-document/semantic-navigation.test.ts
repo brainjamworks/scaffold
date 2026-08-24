@@ -80,7 +80,7 @@ describe("semantic navigation", () => {
     const activationOrder: string[] = [];
     const activationRequests: SemanticActivationRequest[] = [];
     for (const relationship of activationPath) {
-      session.controller.semanticActivations.register({
+      session.controller.semanticTargetInteractions.registry.register({
         ownerId: relationship.ownerId,
         activate: async (request) => {
           activationRequests.push(request);
@@ -172,7 +172,7 @@ describe("semantic navigation", () => {
       if (!firstRelationship) throw new Error("expected an activation relationship");
 
       if (targetKind === "unavailable") {
-        session.controller.semanticActivations.register(
+        session.controller.semanticTargetInteractions.registry.register(
           binding(firstRelationship.ownerId, (childId) => ({
             kind: "unavailable",
             ownerId: firstRelationship.ownerId,
@@ -181,7 +181,7 @@ describe("semantic navigation", () => {
           })),
         );
       } else if (targetKind === "refused") {
-        session.controller.semanticActivations.register(
+        session.controller.semanticTargetInteractions.registry.register(
           binding(firstRelationship.ownerId, (childId) => ({
             kind: "refused",
             ownerId: firstRelationship.ownerId,
@@ -213,7 +213,7 @@ describe("semantic navigation", () => {
     const targetId = session.fixture.surfaces[0]!.publishedParagraph;
     const [firstRelationship] = requireLocation(session.controller, targetId).activationPath;
     if (!firstRelationship) throw new Error("expected an activation relationship");
-    session.controller.semanticActivations.register({
+    session.controller.semanticTargetInteractions.registry.register({
       ownerId: firstRelationship.ownerId,
       activate: () => {
         throw new Error("binding failed");
@@ -232,7 +232,7 @@ describe("semantic navigation", () => {
     const [firstRelationship] = requireLocation(session.controller, staleTargetId).activationPath;
     if (!firstRelationship) throw new Error("expected an activation relationship");
     const started = deferred<void>();
-    session.controller.semanticActivations.register({
+    session.controller.semanticTargetInteractions.registry.register({
       ownerId: firstRelationship.ownerId,
       activate: ({ relationship, signal }) =>
         new Promise((resolve) => {
@@ -270,7 +270,7 @@ describe("semantic navigation", () => {
     const [firstRelationship] = requireLocation(session.controller, targetId).activationPath;
     if (!firstRelationship) throw new Error("expected an activation relationship");
     const started = deferred<void>();
-    session.controller.semanticActivations.register({
+    session.controller.semanticTargetInteractions.registry.register({
       ownerId: firstRelationship.ownerId,
       activate: ({ relationship, signal }) =>
         new Promise((resolve) => {
@@ -308,7 +308,7 @@ describe("semantic navigation", () => {
     const [firstRelationship] = requireLocation(session.controller, targetId).activationPath;
     if (!firstRelationship) throw new Error("expected an activation relationship");
     const started = deferred<void>();
-    session.controller.semanticActivations.register({
+    session.controller.semanticTargetInteractions.registry.register({
       ownerId: firstRelationship.ownerId,
       activate: ({ relationship, signal }) =>
         new Promise((resolve) => {
@@ -342,7 +342,7 @@ describe("semantic navigation", () => {
     const currentTargetId = session.fixture.surfaces[0]!.publishedParagraph;
     for (const relationship of requireLocation(session.controller, currentTargetId)
       .activationPath) {
-      session.controller.semanticActivations.register(
+      session.controller.semanticTargetInteractions.registry.register(
         binding(relationship.ownerId, (childId) => revealedOutcome(relationship.ownerId, childId)),
       );
     }
@@ -401,7 +401,7 @@ describe("semantic navigation", () => {
     if (!firstRelationship) throw new Error("expected an activation relationship");
     const started = deferred<void>();
     const waiting = deferred<ReturnType<typeof revealedOutcome>>();
-    session.controller.semanticActivations.register(
+    session.controller.semanticTargetInteractions.registry.register(
       binding(firstRelationship.ownerId, () => {
         started.resolve(undefined);
         return waiting.promise;

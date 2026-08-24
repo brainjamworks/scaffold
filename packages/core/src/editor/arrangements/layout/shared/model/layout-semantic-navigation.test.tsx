@@ -109,13 +109,18 @@ describe("Layout semantic navigation", () => {
       const targetId = testCase.sectionIds[1] as EmbeddedNodeId;
 
       await waitFor(() => {
-        expect(controller.semanticActivations.resolve(layoutId).kind).toBe("resolved");
+        expect(controller.semanticTargetInteractions.registry.resolve(layoutId).kind).toBe(
+          "resolved",
+        );
       });
 
       expect(controller.getSnapshot().semantics.locationById.get(targetId)?.activationPath).toEqual(
         [{ ownerId: layoutId, childId: targetId, ownerKind: "layout" }],
       );
-      const binding = requireSemanticActivationBinding(controller.semanticActivations, layoutId);
+      const binding = requireSemanticActivationBinding(
+        controller.semanticTargetInteractions.registry,
+        layoutId,
+      );
       const authoredDocument = editor.getJSON();
       const click = vi.fn();
       document.addEventListener("click", click);
@@ -141,7 +146,7 @@ describe("Layout semantic navigation", () => {
 
       document.removeEventListener("click", click);
       act(() => rendered.unmount());
-      expect(controller.semanticActivations.resolve(layoutId)).toEqual({
+      expect(controller.semanticTargetInteractions.registry.resolve(layoutId)).toEqual({
         kind: "unavailable",
         ownerId: layoutId,
         reason: "owner-unmounted",
@@ -194,9 +199,14 @@ describe("Layout semantic navigation", () => {
     );
 
     await waitFor(() => {
-      expect(controller.semanticActivations.resolve(layoutId).kind).toBe("resolved");
+      expect(controller.semanticTargetInteractions.registry.resolve(layoutId).kind).toBe(
+        "resolved",
+      );
     });
-    const binding = requireSemanticActivationBinding(controller.semanticActivations, layoutId);
+    const binding = requireSemanticActivationBinding(
+      controller.semanticTargetInteractions.registry,
+      layoutId,
+    );
     let result: unknown;
     const activation = binding
       .activate(semanticActivationRequest(layoutId, targetId, { ownerKind: "layout" }))
@@ -245,9 +255,14 @@ describe("Layout semantic navigation", () => {
     );
 
     await waitFor(() => {
-      expect(controller.semanticActivations.resolve(layoutId).kind).toBe("resolved");
+      expect(controller.semanticTargetInteractions.registry.resolve(layoutId).kind).toBe(
+        "resolved",
+      );
     });
-    const binding = requireSemanticActivationBinding(controller.semanticActivations, layoutId);
+    const binding = requireSemanticActivationBinding(
+      controller.semanticTargetInteractions.registry,
+      layoutId,
+    );
     const activation = binding.activate(
       semanticActivationRequest(layoutId, targetId, { ownerKind: "layout" }),
     );
@@ -261,7 +276,7 @@ describe("Layout semantic navigation", () => {
       childId: targetId,
       reason: "owner-unmounted",
     });
-    expect(controller.semanticActivations.resolve(layoutId)).toEqual({
+    expect(controller.semanticTargetInteractions.registry.resolve(layoutId)).toEqual({
       kind: "unavailable",
       ownerId: layoutId,
       reason: "owner-unmounted",
@@ -292,9 +307,14 @@ describe("Layout semantic navigation", () => {
     );
 
     await waitFor(() => {
-      expect(controller.semanticActivations.resolve(layoutId).kind).toBe("resolved");
+      expect(controller.semanticTargetInteractions.registry.resolve(layoutId).kind).toBe(
+        "resolved",
+      );
     });
-    const binding = requireSemanticActivationBinding(controller.semanticActivations, layoutId);
+    const binding = requireSemanticActivationBinding(
+      controller.semanticTargetInteractions.registry,
+      layoutId,
+    );
     const first = binding.activate(
       semanticActivationRequest(layoutId, targetId, { ownerKind: "layout" }),
     );
@@ -347,7 +367,9 @@ describe("Layout semantic navigation", () => {
     );
 
     await waitFor(() => {
-      expect(controller.semanticActivations.resolve(layoutId).kind).toBe("resolved");
+      expect(controller.semanticTargetInteractions.registry.resolve(layoutId).kind).toBe(
+        "resolved",
+      );
     });
     const ownerWindow = editor.view.dom.ownerDocument.defaultView;
     if (!ownerWindow) throw new Error("Missing editor owner window");
@@ -361,7 +383,10 @@ describe("Layout semantic navigation", () => {
     });
 
     try {
-      const binding = requireSemanticActivationBinding(controller.semanticActivations, layoutId);
+      const binding = requireSemanticActivationBinding(
+        controller.semanticTargetInteractions.registry,
+        layoutId,
+      );
       await expect(
         binding.activate(semanticActivationRequest(layoutId, targetId, { ownerKind: "layout" })),
       ).resolves.toEqual({

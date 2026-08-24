@@ -21,7 +21,6 @@ export interface SemanticTargetInteractionEnvironment {
 
 export interface SemanticTargetInteractionEnvironmentOwner {
   readonly environment: SemanticTargetInteractionEnvironment;
-  readonly activationRegistry: SemanticActivationRegistry;
   dispose(): void;
 }
 
@@ -38,23 +37,22 @@ export function createSemanticTargetInteractionEnvironment({
 }: CreateSemanticTargetInteractionEnvironmentInput): SemanticTargetInteractionEnvironmentOwner {
   const registry = createSemanticActivationRegistry();
   const lifecycle = new AbortController();
+  const registryPort: SemanticActivationRegistryPort = {
+    register: (binding) => registry.register(binding),
+    resolve: (ownerId) => registry.resolve(ownerId),
+  };
   const coordinator = createSemanticTargetInteractionCoordinator({
-    registry,
+    registry: registryPort,
     getSemantics,
     getCourseStructure,
     surfacePresentation,
     lifecycleSignal: lifecycle.signal,
-  });
-  const registryPort: SemanticActivationRegistryPort = Object.freeze({
-    register: (binding) => registry.register(binding),
-    resolve: (ownerId) => registry.resolve(ownerId),
   });
   const environment = Object.freeze({ registry: registryPort, coordinator });
   let disposed = false;
 
   return Object.freeze({
     environment,
-    activationRegistry: registry,
     dispose() {
       if (disposed) return;
       disposed = true;

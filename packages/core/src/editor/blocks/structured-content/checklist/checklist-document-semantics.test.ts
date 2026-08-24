@@ -203,7 +203,7 @@ describe("Checklist document semantics", () => {
     controller.setNavigationEnvironment(environment);
     const checklistLocation = controller.getSnapshot().semantics.locationById.get(checklistId)!;
     const activationLookup = vi
-      .spyOn(controller.semanticActivations, "resolve")
+      .spyOn(controller.semanticTargetInteractions.registry, "resolve")
       .mockImplementation(() => {
         throw new Error("Anchor-only navigation must not resolve an activation binding");
       });

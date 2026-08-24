@@ -46,7 +46,10 @@ describe("semantic presentation address book navigation", () => {
         activationOutcome("revealed", family.ownerId, request.relationship.childId),
       );
       activationsByOwner.set(family.ownerId, activate);
-      session.controller.semanticActivations.register({ ownerId: family.ownerId, activate });
+      session.controller.semanticTargetInteractions.registry.register({
+        ownerId: family.ownerId,
+        activate,
+      });
     }
 
     const families = [
@@ -109,7 +112,7 @@ describe("semantic presentation address book navigation", () => {
     const started = deferred<void>();
     const waiting = deferred<SemanticActivationOutcome>();
     const activationOrder: EmbeddedNodeId[] = [];
-    session.controller.semanticActivations.register({
+    session.controller.semanticTargetInteractions.registry.register({
       ownerId: timeline.ownerId,
       activate: ({ relationship }) => {
         activationOrder.push(relationship.childId);
@@ -149,7 +152,7 @@ describe("semantic presentation address book navigation", () => {
     const baselineOwnerLocation = requireLocation(baseline, timeline.ownerId);
     const viewportStarted = deferred<void>();
     const viewportWaiting = deferred<void>();
-    session.controller.semanticActivations.register({
+    session.controller.semanticTargetInteractions.registry.register({
       ownerId: timeline.ownerId,
       activate: async ({ relationship }) =>
         activationOutcome("already-visible", timeline.ownerId, relationship.childId),
@@ -196,7 +199,7 @@ describe("semantic presentation address book navigation", () => {
       const session = createEditorSession();
       const authoredDocument = session.editor.getJSON();
       if (bindingKind === "unavailable") {
-        session.controller.semanticActivations.register({
+        session.controller.semanticTargetInteractions.registry.register({
           ownerId: timeline.ownerId,
           activate: async ({ relationship }) => ({
             kind: "unavailable",
@@ -230,7 +233,7 @@ describe("semantic presentation address book navigation", () => {
     const currentTargetId = currentFamily.memberIds.first;
     const authoredDocument = session.editor.getJSON();
     const started = deferred<void>();
-    session.controller.semanticActivations.register({
+    session.controller.semanticTargetInteractions.registry.register({
       ownerId: timeline.ownerId,
       activate: ({ relationship, signal }) =>
         new Promise((resolve) => {
@@ -242,7 +245,7 @@ describe("semantic presentation address book navigation", () => {
           );
         }),
     });
-    session.controller.semanticActivations.register({
+    session.controller.semanticTargetInteractions.registry.register({
       ownerId: currentFamily.ownerId,
       activate: async ({ relationship }) =>
         activationOutcome("already-visible", currentFamily.ownerId, relationship.childId),

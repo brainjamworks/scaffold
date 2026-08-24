@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 
 import { SECTION_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
 import {
-  getSemanticTargetInteractionEnvironmentForEditor,
+  tryGetSemanticTargetInteractionEnvironmentForEditor,
   type SemanticActivationOutcome,
 } from "@/document/semantic-target-interaction";
 
@@ -128,18 +128,7 @@ export function useLayoutSemanticActivationBinding({
 }
 
 function layoutSemanticActivationRegistryForEditor(editor: Editor) {
-  try {
-    return getSemanticTargetInteractionEnvironmentForEditor(editor).registry;
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message ===
-        "Semantic Target Interaction Environment extension is not installed for this editor"
-    ) {
-      return null;
-    }
-    throw error;
-  }
+  return tryGetSemanticTargetInteractionEnvironmentForEditor(editor)?.registry ?? null;
 }
 
 interface PendingReveal {

@@ -25,9 +25,11 @@ import {
 export function useFlashcardDeckController({
   blockId,
   deckNode,
+  presentation,
 }: {
   blockId: string;
   deckNode: FlashcardDeckNodeLike;
+  presentation: FlashcardRuntimePresentation;
 }): FlashcardDeckController {
   const cardSummaries = readCardSummaries(deckNode);
   const shuffle = readFlashcardShuffle(deckNode);
@@ -48,27 +50,30 @@ export function useFlashcardDeckController({
       completed: FLASHCARD_INITIAL_ACTIVITY.completed,
     },
   });
-  const deck = readFlashcardData(activity.activity?.data);
+  const persistedDeck = readFlashcardData(activity.activity?.data);
   const orderedCards = reconcileFlashcardCardOrder(
     cardSummaries,
-    deck.order ?? [],
+    persistedDeck.order ?? [],
     shuffle,
     blockId,
   );
   const orderedCardIds = orderedCards.map((card) => card.id);
+  const presentedCardId = orderedCardIds.includes(presentation.currentCardId ?? "")
+    ? presentation.currentCardId
+    : null;
+  const deck = presentedCardId
+    ? { ...persistedDeck, currentCardId: presentedCardId }
+    : persistedDeck;
   const deckState = resolveFlashcardDeckState(orderedCards, deck);
   const { currentCardId, currentIndex } = deckState;
 
   const setCurrentCard: FlashcardDeckController["setCurrentCard"] = (cardId, input) => {
     if (!cardId) return;
     if (input?.origin === "semantic-activation") {
-      activity.updateActivity({
-        data: flashcardDataForPersistence({ ...deck, currentCardId: cardId }, cardSummaries.length),
-        completed: activity.activity?.completed ?? false,
-        learningEvent: null,
-      });
+      presentation.setCurrentCardId(cardId);
       return;
     }
+    presentation.setCurrentCardId(null);
     activity.patchData({ currentCardId: cardId });
   };
 
@@ -81,6 +86,7 @@ export function useFlashcardDeckController({
   };
 
   const resetDeck = () => {
+    presentation.setCurrentCardId(null);
     activity.setData(
       flashcardDataForPersistence(
         { ...EMPTY_FLASHCARD_DATA, ...(shuffle ? { order: orderedCardIds } : {}) },
@@ -92,6 +98,7 @@ export function useFlashcardDeckController({
 
   const flipCurrent = () => {
     if (!currentCardId) return;
+    presentation.setCurrentCardId(null);
     const flipped = toggleFlashcardFlipped(deck, currentCardId);
     activity.updateActivity({
       data: flashcardDataForPersistence({ ...deck, flipped }, cardSummaries.length),
@@ -106,6 +113,7 @@ export function useFlashcardDeckController({
 
   const rateCurrent = (status: FlashcardMasteryStatus) => {
     if (!currentCardId) return;
+    presentation.setCurrentCardId(null);
     const result = rateFlashcardDeck(orderedCards, deck, currentCardId, currentIndex, status);
     const masteredCount = orderedCards.filter(
       (card) => result.data.mastery[card.id] === "gotIt",
@@ -127,9 +135,9 @@ export function useFlashcardDeckController({
   };
 
   useEffect(() => {
-    if (!shuffle || arraysEqual(deck.order ?? [], orderedCardIds)) return;
+    if (!shuffle || arraysEqual(persistedDeck.order ?? [], orderedCardIds)) return;
     activity.patchData({ order: orderedCardIds });
-  }, [activity, deck.order, orderedCardIds, shuffle]);
+  }, [activity, orderedCardIds, persistedDeck.order, shuffle]);
 
   const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
     const action = resolveFlashcardKeyboardAction(event);
@@ -175,10 +183,12 @@ export function useFlashcardCardController({
   blockId,
   deckNode,
   cardId,
+  presentation,
 }: {
   blockId: string | null;
   deckNode: FlashcardDeckNodeLike | null | undefined;
   cardId: string;
+  presentation: FlashcardRuntimePresentation;
 }): FlashcardCardController {
   const activity = useLearnerActivityRuntime({
     activityKind: "flashcard",
@@ -188,16 +198,22 @@ export function useFlashcardCardController({
       completed: FLASHCARD_INITIAL_ACTIVITY.completed,
     },
   });
-  const deck = readFlashcardData(activity.activity?.data);
+  const persistedDeck = readFlashcardData(activity.activity?.data);
   const authoredCards = deckNode ? readCardSummaries(deckNode) : [];
   const orderedCards = deckNode
     ? reconcileFlashcardCardOrder(
         authoredCards,
-        deck.order ?? [],
+        persistedDeck.order ?? [],
         readFlashcardShuffle(deckNode),
         blockId ?? "flashcard",
       )
     : [];
+  const presentedCardId = orderedCards.some((card) => card.id === presentation.currentCardId)
+    ? presentation.currentCardId
+    : null;
+  const deck = presentedCardId
+    ? { ...persistedDeck, currentCardId: presentedCardId }
+    : persistedDeck;
   const flipped = Boolean(deck.flipped[cardId]);
   const mastery = deck.mastery[cardId];
   const isCurrent = isCurrentFlashcardCard({
@@ -208,6 +224,7 @@ export function useFlashcardCardController({
   });
 
   const flip = () => {
+    presentation.setCurrentCardId(null);
     const flipped = toggleFlashcardFlipped(deck, cardId);
     activity.updateActivity({
       data: flashcardDataForPersistence({ ...deck, flipped }, deckNode?.childCount),
@@ -226,6 +243,11 @@ export function useFlashcardCardController({
     isCurrent,
     flip,
   };
+}
+
+export interface FlashcardRuntimePresentation {
+  readonly currentCardId: string | null;
+  readonly setCurrentCardId: (cardId: string | null) => void;
 }
 
 function flashcardDataForPersistence(

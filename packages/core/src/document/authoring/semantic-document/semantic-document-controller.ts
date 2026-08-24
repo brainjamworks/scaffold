@@ -8,7 +8,6 @@ import {
   type SemanticDocumentSnapshot,
 } from "@/document/model/semantic-document";
 import {
-  type SemanticActivationRegistry,
   createSemanticTargetInteractionEnvironment,
   type SemanticTargetInteractionEnvironment,
   type SemanticTargetInteractionEnvironmentOwner,
@@ -41,7 +40,6 @@ export interface CreateSemanticDocumentControllerInput {
 }
 
 export class SemanticDocumentController {
-  readonly semanticActivations: SemanticActivationRegistry;
   readonly semanticTargetInteractions: SemanticTargetInteractionEnvironment;
   readonly #definitions: SemanticDefinitionLookup;
   readonly #interactionEnvironmentOwner: SemanticTargetInteractionEnvironmentOwner;
@@ -77,7 +75,6 @@ export class SemanticDocumentController {
       },
     });
     this.semanticTargetInteractions = this.#interactionEnvironmentOwner.environment;
-    this.semanticActivations = this.#interactionEnvironmentOwner.activationRegistry;
     this.#navigation = new SemanticNavigationCoordinator({
       targetInteractions: this.semanticTargetInteractions.coordinator,
       getSemantics: () => this.#snapshot.semantics,

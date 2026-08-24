@@ -14,6 +14,8 @@ import type {
   SemanticInteractionOrigin,
 } from "./semantic-target-interaction";
 
+type SemanticActivationRegistryResolver = Pick<SemanticActivationRegistry, "resolve">;
+
 export interface SemanticSurfacePresentationPort {
   presentSurface(surfaceId: EmbeddedNodeId, signal: AbortSignal): Promise<void>;
 }
@@ -52,7 +54,7 @@ export interface SemanticTargetInteractionCoordinator {
 }
 
 interface CreateSemanticTargetInteractionCoordinatorInput {
-  readonly registry: SemanticActivationRegistry;
+  readonly registry: SemanticActivationRegistryResolver;
   readonly getSemantics: () => SemanticDocumentSnapshot;
   readonly getCourseStructure: () => ProjectedCourseStructure;
   readonly surfacePresentation: SemanticSurfacePresentationPort;
@@ -208,7 +210,7 @@ function resolveSurfaceId(
 function nextActivation(
   target: ResolvedSemanticTarget,
   completedBindings: ReadonlyMap<string, MountedSemanticActivationBinding>,
-  registry: SemanticActivationRegistry,
+  registry: SemanticActivationRegistryResolver,
 ): SemanticActivationRelationship | null {
   for (const relationship of target.location.activationPath) {
     const resolution = registry.resolve(relationship.ownerId);
