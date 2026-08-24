@@ -49,7 +49,10 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-function pullQuoteFixture(align: "center" | "left" = "center"): JSONContent {
+function pullQuoteFixture(
+  align: "center" | "left" = "center",
+  texts: { attribution?: string; body?: string } = {},
+): JSONContent {
   const insertContent = pullQuoteBlockDefinition.insert?.content() as JSONContent | undefined;
 
   if (!insertContent) {
@@ -65,8 +68,19 @@ function pullQuoteFixture(align: "center" | "left" = "center"): JSONContent {
           ...insertContent.attrs,
           data: { type: "pull_quote", align },
         },
+        content: [
+          { type: "pull_quote_body", content: [paragraph(texts.body)] },
+          { type: "pull_quote_attribution", content: [paragraph(texts.attribution)] },
+        ],
       },
     ],
+  };
+}
+
+function paragraph(text?: string): JSONContent {
+  return {
+    type: "paragraph",
+    ...(text ? { content: [{ type: "text", text }] } : {}),
   };
 }
 
@@ -120,7 +134,7 @@ describe("pull quote presentation", () => {
   it("hides an empty attribution in learner runtime", async () => {
     const fixture = renderPullQuoteEditor({
       editable: false,
-      content: pullQuoteFixture("left"),
+      content: pullQuoteFixture("left", { body: "A useful quotation" }),
     });
 
     const quote = await waitFor(() => {
@@ -137,6 +151,24 @@ describe("pull quote presentation", () => {
     expect(hiddenAttribution).not.toBeNull();
     expect(hiddenAttribution?.getAttribute("aria-hidden")).toBe("true");
     expect(document.body.querySelector(".sc-pull-quote__attribution--hidden")).toBeNull();
+
+    fixture.destroy();
+  });
+
+  it("hides a wholly empty pull quote in learner runtime", async () => {
+    const fixture = renderPullQuoteEditor({
+      editable: false,
+      content: pullQuoteFixture("left"),
+    });
+
+    const quote = await waitFor(() => {
+      const element = document.body.querySelector<HTMLElement>("blockquote.sc-course-pull-quote");
+      expect(element).not.toBeNull();
+      return element;
+    });
+
+    expect(quote?.hidden).toBe(true);
+    expect(quote?.getAttribute("aria-hidden")).toBe("true");
 
     fixture.destroy();
   });

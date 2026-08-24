@@ -16,12 +16,18 @@
   }
 
   .sc-course-marginalia[data-position="right"] .sc-course-marginalia__content {
-    grid-template-columns: minmax(0, 1fr) var(--sc-course-marginalia-gutter-width);
+    grid-template-columns: minmax(0, 1fr) var(
+        --sc-course-marginalia-gutter-width,
+        clamp(10rem, 30%, 14rem)
+      );
     grid-template-areas: "main gutter";
   }
 
   .sc-course-marginalia[data-position="left"] .sc-course-marginalia__content {
-    grid-template-columns: var(--sc-course-marginalia-gutter-width) minmax(0, 1fr);
+    grid-template-columns: var(
+        --sc-course-marginalia-gutter-width,
+        clamp(10rem, 30%, 14rem)
+      ) minmax(0, 1fr);
     grid-template-areas: "gutter main";
   }
 

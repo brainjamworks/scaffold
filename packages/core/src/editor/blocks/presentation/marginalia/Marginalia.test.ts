@@ -44,7 +44,13 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-function marginaliaFixture(position: "left" | "right" = "right"): JSONContent {
+function marginaliaFixture(
+  position: "left" | "right" = "right",
+  texts: { gutter?: string; main?: string } = {
+    gutter: "Margin note",
+    main: "Main content",
+  },
+): JSONContent {
   const insertContent = marginaliaBlockDefinition.insert?.content() as JSONContent | undefined;
 
   if (!insertContent) {
@@ -63,15 +69,22 @@ function marginaliaFixture(position: "left" | "right" = "right"): JSONContent {
         content: [
           {
             type: "marginalia_gutter",
-            content: [{ type: "paragraph", content: [{ type: "text", text: "Margin note" }] }],
+            content: [paragraph(texts.gutter)],
           },
           {
             type: "marginalia_main",
-            content: [{ type: "paragraph", content: [{ type: "text", text: "Main content" }] }],
+            content: [paragraph(texts.main)],
           },
         ],
       },
     ],
+  };
+}
+
+function paragraph(text?: string): JSONContent {
+  return {
+    type: "paragraph",
+    ...(text ? { content: [{ type: "text", text }] } : {}),
   };
 }
 
@@ -134,6 +147,24 @@ describe("marginalia presentation", () => {
     expect(marginalia?.textContent).toContain("Margin note");
     expect(marginalia?.textContent).toContain("Main content");
     expect(marginalia?.textContent).not.toContain("Gutter");
+
+    fixture.destroy();
+  });
+
+  it("hides wholly empty Marginalia in learner runtime", async () => {
+    const fixture = renderMarginaliaEditor({
+      editable: false,
+      content: marginaliaFixture("right", {}),
+    });
+
+    const marginalia = await waitFor(() => {
+      const element = document.body.querySelector<HTMLElement>(".sc-course-marginalia");
+      expect(element).not.toBeNull();
+      return element;
+    });
+
+    expect(marginalia?.hidden).toBe(true);
+    expect(marginalia?.getAttribute("aria-hidden")).toBe("true");
 
     fixture.destroy();
   });

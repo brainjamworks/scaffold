@@ -49,7 +49,10 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-function chapterEpigraphFixture(align: "center" | "left" = "center"): JSONContent {
+function chapterEpigraphFixture(
+  align: "center" | "left" = "center",
+  bodyText?: string,
+): JSONContent {
   const insertContent = chapterEpigraphBlockDefinition.insert?.content() as JSONContent | undefined;
 
   if (!insertContent) {
@@ -65,6 +68,21 @@ function chapterEpigraphFixture(align: "center" | "left" = "center"): JSONConten
           ...insertContent.attrs,
           data: { type: "chapter_epigraph", align },
         },
+        content: [
+          {
+            type: "chapter_epigraph_body",
+            content: [
+              {
+                type: "paragraph",
+                ...(bodyText ? { content: [{ type: "text", text: bodyText }] } : {}),
+              },
+            ],
+          },
+          {
+            type: "chapter_epigraph_attribution",
+            content: [{ type: "paragraph" }],
+          },
+        ],
       },
     ],
   };
@@ -122,7 +140,7 @@ describe("chapter epigraph presentation", () => {
   it("keeps left alignment and hides an empty attribution in learner runtime", async () => {
     const fixture = renderChapterEpigraphEditor({
       editable: false,
-      content: chapterEpigraphFixture("left"),
+      content: chapterEpigraphFixture("left", "An opening thought"),
     });
 
     const quote = await waitFor(() => {
@@ -141,6 +159,23 @@ describe("chapter epigraph presentation", () => {
     expect(hiddenAttribution).not.toBeNull();
     expect(hiddenAttribution?.getAttribute("aria-hidden")).toBe("true");
     expect(document.body.querySelector(".sc-chapter-epigraph__attribution--hidden")).toBeNull();
+
+    fixture.destroy();
+  });
+
+  it("hides a wholly empty epigraph in learner runtime", async () => {
+    const fixture = renderChapterEpigraphEditor({ editable: false });
+
+    const quote = await waitFor(() => {
+      const element = document.body.querySelector<HTMLQuoteElement>(
+        "blockquote.sc-course-chapter-epigraph",
+      );
+      expect(element).not.toBeNull();
+      return element;
+    });
+
+    expect(quote?.hidden).toBe(true);
+    expect(quote?.getAttribute("aria-hidden")).toBe("true");
 
     fixture.destroy();
   });
