@@ -12,7 +12,11 @@ import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
-import { createSemanticContainerAdapterTestExtension } from "@/document/authoring/semantic-document/testing/semantic-container-adapter-test-extension";
+import {
+  createSemanticActivationBindingTestExtension,
+  requireSemanticActivationBinding,
+  semanticActivationRequest,
+} from "@/document/authoring/semantic-document/testing/semantic-activation-binding-test-extension";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import {
   builtInBlockDefinitions,
@@ -60,26 +64,30 @@ afterEach(() => {
 
 describe("Process Flow presentation block", () => {
   it("registers semantic activation and reveals the requested step in its scrollport", async () => {
-    const semanticHarness = createSemanticContainerAdapterTestExtension();
-    const fixture = renderProcessFlowEditor(processFlowFixture("horizontal"), true, [semanticHarness.extension]);
+    const semanticHarness = createSemanticActivationBindingTestExtension();
+    const fixture = renderProcessFlowEditor(processFlowFixture("horizontal"), true, [
+      semanticHarness.extension,
+    ]);
     const ownerId = EmbeddedNodeIdSchema.parse("procflow0001");
     const targetId = EmbeddedNodeIdSchema.parse("flowstep0003");
-    const scrollport = await screen.findByRole("region", { name: "Process flow" }).then((region) =>
-      region.querySelector<HTMLElement>(".sc-course-process-flow__scrollport"),
-    );
-    const target = document.querySelector<HTMLElement>(
-      `[data-process-flow-step-id="${targetId}"]`,
-    );
+    const scrollport = await screen
+      .findByRole("region", { name: "Process flow" })
+      .then((region) => region.querySelector<HTMLElement>(".sc-course-process-flow__scrollport"));
+    const target = document.querySelector<HTMLElement>(`[data-process-flow-step-id="${targetId}"]`);
     expect(scrollport).not.toBeNull();
     expect(target).not.toBeNull();
     const scrollTo = installHorizontalRevealGeometry(scrollport!, target!);
-    const adapter = await waitFor(() => {
-      const current = semanticHarness.registry.get(ownerId);
-      expect(current).toBeDefined();
-      return current!;
+    const binding = await waitFor(() => {
+      const resolution = semanticHarness.registry.resolve(ownerId);
+      expect(resolution.kind).toBe("resolved");
+      return requireSemanticActivationBinding(semanticHarness.registry, ownerId);
     });
 
-    await expect(adapter.reveal(targetId, "navigate")).resolves.toBe("revealed");
+    await expect(binding.activate(semanticActivationRequest(ownerId, targetId))).resolves.toEqual({
+      kind: "revealed",
+      ownerId,
+      childId: targetId,
+    });
     expect(scrollTo).toHaveBeenCalledOnce();
 
     fixture.destroy();
@@ -291,7 +299,8 @@ function renderProcessFlowEditor(
 }
 
 function installHorizontalRevealGeometry(scrollport: HTMLElement, target: HTMLElement) {
-  scrollport.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 200, height: 100 });
+  scrollport.getBoundingClientRect = () =>
+    DOMRect.fromRect({ x: 0, y: 0, width: 200, height: 100 });
   target.getBoundingClientRect = () => DOMRect.fromRect({ x: 320, y: 0, width: 80, height: 80 });
   const scrollTo = vi.fn();
   Object.defineProperty(scrollport, "scrollTo", { configurable: true, value: scrollTo });

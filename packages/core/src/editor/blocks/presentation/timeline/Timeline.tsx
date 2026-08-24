@@ -16,7 +16,7 @@ import {
   TimelineTrack,
   readRequiredTimelineNodeId,
 } from "./timeline-components";
-import { useTimelineSemanticContainerAdapter } from "./use-timeline-semantic-container-adapter";
+import { useTimelineSemanticActivationBinding } from "./use-timeline-semantic-activation-binding";
 
 import "./timeline.css";
 
@@ -28,7 +28,7 @@ export function TimelineView({ footer, props }: { footer?: ReactNode; props: Nod
     trackElementRef.current = element;
   }, []);
   useTimelineEntryMetadata(props);
-  useTimelineSemanticContainerAdapter({
+  useTimelineSemanticActivationBinding({
     editor: props.editor,
     getPos: props.getPos,
     getTrackElement,

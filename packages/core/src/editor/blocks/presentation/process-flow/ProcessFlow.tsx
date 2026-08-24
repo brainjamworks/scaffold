@@ -1,7 +1,12 @@
-import { NodeViewContent, NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react";
+import {
+  NodeViewContent,
+  NodeViewWrapper,
+  useEditorState,
+  type NodeViewProps,
+} from "@tiptap/react";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 
-import { useScrollableBlockSemanticContainerAdapter } from "@/document/authoring/semantic-document/use-scrollable-block-semantic-container-adapter";
+import { useScrollableBlockSemanticActivationBinding } from "@/document/authoring/semantic-document/use-scrollable-block-semantic-activation-binding";
 
 import { PROCESS_FLOW_NODE, PROCESS_FLOW_STEP_NODE } from "./content";
 import { parseProcessFlowData } from "./ProcessFlowModel";
@@ -16,7 +21,7 @@ export function ProcessFlowView({ footer, props }: { footer?: ReactNode; props: 
   const data = parseProcessFlowData(props.node.attrs["data"]);
   const scrollportRef = useRef<HTMLDivElement>(null);
 
-  useScrollableBlockSemanticContainerAdapter({
+  useScrollableBlockSemanticActivationBinding({
     axis: data.orientation,
     childNodeType: PROCESS_FLOW_STEP_NODE,
     editor: props.editor,

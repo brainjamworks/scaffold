@@ -227,10 +227,7 @@ describe("Key-value list document semantics", () => {
     const secondRowId = makeId("kr", 7);
     const focusedFieldId = makeId("kk", 25);
     const doc = documentNode(
-      keyValueListNode(listId, [
-        simpleRow(firstRowId, 6),
-        simpleRow(secondRowId, 7),
-      ]),
+      keyValueListNode(listId, [simpleRow(firstRowId, 6), simpleRow(secondRowId, 7)]),
     );
     const originalDocument = doc.toJSON();
     const fieldFocusState = { focusedFieldId };
@@ -267,7 +264,7 @@ describe("Key-value list document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const listLocation = controller.getSnapshot().semantics.locationById.get(listId)!;
-    const adapterLookup = vi.spyOn(controller.containerAdapters, "get");
+    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
 
     await expect(controller.select(secondRowId, { origin: "document-outline" })).resolves.toEqual({
       kind: "reached",
@@ -285,7 +282,7 @@ describe("Key-value list document semantics", () => {
     expect(
       createActivationTransaction.mock.calls.every(([location]) => location.id === listId),
     ).toBe(true);
-    expect(adapterLookup).not.toHaveBeenCalled();
+    expect(activationLookup).not.toHaveBeenCalled();
     expect(focusEditor).not.toHaveBeenCalled();
     expect(addRow).not.toHaveBeenCalled();
     expect(deleteRow).not.toHaveBeenCalled();
@@ -360,11 +357,7 @@ function project(doc: ProseMirrorNode, revision: number) {
   });
 }
 
-function projectRows(
-  listId: EmbeddedNodeId,
-  rows: readonly ProseMirrorNode[],
-  revision: number,
-) {
+function projectRows(listId: EmbeddedNodeId, rows: readonly ProseMirrorNode[], revision: number) {
   const doc = documentNode(keyValueListNode(listId, rows));
   return { doc, snapshot: project(doc, revision) };
 }

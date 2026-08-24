@@ -10,12 +10,6 @@ export {
   type SemanticHierarchyViewSnapshot,
   type SemanticHierarchyViewport,
 } from "./semantic-hierarchy-view-controller";
-export {
-  SemanticContainerAdapterRegistry,
-  type SemanticContainerAdapter,
-  type SemanticContainerRevealReason,
-  type SemanticContainerRevealResult,
-} from "./semantic-container-adapter-registry";
 export { createSemanticDocumentExtension } from "./semantic-document-extension";
 export {
   getSemanticDocumentControllerForEditor,

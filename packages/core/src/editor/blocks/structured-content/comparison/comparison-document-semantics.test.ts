@@ -18,11 +18,7 @@ import {
 } from "@/document/model/semantic-document";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 
-import {
-  COMPARISON_CELL_NODE,
-  COMPARISON_NODE,
-  COMPARISON_ROW_NODE,
-} from "./content";
+import { COMPARISON_CELL_NODE, COMPARISON_NODE, COMPARISON_ROW_NODE } from "./content";
 import { comparisonBlockDefinition } from "./comparison-definition";
 
 const schema = new Schema({
@@ -208,10 +204,7 @@ describe("Comparison document semantics", () => {
     const secondRowId = makeId("cr", 7);
     const focusedCellId = makeId("cc", 25);
     const doc = documentNode(
-      comparisonNode(comparisonId, [
-        simpleRow(firstRowId, 6),
-        simpleRow(secondRowId, 7),
-      ]),
+      comparisonNode(comparisonId, [simpleRow(firstRowId, 6), simpleRow(secondRowId, 7)]),
     );
     const originalDocument = doc.toJSON();
     const cellFocusState = { focusedCellId };
@@ -248,7 +241,7 @@ describe("Comparison document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const comparisonLocation = controller.getSnapshot().semantics.locationById.get(comparisonId)!;
-    const adapterLookup = vi.spyOn(controller.containerAdapters, "get");
+    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
 
     await expect(controller.select(secondRowId, { origin: "document-outline" })).resolves.toEqual({
       kind: "reached",
@@ -266,7 +259,7 @@ describe("Comparison document semantics", () => {
     expect(
       createActivationTransaction.mock.calls.every(([location]) => location.id === comparisonId),
     ).toBe(true);
-    expect(adapterLookup).not.toHaveBeenCalled();
+    expect(activationLookup).not.toHaveBeenCalled();
     expect(focusEditor).not.toHaveBeenCalled();
     expect(addRow).not.toHaveBeenCalled();
     expect(deleteRow).not.toHaveBeenCalled();

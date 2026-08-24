@@ -3,10 +3,11 @@ import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useEffect, useRef } from "react";
 
-import type { SemanticContainerRevealResult } from "./semantic-container-adapter-registry";
+import type { SemanticActivationOutcome } from "@/document/semantic-target-interaction";
+
 import { semanticDocumentPluginKey } from "./semantic-document-storage";
 
-export interface UseStatefulBlockSemanticContainerAdapterInput {
+export interface UseStatefulBlockSemanticActivationBindingInput {
   readonly childNodeType: string;
   readonly editor: Editor;
   readonly getPos: () => number | undefined;
@@ -17,8 +18,8 @@ export interface UseStatefulBlockSemanticContainerAdapterInput {
   readonly revealChild: (childId: EmbeddedNodeId) => void;
 }
 
-/** Registers an authoring binding over one Block's committed visible-child state. */
-export function useStatefulBlockSemanticContainerAdapter({
+/** Registers one Block's committed visible-child behavior with semantic activation. */
+export function useStatefulBlockSemanticActivationBinding({
   childNodeType,
   editor,
   getPos,
@@ -27,57 +28,68 @@ export function useStatefulBlockSemanticContainerAdapter({
   ownerId,
   ownerNodeType,
   revealChild,
-}: UseStatefulBlockSemanticContainerAdapterInput): void {
+}: UseStatefulBlockSemanticActivationBindingInput): void {
   const semanticController = semanticDocumentPluginKey.getState(editor.state);
   const behaviorRef = useRef({ isVisible, revealChild });
-  const pendingRef = useRef<PendingReveal | null>(null);
+  const pendingRef = useRef<PendingActivation | null>(null);
   behaviorRef.current = { isVisible, revealChild };
 
   useEffect(() => {
     const pending = pendingRef.current;
     if (pending && behaviorRef.current.isVisible(pending.childId)) {
-      pending.finish("revealed");
+      pending.finish(outcome("revealed", pending.ownerId, pending.childId));
     }
   });
 
   useEffect(() => {
     const semanticOwnerId = EmbeddedNodeIdSchema.safeParse(ownerId);
     if (!semanticController || !semanticOwnerId.success) return;
+    const mountedOwnerId = semanticOwnerId.data;
     let active = true;
 
-    const unregister = semanticController.containerAdapters.register({
-      ownerId: semanticOwnerId.data,
-      reveal: (childId, _reason, signal) => {
-        pendingRef.current?.finish("child-unavailable");
-        if (signal?.aborted) return "child-unavailable";
+    const unregister = semanticController.semanticActivations.register({
+      ownerId: mountedOwnerId,
+      activate: async ({ relationship, signal }) => {
+        const childId = relationship.childId;
+        const pending = pendingRef.current;
+        if (pending) {
+          pending.finish(outcome("interrupted", pending.ownerId, pending.childId));
+        }
+        if (signal.aborted) return outcome("interrupted", mountedOwnerId, childId);
         if (
           !isCurrentDirectChild({
             childId,
             childNodeType,
             editor,
             getPos,
-            ownerId: semanticOwnerId.data,
+            ownerId: mountedOwnerId,
             ownerNodeType,
           })
         ) {
-          return "child-unavailable";
+          return unavailable(mountedOwnerId, childId, "child-missing");
         }
-        if (behaviorRef.current.isVisible(childId)) return "already-visible";
+        if (behaviorRef.current.isVisible(childId)) {
+          return outcome("already-visible", mountedOwnerId, childId);
+        }
 
-        return new Promise<SemanticContainerRevealResult>((resolve) => {
+        return new Promise<SemanticActivationOutcome>((resolve) => {
           let settled = false;
-          const finish = (result: SemanticContainerRevealResult) => {
+          const finish = (result: SemanticActivationOutcome) => {
             if (settled) return;
             settled = true;
-            signal?.removeEventListener("abort", handleAbort);
+            signal.removeEventListener("abort", handleAbort);
             if (pendingRef.current?.finish === finish) pendingRef.current = null;
             resolve(result);
           };
-          const handleAbort = () => finish("child-unavailable");
-          pendingRef.current = { childId, finish };
-          signal?.addEventListener("abort", handleAbort, { once: true });
-          if (signal?.aborted || !active) {
-            finish("child-unavailable");
+          const handleAbort = () => finish(outcome("interrupted", mountedOwnerId, childId));
+          pendingRef.current = { ownerId: mountedOwnerId, childId, finish };
+          signal.addEventListener("abort", handleAbort, { once: true });
+          if (signal.aborted || !active) {
+            finish(
+              signal.aborted
+                ? outcome("interrupted", mountedOwnerId, childId)
+                : unavailable(mountedOwnerId, childId, "owner-unmounted"),
+            );
             return;
           }
           behaviorRef.current.revealChild(childId);
@@ -87,15 +99,35 @@ export function useStatefulBlockSemanticContainerAdapter({
 
     return () => {
       active = false;
-      pendingRef.current?.finish("child-unavailable");
+      const pending = pendingRef.current;
+      if (pending) {
+        pending.finish(unavailable(pending.ownerId, pending.childId, "owner-unmounted"));
+      }
       unregister();
     };
   }, [childNodeType, editor, getPos, node, ownerId, ownerNodeType, semanticController]);
 }
 
-interface PendingReveal {
+interface PendingActivation {
+  readonly ownerId: EmbeddedNodeId;
   readonly childId: EmbeddedNodeId;
-  readonly finish: (result: SemanticContainerRevealResult) => void;
+  readonly finish: (result: SemanticActivationOutcome) => void;
+}
+
+function outcome(
+  kind: "revealed" | "already-visible" | "interrupted",
+  ownerId: EmbeddedNodeId,
+  childId: EmbeddedNodeId,
+): SemanticActivationOutcome {
+  return Object.freeze({ kind, ownerId, childId });
+}
+
+function unavailable(
+  ownerId: EmbeddedNodeId,
+  childId: EmbeddedNodeId,
+  reason: "owner-unmounted" | "child-missing",
+): SemanticActivationOutcome {
+  return Object.freeze({ kind: "unavailable", ownerId, childId, reason });
 }
 
 export function isCurrentDirectChild({

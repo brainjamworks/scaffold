@@ -172,28 +172,18 @@ describe("Process Flow document semantics", () => {
     const added = projectSteps(processFlowId, [first, second, third], 6);
     const changed = projectSteps(processFlowId, [third, first], 7);
 
-    expect(childIds(initial.snapshot, processFlowId)).toEqual([
-      makeId("ps", 3),
-      makeId("ps", 4),
-    ]);
+    expect(childIds(initial.snapshot, processFlowId)).toEqual([makeId("ps", 3), makeId("ps", 4)]);
     expect(childIds(added.snapshot, processFlowId)).toEqual([
       makeId("ps", 3),
       makeId("ps", 4),
       makeId("ps", 5),
     ]);
-    expect(childIds(changed.snapshot, processFlowId)).toEqual([
-      makeId("ps", 5),
-      makeId("ps", 3),
-    ]);
+    expect(childIds(changed.snapshot, processFlowId)).toEqual([makeId("ps", 5), makeId("ps", 3)]);
     expect(changed.snapshot.itemById.has(makeId("ps", 4))).toBe(false);
     expect(changed.snapshot.parentById.has(makeId("ps", 4))).toBe(false);
     expect(changed.snapshot.locationById.has(makeId("ps", 4))).toBe(false);
-    expect(changed.snapshot.itemById.get(makeId("ps", 5))?.label).toBe(
-      "Process flow step 1",
-    );
-    expect(changed.snapshot.itemById.get(makeId("ps", 3))?.label).toBe(
-      "Process flow step 2",
-    );
+    expect(changed.snapshot.itemById.get(makeId("ps", 5))?.label).toBe("Process flow step 1");
+    expect(changed.snapshot.itemById.get(makeId("ps", 3))?.label).toBe("Process flow step 2");
     for (const stepId of [makeId("ps", 5), makeId("ps", 3)]) {
       expect(changed.snapshot.itemById.get(stepId)?.id).toBe(stepId);
       expect(changed.snapshot.parentById.get(stepId)).toBe(processFlowId);
@@ -251,21 +241,21 @@ describe("Process Flow document semantics", () => {
       navigationEditor,
     });
     controller.setNavigationEnvironment(environment);
-    const processFlowLocation = controller
-      .getSnapshot()
-      .semantics.locationById.get(processFlowId)!;
-    const adapterLookup = vi.spyOn(controller.containerAdapters, "get");
-    controller.containerAdapters.register({
+    const processFlowLocation = controller.getSnapshot().semantics.locationById.get(processFlowId)!;
+    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
+    controller.semanticActivations.register({
       ownerId: processFlowId,
-      reveal: (childId) => {
+      activate: async ({ relationship }) => {
+        const childId = relationship.childId;
         scrollInternalRail(childId);
-        return "revealed";
+        return { kind: "revealed", ownerId: processFlowId, childId };
       },
     });
 
-    await expect(controller.select(secondStepId, { origin: "document-outline" })).resolves.toEqual(
-      { kind: "reached", id: secondStepId },
-    );
+    await expect(controller.select(secondStepId, { origin: "document-outline" })).resolves.toEqual({
+      kind: "reached",
+      id: secondStepId,
+    });
 
     expect(state.selection).toBeInstanceOf(NodeSelection);
     expect((state.selection as NodeSelection).node.attrs["id"]).toBe(processFlowId);
@@ -276,11 +266,9 @@ describe("Process Flow document semantics", () => {
     expect(bringIntoView).toHaveBeenCalledWith(processFlowLocation, "smooth");
     expect(createActivationTransaction).toHaveBeenCalledTimes(2);
     expect(
-      createActivationTransaction.mock.calls.every(
-        ([location]) => location.id === processFlowId,
-      ),
+      createActivationTransaction.mock.calls.every(([location]) => location.id === processFlowId),
     ).toBe(true);
-    expect(adapterLookup).toHaveBeenCalledWith(processFlowId);
+    expect(activationLookup).toHaveBeenCalledWith(processFlowId);
     expect(scrollInternalRail).toHaveBeenCalledWith(secondStepId);
     expect(focusEditor).not.toHaveBeenCalled();
     expect(addStep).not.toHaveBeenCalled();
@@ -292,15 +280,10 @@ describe("Process Flow document semantics", () => {
 });
 
 function simpleStep(stepId: EmbeddedNodeId, ordinal: number): ProseMirrorNode {
-  return processFlowStep(
-    stepId,
-    makeId("pa", ordinal * 2),
-    `Private step title ${ordinal}`,
-    {
-      descriptionId: makeId("pa", ordinal * 2 + 1),
-      description: `Private step description ${ordinal}`,
-    },
-  );
+  return processFlowStep(stepId, makeId("pa", ordinal * 2), `Private step title ${ordinal}`, {
+    descriptionId: makeId("pa", ordinal * 2 + 1),
+    description: `Private step description ${ordinal}`,
+  });
 }
 
 function processFlowStep(

@@ -11,7 +11,7 @@ import {
   getLayoutInteractionStoreState,
   useLayoutInteractionStore,
 } from "../shared/model/layout-interaction-store";
-import { useLayoutSemanticContainerAdapter } from "../shared/model/use-layout-semantic-container-adapter";
+import { useLayoutSemanticActivationBinding } from "../shared/model/use-layout-semantic-activation-binding";
 import type {
   LayoutComponentProps,
   SectionComponentProps,
@@ -45,7 +45,7 @@ export function AccordionLayoutView(props: LayoutComponentProps) {
     (state) => state.setAccordionSectionOpen,
   );
 
-  useLayoutSemanticContainerAdapter({
+  useLayoutSemanticActivationBinding({
     editor: props.editor,
     getPos: props.getPos,
     layoutId,

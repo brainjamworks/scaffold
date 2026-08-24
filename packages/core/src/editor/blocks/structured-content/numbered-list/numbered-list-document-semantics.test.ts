@@ -18,11 +18,7 @@ import {
 } from "@/document/model/semantic-document";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 
-import {
-  NUMBERED_LIST_ITEM_NODE,
-  NUMBERED_LIST_NODE,
-  NUMBERED_LIST_TITLE_NODE,
-} from "./content";
+import { NUMBERED_LIST_ITEM_NODE, NUMBERED_LIST_NODE, NUMBERED_LIST_TITLE_NODE } from "./content";
 import { numberedListBlockDefinition } from "./numbered-list-definition";
 
 const schema = new Schema({
@@ -130,11 +126,10 @@ describe("Numbered List document semantics", () => {
       expect(snapshot.parentById.has(privateId)).toBe(false);
       expect(snapshot.locationById.has(privateId)).toBe(false);
     }
-    expect(
-      snapshot.itemById
-        .get(listId)
-        ?.children.map(({ id }) => id),
-    ).toEqual([firstItemId, secondItemId]);
+    expect(snapshot.itemById.get(listId)?.children.map(({ id }) => id)).toEqual([
+      firstItemId,
+      secondItemId,
+    ]);
     const publishedChildDescriptions = [firstItemId, secondItemId].flatMap((itemId) => {
       const item = snapshot.itemById.get(itemId);
       if (!item) throw new Error(`Expected published Numbered List item ${itemId}.`);
@@ -222,10 +217,7 @@ describe("Numbered List document semantics", () => {
       numberedListNode(
         listId,
         numberedListTitle(makeId("nt", 3), makeId("pa", 8), "Private navigation title"),
-        [
-          simpleItem(firstItemId, 9, "inProgress"),
-          simpleItem(secondItemId, 10, "complete"),
-        ],
+        [simpleItem(firstItemId, 9, "inProgress"), simpleItem(secondItemId, 10, "complete")],
       ),
     );
     const originalDocument = doc.toJSON();
@@ -264,7 +256,7 @@ describe("Numbered List document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const listLocation = controller.getSnapshot().semantics.locationById.get(listId)!;
-    const adapterLookup = vi.spyOn(controller.containerAdapters, "get");
+    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
 
     await expect(controller.select(secondItemId, { origin: "document-outline" })).resolves.toEqual({
       kind: "reached",
@@ -282,7 +274,7 @@ describe("Numbered List document semantics", () => {
     expect(
       createActivationTransaction.mock.calls.every(([location]) => location.id === listId),
     ).toBe(true);
-    expect(adapterLookup).not.toHaveBeenCalled();
+    expect(activationLookup).not.toHaveBeenCalled();
     expect(focusEditor).not.toHaveBeenCalled();
     expect(addItem).not.toHaveBeenCalled();
     expect(deleteItem).not.toHaveBeenCalled();

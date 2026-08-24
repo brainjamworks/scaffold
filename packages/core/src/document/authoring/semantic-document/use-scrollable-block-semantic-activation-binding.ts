@@ -3,10 +3,12 @@ import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useEffect, useRef } from "react";
 
-import { semanticDocumentPluginKey } from "./semantic-document-storage";
-import { isCurrentDirectChild } from "./use-stateful-block-semantic-container-adapter";
+import type { SemanticActivationOutcome } from "@/document/semantic-target-interaction";
 
-export interface UseScrollableBlockSemanticContainerAdapterInput {
+import { semanticDocumentPluginKey } from "./semantic-document-storage";
+import { isCurrentDirectChild } from "./use-stateful-block-semantic-activation-binding";
+
+export interface UseScrollableBlockSemanticActivationBindingInput {
   readonly axis: "horizontal" | "vertical";
   readonly childNodeType: string;
   readonly editor: Editor;
@@ -18,8 +20,8 @@ export interface UseScrollableBlockSemanticContainerAdapterInput {
   readonly ownerNodeType: string;
 }
 
-/** Registers an authoring binding over one Block's owned scroll viewport. */
-export function useScrollableBlockSemanticContainerAdapter({
+/** Registers one Block's owned scroll viewport with semantic activation. */
+export function useScrollableBlockSemanticActivationBinding({
   axis,
   childNodeType,
   editor,
@@ -29,7 +31,7 @@ export function useScrollableBlockSemanticContainerAdapter({
   node,
   ownerId,
   ownerNodeType,
-}: UseScrollableBlockSemanticContainerAdapterInput): void {
+}: UseScrollableBlockSemanticActivationBindingInput): void {
   const semanticController = semanticDocumentPluginKey.getState(editor.state);
   const behaviorRef = useRef({ axis, getChildElement, getScrollOwner });
   behaviorRef.current = { axis, getChildElement, getScrollOwner };
@@ -37,66 +39,77 @@ export function useScrollableBlockSemanticContainerAdapter({
   useEffect(() => {
     const semanticOwnerId = EmbeddedNodeIdSchema.safeParse(ownerId);
     if (!semanticController || !semanticOwnerId.success) return;
+    const mountedOwnerId = semanticOwnerId.data;
     let active = true;
 
-    const unregister = semanticController.containerAdapters.register({
-      ownerId: semanticOwnerId.data,
-      reveal: (childId, _reason, signal) => {
-        if (signal?.aborted) return "child-unavailable";
+    const unregister = semanticController.semanticActivations.register({
+      ownerId: mountedOwnerId,
+      activate: async ({ relationship, signal }) => {
+        const childId = relationship.childId;
+        if (signal.aborted) return outcome("interrupted", mountedOwnerId, childId);
         if (
           !isCurrentDirectChild({
             childId,
             childNodeType,
             editor,
             getPos,
-            ownerId: semanticOwnerId.data,
+            ownerId: mountedOwnerId,
             ownerNodeType,
           })
         ) {
-          return "child-unavailable";
+          return unavailable(mountedOwnerId, childId, "child-missing");
         }
         const owner = behaviorRef.current.getScrollOwner();
         const child = behaviorRef.current.getChildElement(childId);
-        if (!owner || !child) return "child-unavailable";
-        if (isFullyVisible(owner, child, behaviorRef.current.axis)) return "already-visible";
+        if (!owner || !child) {
+          return unavailable(mountedOwnerId, childId, "temporarily-unavailable");
+        }
+        if (isFullyVisible(owner, child, behaviorRef.current.axis)) {
+          return outcome("already-visible", mountedOwnerId, childId);
+        }
 
-        return new Promise<"revealed" | "child-unavailable">((resolve) => {
+        return new Promise<SemanticActivationOutcome>((resolve) => {
           let settled = false;
-          const finish = (result: "revealed" | "child-unavailable") => {
+          const finish = (result: SemanticActivationOutcome) => {
             if (settled) return;
             settled = true;
-            signal?.removeEventListener("abort", handleAbort);
+            signal.removeEventListener("abort", handleAbort);
             resolve(result);
           };
-          const handleAbort = () => finish("child-unavailable");
-          signal?.addEventListener("abort", handleAbort, { once: true });
-          if (signal?.aborted) {
-            finish("child-unavailable");
+          const handleAbort = () => finish(outcome("interrupted", mountedOwnerId, childId));
+          signal.addEventListener("abort", handleAbort, { once: true });
+          if (signal.aborted) {
+            finish(outcome("interrupted", mountedOwnerId, childId));
             return;
           }
 
           queueMicrotask(() => {
             const currentOwner = behaviorRef.current.getScrollOwner();
             const currentChild = behaviorRef.current.getChildElement(childId);
+            if (settled) return;
+            if (!active) {
+              finish(unavailable(mountedOwnerId, childId, "owner-unmounted"));
+              return;
+            }
             if (
-              settled ||
-              !active ||
-              !currentOwner ||
-              !currentChild ||
               !isCurrentDirectChild({
                 childId,
                 childNodeType,
                 editor,
                 getPos,
-                ownerId: semanticOwnerId.data,
+                ownerId: mountedOwnerId,
                 ownerNodeType,
               })
             ) {
-              finish("child-unavailable");
+              finish(unavailable(mountedOwnerId, childId, "child-missing"));
+              return;
+            }
+            if (!currentOwner || !currentChild) {
+              finish(unavailable(mountedOwnerId, childId, "temporarily-unavailable"));
               return;
             }
             scrollChildToCenter(currentOwner, currentChild, behaviorRef.current.axis);
-            finish("revealed");
+            finish(outcome("revealed", mountedOwnerId, childId));
           });
         });
       },
@@ -107,6 +120,22 @@ export function useScrollableBlockSemanticContainerAdapter({
       unregister();
     };
   }, [childNodeType, editor, getPos, node, ownerId, ownerNodeType, semanticController]);
+}
+
+function outcome(
+  kind: "revealed" | "already-visible" | "interrupted",
+  ownerId: EmbeddedNodeId,
+  childId: EmbeddedNodeId,
+): SemanticActivationOutcome {
+  return Object.freeze({ kind, ownerId, childId });
+}
+
+function unavailable(
+  ownerId: EmbeddedNodeId,
+  childId: EmbeddedNodeId,
+  reason: "owner-unmounted" | "child-missing" | "temporarily-unavailable",
+): SemanticActivationOutcome {
+  return Object.freeze({ kind: "unavailable", ownerId, childId, reason });
 }
 
 function isFullyVisible(
@@ -134,7 +163,10 @@ function scrollChildToCenter(
   const behavior: ScrollBehavior = reduceMotion ? "auto" : "smooth";
   if (axis === "horizontal") {
     const left =
-      owner.scrollLeft + childRect.left - ownerRect.left - (owner.clientWidth - childRect.width) / 2;
+      owner.scrollLeft +
+      childRect.left -
+      ownerRect.left -
+      (owner.clientWidth - childRect.width) / 2;
     owner.scrollTo({ behavior, left });
     return;
   }

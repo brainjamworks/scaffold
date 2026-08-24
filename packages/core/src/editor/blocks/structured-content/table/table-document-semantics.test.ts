@@ -248,7 +248,7 @@ describe("Table document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const tableLocation = controller.getSnapshot().semantics.locationById.get(tableId)!;
-    const adapterLookup = vi.spyOn(controller.containerAdapters, "get");
+    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
 
     await expect(controller.select(bodyRowId, { origin: "document-outline" })).resolves.toEqual({
       kind: "reached",
@@ -266,7 +266,7 @@ describe("Table document semantics", () => {
     expect(
       createActivationTransaction.mock.calls.every(([location]) => location.id === tableId),
     ).toBe(true);
-    expect(adapterLookup).not.toHaveBeenCalled();
+    expect(activationLookup).not.toHaveBeenCalled();
     expect(focusEditor).not.toHaveBeenCalled();
     expect(addRowAfter).not.toHaveBeenCalled();
     expect(deleteRow).not.toHaveBeenCalled();

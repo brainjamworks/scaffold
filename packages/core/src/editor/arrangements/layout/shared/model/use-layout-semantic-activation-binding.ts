@@ -5,8 +5,9 @@ import { useEffect, useRef } from "react";
 
 import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
 import { SECTION_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
+import type { SemanticActivationOutcome } from "@/document/semantic-target-interaction";
 
-export interface UseLayoutSemanticContainerAdapterInput {
+export interface UseLayoutSemanticActivationBindingInput {
   readonly editor: Editor;
   readonly getPos: () => number | undefined;
   readonly isVisible: (childId: EmbeddedNodeId) => boolean;
@@ -17,7 +18,7 @@ export interface UseLayoutSemanticContainerAdapterInput {
 }
 
 /** Owns the shared React registration lifecycle for hidden Layout Sections. */
-export function useLayoutSemanticContainerAdapter({
+export function useLayoutSemanticActivationBinding({
   editor,
   getPos,
   isVisible,
@@ -25,7 +26,7 @@ export function useLayoutSemanticContainerAdapter({
   node,
   revealChild,
   visibilityElementId,
-}: UseLayoutSemanticContainerAdapterInput): void {
+}: UseLayoutSemanticActivationBindingInput): void {
   const semanticController = semanticDocumentPluginKey.getState(editor.state);
   const behaviorRef = useRef({ isVisible, revealChild, visibilityElementId });
   behaviorRef.current = { isVisible, revealChild, visibilityElementId };
@@ -36,27 +37,33 @@ export function useLayoutSemanticContainerAdapter({
     let active = true;
     let pendingReveal: PendingReveal | null = null;
 
-    const unregister = semanticController.containerAdapters.register({
-      ownerId: semanticLayoutId.data,
-      reveal: async (childId, _reason, signal) => {
-        pendingReveal?.finish("child-unavailable");
-        if (signal?.aborted) return "child-unavailable";
-        if (!isCurrentLayoutChild(editor, getPos, semanticLayoutId.data, childId)) {
-          return "child-unavailable";
+    const ownerId = semanticLayoutId.data;
+    const unregister = semanticController.semanticActivations.register({
+      ownerId,
+      activate: async ({ relationship, signal }) => {
+        const childId = relationship.childId;
+        if (pendingReveal) {
+          pendingReveal.finish(outcome("interrupted", ownerId, pendingReveal.childId));
+        }
+        if (signal.aborted) return outcome("interrupted", ownerId, childId);
+        if (!isCurrentLayoutChild(editor, getPos, ownerId, childId)) {
+          return unavailable(ownerId, childId, "child-missing");
         }
         if (isCommittedVisible(editor, behaviorRef.current, childId)) {
-          return "already-visible";
+          return outcome("already-visible", ownerId, childId);
         }
 
-        return new Promise((resolve) => {
+        return new Promise<SemanticActivationOutcome>((resolve) => {
           const MutationObserverConstructor =
             editor.view.dom.ownerDocument.defaultView?.MutationObserver;
           if (!MutationObserverConstructor) {
             behaviorRef.current.revealChild(childId);
             resolve(
-              !signal?.aborted && isCommittedVisible(editor, behaviorRef.current, childId)
-                ? "revealed"
-                : "child-unavailable",
+              !signal.aborted && isCommittedVisible(editor, behaviorRef.current, childId)
+                ? outcome("revealed", ownerId, childId)
+                : signal.aborted
+                  ? outcome("interrupted", ownerId, childId)
+                  : unavailable(ownerId, childId, "temporarily-unavailable"),
             );
             return;
           }
@@ -68,22 +75,26 @@ export function useLayoutSemanticContainerAdapter({
             settled = true;
             observer.disconnect();
             editor.off("transaction", check);
-            signal?.removeEventListener("abort", handleAbort);
+            signal.removeEventListener("abort", handleAbort);
             if (pendingReveal?.finish === finish) pendingReveal = null;
             resolve(result);
           };
-          const handleAbort = () => finish("child-unavailable");
+          const handleAbort = () => finish(outcome("interrupted", ownerId, childId));
           const check = () => {
-            if (!active || !isCurrentLayoutChild(editor, getPos, semanticLayoutId.data, childId)) {
-              finish("child-unavailable");
+            if (!active) {
+              finish(unavailable(ownerId, childId, "owner-unmounted"));
+              return;
+            }
+            if (!isCurrentLayoutChild(editor, getPos, ownerId, childId)) {
+              finish(unavailable(ownerId, childId, "child-missing"));
               return;
             }
             if (isCommittedVisible(editor, behaviorRef.current, childId)) {
-              finish("revealed");
+              finish(outcome("revealed", ownerId, childId));
             }
           };
 
-          pendingReveal = { finish };
+          pendingReveal = { childId, finish };
           observer.observe(editor.view.dom, {
             attributeFilter: ["aria-hidden", "class", "data-state", "hidden", "style"],
             attributes: true,
@@ -91,9 +102,9 @@ export function useLayoutSemanticContainerAdapter({
             subtree: true,
           });
           editor.on("transaction", check);
-          signal?.addEventListener("abort", handleAbort, { once: true });
-          if (signal?.aborted) {
-            finish("child-unavailable");
+          signal.addEventListener("abort", handleAbort, { once: true });
+          if (signal.aborted) {
+            finish(outcome("interrupted", ownerId, childId));
             return;
           }
           if (!behaviorRef.current.isVisible(childId)) {
@@ -106,14 +117,33 @@ export function useLayoutSemanticContainerAdapter({
 
     return () => {
       active = false;
-      pendingReveal?.finish("child-unavailable");
+      if (pendingReveal) {
+        pendingReveal.finish(unavailable(ownerId, pendingReveal.childId, "owner-unmounted"));
+      }
       unregister();
     };
   }, [editor, getPos, layoutId, node, semanticController]);
 }
 
 interface PendingReveal {
-  readonly finish: (result: "revealed" | "child-unavailable") => void;
+  readonly childId: EmbeddedNodeId;
+  readonly finish: (result: SemanticActivationOutcome) => void;
+}
+
+function outcome(
+  kind: "revealed" | "already-visible" | "interrupted",
+  ownerId: EmbeddedNodeId,
+  childId: EmbeddedNodeId,
+): SemanticActivationOutcome {
+  return Object.freeze({ kind, ownerId, childId });
+}
+
+function unavailable(
+  ownerId: EmbeddedNodeId,
+  childId: EmbeddedNodeId,
+  reason: "owner-unmounted" | "child-missing" | "temporarily-unavailable",
+): SemanticActivationOutcome {
+  return Object.freeze({ kind: "unavailable", ownerId, childId, reason });
 }
 
 interface LayoutSemanticVisibilityBehavior {

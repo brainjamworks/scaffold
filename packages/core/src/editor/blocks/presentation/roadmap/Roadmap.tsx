@@ -1,7 +1,7 @@
 import { NodeViewContent, type NodeViewProps } from "@tiptap/react";
 import { useRef, type ReactNode } from "react";
 
-import { useScrollableBlockSemanticContainerAdapter } from "@/document/authoring/semantic-document/use-scrollable-block-semantic-container-adapter";
+import { useScrollableBlockSemanticActivationBinding } from "@/document/authoring/semantic-document/use-scrollable-block-semantic-activation-binding";
 import { normalizeBlockFrame } from "@/editor/frame/model/block-frame";
 
 import { ROADMAP_MILESTONE_NODE, ROADMAP_NODE } from "./content";
@@ -13,7 +13,7 @@ export function RoadmapView({ footer, props }: { footer?: ReactNode; props: Node
   const blockAlign = resolveBlockAlignment(props.node.attrs["frame"]);
   const sectionRef = useRef<HTMLElement>(null);
 
-  useScrollableBlockSemanticContainerAdapter({
+  useScrollableBlockSemanticActivationBinding({
     axis: data.orientation,
     childNodeType: ROADMAP_MILESTONE_NODE,
     editor: props.editor,

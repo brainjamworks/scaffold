@@ -432,7 +432,7 @@ describe("DocumentOutline", () => {
       kind: "reached-owner",
       requestedId: id("region"),
       ownerId: id("surface"),
-      reason: "child-unavailable",
+      reason: "child-missing",
     };
     await user.click(screen.getByRole("treeitem", { name: /Main content/ }));
     expect(screen.getByRole("status")).toHaveTextContent("Opened the nearest available item");

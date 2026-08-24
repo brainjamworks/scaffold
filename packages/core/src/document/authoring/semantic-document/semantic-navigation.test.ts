@@ -8,61 +8,25 @@ import type {
   SemanticDefinitionLookup,
 } from "@/document/model/semantic-document";
 import { createRepresentativeSemanticDocumentFixture } from "@/document/model/semantic-document/testing/semantic-document-fixtures";
-import { createSemanticActivationRegistry } from "@/document/semantic-target-interaction";
+import type { SemanticActivationOutcome } from "@/document/semantic-target-interaction";
 
-import { SemanticContainerAdapterRegistry } from "./semantic-container-adapter-registry";
 import { SemanticDocumentController } from "./semantic-document-controller";
 import type {
   SemanticNavigationEditor,
   SemanticNavigationEnvironment,
 } from "./semantic-navigation";
 
-describe("SemanticContainerAdapterRegistry", () => {
-  it("delegates legacy adapters to the strict registry without hiding duplicate ownership", async () => {
-    const activationRegistry = createSemanticActivationRegistry();
-    const registry = new SemanticContainerAdapterRegistry(activationRegistry);
-    const ownerId = makeSession().fixture.surfaces[0]!.ownerBlock;
-    const childId = makeSession().fixture.surfaces[0]!.publishedContainer;
-    const signal = new AbortController().signal;
-    const reveal = vi.fn(() => "revealed" as const);
-    const first = { ownerId, reveal };
-    const second = adapter(ownerId, () => "already-visible");
-
-    const unregisterFirst = registry.register(first);
-
-    expect(registry.get(ownerId)).toBe(first);
-    expect(() => registry.register(second)).toThrow(
-      `Duplicate semantic activation binding for owner "${ownerId}"`,
-    );
-    const resolution = activationRegistry.resolve(ownerId);
-    if (resolution.kind !== "resolved") throw new Error("expected mounted binding");
-    await expect(
-      resolution.binding.activate({
-        requestedId: childId,
-        relationship: { ownerId, childId, ownerKind: "block" },
-        origin: "document-outline",
-        causationId: "legacy-navigation",
-        signal,
-      }),
-    ).resolves.toEqual({ kind: "revealed", ownerId, childId });
-    expect(reveal).toHaveBeenCalledWith(childId, "navigate", signal);
-
-    unregisterFirst();
-    expect(registry.get(ownerId)).toBeUndefined();
-  });
-});
-
 describe("semantic navigation", () => {
-  it("reaches a current target through outer-to-inner adapters without focusing the editor", async () => {
+  it("reaches a current target through outer-to-inner bindings without focusing the editor", async () => {
     const session = makeSession();
     const targetId = session.fixture.surfaces[0]!.publishedParagraph;
     const activationPath = requireLocation(session.controller, targetId).activationPath;
-    const revealOrder: string[] = [];
+    const activationOrder: string[] = [];
     for (const relationship of activationPath) {
-      session.controller.containerAdapters.register(
-        adapter(relationship.ownerId, (childId) => {
-          revealOrder.push(`${relationship.ownerId}:${childId}`);
-          return "revealed";
+      session.controller.semanticActivations.register(
+        binding(relationship.ownerId, (childId) => {
+          activationOrder.push(`${relationship.ownerId}:${childId}`);
+          return revealedOutcome(relationship.ownerId, childId);
         }),
       );
     }
@@ -70,7 +34,7 @@ describe("semantic navigation", () => {
     const result = await session.controller.select(targetId, { origin: "document-outline" });
 
     expect(result).toEqual({ kind: "reached", id: targetId });
-    expect(revealOrder).toEqual(
+    expect(activationOrder).toEqual(
       activationPath.map(({ ownerId, childId }) => `${ownerId}:${childId}`),
     );
     expect(session.presentSurface).toHaveBeenCalledWith(session.fixture.surfaces[0]!.surface);
@@ -137,8 +101,8 @@ describe("semantic navigation", () => {
     expect(session.focusEditor).not.toHaveBeenCalled();
   });
 
-  it("degrades to the nearest reachable owner for missing, unavailable and throwing adapters", async () => {
-    const targetKinds = ["missing", "unavailable", "throwing"] as const;
+  it("degrades to the nearest reachable owner for missing and unavailable bindings", async () => {
+    const targetKinds = ["missing", "unavailable"] as const;
 
     for (const targetKind of targetKinds) {
       const session = makeSession();
@@ -147,14 +111,13 @@ describe("semantic navigation", () => {
       if (!firstRelationship) throw new Error("expected an activation relationship");
 
       if (targetKind === "unavailable") {
-        session.controller.containerAdapters.register(
-          adapter(firstRelationship.ownerId, () => "child-unavailable"),
-        );
-      } else if (targetKind === "throwing") {
-        session.controller.containerAdapters.register(
-          adapter(firstRelationship.ownerId, () => {
-            throw new Error("adapter failed");
-          }),
+        session.controller.semanticActivations.register(
+          binding(firstRelationship.ownerId, (childId) => ({
+            kind: "unavailable",
+            ownerId: firstRelationship.ownerId,
+            childId,
+            reason: "child-missing",
+          })),
         );
       }
 
@@ -164,10 +127,27 @@ describe("semantic navigation", () => {
         kind: "reached-owner",
         requestedId: targetId,
         ownerId: firstRelationship.ownerId,
-        reason: targetKind === "missing" ? "missing-container-adapter" : "child-unavailable",
+        reason: targetKind === "missing" ? "owner-unmounted" : "child-missing",
       });
       expect(session.controller.getSnapshot().selectedId).toBe(targetId);
     }
+  });
+
+  it("keeps activation binding defects observable", async () => {
+    const session = makeSession();
+    const targetId = session.fixture.surfaces[0]!.publishedParagraph;
+    const [firstRelationship] = requireLocation(session.controller, targetId).activationPath;
+    if (!firstRelationship) throw new Error("expected an activation relationship");
+    session.controller.semanticActivations.register({
+      ownerId: firstRelationship.ownerId,
+      activate: () => {
+        throw new Error("binding failed");
+      },
+    });
+
+    await expect(
+      session.controller.select(targetId, { origin: "document-outline" }),
+    ).rejects.toThrow("binding failed");
   });
 
   it("interrupts stale requests before they can apply selection or scroll effects", async () => {
@@ -177,12 +157,21 @@ describe("semantic navigation", () => {
     const [firstRelationship] = requireLocation(session.controller, staleTargetId).activationPath;
     if (!firstRelationship) throw new Error("expected an activation relationship");
     const started = deferred<void>();
-    session.controller.containerAdapters.register({
+    session.controller.semanticActivations.register({
       ownerId: firstRelationship.ownerId,
-      reveal: (_childId, _reason, signal) =>
+      activate: ({ relationship, signal }) =>
         new Promise((resolve) => {
           started.resolve(undefined);
-          signal?.addEventListener("abort", () => resolve("child-unavailable"), { once: true });
+          signal.addEventListener(
+            "abort",
+            () =>
+              resolve({
+                kind: "interrupted",
+                ownerId: firstRelationship.ownerId,
+                childId: relationship.childId,
+              }),
+            { once: true },
+          );
         }),
     });
 
@@ -205,9 +194,9 @@ describe("semantic navigation", () => {
     const [firstRelationship] = requireLocation(session.controller, targetId).activationPath;
     if (!firstRelationship) throw new Error("expected an activation relationship");
     const started = deferred<void>();
-    const waiting = deferred<"revealed">();
-    session.controller.containerAdapters.register(
-      adapter(firstRelationship.ownerId, () => {
+    const waiting = deferred<ReturnType<typeof revealedOutcome>>();
+    session.controller.semanticActivations.register(
+      binding(firstRelationship.ownerId, () => {
         started.resolve(undefined);
         return waiting.promise;
       }),
@@ -216,7 +205,7 @@ describe("semantic navigation", () => {
     const request = session.controller.select(targetId, { origin: "document-outline" });
     await started.promise;
     session.dispatch(deleteNodeTransaction(session.state(), targetId));
-    waiting.resolve("revealed");
+    waiting.resolve(revealedOutcome(firstRelationship.ownerId, firstRelationship.childId));
 
     await expect(request).resolves.toEqual({ kind: "missing", id: targetId });
     expect(session.bringIntoView).not.toHaveBeenCalled();
@@ -242,9 +231,7 @@ describe("semantic navigation", () => {
   });
 });
 
-function makeSession(
-  kind: "page" | "slideshow" = "page",
-): ReturnType<typeof createSession> {
+function makeSession(kind: "page" | "slideshow" = "page"): ReturnType<typeof createSession> {
   const fixture = createRepresentativeSemanticDocumentFixture({ kind });
   return createSession(fixture);
 }
@@ -373,18 +360,21 @@ function navigationDefinitions(
   };
 }
 
-function adapter(
+function binding(
   ownerId: EmbeddedNodeId,
-  reveal: (
+  activate: (
     childId: EmbeddedNodeId,
-  ) =>
-    | "revealed"
-    | "already-visible"
-    | "suppressed-by-user"
-    | "child-unavailable"
-    | Promise<"revealed" | "already-visible" | "suppressed-by-user" | "child-unavailable">,
+  ) => SemanticActivationOutcome | Promise<SemanticActivationOutcome>,
 ) {
-  return { ownerId, reveal: (childId: EmbeddedNodeId) => reveal(childId) };
+  return {
+    ownerId,
+    activate: async ({ relationship }: { relationship: { childId: EmbeddedNodeId } }) =>
+      await activate(relationship.childId),
+  };
+}
+
+function revealedOutcome(ownerId: EmbeddedNodeId, childId: EmbeddedNodeId) {
+  return { kind: "revealed" as const, ownerId, childId };
 }
 
 function requireLocation(controller: SemanticDocumentController, id: EmbeddedNodeId) {

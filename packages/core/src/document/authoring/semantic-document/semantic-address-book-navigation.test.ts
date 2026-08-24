@@ -17,6 +17,10 @@ import {
   createCompleteSemanticLifecycleDocument,
   createSemanticLifecycleDocument,
 } from "@/document/model/semantic-document/testing/semantic-publication-lifecycle-fixtures";
+import type {
+  SemanticActivationOutcome,
+  SemanticActivationRequest,
+} from "@/document/semantic-target-interaction";
 
 import { getSemanticDocumentControllerForEditor } from "./semantic-document-storage";
 
@@ -36,15 +40,19 @@ describe("semantic presentation address book navigation", () => {
     const activatingFamilies = APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.filter(({ ownerNodeType }) =>
       ACTIVATING_BLOCK_MEMBER_OWNER_TYPES.has(ownerNodeType),
     );
-    const revealsByOwner = new Map<EmbeddedNodeId, ReturnType<typeof vi.fn>>();
+    const activationsByOwner = new Map<EmbeddedNodeId, ReturnType<typeof vi.fn>>();
     for (const family of activatingFamilies) {
-      const reveal = vi.fn(() => "revealed" as const);
-      revealsByOwner.set(family.ownerId, reveal);
-      session.controller.containerAdapters.register({ ownerId: family.ownerId, reveal });
+      const activate = vi.fn(async (request: SemanticActivationRequest) =>
+        activationOutcome("revealed", family.ownerId, request.relationship.childId),
+      );
+      activationsByOwner.set(family.ownerId, activate);
+      session.controller.semanticActivations.register({ ownerId: family.ownerId, activate });
     }
 
     const families = [
-      ...APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.filter(({ ownerNodeType }) => ownerNodeType !== "table"),
+      ...APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.filter(
+        ({ ownerNodeType }) => ownerNodeType !== "table",
+      ),
       requireFamily("table-rows"),
     ];
     for (const family of families) {
@@ -54,7 +62,7 @@ describe("semantic presentation address book navigation", () => {
       session.bringIntoView.mockClear();
       session.createActivationTransaction.mockClear();
       session.focus.mockClear();
-      for (const reveal of revealsByOwner.values()) reveal.mockClear();
+      for (const activate of activationsByOwner.values()) activate.mockClear();
 
       await expect(
         session.controller.select(memberId, { origin: "document-outline" }),
@@ -73,12 +81,21 @@ describe("semantic presentation address book navigation", () => {
       expect(session.editor.getJSON()).toEqual(authoredDocument);
       expect(session.focus).not.toHaveBeenCalled();
 
-      const reveal = revealsByOwner.get(family.ownerId);
-      if (reveal) {
-        expect(reveal).toHaveBeenCalledOnce();
-        expect(reveal).toHaveBeenCalledWith(memberId, "navigate", expect.any(AbortSignal));
+      const activate = activationsByOwner.get(family.ownerId);
+      if (activate) {
+        expect(activate).toHaveBeenCalledOnce();
+        expect(activate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            requestedId: memberId,
+            relationship: expect.objectContaining({ childId: memberId }),
+            origin: "document-outline",
+            signal: expect.any(AbortSignal),
+          }),
+        );
       } else {
-        expect([...revealsByOwner.values()].every((candidate) => candidate.mock.calls.length === 0)).toBe(true);
+        expect(
+          [...activationsByOwner.values()].every((candidate) => candidate.mock.calls.length === 0),
+        ).toBe(true);
       }
     }
   });
@@ -90,12 +107,12 @@ describe("semantic presentation address book navigation", () => {
     const baseline = session.controller.getSnapshot().semantics;
     const baselineOwnerLocation = requireLocation(baseline, timeline.ownerId);
     const started = deferred<void>();
-    const waiting = deferred<"revealed">();
-    const revealOrder: EmbeddedNodeId[] = [];
-    session.controller.containerAdapters.register({
+    const waiting = deferred<SemanticActivationOutcome>();
+    const activationOrder: EmbeddedNodeId[] = [];
+    session.controller.semanticActivations.register({
       ownerId: timeline.ownerId,
-      reveal: (childId) => {
-        revealOrder.push(childId);
+      activate: ({ relationship }) => {
+        activationOrder.push(relationship.childId);
         started.resolve(undefined);
         return waiting.promise;
       },
@@ -109,10 +126,10 @@ describe("semantic presentation address book navigation", () => {
     const replacementDocument = session.editor.getJSON();
     expect(current).not.toBe(baseline);
     expect(currentOwnerLocation.from).not.toBe(baselineOwnerLocation.from);
-    waiting.resolve("revealed");
+    waiting.resolve(activationOutcome("revealed", timeline.ownerId, targetId));
 
     await expect(request).resolves.toEqual({ kind: "reached", id: targetId });
-    expect(revealOrder).toEqual([targetId]);
+    expect(activationOrder).toEqual([targetId]);
     expect(session.bringIntoView).toHaveBeenCalledWith(currentOwnerLocation, "smooth");
     expect(session.bringIntoView).not.toHaveBeenCalledWith(baselineOwnerLocation, "smooth");
     expect(session.controller.getSnapshot()).toMatchObject({
@@ -124,7 +141,7 @@ describe("semantic presentation address book navigation", () => {
     expect(session.focus).not.toHaveBeenCalled();
   });
 
-  it("preserves typed missing and adapter failure outcomes for matrix IDs", async () => {
+  it("preserves typed missing and activation-unavailable outcomes for matrix IDs", async () => {
     const timeline = requireFamily("timeline-entries");
     const privateId = timeline.privateDescendantIds[0];
     if (!privateId) throw new Error("Expected a persisted private Timeline descendant.");
@@ -136,20 +153,18 @@ describe("semantic presentation address book navigation", () => {
     expect(missingSession.presentSurface).not.toHaveBeenCalled();
     expect(missingSession.bringIntoView).not.toHaveBeenCalled();
 
-    for (const adapterKind of ["missing", "unavailable", "throwing"] as const) {
+    for (const bindingKind of ["missing", "unavailable"] as const) {
       const session = createEditorSession();
       const authoredDocument = session.editor.getJSON();
-      if (adapterKind === "unavailable") {
-        session.controller.containerAdapters.register({
+      if (bindingKind === "unavailable") {
+        session.controller.semanticActivations.register({
           ownerId: timeline.ownerId,
-          reveal: () => "child-unavailable",
-        });
-      } else if (adapterKind === "throwing") {
-        session.controller.containerAdapters.register({
-          ownerId: timeline.ownerId,
-          reveal: () => {
-            throw new Error("Timeline adapter failed");
-          },
+          activate: async ({ relationship }) => ({
+            kind: "unavailable",
+            ownerId: timeline.ownerId,
+            childId: relationship.childId,
+            reason: "child-missing",
+          }),
         });
       }
 
@@ -159,7 +174,7 @@ describe("semantic presentation address book navigation", () => {
         kind: "reached-owner",
         requestedId: timeline.memberIds.first,
         ownerId: timeline.ownerId,
-        reason: adapterKind === "missing" ? "missing-container-adapter" : "child-unavailable",
+        reason: bindingKind === "missing" ? "owner-unmounted" : "child-missing",
       });
       expect(session.controller.getSnapshot().selectedId).toBe(timeline.memberIds.first);
       expectSelectionWithinNode(session.editor, timeline.ownerId);
@@ -176,17 +191,22 @@ describe("semantic presentation address book navigation", () => {
     const currentTargetId = currentFamily.memberIds.first;
     const authoredDocument = session.editor.getJSON();
     const started = deferred<void>();
-    session.controller.containerAdapters.register({
+    session.controller.semanticActivations.register({
       ownerId: timeline.ownerId,
-      reveal: (_childId, _reason, signal) =>
+      activate: ({ relationship, signal }) =>
         new Promise((resolve) => {
           started.resolve(undefined);
-          signal?.addEventListener("abort", () => resolve("child-unavailable"), { once: true });
+          signal.addEventListener(
+            "abort",
+            () => resolve(activationOutcome("interrupted", timeline.ownerId, relationship.childId)),
+            { once: true },
+          );
         }),
     });
-    session.controller.containerAdapters.register({
+    session.controller.semanticActivations.register({
       ownerId: currentFamily.ownerId,
-      reveal: () => "already-visible",
+      activate: async ({ relationship }) =>
+        activationOutcome("already-visible", currentFamily.ownerId, relationship.childId),
     });
 
     const staleRequest = session.controller.select(staleTargetId, {
@@ -213,6 +233,14 @@ const ACTIVATING_BLOCK_MEMBER_OWNER_TYPES = new Set([
   "roadmap",
   "timeline",
 ]);
+
+function activationOutcome(
+  kind: "revealed" | "already-visible" | "interrupted",
+  ownerId: EmbeddedNodeId,
+  childId: EmbeddedNodeId,
+): SemanticActivationOutcome {
+  return { kind, ownerId, childId };
+}
 
 function createEditorSession() {
   const editor = createEditor();
@@ -289,10 +317,7 @@ function expectSelectionWithinNode(editor: Editor, nodeId: EmbeddedNodeId): void
   expect(editor.state.selection.to).toBeLessThanOrEqual(position + node.nodeSize);
 }
 
-function requireLocation(
-  snapshot: SemanticDocumentSnapshot,
-  id: EmbeddedNodeId,
-): SemanticLocation {
+function requireLocation(snapshot: SemanticDocumentSnapshot, id: EmbeddedNodeId): SemanticLocation {
   const location = snapshot.locationById.get(id);
   if (!location) throw new Error(`Missing semantic location ${id}.`);
   return location;

@@ -7,11 +7,12 @@ import type {
   SemanticDocumentSnapshot,
   SemanticLocation,
 } from "@/document/model/semantic-document";
+import type {
+  MountedSemanticActivationBinding,
+  SemanticActivationOutcome,
+  SemanticActivationRegistry,
+} from "@/document/semantic-target-interaction";
 
-import {
-  SemanticContainerAdapterRegistry,
-  type SemanticContainerAdapter,
-} from "./semantic-container-adapter-registry";
 import {
   setSemanticSelectionTransactionMeta,
   type SemanticSelectionOrigin,
@@ -33,19 +34,23 @@ export interface SemanticNavigationOptions {
   readonly focusEditor?: boolean;
 }
 
+type SemanticNavigationReachedOwnerReason =
+  | "owner-unmounted"
+  | Extract<SemanticActivationOutcome, { kind: "unavailable" | "refused" }>["reason"];
+
 export type SemanticNavigationResult =
   | { readonly kind: "reached"; readonly id: EmbeddedNodeId }
   | {
       readonly kind: "reached-owner";
       readonly requestedId: EmbeddedNodeId;
       readonly ownerId: EmbeddedNodeId;
-      readonly reason: "missing-container-adapter" | "child-unavailable";
+      readonly reason: SemanticNavigationReachedOwnerReason;
     }
   | { readonly kind: "missing"; readonly id: EmbeddedNodeId }
   | { readonly kind: "interrupted"; readonly id: EmbeddedNodeId };
 
 interface SemanticNavigationCoordinatorInput {
-  readonly registry: SemanticContainerAdapterRegistry;
+  readonly registry: SemanticActivationRegistry;
   readonly getSemantics: () => SemanticDocumentSnapshot;
   readonly getCourseStructure: () => ProjectedCourseStructure;
   readonly editor?: SemanticNavigationEditor;
@@ -58,7 +63,7 @@ interface ResolvedSemanticTarget {
 }
 
 export class SemanticNavigationCoordinator {
-  readonly #registry: SemanticContainerAdapterRegistry;
+  readonly #registry: SemanticActivationRegistry;
   readonly #getSemantics: () => SemanticDocumentSnapshot;
   readonly #getCourseStructure: () => ProjectedCourseStructure;
   #editor: SemanticNavigationEditor | null;
@@ -104,7 +109,7 @@ export class SemanticNavigationCoordinator {
     const requestAbortController = new AbortController();
     this.#requestAbortController = requestAbortController;
     const token = ++this.#requestToken;
-    const completedAdapters = new Map<string, SemanticContainerAdapter>();
+    const completedBindings = new Map<string, MountedSemanticActivationBinding>();
     let presentedSurfaceId: EmbeddedNodeId | null = null;
 
     while (true) {
@@ -128,31 +133,35 @@ export class SemanticNavigationCoordinator {
     while (true) {
       const target = this.#resolve(id);
       if (!target) return { kind: "missing", id };
-      const next = this.#nextActivation(target, completedAdapters);
+      const next = this.#nextActivation(target, completedBindings);
       if (!next) return this.#reach(target, token, options);
 
-      const adapter = this.#registry.get(next.ownerId);
-      if (!adapter) {
-        return this.#reachOwner(target, next, token, options, "missing-container-adapter");
+      const resolution = this.#registry.resolve(next.ownerId);
+      if (resolution.kind === "unavailable") {
+        return this.#reachOwner(target, next, token, options, resolution.reason);
       }
+      const binding = resolution.binding;
 
-      let result;
-      try {
-        result = await adapter.reveal(next.childId, "navigate", requestAbortController.signal);
-      } catch {
-        result = "child-unavailable" as const;
-      }
+      const outcome = await binding.activate({
+        requestedId: id,
+        relationship: next,
+        origin: options.origin,
+        causationId: `semantic-navigation:${token}`,
+        signal: requestAbortController.signal,
+      });
       if (!this.#isCurrent(token)) return { kind: "interrupted", id };
 
       const currentTarget = this.#resolve(id);
       if (!currentTarget) return { kind: "missing", id };
-      if (this.#registry.get(next.ownerId) !== adapter) {
-        return this.#reachOwner(currentTarget, next, token, options, "missing-container-adapter");
+      const currentResolution = this.#registry.resolve(next.ownerId);
+      if (currentResolution.kind === "unavailable" || currentResolution.binding !== binding) {
+        return this.#reachOwner(currentTarget, next, token, options, "owner-unmounted");
       }
-      if (result === "child-unavailable" || result === "suppressed-by-user") {
-        return this.#reachOwner(currentTarget, next, token, options, "child-unavailable");
+      if (outcome.kind === "interrupted") return { kind: "interrupted", id };
+      if (outcome.kind === "unavailable" || outcome.kind === "refused") {
+        return this.#reachOwner(currentTarget, next, token, options, outcome.reason);
       }
-      completedAdapters.set(activationKey(next), adapter);
+      completedBindings.set(activationKey(next), binding);
     }
   }
 
@@ -172,11 +181,16 @@ export class SemanticNavigationCoordinator {
 
   #nextActivation(
     target: ResolvedSemanticTarget,
-    completedAdapters: ReadonlyMap<string, SemanticContainerAdapter>,
+    completedBindings: ReadonlyMap<string, MountedSemanticActivationBinding>,
   ): SemanticActivationRelationship | null {
     for (const relationship of target.location.activationPath) {
-      const adapter = this.#registry.get(relationship.ownerId);
-      if (adapter && completedAdapters.get(activationKey(relationship)) === adapter) continue;
+      const resolution = this.#registry.resolve(relationship.ownerId);
+      if (
+        resolution.kind === "resolved" &&
+        completedBindings.get(activationKey(relationship)) === resolution.binding
+      ) {
+        continue;
+      }
       return relationship;
     }
     return null;
@@ -187,7 +201,7 @@ export class SemanticNavigationCoordinator {
     failedRelationship: SemanticActivationRelationship,
     token: number,
     options: SemanticNavigationOptions,
-    reason: "missing-container-adapter" | "child-unavailable",
+    reason: SemanticNavigationReachedOwnerReason,
   ): Promise<SemanticNavigationResult> {
     const ownerId = this.#nearestSemanticOwner(target, failedRelationship);
     if (!ownerId) return { kind: "missing", id: target.id };

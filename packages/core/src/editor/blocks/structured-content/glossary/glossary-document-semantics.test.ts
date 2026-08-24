@@ -215,10 +215,7 @@ describe("Glossary document semantics", () => {
     const secondEntryId = makeId("ge", 7);
     const focusedFieldId = makeId("gt", 25);
     const doc = documentNode(
-      glossaryNode(glossaryId, [
-        simpleEntry(firstEntryId, 6),
-        simpleEntry(secondEntryId, 7),
-      ]),
+      glossaryNode(glossaryId, [simpleEntry(firstEntryId, 6), simpleEntry(secondEntryId, 7)]),
     );
     const originalDocument = doc.toJSON();
     const fieldFocusState = { focusedFieldId };
@@ -255,7 +252,7 @@ describe("Glossary document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const glossaryLocation = controller.getSnapshot().semantics.locationById.get(glossaryId)!;
-    const adapterLookup = vi.spyOn(controller.containerAdapters, "get");
+    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
 
     await expect(controller.select(secondEntryId, { origin: "document-outline" })).resolves.toEqual(
       {
@@ -275,7 +272,7 @@ describe("Glossary document semantics", () => {
     expect(
       createActivationTransaction.mock.calls.every(([location]) => location.id === glossaryId),
     ).toBe(true);
-    expect(adapterLookup).not.toHaveBeenCalled();
+    expect(activationLookup).not.toHaveBeenCalled();
     expect(focusEditor).not.toHaveBeenCalled();
     expect(addEntry).not.toHaveBeenCalled();
     expect(deleteEntry).not.toHaveBeenCalled();

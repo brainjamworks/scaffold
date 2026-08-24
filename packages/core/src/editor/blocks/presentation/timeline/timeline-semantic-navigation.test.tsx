@@ -15,6 +15,10 @@ import {
   createSemanticDocumentExtension,
   getSemanticDocumentControllerForEditor,
 } from "@/document/authoring/semantic-document";
+import {
+  requireSemanticActivationBinding,
+  semanticActivationRequest,
+} from "@/document/authoring/semantic-document/testing/semantic-activation-binding-test-extension";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import {
   LayoutAuthoringNode,
@@ -38,10 +42,7 @@ import { TIMELINE_ITEM_NODE, TIMELINE_NODE } from "./content";
 import { TimelineAuthoringExtension } from "./timeline-authoring-extension";
 
 const TIMELINE_ID = "timelineN001" as EmbeddedNodeId;
-const ENTRY_IDS = [
-  "timeEntry001" as EmbeddedNodeId,
-  "timeEntry002" as EmbeddedNodeId,
-] as const;
+const ENTRY_IDS = ["timeEntry001" as EmbeddedNodeId, "timeEntry002" as EmbeddedNodeId] as const;
 const SECOND_TIMELINE_ID = "timelineN002" as EmbeddedNodeId;
 const SECOND_ENTRY_IDS = [
   "timeEntry003" as EmbeddedNodeId,
@@ -72,13 +73,13 @@ afterAll(() => {
 });
 
 describe("Timeline semantic navigation", () => {
-  it("registers and unregisters its adapter while exposing exact persisted entry IDs", async () => {
+  it("registers and unregisters its binding while exposing exact persisted entry IDs", async () => {
     const editor = makeEditor("vertical");
     const rendered = renderEditor(editor);
     const controller = getSemanticDocumentControllerForEditor(editor);
 
     await waitFor(() => {
-      expect(controller.containerAdapters.get(TIMELINE_ID)).toBeDefined();
+      expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("resolved");
     });
     expect(
       Array.from(document.querySelectorAll<HTMLElement>("[data-timeline-entry-id]")).map(
@@ -87,7 +88,11 @@ describe("Timeline semantic navigation", () => {
     ).toEqual(ENTRY_IDS);
 
     rendered.unmount();
-    expect(controller.containerAdapters.get(TIMELINE_ID)).toBeUndefined();
+    expect(controller.semanticActivations.resolve(TIMELINE_ID)).toEqual({
+      kind: "unavailable",
+      ownerId: TIMELINE_ID,
+      reason: "owner-unmounted",
+    });
   });
 
   it.each(["carousel", "vertical"] as const)(
@@ -97,7 +102,9 @@ describe("Timeline semantic navigation", () => {
       renderEditor(editor);
       const controller = getSemanticDocumentControllerForEditor(editor);
       const targetId = ENTRY_IDS[1];
-      await waitFor(() => expect(controller.containerAdapters.get(TIMELINE_ID)).toBeDefined());
+      await waitFor(() =>
+        expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("resolved"),
+      );
       const track = timelineTrack(TIMELINE_ID);
       const target = timelineEntry(track, targetId);
       const scrollTo = installGeometry(track, target, presentation, false);
@@ -121,9 +128,10 @@ describe("Timeline semantic navigation", () => {
           editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, location.from)),
       });
 
-      await expect(
-        controller.select(targetId, { origin: "document-outline" }),
-      ).resolves.toEqual({ kind: "reached", id: targetId });
+      await expect(controller.select(targetId, { origin: "document-outline" })).resolves.toEqual({
+        kind: "reached",
+        id: targetId,
+      });
 
       const expectedScroll = presentation === "carousel" ? { left: 260 } : { top: 190 };
       expect(scrollTo).toHaveBeenCalledWith({
@@ -152,17 +160,26 @@ describe("Timeline semantic navigation", () => {
     const editor = makeEditor("vertical");
     renderEditor(editor);
     const controller = getSemanticDocumentControllerForEditor(editor);
-    await waitFor(() => expect(controller.containerAdapters.get(TIMELINE_ID)).toBeDefined());
-    const adapter = controller.containerAdapters.get(TIMELINE_ID);
-    if (!adapter) throw new Error("Missing Timeline adapter");
+    await waitFor(() =>
+      expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("resolved"),
+    );
+    const binding = requireSemanticActivationBinding(controller.semanticActivations, TIMELINE_ID);
     const track = timelineTrack(TIMELINE_ID);
     const target = timelineEntry(track, ENTRY_IDS[0]);
     const scrollTo = installGeometry(track, target, "vertical", true);
 
-    expect(adapter.reveal(ENTRY_IDS[0], "navigate")).toBe("already-visible");
-    expect(adapter.reveal("timeOther001" as EmbeddedNodeId, "navigate")).toBe(
-      "child-unavailable",
-    );
+    await expect(
+      binding.activate(semanticActivationRequest(TIMELINE_ID, ENTRY_IDS[0])),
+    ).resolves.toEqual({ kind: "already-visible", ownerId: TIMELINE_ID, childId: ENTRY_IDS[0] });
+    const foreignId = "timeOther001" as EmbeddedNodeId;
+    await expect(
+      binding.activate(semanticActivationRequest(TIMELINE_ID, foreignId)),
+    ).resolves.toEqual({
+      kind: "unavailable",
+      ownerId: TIMELINE_ID,
+      childId: foreignId,
+      reason: "child-missing",
+    });
     expect(scrollTo).not.toHaveBeenCalled();
   });
 
@@ -171,17 +188,23 @@ describe("Timeline semantic navigation", () => {
     renderEditor(editor);
     const controller = getSemanticDocumentControllerForEditor(editor);
     await waitFor(() => {
-      expect(controller.containerAdapters.get(TIMELINE_ID)).toBeDefined();
-      expect(controller.containerAdapters.get(SECOND_TIMELINE_ID)).toBeDefined();
+      expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("resolved");
+      expect(controller.semanticActivations.resolve(SECOND_TIMELINE_ID).kind).toBe("resolved");
     });
-    const adapter = controller.containerAdapters.get(TIMELINE_ID);
-    if (!adapter) throw new Error("Missing first Timeline adapter");
+    const binding = requireSemanticActivationBinding(controller.semanticActivations, TIMELINE_ID);
     const firstTrack = timelineTrack(TIMELINE_ID);
     const firstEntry = timelineEntry(firstTrack, ENTRY_IDS[0]);
     const scrollTo = installGeometry(firstTrack, firstEntry, "vertical", true);
     expect(timelineEntry(timelineTrack(SECOND_TIMELINE_ID), SECOND_ENTRY_IDS[1])).toBeDefined();
 
-    expect(adapter.reveal(SECOND_ENTRY_IDS[1], "navigate")).toBe("child-unavailable");
+    await expect(
+      binding.activate(semanticActivationRequest(TIMELINE_ID, SECOND_ENTRY_IDS[1])),
+    ).resolves.toEqual({
+      kind: "unavailable",
+      ownerId: TIMELINE_ID,
+      childId: SECOND_ENTRY_IDS[1],
+      reason: "child-missing",
+    });
     expect(scrollTo).not.toHaveBeenCalled();
   });
 
@@ -189,19 +212,26 @@ describe("Timeline semantic navigation", () => {
     const editor = makeEditor("vertical");
     renderEditor(editor);
     const controller = getSemanticDocumentControllerForEditor(editor);
-    await waitFor(() => expect(controller.containerAdapters.get(TIMELINE_ID)).toBeDefined());
-    const adapter = controller.containerAdapters.get(TIMELINE_ID);
-    if (!adapter) throw new Error("Missing Timeline adapter");
+    await waitFor(() =>
+      expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("resolved"),
+    );
+    const binding = requireSemanticActivationBinding(controller.semanticActivations, TIMELINE_ID);
     const track = timelineTrack(TIMELINE_ID);
     const target = timelineEntry(track, ENTRY_IDS[1]);
     const scrollTo = installGeometry(track, target, "vertical", false);
 
     const abortedController = new AbortController();
-    const abortedReveal = Promise.resolve(
-      adapter.reveal(ENTRY_IDS[1], "navigate", abortedController.signal),
+    const abortedActivation = binding.activate(
+      semanticActivationRequest(TIMELINE_ID, ENTRY_IDS[1], {
+        signal: abortedController.signal,
+      }),
     );
     abortedController.abort();
-    await expect(abortedReveal).resolves.toBe("child-unavailable");
+    await expect(abortedActivation).resolves.toEqual({
+      kind: "interrupted",
+      ownerId: TIMELINE_ID,
+      childId: ENTRY_IDS[1],
+    });
     expect(scrollTo).not.toHaveBeenCalled();
   });
 
@@ -209,17 +239,30 @@ describe("Timeline semantic navigation", () => {
     const editor = makeEditor("vertical");
     renderEditor(editor);
     const controller = getSemanticDocumentControllerForEditor(editor);
-    await waitFor(() => expect(controller.containerAdapters.get(TIMELINE_ID)).toBeDefined());
-    const adapter = controller.containerAdapters.get(TIMELINE_ID);
-    if (!adapter) throw new Error("Missing Timeline adapter");
+    await waitFor(() =>
+      expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("resolved"),
+    );
+    const binding = requireSemanticActivationBinding(controller.semanticActivations, TIMELINE_ID);
     const track = timelineTrack(TIMELINE_ID);
     const target = timelineEntry(track, ENTRY_IDS[1]);
     const scrollTo = installGeometry(track, target, "vertical", false);
 
-    const supersededReveal = Promise.resolve(adapter.reveal(ENTRY_IDS[1], "navigate"));
-    const currentReveal = Promise.resolve(adapter.reveal(ENTRY_IDS[1], "navigate"));
-    await expect(supersededReveal).resolves.toBe("child-unavailable");
-    await expect(currentReveal).resolves.toBe("revealed");
+    const supersededActivation = binding.activate(
+      semanticActivationRequest(TIMELINE_ID, ENTRY_IDS[1]),
+    );
+    const currentActivation = binding.activate(
+      semanticActivationRequest(TIMELINE_ID, ENTRY_IDS[1]),
+    );
+    await expect(supersededActivation).resolves.toEqual({
+      kind: "interrupted",
+      ownerId: TIMELINE_ID,
+      childId: ENTRY_IDS[1],
+    });
+    await expect(currentActivation).resolves.toEqual({
+      kind: "revealed",
+      ownerId: TIMELINE_ID,
+      childId: ENTRY_IDS[1],
+    });
     expect(scrollTo).toHaveBeenCalledTimes(1);
   });
 
@@ -227,25 +270,30 @@ describe("Timeline semantic navigation", () => {
     const editor = makeEditor("vertical");
     const rendered = renderEditor(editor);
     const controller = getSemanticDocumentControllerForEditor(editor);
-    await waitFor(() => expect(controller.containerAdapters.get(TIMELINE_ID)).toBeDefined());
-    const adapter = controller.containerAdapters.get(TIMELINE_ID);
-    if (!adapter) throw new Error("Missing Timeline adapter");
+    await waitFor(() =>
+      expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("resolved"),
+    );
+    const binding = requireSemanticActivationBinding(controller.semanticActivations, TIMELINE_ID);
     const track = timelineTrack(TIMELINE_ID);
     const target = timelineEntry(track, ENTRY_IDS[1]);
     const scrollTo = installGeometry(track, target, "vertical", false);
 
-    const unmountedReveal = Promise.resolve(adapter.reveal(ENTRY_IDS[1], "navigate"));
+    const unmountedActivation = binding.activate(
+      semanticActivationRequest(TIMELINE_ID, ENTRY_IDS[1]),
+    );
     rendered.unmount();
-    await expect(unmountedReveal).resolves.toBe("child-unavailable");
+    await expect(unmountedActivation).resolves.toEqual({
+      kind: "unavailable",
+      ownerId: TIMELINE_ID,
+      childId: ENTRY_IDS[1],
+      reason: "owner-unmounted",
+    });
     expect(scrollTo).not.toHaveBeenCalled();
-    expect(controller.containerAdapters.get(TIMELINE_ID)).toBeUndefined();
+    expect(controller.semanticActivations.resolve(TIMELINE_ID).kind).toBe("unavailable");
   });
 });
 
-function makeEditor(
-  presentation: "carousel" | "vertical",
-  includeSecondTimeline = false,
-): Editor {
+function makeEditor(presentation: "carousel" | "vertical", includeSecondTimeline = false): Editor {
   const semantics = createSemanticDefinitionLookup({
     blocks: builtInBlockRegistry,
     layouts: builtInLayoutRegistry,
@@ -366,9 +414,9 @@ function timelineTrack(timelineId: EmbeddedNodeId): HTMLElement {
 }
 
 function timelineEntry(track: HTMLElement, entryId: EmbeddedNodeId): HTMLElement {
-  const entry = Array.from(
-    track.querySelectorAll<HTMLElement>("[data-timeline-entry-id]"),
-  ).find((candidate) => candidate.dataset.timelineEntryId === entryId);
+  const entry = Array.from(track.querySelectorAll<HTMLElement>("[data-timeline-entry-id]")).find(
+    (candidate) => candidate.dataset.timelineEntryId === entryId,
+  );
   if (!entry) throw new Error(`Missing Timeline entry ${entryId}`);
   return entry;
 }

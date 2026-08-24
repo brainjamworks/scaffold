@@ -19,7 +19,7 @@ import {
   getLayoutInteractionStoreState,
   useLayoutInteractionStore,
 } from "../shared/model/layout-interaction-store";
-import { useLayoutSemanticContainerAdapter } from "../shared/model/use-layout-semantic-container-adapter";
+import { useLayoutSemanticActivationBinding } from "../shared/model/use-layout-semantic-activation-binding";
 import type {
   LayoutComponentProps,
   SectionComponentProps,
@@ -79,7 +79,7 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
     });
   };
 
-  useLayoutSemanticContainerAdapter({
+  useLayoutSemanticActivationBinding({
     editor: props.editor,
     getPos: props.getPos,
     layoutId,

@@ -7,9 +7,12 @@ import {
   type SemanticDefinitionLookup,
   type SemanticDocumentSnapshot,
 } from "@/document/model/semantic-document";
+import {
+  createSemanticActivationRegistry,
+  type SemanticActivationRegistry,
+} from "@/document/semantic-target-interaction";
 
 import { projectAuthoringCourseStructure } from "../course-structure/project-authoring-course-structure";
-import { SemanticContainerAdapterRegistry } from "./semantic-container-adapter-registry";
 import {
   SemanticNavigationCoordinator,
   type SemanticNavigationEditor,
@@ -36,7 +39,7 @@ export interface CreateSemanticDocumentControllerInput {
 }
 
 export class SemanticDocumentController {
-  readonly containerAdapters = new SemanticContainerAdapterRegistry();
+  readonly semanticActivations: SemanticActivationRegistry = createSemanticActivationRegistry();
   readonly #definitions: SemanticDefinitionLookup;
   readonly #listeners = new Set<() => void>();
   readonly #navigation: SemanticNavigationCoordinator;
@@ -55,7 +58,7 @@ export class SemanticDocumentController {
       selectedId ? "editor" : null,
     );
     this.#navigation = new SemanticNavigationCoordinator({
-      registry: this.containerAdapters,
+      registry: this.semanticActivations,
       getSemantics: () => this.#snapshot.semantics,
       getCourseStructure: () => this.#courseStructure,
       ...(navigationEditor ? { editor: navigationEditor } : {}),
@@ -156,7 +159,7 @@ export class SemanticDocumentController {
   destroy(): void {
     this.#destroyed = true;
     this.#navigation.interrupt();
-    this.containerAdapters.clear();
+    this.semanticActivations.dispose();
     this.#listeners.clear();
   }
 

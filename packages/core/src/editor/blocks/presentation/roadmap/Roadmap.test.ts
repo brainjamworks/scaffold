@@ -11,7 +11,11 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { RoadmapDataSchema as ContractRoadmapDataSchema } from "@scaffold/contracts";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
-import { createSemanticContainerAdapterTestExtension } from "@/document/authoring/semantic-document/testing/semantic-container-adapter-test-extension";
+import {
+  createSemanticActivationBindingTestExtension,
+  requireSemanticActivationBinding,
+  semanticActivationRequest,
+} from "@/document/authoring/semantic-document/testing/semantic-activation-binding-test-extension";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
 import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
@@ -113,25 +117,27 @@ function renderRoadmapEditor(
 
 describe("roadmap node", () => {
   it("registers semantic activation and reveals the requested milestone in its track", async () => {
-    const semanticHarness = createSemanticContainerAdapterTestExtension();
+    const semanticHarness = createSemanticActivationBindingTestExtension();
     const content = roadmapFixture();
     content.content![0]!.attrs!["data"] = emptyRoadmapData({ orientation: "horizontal" });
     const fixture = renderRoadmapEditor(content, [semanticHarness.extension]);
     const ownerId = EmbeddedNodeIdSchema.parse("roadmap00001");
     const targetId = EmbeddedNodeIdSchema.parse("milestone003");
     const scrollOwner = await screen.findByRole("region", { name: "Roadmap" });
-    const target = document.querySelector<HTMLElement>(
-      `[data-roadmap-milestone-id="${targetId}"]`,
-    );
+    const target = document.querySelector<HTMLElement>(`[data-roadmap-milestone-id="${targetId}"]`);
     expect(target).not.toBeNull();
     const scrollTo = installHorizontalRevealGeometry(scrollOwner, target!);
-    const adapter = await waitFor(() => {
-      const current = semanticHarness.registry.get(ownerId);
-      expect(current).toBeDefined();
-      return current!;
+    const binding = await waitFor(() => {
+      const resolution = semanticHarness.registry.resolve(ownerId);
+      expect(resolution.kind).toBe("resolved");
+      return requireSemanticActivationBinding(semanticHarness.registry, ownerId);
     });
 
-    await expect(adapter.reveal(targetId, "navigate")).resolves.toBe("revealed");
+    await expect(binding.activate(semanticActivationRequest(ownerId, targetId))).resolves.toEqual({
+      kind: "revealed",
+      ownerId,
+      childId: targetId,
+    });
     expect(scrollTo).toHaveBeenCalledOnce();
 
     fixture.destroy();

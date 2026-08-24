@@ -161,10 +161,7 @@ describe("Checklist document semantics", () => {
     const firstItemId = makeId("ci", 6);
     const secondItemId = makeId("ci", 7);
     const doc = documentNode(
-      checklistNode(checklistId, [
-        simpleItem(firstItemId, 6),
-        simpleItem(secondItemId, 7),
-      ]),
+      checklistNode(checklistId, [simpleItem(firstItemId, 6), simpleItem(secondItemId, 7)]),
     );
     const originalDocument = doc.toJSON();
     const learnerActivity = {
@@ -205,7 +202,7 @@ describe("Checklist document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const checklistLocation = controller.getSnapshot().semantics.locationById.get(checklistId)!;
-    const adapterLookup = vi.spyOn(controller.containerAdapters, "get");
+    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
 
     await expect(controller.select(secondItemId, { origin: "document-outline" })).resolves.toEqual({
       kind: "reached",
@@ -223,7 +220,7 @@ describe("Checklist document semantics", () => {
     expect(
       createActivationTransaction.mock.calls.every(([location]) => location.id === checklistId),
     ).toBe(true);
-    expect(adapterLookup).not.toHaveBeenCalled();
+    expect(activationLookup).not.toHaveBeenCalled();
     expect(toggleCompletion).not.toHaveBeenCalled();
     expect(emitLearningEvent).not.toHaveBeenCalled();
     expect(learnerActivity).toEqual(originalLearnerActivity);
@@ -246,11 +243,7 @@ function checklistItem(
 }
 
 function checklistNode(id: EmbeddedNodeId, items: readonly ProseMirrorNode[]): ProseMirrorNode {
-  return schema.node(
-    CHECKLIST_NODE,
-    { id, data: { showProgress: true, showReset: true } },
-    items,
-  );
+  return schema.node(CHECKLIST_NODE, { id, data: { showProgress: true, showReset: true } }, items);
 }
 
 function documentNode(checklist: ProseMirrorNode): ProseMirrorNode {

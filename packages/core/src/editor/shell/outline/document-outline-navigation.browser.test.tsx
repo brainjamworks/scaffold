@@ -230,9 +230,7 @@ describe("Document Outline bidirectional navigation", () => {
     await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.secondFlashcardCard);
     expect(controller.getSnapshot().selectionOrigin).toBe("document-outline");
     expect(harness.editor.state.selection).toBeInstanceOf(NodeSelection);
-    expect((harness.editor.state.selection as NodeSelection).node.attrs["id"]).toBe(
-      IDS.flashcard,
-    );
+    expect((harness.editor.state.selection as NodeSelection).node.attrs["id"]).toBe(IDS.flashcard);
     expect(
       interactionOwnerPluginKey.getState(harness.editor.state)?.activationIntent,
     ).toMatchObject({
@@ -407,13 +405,15 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
   });
 
   await expect
-    .poll(() => document.querySelector<HTMLButtonElement>('button[aria-label^="Show structure for "]'))
+    .poll(() =>
+      document.querySelector<HTMLButtonElement>('button[aria-label^="Show structure for "]'),
+    )
     .not.toBeNull();
-  document
-    .querySelector<HTMLButtonElement>('button[aria-label^="Show structure for "]')!
-    .click();
+  document.querySelector<HTMLButtonElement>('button[aria-label^="Show structure for "]')!.click();
   await expect.element(page.getByRole("tree", { name: /structure$/ })).toBeVisible();
-  await expect.poll(() => controller.containerAdapters.get(IDS.tabs) !== undefined).toBe(true);
+  await expect
+    .poll(() => controller.semanticActivations.resolve(IDS.tabs).kind === "resolved")
+    .toBe(true);
 
   return {
     controller,

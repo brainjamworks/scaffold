@@ -10,7 +10,11 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
-import { createSemanticContainerAdapterTestExtension } from "@/document/authoring/semantic-document/testing/semantic-container-adapter-test-extension";
+import {
+  createSemanticActivationBindingTestExtension,
+  requireSemanticActivationBinding,
+  semanticActivationRequest,
+} from "@/document/authoring/semantic-document/testing/semantic-activation-binding-test-extension";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { AUTHORING_FRAME_WRAPPER_ATTR } from "@/editor/interactions/dom/authoring-chrome";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
@@ -127,17 +131,17 @@ function renderFlashcardEditor(
 
 describe("flashcard block", () => {
   it("registers semantic activation and reveals the requested card", async () => {
-    const semanticHarness = createSemanticContainerAdapterTestExtension();
+    const semanticHarness = createSemanticActivationBindingTestExtension();
     const fixture = renderFlashcardEditor(flashcardFixture(2), [semanticHarness.extension]);
     const ownerId = EmbeddedNodeIdSchema.parse("flashcard001");
     const secondCardId = EmbeddedNodeIdSchema.parse("flashcard002");
-    const adapter = await waitFor(() => {
-      const current = semanticHarness.registry.get(ownerId);
-      expect(current).toBeDefined();
-      return current!;
+    const binding = await waitFor(() => {
+      const resolution = semanticHarness.registry.resolve(ownerId);
+      expect(resolution.kind).toBe("resolved");
+      return requireSemanticActivationBinding(semanticHarness.registry, ownerId);
     });
 
-    const reveal = Promise.resolve(adapter.reveal(secondCardId, "navigate"));
+    const activation = binding.activate(semanticActivationRequest(ownerId, secondCardId));
     await waitFor(() => {
       expect(
         document.body.querySelector(`[data-flashcard-filmstrip-card="${secondCardId}"]`),
@@ -146,7 +150,7 @@ describe("flashcard block", () => {
         document.body.querySelector(`[data-node="flashcard-card"][data-id="${secondCardId}"]`),
       ).not.toHaveClass("sc-course-flashcard-card--inactive");
     });
-    await expect(reveal).resolves.toBe("revealed");
+    await expect(activation).resolves.toEqual({ kind: "revealed", ownerId, childId: secondCardId });
 
     fixture.destroy();
   });

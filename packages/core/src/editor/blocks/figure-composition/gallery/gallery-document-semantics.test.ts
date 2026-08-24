@@ -210,12 +210,13 @@ describe("Gallery document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const galleryLocation = controller.getSnapshot().semantics.locationById.get(galleryId)!;
-    const adapterLookup = vi.spyOn(controller.containerAdapters, "get");
-    controller.containerAdapters.register({
+    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
+    controller.semanticActivations.register({
       ownerId: galleryId,
-      reveal: (childId) => {
+      activate: async ({ relationship }) => {
+        const childId = relationship.childId;
         featureState.activeCarouselItemId = childId;
-        return "revealed";
+        return { kind: "revealed", ownerId: galleryId, childId };
       },
     });
 
@@ -235,7 +236,7 @@ describe("Gallery document semantics", () => {
     expect(
       createActivationTransaction.mock.calls.every(([location]) => location.id === galleryId),
     ).toBe(true);
-    expect(adapterLookup).toHaveBeenCalledWith(galleryId);
+    expect(activationLookup).toHaveBeenCalledWith(galleryId);
     expect(featureState).toEqual({ activeCarouselItemId: secondItemId, lightboxOpen: false });
     expect(state.doc.toJSON()).toEqual(originalDocument);
   });

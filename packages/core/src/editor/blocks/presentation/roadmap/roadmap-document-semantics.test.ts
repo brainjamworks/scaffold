@@ -129,12 +129,7 @@ describe("Roadmap document semantics", () => {
       });
     }
 
-    for (const privateId of [
-      firstHeadingId,
-      firstBodyId,
-      secondHeadingId,
-      secondBodyId,
-    ]) {
+    for (const privateId of [firstHeadingId, firstBodyId, secondHeadingId, secondBodyId]) {
       expect(snapshot.itemById.has(privateId)).toBe(false);
       expect(snapshot.parentById.has(privateId)).toBe(false);
       expect(snapshot.locationById.has(privateId)).toBe(false);
@@ -204,12 +199,8 @@ describe("Roadmap document semantics", () => {
     expect(changed.snapshot.itemById.has(makeId("ms", 4))).toBe(false);
     expect(changed.snapshot.parentById.has(makeId("ms", 4))).toBe(false);
     expect(changed.snapshot.locationById.has(makeId("ms", 4))).toBe(false);
-    expect(changed.snapshot.itemById.get(makeId("ms", 5))?.label).toBe(
-      "Roadmap milestone 1",
-    );
-    expect(changed.snapshot.itemById.get(makeId("ms", 3))?.label).toBe(
-      "Roadmap milestone 2",
-    );
+    expect(changed.snapshot.itemById.get(makeId("ms", 5))?.label).toBe("Roadmap milestone 1");
+    expect(changed.snapshot.itemById.get(makeId("ms", 3))?.label).toBe("Roadmap milestone 2");
     for (const milestoneId of [makeId("ms", 5), makeId("ms", 3)]) {
       expect(changed.snapshot.itemById.get(milestoneId)?.id).toBe(milestoneId);
       expect(changed.snapshot.parentById.get(milestoneId)).toBe(roadmapId);
@@ -279,18 +270,19 @@ describe("Roadmap document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const roadmapLocation = controller.getSnapshot().semantics.locationById.get(roadmapId)!;
-    const adapterLookup = vi.spyOn(controller.containerAdapters, "get");
-    controller.containerAdapters.register({
+    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
+    controller.semanticActivations.register({
       ownerId: roadmapId,
-      reveal: (childId) => {
+      activate: async ({ relationship }) => {
+        const childId = relationship.childId;
         scrollInternalTrack(childId);
-        return "revealed";
+        return { kind: "revealed", ownerId: roadmapId, childId };
       },
     });
 
-    await expect(controller.select(secondMilestoneId, { origin: "document-outline" })).resolves.toEqual(
-      { kind: "reached", id: secondMilestoneId },
-    );
+    await expect(
+      controller.select(secondMilestoneId, { origin: "document-outline" }),
+    ).resolves.toEqual({ kind: "reached", id: secondMilestoneId });
 
     expect(state.selection).toBeInstanceOf(NodeSelection);
     expect((state.selection as NodeSelection).node.attrs["id"]).toBe(roadmapId);
@@ -303,7 +295,7 @@ describe("Roadmap document semantics", () => {
     expect(
       createActivationTransaction.mock.calls.every(([location]) => location.id === roadmapId),
     ).toBe(true);
-    expect(adapterLookup).toHaveBeenCalledWith(roadmapId);
+    expect(activationLookup).toHaveBeenCalledWith(roadmapId);
     expect(scrollInternalTrack).toHaveBeenCalledWith(secondMilestoneId);
     expect(focusEditor).not.toHaveBeenCalled();
     expect(cycleStatus).not.toHaveBeenCalled();

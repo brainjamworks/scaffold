@@ -245,7 +245,7 @@ describe("Annotated Figure document semantics", () => {
       state.tr.insert(initialFigureLocation.from, paragraph(makeId("pa", 10), "Before figure")),
     );
     const currentFigureLocation = controller.getSnapshot().semantics.locationById.get(figureId)!;
-    const adapterLookup = vi.spyOn(controller.containerAdapters, "get");
+    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
 
     await expect(controller.select(annotationId, { origin: "document-outline" })).resolves.toEqual({
       kind: "reached",
@@ -261,7 +261,7 @@ describe("Annotated Figure document semantics", () => {
       selectionOrigin: "document-outline",
     });
     expect(bringIntoView).toHaveBeenCalledWith(currentFigureLocation, "smooth");
-    expect(adapterLookup).not.toHaveBeenCalled();
+    expect(activationLookup).not.toHaveBeenCalled();
   });
 
   it("tracks annotation reorder and removal in legend order", () => {
@@ -304,12 +304,7 @@ describe("Annotated Figure document semantics", () => {
 
     expect(snapshot.itemById.get(figureId)?.label).toBe("Annotated figure");
     expect(snapshot.itemById.get(figureId)?.children).toEqual([]);
-    for (const privateId of [
-      makeId("cv", 3),
-      makeId("le", 3),
-      makeId("an", 8),
-      makeId("pa", 8),
-    ]) {
+    for (const privateId of [makeId("cv", 3), makeId("le", 3), makeId("an", 8), makeId("pa", 8)]) {
       expect(snapshot.itemById.has(privateId)).toBe(false);
       expect(snapshot.parentById.has(privateId)).toBe(false);
       expect(snapshot.locationById.has(privateId)).toBe(false);

@@ -16,7 +16,7 @@ import {
 } from "@/document/model/commands/content-collections";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { setNodeSelectionInTransaction } from "@/editor/selection/selection-transactions";
-import { useStatefulBlockSemanticContainerAdapter } from "@/document/authoring/semantic-document/use-stateful-block-semantic-container-adapter";
+import { useStatefulBlockSemanticActivationBinding } from "@/document/authoring/semantic-document/use-stateful-block-semantic-activation-binding";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import "./Gallery.css";
 import {
@@ -61,7 +61,7 @@ export function GalleryAuthoringView(props: NodeViewProps) {
     }
   }, [rawItems, activeId]);
 
-  useStatefulBlockSemanticContainerAdapter({
+  useStatefulBlockSemanticActivationBinding({
     childNodeType: GALLERY_ITEM_NODE,
     editor: props.editor,
     getPos: props.getPos,

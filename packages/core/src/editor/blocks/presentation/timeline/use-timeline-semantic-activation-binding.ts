@@ -4,14 +4,12 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useEffect } from "react";
 
 import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
+import type { SemanticActivationOutcome } from "@/document/semantic-target-interaction";
 
 import { TIMELINE_ITEM_NODE, TIMELINE_NODE } from "./content";
-import {
-  scrollTimelineEventIntoView,
-  type TimelineOptions,
-} from "./timeline-components";
+import { scrollTimelineEventIntoView, type TimelineOptions } from "./timeline-components";
 
-export interface UseTimelineSemanticContainerAdapterInput {
+export interface UseTimelineSemanticActivationBindingInput {
   readonly editor: Editor;
   readonly getPos: () => number | undefined;
   readonly getTrackElement: () => HTMLElement | null;
@@ -21,14 +19,14 @@ export interface UseTimelineSemanticContainerAdapterInput {
 }
 
 /** Owns Timeline's mounted semantic reveal registration. */
-export function useTimelineSemanticContainerAdapter({
+export function useTimelineSemanticActivationBinding({
   editor,
   getPos,
   getTrackElement,
   node,
   presentation,
   timelineId,
-}: UseTimelineSemanticContainerAdapterInput): void {
+}: UseTimelineSemanticActivationBindingInput): void {
   const semanticController = semanticDocumentPluginKey.getState(editor.state);
 
   useEffect(() => {
@@ -37,35 +35,42 @@ export function useTimelineSemanticContainerAdapter({
     let active = true;
     let pendingReveal: PendingReveal | null = null;
 
-    const unregister = semanticController.containerAdapters.register({
-      ownerId: semanticTimelineId.data,
-      reveal: (childId, _reason, signal) => {
-        pendingReveal?.finish("child-unavailable");
-        if (!active || signal?.aborted) return "child-unavailable";
-        if (!isCurrentTimelineChild(editor, getPos, semanticTimelineId.data, childId)) {
-          return "child-unavailable";
+    const ownerId = semanticTimelineId.data;
+    const unregister = semanticController.semanticActivations.register({
+      ownerId,
+      activate: async ({ relationship, signal }) => {
+        const childId = relationship.childId;
+        if (pendingReveal) {
+          pendingReveal.finish(outcome("interrupted", ownerId, pendingReveal.childId));
+        }
+        if (!active) return unavailable(ownerId, childId, "owner-unmounted");
+        if (signal.aborted) return outcome("interrupted", ownerId, childId);
+        if (!isCurrentTimelineChild(editor, getPos, ownerId, childId)) {
+          return unavailable(ownerId, childId, "child-missing");
         }
         const track = getTrackElement();
         const timelineEvent = track ? timelineEventById(track, childId) : null;
-        if (!track || !timelineEvent) return "child-unavailable";
+        if (!track || !timelineEvent) {
+          return unavailable(ownerId, childId, "temporarily-unavailable");
+        }
         if (isTimelineEventVisible(track, timelineEvent, presentation)) {
-          return "already-visible";
+          return outcome("already-visible", ownerId, childId);
         }
 
-        return new Promise((resolve) => {
+        return new Promise<SemanticActivationOutcome>((resolve) => {
           let settled = false;
           const finish: PendingReveal["finish"] = (result) => {
             if (settled) return;
             settled = true;
-            signal?.removeEventListener("abort", handleAbort);
+            signal.removeEventListener("abort", handleAbort);
             if (pendingReveal?.finish === finish) pendingReveal = null;
             resolve(result);
           };
-          const handleAbort = () => finish("child-unavailable");
-          pendingReveal = { finish };
-          signal?.addEventListener("abort", handleAbort, { once: true });
-          if (signal?.aborted) {
-            finish("child-unavailable");
+          const handleAbort = () => finish(outcome("interrupted", ownerId, childId));
+          pendingReveal = { childId, finish };
+          signal.addEventListener("abort", handleAbort, { once: true });
+          if (signal.aborted) {
+            finish(outcome("interrupted", ownerId, childId));
             return;
           }
           queueMicrotask(() => {
@@ -73,14 +78,16 @@ export function useTimelineSemanticContainerAdapter({
             const currentTimelineEvent = currentTrack
               ? timelineEventById(currentTrack, childId)
               : null;
-            if (
-              settled ||
-              !active ||
-              !isCurrentTimelineChild(editor, getPos, semanticTimelineId.data, childId) ||
-              !currentTrack ||
-              !currentTimelineEvent
-            ) {
-              finish("child-unavailable");
+            if (settled || !active || !isCurrentTimelineChild(editor, getPos, ownerId, childId)) {
+              finish(
+                !active
+                  ? unavailable(ownerId, childId, "owner-unmounted")
+                  : unavailable(ownerId, childId, "child-missing"),
+              );
+              return;
+            }
+            if (!currentTrack || !currentTimelineEvent) {
+              finish(unavailable(ownerId, childId, "temporarily-unavailable"));
               return;
             }
             const reduceMotion =
@@ -93,7 +100,7 @@ export function useTimelineSemanticContainerAdapter({
               presentation,
               reduceMotion ? "auto" : "smooth",
             );
-            finish("revealed");
+            finish(outcome("revealed", ownerId, childId));
           });
         });
       },
@@ -101,22 +108,33 @@ export function useTimelineSemanticContainerAdapter({
 
     return () => {
       active = false;
-      pendingReveal?.finish("child-unavailable");
+      if (pendingReveal) {
+        pendingReveal.finish(unavailable(ownerId, pendingReveal.childId, "owner-unmounted"));
+      }
       unregister();
     };
-  }, [
-    editor,
-    getPos,
-    getTrackElement,
-    node,
-    presentation,
-    semanticController,
-    timelineId,
-  ]);
+  }, [editor, getPos, getTrackElement, node, presentation, semanticController, timelineId]);
 }
 
 interface PendingReveal {
-  readonly finish: (result: "revealed" | "child-unavailable") => void;
+  readonly childId: EmbeddedNodeId;
+  readonly finish: (result: SemanticActivationOutcome) => void;
+}
+
+function outcome(
+  kind: "revealed" | "already-visible" | "interrupted",
+  ownerId: EmbeddedNodeId,
+  childId: EmbeddedNodeId,
+): SemanticActivationOutcome {
+  return Object.freeze({ kind, ownerId, childId });
+}
+
+function unavailable(
+  ownerId: EmbeddedNodeId,
+  childId: EmbeddedNodeId,
+  reason: "owner-unmounted" | "child-missing" | "temporarily-unavailable",
+): SemanticActivationOutcome {
+  return Object.freeze({ kind: "unavailable", ownerId, childId, reason });
 }
 
 function isCurrentTimelineChild(

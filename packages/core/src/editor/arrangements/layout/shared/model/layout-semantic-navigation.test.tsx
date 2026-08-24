@@ -16,6 +16,10 @@ import {
   createSemanticDocumentExtension,
   getSemanticDocumentControllerForEditor,
 } from "@/document/authoring/semantic-document";
+import {
+  requireSemanticActivationBinding,
+  semanticActivationRequest,
+} from "@/document/authoring/semantic-document/testing/semantic-activation-binding-test-extension";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import {
   LayoutAuthoringNode,
@@ -46,7 +50,7 @@ import {
   getLayoutInteractionStoreState,
   type LayoutInteractionStoreState,
 } from "./layout-interaction-store";
-import { useLayoutSemanticContainerAdapter } from "./use-layout-semantic-container-adapter";
+import { useLayoutSemanticActivationBinding } from "./use-layout-semantic-activation-binding";
 
 const CASES = [
   {
@@ -96,7 +100,7 @@ afterAll(() => {
 
 describe("Layout semantic navigation", () => {
   it.each(CASES)(
-    "registers and unregisters the $variant adapter while revealing through owned state",
+    "registers and unregisters the $variant binding while activating through owned state",
     async (testCase) => {
       const editor = makeEditor(testCase);
       const rendered = renderEditor(editor);
@@ -105,21 +109,22 @@ describe("Layout semantic navigation", () => {
       const targetId = testCase.sectionIds[1] as EmbeddedNodeId;
 
       await waitFor(() => {
-        expect(controller.containerAdapters.get(layoutId)).toBeDefined();
+        expect(controller.semanticActivations.resolve(layoutId).kind).toBe("resolved");
       });
 
-      expect(
-        controller.getSnapshot().semantics.locationById.get(targetId)?.activationPath,
-      ).toEqual([{ ownerId: layoutId, childId: targetId, ownerKind: "layout" }]);
-      const adapter = controller.containerAdapters.get(layoutId);
-      if (!adapter) throw new Error(`Missing ${testCase.variant} adapter`);
+      expect(controller.getSnapshot().semantics.locationById.get(targetId)?.activationPath).toEqual(
+        [{ ownerId: layoutId, childId: targetId, ownerKind: "layout" }],
+      );
+      const binding = requireSemanticActivationBinding(controller.semanticActivations, layoutId);
       const authoredDocument = editor.getJSON();
       const click = vi.fn();
       document.addEventListener("click", click);
       const targetPanel = sectionPanel(testCase, targetId);
       expect(targetPanel.hidden).toBe(true);
 
-      await expect(adapter.reveal(targetId, "navigate")).resolves.toBe("revealed");
+      await expect(
+        binding.activate(semanticActivationRequest(layoutId, targetId, { ownerKind: "layout" })),
+      ).resolves.toEqual({ kind: "revealed", ownerId: layoutId, childId: targetId });
       expect(visibleSectionId(testCase, getLayoutInteractionStoreState(editor))).toBe(targetId);
       expect(targetPanel.hidden).toBe(false);
       expect(controller.getSnapshot().semantics.itemById.get(targetId)?.id).toBe(targetId);
@@ -128,13 +133,19 @@ describe("Layout semantic navigation", () => {
         selectedId: targetId,
         selectionOrigin: "component",
       });
-      await expect(adapter.reveal(targetId, "navigate")).resolves.toBe("already-visible");
+      await expect(
+        binding.activate(semanticActivationRequest(layoutId, targetId, { ownerKind: "layout" })),
+      ).resolves.toEqual({ kind: "already-visible", ownerId: layoutId, childId: targetId });
       expect(click).not.toHaveBeenCalled();
       expect(editor.getJSON()).toEqual(authoredDocument);
 
       document.removeEventListener("click", click);
       act(() => rendered.unmount());
-      expect(controller.containerAdapters.get(layoutId)).toBeUndefined();
+      expect(controller.semanticActivations.resolve(layoutId)).toEqual({
+        kind: "unavailable",
+        ownerId: layoutId,
+        reason: "owner-unmounted",
+      });
     },
   );
 
@@ -162,16 +173,15 @@ describe("Layout semantic navigation", () => {
     const layoutNode = findNode(editor.state.doc, layoutId);
     let requested = false;
     const visibilityState = { current: false };
-    const editorRendered = renderEditor(editor);
-    await waitFor(() => {
-      expect(document.getElementById(tabPanelId(layoutId, targetId))).toBeInstanceOf(HTMLElement);
-    });
-    const targetPanel = sectionPanel(testCase, targetId);
+    const targetPanel = editor.view.dom;
+    targetPanel.id = `controlled-${layoutId}-${targetId}`;
+    targetPanel.hidden = true;
+    document.body.append(targetPanel);
     const outsideEditorDuplicate = document.createElement("div");
     outsideEditorDuplicate.id = targetPanel.id;
     document.body.prepend(outsideEditorDuplicate);
     const rendered = render(
-      <ControlledSemanticAdapter
+      <ControlledSemanticBinding
         editor={editor}
         layoutId={layoutId}
         node={layoutNode}
@@ -184,24 +194,29 @@ describe("Layout semantic navigation", () => {
     );
 
     await waitFor(() => {
-      expect(controller.containerAdapters.get(layoutId)).toBeDefined();
+      expect(controller.semanticActivations.resolve(layoutId).kind).toBe("resolved");
     });
-    const adapter = controller.containerAdapters.get(layoutId);
-    if (!adapter) throw new Error("Missing controlled Layout adapter");
-    let result: string | undefined;
-    const reveal = Promise.resolve(adapter.reveal(targetId, "navigate")).then((value) => {
-      result = value;
-      return value;
-    });
+    const binding = requireSemanticActivationBinding(controller.semanticActivations, layoutId);
+    let result: unknown;
+    const activation = binding
+      .activate(semanticActivationRequest(layoutId, targetId, { ownerKind: "layout" }))
+      .then((value) => {
+        result = value;
+        return value;
+      });
 
     await Promise.resolve();
     expect(requested).toBe(true);
     expect(result).toBeUndefined();
 
     targetPanel.hidden = false;
-    await expect(reveal).resolves.toBe("revealed");
+    editor.view.dispatch(editor.state.tr.setMeta("semantic-visibility-test", true));
+    await expect(activation).resolves.toEqual({
+      kind: "revealed",
+      ownerId: layoutId,
+      childId: targetId,
+    });
     act(() => rendered.unmount());
-    act(() => editorRendered.unmount());
   });
 });
 
@@ -211,7 +226,7 @@ interface LayoutNavigationCase {
   readonly sectionIds: readonly [string, string];
 }
 
-function ControlledSemanticAdapter({
+function ControlledSemanticBinding({
   editor,
   layoutId,
   node,
@@ -226,7 +241,7 @@ function ControlledSemanticAdapter({
   visibilityState: { current: boolean };
   visibilityElementId: string;
 }) {
-  useLayoutSemanticContainerAdapter({
+  useLayoutSemanticActivationBinding({
     editor,
     getPos: () => findNodePositionById(editor.state.doc, layoutId),
     isVisible: () => visibilityState.current,

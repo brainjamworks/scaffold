@@ -22,7 +22,11 @@ import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
-import { createSemanticContainerAdapterTestExtension } from "@/document/authoring/semantic-document/testing/semantic-container-adapter-test-extension";
+import {
+  createSemanticActivationBindingTestExtension,
+  requireSemanticActivationBinding,
+  semanticActivationRequest,
+} from "@/document/authoring/semantic-document/testing/semantic-activation-binding-test-extension";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
@@ -234,21 +238,21 @@ it("registers gallery as an atomic block", () => {
 });
 
 it("registers semantic activation and reveals the requested carousel item", async () => {
-  const semanticHarness = createSemanticContainerAdapterTestExtension();
+  const semanticHarness = createSemanticActivationBindingTestExtension();
   const editor = renderGalleryEditor(galleryFixture(), [semanticHarness.extension]);
   const ownerId = EmbeddedNodeIdSchema.parse("gallery_0001");
   const secondItemId = EmbeddedNodeIdSchema.parse("galleryimg02");
-  const adapter = await waitFor(() => {
-    const current = semanticHarness.registry.get(ownerId);
-    expect(current).toBeDefined();
-    return current!;
+  const binding = await waitFor(() => {
+    const resolution = semanticHarness.registry.resolve(ownerId);
+    expect(resolution.kind).toBe("resolved");
+    return requireSemanticActivationBinding(semanticHarness.registry, ownerId);
   });
 
-  const reveal = Promise.resolve(adapter.reveal(secondItemId, "navigate"));
+  const activation = binding.activate(semanticActivationRequest(ownerId, secondItemId));
   await waitFor(() => {
     expect(screen.getByRole("img", { name: "Second image" })).toBeInTheDocument();
   });
-  await expect(reveal).resolves.toBe("revealed");
+  await expect(activation).resolves.toEqual({ kind: "revealed", ownerId, childId: secondItemId });
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
   editor.destroy();
