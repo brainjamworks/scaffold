@@ -185,9 +185,9 @@ describe("Timeline semantic navigation", () => {
     expect(scrollTo).not.toHaveBeenCalled();
   });
 
-  it("settles aborted, superseded and unmounted reveals without hanging", async () => {
+  it("does not scroll for an aborted reveal", async () => {
     const editor = makeEditor("vertical");
-    const rendered = renderEditor(editor);
+    renderEditor(editor);
     const controller = getSemanticDocumentControllerForEditor(editor);
     await waitFor(() => expect(controller.containerAdapters.get(TIMELINE_ID)).toBeDefined());
     const adapter = controller.containerAdapters.get(TIMELINE_ID);
@@ -200,20 +200,44 @@ describe("Timeline semantic navigation", () => {
     const abortedReveal = Promise.resolve(
       adapter.reveal(ENTRY_IDS[1], "navigate", abortedController.signal),
     );
-    expect(scrollTo).toHaveBeenCalledTimes(1);
     abortedController.abort();
     await expect(abortedReveal).resolves.toBe("child-unavailable");
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
 
-    track.scrollTop = 0;
-    scrollTo.mockImplementation(() => undefined);
+  it("does not scroll for a reveal superseded before activation", async () => {
+    const editor = makeEditor("vertical");
+    renderEditor(editor);
+    const controller = getSemanticDocumentControllerForEditor(editor);
+    await waitFor(() => expect(controller.containerAdapters.get(TIMELINE_ID)).toBeDefined());
+    const adapter = controller.containerAdapters.get(TIMELINE_ID);
+    if (!adapter) throw new Error("Missing Timeline adapter");
+    const track = timelineTrack(TIMELINE_ID);
+    const target = timelineEntry(track, ENTRY_IDS[1]);
+    const scrollTo = installGeometry(track, target, "vertical", false);
+
     const supersededReveal = Promise.resolve(adapter.reveal(ENTRY_IDS[1], "navigate"));
     const currentReveal = Promise.resolve(adapter.reveal(ENTRY_IDS[1], "navigate"));
     await expect(supersededReveal).resolves.toBe("child-unavailable");
     await expect(currentReveal).resolves.toBe("revealed");
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not scroll for a reveal whose Timeline unmounts before activation", async () => {
+    const editor = makeEditor("vertical");
+    const rendered = renderEditor(editor);
+    const controller = getSemanticDocumentControllerForEditor(editor);
+    await waitFor(() => expect(controller.containerAdapters.get(TIMELINE_ID)).toBeDefined());
+    const adapter = controller.containerAdapters.get(TIMELINE_ID);
+    if (!adapter) throw new Error("Missing Timeline adapter");
+    const track = timelineTrack(TIMELINE_ID);
+    const target = timelineEntry(track, ENTRY_IDS[1]);
+    const scrollTo = installGeometry(track, target, "vertical", false);
 
     const unmountedReveal = Promise.resolve(adapter.reveal(ENTRY_IDS[1], "navigate"));
     rendered.unmount();
     await expect(unmountedReveal).resolves.toBe("child-unavailable");
+    expect(scrollTo).not.toHaveBeenCalled();
     expect(controller.containerAdapters.get(TIMELINE_ID)).toBeUndefined();
   });
 });

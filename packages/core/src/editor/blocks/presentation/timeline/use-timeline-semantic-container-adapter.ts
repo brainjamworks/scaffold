@@ -52,16 +52,6 @@ export function useTimelineSemanticContainerAdapter({
           return "already-visible";
         }
 
-        const reduceMotion =
-          track.ownerDocument.defaultView?.matchMedia?.("(prefers-reduced-motion: reduce)")
-            .matches === true;
-        scrollTimelineEventIntoView(
-          track,
-          timelineEvent,
-          presentation,
-          reduceMotion ? "auto" : "smooth",
-        );
-
         return new Promise((resolve) => {
           let settled = false;
           const finish: PendingReveal["finish"] = (result) => {
@@ -80,15 +70,29 @@ export function useTimelineSemanticContainerAdapter({
           }
           queueMicrotask(() => {
             const currentTrack = getTrackElement();
+            const currentTimelineEvent = currentTrack
+              ? timelineEventById(currentTrack, childId)
+              : null;
             if (
+              settled ||
               !active ||
               !isCurrentTimelineChild(editor, getPos, semanticTimelineId.data, childId) ||
               !currentTrack ||
-              !timelineEventById(currentTrack, childId)
+              !currentTimelineEvent
             ) {
               finish("child-unavailable");
               return;
             }
+            const reduceMotion =
+              currentTrack.ownerDocument.defaultView?.matchMedia?.(
+                "(prefers-reduced-motion: reduce)",
+              ).matches === true;
+            scrollTimelineEventIntoView(
+              currentTrack,
+              currentTimelineEvent,
+              presentation,
+              reduceMotion ? "auto" : "smooth",
+            );
             finish("revealed");
           });
         });
