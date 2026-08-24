@@ -31,6 +31,7 @@ export type SemanticTargetInteractionResult =
       readonly requestedId: EmbeddedNodeId;
       readonly ownerId: EmbeddedNodeId;
       readonly childId: EmbeddedNodeId;
+      readonly nearestReachableOwnerId: EmbeddedNodeId | null;
       readonly reason: Extract<SemanticActivationOutcome, { kind: "unavailable" }>["reason"];
     }
   | {
@@ -38,6 +39,7 @@ export type SemanticTargetInteractionResult =
       readonly requestedId: EmbeddedNodeId;
       readonly ownerId: EmbeddedNodeId;
       readonly childId: EmbeddedNodeId;
+      readonly nearestReachableOwnerId: EmbeddedNodeId | null;
       readonly reason: Extract<SemanticActivationOutcome, { kind: "refused" }>["reason"];
     }
   | { readonly kind: "interrupted"; readonly requestedId: EmbeddedNodeId };
@@ -92,9 +94,10 @@ export function createSemanticTargetInteractionCoordinator({
       try {
         while (true) {
           if (operationSignal.signal.aborted) return interrupted(requestedId);
-          const target = resolveTarget(getSemantics(), requestedId);
+          const semantics = getSemantics();
+          const target = resolveTarget(semantics, requestedId);
           if (!target) return missingTarget(requestedId);
-          const surfaceId = resolveSurfaceId(target, getSemantics(), getCourseStructure());
+          const surfaceId = resolveSurfaceId(target, semantics, getCourseStructure());
           if (!surfaceId || surfaceId === presentedSurfaceId) break;
 
           await surfacePresentation.presentSurface(surfaceId, operationSignal.signal);
@@ -105,14 +108,15 @@ export function createSemanticTargetInteractionCoordinator({
 
         while (true) {
           if (operationSignal.signal.aborted) return interrupted(requestedId);
-          const target = resolveTarget(getSemantics(), requestedId);
+          const semantics = getSemantics();
+          const target = resolveTarget(semantics, requestedId);
           if (!target) return missingTarget(requestedId);
           const relationship = nextActivation(target, completedBindings, registry);
           if (!relationship) return reached(requestedId);
 
           const resolution = registry.resolve(relationship.ownerId);
           if (resolution.kind === "unavailable") {
-            return unavailable(requestedId, relationship, resolution.reason);
+            return unavailable(requestedId, target, semantics, relationship, resolution.reason);
           }
 
           const binding = resolution.binding;
@@ -125,7 +129,8 @@ export function createSemanticTargetInteractionCoordinator({
           });
           assertOutcomeIdentity(outcome, relationship);
           if (operationSignal.signal.aborted) return interrupted(requestedId);
-          const currentTarget = resolveTarget(getSemantics(), requestedId);
+          const currentSemantics = getSemantics();
+          const currentTarget = resolveTarget(currentSemantics, requestedId);
           if (!currentTarget) return missingTarget(requestedId);
           if (outcome.kind === "revealed" || outcome.kind === "already-visible") {
             completedBindings.set(activationKey(relationship), binding);
@@ -136,16 +141,34 @@ export function createSemanticTargetInteractionCoordinator({
           }
           const currentResolution = registry.resolve(currentRelationship.ownerId);
           if (currentResolution.kind === "unavailable") {
-            return unavailable(requestedId, currentRelationship, currentResolution.reason);
+            return unavailable(
+              requestedId,
+              currentTarget,
+              currentSemantics,
+              currentRelationship,
+              currentResolution.reason,
+            );
           }
           if (currentResolution.binding !== binding) continue;
 
           if (outcome.kind === "interrupted") return interrupted(requestedId);
           if (outcome.kind === "unavailable") {
-            return unavailable(requestedId, relationship, outcome.reason);
+            return unavailable(
+              requestedId,
+              currentTarget,
+              currentSemantics,
+              relationship,
+              outcome.reason,
+            );
           }
           if (outcome.kind === "refused") {
-            return refused(requestedId, relationship, outcome.reason);
+            return refused(
+              requestedId,
+              currentTarget,
+              currentSemantics,
+              relationship,
+              outcome.reason,
+            );
           }
         }
       } finally {
@@ -240,6 +263,8 @@ function interrupted(requestedId: EmbeddedNodeId): SemanticTargetInteractionResu
 
 function unavailable(
   requestedId: EmbeddedNodeId,
+  target: ResolvedSemanticTarget,
+  semantics: SemanticDocumentSnapshot,
   relationship: SemanticActivationRelationship,
   reason: Extract<SemanticActivationOutcome, { kind: "unavailable" }>["reason"],
 ): SemanticTargetInteractionResult {
@@ -248,12 +273,15 @@ function unavailable(
     requestedId,
     ownerId: relationship.ownerId,
     childId: relationship.childId,
+    nearestReachableOwnerId: resolveNearestReachableOwnerId(target, relationship, semantics),
     reason,
   });
 }
 
 function refused(
   requestedId: EmbeddedNodeId,
+  target: ResolvedSemanticTarget,
+  semantics: SemanticDocumentSnapshot,
   relationship: SemanticActivationRelationship,
   reason: Extract<SemanticActivationOutcome, { kind: "refused" }>["reason"],
 ): SemanticTargetInteractionResult {
@@ -262,8 +290,34 @@ function refused(
     requestedId,
     ownerId: relationship.ownerId,
     childId: relationship.childId,
+    nearestReachableOwnerId: resolveNearestReachableOwnerId(target, relationship, semantics),
     reason,
   });
+}
+
+function resolveNearestReachableOwnerId(
+  target: ResolvedSemanticTarget,
+  failedRelationship: SemanticActivationRelationship,
+  semantics: SemanticDocumentSnapshot,
+): EmbeddedNodeId | null {
+  if (semantics.itemById.has(failedRelationship.ownerId)) {
+    return failedRelationship.ownerId;
+  }
+
+  let candidate = semantics.parentById.get(target.id) ?? null;
+  while (candidate) {
+    const location = semantics.locationById.get(candidate);
+    if (
+      location &&
+      !location.activationPath.some((relationship) =>
+        sameActivation(relationship, failedRelationship),
+      )
+    ) {
+      return candidate;
+    }
+    candidate = semantics.parentById.get(candidate) ?? null;
+  }
+  return target.location.surfaceId;
 }
 
 function createOperationSignal(signals: readonly AbortSignal[]): {

@@ -3,14 +3,12 @@ import type { Transaction } from "@tiptap/pm/state";
 
 import type { ProjectedCourseStructure } from "@/document/model/course-structure";
 import type {
-  SemanticActivationRelationship,
   SemanticDocumentSnapshot,
   SemanticLocation,
 } from "@/document/model/semantic-document";
 import type {
-  MountedSemanticActivationBinding,
-  SemanticActivationOutcome,
-  SemanticActivationRegistry,
+  SemanticTargetInteractionCoordinator,
+  SemanticTargetInteractionResult,
 } from "@/document/semantic-target-interaction";
 
 import {
@@ -32,11 +30,13 @@ export interface SemanticNavigationEnvironment {
 export interface SemanticNavigationOptions {
   readonly origin: Extract<SemanticSelectionOrigin, "document-outline" | "presentation-timeline">;
   readonly focusEditor?: boolean;
+  readonly signal?: AbortSignal;
 }
 
-type SemanticNavigationReachedOwnerReason =
-  | "owner-unmounted"
-  | Extract<SemanticActivationOutcome, { kind: "unavailable" | "refused" }>["reason"];
+type SemanticNavigationReachedOwnerReason = Extract<
+  SemanticTargetInteractionResult,
+  { kind: "unavailable" | "refused" }
+>["reason"];
 
 export type SemanticNavigationResult =
   | { readonly kind: "reached"; readonly id: EmbeddedNodeId }
@@ -50,7 +50,7 @@ export type SemanticNavigationResult =
   | { readonly kind: "interrupted"; readonly id: EmbeddedNodeId };
 
 interface SemanticNavigationCoordinatorInput {
-  readonly registry: SemanticActivationRegistry;
+  readonly targetInteractions: SemanticTargetInteractionCoordinator;
   readonly getSemantics: () => SemanticDocumentSnapshot;
   readonly getCourseStructure: () => ProjectedCourseStructure;
   readonly editor?: SemanticNavigationEditor;
@@ -63,7 +63,7 @@ interface ResolvedSemanticTarget {
 }
 
 export class SemanticNavigationCoordinator {
-  readonly #registry: SemanticActivationRegistry;
+  readonly #targetInteractions: SemanticTargetInteractionCoordinator;
   readonly #getSemantics: () => SemanticDocumentSnapshot;
   readonly #getCourseStructure: () => ProjectedCourseStructure;
   #editor: SemanticNavigationEditor | null;
@@ -72,13 +72,13 @@ export class SemanticNavigationCoordinator {
   #requestAbortController: AbortController | null = null;
 
   constructor({
-    registry,
+    targetInteractions,
     getSemantics,
     getCourseStructure,
     editor,
     environment,
   }: SemanticNavigationCoordinatorInput) {
-    this.#registry = registry;
+    this.#targetInteractions = targetInteractions;
     this.#getSemantics = getSemantics;
     this.#getCourseStructure = getCourseStructure;
     this.#editor = editor ?? null;
@@ -109,59 +109,45 @@ export class SemanticNavigationCoordinator {
     const requestAbortController = new AbortController();
     this.#requestAbortController = requestAbortController;
     const token = ++this.#requestToken;
-    const completedBindings = new Map<string, MountedSemanticActivationBinding>();
-    let presentedSurfaceId: EmbeddedNodeId | null = null;
+    const interruptFromExternalSignal = () => {
+      if (this.#requestAbortController === requestAbortController) this.interrupt();
+    };
+    if (options.signal?.aborted) requestAbortController.abort();
+    else options.signal?.addEventListener("abort", interruptFromExternalSignal, { once: true });
 
-    while (true) {
-      const target = this.#resolve(id);
-      if (!target) return { kind: "missing", id };
-      const surfaceId = this.#resolveSurfaceId(target);
-      if (!surfaceId || surfaceId === presentedSurfaceId) break;
-      const environment = this.#environment;
-      if (!environment) return { kind: "interrupted", id };
-
-      try {
-        await environment.presentSurface(surfaceId);
-      } catch {
-        return { kind: "interrupted", id };
-      }
-      if (!this.#isCurrent(token)) return { kind: "interrupted", id };
-      if (!this.#resolve(id)) return { kind: "missing", id };
-      presentedSurfaceId = surfaceId;
-    }
-
-    while (true) {
-      const target = this.#resolve(id);
-      if (!target) return { kind: "missing", id };
-      const next = this.#nextActivation(target, completedBindings);
-      if (!next) return this.#reach(target, token, options);
-
-      const resolution = this.#registry.resolve(next.ownerId);
-      if (resolution.kind === "unavailable") {
-        return this.#reachOwner(target, next, token, options, resolution.reason);
-      }
-      const binding = resolution.binding;
-
-      const outcome = await binding.activate({
-        requestedId: id,
-        relationship: next,
+    try {
+      const activation = await this.#targetInteractions.activate(id, {
         origin: options.origin,
-        causationId: `semantic-navigation:${token}`,
         signal: requestAbortController.signal,
       });
       if (!this.#isCurrent(token)) return { kind: "interrupted", id };
 
-      const currentTarget = this.#resolve(id);
-      if (!currentTarget) return { kind: "missing", id };
-      const currentResolution = this.#registry.resolve(next.ownerId);
-      if (currentResolution.kind === "unavailable" || currentResolution.binding !== binding) {
-        return this.#reachOwner(currentTarget, next, token, options, "owner-unmounted");
+      switch (activation.kind) {
+        case "missing-target":
+          return { kind: "missing", id };
+        case "interrupted":
+          return { kind: "interrupted", id };
+        case "unavailable":
+        case "refused":
+          return await this.#reachOwner(
+            id,
+            activation.nearestReachableOwnerId,
+            token,
+            options,
+            activation.reason,
+          );
+        case "reached": {
+          const target = this.#resolve(id);
+          return target ? await this.#reach(target, token, options) : { kind: "missing", id };
+        }
       }
-      if (outcome.kind === "interrupted") return { kind: "interrupted", id };
-      if (outcome.kind === "unavailable" || outcome.kind === "refused") {
-        return this.#reachOwner(currentTarget, next, token, options, outcome.reason);
+      const unreachable: never = activation;
+      return unreachable;
+    } finally {
+      options.signal?.removeEventListener("abort", interruptFromExternalSignal);
+      if (this.#requestAbortController === requestAbortController) {
+        this.#requestAbortController = null;
       }
-      completedBindings.set(activationKey(next), binding);
     }
   }
 
@@ -179,67 +165,24 @@ export class SemanticNavigationCoordinator {
     return this.#getCourseStructure().courseSectionById[target.id]?.firstSurfaceId ?? null;
   }
 
-  #nextActivation(
-    target: ResolvedSemanticTarget,
-    completedBindings: ReadonlyMap<string, MountedSemanticActivationBinding>,
-  ): SemanticActivationRelationship | null {
-    for (const relationship of target.location.activationPath) {
-      const resolution = this.#registry.resolve(relationship.ownerId);
-      if (
-        resolution.kind === "resolved" &&
-        completedBindings.get(activationKey(relationship)) === resolution.binding
-      ) {
-        continue;
-      }
-      return relationship;
-    }
-    return null;
-  }
-
   async #reachOwner(
-    target: ResolvedSemanticTarget,
-    failedRelationship: SemanticActivationRelationship,
+    requestedId: EmbeddedNodeId,
+    ownerId: EmbeddedNodeId | null,
     token: number,
     options: SemanticNavigationOptions,
     reason: SemanticNavigationReachedOwnerReason,
   ): Promise<SemanticNavigationResult> {
-    const ownerId = this.#nearestSemanticOwner(target, failedRelationship);
-    if (!ownerId) return { kind: "missing", id: target.id };
+    if (!ownerId) return { kind: "missing", id: requestedId };
     const owner = this.#resolve(ownerId);
-    if (!owner) return { kind: "missing", id: target.id };
-    const reached = await this.#reach(owner, token, options, target.id);
+    if (!owner) return { kind: "missing", id: requestedId };
+    const reached = await this.#reach(owner, token, options, requestedId);
     if (reached.kind !== "reached") return reached;
     return {
       kind: "reached-owner",
-      requestedId: target.id,
+      requestedId,
       ownerId,
       reason,
     };
-  }
-
-  #nearestSemanticOwner(
-    target: ResolvedSemanticTarget,
-    failedRelationship: SemanticActivationRelationship,
-  ): EmbeddedNodeId | null {
-    const semantics = this.#getSemantics();
-    if (semantics.itemById.has(failedRelationship.ownerId)) {
-      return failedRelationship.ownerId;
-    }
-
-    let candidate = semantics.parentById.get(target.id) ?? null;
-    while (candidate) {
-      const location = semantics.locationById.get(candidate);
-      if (
-        location &&
-        !location.activationPath.some((relationship) =>
-          sameActivation(relationship, failedRelationship),
-        )
-      ) {
-        return candidate;
-      }
-      candidate = semantics.parentById.get(candidate) ?? null;
-    }
-    return target.location.surfaceId;
   }
 
   async #reach(
@@ -311,19 +254,4 @@ export class SemanticNavigationCoordinator {
   #isCurrent(token: number): boolean {
     return token === this.#requestToken;
   }
-}
-
-function activationKey(relationship: SemanticActivationRelationship): string {
-  return `${relationship.ownerKind}:${relationship.ownerId}:${relationship.childId}`;
-}
-
-function sameActivation(
-  left: SemanticActivationRelationship,
-  right: SemanticActivationRelationship,
-): boolean {
-  return (
-    left.ownerKind === right.ownerKind &&
-    left.ownerId === right.ownerId &&
-    left.childId === right.childId
-  );
 }

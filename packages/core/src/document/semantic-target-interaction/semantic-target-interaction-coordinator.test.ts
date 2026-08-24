@@ -134,7 +134,24 @@ describe("SemanticTargetInteractionCoordinator", () => {
       requestedId: harness.targetId,
       ownerId: relationship.ownerId,
       childId: relationship.childId,
+      nearestReachableOwnerId: harness.parentId,
       reason,
+    });
+  });
+
+  it("reports the nearest reachable semantic owner when a private owner is unavailable", async () => {
+    const privateRelationship = relationship("privateown01", "privatechi01", "block");
+    const harness = createHarness([privateRelationship]);
+
+    await expect(
+      harness.coordinator.activate(harness.targetId, { origin: "document-outline" }),
+    ).resolves.toEqual({
+      kind: "unavailable",
+      requestedId: harness.targetId,
+      ownerId: privateRelationship.ownerId,
+      childId: privateRelationship.childId,
+      nearestReachableOwnerId: harness.parentId,
+      reason: "owner-unmounted",
     });
   });
 
@@ -163,6 +180,7 @@ describe("SemanticTargetInteractionCoordinator", () => {
       requestedId: harness.targetId,
       ownerId: relationship.ownerId,
       childId: relationship.childId,
+      nearestReachableOwnerId: harness.parentId,
       reason,
     });
   });
@@ -358,6 +376,7 @@ describe("SemanticTargetInteractionCoordinator", () => {
       requestedId: harness.targetId,
       ownerId: relationship.ownerId,
       childId: relationship.childId,
+      nearestReachableOwnerId: harness.parentId,
       reason: "owner-unmounted",
     });
   });
@@ -536,6 +555,8 @@ function createHarness(
   });
   const targetId = fixture.surfaces[0]!.publishedParagraph;
   const surfaceId = fixture.surfaces[0]!.surface;
+  const parentId = projected.parentById.get(targetId);
+  if (!parentId) throw new Error("expected target parent");
   let semantics = snapshotWithPath(projected, targetId, initialPath);
   let path = initialPath;
   const registry = createSemanticActivationRegistry();
@@ -555,6 +576,7 @@ function createHarness(
     presentSurface,
     targetId,
     surfaceId,
+    parentId,
     get path() {
       return path;
     },

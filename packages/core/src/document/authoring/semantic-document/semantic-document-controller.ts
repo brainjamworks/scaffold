@@ -79,7 +79,7 @@ export class SemanticDocumentController {
     this.semanticTargetInteractions = this.#interactionEnvironmentOwner.environment;
     this.semanticActivations = this.#interactionEnvironmentOwner.activationRegistry;
     this.#navigation = new SemanticNavigationCoordinator({
-      registry: this.semanticActivations,
+      targetInteractions: this.semanticTargetInteractions.coordinator,
       getSemantics: () => this.#snapshot.semantics,
       getCourseStructure: () => this.#courseStructure,
       ...(navigationEditor ? { editor: navigationEditor } : {}),

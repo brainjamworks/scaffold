@@ -141,6 +141,45 @@ describe("semantic presentation address book navigation", () => {
     expect(session.focus).not.toHaveBeenCalled();
   });
 
+  it("re-resolves the current authoring anchor after awaited viewport movement", async () => {
+    const session = createEditorSession();
+    const timeline = requireFamily("timeline-entries");
+    const targetId = timeline.memberIds.second;
+    const baseline = session.controller.getSnapshot().semantics;
+    const baselineOwnerLocation = requireLocation(baseline, timeline.ownerId);
+    const viewportStarted = deferred<void>();
+    const viewportWaiting = deferred<void>();
+    session.controller.semanticActivations.register({
+      ownerId: timeline.ownerId,
+      activate: async ({ relationship }) =>
+        activationOutcome("already-visible", timeline.ownerId, relationship.childId),
+    });
+    session.bringIntoView.mockImplementationOnce(async () => {
+      viewportStarted.resolve(undefined);
+      await viewportWaiting.promise;
+    });
+
+    const request = session.controller.select(targetId, { origin: "document-outline" });
+    await viewportStarted.promise;
+    dispatchReplacement(session.editor, documentWithTimelineFirst());
+    const currentOwnerLocation = requireLocation(
+      session.controller.getSnapshot().semantics,
+      timeline.ownerId,
+    );
+    expect(currentOwnerLocation.from).not.toBe(baselineOwnerLocation.from);
+    viewportWaiting.resolve(undefined);
+
+    await expect(request).resolves.toEqual({ kind: "reached", id: targetId });
+    expect(session.createActivationTransaction).toHaveBeenNthCalledWith(1, baselineOwnerLocation);
+    expect(session.createActivationTransaction).toHaveBeenNthCalledWith(2, currentOwnerLocation);
+    expect(session.controller.getSnapshot()).toMatchObject({
+      selectedId: targetId,
+      selectionOrigin: "document-outline",
+    });
+    expectSelectionWithinNode(session.editor, timeline.ownerId);
+    expect(session.focus).not.toHaveBeenCalled();
+  });
+
   it("preserves typed missing and activation-unavailable outcomes for matrix IDs", async () => {
     const timeline = requireFamily("timeline-entries");
     const privateId = timeline.privateDescendantIds[0];

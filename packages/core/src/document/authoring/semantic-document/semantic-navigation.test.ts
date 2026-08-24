@@ -8,27 +8,86 @@ import type {
   SemanticDefinitionLookup,
 } from "@/document/model/semantic-document";
 import { createRepresentativeSemanticDocumentFixture } from "@/document/model/semantic-document/testing/semantic-document-fixtures";
-import type { SemanticActivationOutcome } from "@/document/semantic-target-interaction";
+import type {
+  SemanticActivationOutcome,
+  SemanticActivationRequest,
+} from "@/document/semantic-target-interaction";
 
 import { SemanticDocumentController } from "./semantic-document-controller";
-import type {
-  SemanticNavigationEditor,
-  SemanticNavigationEnvironment,
+import {
+  SemanticNavigationCoordinator,
+  type SemanticNavigationEditor,
+  type SemanticNavigationEnvironment,
+  type SemanticNavigationResult,
 } from "./semantic-navigation";
 
 describe("semantic navigation", () => {
+  it("delegates reachability exactly once before applying authoring effects", async () => {
+    const session = makeSession();
+    const targetId = session.fixture.surfaces[0]!.surface;
+    const order: string[] = [];
+    const activate = vi.fn(async () => {
+      order.push("activation");
+      return { kind: "reached" as const, requestedId: targetId };
+    });
+    const coordinator = new SemanticNavigationCoordinator({
+      targetInteractions: { activate },
+      getSemantics: () => session.controller.getSnapshot().semantics,
+      getCourseStructure: () => session.fixture.courseStructure,
+      editor: {
+        dispatch: () => order.push("dispatch"),
+        focus: () => order.push("focus"),
+      },
+      environment: {
+        presentSurface: async () => {
+          order.push("unexpected-surface");
+        },
+        createActivationTransaction: (location) => {
+          order.push("transaction");
+          return session.createActivationTransaction(location);
+        },
+        bringIntoView: async () => {
+          order.push("scroll");
+        },
+      },
+    });
+
+    const result: SemanticNavigationResult = await coordinator.select(targetId, {
+      origin: "document-outline",
+      focusEditor: true,
+    });
+
+    expect(result).toEqual({ kind: "reached", id: targetId });
+    expect(activate).toHaveBeenCalledOnce();
+    expect(activate).toHaveBeenCalledWith(targetId, {
+      origin: "document-outline",
+      signal: expect.any(AbortSignal),
+    });
+    expect(order).toEqual([
+      "activation",
+      "transaction",
+      "scroll",
+      "transaction",
+      "dispatch",
+      "focus",
+    ]);
+  });
+
   it("reaches a current target through outer-to-inner bindings without focusing the editor", async () => {
     const session = makeSession();
     const targetId = session.fixture.surfaces[0]!.publishedParagraph;
     const activationPath = requireLocation(session.controller, targetId).activationPath;
     const activationOrder: string[] = [];
+    const activationRequests: SemanticActivationRequest[] = [];
     for (const relationship of activationPath) {
-      session.controller.semanticActivations.register(
-        binding(relationship.ownerId, (childId) => {
-          activationOrder.push(`${relationship.ownerId}:${childId}`);
-          return revealedOutcome(relationship.ownerId, childId);
-        }),
-      );
+      session.controller.semanticActivations.register({
+        ownerId: relationship.ownerId,
+        activate: async (request) => {
+          activationRequests.push(request);
+          activationOrder.push(`${relationship.ownerId}:${request.relationship.childId}`);
+          return revealedOutcome(relationship.ownerId, request.relationship.childId);
+        },
+      });
     }
 
     const result = await session.controller.select(targetId, { origin: "document-outline" });
@@ -37,6 +96,8 @@ describe("semantic navigation", () => {
     expect(activationOrder).toEqual(
       activationPath.map(({ ownerId, childId }) => `${ownerId}:${childId}`),
     );
+    expect(new Set(activationRequests.map(({ causationId }) => causationId)).size).toBe(1);
+    expect(activationRequests[0]?.causationId).toMatch(/^semantic-target-interaction:/);
     expect(session.presentSurface).toHaveBeenCalledWith(session.fixture.surfaces[0]!.surface);
     expect(session.createActivationTransaction).toHaveBeenCalledTimes(2);
     expect(session.bringIntoView).toHaveBeenCalledOnce();
@@ -58,7 +119,7 @@ describe("semantic navigation", () => {
     expect(session.bringIntoView).not.toHaveBeenCalled();
   });
 
-  it("leaves editor, semantic and focus state unchanged when Surface presentation throws", async () => {
+  it("keeps Surface presentation defects observable without authoring effects", async () => {
     const session = makeSession();
     const targetId = session.fixture.surfaces[0]!.surface;
     const beforeSelection = session.state().selection.toJSON();
@@ -70,7 +131,7 @@ describe("semantic navigation", () => {
         origin: "document-outline",
         focusEditor: true,
       }),
-    ).resolves.toEqual({ kind: "interrupted", id: targetId });
+    ).rejects.toThrow("presentation failed");
     expect(session.state().selection.toJSON()).toEqual(beforeSelection);
     expect(session.controller.getSnapshot()).toMatchObject({
       selectedId: beforeSnapshot.selectedId,
@@ -101,8 +162,8 @@ describe("semantic navigation", () => {
     expect(session.focusEditor).not.toHaveBeenCalled();
   });
 
-  it("degrades to the nearest reachable owner for missing and unavailable bindings", async () => {
-    const targetKinds = ["missing", "unavailable"] as const;
+  it("degrades to the nearest reachable owner for unavailable and refused activation", async () => {
+    const targetKinds = ["missing", "unavailable", "refused"] as const;
 
     for (const targetKind of targetKinds) {
       const session = makeSession();
@@ -119,6 +180,15 @@ describe("semantic navigation", () => {
             reason: "child-missing",
           })),
         );
+      } else if (targetKind === "refused") {
+        session.controller.semanticActivations.register(
+          binding(firstRelationship.ownerId, (childId) => ({
+            kind: "refused",
+            ownerId: firstRelationship.ownerId,
+            childId,
+            reason: "authority-boundary",
+          })),
+        );
       }
 
       await expect(
@@ -127,7 +197,12 @@ describe("semantic navigation", () => {
         kind: "reached-owner",
         requestedId: targetId,
         ownerId: firstRelationship.ownerId,
-        reason: targetKind === "missing" ? "owner-unmounted" : "child-missing",
+        reason:
+          targetKind === "missing"
+            ? "owner-unmounted"
+            : targetKind === "unavailable"
+              ? "child-missing"
+              : "authority-boundary",
       });
       expect(session.controller.getSnapshot().selectedId).toBe(targetId);
     }
@@ -186,6 +261,137 @@ describe("semantic navigation", () => {
     await expect(staleRequest).resolves.toEqual({ kind: "interrupted", id: staleTargetId });
     expect(session.controller.getSnapshot().selectedId).toBe(currentTargetId);
     expect(session.bringIntoView).toHaveBeenCalledOnce();
+  });
+
+  it("lets component selection interrupt shared activation before authoring effects", async () => {
+    const session = makeSession();
+    const targetId = session.fixture.surfaces[0]!.publishedParagraph;
+    const componentTargetId = session.fixture.surfaces[0]!.surface;
+    const [firstRelationship] = requireLocation(session.controller, targetId).activationPath;
+    if (!firstRelationship) throw new Error("expected an activation relationship");
+    const started = deferred<void>();
+    session.controller.semanticActivations.register({
+      ownerId: firstRelationship.ownerId,
+      activate: ({ relationship, signal }) =>
+        new Promise((resolve) => {
+          started.resolve(undefined);
+          signal.addEventListener(
+            "abort",
+            () =>
+              resolve({
+                kind: "interrupted",
+                ownerId: firstRelationship.ownerId,
+                childId: relationship.childId,
+              }),
+            { once: true },
+          );
+        }),
+    });
+
+    const request = session.controller.select(targetId, { origin: "document-outline" });
+    await started.promise;
+    session.controller.reportComponentSelection(componentTargetId);
+
+    await expect(request).resolves.toEqual({ kind: "interrupted", id: targetId });
+    expect(session.controller.getSnapshot()).toMatchObject({
+      selectedId: componentTargetId,
+      selectionOrigin: "component",
+    });
+    expect(session.createActivationTransaction).not.toHaveBeenCalled();
+    expect(session.bringIntoView).not.toHaveBeenCalled();
+    expect(session.focusEditor).not.toHaveBeenCalled();
+  });
+
+  it("interrupts shared activation on controller destruction without authoring effects", async () => {
+    const session = makeSession();
+    const targetId = session.fixture.surfaces[0]!.publishedParagraph;
+    const [firstRelationship] = requireLocation(session.controller, targetId).activationPath;
+    if (!firstRelationship) throw new Error("expected an activation relationship");
+    const started = deferred<void>();
+    session.controller.semanticActivations.register({
+      ownerId: firstRelationship.ownerId,
+      activate: ({ relationship, signal }) =>
+        new Promise((resolve) => {
+          started.resolve(undefined);
+          signal.addEventListener(
+            "abort",
+            () =>
+              resolve({
+                kind: "interrupted",
+                ownerId: firstRelationship.ownerId,
+                childId: relationship.childId,
+              }),
+            { once: true },
+          );
+        }),
+    });
+
+    const request = session.controller.select(targetId, { origin: "document-outline" });
+    await started.promise;
+    session.controller.destroy();
+
+    await expect(request).resolves.toEqual({ kind: "interrupted", id: targetId });
+    expect(session.createActivationTransaction).not.toHaveBeenCalled();
+    expect(session.bringIntoView).not.toHaveBeenCalled();
+    expect(session.focusEditor).not.toHaveBeenCalled();
+  });
+
+  it("suppresses stale dispatch and focus after awaited viewport movement", async () => {
+    const session = makeSession();
+    const staleTargetId = session.fixture.surfaces[0]!.surface;
+    const currentTargetId = session.fixture.surfaces[0]!.publishedParagraph;
+    for (const relationship of requireLocation(session.controller, currentTargetId)
+      .activationPath) {
+      session.controller.semanticActivations.register(
+        binding(relationship.ownerId, (childId) => revealedOutcome(relationship.ownerId, childId)),
+      );
+    }
+    const viewportStarted = deferred<void>();
+    const viewportWaiting = deferred<void>();
+    session.bringIntoView.mockImplementationOnce(async () => {
+      viewportStarted.resolve(undefined);
+      await viewportWaiting.promise;
+    });
+
+    const staleRequest = session.controller.select(staleTargetId, {
+      origin: "document-outline",
+      focusEditor: true,
+    });
+    await viewportStarted.promise;
+    await expect(
+      session.controller.select(currentTargetId, { origin: "document-outline" }),
+    ).resolves.toEqual({ kind: "reached", id: currentTargetId });
+    viewportWaiting.resolve(undefined);
+
+    await expect(staleRequest).resolves.toEqual({ kind: "interrupted", id: staleTargetId });
+    expect(session.controller.getSnapshot().selectedId).toBe(currentTargetId);
+    expect(session.focusEditor).not.toHaveBeenCalled();
+  });
+
+  it("suppresses authoring effects when external cancellation occurs during viewport movement", async () => {
+    const session = makeSession();
+    const targetId = session.fixture.surfaces[0]!.surface;
+    const cancellation = new AbortController();
+    const viewportStarted = deferred<void>();
+    const viewportWaiting = deferred<void>();
+    session.bringIntoView.mockImplementationOnce(async () => {
+      viewportStarted.resolve(undefined);
+      await viewportWaiting.promise;
+    });
+    const options = {
+      origin: "document-outline" as const,
+      focusEditor: true,
+      signal: cancellation.signal,
+    };
+
+    const request = session.controller.select(targetId, options);
+    await viewportStarted.promise;
+    cancellation.abort();
+    viewportWaiting.resolve(undefined);
+
+    await expect(request).resolves.toEqual({ kind: "interrupted", id: targetId });
+    expect(session.controller.getSnapshot().selectedId).not.toBe(targetId);
+    expect(session.focusEditor).not.toHaveBeenCalled();
   });
 
   it("re-resolves the target after an awaited activation when the document changes", async () => {
