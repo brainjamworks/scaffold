@@ -1,13 +1,32 @@
 import { NodeViewContent, NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 
+import { useScrollableBlockSemanticContainerAdapter } from "@/document/authoring/semantic-document/use-scrollable-block-semantic-container-adapter";
+
+import { PROCESS_FLOW_NODE, PROCESS_FLOW_STEP_NODE } from "./content";
 import { parseProcessFlowData } from "./ProcessFlowModel";
-import { readProcessFlowStepPosition, resolveProcessFlowData } from "./process-flow-view-helpers";
+import {
+  readProcessFlowStepPosition,
+  readRequiredProcessFlowStepId,
+  resolveProcessFlowData,
+} from "./process-flow-view-helpers";
 import "./ProcessFlow.css";
 
 export function ProcessFlowView({ footer, props }: { footer?: ReactNode; props: NodeViewProps }) {
   const data = parseProcessFlowData(props.node.attrs["data"]);
   const scrollportRef = useRef<HTMLDivElement>(null);
+
+  useScrollableBlockSemanticContainerAdapter({
+    axis: data.orientation,
+    childNodeType: PROCESS_FLOW_STEP_NODE,
+    editor: props.editor,
+    getChildElement: (childId) => processFlowStepElementById(scrollportRef.current, childId),
+    getPos: props.getPos,
+    getScrollOwner: () => scrollportRef.current,
+    node: props.node,
+    ownerId: props.node.attrs["id"],
+    ownerNodeType: PROCESS_FLOW_NODE,
+  });
 
   useLayoutEffect(() => {
     const scrollport = scrollportRef.current;
@@ -20,8 +39,10 @@ export function ProcessFlowView({ footer, props }: { footer?: ReactNode; props: 
           : scrollport.scrollHeight > scrollport.clientHeight + 1;
       if (hasOverflow) {
         scrollport.setAttribute("data-process-flow-scrollable", data.orientation);
+        scrollport.setAttribute("tabindex", "0");
       } else {
         scrollport.removeAttribute("data-process-flow-scrollable");
+        scrollport.removeAttribute("tabindex");
       }
     };
 
@@ -49,8 +70,9 @@ export function ProcessFlowView({ footer, props }: { footer?: ReactNode; props: 
     >
       <div ref={scrollportRef} className="sc-course-process-flow__scrollport">
         <div className="sc-course-process-flow__rail">
-          <NodeViewContent<"ol">
-            as="ol"
+          <NodeViewContent<"div">
+            as="div"
+            role="list"
             aria-label="Process steps"
             className="sc-course-process-flow__steps"
           />
@@ -74,17 +96,31 @@ export function ProcessFlowStepRuntimeView(props: NodeViewProps) {
     editor: props.editor,
     selector: () => resolveProcessFlowData(props),
   });
+  const stepId = readRequiredProcessFlowStepId(props.node.attrs["id"]);
 
   return (
     <NodeViewWrapper
-      as="li"
+      role="listitem"
       data-node="process-flow-step"
+      data-process-flow-step-id={stepId}
       className="sc-course-process-flow__step"
     >
       <ProcessFlowStepCard number={data.showNumbers ? index : null}>
         <NodeViewContent />
       </ProcessFlowStepCard>
     </NodeViewWrapper>
+  );
+}
+
+function processFlowStepElementById(
+  scrollport: HTMLElement | null,
+  childId: string,
+): HTMLElement | null {
+  if (!scrollport) return null;
+  return (
+    Array.from(scrollport.querySelectorAll<HTMLElement>("[data-process-flow-step-id]")).find(
+      (candidate) => candidate.dataset.processFlowStepId === childId,
+    ) ?? null
   );
 }
 

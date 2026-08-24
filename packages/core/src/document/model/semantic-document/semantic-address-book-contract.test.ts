@@ -24,6 +24,14 @@ const SEMANTIC_ITEM_KEYS = [
   "summary",
 ] as const;
 
+const ACTIVATING_BLOCK_MEMBER_OWNER_TYPES = new Set([
+  "flashcard",
+  "gallery",
+  "process_flow",
+  "roadmap",
+  "timeline",
+]);
+
 describe("semantic presentation address book", () => {
   it("publishes the complete twelve-family hierarchy with exact persisted addresses", () => {
     const doc = createCompleteSemanticLifecycleDocument();
@@ -82,7 +90,7 @@ describe("semantic presentation address book", () => {
         const persistedMember = requireLifecycleNodeById(doc, memberId);
         const item = requireItem(snapshot, memberId);
         const expectedActivationPath =
-          family.ownerNodeType === "timeline"
+          ACTIVATING_BLOCK_MEMBER_OWNER_TYPES.has(family.ownerNodeType)
             ? [{ ownerId: family.ownerId, childId: memberId, ownerKind: "block" }]
             : [];
 

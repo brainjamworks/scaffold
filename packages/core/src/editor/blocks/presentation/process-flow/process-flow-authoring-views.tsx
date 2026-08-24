@@ -125,9 +125,10 @@ export function ProcessFlowStepAuthoringView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
-      as="li"
+      role="listitem"
       ref={presentationRef}
       data-node="process-flow-step"
+      data-process-flow-step-id={stepId}
       {...containedMovementTargetAttributes(data.orientation)}
       className="sc-course-process-flow__step"
     >

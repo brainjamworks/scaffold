@@ -33,9 +33,15 @@ describe("semantic presentation address book navigation", () => {
     const authoredDocument = session.editor.getJSON();
     const surfaceId = semantics.roots[0]?.id;
     if (!surfaceId) throw new Error("Expected complete address-book Surface.");
-    const reveal = vi.fn(() => "revealed" as const);
-    const timeline = requireFamily("timeline-entries");
-    session.controller.containerAdapters.register({ ownerId: timeline.ownerId, reveal });
+    const activatingFamilies = APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.filter(({ ownerNodeType }) =>
+      ACTIVATING_BLOCK_MEMBER_OWNER_TYPES.has(ownerNodeType),
+    );
+    const revealsByOwner = new Map<EmbeddedNodeId, ReturnType<typeof vi.fn>>();
+    for (const family of activatingFamilies) {
+      const reveal = vi.fn(() => "revealed" as const);
+      revealsByOwner.set(family.ownerId, reveal);
+      session.controller.containerAdapters.register({ ownerId: family.ownerId, reveal });
+    }
 
     const families = [
       ...APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.filter(({ ownerNodeType }) => ownerNodeType !== "table"),
@@ -48,7 +54,7 @@ describe("semantic presentation address book navigation", () => {
       session.bringIntoView.mockClear();
       session.createActivationTransaction.mockClear();
       session.focus.mockClear();
-      reveal.mockClear();
+      for (const reveal of revealsByOwner.values()) reveal.mockClear();
 
       await expect(
         session.controller.select(memberId, { origin: "document-outline" }),
@@ -67,11 +73,12 @@ describe("semantic presentation address book navigation", () => {
       expect(session.editor.getJSON()).toEqual(authoredDocument);
       expect(session.focus).not.toHaveBeenCalled();
 
-      if (family === timeline) {
+      const reveal = revealsByOwner.get(family.ownerId);
+      if (reveal) {
         expect(reveal).toHaveBeenCalledOnce();
         expect(reveal).toHaveBeenCalledWith(memberId, "navigate", expect.any(AbortSignal));
       } else {
-        expect(reveal).not.toHaveBeenCalled();
+        expect([...revealsByOwner.values()].every((candidate) => candidate.mock.calls.length === 0)).toBe(true);
       }
     }
   });
@@ -177,6 +184,10 @@ describe("semantic presentation address book navigation", () => {
           signal?.addEventListener("abort", () => resolve("child-unavailable"), { once: true });
         }),
     });
+    session.controller.containerAdapters.register({
+      ownerId: currentFamily.ownerId,
+      reveal: () => "already-visible",
+    });
 
     const staleRequest = session.controller.select(staleTargetId, {
       origin: "document-outline",
@@ -194,6 +205,14 @@ describe("semantic presentation address book navigation", () => {
     expect(session.focus).not.toHaveBeenCalled();
   });
 });
+
+const ACTIVATING_BLOCK_MEMBER_OWNER_TYPES = new Set([
+  "flashcard",
+  "gallery",
+  "process_flow",
+  "roadmap",
+  "timeline",
+]);
 
 function createEditorSession() {
   const editor = createEditor();

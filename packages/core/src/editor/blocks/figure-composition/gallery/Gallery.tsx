@@ -16,13 +16,14 @@ import {
 } from "@/document/model/commands/content-collections";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { setNodeSelectionInTransaction } from "@/editor/selection/selection-transactions";
+import { useStatefulBlockSemanticContainerAdapter } from "@/document/authoring/semantic-document/use-stateful-block-semantic-container-adapter";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import "./Gallery.css";
 import {
   FilePickerModal,
   type FilePickerResult,
 } from "@/editor/media/authoring/picker/LazyFilePickerModal";
-import { GALLERY_NODE, emptyGalleryItemData } from "./content";
+import { GALLERY_ITEM_NODE, GALLERY_NODE, emptyGalleryItemData } from "./content";
 import { galleryItemsCollection } from "./gallery-definition";
 import {
   parseGalleryData,
@@ -59,6 +60,17 @@ export function GalleryAuthoringView(props: NodeViewProps) {
       setActiveId(rawItems[0]?.id ?? null);
     }
   }, [rawItems, activeId]);
+
+  useStatefulBlockSemanticContainerAdapter({
+    childNodeType: GALLERY_ITEM_NODE,
+    editor: props.editor,
+    getPos: props.getPos,
+    isVisible: (childId) => data.layout === "grid" || activeId === childId,
+    node: props.node,
+    ownerId: props.node.attrs["id"],
+    ownerNodeType: GALLERY_NODE,
+    revealChild: setActiveId,
+  });
 
   const activeIndex = Math.max(
     0,

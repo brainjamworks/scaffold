@@ -18,7 +18,7 @@ export function RoadmapMilestoneRuntimeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
-      as="li"
+      role="listitem"
       data-node="roadmap-milestone"
       aria-current={status === "current" ? "step" : undefined}
       className="sc-course-roadmap__milestone"

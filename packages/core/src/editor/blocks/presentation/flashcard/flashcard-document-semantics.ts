@@ -8,10 +8,17 @@ import { FLASHCARD_CARD_NODE } from "./content";
 const projectFlashcardChildren: SemanticChildProjector = ({ helpers, ownerId }) =>
   helpers.projectDirectOwnedMembers({
     nodeType: FLASHCARD_CARD_NODE,
-    describe: ({ ordinal }) =>
+    describe: ({ node, ordinal }) =>
       Object.freeze({
         label: `Card ${ordinal + 1}`,
         authoringAnchorId: ownerId,
+        activation: Object.freeze([
+          Object.freeze({
+            ownerId,
+            childId: node.attrs["id"],
+            ownerKind: "block" as const,
+          }),
+        ]),
       }),
   });
 

@@ -115,7 +115,7 @@ describe("Gallery document semantics", () => {
         selectionTarget: { kind: "node", pos: current.pos },
         surfaceId: makeId("su", 1),
         authoringAnchorId: galleryId,
-        activationPath: [],
+        activationPath: [{ ownerId: galleryId, childId: itemId, ownerKind: "block" }],
       });
     }
     for (const privateId of [privateCaptionId, privateMediaId]) {
@@ -169,7 +169,7 @@ describe("Gallery document semantics", () => {
     expect(changed.snapshot.diagnostics).toEqual([]);
   });
 
-  it("selects the Gallery owner without changing carousel or lightbox state", async () => {
+  it("reveals the requested Gallery item without opening its lightbox", async () => {
     const galleryId = makeId("ga", 3);
     const firstItemId = makeId("gi", 6);
     const secondItemId = makeId("gi", 7);
@@ -211,6 +211,13 @@ describe("Gallery document semantics", () => {
     controller.setNavigationEnvironment(environment);
     const galleryLocation = controller.getSnapshot().semantics.locationById.get(galleryId)!;
     const adapterLookup = vi.spyOn(controller.containerAdapters, "get");
+    controller.containerAdapters.register({
+      ownerId: galleryId,
+      reveal: (childId) => {
+        featureState.activeCarouselItemId = childId;
+        return "revealed";
+      },
+    });
 
     await expect(controller.select(secondItemId, { origin: "document-outline" })).resolves.toEqual({
       kind: "reached",
@@ -228,8 +235,8 @@ describe("Gallery document semantics", () => {
     expect(
       createActivationTransaction.mock.calls.every(([location]) => location.id === galleryId),
     ).toBe(true);
-    expect(adapterLookup).not.toHaveBeenCalled();
-    expect(featureState).toEqual({ activeCarouselItemId: firstItemId, lightboxOpen: false });
+    expect(adapterLookup).toHaveBeenCalledWith(galleryId);
+    expect(featureState).toEqual({ activeCarouselItemId: secondItemId, lightboxOpen: false });
     expect(state.doc.toJSON()).toEqual(originalDocument);
   });
 });

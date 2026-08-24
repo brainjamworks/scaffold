@@ -95,9 +95,10 @@ export function RoadmapMilestoneAuthoringView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
-      as="li"
+      role="listitem"
       ref={presentationRef}
       data-node="roadmap-milestone"
+      data-roadmap-milestone-id={milestoneId}
       aria-current={status === "current" ? "step" : undefined}
       {...containedMovementTargetAttributes()}
       className="sc-course-roadmap__milestone"

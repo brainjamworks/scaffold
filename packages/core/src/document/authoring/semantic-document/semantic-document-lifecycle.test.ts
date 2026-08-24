@@ -18,6 +18,13 @@ import {
 import { getSemanticDocumentControllerForEditor } from "./semantic-document-storage";
 
 const editors: Editor[] = [];
+const ACTIVATING_BLOCK_MEMBER_OWNER_TYPES = new Set([
+  "flashcard",
+  "gallery",
+  "process_flow",
+  "roadmap",
+  "timeline",
+]);
 
 afterEach(() => {
   for (const editor of editors.splice(0)) editor.destroy();
@@ -87,7 +94,7 @@ describe("semantic document lifecycle", () => {
       expect(currentLocation?.activationPath).not.toBe(
         baselineLocations.get(memberId)?.activationPath,
       );
-      if (family.key === "timeline-entries") {
+      if (ACTIVATING_BLOCK_MEMBER_OWNER_TYPES.has(family.ownerNodeType)) {
         expect(currentLocation?.activationPath).toEqual([
           { ownerId: family.ownerId, childId: memberId, ownerKind: "block" },
         ]);

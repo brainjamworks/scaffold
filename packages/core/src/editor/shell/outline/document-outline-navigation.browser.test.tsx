@@ -207,7 +207,7 @@ describe("Document Outline bidirectional navigation", () => {
     expect(document.activeElement).toBe(annotationRow);
   });
 
-  it("selects the Flashcard Block for a card without changing deck activity state", async () => {
+  it("reveals a Flashcard card while retaining its semantic ID and authored data", async () => {
     const harness = await mountOutline();
     mounted.push(harness);
     const controller = harness.controller;
@@ -241,7 +241,14 @@ describe("Document Outline bidirectional navigation", () => {
     });
     expect(cardRow.getAttribute("aria-selected")).toBe("true");
     expect(document.activeElement).toBe(cardRow);
-    expect(flashcardAuthoringState(harness.editor)).toEqual(activityBefore);
+    expect(flashcardAuthoringState(harness.editor)).toMatchObject({
+      currentCardId: IDS.secondFlashcardCard,
+      flipped: "false",
+      mastery: "unrated",
+      ratingControlCount: 0,
+      completionCount: 0,
+      authoredData: activityBefore.authoredData,
+    });
   });
 
   it("commits hidden outer and inner Layout Sections before resolving final scroll geometry", async () => {

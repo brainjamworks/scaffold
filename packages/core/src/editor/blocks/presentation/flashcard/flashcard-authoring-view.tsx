@@ -4,6 +4,7 @@ import { NodeViewContent, useEditorState, type NodeViewProps } from "@tiptap/rea
 
 import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
+import { useStatefulBlockSemanticContainerAdapter } from "@/document/authoring/semantic-document/use-stateful-block-semantic-container-adapter";
 
 import { FlashcardCardView, FlashcardDeckAuthoring } from "./FlashcardComponents";
 import { FlashcardFilmstrip, type FlashcardFilmstripCard } from "./FlashcardFilmstrip";
@@ -31,6 +32,17 @@ export interface FlashcardAuthoringViewProps extends NodeViewProps {
 export function FlashcardAuthoringView(props: FlashcardAuthoringViewProps) {
   const deckController = useFlashcardAuthoringDeckController({
     deckNode: props.node,
+  });
+
+  useStatefulBlockSemanticContainerAdapter({
+    childNodeType: FLASHCARD_CARD_NODE,
+    editor: props.editor,
+    getPos: props.getPos,
+    isVisible: (childId) => deckController.currentCardId === childId,
+    node: props.node,
+    ownerId: props.node.attrs["id"],
+    ownerNodeType: FLASHCARD_NODE,
+    revealChild: deckController.setCurrentCard,
   });
 
   useEffect(() => {

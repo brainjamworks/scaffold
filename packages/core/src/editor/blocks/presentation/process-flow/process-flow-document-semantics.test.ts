@@ -110,7 +110,7 @@ describe("Process Flow document semantics", () => {
         selectionTarget: { kind: "near", pos: current.pos },
         surfaceId: makeId("su", 1),
         authoringAnchorId: processFlowId,
-        activationPath: [],
+        activationPath: [{ ownerId: processFlowId, childId: stepId, ownerKind: "block" }],
       });
     }
 
@@ -204,7 +204,7 @@ describe("Process Flow document semantics", () => {
     expect(changed.snapshot.diagnostics).toEqual([]);
   });
 
-  it("selects the Process Flow owner without scrolling its rail, invoking controls or reordering", async () => {
+  it("reveals the requested Process Flow step without invoking controls or reordering", async () => {
     const processFlowId = makeId("pf", 3);
     const firstStepId = makeId("ps", 6);
     const secondStepId = makeId("ps", 7);
@@ -255,6 +255,13 @@ describe("Process Flow document semantics", () => {
       .getSnapshot()
       .semantics.locationById.get(processFlowId)!;
     const adapterLookup = vi.spyOn(controller.containerAdapters, "get");
+    controller.containerAdapters.register({
+      ownerId: processFlowId,
+      reveal: (childId) => {
+        scrollInternalRail(childId);
+        return "revealed";
+      },
+    });
 
     await expect(controller.select(secondStepId, { origin: "document-outline" })).resolves.toEqual(
       { kind: "reached", id: secondStepId },
@@ -273,8 +280,8 @@ describe("Process Flow document semantics", () => {
         ([location]) => location.id === processFlowId,
       ),
     ).toBe(true);
-    expect(adapterLookup).not.toHaveBeenCalled();
-    expect(scrollInternalRail).not.toHaveBeenCalled();
+    expect(adapterLookup).toHaveBeenCalledWith(processFlowId);
+    expect(scrollInternalRail).toHaveBeenCalledWith(secondStepId);
     expect(focusEditor).not.toHaveBeenCalled();
     expect(addStep).not.toHaveBeenCalled();
     expect(deleteStep).not.toHaveBeenCalled();

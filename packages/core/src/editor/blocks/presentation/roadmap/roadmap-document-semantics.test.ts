@@ -125,7 +125,7 @@ describe("Roadmap document semantics", () => {
         selectionTarget: { kind: "near", pos: current.pos },
         surfaceId: makeId("su", 1),
         authoringAnchorId: roadmapId,
-        activationPath: [],
+        activationPath: [{ ownerId: roadmapId, childId: milestoneId, ownerKind: "block" }],
       });
     }
 
@@ -248,6 +248,7 @@ describe("Roadmap document semantics", () => {
     const addMilestone = vi.fn();
     const deleteMilestone = vi.fn();
     const moveMilestone = vi.fn();
+    const scrollInternalTrack = vi.fn();
     const focusEditor = vi.fn();
     let state = EditorState.create({ doc });
     let controller: SemanticDocumentController;
@@ -279,6 +280,13 @@ describe("Roadmap document semantics", () => {
     controller.setNavigationEnvironment(environment);
     const roadmapLocation = controller.getSnapshot().semantics.locationById.get(roadmapId)!;
     const adapterLookup = vi.spyOn(controller.containerAdapters, "get");
+    controller.containerAdapters.register({
+      ownerId: roadmapId,
+      reveal: (childId) => {
+        scrollInternalTrack(childId);
+        return "revealed";
+      },
+    });
 
     await expect(controller.select(secondMilestoneId, { origin: "document-outline" })).resolves.toEqual(
       { kind: "reached", id: secondMilestoneId },
@@ -295,7 +303,8 @@ describe("Roadmap document semantics", () => {
     expect(
       createActivationTransaction.mock.calls.every(([location]) => location.id === roadmapId),
     ).toBe(true);
-    expect(adapterLookup).not.toHaveBeenCalled();
+    expect(adapterLookup).toHaveBeenCalledWith(roadmapId);
+    expect(scrollInternalTrack).toHaveBeenCalledWith(secondMilestoneId);
     expect(focusEditor).not.toHaveBeenCalled();
     expect(cycleStatus).not.toHaveBeenCalled();
     expect(chooseIcon).not.toHaveBeenCalled();

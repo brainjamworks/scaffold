@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { Editor } from "@tiptap/core";
-import type { JSONContent } from "@tiptap/core";
+import type { Extensions, JSONContent } from "@tiptap/core";
 import UniqueID from "@tiptap/extension-unique-id";
 import { NodeSelection } from "@tiptap/pm/state";
 import { EditorContent } from "@tiptap/react";
@@ -18,12 +18,14 @@ import {
 } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, it, expect, vi } from "vite-plus/test";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { createSemanticContainerAdapterTestExtension } from "@/document/authoring/semantic-document/testing/semantic-container-adapter-test-extension";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
-import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
+import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import {
   AUTHORING_FRAME_ATTR,
   AuthoringFrameKind,
@@ -139,11 +141,15 @@ function galleryItemIds(editor: Editor): string[] {
   return ids;
 }
 
-function renderGalleryEditor(content: JSONContent = galleryFixture()) {
+function renderGalleryEditor(
+  content: JSONContent = galleryFixture(),
+  extraExtensions: Extensions = [],
+) {
   const fixture = createDisposableEditor({
     extensions: [
       StarterKit,
       createScaffoldCapabilitiesStorageExtension(coreRuntimeComposition.capabilities),
+      ...extraExtensions,
       UniqueID.configure({
         attributeName: "id",
         types: ["gallery", "gallery_item"],
@@ -175,11 +181,18 @@ function renderGalleryLearningEventRuntime(
   const region = surface.content?.find((child) => child.type === "region");
   if (!region) throw new Error("Gallery fixture is missing its Region.");
   region.content = [gallery];
+  assignFixtureNodeIds(surface);
 
-  const content = createScaffoldDocumentContent({ mode: "slideshow", surfaceId });
+  const content = createScaffoldDocumentContent({
+    mode: "slideshow",
+    surfaceId,
+    initialCourseSectionTitle: "Gallery",
+  });
   const courseDocument = content.content?.[0];
   if (!courseDocument) throw new Error("Gallery fixture has no courseDocument.");
-  courseDocument.content = [surface];
+  const courseSection = courseDocument.content?.find((child) => child.type === "courseSection");
+  if (!courseSection) throw new Error("Gallery fixture has no courseSection.");
+  courseDocument.content = [courseSection, surface];
 
   render(
     createElement(ScaffoldServicesProvider, {
@@ -199,6 +212,13 @@ function renderGalleryLearningEventRuntime(
   );
 }
 
+function assignFixtureNodeIds(node: JSONContent): void {
+  if (node.type !== "text") {
+    node.attrs = { ...node.attrs, id: node.attrs?.["id"] ?? createEmbeddedNodeId() };
+  }
+  for (const child of node.content ?? []) assignFixtureNodeIds(child);
+}
+
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "gallery",
@@ -211,6 +231,27 @@ describeBlockContract({
 it("registers gallery as an atomic block", () => {
   expect((GalleryNode.config as { atom?: boolean }).atom).toBe(true);
   expect(galleryDefinition.boundedPlacement).toBe("fill");
+});
+
+it("registers semantic activation and reveals the requested carousel item", async () => {
+  const semanticHarness = createSemanticContainerAdapterTestExtension();
+  const editor = renderGalleryEditor(galleryFixture(), [semanticHarness.extension]);
+  const ownerId = EmbeddedNodeIdSchema.parse("gallery_0001");
+  const secondItemId = EmbeddedNodeIdSchema.parse("galleryimg02");
+  const adapter = await waitFor(() => {
+    const current = semanticHarness.registry.get(ownerId);
+    expect(current).toBeDefined();
+    return current!;
+  });
+
+  const reveal = Promise.resolve(adapter.reveal(secondItemId, "navigate"));
+  await waitFor(() => {
+    expect(screen.getByRole("img", { name: "Second image" })).toBeInTheDocument();
+  });
+  await expect(reveal).resolves.toBe("revealed");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+  editor.destroy();
 });
 
 it("resolves selected gallery blocks to their declared visual surface", async () => {
@@ -357,9 +398,7 @@ it("separates Course gallery composition from App-only author controls", async (
     return element!;
   });
   expect(authoring.querySelector(".sc-course-gallery__thumb")).not.toBeNull();
-  expect(authoring.querySelector(".sc-app-gallery__thumb-delete")).toHaveClass(
-    "sc-icon-button",
-  );
+  expect(authoring.querySelector(".sc-app-gallery__thumb-delete")).toHaveClass("sc-icon-button");
   expect(authoring.querySelector('[class^="sc-gallery"], [class*=" sc-gallery"]')).toBeNull();
 
   renderGalleryLearningEventRuntime(galleryFixture(), {

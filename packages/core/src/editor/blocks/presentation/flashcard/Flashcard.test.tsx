@@ -2,13 +2,15 @@
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { JSONContent } from "@tiptap/core";
+import type { Extensions, JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import StarterKit from "@tiptap/starter-kit";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
+import { createSemanticContainerAdapterTestExtension } from "@/document/authoring/semantic-document/testing/semantic-container-adapter-test-extension";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { AUTHORING_FRAME_WRAPPER_ATTR } from "@/editor/interactions/dom/authoring-chrome";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
@@ -94,7 +96,10 @@ function flashcardFixture(cardCount = 1): JSONContent {
   };
 }
 
-function renderFlashcardEditor(content: JSONContent = flashcardFixture()) {
+function renderFlashcardEditor(
+  content: JSONContent = flashcardFixture(),
+  extraExtensions: Extensions = [],
+) {
   const fixture = createDisposableEditor({
     extensions: [
       StarterKit.configure({
@@ -102,6 +107,7 @@ function renderFlashcardEditor(content: JSONContent = flashcardFixture()) {
         paragraph: false,
       }),
       ExtendedParagraph,
+      ...extraExtensions,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       createRuntimeBlockFrameAttributesExtension([FLASHCARD_NODE]),
       FlashcardAuthoringExtension,
@@ -120,6 +126,31 @@ function renderFlashcardEditor(content: JSONContent = flashcardFixture()) {
 }
 
 describe("flashcard block", () => {
+  it("registers semantic activation and reveals the requested card", async () => {
+    const semanticHarness = createSemanticContainerAdapterTestExtension();
+    const fixture = renderFlashcardEditor(flashcardFixture(2), [semanticHarness.extension]);
+    const ownerId = EmbeddedNodeIdSchema.parse("flashcard001");
+    const secondCardId = EmbeddedNodeIdSchema.parse("flashcard002");
+    const adapter = await waitFor(() => {
+      const current = semanticHarness.registry.get(ownerId);
+      expect(current).toBeDefined();
+      return current!;
+    });
+
+    const reveal = Promise.resolve(adapter.reveal(secondCardId, "navigate"));
+    await waitFor(() => {
+      expect(
+        document.body.querySelector(`[data-flashcard-filmstrip-card="${secondCardId}"]`),
+      ).toHaveAttribute("data-current", "true");
+      expect(
+        document.body.querySelector(`[data-node="flashcard-card"][data-id="${secondCardId}"]`),
+      ).not.toHaveClass("sc-course-flashcard-card--inactive");
+    });
+    await expect(reveal).resolves.toBe("revealed");
+
+    fixture.destroy();
+  });
+
   it("exposes only the visible authoring face to interaction", async () => {
     const user = userEvent.setup();
     const fixture = renderFlashcardEditor();

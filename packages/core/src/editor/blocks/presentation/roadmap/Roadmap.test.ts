@@ -2,14 +2,16 @@
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { JSONContent } from "@tiptap/core";
+import type { Extensions, JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import StarterKit from "@tiptap/starter-kit";
 import { createElement } from "react";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { RoadmapDataSchema as ContractRoadmapDataSchema } from "@scaffold/contracts";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
+import { createSemanticContainerAdapterTestExtension } from "@/document/authoring/semantic-document/testing/semantic-container-adapter-test-extension";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
 import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
@@ -51,7 +53,7 @@ function roadmapFixture(): JSONContent {
       {
         type: ROADMAP_NODE,
         attrs: {
-          id: "roadmap000001",
+          id: "roadmap00001",
           data: emptyRoadmapData(),
         },
         content: [
@@ -80,7 +82,10 @@ function roadmapFixture(): JSONContent {
   };
 }
 
-function renderRoadmapEditor(content: JSONContent = roadmapFixture()) {
+function renderRoadmapEditor(
+  content: JSONContent = roadmapFixture(),
+  extraExtensions: Extensions = [],
+) {
   const fixture = createDisposableEditor({
     extensions: [
       StarterKit.configure({
@@ -88,6 +93,7 @@ function renderRoadmapEditor(content: JSONContent = roadmapFixture()) {
         paragraph: false,
       }),
       ExtendedParagraph,
+      ...extraExtensions,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       createRuntimeBlockFrameAttributesExtension([ROADMAP_NODE]),
       RoadmapAuthoringExtension,
@@ -106,6 +112,54 @@ function renderRoadmapEditor(content: JSONContent = roadmapFixture()) {
 }
 
 describe("roadmap node", () => {
+  it("registers semantic activation and reveals the requested milestone in its track", async () => {
+    const semanticHarness = createSemanticContainerAdapterTestExtension();
+    const content = roadmapFixture();
+    content.content![0]!.attrs!["data"] = emptyRoadmapData({ orientation: "horizontal" });
+    const fixture = renderRoadmapEditor(content, [semanticHarness.extension]);
+    const ownerId = EmbeddedNodeIdSchema.parse("roadmap00001");
+    const targetId = EmbeddedNodeIdSchema.parse("milestone003");
+    const scrollOwner = await screen.findByRole("region", { name: "Roadmap" });
+    const target = document.querySelector<HTMLElement>(
+      `[data-roadmap-milestone-id="${targetId}"]`,
+    );
+    expect(target).not.toBeNull();
+    const scrollTo = installHorizontalRevealGeometry(scrollOwner, target!);
+    const adapter = await waitFor(() => {
+      const current = semanticHarness.registry.get(ownerId);
+      expect(current).toBeDefined();
+      return current!;
+    });
+
+    await expect(adapter.reveal(targetId, "navigate")).resolves.toBe("revealed");
+    expect(scrollTo).toHaveBeenCalledOnce();
+
+    fixture.destroy();
+  });
+
+  it("uses ARIA list semantics in live node views while preserving native serialized lists", async () => {
+    const fixture = renderRoadmapEditor();
+
+    const list = await screen.findByRole("list", { name: "Roadmap milestones" });
+    const items = screen.getAllByRole("listitem");
+
+    expect(list.tagName).toBe("DIV");
+    expect(list).toHaveAttribute("role", "list");
+    expect(items).toHaveLength(3);
+    for (const item of items) {
+      expect(item.tagName).toBe("DIV");
+      expect(item).toHaveAttribute("role", "listitem");
+      expect(item).not.toHaveAttribute("as");
+    }
+
+    const serialized = new DOMParser().parseFromString(fixture.editor.getHTML(), "text/html");
+    const orderedList = serialized.querySelector('section[data-node="roadmap"] > ol');
+    expect(orderedList).not.toBeNull();
+    expect(orderedList?.querySelectorAll(":scope > li")).toHaveLength(3);
+
+    fixture.destroy();
+  });
+
   it("constructs serialized defaults in the Roadmap feature", () => {
     expect(ContractRoadmapDataSchema.parse(emptyRoadmapData())).toEqual({
       type: "roadmap",
@@ -190,3 +244,12 @@ describe("roadmap node", () => {
     fixture.destroy();
   });
 });
+
+function installHorizontalRevealGeometry(scrollOwner: HTMLElement, target: HTMLElement) {
+  scrollOwner.getBoundingClientRect = () =>
+    DOMRect.fromRect({ x: 0, y: 0, width: 200, height: 100 });
+  target.getBoundingClientRect = () => DOMRect.fromRect({ x: 320, y: 0, width: 80, height: 80 });
+  const scrollTo = vi.fn();
+  Object.defineProperty(scrollOwner, "scrollTo", { configurable: true, value: scrollTo });
+  return scrollTo;
+}

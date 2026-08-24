@@ -2,15 +2,17 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { JSONContent } from "@tiptap/core";
+import type { Extensions, JSONContent } from "@tiptap/core";
 import UniqueID from "@tiptap/extension-unique-id";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { createElement } from "react";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { createSemanticContainerAdapterTestExtension } from "@/document/authoring/semantic-document/testing/semantic-container-adapter-test-extension";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import {
   builtInBlockDefinitions,
@@ -57,6 +59,32 @@ afterEach(() => {
 });
 
 describe("Process Flow presentation block", () => {
+  it("registers semantic activation and reveals the requested step in its scrollport", async () => {
+    const semanticHarness = createSemanticContainerAdapterTestExtension();
+    const fixture = renderProcessFlowEditor(processFlowFixture("horizontal"), true, [semanticHarness.extension]);
+    const ownerId = EmbeddedNodeIdSchema.parse("procflow0001");
+    const targetId = EmbeddedNodeIdSchema.parse("flowstep0003");
+    const scrollport = await screen.findByRole("region", { name: "Process flow" }).then((region) =>
+      region.querySelector<HTMLElement>(".sc-course-process-flow__scrollport"),
+    );
+    const target = document.querySelector<HTMLElement>(
+      `[data-process-flow-step-id="${targetId}"]`,
+    );
+    expect(scrollport).not.toBeNull();
+    expect(target).not.toBeNull();
+    const scrollTo = installHorizontalRevealGeometry(scrollport!, target!);
+    const adapter = await waitFor(() => {
+      const current = semanticHarness.registry.get(ownerId);
+      expect(current).toBeDefined();
+      return current!;
+    });
+
+    await expect(adapter.reveal(targetId, "navigate")).resolves.toBe("revealed");
+    expect(scrollTo).toHaveBeenCalledOnce();
+
+    fixture.destroy();
+  });
+
   it("seeds structured Research, Draft, and Review steps with stable ids", () => {
     const content = blockInsertCatalog.getById("process-flow")?.content() as
       | JSONContent
@@ -99,6 +127,13 @@ describe("Process Flow presentation block", () => {
 
     expect(region.contains(list)).toBe(true);
     expect(items).toHaveLength(3);
+    expect(list.tagName).toBe("DIV");
+    expect(list).toHaveAttribute("role", "list");
+    for (const item of items) {
+      expect(item.tagName).toBe("DIV");
+      expect(item).toHaveAttribute("role", "listitem");
+      expect(item).not.toHaveAttribute("as");
+    }
     expect(handles).toHaveLength(3);
     expect(handles[0]).toHaveAttribute(
       "aria-keyshortcuts",
@@ -207,7 +242,7 @@ describe("Process Flow presentation block", () => {
 
 function processFlowFixture(orientation: "horizontal" | "vertical" = "horizontal"): JSONContent {
   const flow = createProcessFlowContent({ orientation });
-  flow.attrs = { ...flow.attrs, id: "processflow01" };
+  flow.attrs = { ...flow.attrs, id: "procflow0001" };
   if (!flow.content) throw new Error("Expected Process Flow seed steps.");
   flow.content = flow.content.map((step, index) => ({
     ...step,
@@ -225,12 +260,17 @@ function processFlowFixture(orientation: "horizontal" | "vertical" = "horizontal
   };
 }
 
-function renderProcessFlowEditor(content: JSONContent = processFlowFixture(), editable = true) {
+function renderProcessFlowEditor(
+  content: JSONContent = processFlowFixture(),
+  editable = true,
+  extraExtensions: Extensions = [],
+) {
   const fixture = createDisposableEditor({
     editable,
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
       ExtendedParagraph,
+      ...extraExtensions,
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       createScaffoldCapabilitiesStorageExtension(testCapabilities),
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
@@ -248,4 +288,12 @@ function renderProcessFlowEditor(content: JSONContent = processFlowFixture(), ed
   );
 
   return fixture;
+}
+
+function installHorizontalRevealGeometry(scrollport: HTMLElement, target: HTMLElement) {
+  scrollport.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 200, height: 100 });
+  target.getBoundingClientRect = () => DOMRect.fromRect({ x: 320, y: 0, width: 80, height: 80 });
+  const scrollTo = vi.fn();
+  Object.defineProperty(scrollport, "scrollTo", { configurable: true, value: scrollTo });
+  return scrollTo;
 }

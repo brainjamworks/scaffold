@@ -138,7 +138,7 @@ describe("Flashcard document semantics", () => {
         selectionTarget: { kind: "node", pos: current.pos },
         surfaceId: makeId("su", 1),
         authoringAnchorId: flashcardId,
-        activationPath: [],
+        activationPath: [{ ownerId: flashcardId, childId: cardId, ownerKind: "block" }],
       });
     }
     const privateIds = [
