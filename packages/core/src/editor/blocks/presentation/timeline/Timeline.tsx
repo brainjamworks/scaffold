@@ -51,8 +51,9 @@ export function TimelineView({ footer, props }: { footer?: ReactNode; props: Nod
         onTrackElementChange={setTrackElement}
         options={data}
       >
-        <NodeViewContent<"ol">
-          as="ol"
+        <NodeViewContent<"div">
+          as="div"
+          role="list"
           aria-label="Timeline events"
           className="sc-course-timeline__events"
         />
@@ -74,7 +75,7 @@ export function TimelineItemRuntimeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
-      as="li"
+      role="listitem"
       data-node="timeline-item"
       data-timeline-side={side}
       data-timeline-event=""

@@ -161,7 +161,12 @@ export function TimelineEventCard({
   return (
     <>
       <span aria-hidden className="sc-course-timeline__dot" />
-      <div {...cardProps} data-timeline-card="" className="sc-course-timeline__card">
+      <div
+        {...cardProps}
+        data-authoring-chrome={chrome ? "" : undefined}
+        data-timeline-card=""
+        className="sc-course-timeline__card"
+      >
         {chrome ? (
           <div contentEditable={false} className="sc-app-timeline-chrome">
             {chrome}
@@ -258,10 +263,7 @@ export function scrollTimelineEventIntoView(
   const eventRect = timelineEvent.getBoundingClientRect();
   if (presentation === "vertical") {
     const centeredTop =
-      track.scrollTop +
-      eventRect.top -
-      trackRect.top -
-      (track.clientHeight - eventRect.height) / 2;
+      track.scrollTop + eventRect.top - trackRect.top - (track.clientHeight - eventRect.height) / 2;
     track.scrollTo({ top: centeredTop, behavior });
     return;
   }

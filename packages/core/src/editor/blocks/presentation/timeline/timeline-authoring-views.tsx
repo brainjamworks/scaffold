@@ -82,7 +82,7 @@ export function TimelineItemAuthoringView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
-      as="li"
+      role="listitem"
       ref={presentationRef}
       data-node="timeline-item"
       data-timeline-side={side}

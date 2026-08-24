@@ -2,6 +2,14 @@
 
 @layer sc-components {
   .sc-course-timeline {
+    --sc-course-timeline-axis-lane: 1.5rem;
+    --sc-course-timeline-carousel-card-size: min(20rem, calc(100cqi - 2rem));
+    --sc-course-timeline-carousel-gap: 1rem;
+    --sc-course-timeline-card-content-inset-block-start: 0px;
+    --sc-course-timeline-card-content-inset-inline: 0px;
+    --sc-course-timeline-event-gap: 1.5rem;
+    --sc-course-timeline-vertical-viewport: min(36rem, 72svh);
+
     container-name: sc-course-timeline;
     container-type: inline-size;
     width: 100%;

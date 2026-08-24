@@ -228,7 +228,10 @@ describe("timeline block", () => {
     const region = screen.getByRole("region", { name: "Timeline" });
     const eventList = screen.getByRole("list", { name: "Timeline events" });
     expect(region.contains(eventList)).toBe(true);
-    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    expect(eventList.tagName).toBe("DIV");
+    const eventItems = screen.getAllByRole("listitem");
+    expect(eventItems).toHaveLength(3);
+    expect(eventItems.every((item) => item.tagName === "DIV")).toBe(true);
     expect(document.body.querySelector("[data-contained-movement-target]")).not.toBeNull();
     expect(document.body.querySelector("[data-contained-movement-handle]")).not.toBeNull();
     expect(document.body.querySelector("[data-contained-movement-target]")).toHaveAttribute(
@@ -247,6 +250,7 @@ describe("timeline block", () => {
     });
     expect(deleteButton.classList.contains("sc-app-timeline-delete")).toBe(true);
     expect(deleteButton.classList.contains("sc-course-timeline__delete")).toBe(false);
+    expect(deleteButton.closest("[data-timeline-card]")).toHaveAttribute("data-authoring-chrome");
     const addButton = screen.getByRole("button", { name: "Add event" });
     expect(addButton.closest("ol")).toBeNull();
     expect(document.body.querySelector(".sc-course-timeline")).not.toBeNull();
@@ -285,6 +289,7 @@ describe("timeline block", () => {
     });
     expect(screen.getByRole("region", { name: "Timeline" })).not.toBeNull();
     expect(document.body.querySelector('[class*="sc-app-timeline-"]')).toBeNull();
+    expect(document.body.querySelector("[data-authoring-chrome]")).toBeNull();
     expect(screen.queryByRole("button", { name: "Add event" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Delete timeline event/ })).toBeNull();
 

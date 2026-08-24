@@ -14,6 +14,7 @@
   font-family: var(--heading-font-family);
   font-size: var(--font-size-9);
   font-weight: 600;
+  font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: var(--letter-spacing-9);
   line-height: var(--line-height-9);
 }

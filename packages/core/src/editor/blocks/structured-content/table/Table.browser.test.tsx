@@ -107,6 +107,41 @@ describe("Table presentation", () => {
     );
     expect(getComputedStyle(editor.view.dom).cursor).toBe("col-resize");
   });
+
+  it("gives Pocket Atlas table cells visible keylines and readable text rhythm", () => {
+    const course = document.createElement("div");
+    course.className = "sc-course sc-course-theme-pocket-atlas-v1 radix-themes light";
+    course.style.setProperty("--sc-course-author-body-weight", "400");
+    course.style.setProperty("--sc-course-author-heading-weight", "700");
+    course.style.setProperty("--sc-course-author-body-line-height", "1.6");
+    course.style.setProperty("--sc-course-author-heading-line-height", "1.25");
+    course.style.setProperty("--sc-course-author-heading-letter-spacing", "0.025em");
+    course.style.setProperty("--sc-course-author-heading-text-transform", "none");
+    course.innerHTML = `
+      <div class="tableWrapper sc-course-table">
+        <table>
+          <tbody>
+            <tr><th><p>Column one</p></th><th><p>Column two</p></th></tr>
+            <tr><td><p>Value</p><p>Supporting detail</p></td><td><p>Value</p></td></tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+    document.body.append(course);
+
+    const header = requiredElement<HTMLTableCellElement>(course, "th:first-child");
+    const firstBodyCell = requiredElement<HTMLTableCellElement>(course, "td:first-child");
+    const lastBodyCell = requiredElement<HTMLTableCellElement>(course, "td:last-child");
+    const followUpParagraph = requiredElement<HTMLParagraphElement>(firstBodyCell, "p + p");
+
+    expect(getComputedStyle(header).borderInlineEndWidth).toBe("2px");
+    expect(getComputedStyle(header).borderBlockEndWidth).toBe("2px");
+    expect(getComputedStyle(firstBodyCell).borderInlineEndWidth).toBe("2px");
+    expect(getComputedStyle(lastBodyCell).borderInlineEndWidth).toBe("0px");
+    expect(getComputedStyle(firstBodyCell).borderBlockEndWidth).toBe("0px");
+    expect(Number.parseFloat(getComputedStyle(header).letterSpacing)).toBeGreaterThan(0);
+    expect(getComputedStyle(followUpParagraph).marginBlockStart).toBe("8px");
+  });
 });
 
 function tableDocument(): JSONContent {

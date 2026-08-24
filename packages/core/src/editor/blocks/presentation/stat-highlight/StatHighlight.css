@@ -46,10 +46,6 @@
     overflow-wrap: anywhere;
   }
 
-  .sc-course-stat-highlight__value {
-    font-variant-numeric: lining-nums tabular-nums;
-  }
-
   .sc-course-stat-highlight
     :is(
       .sc-course-stat-highlight__value,

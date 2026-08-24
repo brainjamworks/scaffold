@@ -4,6 +4,7 @@ import { createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import "@/editor/frame/view/bounded-placement.css";
+import "@/theme/course/designs/pocket-atlas/v1/theme.css";
 import "@/theme/course/designs/scaffold-flow/v1/timeline.css";
 import "./TimelineAuthoringControls.css";
 import "./timeline.css";
@@ -18,6 +19,36 @@ afterEach(() => {
 });
 
 describe("Timeline layout and ownership", () => {
+  it.each(["vertical", "carousel"] as const)(
+    "keeps %s geometry functional without a Course theme recipe",
+    async (presentation) => {
+      const fixture = createTimelineFixture({
+        bounded: false,
+        presentation,
+        theme: "none",
+      });
+      await nextLayoutFrame();
+
+      const rootStyle = getComputedStyle(fixture.frame);
+      expect(rootStyle.getPropertyValue("--sc-course-timeline-axis-lane").trim()).not.toBe("");
+      expect(rootStyle.getPropertyValue("--sc-course-timeline-carousel-card-size").trim()).not.toBe(
+        "",
+      );
+      expect(rootStyle.getPropertyValue("--sc-course-timeline-event-gap").trim()).not.toBe("");
+      expect(rootStyle.getPropertyValue("--sc-course-timeline-vertical-viewport").trim()).not.toBe(
+        "",
+      );
+
+      if (presentation === "vertical") {
+        expect(getComputedStyle(fixture.track).maxBlockSize).not.toBe("none");
+        expect(getComputedStyle(fixture.firstEvent).gridTemplateColumns.split(" ")).toHaveLength(3);
+      } else {
+        expect(fixture.firstEvent.getBoundingClientRect().width).toBeGreaterThan(0);
+        expect(fixture.track.scrollWidth).toBeGreaterThan(fixture.track.clientWidth);
+      }
+    },
+  );
+
   it.each(["vertical", "carousel"] as const)(
     "fills a finite rectangle while keeping %s scrolling internal",
     async (presentation) => {
@@ -83,18 +114,30 @@ describe("Timeline layout and ownership", () => {
     expect(scale).toBeLessThanOrEqual(0.99);
   });
 
-  it("keeps authoring controls close to the first content line without overlap", async () => {
-    const fixture = createTimelineFixture({ bounded: false, presentation: "vertical" });
-    await nextLayoutFrame();
+  it.each(["flow", "pocket"] as const)(
+    "shares the first content row with %s authoring controls without collisions",
+    async (theme) => {
+      const fixture = createTimelineFixture({
+        bounded: false,
+        presentation: "vertical",
+        theme,
+      });
+      await nextLayoutFrame();
 
-    const controlsBottom = Math.max(
-      fixture.movementButton.getBoundingClientRect().bottom,
-      fixture.deleteButton.getBoundingClientRect().bottom,
-    );
-    const controlToLineGap = fixture.firstLine.getBoundingClientRect().top - controlsBottom;
-    expect(controlToLineGap).toBeGreaterThanOrEqual(8);
-    expect(controlToLineGap).toBeLessThanOrEqual(16);
-  });
+      const movementRect = fixture.movementButton.getBoundingClientRect();
+      const deleteRect = fixture.deleteButton.getBoundingClientRect();
+      const lineRect = fixture.firstLine.getBoundingClientRect();
+      const controlsCenter = (movementRect.top + movementRect.bottom) / 2;
+      const deleteCenter = (deleteRect.top + deleteRect.bottom) / 2;
+      const lineCenter = (lineRect.top + lineRect.bottom) / 2;
+      const lineStyle = getComputedStyle(fixture.firstLine);
+
+      expect(Math.abs(lineCenter - controlsCenter)).toBeLessThanOrEqual(8);
+      expect(Math.abs(lineCenter - deleteCenter)).toBeLessThanOrEqual(8);
+      expect(Number.parseFloat(lineStyle.paddingInlineStart)).toBeGreaterThanOrEqual(52);
+      expect(Number.parseFloat(lineStyle.paddingInlineEnd)).toBeGreaterThanOrEqual(52);
+    },
+  );
 
   it("collapses alternating events to one full-width rail from container width", async () => {
     const fixture = createTimelineFixture({
@@ -140,8 +183,8 @@ describe("Timeline layout and ownership", () => {
   it("recolours Course content without recolouring the App-owned delete action", async () => {
     const fixture = createTimelineFixture({ bounded: false, presentation: "vertical" });
     expect(fixture.deleteButton.classList.contains("sc-course-timeline__delete")).toBe(false);
-    expect(fixture.deleteButton.getBoundingClientRect().width).toBeCloseTo(36, 0);
-    expect(fixture.deleteButton.getBoundingClientRect().height).toBeCloseTo(36, 0);
+    expect(fixture.deleteButton.getBoundingClientRect().width).toBeCloseTo(44, 0);
+    expect(fixture.deleteButton.getBoundingClientRect().height).toBeCloseTo(44, 0);
     expect(getComputedStyle(fixture.deleteButton).borderTopWidth).toBe("0px");
     expect(getComputedStyle(fixture.deleteButton).borderTopLeftRadius).toBe("6px");
     expect(getComputedStyle(fixture.deleteButton).backgroundColor).toBe("rgba(0, 0, 0, 0)");
@@ -297,6 +340,10 @@ describe("Timeline layout and ownership", () => {
     let next = document.querySelector<HTMLButtonElement>('button[aria-label="Next event"]');
     const track = document.querySelector<HTMLElement>(".sc-course-timeline__track");
     if (!previous || !next || !track) throw new Error("Timeline navigation did not render");
+    expect(previous.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
+    expect(previous.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    expect(next.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
+    expect(next.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
     expect(previous.disabled).toBe(true);
     expect(next.disabled).toBe(false);
 
@@ -320,9 +367,10 @@ describe("Timeline layout and ownership", () => {
 function createTimelineFixture(input: {
   bounded: boolean;
   presentation: TimelinePresentation;
+  theme?: "flow" | "none" | "pocket";
   width?: number;
 }) {
-  const host = createCourseHost(input.width ?? 640);
+  const host = createCourseHost(input.width ?? 640, input.theme ?? "flow");
   if (input.bounded) host.style.height = "360px";
 
   const frame = document.createElement("div");
@@ -362,9 +410,12 @@ function createTimelineFixture(input: {
     card.style.minHeight = input.presentation === "vertical" ? "160px" : "180px";
     const content = document.createElement("div");
     content.className = "sc-course-timeline__content";
+    const editableContent = document.createElement("div");
+    editableContent.dataset.nodeViewContentReact = "";
     const line = document.createElement("p");
     line.textContent = `Timeline event ${index + 1}`;
-    content.append(line);
+    editableContent.append(line);
+    content.append(editableContent);
     event.append(dot, card);
     if (index === 0) {
       firstEvent = event;
@@ -372,6 +423,7 @@ function createTimelineFixture(input: {
       firstLine = line;
       const chrome = document.createElement("div");
       chrome.className = "sc-app-timeline-chrome";
+      card.dataset.authoringChrome = "";
       movementButton = document.createElement("button");
       movementButton.type = "button";
       movementButton.className = "sc-app-contained-movement-handle sc-app-compact-movement-handle";
@@ -416,9 +468,14 @@ function createTimelineFixture(input: {
   };
 }
 
-function createCourseHost(width: number) {
+function createCourseHost(width: number, theme: "flow" | "none" | "pocket" = "flow") {
   const host = document.createElement("div");
-  host.className = "sc-course sc-course-theme-scaffold-flow-v1";
+  host.className =
+    theme === "flow"
+      ? "sc-course sc-course-theme-scaffold-flow-v1"
+      : theme === "pocket"
+        ? "sc-course sc-course-theme-pocket-atlas-v1"
+        : "sc-course";
   host.style.width = `${width}px`;
   host.style.setProperty("--space-1", "4px");
   host.style.setProperty("--space-2", "8px");
@@ -445,6 +502,8 @@ function createCourseHost(width: number) {
   host.style.setProperty("--sc-app-color-error-background", "rgb(254 226 226)");
   host.style.setProperty("--sc-app-color-focus-outline", "rgb(79 70 229)");
   host.style.setProperty("--sc-app-radius-control", "6px");
+  host.style.setProperty("--sc-course-author-density", "1");
+  host.style.setProperty("--sc-course-author-text-scale", "1");
   return host;
 }
 

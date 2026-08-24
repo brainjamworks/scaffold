@@ -2,6 +2,8 @@
   --sc-course-timeline-axis-lane: var(--space-6);
   --sc-course-timeline-carousel-card-size: min(20rem, calc(100cqi - var(--space-8)));
   --sc-course-timeline-carousel-gap: var(--space-4);
+  --sc-course-timeline-card-content-inset-block-start: var(--space-4);
+  --sc-course-timeline-card-content-inset-inline: var(--space-5);
   --sc-course-timeline-event-gap: var(--space-6);
   --sc-course-timeline-vertical-viewport: min(36rem, 72svh);
 
@@ -355,8 +357,8 @@
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-timeline__navigation-button {
   display: inline-flex;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--gray-a6);
