@@ -1,6 +1,7 @@
 import { CaretLeftIcon as CaretLeft, CaretRightIcon as CaretRight } from "@phosphor-icons/react";
 import {
   useId,
+  useCallback,
   useLayoutEffect,
   useRef,
   useState,
@@ -39,11 +40,13 @@ export function TimelineTrack({
   children,
   eventCount,
   footer,
+  onTrackElementChange,
   options,
 }: {
   children: ReactNode;
   eventCount: number;
   footer?: ReactNode;
+  onTrackElementChange?: (element: HTMLDivElement | null) => void;
   options: TimelineOptions;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -55,13 +58,20 @@ export function TimelineTrack({
     currentIndex: 0,
     visible: false,
   });
+  const setTrackRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      trackRef.current = element;
+      onTrackElementChange?.(element);
+    },
+    [onTrackElementChange],
+  );
 
   useLayoutEffect(() => {
     const track = trackRef.current;
     if (!track) return;
 
     if (options.presentation === "carousel" && initialisedPresentationRef.current !== "carousel") {
-      scrollTimelineEventIntoView(track, 0, "auto");
+      scrollTimelineEventAtIndex(track, 0, "auto");
     }
     initialisedPresentationRef.current = options.presentation;
 
@@ -115,12 +125,12 @@ export function TimelineTrack({
     );
     const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
     const behavior = event.detail === 0 || reduceMotion ? "auto" : "smooth";
-    scrollTimelineEventIntoView(track, targetIndex, behavior);
+    scrollTimelineEventAtIndex(track, targetIndex, behavior);
   };
 
   return (
     <>
-      <div id={trackId} className="sc-course-timeline__track" ref={trackRef}>
+      <div id={trackId} className="sc-course-timeline__track" ref={setTrackRef}>
         <div className="sc-course-timeline__rail">
           {children}
           {footer}
@@ -228,15 +238,33 @@ function nearestTimelineEventIndex(track: HTMLElement, events: HTMLElement[]): n
   return nearestIndex;
 }
 
-function scrollTimelineEventIntoView(
+function scrollTimelineEventAtIndex(
   track: HTMLElement,
   eventIndex: number,
   behavior: ScrollBehavior,
 ) {
   const timelineEvent = timelineEvents(track)[eventIndex];
   if (!timelineEvent) return;
+  scrollTimelineEventIntoView(track, timelineEvent, "carousel", behavior);
+}
+
+export function scrollTimelineEventIntoView(
+  track: HTMLElement,
+  timelineEvent: HTMLElement,
+  presentation: TimelineOptions["presentation"],
+  behavior: ScrollBehavior,
+) {
   const trackRect = track.getBoundingClientRect();
   const eventRect = timelineEvent.getBoundingClientRect();
+  if (presentation === "vertical") {
+    const centeredTop =
+      track.scrollTop +
+      eventRect.top -
+      trackRect.top -
+      (track.clientHeight - eventRect.height) / 2;
+    track.scrollTo({ top: centeredTop, behavior });
+    return;
+  }
   const centeredLeft =
     track.scrollLeft + eventRect.left - trackRect.left - (track.clientWidth - eventRect.width) / 2;
   track.scrollTo({ left: centeredLeft, behavior });

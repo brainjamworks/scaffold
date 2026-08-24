@@ -5,16 +5,37 @@ import {
   type NodeViewProps,
 } from "@tiptap/react";
 import type { ReactNode } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 
+import { TIMELINE_ITEM_NODE } from "./content";
 import { parseTimelineData } from "./TimelineModel";
-import { TimelineEventCard, TimelineTrack } from "./timeline-components";
+import {
+  TimelineEventCard,
+  TimelineTrack,
+  readRequiredTimelineNodeId,
+} from "./timeline-components";
+import { useTimelineSemanticContainerAdapter } from "./use-timeline-semantic-container-adapter";
 
 import "./timeline.css";
 
 export function TimelineView({ footer, props }: { footer?: ReactNode; props: NodeViewProps }) {
   const data = parseTimelineData(props.node.attrs["data"]);
+  const trackElementRef = useRef<HTMLDivElement | null>(null);
+  const getTrackElement = useCallback(() => trackElementRef.current, []);
+  const setTrackElement = useCallback((element: HTMLDivElement | null) => {
+    trackElementRef.current = element;
+  }, []);
+  useTimelineEntryMetadata(props);
+  useTimelineSemanticContainerAdapter({
+    editor: props.editor,
+    getPos: props.getPos,
+    getTrackElement,
+    node: props.node,
+    presentation: data.presentation,
+    timelineId: props.node.attrs["id"],
+  });
 
   return (
     <section
@@ -24,7 +45,12 @@ export function TimelineView({ footer, props }: { footer?: ReactNode; props: Nod
       data-show-axis={data.showAxis ? "true" : "false"}
       data-alignment={data.alignment}
     >
-      <TimelineTrack eventCount={props.node.childCount} footer={footer} options={data}>
+      <TimelineTrack
+        eventCount={props.node.childCount}
+        footer={footer}
+        onTrackElementChange={setTrackElement}
+        options={data}
+      >
         <NodeViewContent<"ol">
           as="ol"
           aria-label="Timeline events"
@@ -59,6 +85,38 @@ export function TimelineItemRuntimeView(props: NodeViewProps) {
       </TimelineEventCard>
     </NodeViewWrapper>
   );
+}
+
+function useTimelineEntryMetadata(props: NodeViewProps): void {
+  const { editor, getPos, node } = props;
+  useLayoutEffect(() => {
+    const timelinePos = readNodeViewPos(getPos);
+    if (!isValidEditorDocPos(editor, timelinePos)) return;
+    const HTMLElementConstructor = editor.view.dom.ownerDocument.defaultView?.HTMLElement;
+    if (!HTMLElementConstructor) return;
+    const projected: { readonly element: HTMLElement; readonly itemId: string }[] = [];
+
+    node.forEach((child, offset) => {
+      if (child.type.name !== TIMELINE_ITEM_NODE) return;
+      const itemId = readRequiredTimelineNodeId(child.attrs["id"], "timeline item");
+      const nodeDom = editor.view.nodeDOM(timelinePos + 1 + offset);
+      if (!(nodeDom instanceof HTMLElementConstructor)) return;
+      const event = nodeDom.matches("[data-timeline-event]")
+        ? nodeDom
+        : nodeDom.querySelector<HTMLElement>("[data-timeline-event]");
+      if (!event) return;
+      event.dataset.timelineEntryId = itemId;
+      projected.push({ element: event, itemId });
+    });
+
+    return () => {
+      for (const { element, itemId } of projected) {
+        if (element.dataset.timelineEntryId === itemId) {
+          delete element.dataset.timelineEntryId;
+        }
+      }
+    };
+  }, [editor, getPos, node]);
 }
 
 function readNodeViewPos(getPos: NodeViewProps["getPos"]): number | undefined {
