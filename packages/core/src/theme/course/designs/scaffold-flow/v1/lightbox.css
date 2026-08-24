@@ -1,0 +1,118 @@
+.sc-course.sc-course-theme-scaffold-flow-v1.sc-lightbox-overlay,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-overlay {
+  background: rgb(15 23 42 / 0.68);
+  backdrop-filter: blur(8px);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-media {
+  border-radius: var(--radius-3);
+  background: var(--gray-2);
+  box-shadow: 0 1.25rem 3.5rem rgb(0 0 0 / 0.28);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-caption {
+  max-width: 65ch;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: var(--radius-3);
+  background: rgb(15 23 42 / 0.82);
+  color: rgb(255 255 255 / 0.94);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.22);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-caption > :first-child {
+  margin-block-start: 0;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-caption > :last-child {
+  margin-block-end: 0;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-button {
+  border: 1px solid rgb(255 255 255 / 0.24);
+  border-radius: var(--radius-pill);
+  background: rgb(255 255 255 / 0.14);
+  color: rgb(255 255 255 / 0.92);
+  box-shadow: none;
+  transition:
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-button:hover {
+  border-color: rgb(255 255 255 / 0.38);
+  background: rgb(255 255 255 / 0.24);
+  color: #ffffff;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-button:focus-visible {
+  outline: 3px solid var(--accent-8);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 2px #ffffff;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-status {
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: var(--radius-pill);
+  background: rgb(15 23 42 / 0.8);
+  color: rgb(255 255 255 / 0.94);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-1);
+  box-shadow: 0 0.375rem 1rem rgb(0 0 0 / 0.2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-status-current {
+  font-weight: var(--font-weight-semibold);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(
+    .sc-lightbox-status-current,
+    .sc-lightbox-status-separator,
+    .sc-lightbox-status-total
+  ) {
+  color: inherit;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-status-separator {
+  opacity: 0.58;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-status-total {
+  opacity: 0.76;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1.dark.sc-lightbox-overlay,
+.sc-course.sc-course-theme-scaffold-flow-v1.dark .sc-lightbox-overlay {
+  background: rgb(2 6 23 / 0.78);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-button {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-button,
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-caption,
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-status {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    box-shadow: none;
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-lightbox-button:focus-visible {
+    outline-color: Highlight;
+  }
+}
