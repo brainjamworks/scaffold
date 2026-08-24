@@ -21,6 +21,7 @@ import {
   KEY_VALUE_ROW_VALUE_NODE,
   emptyKeyValueListData,
 } from "./content";
+import { keyValueListDocumentSemantics } from "./key-value-list-document-semantics";
 
 export const KEY_VALUE_LIST_BLOCK_ID = "key-value-list";
 
@@ -46,6 +47,7 @@ const KEY_WIDTH_LABELS: Record<"auto" | "narrow" | "medium" | "wide", string> = 
 export const keyValueListBlockDefinition = defineBlock({
   nodeType: KEY_VALUE_LIST_NODE,
   title: "Key-value list",
+  documentSemantics: keyValueListDocumentSemantics,
   configuration: defineConfiguration({
     attr: "data",
     schema: KeyValueListDataSchema,
