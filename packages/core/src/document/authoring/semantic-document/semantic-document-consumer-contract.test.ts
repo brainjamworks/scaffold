@@ -3,12 +3,15 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { Editor, type JSONContent } from "@tiptap/core";
-import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
+import type { EmbeddedNodeId } from "@scaffold/contracts";
+import { Editor } from "@tiptap/core";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
-import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import {
+  APPROVED_SEMANTIC_MEMBER_FAMILY_CASES,
+  SEMANTIC_LIFECYCLE_AUTHORING_STATE,
+  createCompleteSemanticLifecycleDocument,
+} from "@/document/model/semantic-document/testing/semantic-publication-lifecycle-fixtures";
 
 import {
   getSemanticDocumentControllerForEditor,
@@ -16,9 +19,6 @@ import {
   type SemanticHierarchyViewport,
 } from "./index";
 
-const SURFACE_ID = id("seamsurface1");
-const PARAGRAPH_ID = id("seampara0001");
-const composition = createCoreScaffoldAuthoringComposition();
 const editors: Editor[] = [];
 
 afterEach(() => {
@@ -32,6 +32,8 @@ describe("semantic document internal consumer contract", () => {
     expect(getSemanticDocumentControllerForEditor(editor)).toBe(controller);
     const semanticSnapshot = controller.getSnapshot().semantics;
     expect(Object.isFrozen(semanticSnapshot)).toBe(true);
+    const surfaceId = semanticSnapshot.roots[0]?.id;
+    if (!surfaceId) throw new Error("Expected complete hierarchy Surface root.");
     const outlineViewport = new RecordingViewport();
     const timelineViewport = new RecordingViewport();
     const outline = new SemanticHierarchyViewController({
@@ -45,31 +47,38 @@ describe("semantic document internal consumer contract", () => {
       viewport: timelineViewport,
     });
 
-    outline.setExpanded(SURFACE_ID, false);
-    timeline.setExpanded(SURFACE_ID, false);
+    outline.setExpanded(surfaceId, false);
+    timeline.setExpanded(surfaceId, false);
     outlineViewport.clear();
     timelineViewport.clear();
-    outline.setExpanded(SURFACE_ID, true);
+    outline.setExpanded(surfaceId, true);
 
-    expect(outline.getSnapshot().expandedIds.has(SURFACE_ID)).toBe(true);
-    expect(timeline.getSnapshot().expandedIds.has(SURFACE_ID)).toBe(false);
+    expect(outline.getSnapshot().expandedIds.has(surfaceId)).toBe(true);
+    expect(timeline.getSnapshot().expandedIds.has(surfaceId)).toBe(false);
 
-    controller.reportComponentSelection(SURFACE_ID);
-    outlineViewport.clear();
-    timelineViewport.clear();
-    controller.reportComponentSelection(PARAGRAPH_ID);
-    expect(outline.getSnapshot().selectedId).toBe(PARAGRAPH_ID);
-    expect(timeline.getSnapshot().selectedId).toBe(PARAGRAPH_ID);
-    expect(controller.getSnapshot().semantics).toBe(semanticSnapshot);
-    expect(outline.getSnapshot().expandedIds.has(SURFACE_ID)).toBe(true);
-    expect(timeline.getSnapshot().expandedIds.has(SURFACE_ID)).toBe(true);
-    await Promise.resolve();
-    expect(outlineViewport.revealed).toContain(PARAGRAPH_ID);
-    expect(timelineViewport.revealed).toContain(PARAGRAPH_ID);
+    controller.reportComponentSelection(surfaceId);
+    for (const family of APPROVED_SEMANTIC_MEMBER_FAMILY_CASES) {
+      const memberId = family.memberIds.first;
+      outlineViewport.clear();
+      timelineViewport.clear();
+      controller.reportComponentSelection(memberId);
 
-    outline.setExpanded(SURFACE_ID, false);
-    expect(outline.getSnapshot().expandedIds.has(SURFACE_ID)).toBe(false);
-    expect(timeline.getSnapshot().expandedIds.has(SURFACE_ID)).toBe(true);
+      expect(outline.getSnapshot().selectedId).toBe(memberId);
+      expect(timeline.getSnapshot().selectedId).toBe(memberId);
+      expect(controller.getSnapshot().semantics).toBe(semanticSnapshot);
+      for (const ancestorId of ancestorIds(semanticSnapshot.parentById, memberId)) {
+        expect(outline.getSnapshot().expandedIds.has(ancestorId)).toBe(true);
+        expect(timeline.getSnapshot().expandedIds.has(ancestorId)).toBe(true);
+      }
+      await Promise.resolve();
+      expect(outlineViewport.revealed).toContain(memberId);
+      expect(timelineViewport.revealed).toContain(memberId);
+    }
+
+    const independentlyCollapsedId = APPROVED_SEMANTIC_MEMBER_FAMILY_CASES[0]!.ownerId;
+    outline.setExpanded(independentlyCollapsedId, false);
+    expect(outline.getSnapshot().expandedIds.has(independentlyCollapsedId)).toBe(false);
+    expect(timeline.getSnapshot().expandedIds.has(independentlyCollapsedId)).toBe(true);
 
     outline.destroy();
     timeline.destroy();
@@ -106,38 +115,22 @@ class RecordingViewport implements SemanticHierarchyViewport {
 function createEditor(): Editor {
   const editor = new Editor({
     editable: true,
-    extensions: createCourseDocumentAuthoringExtensions({ editable: true, composition }),
-    content: documentContent(),
+    extensions: SEMANTIC_LIFECYCLE_AUTHORING_STATE.extensions,
+    content: createCompleteSemanticLifecycleDocument().toJSON(),
   });
   editors.push(editor);
   return editor;
 }
 
-function documentContent(): JSONContent {
-  return {
-    type: "doc",
-    content: [
-      {
-        type: "courseDocument",
-        attrs: { id: id("seamcourse01"), mode: "page" },
-        content: [
-          {
-            type: "surface",
-            attrs: { id: SURFACE_ID, variant: "page-default" },
-            content: [
-              {
-                type: "paragraph",
-                attrs: { id: PARAGRAPH_ID },
-                content: [{ type: "text", text: "Shared semantic content" }],
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  };
-}
-
-function id(value: string): EmbeddedNodeId {
-  return EmbeddedNodeIdSchema.parse(value);
+function ancestorIds(
+  parentById: ReadonlyMap<EmbeddedNodeId, EmbeddedNodeId | null>,
+  itemId: EmbeddedNodeId,
+): readonly EmbeddedNodeId[] {
+  const ancestors: EmbeddedNodeId[] = [];
+  let parentId = parentById.get(itemId) ?? null;
+  while (parentId) {
+    ancestors.push(parentId);
+    parentId = parentById.get(parentId) ?? null;
+  }
+  return ancestors;
 }
