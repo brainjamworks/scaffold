@@ -208,7 +208,7 @@ describe("Numbered List document semantics", () => {
     expect(changed.snapshot.diagnostics).toEqual([]);
   });
 
-  it("selects the Numbered List owner without focusing prose, changing status or invoking controls", async () => {
+  it("reaches the exact item through its Numbered List anchor without changing state or invoking controls", async () => {
     const listId = makeId("nl", 3);
     const firstItemId = makeId("ni", 6);
     const secondItemId = makeId("ni", 7);
@@ -256,7 +256,11 @@ describe("Numbered List document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const listLocation = controller.getSnapshot().semantics.locationById.get(listId)!;
-    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
+    const activationLookup = vi
+      .spyOn(controller.semanticActivations, "resolve")
+      .mockImplementation(() => {
+        throw new Error("Anchor-only navigation must not resolve an activation binding");
+      });
 
     await expect(controller.select(secondItemId, { origin: "document-outline" })).resolves.toEqual({
       kind: "reached",

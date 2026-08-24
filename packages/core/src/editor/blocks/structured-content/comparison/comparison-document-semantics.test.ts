@@ -198,7 +198,7 @@ describe("Comparison document semantics", () => {
     expect(changed.snapshot.diagnostics).toEqual([]);
   });
 
-  it("selects the Comparison owner without focusing cells or invoking row controls", async () => {
+  it("reaches the exact row through its Comparison anchor without focusing cells or invoking controls", async () => {
     const comparisonId = makeId("cm", 3);
     const firstRowId = makeId("cr", 6);
     const secondRowId = makeId("cr", 7);
@@ -241,7 +241,11 @@ describe("Comparison document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const comparisonLocation = controller.getSnapshot().semantics.locationById.get(comparisonId)!;
-    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
+    const activationLookup = vi
+      .spyOn(controller.semanticActivations, "resolve")
+      .mockImplementation(() => {
+        throw new Error("Anchor-only navigation must not resolve an activation binding");
+      });
 
     await expect(controller.select(secondRowId, { origin: "document-outline" })).resolves.toEqual({
       kind: "reached",

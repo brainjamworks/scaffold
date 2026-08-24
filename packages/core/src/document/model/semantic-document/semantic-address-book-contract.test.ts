@@ -24,12 +24,19 @@ const SEMANTIC_ITEM_KEYS = [
   "summary",
 ] as const;
 
-const ACTIVATING_BLOCK_MEMBER_OWNER_TYPES = new Set([
-  "flashcard",
-  "gallery",
-  "process_flow",
-  "roadmap",
-  "timeline",
+const BLOCK_MEMBER_INTERACTION_BY_OWNER_TYPE = new Map<string, "activation" | "anchor-only">([
+  ["annotated_figure", "anchor-only"],
+  ["flashcard", "activation"],
+  ["gallery", "activation"],
+  ["checklist", "anchor-only"],
+  ["comparison", "anchor-only"],
+  ["glossary", "anchor-only"],
+  ["key_value_list", "anchor-only"],
+  ["numbered_list", "anchor-only"],
+  ["table", "anchor-only"],
+  ["process_flow", "activation"],
+  ["roadmap", "activation"],
+  ["timeline", "activation"],
 ]);
 
 describe("semantic presentation address book", () => {
@@ -46,6 +53,9 @@ describe("semantic presentation address book", () => {
     expect(childIds(snapshot, surface.id)).toEqual([region.id]);
     expect(childIds(snapshot, region.id)).toEqual(
       APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.map(({ ownerId }) => ownerId),
+    );
+    expect(new Set(BLOCK_MEMBER_INTERACTION_BY_OWNER_TYPE.keys())).toEqual(
+      new Set(APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.map(({ ownerNodeType }) => ownerNodeType)),
     );
     expect(snapshot.diagnostics).toEqual([]);
 
@@ -89,8 +99,12 @@ describe("semantic presentation address book", () => {
       ].entries()) {
         const persistedMember = requireLifecycleNodeById(doc, memberId);
         const item = requireItem(snapshot, memberId);
+        const interaction = BLOCK_MEMBER_INTERACTION_BY_OWNER_TYPE.get(family.ownerNodeType);
+        if (!interaction) {
+          throw new Error(`Missing interaction classification for ${family.ownerNodeType}.`);
+        }
         const expectedActivationPath =
-          ACTIVATING_BLOCK_MEMBER_OWNER_TYPES.has(family.ownerNodeType)
+          interaction === "activation"
             ? [{ ownerId: family.ownerId, childId: memberId, ownerKind: "block" }]
             : [];
 
@@ -153,7 +167,10 @@ describe("semantic presentation address book", () => {
   });
 
   it("does not grant published members Presentation or learner behavior", () => {
-    const snapshot = projectSemanticLifecycleDocument(createCompleteSemanticLifecycleDocument(), 17);
+    const snapshot = projectSemanticLifecycleDocument(
+      createCompleteSemanticLifecycleDocument(),
+      17,
+    );
     const forbiddenFields = [
       "actions",
       "actor",
@@ -205,7 +222,8 @@ function requireOnlyNodeOfType(
     }
     return true;
   });
-  if (matches.length !== 1) throw new Error(`Expected one ${nodeType}, received ${matches.length}.`);
+  if (matches.length !== 1)
+    throw new Error(`Expected one ${nodeType}, received ${matches.length}.`);
   return matches[0]!;
 }
 

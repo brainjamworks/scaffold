@@ -156,7 +156,7 @@ describe("Checklist document semantics", () => {
     expect(changed.snapshot.diagnostics).toEqual([]);
   });
 
-  it("selects the Checklist owner without changing learner activity", async () => {
+  it("reaches the exact item through its Checklist anchor without changing learner activity", async () => {
     const checklistId = makeId("cl", 3);
     const firstItemId = makeId("ci", 6);
     const secondItemId = makeId("ci", 7);
@@ -202,7 +202,11 @@ describe("Checklist document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const checklistLocation = controller.getSnapshot().semantics.locationById.get(checklistId)!;
-    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
+    const activationLookup = vi
+      .spyOn(controller.semanticActivations, "resolve")
+      .mockImplementation(() => {
+        throw new Error("Anchor-only navigation must not resolve an activation binding");
+      });
 
     await expect(controller.select(secondItemId, { origin: "document-outline" })).resolves.toEqual({
       kind: "reached",

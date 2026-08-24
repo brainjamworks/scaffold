@@ -198,7 +198,7 @@ describe("Table document semantics", () => {
     expect(changed.snapshot.diagnostics).toEqual([]);
   });
 
-  it("selects the Table owner without selecting a cell, invoking commands or mutating table state", async () => {
+  it("reaches the exact row through its Table anchor without cell selection, commands or mutation", async () => {
     const tableId = makeId("tb", 3);
     const headerRowId = makeId("tr", 6);
     const bodyRowId = makeId("tr", 7);
@@ -248,7 +248,11 @@ describe("Table document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const tableLocation = controller.getSnapshot().semantics.locationById.get(tableId)!;
-    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
+    const activationLookup = vi
+      .spyOn(controller.semanticActivations, "resolve")
+      .mockImplementation(() => {
+        throw new Error("Anchor-only navigation must not resolve an activation binding");
+      });
 
     await expect(controller.select(bodyRowId, { origin: "document-outline" })).resolves.toEqual({
       kind: "reached",

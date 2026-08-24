@@ -221,7 +221,7 @@ describe("Key-value list document semantics", () => {
     expect(changed.snapshot.diagnostics).toEqual([]);
   });
 
-  it("selects the Key-value list owner without focusing fields or invoking row controls", async () => {
+  it("reaches the exact row through its Key-value list anchor without focusing fields or invoking controls", async () => {
     const listId = makeId("kv", 3);
     const firstRowId = makeId("kr", 6);
     const secondRowId = makeId("kr", 7);
@@ -264,7 +264,11 @@ describe("Key-value list document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const listLocation = controller.getSnapshot().semantics.locationById.get(listId)!;
-    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
+    const activationLookup = vi
+      .spyOn(controller.semanticActivations, "resolve")
+      .mockImplementation(() => {
+        throw new Error("Anchor-only navigation must not resolve an activation binding");
+      });
 
     await expect(controller.select(secondRowId, { origin: "document-outline" })).resolves.toEqual({
       kind: "reached",

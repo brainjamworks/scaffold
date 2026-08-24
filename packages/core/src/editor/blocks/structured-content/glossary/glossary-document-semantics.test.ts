@@ -209,7 +209,7 @@ describe("Glossary document semantics", () => {
     expect(changed.snapshot.diagnostics).toEqual([]);
   });
 
-  it("selects the Glossary owner without focusing fields or invoking entry controls", async () => {
+  it("reaches the exact entry through its Glossary anchor without focusing fields or invoking controls", async () => {
     const glossaryId = makeId("gl", 3);
     const firstEntryId = makeId("ge", 6);
     const secondEntryId = makeId("ge", 7);
@@ -252,7 +252,11 @@ describe("Glossary document semantics", () => {
     });
     controller.setNavigationEnvironment(environment);
     const glossaryLocation = controller.getSnapshot().semantics.locationById.get(glossaryId)!;
-    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
+    const activationLookup = vi
+      .spyOn(controller.semanticActivations, "resolve")
+      .mockImplementation(() => {
+        throw new Error("Anchor-only navigation must not resolve an activation binding");
+      });
 
     await expect(controller.select(secondEntryId, { origin: "document-outline" })).resolves.toEqual(
       {

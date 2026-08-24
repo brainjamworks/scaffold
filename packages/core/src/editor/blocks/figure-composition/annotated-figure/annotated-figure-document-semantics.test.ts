@@ -208,7 +208,7 @@ describe("Annotated Figure document semantics", () => {
     }
   });
 
-  it("selects and scrolls the owning Figure while preserving annotation selection", async () => {
+  it("reaches the exact annotation through its Figure anchor with zero binding lookup", async () => {
     const figureId = makeId("fi", 4);
     const annotationId = makeId("an", 9);
     const doc = documentNode(figureNode(figureId, [annotation(annotationId, "Detail", "Caption")]));
@@ -245,7 +245,11 @@ describe("Annotated Figure document semantics", () => {
       state.tr.insert(initialFigureLocation.from, paragraph(makeId("pa", 10), "Before figure")),
     );
     const currentFigureLocation = controller.getSnapshot().semantics.locationById.get(figureId)!;
-    const activationLookup = vi.spyOn(controller.semanticActivations, "resolve");
+    const activationLookup = vi
+      .spyOn(controller.semanticActivations, "resolve")
+      .mockImplementation(() => {
+        throw new Error("Anchor-only navigation must not resolve an activation binding");
+      });
 
     await expect(controller.select(annotationId, { origin: "document-outline" })).resolves.toEqual({
       kind: "reached",
