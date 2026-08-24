@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import type { EmbeddedNodeId } from "@scaffold/contracts";
+import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { Editor } from "@tiptap/core";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
@@ -12,6 +12,7 @@ import {
   SEMANTIC_LIFECYCLE_AUTHORING_STATE,
   createCompleteSemanticLifecycleDocument,
 } from "@/document/model/semantic-document/testing/semantic-publication-lifecycle-fixtures";
+import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 
 import {
   getSemanticDocumentControllerForEditor,
@@ -26,6 +27,42 @@ afterEach(() => {
 });
 
 describe("semantic document internal consumer contract", () => {
+  it("lets independent consumers borrow one environment without owning its disposal", () => {
+    const editor = createEditor();
+    const controller = getSemanticDocumentControllerForEditor(editor);
+    const outlineBorrower = getSemanticTargetInteractionEnvironmentForEditor(editor);
+    const timelineBorrower = getSemanticTargetInteractionEnvironmentForEditor(editor);
+    const ownerId = EmbeddedNodeIdSchema.parse("borrower0001");
+    const childId = EmbeddedNodeIdSchema.parse("borrower0002");
+    const binding = {
+      ownerId,
+      activate: async () => ({ kind: "already-visible" as const, ownerId, childId }),
+    };
+
+    expect(outlineBorrower).toBe(controller.semanticTargetInteractions);
+    expect(timelineBorrower).toBe(outlineBorrower);
+    expect(outlineBorrower).not.toHaveProperty("dispose");
+    expect(outlineBorrower.registry).not.toHaveProperty("dispose");
+
+    const releaseOutlineBinding = outlineBorrower.registry.register(binding);
+    expect(timelineBorrower.registry.resolve(ownerId)).toEqual({ kind: "resolved", binding });
+    releaseOutlineBinding();
+    expect(timelineBorrower.registry.resolve(ownerId)).toEqual({
+      kind: "unavailable",
+      ownerId,
+      reason: "owner-unmounted",
+    });
+
+    const releaseTimelineBinding = timelineBorrower.registry.register(binding);
+    expect(outlineBorrower.registry.resolve(ownerId)).toEqual({ kind: "resolved", binding });
+    releaseTimelineBinding();
+
+    editor.destroy();
+    expect(() => outlineBorrower.registry.register(binding)).toThrowError(
+      "Cannot register a semantic activation binding after registry disposal",
+    );
+  });
+
   it("shares one editor controller and selected ID across independent hierarchy views", async () => {
     const editor = createEditor();
     const controller = getSemanticDocumentControllerForEditor(editor);

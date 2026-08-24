@@ -4,7 +4,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { render as renderBrowserReact, type RenderResult } from "vitest-browser-react";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
@@ -31,7 +31,18 @@ import {
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { tabPanelId } from "@/editor/arrangements/layout/tabs/tabs-components";
 import { AnnotatedFigureAuthoringExtension } from "@/editor/blocks/figure-composition/annotated-figure";
+import { emptyGalleryData } from "@/editor/blocks/figure-composition/gallery/content";
+import { GalleryAuthoringExtension } from "@/editor/blocks/figure-composition/gallery/gallery-authoring-extension";
 import { FlashcardAuthoringExtension } from "@/editor/blocks/presentation/flashcard";
+import { createProcessFlowContent } from "@/editor/blocks/presentation/process-flow/content";
+import { ProcessFlowAuthoringExtension } from "@/editor/blocks/presentation/process-flow/process-flow-authoring-extension";
+import {
+  emptyRoadmapData,
+  roadmapMilestoneContent,
+} from "@/editor/blocks/presentation/roadmap/content";
+import { RoadmapAuthoringExtension } from "@/editor/blocks/presentation/roadmap/roadmap-authoring-extension";
+import { createTimelineContent } from "@/editor/blocks/presentation/timeline/content";
+import { TimelineAuthoringExtension } from "@/editor/blocks/presentation/timeline/timeline-authoring-extension";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { interactionOwnerPluginKey } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-plugin-state";
@@ -68,6 +79,18 @@ const IDS = {
   flashcard: id("flashcard001"),
   firstFlashcardCard: id("flashcard101"),
   secondFlashcardCard: id("flashcard102"),
+  gallery: id("gallery00001"),
+  firstGalleryItem: id("galleryitem1"),
+  secondGalleryItem: id("galleryitem2"),
+  processFlow: id("procflow0001"),
+  firstProcessFlowStep: id("flowstep0001"),
+  secondProcessFlowStep: id("flowstep0002"),
+  roadmap: id("roadmap00001"),
+  firstRoadmapMilestone: id("milestone001"),
+  secondRoadmapMilestone: id("milestone002"),
+  timeline: id("timeline0001"),
+  firstTimelineEntry: id("timelineitm1"),
+  secondTimelineEntry: id("timelineitm2"),
   annotationFigure: id("annotfig0001"),
   annotation: id("annotpin0001"),
   mcq: id("mcqblock0001"),
@@ -249,6 +272,113 @@ describe("Document Outline bidirectional navigation", () => {
     });
   });
 
+  it("reaches Gallery, Process Flow, Roadmap and Timeline children through their mounted owners", async () => {
+    const harness = await mountOutline();
+    mounted.push(harness);
+    const cases = [
+      {
+        ownerId: IDS.gallery,
+        targetId: IDS.secondGalleryItem,
+        scrollOwnerSelector: null,
+        targetSelector: null,
+      },
+      {
+        ownerId: IDS.processFlow,
+        targetId: IDS.secondProcessFlowStep,
+        scrollOwnerSelector: ".sc-course-process-flow__scrollport",
+        targetSelector: `[data-process-flow-step-id="${IDS.secondProcessFlowStep}"]`,
+      },
+      {
+        ownerId: IDS.roadmap,
+        targetId: IDS.secondRoadmapMilestone,
+        scrollOwnerSelector: ".sc-course-roadmap",
+        targetSelector: `[data-roadmap-milestone-id="${IDS.secondRoadmapMilestone}"]`,
+      },
+      {
+        ownerId: IDS.timeline,
+        targetId: IDS.secondTimelineEntry,
+        scrollOwnerSelector: ".sc-course-timeline__track",
+        targetSelector: `[data-timeline-entry-id="${IDS.secondTimelineEntry}"]`,
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const target = harness.controller.getSnapshot().semantics.itemById.get(testCase.targetId);
+      if (!target) throw new Error(`Expected semantic target ${testCase.targetId}`);
+      let ownedScroll: ReturnType<typeof installHorizontalRevealGeometry> | null = null;
+      if (testCase.scrollOwnerSelector && testCase.targetSelector) {
+        const ownerFrame = requiredElement<HTMLElement>(
+          harness.editor.view.dom,
+          `[data-authoring-frame="block"][data-id="${testCase.ownerId}"]`,
+        );
+        ownedScroll = installHorizontalRevealGeometry(
+          requiredElement(ownerFrame, testCase.scrollOwnerSelector),
+          requiredElement(ownerFrame, testCase.targetSelector),
+        );
+      }
+
+      await expandAncestorsThroughOutline(harness, testCase.targetId);
+      const targetRow = treeItemForLabel(target.label);
+      await userEvent.click(targetRow);
+
+      await expect.poll(() => harness.controller.getSnapshot().selectedId).toBe(testCase.targetId);
+      expect(harness.controller.getSnapshot().selectionOrigin).toBe("document-outline");
+      expect(targetRow.getAttribute("aria-selected")).toBe("true");
+      expect(document.activeElement).toBe(targetRow);
+      expect(harness.editor.state.selection).toBeInstanceOf(NodeSelection);
+      expect((harness.editor.state.selection as NodeSelection).node.attrs["id"]).toBe(
+        testCase.ownerId,
+      );
+      expect(
+        interactionOwnerPluginKey.getState(harness.editor.state)?.activationIntent,
+      ).toMatchObject({
+        kind: "object-shell",
+        target: { id: testCase.ownerId, kind: "block" },
+      });
+      expect(harness.revealedIds.at(-1)).toBe(testCase.ownerId);
+      if (ownedScroll) {
+        expect(ownedScroll).toHaveBeenCalledWith({ behavior: "smooth", left: 260 });
+      }
+    }
+
+    await expect.element(page.getByRole("img", { name: "Second outline image" })).toBeVisible();
+    expect(page.getByRole("dialog", { name: "Gallery viewer" }).elements()).toHaveLength(0);
+  });
+
+  it("suppresses a stale mounted authoring finish while preserving the latest Outline request", async () => {
+    const harness = await mountOutline();
+    mounted.push(harness);
+    const staleTarget = harness.controller
+      .getSnapshot()
+      .semantics.itemById.get(IDS.secondGalleryItem);
+    const currentTarget = harness.controller
+      .getSnapshot()
+      .semantics.itemById.get(IDS.secondFlashcardCard);
+    if (!staleTarget || !currentTarget) throw new Error("Expected mounted stale-request targets");
+    await expandAncestorsThroughOutline(harness, IDS.secondGalleryItem);
+    await expandAncestorsThroughOutline(harness, IDS.secondFlashcardCard);
+    const staleRow = treeItemForLabel(staleTarget.label);
+    const currentRow = treeItemForLabel(currentTarget.label);
+    const heldScroll = harness.holdNextAuthoringScroll();
+
+    await userEvent.click(staleRow);
+    await expect.poll(() => heldScroll.requested()).toBe(true);
+    await userEvent.click(currentRow);
+
+    await expect
+      .poll(() => harness.controller.getSnapshot().selectedId)
+      .toBe(IDS.secondFlashcardCard);
+    expect(harness.controller.getSnapshot().selectionOrigin).toBe("document-outline");
+    expect(document.activeElement).toBe(currentRow);
+    heldScroll.release();
+    await Promise.resolve();
+
+    expect(harness.controller.getSnapshot().selectedId).toBe(IDS.secondFlashcardCard);
+    expect(document.activeElement).toBe(currentRow);
+    expect(staleRow.getAttribute("aria-selected")).toBe("false");
+    expect(currentRow.getAttribute("aria-selected")).toBe("true");
+  });
+
   it("commits hidden outer and inner Layout Sections before resolving final scroll geometry", async () => {
     const harness = await mountOutline();
     mounted.push(harness);
@@ -306,6 +436,7 @@ interface MountedOutlineHarness {
   readonly revealedIds: EmbeddedNodeId[];
   readonly scrollVisibility: Array<{ inner: boolean; outer: boolean }>;
   readonly viewController: SemanticHierarchyViewController;
+  holdNextAuthoringScroll(): { readonly requested: () => boolean; readonly release: () => void };
   dispose(): Promise<void>;
 }
 
@@ -348,6 +479,10 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
       AccordionSectionTitleNode,
       AccordionSectionPanelNode,
       FlashcardAuthoringExtension,
+      GalleryAuthoringExtension,
+      ProcessFlowAuthoringExtension,
+      RoadmapAuthoringExtension,
+      TimelineAuthoringExtension,
       AnnotatedFigureAuthoringExtension,
       TestMcqNode,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
@@ -380,6 +515,10 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
   );
   const revealedIds: EmbeddedNodeId[] = [];
   const scrollVisibility: Array<{ inner: boolean; outer: boolean }> = [];
+  let heldAuthoringScroll: {
+    readonly gate: Deferred<void>;
+    readonly markRequested: () => void;
+  } | null = null;
   const environment = createAuthoringSemanticNavigationEnvironment({
     blockDefinitions: builtInBlockRegistry,
     getSnapshot: () => controller.getSnapshot().semantics,
@@ -395,6 +534,12 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
     presentSurface: (surfaceId) => environment.presentSurface(surfaceId),
     async bringIntoView(location, behavior) {
       revealedIds.push(location.id);
+      const heldScroll = heldAuthoringScroll;
+      heldAuthoringScroll = null;
+      if (heldScroll) {
+        heldScroll.markRequested();
+        await heldScroll.gate.promise;
+      }
       const outerPanel = document.getElementById(tabPanelId(IDS.outerTabs, IDS.outerHiddenTab));
       const innerPanel = document.getElementById(tabPanelId(IDS.innerTabs, IDS.innerHiddenTab));
       if (outerPanel instanceof HTMLElement && innerPanel instanceof HTMLElement) {
@@ -422,6 +567,18 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
     revealedIds,
     scrollVisibility,
     viewController,
+    holdNextAuthoringScroll() {
+      if (heldAuthoringScroll) throw new Error("An authoring scroll is already held");
+      const gate = deferred<void>();
+      let requested = false;
+      heldAuthoringScroll = {
+        gate,
+        markRequested: () => {
+          requested = true;
+        },
+      };
+      return { requested: () => requested, release: () => gate.resolve(undefined) };
+    },
     async dispose() {
       viewController.destroy();
       await rendered.unmount();
@@ -538,6 +695,32 @@ function roleElement<ElementType extends HTMLElement>(role: string, label: strin
   return element;
 }
 
+function installHorizontalRevealGeometry(scrollOwner: HTMLElement, target: HTMLElement) {
+  Object.defineProperty(scrollOwner, "clientWidth", { configurable: true, value: 200 });
+  scrollOwner.getBoundingClientRect = () =>
+    DOMRect.fromRect({ height: 160, width: 200, x: 20, y: 20 });
+  target.getBoundingClientRect = () =>
+    DOMRect.fromRect({ height: 80, width: 80, x: 340 - scrollOwner.scrollLeft, y: 50 });
+  const scrollTo = vi.fn((options: ScrollToOptions) => {
+    if (typeof options.left === "number") scrollOwner.scrollLeft = options.left;
+  });
+  Object.defineProperty(scrollOwner, "scrollTo", { configurable: true, value: scrollTo });
+  return scrollTo;
+}
+
+interface Deferred<T> {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T | PromiseLike<T>) => void;
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: Deferred<T>["resolve"];
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
+
 function holdHiddenCommit(element: HTMLElement): {
   release(): void;
   requested(): boolean;
@@ -640,6 +823,10 @@ function representativeDocument(): JSONContent {
                     ],
                   },
                   flashcardContent(),
+                  galleryContent(),
+                  processFlowContent(),
+                  roadmapContent(),
+                  timelineContent(),
                   annotatedFigureContent(),
                   { type: "mcq", attrs: { id: IDS.mcq, assessment: {} } },
                   nestedTabsContent(),
@@ -803,6 +990,78 @@ function flashcardContent(): JSONContent {
       },
     ],
   };
+}
+
+function galleryContent(): JSONContent {
+  return {
+    type: "gallery",
+    attrs: {
+      id: IDS.gallery,
+      data: emptyGalleryData({ layout: "carousel" }),
+    },
+    content: [
+      galleryItem(IDS.firstGalleryItem, "First outline image"),
+      galleryItem(IDS.secondGalleryItem, "Second outline image"),
+    ],
+  };
+}
+
+function galleryItem(itemId: EmbeddedNodeId, alt: string): JSONContent {
+  return {
+    type: "gallery_item",
+    attrs: {
+      id: itemId,
+      data: {
+        image: { mode: "external", src: `https://example.com/${itemId}.jpg`, alt },
+        caption: { type: "doc", content: [{ type: "paragraph" }] },
+      },
+    },
+  };
+}
+
+function processFlowContent(): JSONContent {
+  const processFlow = createProcessFlowContent({ orientation: "horizontal" });
+  processFlow.attrs = { ...processFlow.attrs, id: IDS.processFlow };
+  processFlow.content = processFlow.content?.slice(0, 2).map((step, index) => ({
+    ...step,
+    attrs: {
+      ...step.attrs,
+      id: index === 0 ? IDS.firstProcessFlowStep : IDS.secondProcessFlowStep,
+    },
+  }));
+  return processFlow;
+}
+
+function roadmapContent(): JSONContent {
+  return {
+    type: "roadmap",
+    attrs: { id: IDS.roadmap, data: emptyRoadmapData({ orientation: "horizontal" }) },
+    content: [
+      {
+        type: "roadmap_milestone",
+        attrs: { id: IDS.firstRoadmapMilestone, status: "done" },
+        content: roadmapMilestoneContent("First milestone", "First milestone body"),
+      },
+      {
+        type: "roadmap_milestone",
+        attrs: { id: IDS.secondRoadmapMilestone, status: "current" },
+        content: roadmapMilestoneContent("Second milestone", "Second milestone body"),
+      },
+    ],
+  };
+}
+
+function timelineContent(): JSONContent {
+  const timeline = createTimelineContent({ presentation: "carousel" });
+  timeline.attrs = { ...timeline.attrs, id: IDS.timeline };
+  timeline.content = timeline.content?.slice(0, 2).map((entry, index) => ({
+    ...entry,
+    attrs: {
+      ...entry.attrs,
+      id: index === 0 ? IDS.firstTimelineEntry : IDS.secondTimelineEntry,
+    },
+  }));
+  return timeline;
 }
 
 function annotatedFigureContent(): JSONContent {

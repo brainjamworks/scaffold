@@ -31,6 +31,59 @@ afterEach(() => {
 });
 
 describe("semantic document lifecycle", () => {
+  it("interrupts pending mounted activation on editor teardown without stale authoring follow-up", async () => {
+    const editor = createLifecycleEditor(createCompleteSemanticLifecycleDocument());
+    const controller = getSemanticDocumentControllerForEditor(editor);
+    const family = APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.find(
+      (candidate) => candidate.ownerNodeType === "flashcard",
+    );
+    if (!family) throw new Error("Expected activating Flashcard lifecycle family");
+    const started = deferred<void>();
+    const completion = deferred<void>();
+    const dispatch = vi.fn();
+    const focus = vi.fn();
+    const createActivationTransaction = vi.fn((location: SemanticLocation) =>
+      transactionForLocation(editor, location),
+    );
+    const bringIntoView = vi.fn(async () => undefined);
+    controller.setNavigationEditor({ dispatch, focus });
+    controller.setNavigationEnvironment({
+      presentSurface: async () => undefined,
+      createActivationTransaction,
+      bringIntoView,
+    });
+    expect(controller.semanticActivations.resolve(family.ownerId).kind).toBe("unavailable");
+    controller.semanticActivations.register({
+      ownerId: family.ownerId,
+      async activate({ relationship }) {
+        started.resolve(undefined);
+        await completion.promise;
+        return {
+          kind: "revealed" as const,
+          ownerId: family.ownerId,
+          childId: relationship.childId,
+        };
+      },
+    });
+
+    const activation = controller.select(family.memberIds.second, {
+      origin: "document-outline",
+      focusEditor: true,
+    });
+    await started.promise;
+    editor.destroy();
+    completion.resolve(undefined);
+
+    await expect(activation).resolves.toEqual({
+      kind: "interrupted",
+      id: family.memberIds.second,
+    });
+    expect(createActivationTransaction).not.toHaveBeenCalled();
+    expect(bringIntoView).not.toHaveBeenCalled();
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(focus).not.toHaveBeenCalled();
+  });
+
   it("atomically replaces the complete family matrix with current locations and selection", async () => {
     const editor = createLifecycleEditor(createCompleteSemanticLifecycleDocument());
     const controller = getSemanticDocumentControllerForEditor(editor);
@@ -124,9 +177,10 @@ describe("semantic document lifecycle", () => {
       createActivationTransaction,
     });
 
-    await expect(
-      controller.select(survivingId, { origin: "document-outline" }),
-    ).resolves.toEqual({ kind: "reached", id: survivingId });
+    await expect(controller.select(survivingId, { origin: "document-outline" })).resolves.toEqual({
+      kind: "reached",
+      id: survivingId,
+    });
     expect(bringIntoView).toHaveBeenCalledWith(currentMovedOwnerLocation, "smooth");
     expect(bringIntoView).not.toHaveBeenCalledWith(
       baseline.locationById.get(movedFamily.ownerId),
@@ -262,7 +316,9 @@ function transactionForLocation(editor: Editor, location: SemanticLocation) {
   const transaction = editor.state.tr;
   switch (location.selectionTarget.kind) {
     case "node":
-      return transaction.setSelection(NodeSelection.create(transaction.doc, location.selectionTarget.pos));
+      return transaction.setSelection(
+        NodeSelection.create(transaction.doc, location.selectionTarget.pos),
+      );
     case "text":
       return transaction.setSelection(
         TextSelection.create(
@@ -276,4 +332,15 @@ function transactionForLocation(editor: Editor, location: SemanticLocation) {
         TextSelection.near(transaction.doc.resolve(location.selectionTarget.pos)),
       );
   }
+}
+
+function deferred<T>(): {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T | PromiseLike<T>) => void;
+} {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
 }
