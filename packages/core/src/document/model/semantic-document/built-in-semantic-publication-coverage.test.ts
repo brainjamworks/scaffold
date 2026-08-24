@@ -138,7 +138,7 @@ describe("built-in semantic publication coverage", () => {
       .map(([nodeType]) => nodeType)
       .sort();
 
-    expect(runtimeBlockProjectors).toEqual(["annotated_figure", "flashcard"]);
+    expect(runtimeBlockProjectors).toEqual(["annotated_figure", "flashcard", "gallery"]);
     expect(approvedMemberBoundaries).toEqual([
       "annotated_figure",
       "checklist",

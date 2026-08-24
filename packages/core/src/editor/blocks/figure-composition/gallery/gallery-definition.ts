@@ -12,6 +12,7 @@ import {
 } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { GALLERY_ITEM_NODE, GALLERY_NODE, emptyGalleryData, emptyGalleryItemData } from "./content";
+import { galleryDocumentSemantics } from "./gallery-document-semantics";
 
 export const GALLERY_BLOCK_ID = "gallery";
 
@@ -45,6 +46,7 @@ export const galleryItemsCollection = {
 export const galleryDefinition = defineBlock({
   nodeType: GALLERY_NODE,
   title: "Gallery",
+  documentSemantics: galleryDocumentSemantics,
   configuration: defineConfiguration({
     attr: "data",
     schema: GalleryDataSchema,
