@@ -8,6 +8,7 @@ import type {
   SemanticDefinitionLookup,
 } from "@/document/model/semantic-document";
 import { createRepresentativeSemanticDocumentFixture } from "@/document/model/semantic-document/testing/semantic-document-fixtures";
+import { createSemanticActivationRegistry } from "@/document/semantic-target-interaction";
 
 import { SemanticContainerAdapterRegistry } from "./semantic-container-adapter-registry";
 import { SemanticDocumentController } from "./semantic-document-controller";
@@ -17,19 +18,36 @@ import type {
 } from "./semantic-navigation";
 
 describe("SemanticContainerAdapterRegistry", () => {
-  it("replaces deterministically and only unregisters the matching mounted adapter", () => {
-    const registry = new SemanticContainerAdapterRegistry();
+  it("delegates legacy adapters to the strict registry without hiding duplicate ownership", async () => {
+    const activationRegistry = createSemanticActivationRegistry();
+    const registry = new SemanticContainerAdapterRegistry(activationRegistry);
     const ownerId = makeSession().fixture.surfaces[0]!.ownerBlock;
-    const first = adapter(ownerId, () => "revealed");
+    const childId = makeSession().fixture.surfaces[0]!.publishedContainer;
+    const signal = new AbortController().signal;
+    const reveal = vi.fn(() => "revealed" as const);
+    const first = { ownerId, reveal };
     const second = adapter(ownerId, () => "already-visible");
 
     const unregisterFirst = registry.register(first);
-    const unregisterSecond = registry.register(second);
 
-    expect(registry.get(ownerId)).toBe(second);
+    expect(registry.get(ownerId)).toBe(first);
+    expect(() => registry.register(second)).toThrow(
+      `Duplicate semantic activation binding for owner "${ownerId}"`,
+    );
+    const resolution = activationRegistry.resolve(ownerId);
+    if (resolution.kind !== "resolved") throw new Error("expected mounted binding");
+    await expect(
+      resolution.binding.activate({
+        requestedId: childId,
+        relationship: { ownerId, childId, ownerKind: "block" },
+        origin: "document-outline",
+        causationId: "legacy-navigation",
+        signal,
+      }),
+    ).resolves.toEqual({ kind: "revealed", ownerId, childId });
+    expect(reveal).toHaveBeenCalledWith(childId, "navigate", signal);
+
     unregisterFirst();
-    expect(registry.get(ownerId)).toBe(second);
-    unregisterSecond();
     expect(registry.get(ownerId)).toBeUndefined();
   });
 });
