@@ -103,10 +103,14 @@ describe("sidebar block", () => {
     expect(ContractSidebarDataSchema.parse(emptySidebarData())).toEqual({
       type: "sidebar",
       icon: null,
+      headingLevel: 2,
     });
-    expect(emptySidebarData({ icon: { kind: "emoji", value: "💡" } })).toEqual({
+    expect(
+      emptySidebarData({ icon: { kind: "emoji", value: "💡" }, headingLevel: 4 }),
+    ).toEqual({
       type: "sidebar",
       icon: { kind: "emoji", value: "💡" },
+      headingLevel: 4,
     });
   });
 
@@ -120,6 +124,7 @@ describe("sidebar block", () => {
     expect(insertContent?.attrs?.["data"]).toEqual({
       type: "sidebar",
       icon: null,
+      headingLevel: 2,
     });
     expect(insertContent?.attrs?.["variant"]).toBeUndefined();
     expect(insertContent?.content?.map((child) => child.type)).toEqual([
@@ -171,7 +176,7 @@ describe("sidebar block", () => {
     expect(document.body.querySelector(".sc-course-sidebar")).not.toBeNull();
     expect(document.body.querySelector(".sc-sidebar")).toBeNull();
     expect(aside.querySelector('[aria-hidden="true"].sc-course-sidebar__icon-chip')).not.toBeNull();
-    expect(await screen.findByRole("heading", { level: 4 })).not.toBeNull();
+    expect(await screen.findByRole("heading", { level: 2 })).not.toBeNull();
 
     fixture.destroy();
   });

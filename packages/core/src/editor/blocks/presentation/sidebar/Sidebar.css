@@ -2,6 +2,11 @@
 
 @layer sc-components {
   .sc-course-sidebar {
+    --sc-course-sidebar-icon-size: 2.75rem;
+    --sc-course-sidebar-icon-glyph-size: 1.25rem;
+    --sc-course-sidebar-column-gap: 0.75rem;
+    --sc-course-sidebar-row-gap: 0.5rem;
+
     position: relative;
     min-width: 0;
     container-name: sc-course-sidebar;
@@ -21,6 +26,51 @@
   .sc-course-sidebar__body,
   .sc-course-sidebar__body-content {
     min-width: 0;
+  }
+
+  .sc-course-sidebar__layout {
+    display: grid;
+    grid-template-columns: var(--sc-course-sidebar-icon-size) minmax(0, 1fr);
+    align-items: start;
+    column-gap: var(--sc-course-sidebar-column-gap);
+    row-gap: var(--sc-course-sidebar-row-gap);
+  }
+
+  .sc-course-sidebar__icon-slot {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .sc-course-sidebar__icon-chip {
+    display: inline-flex;
+    width: var(--sc-course-sidebar-icon-size);
+    height: var(--sc-course-sidebar-icon-size);
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sc-course-sidebar__icon-glyph {
+    width: var(--sc-course-sidebar-icon-glyph-size);
+    height: var(--sc-course-sidebar-icon-glyph-size);
+    font-size: var(--sc-course-sidebar-icon-glyph-size);
+  }
+
+  .sc-course-sidebar__label {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+  }
+
+  .sc-course-sidebar__title {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: block;
+  }
+
+  .sc-course-sidebar__body {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    display: block;
   }
 
   .sc-course-sidebar__body-content {

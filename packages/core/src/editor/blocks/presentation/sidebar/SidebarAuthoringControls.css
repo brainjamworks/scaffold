@@ -7,10 +7,16 @@
 }
 
 @layer sc-overlays {
+  .sc-course-sidebar__layout:has(.sc-app-sidebar-icon-trigger) {
+    --sc-app-sidebar-icon-target-size: 2.75rem;
+  }
+
   .sc-app-sidebar-icon-trigger {
     display: inline-flex;
-    width: 2rem;
-    height: 2rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
     flex-shrink: 0;
     align-items: center;
     justify-content: center;

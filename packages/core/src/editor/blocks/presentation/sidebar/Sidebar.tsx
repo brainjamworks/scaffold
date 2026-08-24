@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 
 import { IconRenderer } from "@/ui/icons/IconRenderer";
 import { catalogIconValue, type IconValue } from "@/schemas/media/icon";
+import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 
 import { emptySidebarData } from "./content";
 
@@ -90,17 +91,30 @@ export function SidebarLabelView() {
   );
 }
 
-export function SidebarTitleView() {
+export function SidebarTitleView(props: NodeViewProps) {
   return (
     <NodeViewWrapper
       data-slot="sidebar-title"
       role="heading"
-      aria-level={4}
+      aria-level={resolveHeadingLevel(props)}
       className="sc-course-sidebar__title"
     >
       <NodeViewContent />
     </NodeViewWrapper>
   );
+}
+
+function resolveHeadingLevel(props: NodeViewProps): 2 | 3 | 4 | 5 {
+  const pos = props.getPos();
+  if (!isValidEditorDocPos(props.editor, pos)) return 2;
+  const $pos = props.editor.state.doc.resolve(pos);
+  for (let depth = $pos.depth; depth >= 0; depth -= 1) {
+    const parent = $pos.node(depth);
+    if (parent.type.name === "sidebar") {
+      return parseSidebarData(parent.attrs["data"]).headingLevel;
+    }
+  }
+  return 2;
 }
 
 export function SidebarBodyView() {

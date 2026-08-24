@@ -7,6 +7,7 @@ describe("sidebar content contract", () => {
     const data: SidebarData = {
       type: "sidebar",
       icon: { kind: "media", mediaId: "media-1", alt: "Reference" },
+      headingLevel: 4,
     };
 
     expect(SidebarDataSchema.parse(data)).toEqual(data);
@@ -16,7 +17,12 @@ describe("sidebar content contract", () => {
     expect(SidebarDataSchema.parse({})).toEqual({
       type: "sidebar",
       icon: null,
+      headingLevel: 2,
     });
+  });
+
+  it.each([2, 3, 4, 5])("preserves heading level %s", (headingLevel) => {
+    expect(SidebarDataSchema.parse({ headingLevel })).toMatchObject({ headingLevel });
   });
 
   it("preserves unknown-key stripping", () => {
@@ -25,6 +31,8 @@ describe("sidebar content contract", () => {
 
   it.each([
     { type: "side_note" },
+    { headingLevel: 1 },
+    { headingLevel: 6 },
     { icon: { kind: "catalog", name: "" } },
     { icon: { kind: "emoji", value: "💡", color: "yellow" } },
   ])("rejects invalid serialized values %#", (value) => {
