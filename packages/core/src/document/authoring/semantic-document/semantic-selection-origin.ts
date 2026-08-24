@@ -1,5 +1,5 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
-import { PluginKey, type Transaction } from "@tiptap/pm/state";
+import { PluginKey, Transaction } from "@tiptap/pm/state";
 
 export type SemanticSelectionOrigin =
   | "editor"
@@ -27,5 +27,18 @@ export function setSemanticSelectionTransactionMeta(
 export function readSemanticSelectionTransactionMeta(
   transaction: Transaction,
 ): SemanticSelectionTransactionMeta | null {
-  return transaction.getMeta(semanticSelectionTransactionKey) ?? null;
+  const visited = new Set<Transaction>();
+  let current = transaction;
+
+  while (!visited.has(current)) {
+    visited.add(current);
+    const directMeta = current.getMeta(semanticSelectionTransactionKey);
+    if (directMeta) return directMeta;
+
+    const appendedTransaction: unknown = current.getMeta("appendedTransaction");
+    if (!(appendedTransaction instanceof Transaction)) return null;
+    current = appendedTransaction;
+  }
+
+  return null;
 }

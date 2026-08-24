@@ -2,17 +2,26 @@
 
 import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { Editor, type JSONContent } from "@tiptap/core";
-import { EditorState, TextSelection } from "@tiptap/pm/state";
+import { EditorState, NodeSelection, TextSelection, type Transaction } from "@tiptap/pm/state";
+import { CellSelection } from "@tiptap/pm/tables";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import {
+  APPROVED_SEMANTIC_MEMBER_FAMILY_CASES,
+  SEMANTIC_LIFECYCLE_AUTHORING_STATE,
+  createCompleteSemanticLifecycleDocument,
+} from "@/document/model/semantic-document/testing/semantic-publication-lifecycle-fixtures";
 import { insertSurfaceTemplateAfterSurface } from "@/editor/surfaces/authoring/surface-template-insertion";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 
 import { createAuthoringSemanticNavigationEnvironment } from "./authoring-semantic-navigation-environment";
-import { setSemanticSelectionTransactionMeta } from "./semantic-selection-origin";
+import {
+  readSemanticSelectionTransactionMeta,
+  setSemanticSelectionTransactionMeta,
+} from "./semantic-selection-origin";
 import {
   getSemanticDocumentControllerForEditor,
   semanticDocumentPluginKey,
@@ -155,6 +164,113 @@ describe("SemanticDocumentController", () => {
         kind: "interrupted",
         id: navigationId,
       });
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it("preserves tagged navigation intent through a causally appended CellSelection", async () => {
+    const session = createTableSelectionSession();
+
+    try {
+      const normalized = await navigateToFirstTableRow(session);
+
+      expect(readSemanticSelectionTransactionMeta(normalized)).toEqual({
+        intendedId: session.firstRowId,
+        origin: "document-outline",
+      });
+      expect(session.controller.getSnapshot()).toMatchObject({
+        selectedId: session.firstRowId,
+        selectionOrigin: "document-outline",
+      });
+    } finally {
+      session.editor.destroy();
+    }
+  });
+
+  it("treats an independently dispatched CellSelection as fresh editor intent", async () => {
+    const session = createTableSelectionSession();
+
+    try {
+      const normalized = await navigateToFirstTableRow(session);
+      session.editor.view.dispatch(session.editor.state.tr.setSelection(normalized.selection));
+
+      expect(session.controller.getSnapshot()).toMatchObject({
+        selectedId: session.secondRowId,
+        selectionOrigin: "editor",
+      });
+    } finally {
+      session.editor.destroy();
+    }
+  });
+
+  it("prefers direct semantic metadata over appended transaction metadata", () => {
+    const editor = createEditor(pageDocument("direct-meta"));
+
+    try {
+      const root = setSemanticSelectionTransactionMeta(editor.state.tr, {
+        intendedId: testId("p", "direct-meta"),
+        origin: "document-outline",
+      });
+      const appended = editor.state.tr.setMeta("appendedTransaction", root);
+      setSemanticSelectionTransactionMeta(appended, {
+        intendedId: testId("s", "direct-meta"),
+        origin: "presentation-timeline",
+      });
+
+      expect(readSemanticSelectionTransactionMeta(appended)).toEqual({
+        intendedId: testId("s", "direct-meta"),
+        origin: "presentation-timeline",
+      });
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it("inherits semantic metadata through multiple appended transaction levels", () => {
+    const editor = createEditor(pageDocument("nested-meta"));
+
+    try {
+      const root = setSemanticSelectionTransactionMeta(editor.state.tr, {
+        intendedId: testId("p", "nested-meta"),
+        origin: "document-outline",
+      });
+      const firstAppend = editor.state.tr.setMeta("appendedTransaction", root);
+      const secondAppend = editor.state.tr.setMeta("appendedTransaction", firstAppend);
+
+      expect(readSemanticSelectionTransactionMeta(secondAppend)).toEqual({
+        intendedId: testId("p", "nested-meta"),
+        origin: "document-outline",
+      });
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it("ignores malformed appended transaction metadata", () => {
+    const editor = createEditor(pageDocument("malformed-meta"));
+
+    try {
+      const transaction = editor.state.tr.setMeta("appendedTransaction", {
+        getMeta: () => ({ intendedId: testId("p", "malformed-meta"), origin: "editor" }),
+      });
+
+      expect(readSemanticSelectionTransactionMeta(transaction)).toBeNull();
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it("stops safely when appended transaction metadata contains a cycle", () => {
+    const editor = createEditor(pageDocument("cyclic-meta"));
+
+    try {
+      const first = editor.state.tr;
+      const second = editor.state.tr;
+      first.setMeta("appendedTransaction", second);
+      second.setMeta("appendedTransaction", first);
+
+      expect(readSemanticSelectionTransactionMeta(first)).toBeNull();
     } finally {
       editor.destroy();
     }
@@ -358,6 +474,60 @@ function connectAuthoringNavigation(editor: Editor) {
     }),
   );
   return controller;
+}
+
+function createTableSelectionSession() {
+  const table = APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.find(
+    ({ key }) => key === "table-rows",
+  );
+  if (!table) throw new Error("Expected the approved Table-row family.");
+  const editor = new Editor({
+    editable: true,
+    extensions: SEMANTIC_LIFECYCLE_AUTHORING_STATE.extensions,
+    content: createCompleteSemanticLifecycleDocument().toJSON(),
+  });
+  const controller = getSemanticDocumentControllerForEditor(editor);
+  controller.setNavigationEditor({
+    dispatch: (transaction) => editor.view.dispatch(transaction),
+    focus: () => undefined,
+  });
+  controller.setNavigationEnvironment({
+    presentSurface: async () => undefined,
+    createActivationTransaction: (location) => {
+      if (location.selectionTarget.kind !== "node") {
+        throw new Error("Expected the Table owner to use a node selection target.");
+      }
+      return editor.state.tr.setSelection(
+        NodeSelection.create(editor.state.doc, location.selectionTarget.pos),
+      );
+    },
+    bringIntoView: async () => undefined,
+  });
+  return {
+    editor,
+    controller,
+    firstRowId: table.memberIds.first,
+    secondRowId: table.memberIds.second,
+  };
+}
+
+async function navigateToFirstTableRow(
+  session: ReturnType<typeof createTableSelectionSession>,
+): Promise<Transaction> {
+  const appendedTransactions: Transaction[] = [];
+  session.editor.on("transaction", ({ appendedTransactions: appended }) => {
+    appendedTransactions.push(...appended);
+  });
+
+  await expect(
+    session.controller.select(session.firstRowId, { origin: "document-outline" }),
+  ).resolves.toEqual({ kind: "reached", id: session.firstRowId });
+
+  const normalized = appendedTransactions.find(
+    (transaction) => transaction.selection instanceof CellSelection,
+  );
+  if (!normalized) throw new Error("Expected a plugin-appended CellSelection.");
+  return normalized;
 }
 
 function findNodePosition(editor: Editor, id: string): number {
