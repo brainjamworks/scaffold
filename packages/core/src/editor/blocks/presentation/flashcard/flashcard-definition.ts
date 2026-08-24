@@ -10,11 +10,13 @@ import {
   FLASHCARD_NODE,
   createFlashcardContent,
 } from "./content";
+import { flashcardDocumentSemantics } from "./flashcard-document-semantics";
 
 export const flashcardBlockDefinition = defineBlock({
   nodeType: FLASHCARD_NODE,
   title: "Flashcards",
   boundedPlacement: "fill",
+  documentSemantics: flashcardDocumentSemantics,
   configuration: defineConfiguration({
     attr: "data",
     schema: FlashcardDataSchema,

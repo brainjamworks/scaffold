@@ -66,6 +66,8 @@ const IDS = {
   firstAccordion: id("accsect00001"),
   secondAccordion: id("accsect00002"),
   flashcard: id("flashcard001"),
+  firstFlashcardCard: id("flashcard101"),
+  secondFlashcardCard: id("flashcard102"),
   annotationFigure: id("annotfig0001"),
   annotation: id("annotpin0001"),
   mcq: id("mcqblock0001"),
@@ -124,7 +126,10 @@ describe("Document Outline bidirectional navigation", () => {
     ).toBe(false);
 
     const flashcard = controller.getSnapshot().semantics.itemById.get(IDS.flashcard);
-    expect(flashcard?.children).toEqual([]);
+    expect(flashcard?.children.map(({ id, label }) => ({ id, label }))).toEqual([
+      { id: IDS.firstFlashcardCard, label: "Card 1" },
+      { id: IDS.secondFlashcardCard, label: "Card 2" },
+    ]);
     expect(treeText()).not.toContain("Private flashcard front");
     expect(treeText()).not.toContain("Private flashcard back");
   });
@@ -200,6 +205,43 @@ describe("Document Outline bidirectional navigation", () => {
       target: { id: IDS.annotationFigure, kind: "block" },
     });
     expect(document.activeElement).toBe(annotationRow);
+  });
+
+  it("selects the Flashcard Block for a card without changing deck activity state", async () => {
+    const harness = await mountOutline();
+    mounted.push(harness);
+    const controller = harness.controller;
+    const card = controller.getSnapshot().semantics.itemById.get(IDS.secondFlashcardCard);
+    if (!card) throw new Error("Expected Flashcard card semantic item");
+
+    const activityBefore = flashcardAuthoringState(harness.editor);
+    expect(activityBefore).toMatchObject({
+      currentCardId: IDS.firstFlashcardCard,
+      flipped: "false",
+      mastery: "unrated",
+      ratingControlCount: 0,
+      completionCount: 0,
+    });
+
+    await expandAncestorsThroughOutline(harness, IDS.secondFlashcardCard);
+    const cardRow = treeItemForLabel(card.label);
+    await userEvent.click(cardRow);
+
+    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.secondFlashcardCard);
+    expect(controller.getSnapshot().selectionOrigin).toBe("document-outline");
+    expect(harness.editor.state.selection).toBeInstanceOf(NodeSelection);
+    expect((harness.editor.state.selection as NodeSelection).node.attrs["id"]).toBe(
+      IDS.flashcard,
+    );
+    expect(
+      interactionOwnerPluginKey.getState(harness.editor.state)?.activationIntent,
+    ).toMatchObject({
+      kind: "object-shell",
+      target: { id: IDS.flashcard, kind: "block" },
+    });
+    expect(cardRow.getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(cardRow);
+    expect(flashcardAuthoringState(harness.editor)).toEqual(activityBefore);
   });
 
   it("commits hidden outer and inner Layout Sections before resolving final scroll geometry", async () => {
@@ -442,6 +484,32 @@ function findNodePosition(editor: Editor, id: string): number {
   });
   if (found === null) throw new Error(`Expected mounted node ${id}`);
   return found;
+}
+
+function flashcardAuthoringState(editor: Editor) {
+  const root = requiredElement<HTMLElement>(editor.view.dom, '[data-flashcard-mode="authoring"]');
+  const current = requiredElement<HTMLElement>(
+    root,
+    '[data-flashcard-filmstrip-card][data-current="true"]',
+  );
+  const currentCard = requiredElement<HTMLElement>(
+    root,
+    `.sc-course-flashcard-card[data-id="${current.dataset["flashcardFilmstripCard"]}"]`,
+  );
+  let authoredData: unknown = null;
+  editor.state.doc.descendants((node) => {
+    if (node.attrs["id"] !== IDS.flashcard) return true;
+    authoredData = node.attrs["data"];
+    return false;
+  });
+  return {
+    currentCardId: current.dataset["flashcardFilmstripCard"],
+    flipped: currentCard.getAttribute("data-flashcard-flipped"),
+    mastery: currentCard.getAttribute("data-flashcard-mastery"),
+    ratingControlCount: root.querySelectorAll(".sc-course-flashcard-rating-button").length,
+    completionCount: root.querySelectorAll(".sc-course-flashcard-mastered").length,
+    authoredData,
+  };
 }
 
 function requiredElement<ElementType extends Element>(
@@ -700,7 +768,7 @@ function flashcardContent(): JSONContent {
     content: [
       {
         type: "flashcard_card",
-        attrs: { id: "flashcard101" },
+        attrs: { id: IDS.firstFlashcardCard },
         content: [
           {
             type: "flashcard_card_front",
@@ -709,6 +777,20 @@ function flashcardContent(): JSONContent {
           {
             type: "flashcard_card_back",
             content: [paragraph("flashback001", "Private flashcard back")],
+          },
+        ],
+      },
+      {
+        type: "flashcard_card",
+        attrs: { id: IDS.secondFlashcardCard },
+        content: [
+          {
+            type: "flashcard_card_front",
+            content: [paragraph("flashfront02", "Private flashcard front")],
+          },
+          {
+            type: "flashcard_card_back",
+            content: [paragraph("flashback002", "Private flashcard back")],
           },
         ],
       },

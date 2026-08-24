@@ -69,29 +69,31 @@ const schema = new Schema({
 });
 
 describe("Flashcard document semantics", () => {
-  it("publishes only the Flashcard root while keeping every descendant private", () => {
-    expect(flashcardBlockDefinition.documentSemantics).toBeUndefined();
-
+  it("publishes cards with persisted identity and privacy-safe ordinal labels", () => {
     const flashcardId = makeId("fl", 1);
     const firstCardId = makeId("ca", 1);
     const firstFrontId = makeId("fr", 1);
     const firstBackId = makeId("ba", 1);
     const frontParagraphId = makeId("pa", 1);
-    const emptyBackParagraphId = makeId("pa", 2);
+    const backParagraphId = makeId("pa", 2);
     const nestedBlockId = makeId("nb", 1);
     const nestedParagraphId = makeId("pa", 3);
     const secondCardId = makeId("ca", 2);
     const secondFrontId = makeId("fr", 2);
     const secondBackId = makeId("ba", 2);
+    const secondFrontParagraphId = makeId("pa", 4);
+    const secondBackParagraphId = makeId("pa", 5);
+    const repeatedPrivateProse = "Repeated private face prose";
+    const longPrivateProse = `Private ${"face content ".repeat(40)}`;
     const firstCard = card({
       id: firstCardId,
       frontId: firstFrontId,
       backId: firstBackId,
-      front: [paragraph(frontParagraphId, "Question")],
+      front: [paragraph(frontParagraphId, repeatedPrivateProse)],
       back: [
-        paragraph(emptyBackParagraphId, ""),
+        paragraph(backParagraphId, longPrivateProse),
         schema.node("nested_block", { id: nestedBlockId }, [
-          paragraph(nestedParagraphId, "Nested answer"),
+          paragraph(nestedParagraphId, "Private nested Block prose"),
         ]),
       ],
     });
@@ -99,8 +101,8 @@ describe("Flashcard document semantics", () => {
       id: secondCardId,
       frontId: secondFrontId,
       backId: secondBackId,
-      front: [paragraph(makeId("pa", 4), "Second question")],
-      back: [paragraph(makeId("pa", 5), "Second answer")],
+      front: [paragraph(secondFrontParagraphId, repeatedPrivateProse)],
+      back: [paragraph(secondBackParagraphId, "")],
     });
     const flashcard = schema.node(FLASHCARD_NODE, { id: flashcardId }, [firstCard, secondCard]);
     const doc = documentNode(flashcard);
@@ -110,45 +112,132 @@ describe("Flashcard document semantics", () => {
       definitions: definitions(),
       revision: 3,
     });
-    const reorderedDoc = documentNode(
-      schema.node(FLASHCARD_NODE, { id: flashcardId }, [secondCard, firstCard]),
-    );
-    const reorderedSnapshot = projectSemanticDocument({
-      doc: reorderedDoc,
-      courseStructure: requireCourseStructure(reorderedDoc),
-      definitions: definitions(),
-      revision: 4,
-    });
 
-    for (const current of [snapshot, reorderedSnapshot]) {
-      expect(current.itemById.get(flashcardId)).toMatchObject({
-        kind: "block",
-        label: "Flashcards",
-        children: [],
+    expect(flashcardBlockDefinition.documentSemantics?.projectChildren).toBeTypeOf("function");
+    expect(snapshot.itemById.get(flashcardId)).toMatchObject({
+      kind: "block",
+      label: "Flashcards",
+      children: [{ id: firstCardId }, { id: secondCardId }],
+    });
+    for (const [index, cardId] of [firstCardId, secondCardId].entries()) {
+      expect(snapshot.itemById.get(cardId)).toMatchObject({
+        id: cardId,
+        kind: "published-child",
+        nodeType: FLASHCARD_CARD_NODE,
+        label: `Card ${index + 1}`,
+        summary: null,
+        presentation: { actionIds: [], disabledReason: null },
       });
-      expect(current.locationById.get(flashcardId)?.activationPath).toEqual([]);
-      expect(current.locationById.get(flashcardId)?.authoringAnchorId).toBeNull();
-      for (const privateId of [
-        firstCardId,
-        firstFrontId,
-        firstBackId,
-        frontParagraphId,
-        emptyBackParagraphId,
-        nestedBlockId,
-        nestedParagraphId,
-        secondCardId,
-        secondFrontId,
-        secondBackId,
-        makeId("pa", 4),
-        makeId("pa", 5),
-      ]) {
-        expect(current.itemById.has(privateId)).toBe(false);
-        expect(current.locationById.has(privateId)).toBe(false);
-      }
-      expect(current.diagnostics).toEqual([]);
+      expect(snapshot.parentById.get(cardId)).toBe(flashcardId);
+      const current = requireNodeById(doc, cardId);
+      expect(snapshot.locationById.get(cardId)).toMatchObject({
+        id: cardId,
+        nodeType: FLASHCARD_CARD_NODE,
+        from: current.pos,
+        to: current.pos + current.node.nodeSize,
+        selectionTarget: { kind: "node", pos: current.pos },
+        surfaceId: makeId("su", 1),
+        authoringAnchorId: flashcardId,
+        activationPath: [],
+      });
     }
+    const privateIds = [
+      firstFrontId,
+      firstBackId,
+      frontParagraphId,
+      backParagraphId,
+      nestedBlockId,
+      nestedParagraphId,
+      secondFrontId,
+      secondBackId,
+      secondFrontParagraphId,
+      secondBackParagraphId,
+    ];
+    for (const privateId of privateIds) {
+      expect(snapshot.itemById.has(privateId)).toBe(false);
+      expect(snapshot.parentById.has(privateId)).toBe(false);
+      expect(snapshot.locationById.has(privateId)).toBe(false);
+      expect(
+        snapshot.itemById
+          .get(flashcardId)
+          ?.children.some(({ id }) => id === privateId),
+      ).toBe(false);
+    }
+    const publicDescriptions = [...snapshot.itemById.values()].map(({ label, summary }) => ({
+      label,
+      summary,
+    }));
+    const privacyBoundary = JSON.stringify({ publicDescriptions, diagnostics: snapshot.diagnostics });
+    expect(privacyBoundary).not.toContain(repeatedPrivateProse);
+    expect(privacyBoundary).not.toContain(longPrivateProse);
+    expect(privacyBoundary).not.toContain("Private nested Block prose");
+    expect(snapshot.diagnostics).toEqual([]);
+  });
+
+  it("reprojects card additions, removals and reorder by persisted identity", () => {
+    const flashcardId = makeId("fl", 2);
+    const first = simpleCard(makeId("ca", 3), 3);
+    const second = simpleCard(makeId("ca", 4), 4);
+    const third = simpleCard(makeId("ca", 5), 5);
+    const initial = projectCards(flashcardId, [first, second], 5);
+    const added = projectCards(flashcardId, [first, second, third], 6);
+    const changed = projectCards(flashcardId, [third, first], 7);
+
+    expect(childIds(initial.snapshot, flashcardId)).toEqual([makeId("ca", 3), makeId("ca", 4)]);
+    expect(childIds(added.snapshot, flashcardId)).toEqual([
+      makeId("ca", 3),
+      makeId("ca", 4),
+      makeId("ca", 5),
+    ]);
+    expect(childIds(changed.snapshot, flashcardId)).toEqual([makeId("ca", 5), makeId("ca", 3)]);
+    expect(changed.snapshot.itemById.has(makeId("ca", 4))).toBe(false);
+    expect(changed.snapshot.parentById.has(makeId("ca", 4))).toBe(false);
+    expect(changed.snapshot.locationById.has(makeId("ca", 4))).toBe(false);
+    expect(changed.snapshot.itemById.get(makeId("ca", 5))?.label).toBe("Card 1");
+    expect(changed.snapshot.itemById.get(makeId("ca", 3))?.label).toBe("Card 2");
+    for (const cardId of [makeId("ca", 5), makeId("ca", 3)]) {
+      expect(changed.snapshot.itemById.get(cardId)?.id).toBe(cardId);
+      expect(changed.snapshot.locationById.get(cardId)?.from).toBe(
+        requireNodeById(changed.doc, cardId).pos,
+      );
+    }
+    expect(changed.snapshot.diagnostics).toEqual([]);
   });
 });
+
+function simpleCard(id: EmbeddedNodeId, ordinal: number): ProseMirrorNode {
+  return card({
+    id,
+    frontId: makeId("fr", ordinal),
+    backId: makeId("ba", ordinal),
+    front: [paragraph(makeId("pf", ordinal), `Private question ${ordinal}`)],
+    back: [paragraph(makeId("pb", ordinal), `Private answer ${ordinal}`)],
+  });
+}
+
+function projectCards(
+  flashcardId: EmbeddedNodeId,
+  cards: readonly ProseMirrorNode[],
+  revision: number,
+) {
+  const doc = documentNode(schema.node(FLASHCARD_NODE, { id: flashcardId }, cards));
+  return {
+    doc,
+    snapshot: projectSemanticDocument({
+      doc,
+      courseStructure: requireCourseStructure(doc),
+      definitions: definitions(),
+      revision,
+    }),
+  };
+}
+
+function childIds(
+  snapshot: ReturnType<typeof projectSemanticDocument>,
+  ownerId: EmbeddedNodeId,
+): readonly EmbeddedNodeId[] {
+  return snapshot.itemById.get(ownerId)?.children.map(({ id }) => id) ?? [];
+}
 
 function card(input: {
   readonly id: EmbeddedNodeId;
@@ -175,6 +264,20 @@ function documentNode(flashcard: ProseMirrorNode): ProseMirrorNode {
 
 function paragraph(nodeId: EmbeddedNodeId, text: string): ProseMirrorNode {
   return schema.node("paragraph", { id: nodeId }, text ? [schema.text(text)] : []);
+}
+
+function requireNodeById(
+  doc: ProseMirrorNode,
+  id: EmbeddedNodeId,
+): { readonly node: ProseMirrorNode; readonly pos: number } {
+  let found: { readonly node: ProseMirrorNode; readonly pos: number } | null = null;
+  doc.descendants((node, pos) => {
+    if (node.attrs["id"] !== id) return true;
+    found = { node, pos };
+    return false;
+  });
+  if (!found) throw new Error(`Expected node ${id}.`);
+  return found;
 }
 
 function definitions(): SemanticDefinitionLookup {
