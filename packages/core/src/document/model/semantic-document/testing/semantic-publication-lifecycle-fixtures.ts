@@ -22,6 +22,7 @@ export interface ApprovedSemanticMemberFamilyCase {
   readonly memberNodeType: string;
   readonly ownerId: EmbeddedNodeId;
   readonly memberIds: Readonly<Record<SemanticLifecycleMember, EmbeddedNodeId>>;
+  readonly privateDescendantIds: readonly EmbeddedNodeId[];
   readonly unrelatedSiblingId: EmbeddedNodeId;
   createOwner(members?: readonly SemanticLifecycleMember[]): ProseMirrorNode;
   createDocument(input?: {
@@ -260,15 +261,35 @@ function createFamilyCase(spec: FamilySpec, familyIndex: number): ApprovedSemant
       ownerPosition === "before-sibling" ? [owner, sibling] : [sibling, owner],
     );
   };
+  const privateDescendantIds = collectPrivateDescendantIds(
+    createOwner(),
+    new Set(Object.values(memberIds)),
+  );
 
   return Object.freeze({
     ...spec,
     ownerId,
     memberIds,
+    privateDescendantIds,
     unrelatedSiblingId,
     createOwner,
     createDocument,
   });
+}
+
+function collectPrivateDescendantIds(
+  owner: ProseMirrorNode,
+  publicMemberIds: ReadonlySet<EmbeddedNodeId>,
+): readonly EmbeddedNodeId[] {
+  const privateIds: EmbeddedNodeId[] = [];
+  owner.descendants((node) => {
+    const persistedId = EmbeddedNodeIdSchema.safeParse(node.attrs["id"]);
+    if (persistedId.success && !publicMemberIds.has(persistedId.data)) {
+      privateIds.push(persistedId.data);
+    }
+    return true;
+  });
+  return Object.freeze(privateIds);
 }
 
 function createMemberTemplate(

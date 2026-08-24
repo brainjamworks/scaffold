@@ -1,8 +1,17 @@
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
+import type { JSONContent } from "@tiptap/core";
 import { describe, expect, it } from "vite-plus/test";
 
 import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+
+import {
+  APPROVED_SEMANTIC_MEMBER_FAMILY_CASES,
+  SEMANTIC_LIFECYCLE_AUTHORING_STATE,
+  createSemanticLifecycleDocument,
+  projectSemanticLifecycleDocument,
+} from "./testing/semantic-publication-lifecycle-fixtures";
 
 type BlockPublicationClassification =
   | { readonly kind: "root-only" }
@@ -128,46 +137,197 @@ describe("built-in semantic publication coverage", () => {
     );
   });
 
-  it("keeps approved member boundaries separate from current runtime implementation", () => {
-    const runtimeBlockProjectors = builtInBlockDefinitions
-      .filter((definition) => definition.documentSemantics?.projectChildren !== undefined)
-      .map(({ nodeType }) => nodeType)
-      .sort();
-    const approvedMemberBoundaries = Object.entries(BLOCK_PUBLICATION)
-      .filter(([, classification]) => classification.kind === "published-members")
-      .map(([nodeType]) => nodeType)
-      .sort();
+  it("matches every Block classification to its mounted publication behavior", () => {
+    for (const definition of builtInBlockDefinitions) {
+      const classification = requireBlockClassification(definition.nodeType);
+      const isAssessment =
+        definition.capabilities?.assessment !== undefined || definition.nodeType === "quiz";
 
-    expect(runtimeBlockProjectors).toEqual([
-      "annotated_figure",
-      "checklist",
-      "comparison",
-      "flashcard",
-      "gallery",
-      "glossary",
-      "key_value_list",
-      "numbered_list",
-      "process_flow",
-      "roadmap",
-      "table",
-      "timeline",
+      if (classification.kind === "root-only") {
+        expect({ nodeType: definition.nodeType, isAssessment, projectChildren: definition.documentSemantics?.projectChildren }).toEqual({
+          nodeType: definition.nodeType,
+          isAssessment: false,
+          projectChildren: undefined,
+        });
+        continue;
+      }
+
+      if (classification.kind === "assessment-root-only") {
+        expect({ nodeType: definition.nodeType, isAssessment, projectChildren: definition.documentSemantics?.projectChildren }).toEqual({
+          nodeType: definition.nodeType,
+          isAssessment: true,
+          projectChildren: undefined,
+        });
+        continue;
+      }
+
+      const family = APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.find(
+        ({ ownerNodeType }) => ownerNodeType === definition.nodeType,
+      );
+      if (!family) throw new Error(`Missing approved fixture for ${definition.nodeType}.`);
+      const snapshot = projectSemanticLifecycleDocument(family.createDocument(), 1);
+
+      expect(typeof definition.documentSemantics?.projectChildren).toBe("function");
+      expect(isAssessment).toBe(false);
+      expect(
+        [
+          ...new Set(
+            snapshot.itemById.get(family.ownerId)?.children.map(({ nodeType }) => nodeType),
+          ),
+        ],
+      ).toEqual(classification.childNodeTypes);
+    }
+  });
+
+  it("projects every mounted Block root exactly once when present", () => {
+    for (const [definitionIndex, definition] of builtInBlockDefinitions.entries()) {
+      const inserted = definition.insert?.content();
+      if (!inserted || inserted.type !== definition.nodeType) {
+        throw new Error(`Missing mounted insertion content for ${definition.nodeType}.`);
+      }
+      const ownerId = EmbeddedNodeIdSchema.parse(
+        `blk${definitionIndex.toString().padStart(9, "0")}`,
+      );
+      const ownerJson = withPersistedIds(inserted, ownerId);
+      const owner = SEMANTIC_LIFECYCLE_AUTHORING_STATE.schema.nodeFromJSON(ownerJson);
+      const snapshot = projectSemanticLifecycleDocument(
+        createSemanticLifecycleDocument([owner]),
+        definitionIndex + 1,
+      );
+
+      expect(snapshot.itemById.get(ownerId)).toMatchObject({
+        id: ownerId,
+        kind: "block",
+        nodeType: definition.nodeType,
+        definitionId: definition.nodeType,
+      });
+      expect(
+        [...snapshot.itemById.values()].filter(
+          ({ id, nodeType }) => id === ownerId && nodeType === definition.nodeType,
+        ),
+      ).toHaveLength(1);
+    }
+  });
+
+  it("matches every Layout classification to direct Section activation behavior", () => {
+    const schema = SEMANTIC_LIFECYCLE_AUTHORING_STATE.schema;
+    const ownerId = EmbeddedNodeIdSchema.parse("covr_0000001");
+    const firstId = EmbeddedNodeIdSchema.parse("covr_0000002");
+    const secondId = EmbeddedNodeIdSchema.parse("covr_0000003");
+    const owner = schema.node("layout", { id: ownerId, variant: "tabs" }, [
+      schema.node("section", { id: firstId }, [schema.node("paragraph")]),
+      schema.node("section", { id: secondId }, [schema.node("paragraph")]),
     ]);
-    expect(approvedMemberBoundaries).toEqual([
-      "annotated_figure",
-      "checklist",
-      "comparison",
-      "flashcard",
-      "gallery",
-      "glossary",
-      "key_value_list",
-      "numbered_list",
-      "process_flow",
-      "roadmap",
-      "table",
-      "timeline",
-    ]);
+
+    for (const definition of builtInLayoutDefinitions) {
+      const classification = LAYOUT_PUBLICATION[definition.id as keyof typeof LAYOUT_PUBLICATION];
+      const projectChildren = definition.documentSemantics?.projectChildren;
+      if (!classification || !projectChildren) {
+        throw new Error(`Missing mounted Layout publication for ${definition.id}.`);
+      }
+
+      expect(
+        projectChildren({
+          definitionId: definition.id,
+          helpers: emptyProjectionHelpers(),
+          owner,
+          ownerId,
+        }),
+      ).toEqual([
+        {
+          relativePos: 0,
+          activation: [{ ownerId, childId: firstId, ownerKind: "layout" }],
+        },
+        {
+          relativePos: owner.child(0).nodeSize,
+          activation: [{ ownerId, childId: secondId, ownerKind: "layout" }],
+        },
+      ]);
+    }
+  });
+
+  it("matches every Surface classification to its mounted content publication policy", () => {
+    const ownerId = EmbeddedNodeIdSchema.parse("covr_0000004");
+    const schema = SEMANTIC_LIFECYCLE_AUTHORING_STATE.schema;
+
+    for (const definition of builtInSurfaceVariantDefinitions) {
+      const classification = SURFACE_PUBLICATION[definition.id as keyof typeof SURFACE_PUBLICATION];
+      const projectChildren = definition.documentSemantics?.projectChildren;
+      if (!classification || !projectChildren) {
+        throw new Error(`Missing mounted Surface publication for ${definition.id}.`);
+      }
+      const owner = schema.nodeFromJSON(definition.createSurface({ surfaceId: ownerId }));
+      const standardRichTextRoots: Array<string | null> = [];
+      const children = projectChildren({
+        definitionId: definition.id,
+        helpers: {
+          ...emptyProjectionHelpers(),
+          projectStandardRichText: (root) => {
+            standardRichTextRoots.push(root?.type.name ?? null);
+            return [];
+          },
+        },
+        owner,
+        ownerId,
+      });
+      const directlyPublishedNodeTypes = children.map(({ relativePos }) =>
+        owner.nodeAt(relativePos)?.type.name,
+      );
+
+      expect({
+        id: definition.id,
+        directlyPublishedNodeTypes: [...new Set(directlyPublishedNodeTypes)],
+        standardRichTextRoots: [...new Set(standardRichTextRoots)],
+      }).toEqual(expectedSurfaceBehavior(definition.id, classification.ownedContent));
+    }
   });
 });
+
+function requireBlockClassification(nodeType: string): BlockPublicationClassification {
+  const classification = BLOCK_PUBLICATION[nodeType as keyof typeof BLOCK_PUBLICATION];
+  if (!classification) throw new Error(`Missing Block publication classification for ${nodeType}.`);
+  return classification;
+}
+
+function emptyProjectionHelpers() {
+  return {
+    projectDirectOwnedMembers: () => [],
+    projectStandardRichText: () => [],
+    projectStructuralChildren: () => [],
+  };
+}
+
+function withPersistedIds(source: JSONContent, rootId: string): JSONContent {
+  const root = JSON.parse(JSON.stringify(source)) as JSONContent;
+  let descendantOrdinal = 1;
+  const visit = (node: JSONContent, isRoot: boolean): void => {
+    if (node.type !== "text") {
+      const id = isRoot ? rootId : `dsc${descendantOrdinal.toString().padStart(9, "0")}`;
+      node.attrs = { ...node.attrs, id };
+      descendantOrdinal += 1;
+    }
+    for (const child of node.content ?? []) visit(child, false);
+  };
+  visit(root, true);
+  return root;
+}
+
+function expectedSurfaceBehavior(
+  id: string,
+  ownedContent: SurfacePublicationClassification["ownedContent"],
+) {
+  if (ownedContent === "direct-rich-text") {
+    return { id, directlyPublishedNodeTypes: [], standardRichTextRoots: [null] };
+  }
+  if (ownedContent === "title-and-subtitle") {
+    return {
+      id,
+      directlyPublishedNodeTypes: ["heading"],
+      standardRichTextRoots: ["slide_cover_subtitle"],
+    };
+  }
+  return { id, directlyPublishedNodeTypes: ["slide_title"], standardRichTextRoots: [] };
+}
 
 function surface(
   ownedContent: SurfacePublicationClassification["ownedContent"],
