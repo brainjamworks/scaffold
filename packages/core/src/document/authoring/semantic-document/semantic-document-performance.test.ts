@@ -80,10 +80,10 @@ describe("mounted semantic document projection boundary", () => {
     );
     expect(controller.getSnapshot().semantics).toBe(afterDocumentEdits);
 
-    const disclosure = rendered.getByRole("button", { name: /^(Collapse|Expand)/ });
+    const disclosure = rendered.getByRole("button", { name: "Show structure for Page" });
     fireEvent.click(disclosure);
-    fireEvent.pointerMove(rendered.getByRole("tree", { name: "Document outline" }));
-    fireEvent.scroll(rendered.getByRole("tree", { name: "Document outline" }));
+    fireEvent.pointerMove(rendered.getByRole("tree", { name: "Page structure" }));
+    fireEvent.scroll(rendered.getByRole("tree", { name: "Page structure" }));
     await hierarchy.reveal(IDS.second, {
       select: false,
       focus: false,
