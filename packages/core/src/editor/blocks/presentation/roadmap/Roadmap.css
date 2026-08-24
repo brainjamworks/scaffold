@@ -20,6 +20,11 @@
   }
 
   .sc-course-roadmap {
+    --sc-course-roadmap-marker-size: 2.75rem;
+    --sc-course-roadmap-marker-gap: 1rem;
+    --sc-course-roadmap-marker-radius: 0.5rem;
+    --sc-course-roadmap-milestone-gap: 1.5rem;
+
     container-name: sc-course-roadmap;
     container-type: inline-size;
   }
@@ -32,6 +37,7 @@
 
   .sc-course-roadmap__milestones {
     display: flex;
+    gap: var(--sc-course-roadmap-milestone-gap);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -52,12 +58,27 @@
     display: grid;
     grid-template-columns: var(--sc-course-roadmap-marker-size) minmax(0, 1fr);
     align-items: start;
+    column-gap: var(--sc-course-roadmap-marker-gap);
   }
 
   .sc-course-roadmap__marker {
     z-index: 1;
+    display: inline-flex;
+    width: var(--sc-course-roadmap-marker-size);
+    height: var(--sc-course-roadmap-marker-size);
+    min-width: var(--sc-course-roadmap-marker-size);
+    min-height: var(--sc-course-roadmap-marker-size);
+    align-items: center;
+    justify-content: center;
     grid-column: 1;
     grid-row: 1;
+    line-height: 1;
+  }
+
+  .sc-course-roadmap__marker-visual {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .sc-course-roadmap__content {
@@ -86,6 +107,7 @@
   .sc-course-roadmap[data-orientation="vertical"] .sc-course-roadmap__track {
     display: flex;
     flex-direction: column;
+    gap: var(--sc-course-roadmap-milestone-gap);
   }
 
   .sc-course-roadmap[data-orientation="horizontal"] .sc-course-roadmap__track {
@@ -93,6 +115,7 @@
     width: max-content;
     min-width: 100%;
     align-items: flex-start;
+    gap: var(--sc-course-roadmap-milestone-gap);
   }
 
   .sc-course-roadmap[data-orientation="horizontal"] {

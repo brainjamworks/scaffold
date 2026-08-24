@@ -10,6 +10,7 @@ import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import "@/theme/course/designs/scaffold-flow/v1/roadmap.css";
+import "@/theme/course/designs/pocket-atlas/v1/theme.css";
 import "./RoadmapAuthoringControls.css";
 import "./Roadmap.css";
 
@@ -21,6 +22,96 @@ afterEach(() => {
 });
 
 describe("Roadmap responsive ownership", () => {
+  it("keeps required Roadmap geometry usable without a Course recipe", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mountedRoots.push(root);
+
+    root.render(
+      <AppThemeProvider appearance="light">
+        <main>
+          <RoadmapSpecimen id="core-fallback" mode="authoring" orientation="vertical" />
+        </main>
+      </AppThemeProvider>,
+    );
+
+    await waitForCondition(() => host.querySelector('[data-specimen="core-fallback"]'));
+
+    const roadmap = requiredElement<HTMLElement>(host, '[data-specimen="core-fallback"]');
+    const marker = requiredElement<HTMLElement>(roadmap, ".sc-app-roadmap-status");
+    const add = requiredElement<HTMLElement>(roadmap, ".sc-app-roadmap-add");
+    const addMarker = requiredElement<HTMLElement>(roadmap, ".sc-app-roadmap-add__marker");
+    const styles = getComputedStyle(roadmap);
+
+    expect(styles.getPropertyValue("--sc-course-roadmap-marker-size")).not.toBe("");
+    expect(styles.getPropertyValue("--sc-course-roadmap-marker-gap")).not.toBe("");
+    expect(marker.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
+    expect(marker.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    expect(add.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    expect(addMarker.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
+    expect(addMarker.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+  });
+
+  it("supplies a complete Pocket Atlas Roadmap recipe without reskinning App controls", async () => {
+    await page.viewport(1000, 900);
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mountedRoots.push(root);
+
+    root.render(
+      <AppThemeProvider appearance="light">
+        <main>
+          <CourseThemeProvider theme={pocketAtlasTheme()} appearance="light">
+            <RoadmapSpecimen id="pocket-authoring" mode="authoring" orientation="vertical" />
+            <RoadmapSpecimen id="pocket-runtime" mode="runtime" orientation="vertical" />
+            <RoadmapSpecimen id="pocket-horizontal" mode="runtime" orientation="horizontal" />
+          </CourseThemeProvider>
+        </main>
+      </AppThemeProvider>,
+    );
+
+    await waitForCondition(() => host.querySelectorAll(".sc-course-roadmap").length === 3);
+
+    const authoring = requiredElement<HTMLElement>(host, '[data-specimen="pocket-authoring"]');
+    const runtime = requiredElement<HTMLElement>(host, '[data-specimen="pocket-runtime"]');
+    const horizontal = requiredElement<HTMLElement>(host, '[data-specimen="pocket-horizontal"]');
+    const track = requiredElement<HTMLElement>(authoring, ".sc-course-roadmap__track");
+    const markers = runtime.querySelectorAll<HTMLElement>(".sc-course-roadmap__marker");
+    const status = requiredElement<HTMLElement>(authoring, ".sc-app-roadmap-status");
+    const add = requiredElement<HTMLElement>(authoring, ".sc-app-roadmap-add");
+    const addMarker = requiredElement<HTMLElement>(authoring, ".sc-app-roadmap-add__marker");
+
+    expect(getComputedStyle(authoring).getPropertyValue("--sc-course-roadmap-marker-size")).not.toBe(
+      "",
+    );
+    expect(track.getBoundingClientRect().width).toBeGreaterThan(0);
+    expect(getComputedStyle(track).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(getComputedStyle(track, "::before").content).not.toBe("none");
+    expect(markers).toHaveLength(3);
+    expect(markers[0]?.getBoundingClientRect().width).toBeCloseTo(44, 0);
+    expect(markers[0]?.getBoundingClientRect().height).toBeCloseTo(44, 0);
+    expect(getComputedStyle(markers[0]!).backgroundColor).not.toBe(
+      getComputedStyle(markers[1]!).backgroundColor,
+    );
+    expect(getComputedStyle(markers[1]!).backgroundColor).not.toBe(
+      getComputedStyle(markers[2]!).backgroundColor,
+    );
+    expect(status.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
+    expect(status.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    expect(add.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    expect(addMarker.getBoundingClientRect().width).toBeCloseTo(44, 0);
+    expect(getComputedStyle(add).fontFamily).toContain("Satoshi");
+    expect(getComputedStyle(add).color).toBe("rgb(113, 113, 122)");
+
+    horizontal.style.width = "320px";
+    await waitForCondition(() => horizontal.getBoundingClientRect().width === 320);
+    expect(getComputedStyle(horizontal).overflowX).toBe("auto");
+    expect(horizontal.scrollWidth).toBeGreaterThan(horizontal.clientWidth);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+  });
+
   it("keeps the authoring add control on the milestone axis and in the milestone rhythm", async () => {
     const host = document.createElement("div");
     document.body.append(host);
@@ -29,9 +120,11 @@ describe("Roadmap responsive ownership", () => {
 
     root.render(
       <AppThemeProvider appearance="light">
-        <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
-          <RoadmapSpecimen id="vertical-authoring" mode="authoring" orientation="vertical" />
-        </CourseThemeProvider>
+        <main>
+          <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+            <RoadmapSpecimen id="vertical-authoring" mode="authoring" orientation="vertical" />
+          </CourseThemeProvider>
+        </main>
       </AppThemeProvider>,
     );
 
@@ -53,7 +146,8 @@ describe("Roadmap responsive ownership", () => {
       lastMarker.getBoundingClientRect().left,
       1,
     );
-    expect(getComputedStyle(addMarker).borderRadius).toBe(
+    expect(getComputedStyle(addMarker).borderRadius).toBe("6px");
+    expect(getComputedStyle(addMarker).borderRadius).not.toBe(
       getComputedStyle(lastMarker).borderRadius,
     );
   });
@@ -282,7 +376,9 @@ function RoadmapSpecimen({
                   </button>
                 ) : (
                   <span data-course-state={status} className="sc-course-roadmap__marker">
-                    <span aria-hidden>{index + 1}</span>
+                    <span aria-hidden className="sc-course-roadmap__marker-visual">
+                      {index + 1}
+                    </span>
                     <span className="sc-sr-only">
                       Milestone {index + 1} status: {status}
                     </span>
@@ -311,6 +407,15 @@ function courseThemeWithRoundness(roundness: "square" | "subtle" | "rounded" | "
   return {
     ...createDefaultPersistedCourseTheme(),
     overrides: { design: { roundness } },
+  };
+}
+
+function pocketAtlasTheme() {
+  return {
+    schemaVersion: 1 as const,
+    design: { id: "pocket-atlas", revision: "1" },
+    colourSystem: { id: "pocket-atlas", revision: "1" },
+    overrides: {},
   };
 }
 

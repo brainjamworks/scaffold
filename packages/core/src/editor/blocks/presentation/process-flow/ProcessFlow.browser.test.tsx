@@ -7,6 +7,7 @@ import "@/styles/globals.css";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/theme/course/designs/scaffold-flow/v1/process-flow.css";
+import "@/theme/course/designs/pocket-atlas/v1/theme.css";
 import "./ProcessFlow.css";
 
 const mountedRoots: Root[] = [];
@@ -61,6 +62,7 @@ describe("Process Flow responsive Course ownership", () => {
       horizontalItems[0]!.getBoundingClientRect().top,
       1,
     );
+    expectConnectorVisualCenter(horizontalItems[0]!, horizontalItems[1]!, "horizontal");
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
 
     const vertical = requiredElement<HTMLElement>(host, '[data-specimen="vertical"]');
@@ -72,6 +74,7 @@ describe("Process Flow responsive Course ownership", () => {
     expect(verticalItems[1]!.getBoundingClientRect().top).toBeGreaterThan(
       verticalItems[0]!.getBoundingClientRect().top,
     );
+    expectConnectorVisualCenter(verticalItems[0]!, verticalItems[1]!, "vertical");
     const verticalConnectorTransform = new DOMMatrix(
       getComputedStyle(verticalItems[0]!, "::after").transform,
     );
@@ -116,6 +119,67 @@ describe("Process Flow responsive Course ownership", () => {
       getComputedStyle(darkMarker).backgroundColor,
     );
   });
+
+  it.each(["light", "dark"] as const)(
+    "gives Pocket Atlas a complete accessible Process Flow recipe in %s mode",
+    async (appearance) => {
+      const host = document.createElement("div");
+      document.body.append(host);
+      const root = createRoot(host);
+      mountedRoots.push(root);
+
+      root.render(
+        <CourseThemeProvider appearance={appearance} theme={pocketAtlasTheme()}>
+          <FlowSpecimen
+            id={`pocket-${appearance}`}
+            orientation="horizontal"
+            count={3}
+            width={720}
+            includeAdd
+          />
+        </CourseThemeProvider>,
+      );
+
+      await waitForCondition(
+        () => host.querySelectorAll(".sc-course-process-flow__card").length === 3,
+      );
+      const specimen = requiredElement<HTMLElement>(host, "[data-specimen]");
+      const rail = requiredElement<HTMLElement>(specimen, ".sc-course-process-flow__rail");
+      const cards = Array.from(
+        specimen.querySelectorAll<HTMLElement>(".sc-course-process-flow__card"),
+      );
+      const add = requiredElement<HTMLElement>(specimen, ".sc-app-process-flow-add");
+      const title = requiredElement<HTMLElement>(specimen, ".sc-course-process-flow__content p");
+      const description = requiredElement<HTMLElement>(
+        specimen,
+        ".sc-course-process-flow__content p + p",
+      );
+      const marker = requiredElement<HTMLElement>(specimen, ".sc-course-process-flow__number");
+      const specimenStyle = getComputedStyle(specimen);
+      const cardWidth = cards[0]!.getBoundingClientRect().width;
+
+      expect(specimenStyle.getPropertyValue("--sc-course-process-flow-card-size").trim()).not.toBe(
+        "",
+      );
+      expect(
+        specimenStyle.getPropertyValue("--sc-course-process-flow-connector-size").trim(),
+      ).not.toBe("");
+      expect(cards.every((card) => Math.abs(card.getBoundingClientRect().width - cardWidth) < 1)).toBe(
+        true,
+      );
+      expect(add.getBoundingClientRect().width).toBeCloseTo(cardWidth, 0);
+      expect(getComputedStyle(rail).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+      expect(Number.parseFloat(getComputedStyle(title).fontSize)).toBeGreaterThan(
+        Number.parseFloat(getComputedStyle(description).fontSize),
+      );
+      expect(Number.parseInt(getComputedStyle(title).fontWeight, 10)).toBeGreaterThan(
+        Number.parseInt(getComputedStyle(description).fontWeight, 10),
+      );
+      expect(
+        contrastRatio(getComputedStyle(marker).color, getComputedStyle(marker).backgroundColor),
+      ).toBeGreaterThanOrEqual(4.5);
+    },
+  );
 });
 
 function FlowSpecimen({
@@ -123,11 +187,13 @@ function FlowSpecimen({
   id,
   orientation,
   width,
+  includeAdd = false,
 }: {
   count: number;
   id: string;
   orientation: "horizontal" | "vertical";
   width: number;
+  includeAdd?: boolean;
 }) {
   const scrollportRef = useRef<HTMLDivElement>(null);
 
@@ -182,10 +248,72 @@ function FlowSpecimen({
               </li>
             ))}
           </ol>
+          {includeAdd ? (
+            <button className="sc-app-process-flow-add" type="button">
+              Add step
+            </button>
+          ) : null}
         </div>
       </div>
     </section>
   );
+}
+
+function pocketAtlasTheme() {
+  return {
+    schemaVersion: 1 as const,
+    design: { id: "pocket-atlas", revision: "1" },
+    colourSystem: { id: "pocket-atlas", revision: "1" },
+    overrides: {},
+  };
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const foregroundLuminance = relativeLuminance(foreground);
+  const backgroundLuminance = relativeLuminance(background);
+  const lighter = Math.max(foregroundLuminance, backgroundLuminance);
+  const darker = Math.min(foregroundLuminance, backgroundLuminance);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function relativeLuminance(color: string): number {
+  const channels = color.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+  if (!channels || channels.length !== 3) {
+    throw new Error(`Expected an rgb colour, received ${color}`);
+  }
+  const [red, green, blue] = channels.map((channel) => {
+    const normalized = channel / 255;
+    return normalized <= 0.04045
+      ? normalized / 12.92
+      : ((normalized + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * red! + 0.7152 * green! + 0.0722 * blue!;
+}
+
+function expectConnectorVisualCenter(
+  current: HTMLElement,
+  next: HTMLElement,
+  orientation: "horizontal" | "vertical",
+): void {
+  const pseudo = getComputedStyle(current, "::after");
+  const matrix = new DOMMatrix(pseudo.transform);
+  const size = Number.parseFloat(
+    orientation === "horizontal" ? pseudo.width : pseudo.height,
+  );
+  const currentRect = current.getBoundingClientRect();
+  const nextRect = next.getBoundingClientRect();
+  const visualBias = size / (2 * Math.SQRT2);
+
+  if (orientation === "horizontal") {
+    const untransformedCenter = currentRect.right - Number.parseFloat(pseudo.right) - size / 2;
+    const visualCenter = untransformedCenter + matrix.e + visualBias;
+    expect(visualCenter).toBeCloseTo((currentRect.right + nextRect.left) / 2, 1);
+    return;
+  }
+
+  const untransformedCenter = currentRect.bottom - Number.parseFloat(pseudo.bottom) - size / 2;
+  const visualCenter = untransformedCenter + matrix.f + visualBias;
+  expect(visualCenter).toBeCloseTo((currentRect.bottom + nextRect.top) / 2, 1);
 }
 
 function courseThemeWithRoundness(roundness: "square" | "rounded") {

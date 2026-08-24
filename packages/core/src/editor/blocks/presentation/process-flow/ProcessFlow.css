@@ -21,6 +21,14 @@
   }
 
   .sc-course-process-flow {
+    --sc-course-process-flow-card-size: min(15rem, calc(100cqi - 2rem));
+    --sc-course-process-flow-step-gap: 1rem;
+    --sc-course-process-flow-connector-size: 0.5rem;
+    --sc-course-process-flow-connector-stroke: 1px;
+    --sc-course-process-flow-connector-color: currentColor;
+    /* Centre the visible two-stroke chevron, not its rotated square. */
+    --sc-course-process-flow-connector-optical-translation: 14.6447%;
+
     container-name: sc-course-process-flow;
     container-type: inline-size;
   }
@@ -139,7 +147,10 @@
   }
 
   .sc-course-process-flow[data-show-connectors="true"]
-    .sc-course-process-flow__step:not(:last-child)::after {
+    :is(
+      .sc-course-process-flow__step:not(:last-child),
+      .react-renderer:not(:last-child) > .sc-course-process-flow__step
+    )::after {
     content: "";
     position: absolute;
     z-index: 2;
@@ -152,21 +163,35 @@
   }
 
   .sc-course-process-flow[data-orientation="horizontal"][data-show-connectors="true"]
-    .sc-course-process-flow__step:not(:last-child)::after {
+    :is(
+      .sc-course-process-flow__step:not(:last-child),
+      .react-renderer:not(:last-child) > .sc-course-process-flow__step
+    )::after {
     top: 50%;
     right: calc(var(--sc-course-process-flow-step-gap) / -2);
     border-width: 0 var(--sc-course-process-flow-connector-stroke)
       var(--sc-course-process-flow-connector-stroke) 0;
-    transform: translate(50%, -50%) rotate(-45deg);
+    transform: translate(
+        var(--sc-course-process-flow-connector-optical-translation),
+        -50%
+      )
+      rotate(-45deg);
   }
 
   .sc-course-process-flow[data-orientation="vertical"][data-show-connectors="true"]
-    .sc-course-process-flow__step:not(:last-child)::after {
+    :is(
+      .sc-course-process-flow__step:not(:last-child),
+      .react-renderer:not(:last-child) > .sc-course-process-flow__step
+    )::after {
     bottom: calc(var(--sc-course-process-flow-step-gap) / -2);
     left: 50%;
     border-width: 0 var(--sc-course-process-flow-connector-stroke)
       var(--sc-course-process-flow-connector-stroke) 0;
-    transform: translate(-50%, 50%) rotate(45deg);
+    transform: translate(
+        -50%,
+        var(--sc-course-process-flow-connector-optical-translation)
+      )
+      rotate(45deg);
   }
 
   .sc-course-process-flow-node[data-bounded-placement="fill"] {

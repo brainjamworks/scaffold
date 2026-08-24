@@ -47,6 +47,31 @@ afterEach(async () => {
 });
 
 describe("authoring Process Flow reorder", () => {
+  it("renders connectors and keyboard scrolling through the live NodeView wrappers", async () => {
+    await page.viewport(1100, 800);
+    const harness = await mountProcessFlowAuthoringHarness("horizontal");
+    mounted.push(harness);
+    const items = harness.itemsInDom();
+    const first = items[0];
+    const last = items.at(-1);
+    if (!first || !last) throw new Error("Process Flow wrapper coverage requires steps");
+
+    const list = requiredElement<HTMLElement>(harness.host, ".sc-course-process-flow__steps");
+    const scrollport = requiredElement<HTMLElement>(
+      harness.host,
+      ".sc-course-process-flow__scrollport",
+    );
+
+    expect(list.tagName).toBe("DIV");
+    expect(list).toHaveAttribute("role", "list");
+    expect(items.every((item) => item.tagName === "DIV")).toBe(true);
+    expect(items.every((item) => item.getAttribute("role") === "listitem")).toBe(true);
+    expect(getComputedStyle(first, "::after").content).not.toBe("none");
+    expect(getComputedStyle(last, "::after").content).toBe("none");
+    expect(scrollport).toHaveAttribute("data-process-flow-scrollable", "horizontal");
+    expect(scrollport.tabIndex).toBe(0);
+  });
+
   it("projects horizontal step order locally and commits once on keyboard drop", async () => {
     await page.viewport(1100, 800);
     const harness = await mountProcessFlowAuthoringHarness("horizontal");
