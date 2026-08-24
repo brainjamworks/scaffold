@@ -6,12 +6,14 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor.test-harness";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import "@/theme/course/designs/pocket-atlas/v1/theme.css";
 import "@/runtime/players/slideshow/SlideshowPlayer.css";
 import "@/styles/globals.css";
 
@@ -63,6 +65,85 @@ describe("Gallery container geometry", () => {
     expect(style.display).toBe("flex");
     expect(style.flexDirection).toBe("column");
     expect(style.gap).toBe("1px");
+  });
+
+  it("keeps the empty-state composition structured without a Course recipe", async () => {
+    const pair = await mountPair(unboundedEmptyGalleryDocument(), "gallerypage1", true);
+    mountedPairs.push(pair);
+    setPairCourseDesign(pair, "none");
+    await nextLayoutFrames(2);
+
+    for (const mounted of [pair.authoring, pair.runtime]) {
+      const frame = galleryFrame(mounted);
+      const empty = requiredElement<HTMLElement>(frame, ".sc-course-gallery__empty");
+      const text = requiredElement<HTMLElement>(frame, ".sc-course-gallery__empty-text");
+
+      expect(getComputedStyle(empty).display).toBe("grid");
+      expect(getComputedStyle(empty).gridTemplateColumns.split(" ")).toHaveLength(3);
+      expect(getComputedStyle(empty).alignItems).toBe("center");
+      expect(getComputedStyle(text).display).toBe("flex");
+      expect(getComputedStyle(text).flexDirection).toBe("column");
+    }
+  });
+
+  it("keeps unbounded grid geometry functional without a Course recipe", async () => {
+    const pair = await mountPair(unboundedGalleryDocument(), "gallerypage1", true);
+    mountedPairs.push(pair);
+    setPairCourseDesign(pair, "none");
+
+    const samples = [measureGrid(pair.authoring), measureGrid(pair.runtime)];
+    for (const sample of samples) {
+      sample.frame.style.width = "1000px";
+      sample.frame.style.maxWidth = "none";
+    }
+    await nextLayoutFrames(2);
+
+    for (const sample of samples) {
+      expect(trackCount(sample.cells)).toBe(4);
+      const tileButton = requiredElement<HTMLElement>(
+        sample.cells[0]!,
+        ".sc-course-gallery__tile-button",
+      );
+      expect(tileButton.getBoundingClientRect().height).toBeCloseTo(192, 0);
+    }
+  });
+
+  it("keeps carousel media geometry functional without a Course recipe", async () => {
+    const pair = await mountPair(unboundedGalleryDocument("carousel"), "gallerypage1", true);
+    mountedPairs.push(pair);
+    setPairCourseDesign(pair, "none");
+    await nextLayoutFrames(2);
+
+    for (const mounted of [pair.authoring, pair.runtime]) {
+      const frame = galleryFrame(mounted);
+      const thumb = frame.querySelector<HTMLElement>(".sc-course-gallery__thumb");
+      const stageImage = requiredElement<HTMLElement>(frame, ".sc-course-gallery__stage-image");
+      if (!thumb) throw new Error("Expected at least one Gallery thumbnail.");
+
+      expect(thumb.getBoundingClientRect().width).toBeCloseTo(68, 0);
+      expect(thumb.getBoundingClientRect().height).toBeCloseTo(68, 0);
+      expect(getComputedStyle(stageImage).maxHeight).toBe("448px");
+    }
+  });
+
+  it("gives the Pocket Atlas empty state a complete Course recipe", async () => {
+    const pair = await mountPair(unboundedEmptyGalleryDocument(), "gallerypage1", true);
+    mountedPairs.push(pair);
+    setPairCourseDesign(pair, "pocket");
+    await nextLayoutFrames(2);
+
+    for (const mounted of [pair.authoring, pair.runtime]) {
+      const frame = galleryFrame(mounted);
+      const empty = requiredElement<HTMLElement>(frame, ".sc-course-gallery__empty");
+      const title = requiredElement<HTMLElement>(frame, ".sc-course-gallery__empty-title");
+      const emptyStyle = getComputedStyle(empty);
+
+      expect(emptyStyle.borderTopWidth).toBe("2px");
+      expect(emptyStyle.borderRadius).toBe("0px");
+      expect(emptyStyle.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+      expect(emptyStyle.boxShadow).not.toBe("none");
+      expect(getComputedStyle(title).fontFamily).toContain("Silkscreen");
+    }
   });
 
   it.each([
@@ -159,11 +240,13 @@ describe("Gallery container geometry", () => {
 
     expect(style.borderStyle).toBe("dashed");
     expect(style.boxShadow).toBe("none");
+    expect(addAction.getBoundingClientRect().width).toBeCloseTo(44, 0);
+    expect(addAction.getBoundingClientRect().height).toBeCloseTo(44, 0);
     expect(addAction.querySelector(".sc-app-block-add__icon")).not.toBeNull();
     expect(galleryFrame(pair.runtime).querySelector(".sc-app-gallery__grid-add-action")).toBeNull();
   });
 
-  it("keeps the grid remove action compact while giving it App ownership", async () => {
+  it("gives the grid remove action an accessible App-owned target", async () => {
     const pair = await mountPair(unboundedGalleryDocument(), "gallerypage1", true);
     mountedPairs.push(pair);
     await nextLayoutFrames(2);
@@ -187,8 +270,8 @@ describe("Gallery container geometry", () => {
       "sc-course-icon-action",
       "sc-course-gallery__delete",
     );
-    expect(removeStyle.width).toBe("24px");
-    expect(removeStyle.height).toBe("24px");
+    expect(removeStyle.width).toBe("44px");
+    expect(removeStyle.height).toBe("44px");
     expect(removeStyle.borderTopWidth).toBe("0px");
     expect(Number.parseFloat(removeStyle.borderTopLeftRadius)).toBeCloseTo(controlRadius, 1);
     expect(removeStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
@@ -200,7 +283,7 @@ describe("Gallery container geometry", () => {
     expect(galleryFrame(pair.runtime).querySelector(".sc-app-gallery__tile-delete")).toBeNull();
   });
 
-  it("keeps carousel thumbnail removal compact while giving only it App ownership", async () => {
+  it("gives carousel thumbnail removal an accessible App-owned target", async () => {
     const pair = await mountPair(unboundedGalleryDocument("carousel"), "gallerypage1", true);
     mountedPairs.push(pair);
     await nextLayoutFrames(2);
@@ -219,6 +302,7 @@ describe("Gallery container geometry", () => {
     const mutedColour = computedColor(appStyle.getPropertyValue("--sc-app-color-text-muted"));
     const controlRadius = computedLength(appStyle.getPropertyValue("--sc-app-radius-control"));
     const removeStyle = getComputedStyle(removeAction);
+    const affordanceStyle = getComputedStyle(removeAction, "::before");
 
     expect(removeAction).toHaveClass("sc-icon-button");
     expect(removeAction).toHaveAttribute("data-size", "sm");
@@ -228,8 +312,8 @@ describe("Gallery container geometry", () => {
       "sc-course-icon-action",
       "sc-course-gallery__delete",
     );
-    expect(removeStyle.width).toBe("24px");
-    expect(removeStyle.height).toBe("24px");
+    expect(removeStyle.width).toBe("44px");
+    expect(removeStyle.height).toBe("44px");
     expect(removeStyle.borderTopWidth).toBe("0px");
     expect(Number.parseFloat(removeStyle.borderTopLeftRadius)).toBeCloseTo(controlRadius, 1);
     expect(removeStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
@@ -238,6 +322,11 @@ describe("Gallery container geometry", () => {
     expect(removeStyle.position).toBe("absolute");
     expect(removeStyle.insetBlockStart).toBe("3px");
     expect(removeStyle.insetInlineEnd).toBe("3px");
+    expect(affordanceStyle.width).toBe("24px");
+    expect(affordanceStyle.height).toBe("24px");
+    expect(affordanceStyle.insetBlockStart).toBe("4px");
+    expect(affordanceStyle.insetInlineEnd).toBe("4px");
+    expect(affordanceStyle.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
     expect(galleryFrame(pair.runtime).querySelector(".sc-app-gallery__thumb-delete")).toBeNull();
   });
 
@@ -327,6 +416,16 @@ function boundedGalleryDocument(owner: BoundedOwner, layout: "carousel" | "grid"
   const region = surface.content?.find((child) => child.type === "region");
   if (!region) throw new Error("Slide content fixture is missing its Region.");
 
+  const content = createScaffoldDocumentContent({
+    mode: "slideshow",
+    surfaceId,
+    initialCourseSectionTitle: "Gallery",
+  });
+  const courseDocument = content.content?.[0];
+  if (!courseDocument) throw new Error("Slideshow fixture has no courseDocument.");
+  const courseSection = courseDocument.content?.find((child) => child.type === "courseSection");
+  if (!courseSection) throw new Error("Slideshow fixture has no courseSection.");
+
   const gallery = galleryNode(layout, layout === "carousel" ? 8 : 4);
   if (owner === "region") {
     region.content = [gallery];
@@ -374,11 +473,16 @@ function boundedGalleryDocument(owner: BoundedOwner, layout: "carousel" | "grid"
     ];
   }
 
-  const content = createScaffoldDocumentContent({ mode: "slideshow", surfaceId });
-  const courseDocument = content.content?.[0];
-  if (!courseDocument) throw new Error("Slideshow fixture has no courseDocument.");
-  courseDocument.content = [surface];
+  assignFixtureNodeIds(surface);
+  courseDocument.content = [courseSection, surface];
   return content;
+}
+
+function assignFixtureNodeIds(node: JSONContent): void {
+  if (node.type !== "text") {
+    node.attrs = { ...node.attrs, id: node.attrs?.["id"] ?? createEmbeddedNodeId() };
+  }
+  for (const child of node.content ?? []) assignFixtureNodeIds(child);
 }
 
 function boundedGallerySurfaceId(owner: BoundedOwner): EmbeddedNodeId {
@@ -548,6 +652,21 @@ function galleryFrame(mounted: MountedRenderer): HTMLElement {
       ? '.sc-course-gallery[data-authoring-frame="block"]'
       : '.sc-course-gallery[data-runtime-frame="block"]';
   return requiredElement(mounted.host, frameSelector);
+}
+
+function setPairCourseDesign(pair: MountedPair, design: "none" | "pocket"): void {
+  for (const mounted of [pair.authoring, pair.runtime]) {
+    for (const courseRoot of mounted.host.querySelectorAll<HTMLElement>(".sc-course")) {
+      courseRoot.classList.remove(
+        "sc-course-theme-scaffold-flow-v1",
+        "sc-course-theme-pocket-atlas-v1",
+      );
+      if (design === "pocket") {
+        courseRoot.classList.add("sc-course-theme-pocket-atlas-v1");
+        courseRoot.style.setProperty("--heading-font-family", '"Silkscreen", sans-serif');
+      }
+    }
+  }
 }
 
 async function waitForGridLayout(pair: MountedPair): Promise<void> {

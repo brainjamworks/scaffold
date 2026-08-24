@@ -13,6 +13,12 @@
   }
 
   .sc-course-gallery {
+    --sc-course-gallery-grid-gap: 0.75rem;
+    --sc-course-gallery-page-stage-max-size: 28rem;
+    --sc-course-gallery-page-tile-size: 12rem;
+    --sc-course-gallery-page-placeholder-size: 18rem;
+    --sc-course-gallery-thumb-size: 4.25rem;
+
     position: relative;
   }
 
@@ -64,6 +70,17 @@
     min-width: 0;
   }
 
+  .sc-course-gallery__empty {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .sc-course-gallery__empty-text {
+    display: flex;
+    flex-direction: column;
+  }
+
   .sc-course-gallery__stage-button,
   .sc-course-gallery__tile-button {
     position: relative;
@@ -85,6 +102,10 @@
   .sc-course-gallery__tile-image {
     max-width: 100%;
     object-fit: contain;
+  }
+
+  .sc-course-gallery:not([data-bounded-placement="fill"]) .sc-course-gallery__stage-image {
+    max-block-size: var(--sc-course-gallery-page-stage-max-size);
   }
 
   .sc-course-gallery[data-bounded-placement="fill"] .sc-course-gallery__carousel {
@@ -145,6 +166,8 @@
 
   .sc-course-gallery__thumb {
     display: inline-flex;
+    width: var(--sc-course-gallery-thumb-size);
+    height: var(--sc-course-gallery-thumb-size);
     align-items: center;
     justify-content: center;
     padding: 0;
@@ -163,6 +186,23 @@
 
   .sc-course-gallery__grid {
     display: grid;
+    gap: var(--sc-course-gallery-grid-gap);
+  }
+
+  .sc-course-gallery:not([data-bounded-placement="fill"]) .sc-course-gallery__grid {
+    grid-template-columns: repeat(
+      auto-fit,
+      minmax(
+        min(
+          100%,
+          max(
+            var(--sc-course-gallery-page-tile-size),
+            calc((100% - 3 * var(--sc-course-gallery-grid-gap)) / 4)
+          )
+        ),
+        1fr
+      )
+    );
   }
 
   .sc-course-gallery[data-bounded-placement="fill"]
@@ -189,6 +229,15 @@
     height: 100%;
   }
 
+  .sc-course-gallery:not([data-bounded-placement="fill"])
+    :is(.sc-course-gallery__tile-button, .sc-course-gallery__tile-state) {
+    block-size: var(--sc-course-gallery-page-tile-size);
+  }
+
+  .sc-course-gallery:not([data-bounded-placement="fill"]) .sc-course-gallery__stage-placeholder {
+    block-size: var(--sc-course-gallery-page-placeholder-size);
+  }
+
   .sc-course-gallery[data-bounded-placement="fill"]
     :is(.sc-course-gallery__tile, .sc-course-gallery__tile-button, .sc-course-gallery__tile-state) {
     height: 100%;
@@ -207,5 +256,11 @@
 
   .sc-course-gallery__shared-caption > :last-child {
     margin-bottom: 0;
+  }
+
+  @container gallery-composition (inline-size < 28rem) {
+    .sc-course-gallery__empty {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
   }
 }
