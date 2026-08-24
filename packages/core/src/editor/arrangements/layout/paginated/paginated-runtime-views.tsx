@@ -1,7 +1,11 @@
 import { NodeViewContent } from "@tiptap/react";
 import { useEffect, useRef } from "react";
 
-import { useLayoutInteractionStore } from "../shared/model/layout-interaction-store";
+import {
+  getLayoutInteractionStoreState,
+  useLayoutInteractionStore,
+} from "../shared/model/layout-interaction-store";
+import { useLayoutSemanticActivationBinding } from "../shared/model/use-layout-semantic-activation-binding";
 import {
   useLearningEventReporter,
   type LearningEventReporter,
@@ -18,6 +22,7 @@ import type {
 import {
   PaginatedLayoutShell,
   normalizeActivePageId,
+  paginatedPagePanelId,
   paginatedPanelAttributes,
   readPaginatedPages,
   readRequiredPaginatedNodeId,
@@ -35,6 +40,10 @@ export function PaginatedLayoutRuntimeView(props: LayoutRuntimeViewProps) {
     (state) => state.activePageByLayoutId[layoutId],
   );
   const setActivePage = useLayoutInteractionStore(props.editor, (state) => state.setActivePage);
+  const lastSectionChange = useLayoutInteractionStore(
+    props.editor,
+    (state) => state.lastSectionChangeByLayoutId[layoutId],
+  );
   const activeId = normalizeActivePageId(storedActiveId, pages);
   const learningEventReporter = useLearningEventReporter();
   const presentedSurfaceId = useRuntimePresentedSurfaceId();
@@ -48,12 +57,34 @@ export function PaginatedLayoutRuntimeView(props: LayoutRuntimeViewProps) {
   } | null>(null);
   const activeIndex = pages.findIndex((page) => page.id === activeId);
 
+  useLayoutSemanticActivationBinding({
+    editor: props.editor,
+    getPos: props.getPos,
+    layoutId,
+    node: props.node,
+    isVisible: (childId) => {
+      const storedActiveId = getLayoutInteractionStoreState(props.editor).activePageByLayoutId[
+        layoutId
+      ];
+      return normalizeActivePageId(storedActiveId, readPaginatedPages(props.node)) === childId;
+    },
+    revealChild: (childId) => setActivePage(layoutId, childId, { origin: "semantic-activation" }),
+    visibilityElementId: (childId) => paginatedPagePanelId(layoutId, childId),
+  });
+
   useEffect(() => {
     if (!isPresented) {
       recordedSectionRef.current = null;
       return;
     }
     if (!activeId || activeIndex < 0) return;
+    if (
+      lastSectionChange?.origin === "semantic-activation" &&
+      lastSectionChange.sectionId === activeId
+    ) {
+      recordedSectionRef.current = { reporter: learningEventReporter, sectionId: activeId };
+      return;
+    }
     const previous = recordedSectionRef.current;
     if (previous?.reporter === learningEventReporter && previous.sectionId === activeId) {
       return;
@@ -72,7 +103,15 @@ export function PaginatedLayoutRuntimeView(props: LayoutRuntimeViewProps) {
     } catch {
       // Layout recording is observational and cannot make content unavailable.
     }
-  }, [activeId, activeIndex, isPresented, layoutId, learningEventReporter, pages.length]);
+  }, [
+    activeId,
+    activeIndex,
+    isPresented,
+    lastSectionChange,
+    layoutId,
+    learningEventReporter,
+    pages.length,
+  ]);
 
   return (
     <div className="sc-course-paginated">

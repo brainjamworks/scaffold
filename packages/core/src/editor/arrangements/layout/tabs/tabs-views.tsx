@@ -104,7 +104,7 @@ export function TabsLayoutView(props: LayoutComponentProps) {
       ];
       return normalizeActiveTabId(storedActiveId, readTabsSections(props.node)) === childId;
     },
-    revealChild: (childId) => setActiveTab(layoutId, childId),
+    revealChild: (childId) => setActiveTab(layoutId, childId, { origin: "semantic-activation" }),
     visibilityElementId: (childId) => tabPanelId(layoutId, childId),
   });
 

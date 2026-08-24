@@ -1,7 +1,11 @@
 import { NodeViewContent } from "@tiptap/react";
 import { useEffect, useRef, type KeyboardEvent } from "react";
 
-import { useLayoutInteractionStore } from "../shared/model/layout-interaction-store";
+import {
+  getLayoutInteractionStoreState,
+  useLayoutInteractionStore,
+} from "../shared/model/layout-interaction-store";
+import { useLayoutSemanticActivationBinding } from "../shared/model/use-layout-semantic-activation-binding";
 import {
   useLearningEventReporter,
   type LearningEventReporter,
@@ -27,6 +31,7 @@ import {
   readTabsSections,
   renderTabsVariant,
   tabsPanelAttributes,
+  tabPanelId,
   type TabsSectionSummary,
 } from "./tabs-components";
 
@@ -43,6 +48,10 @@ export function TabsLayoutRuntimeView(props: LayoutRuntimeViewProps) {
     (state) => state.activeTabByLayoutId[layoutId],
   );
   const setActiveTab = useLayoutInteractionStore(props.editor, (state) => state.setActiveTab);
+  const lastSectionChange = useLayoutInteractionStore(
+    props.editor,
+    (state) => state.lastSectionChangeByLayoutId[layoutId],
+  );
   const activeId = normalizeActiveTabId(storedActiveId, sections);
   const learningEventReporter = useLearningEventReporter();
   const presentedSurfaceId = useRuntimePresentedSurfaceId();
@@ -56,12 +65,34 @@ export function TabsLayoutRuntimeView(props: LayoutRuntimeViewProps) {
   } | null>(null);
   const activeIndex = sections.findIndex((section) => section.id === activeId);
 
+  useLayoutSemanticActivationBinding({
+    editor: props.editor,
+    getPos: props.getPos,
+    layoutId,
+    node: props.node,
+    isVisible: (childId) => {
+      const storedActiveId = getLayoutInteractionStoreState(props.editor).activeTabByLayoutId[
+        layoutId
+      ];
+      return normalizeActiveTabId(storedActiveId, readTabsSections(props.node)) === childId;
+    },
+    revealChild: (childId) => setActiveTab(layoutId, childId, { origin: "semantic-activation" }),
+    visibilityElementId: (childId) => tabPanelId(layoutId, childId),
+  });
+
   useEffect(() => {
     if (!isPresented) {
       recordedSectionRef.current = null;
       return;
     }
     if (!activeId || activeIndex < 0) return;
+    if (
+      lastSectionChange?.origin === "semantic-activation" &&
+      lastSectionChange.sectionId === activeId
+    ) {
+      recordedSectionRef.current = { reporter: learningEventReporter, sectionId: activeId };
+      return;
+    }
     const previous = recordedSectionRef.current;
     if (previous?.reporter === learningEventReporter && previous.sectionId === activeId) {
       return;
@@ -80,7 +111,15 @@ export function TabsLayoutRuntimeView(props: LayoutRuntimeViewProps) {
     } catch {
       // Layout recording is observational and cannot make content unavailable.
     }
-  }, [activeId, activeIndex, isPresented, layoutId, learningEventReporter, sections.length]);
+  }, [
+    activeId,
+    activeIndex,
+    isPresented,
+    lastSectionChange,
+    layoutId,
+    learningEventReporter,
+    sections.length,
+  ]);
 
   return (
     <div className="sc-course-tabs">

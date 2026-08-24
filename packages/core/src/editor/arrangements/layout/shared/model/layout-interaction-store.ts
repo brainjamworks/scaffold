@@ -5,19 +5,32 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 interface ToggleAccordionInput {
   allowMultiple: boolean;
   defaultOpenIds: readonly string[];
+  origin?: LayoutSectionChangeOrigin;
+}
+
+interface LayoutSectionChangeInput {
+  origin?: LayoutSectionChangeOrigin;
+}
+
+export type LayoutSectionChangeOrigin = "direct" | "semantic-activation";
+
+export interface LayoutSectionChange {
+  readonly origin: LayoutSectionChangeOrigin;
+  readonly sectionId: string;
 }
 
 export interface LayoutInteractionStoreState {
   activePageByLayoutId: Record<string, string>;
   activeTabByLayoutId: Record<string, string>;
+  lastSectionChangeByLayoutId: Record<string, LayoutSectionChange>;
   openAccordionSectionsByLayoutId: Record<string, readonly string[]>;
   setAccordionSectionOpen: (
     layoutId: string,
     sectionId: string,
     input: ToggleAccordionInput,
   ) => void;
-  setActiveTab: (layoutId: string, sectionId: string) => void;
-  setActivePage: (layoutId: string, sectionId: string) => void;
+  setActiveTab: (layoutId: string, sectionId: string, input?: LayoutSectionChangeInput) => void;
+  setActivePage: (layoutId: string, sectionId: string, input?: LayoutSectionChangeInput) => void;
   toggleAccordionSection: (
     layoutId: string,
     sectionId: string,
@@ -33,20 +46,29 @@ function createLayoutInteractionStore(): LayoutInteractionStore {
   return createStore<LayoutInteractionStoreState>((set, get) => ({
     activePageByLayoutId: {},
     activeTabByLayoutId: {},
+    lastSectionChangeByLayoutId: {},
     openAccordionSectionsByLayoutId: {},
-    setActivePage: (layoutId, sectionId) => {
+    setActivePage: (layoutId, sectionId, input) => {
       set((state) => ({
         activePageByLayoutId: {
           ...state.activePageByLayoutId,
           [layoutId]: sectionId,
         },
+        lastSectionChangeByLayoutId: {
+          ...state.lastSectionChangeByLayoutId,
+          [layoutId]: { origin: input?.origin ?? "direct", sectionId },
+        },
       }));
     },
-    setActiveTab: (layoutId, sectionId) => {
+    setActiveTab: (layoutId, sectionId, input) => {
       set((state) => ({
         activeTabByLayoutId: {
           ...state.activeTabByLayoutId,
           [layoutId]: sectionId,
+        },
+        lastSectionChangeByLayoutId: {
+          ...state.lastSectionChangeByLayoutId,
+          [layoutId]: { origin: input?.origin ?? "direct", sectionId },
         },
       }));
     },
@@ -62,6 +84,10 @@ function createLayoutInteractionStore(): LayoutInteractionStore {
         openAccordionSectionsByLayoutId: {
           ...state.openAccordionSectionsByLayoutId,
           [layoutId]: next,
+        },
+        lastSectionChangeByLayoutId: {
+          ...state.lastSectionChangeByLayoutId,
+          [layoutId]: { origin: input.origin ?? "direct", sectionId },
         },
       }));
     },
@@ -80,6 +106,10 @@ function createLayoutInteractionStore(): LayoutInteractionStore {
         openAccordionSectionsByLayoutId: {
           ...state.openAccordionSectionsByLayoutId,
           [layoutId]: next,
+        },
+        lastSectionChangeByLayoutId: {
+          ...state.lastSectionChangeByLayoutId,
+          [layoutId]: { origin: input.origin ?? "direct", sectionId },
         },
       }));
     },

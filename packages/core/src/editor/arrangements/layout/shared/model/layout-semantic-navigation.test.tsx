@@ -218,6 +218,163 @@ describe("Layout semantic navigation", () => {
     });
     act(() => rendered.unmount());
   });
+
+  it("settles a pending reveal as owner-unmounted when its Layout root unmounts", async () => {
+    const testCase = CASES[0];
+    const editor = makeEditor(testCase);
+    const controller = getSemanticDocumentControllerForEditor(editor);
+    const layoutId = testCase.layoutId as EmbeddedNodeId;
+    const targetId = testCase.sectionIds[1] as EmbeddedNodeId;
+    const targetPanel = document.createElement("div");
+    targetPanel.id = `unmount-${layoutId}-${targetId}`;
+    targetPanel.hidden = true;
+    editor.view.dom.append(targetPanel);
+    const visibilityState = { current: false };
+    let requested = false;
+    const rendered = render(
+      <ControlledSemanticBinding
+        editor={editor}
+        layoutId={layoutId}
+        node={findNode(editor.state.doc, layoutId)}
+        onReveal={() => {
+          requested = true;
+        }}
+        visibilityState={visibilityState}
+        visibilityElementId={targetPanel.id}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(controller.semanticActivations.resolve(layoutId).kind).toBe("resolved");
+    });
+    const binding = requireSemanticActivationBinding(controller.semanticActivations, layoutId);
+    const activation = binding.activate(
+      semanticActivationRequest(layoutId, targetId, { ownerKind: "layout" }),
+    );
+    await waitFor(() => expect(requested).toBe(true));
+
+    act(() => rendered.unmount());
+
+    await expect(activation).resolves.toEqual({
+      kind: "unavailable",
+      ownerId: layoutId,
+      childId: targetId,
+      reason: "owner-unmounted",
+    });
+    expect(controller.semanticActivations.resolve(layoutId)).toEqual({
+      kind: "unavailable",
+      ownerId: layoutId,
+      reason: "owner-unmounted",
+    });
+  });
+
+  it("interrupts a superseded pending reveal without a stale second state change", async () => {
+    const testCase = CASES[0];
+    const editor = makeEditor(testCase);
+    const controller = getSemanticDocumentControllerForEditor(editor);
+    const layoutId = testCase.layoutId as EmbeddedNodeId;
+    const targetId = testCase.sectionIds[1] as EmbeddedNodeId;
+    const targetPanel = document.createElement("div");
+    targetPanel.id = `superseded-${layoutId}-${targetId}`;
+    targetPanel.hidden = true;
+    editor.view.dom.append(targetPanel);
+    const visibilityState = { current: false };
+    const revealChild = vi.fn();
+    const rendered = render(
+      <ControlledSemanticBinding
+        editor={editor}
+        layoutId={layoutId}
+        node={findNode(editor.state.doc, layoutId)}
+        onReveal={revealChild}
+        visibilityState={visibilityState}
+        visibilityElementId={targetPanel.id}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(controller.semanticActivations.resolve(layoutId).kind).toBe("resolved");
+    });
+    const binding = requireSemanticActivationBinding(controller.semanticActivations, layoutId);
+    const first = binding.activate(
+      semanticActivationRequest(layoutId, targetId, { ownerKind: "layout" }),
+    );
+    await waitFor(() => expect(revealChild).toHaveBeenCalledOnce());
+    const currentAbort = new AbortController();
+    const current = binding.activate(
+      semanticActivationRequest(layoutId, targetId, {
+        ownerKind: "layout",
+        signal: currentAbort.signal,
+      }),
+    );
+
+    await expect(first).resolves.toEqual({
+      kind: "interrupted",
+      ownerId: layoutId,
+      childId: targetId,
+    });
+    currentAbort.abort();
+    await expect(current).resolves.toEqual({
+      kind: "interrupted",
+      ownerId: layoutId,
+      childId: targetId,
+    });
+    targetPanel.hidden = false;
+    editor.view.dispatch(editor.state.tr.setMeta("stale-semantic-visibility-test", true));
+    expect(revealChild).toHaveBeenCalledOnce();
+
+    act(() => rendered.unmount());
+  });
+
+  it("returns temporarily-unavailable when committed visibility cannot be observed", async () => {
+    const testCase = CASES[0];
+    const editor = makeEditor(testCase);
+    const controller = getSemanticDocumentControllerForEditor(editor);
+    const layoutId = testCase.layoutId as EmbeddedNodeId;
+    const targetId = testCase.sectionIds[1] as EmbeddedNodeId;
+    const targetPanel = document.createElement("div");
+    targetPanel.id = `temporary-${layoutId}-${targetId}`;
+    targetPanel.hidden = true;
+    editor.view.dom.append(targetPanel);
+    const rendered = render(
+      <ControlledSemanticBinding
+        editor={editor}
+        layoutId={layoutId}
+        node={findNode(editor.state.doc, layoutId)}
+        onReveal={() => undefined}
+        visibilityState={{ current: false }}
+        visibilityElementId={targetPanel.id}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(controller.semanticActivations.resolve(layoutId).kind).toBe("resolved");
+    });
+    const ownerWindow = editor.view.dom.ownerDocument.defaultView;
+    if (!ownerWindow) throw new Error("Missing editor owner window");
+    const mutationObserverDescriptor = Object.getOwnPropertyDescriptor(
+      ownerWindow,
+      "MutationObserver",
+    );
+    Object.defineProperty(ownerWindow, "MutationObserver", {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      const binding = requireSemanticActivationBinding(controller.semanticActivations, layoutId);
+      await expect(
+        binding.activate(semanticActivationRequest(layoutId, targetId, { ownerKind: "layout" })),
+      ).resolves.toEqual({
+        kind: "unavailable",
+        ownerId: layoutId,
+        childId: targetId,
+        reason: "temporarily-unavailable",
+      });
+    } finally {
+      restoreProperty(ownerWindow, "MutationObserver", mutationObserverDescriptor);
+      act(() => rendered.unmount());
+    }
+  });
 });
 
 interface LayoutNavigationCase {

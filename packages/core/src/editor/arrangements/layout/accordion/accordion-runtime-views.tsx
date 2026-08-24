@@ -1,7 +1,11 @@
 import { NodeViewContent } from "@tiptap/react";
 import { useEffect, useRef } from "react";
 
-import { useLayoutInteractionStore } from "../shared/model/layout-interaction-store";
+import {
+  getLayoutInteractionStoreState,
+  useLayoutInteractionStore,
+} from "../shared/model/layout-interaction-store";
+import { useLayoutSemanticActivationBinding } from "../shared/model/use-layout-semantic-activation-binding";
 import {
   useLearningEventReporter,
   type LearningEventReporter,
@@ -20,9 +24,11 @@ import {
   AccordionSectionFrame,
   accordionOpenSectionIds,
   defaultOpenAccordionSectionIds,
+  isAccordionSectionOpen,
   readAccordionOptions,
   readAccordionSections,
   readRequiredAccordionNodeId,
+  accordionPanelId,
 } from "./accordion-components";
 
 import "./accordion.css";
@@ -36,7 +42,15 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
     props.editor,
     (state) => state.openAccordionSectionsByLayoutId[layoutId],
   );
+  const setAccordionSectionOpen = useLayoutInteractionStore(
+    props.editor,
+    (state) => state.setAccordionSectionOpen,
+  );
   const openSectionIds = accordionOpenSectionIds({ defaultOpenIds, storedOpenIds });
+  const lastSectionChange = useLayoutInteractionStore(
+    props.editor,
+    (state) => state.lastSectionChangeByLayoutId[layoutId],
+  );
   const learningEventReporter = useLearningEventReporter();
   const presentedSurfaceId = useRuntimePresentedSurfaceId();
   const owningSurfaceId = resolveOwningRuntimeSurfaceId(props.editor.state.doc, props.getPos);
@@ -47,6 +61,28 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
     reporter: LearningEventReporter;
     sectionIds: ReadonlySet<string>;
   } | null>(null);
+
+  useLayoutSemanticActivationBinding({
+    editor: props.editor,
+    getPos: props.getPos,
+    layoutId,
+    node: props.node,
+    isVisible: (childId) =>
+      isAccordionSectionOpen({
+        defaultOpenIds: defaultOpenAccordionSectionIds(readAccordionSections(props.node)),
+        sectionId: childId,
+        storedOpenIds: getLayoutInteractionStoreState(props.editor).openAccordionSectionsByLayoutId[
+          layoutId
+        ],
+      }),
+    revealChild: (childId) =>
+      setAccordionSectionOpen(layoutId, childId, {
+        allowMultiple: options.allowMultiple,
+        defaultOpenIds: defaultOpenAccordionSectionIds(readAccordionSections(props.node)),
+        origin: "semantic-activation",
+      }),
+    visibilityElementId: (childId) => accordionPanelId(layoutId, childId),
+  });
 
   useEffect(() => {
     if (!isPresented) {
@@ -61,6 +97,12 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
 
     for (const sectionId of openSectionIds) {
       if (previous.has(sectionId)) continue;
+      if (
+        lastSectionChange?.origin === "semantic-activation" &&
+        lastSectionChange.sectionId === sectionId
+      ) {
+        continue;
+      }
       const sectionIndex = sections.findIndex((section) => section.id === sectionId);
       if (sectionIndex < 0) continue;
 
@@ -82,7 +124,7 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
       reporter: learningEventReporter,
       sectionIds: new Set(openSectionIds),
     };
-  }, [isPresented, layoutId, learningEventReporter, openSectionIds, sections]);
+  }, [isPresented, lastSectionChange, layoutId, learningEventReporter, openSectionIds, sections]);
 
   return (
     <div className="sc-course-accordion">

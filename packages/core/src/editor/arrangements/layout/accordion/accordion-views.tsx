@@ -62,6 +62,7 @@ export function AccordionLayoutView(props: LayoutComponentProps) {
       setAccordionSectionOpen(layoutId, childId, {
         allowMultiple: options.allowMultiple,
         defaultOpenIds: defaultOpenAccordionSectionIds(readAccordionSections(props.node)),
+        origin: "semantic-activation",
       }),
     visibilityElementId: (childId) => accordionPanelId(layoutId, childId),
   });

@@ -90,7 +90,7 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
       ];
       return normalizeActivePageId(storedActiveId, readPaginatedPages(props.node)) === childId;
     },
-    revealChild: (childId) => setActivePage(layoutId, childId),
+    revealChild: (childId) => setActivePage(layoutId, childId, { origin: "semantic-activation" }),
     visibilityElementId: (childId) => paginatedPagePanelId(layoutId, childId),
   });
 

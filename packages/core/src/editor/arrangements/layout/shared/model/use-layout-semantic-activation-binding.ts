@@ -3,9 +3,11 @@ import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useEffect, useRef } from "react";
 
-import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
 import { SECTION_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
-import type { SemanticActivationOutcome } from "@/document/semantic-target-interaction";
+import {
+  getSemanticTargetInteractionEnvironmentForEditor,
+  type SemanticActivationOutcome,
+} from "@/document/semantic-target-interaction";
 
 export interface UseLayoutSemanticActivationBindingInput {
   readonly editor: Editor;
@@ -27,18 +29,18 @@ export function useLayoutSemanticActivationBinding({
   revealChild,
   visibilityElementId,
 }: UseLayoutSemanticActivationBindingInput): void {
-  const semanticController = semanticDocumentPluginKey.getState(editor.state);
+  const registry = layoutSemanticActivationRegistryForEditor(editor);
   const behaviorRef = useRef({ isVisible, revealChild, visibilityElementId });
   behaviorRef.current = { isVisible, revealChild, visibilityElementId };
 
   useEffect(() => {
     const semanticLayoutId = EmbeddedNodeIdSchema.safeParse(layoutId);
-    if (!semanticController || !semanticLayoutId.success) return;
+    if (!registry || !semanticLayoutId.success) return;
     let active = true;
     let pendingReveal: PendingReveal | null = null;
 
     const ownerId = semanticLayoutId.data;
-    const unregister = semanticController.semanticActivations.register({
+    const unregister = registry.register({
       ownerId,
       activate: async ({ relationship, signal }) => {
         const childId = relationship.childId;
@@ -122,7 +124,22 @@ export function useLayoutSemanticActivationBinding({
       }
       unregister();
     };
-  }, [editor, getPos, layoutId, node, semanticController]);
+  }, [editor, getPos, layoutId, node, registry]);
+}
+
+function layoutSemanticActivationRegistryForEditor(editor: Editor) {
+  try {
+    return getSemanticTargetInteractionEnvironmentForEditor(editor).registry;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message ===
+        "Semantic Target Interaction Environment extension is not installed for this editor"
+    ) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 interface PendingReveal {
