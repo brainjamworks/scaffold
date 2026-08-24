@@ -16,6 +16,7 @@ import {
   emptyRoadmapData,
   roadmapMilestoneContent,
 } from "./content";
+import { roadmapDocumentSemantics } from "./roadmap-document-semantics";
 
 export const ROADMAP_BLOCK_ID = "roadmap";
 
@@ -73,6 +74,7 @@ const roadmapConfiguration = defineConfiguration({
 export const roadmapBlockDefinition = defineBlock({
   nodeType: ROADMAP_NODE,
   title: "Roadmap",
+  documentSemantics: roadmapDocumentSemantics,
   configuration: roadmapConfiguration,
   placeholders: {
     roadmap_milestone: ({ $pos, depth }) => ($pos.index(depth) === 0 ? "Heading" : "Description"),
