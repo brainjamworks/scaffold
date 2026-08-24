@@ -8,8 +8,10 @@ import {
   type SemanticDocumentSnapshot,
 } from "@/document/model/semantic-document";
 import {
-  createSemanticActivationRegistry,
   type SemanticActivationRegistry,
+  createSemanticTargetInteractionEnvironment,
+  type SemanticTargetInteractionEnvironment,
+  type SemanticTargetInteractionEnvironmentOwner,
 } from "@/document/semantic-target-interaction";
 
 import { projectAuthoringCourseStructure } from "../course-structure/project-authoring-course-structure";
@@ -39,11 +41,14 @@ export interface CreateSemanticDocumentControllerInput {
 }
 
 export class SemanticDocumentController {
-  readonly semanticActivations: SemanticActivationRegistry = createSemanticActivationRegistry();
+  readonly semanticActivations: SemanticActivationRegistry;
+  readonly semanticTargetInteractions: SemanticTargetInteractionEnvironment;
   readonly #definitions: SemanticDefinitionLookup;
+  readonly #interactionEnvironmentOwner: SemanticTargetInteractionEnvironmentOwner;
   readonly #listeners = new Set<() => void>();
   readonly #navigation: SemanticNavigationCoordinator;
   #courseStructure: ProjectedCourseStructure;
+  #navigationEnvironment: SemanticNavigationEnvironment | null = null;
   #snapshot: SemanticDocumentControllerSnapshot;
   #destroyed = false;
 
@@ -57,6 +62,22 @@ export class SemanticDocumentController {
       selectedId,
       selectedId ? "editor" : null,
     );
+    this.#interactionEnvironmentOwner = createSemanticTargetInteractionEnvironment({
+      getSemantics: () => this.#snapshot.semantics,
+      getCourseStructure: () => this.#courseStructure,
+      surfacePresentation: {
+        presentSurface: async (surfaceId, signal) => {
+          if (signal.aborted) return;
+          const environment = this.#navigationEnvironment;
+          if (!environment) {
+            throw new Error("Authoring semantic navigation environment is not mounted");
+          }
+          await environment.presentSurface(surfaceId);
+        },
+      },
+    });
+    this.semanticTargetInteractions = this.#interactionEnvironmentOwner.environment;
+    this.semanticActivations = this.#interactionEnvironmentOwner.activationRegistry;
     this.#navigation = new SemanticNavigationCoordinator({
       registry: this.semanticActivations,
       getSemantics: () => this.#snapshot.semantics,
@@ -83,6 +104,7 @@ export class SemanticDocumentController {
   }
 
   setNavigationEnvironment(environment: SemanticNavigationEnvironment): void {
+    this.#navigationEnvironment = environment;
     this.#navigation.setEnvironment(environment);
   }
 
@@ -159,7 +181,8 @@ export class SemanticDocumentController {
   destroy(): void {
     this.#destroyed = true;
     this.#navigation.interrupt();
-    this.semanticActivations.dispose();
+    this.#interactionEnvironmentOwner.dispose();
+    this.#navigationEnvironment = null;
     this.#listeners.clear();
   }
 

@@ -16,7 +16,6 @@ import { establishAuthoringDocument } from "@/document/model/establishment/estab
 
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import {
-  RuntimeSurfaceVisibility,
   type RuntimeSurfaceStateMap,
   setRuntimeSurfaceStates,
   setRuntimeVisibleSurfaceId,
@@ -212,5 +211,5 @@ export function PreparedCourseDocumentRuntimeRenderer({
 }
 
 function createRuntimeExtensions(composition: ScaffoldRuntimeComposition): Extensions {
-  return [...createCourseDocumentRuntimeExtensions({ composition }), RuntimeSurfaceVisibility];
+  return createCourseDocumentRuntimeExtensions({ composition });
 }

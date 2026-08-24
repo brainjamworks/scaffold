@@ -24,6 +24,7 @@ import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surf
 import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
 import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRuntimeFrame";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 
 import {
   checkRuntimeDocumentReadiness,
@@ -102,6 +103,7 @@ function paragraph(text: string): JSONContent {
 
 function slideshowDocumentContent(): JSONContent {
   const content = createScaffoldDocumentContent({
+    initialCourseSectionTitle: "Runtime section",
     mode: "slideshow",
     surfaceId: "slide_000001",
   });
@@ -116,6 +118,10 @@ function slideshowDocumentContent(): JSONContent {
     mode: "slideshow",
   };
   courseDocument.content = [
+    {
+      type: "courseSection",
+      attrs: { id: "section00001", title: "Runtime section" },
+    },
     {
       type: "surface",
       attrs: { id: "slide_000001", variant: "slide-cover" },
@@ -142,7 +148,7 @@ function sectionedSlideshowDocumentContent(): JSONContent {
   if (!courseDocument?.content) {
     throw new Error("sectioned runtime renderer fixture is missing Course Document content");
   }
-  const [firstSurface, secondSurface, thirdSurface] = courseDocument.content;
+  const [, firstSurface, secondSurface, thirdSurface] = courseDocument.content;
   courseDocument.content = [
     {
       type: "courseSection",
@@ -557,6 +563,80 @@ describe("CourseDocumentRuntimeRenderer", () => {
     expect(inactiveSurface.hasAttribute("hidden")).toBe(true);
     expect(inactiveSurface.getAttribute("aria-hidden")).toBe("true");
     expect(inactiveSurface.hasAttribute("data-runtime-surface-visible")).toBe(false);
+  });
+
+  it("mounts isolated runtime environments that present Surfaces without authoring effects", async () => {
+    const readyEditors: TiptapEditor[] = [];
+    const onReady = vi.fn((editor: TiptapEditor) => readyEditors.push(editor));
+    const initiatingControl = document.createElement("button");
+    document.body.append(initiatingControl);
+    initiatingControl.focus();
+    const click = vi.spyOn(HTMLElement.prototype, "click");
+    const view = render(
+      <div>
+        <div data-testid="first-semantic-runtime">
+          <CourseDocumentRuntimeRenderer
+            composition={runtimeComposition}
+            initialContent={slideshowDocumentContent()}
+            visibleSurfaceId="slide_000001"
+            onReady={onReady}
+          />
+        </div>
+        <div data-testid="second-semantic-runtime">
+          <CourseDocumentRuntimeRenderer
+            composition={runtimeComposition}
+            initialContent={slideshowDocumentContent()}
+            visibleSurfaceId="slide_000001"
+            onReady={onReady}
+          />
+        </div>
+      </div>,
+    );
+
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(2));
+    const firstEditor = readyEditors[0]!;
+    const secondEditor = readyEditors[1]!;
+    const firstEnvironment = getSemanticTargetInteractionEnvironmentForEditor(firstEditor);
+    const secondEnvironment = getSemanticTargetInteractionEnvironmentForEditor(secondEditor);
+    const beforeSelection = firstEditor.state.selection.toJSON();
+
+    expect(firstEnvironment).not.toBe(secondEnvironment);
+    expect(firstEnvironment.registry).not.toBe(secondEnvironment.registry);
+    await expect(
+      firstEnvironment.coordinator.activate(EmbeddedNodeIdSchema.parse("slide_000002"), {
+        origin: "configured-presentation",
+      }),
+    ).resolves.toEqual({
+      kind: "reached",
+      requestedId: "slide_000002",
+    });
+
+    const firstRuntime = screen.getByTestId("first-semantic-runtime");
+    const secondRuntime = screen.getByTestId("second-semantic-runtime");
+    await waitFor(() =>
+      expect(firstRuntime.querySelector('[data-id="slide_000002"]')).toHaveAttribute(
+        "data-runtime-surface-visible",
+        "true",
+      ),
+    );
+    expect(secondRuntime.querySelector('[data-id="slide_000001"]')).toHaveAttribute(
+      "data-runtime-surface-visible",
+      "true",
+    );
+    expect(firstEditor.state.selection.toJSON()).toEqual(beforeSelection);
+    expect(document.activeElement).toBe(initiatingControl);
+    expect(click).not.toHaveBeenCalled();
+
+    view.unmount();
+    await waitFor(() => expect(firstEditor.isDestroyed).toBe(true));
+    expect(() =>
+      firstEnvironment.registry.register({
+        ownerId: EmbeddedNodeIdSchema.parse("owner0000001"),
+        activate: async () => {
+          throw new Error("not called");
+        },
+      }),
+    ).toThrowError("Cannot register a semantic activation binding after registry disposal");
   });
 
   it("marks runtime surface states and hides non-current surfaces", async () => {
