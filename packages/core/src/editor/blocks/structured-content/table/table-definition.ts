@@ -16,6 +16,8 @@ import {
   type BlockAuthoringMenuControlDescriptor,
 } from "@/editor/blocks/block-definition";
 
+import { tableDocumentSemantics } from "./table-document-semantics";
+
 export const TABLE_BLOCK_ID = "table";
 
 const HEADER_LABELS = ["Column 1", "Column 2", "Column 3"];
@@ -176,6 +178,7 @@ function positionIsInsideTable(
 export const tableBlockDefinition = defineBlock({
   nodeType: "table",
   title: "Table",
+  documentSemantics: tableDocumentSemantics,
   authoringControls: {
     controls: tableAuthoringControls,
   },
