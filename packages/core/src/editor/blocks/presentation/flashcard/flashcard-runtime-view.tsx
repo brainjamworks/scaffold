@@ -1,6 +1,9 @@
 import { NodeViewContent, type NodeViewProps } from "@tiptap/react";
 
+import { useStatefulBlockSemanticActivationBinding } from "@/document/semantic-target-interaction/use-stateful-block-semantic-activation-binding";
+
 import { FlashcardCardView, FlashcardDeckReader } from "./FlashcardComponents";
+import { FLASHCARD_CARD_NODE, FLASHCARD_NODE } from "./content";
 import { readRequiredNodeId, resolveParentFlashcardBlock } from "./flashcard-node-view";
 import {
   useFlashcardCardController,
@@ -12,6 +15,18 @@ export function FlashcardRuntimeView(props: NodeViewProps) {
   const deckController = useFlashcardDeckController({
     blockId,
     deckNode: props.node,
+  });
+
+  useStatefulBlockSemanticActivationBinding({
+    childNodeType: FLASHCARD_CARD_NODE,
+    editor: props.editor,
+    getPos: props.getPos,
+    isVisible: (childId) => deckController.currentCardId === childId,
+    node: props.node,
+    ownerId: blockId,
+    ownerNodeType: FLASHCARD_NODE,
+    revealChild: (childId) =>
+      deckController.setCurrentCard(childId, { origin: "semantic-activation" }),
   });
 
   return (

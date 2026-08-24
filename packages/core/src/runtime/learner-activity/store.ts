@@ -208,16 +208,21 @@ export function createLearnerActivityStore({
   return createStore((set, get) => {
     const saveTails = new Map<string, Promise<void>>();
     const lastAuthoritativeRecords = new Map<string, LearnerActivityRuntimeRecord>();
+    const learningEventsByGeneration = new Map<
+      string,
+      Map<number, LearnerActivityLearningEvent | null | undefined>
+    >();
 
     const recordAuthoritativeTransition = (
       blockId: string,
       previousRecord: LearnerActivityRuntimeRecord,
       record: LearnerActivityRuntimeRecord,
       transition: LearnerActivityTransition,
-      learningEvent?: LearnerActivityLearningEvent,
+      learningEvent?: LearnerActivityLearningEvent | null,
       learningEventIsAuthoritative = false,
     ): void => {
       try {
+        if (learningEvent === null) return;
         const session = getLearningEventSession?.();
         if (!session || !isLearningEventLearnerActivityKind(record.activityKind)) return;
 
@@ -273,9 +278,16 @@ export function createLearnerActivityStore({
       blockId: string,
       generation: number,
       record: LearnerActivityRuntimeRecord,
-      learningEvent?: LearnerActivityLearningEvent,
+      learningEvent?: LearnerActivityLearningEvent | null,
     ): void => {
       if (!learnerActivityPort) return;
+
+      let blockLearningEvents = learningEventsByGeneration.get(blockId);
+      if (!blockLearningEvents) {
+        blockLearningEvents = new Map();
+        learningEventsByGeneration.set(blockId, blockLearningEvents);
+      }
+      blockLearningEvents.set(generation, learningEvent);
 
       const previousTail = saveTails.get(blockId) ?? Promise.resolve();
       const nextTail = previousTail
@@ -293,9 +305,35 @@ export function createLearnerActivityStore({
           if (authoritative.activityKind !== record.activityKind) {
             throw new Error("Learner activity host save response activityKind does not match");
           }
-          if (get().saves[blockId]?.generation !== generation) return;
-
           const previousAuthoritative = lastAuthoritativeRecords.get(blockId);
+          if (get().saves[blockId]?.generation !== generation) {
+            // Ordinary learner-only generations remain coalesced into the latest accepted
+            // transition. A guided boundary must instead preserve the preceding learner event
+            // and advance past a guided delta so neither is attributed to the other.
+            const nextGenerationIsGuided =
+              blockLearningEvents.has(generation + 1) &&
+              blockLearningEvents.get(generation + 1) === null;
+            const shouldRecordTransition =
+              learningEvent !== null && (learningEvent !== undefined || nextGenerationIsGuided);
+            if (previousAuthoritative && shouldRecordTransition) {
+              const transition = authoritativeTransition(previousAuthoritative, authoritative);
+              if (transition) {
+                recordAuthoritativeTransition(
+                  blockId,
+                  previousAuthoritative,
+                  authoritative,
+                  transition,
+                  learningEvent,
+                  structurallyEqualJson(saveRecord(record), saveRecord(authoritative)),
+                );
+              }
+            }
+            if (learningEvent !== undefined || nextGenerationIsGuided) {
+              lastAuthoritativeRecords.set(blockId, authoritative);
+            }
+            return;
+          }
+
           set((state) => ({
             activities: { ...state.activities, [blockId]: authoritative },
             saves: {
@@ -325,6 +363,8 @@ export function createLearnerActivityStore({
 
       saveTails.set(blockId, nextTail);
       void nextTail.finally(() => {
+        blockLearningEvents.delete(generation);
+        if (blockLearningEvents.size === 0) learningEventsByGeneration.delete(blockId);
         if (saveTails.get(blockId) === nextTail) saveTails.delete(blockId);
       });
     };
@@ -332,7 +372,7 @@ export function createLearnerActivityStore({
     const commitMutation = (
       blockId: string,
       record: LearnerActivityRuntimeRecord,
-      learningEvent?: LearnerActivityLearningEvent,
+      learningEvent?: LearnerActivityLearningEvent | null,
     ): boolean => {
       const state = get();
       const current = state.activities[blockId];

@@ -59,8 +59,17 @@ export function useFlashcardDeckController({
   const deckState = resolveFlashcardDeckState(orderedCards, deck);
   const { currentCardId, currentIndex } = deckState;
 
-  const setCurrentCard = (cardId: string | null | undefined) => {
-    if (cardId) activity.patchData({ currentCardId: cardId });
+  const setCurrentCard: FlashcardDeckController["setCurrentCard"] = (cardId, input) => {
+    if (!cardId) return;
+    if (input?.origin === "semantic-activation") {
+      activity.updateActivity({
+        data: flashcardDataForPersistence({ ...deck, currentCardId: cardId }, cardSummaries.length),
+        completed: activity.activity?.completed ?? false,
+        learningEvent: null,
+      });
+      return;
+    }
+    activity.patchData({ currentCardId: cardId });
   };
 
   const goNext = () => {

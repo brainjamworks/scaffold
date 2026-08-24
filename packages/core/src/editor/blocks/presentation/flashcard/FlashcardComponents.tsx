@@ -35,7 +35,10 @@ export interface FlashcardDeckController extends FlashcardDeckViewState {
   deck: FlashcardActivityData;
   cardSummaries: FlashcardCardSummary[];
   resetDeck: () => void;
-  setCurrentCard: (cardId: string | null | undefined) => void;
+  setCurrentCard: (
+    cardId: string | null | undefined,
+    input?: { readonly origin?: "direct" | "semantic-activation" },
+  ) => void;
   flipCurrent: () => void;
   goNext: () => void;
   goPrev: () => void;

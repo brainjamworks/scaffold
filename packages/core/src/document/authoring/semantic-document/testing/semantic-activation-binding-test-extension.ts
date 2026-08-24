@@ -1,33 +1,38 @@
 import { Extension } from "@tiptap/core";
-import { Plugin } from "@tiptap/pm/state";
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 
 import type { SemanticActivationRelationship } from "@/document/model/semantic-document";
 import {
   createSemanticActivationRegistry,
+  createSemanticTargetInteractionEnvironmentStorageExtension,
   type MountedSemanticActivationBinding,
   type SemanticActivationRegistry,
   type SemanticActivationRequest,
+  type SemanticInteractionOrigin,
+  type SemanticTargetInteractionEnvironment,
 } from "@/document/semantic-target-interaction";
-
-import { semanticDocumentPluginKey } from "../semantic-document-storage";
-import type { SemanticDocumentController } from "../semantic-document-controller";
 
 export function createSemanticActivationBindingTestExtension() {
   const registry = createSemanticActivationRegistry();
-  const controller = { semanticActivations: registry } as SemanticDocumentController;
+  const environment = Object.freeze({
+    registry,
+    coordinator: Object.freeze({
+      activate: async () => {
+        throw new Error("The binding test environment does not provide a semantic coordinator");
+      },
+    }),
+  }) satisfies SemanticTargetInteractionEnvironment;
   const extension = Extension.create({
     name: "semantic_activation_binding_test",
-    addProseMirrorPlugins() {
+    addExtensions() {
       return [
-        new Plugin<SemanticDocumentController>({
-          key: semanticDocumentPluginKey,
-          state: {
-            init: () => controller,
-            apply: (_transaction, current) => current,
-          },
+        createSemanticTargetInteractionEnvironmentStorageExtension({
+          getEnvironment: () => environment,
         }),
       ];
+    },
+    onDestroy() {
+      registry.dispose();
     },
   });
   return { extension, registry };
@@ -49,13 +54,14 @@ export function semanticActivationRequest(
   childId: EmbeddedNodeId,
   options: {
     readonly ownerKind?: SemanticActivationRelationship["ownerKind"];
+    readonly origin?: SemanticInteractionOrigin;
     readonly signal?: AbortSignal;
   } = {},
 ): SemanticActivationRequest {
   return {
     requestedId: childId,
     relationship: { ownerId, childId, ownerKind: options.ownerKind ?? "block" },
-    origin: "document-outline",
+    origin: options.origin ?? "document-outline",
     causationId: `test:${ownerId}:${childId}`,
     signal: options.signal ?? new AbortController().signal,
   };

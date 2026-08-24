@@ -26,7 +26,7 @@ export interface LearnerActivityDefault {
 export interface LearnerActivityUpdate {
   data: LearnerActivityData;
   completed: boolean;
-  learningEvent?: LearnerActivityLearningEvent;
+  learningEvent?: LearnerActivityLearningEvent | null;
 }
 
 export interface LearnerActivityStoreState {

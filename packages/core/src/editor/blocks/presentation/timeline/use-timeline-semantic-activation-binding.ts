@@ -3,8 +3,11 @@ import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useEffect } from "react";
 
-import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
 import type { SemanticActivationOutcome } from "@/document/semantic-target-interaction";
+import {
+  currentDirectChildStatus,
+  semanticActivationRegistryForEditor,
+} from "@/document/semantic-target-interaction/block-semantic-activation-binding";
 
 import { TIMELINE_ITEM_NODE, TIMELINE_NODE } from "./content";
 import { scrollTimelineEventIntoView, type TimelineOptions } from "./timeline-components";
@@ -27,16 +30,16 @@ export function useTimelineSemanticActivationBinding({
   presentation,
   timelineId,
 }: UseTimelineSemanticActivationBindingInput): void {
-  const semanticController = semanticDocumentPluginKey.getState(editor.state);
+  const registry = semanticActivationRegistryForEditor(editor);
 
   useEffect(() => {
     const semanticTimelineId = EmbeddedNodeIdSchema.safeParse(timelineId);
-    if (!semanticController || !semanticTimelineId.success) return;
+    if (!registry || !semanticTimelineId.success) return;
     let active = true;
     let pendingReveal: PendingReveal | null = null;
 
     const ownerId = semanticTimelineId.data;
-    const unregister = semanticController.semanticActivations.register({
+    const unregister = registry.register({
       ownerId,
       activate: async ({ relationship, signal }) => {
         const childId = relationship.childId;
@@ -45,8 +48,20 @@ export function useTimelineSemanticActivationBinding({
         }
         if (!active) return unavailable(ownerId, childId, "owner-unmounted");
         if (signal.aborted) return outcome("interrupted", ownerId, childId);
-        if (!isCurrentTimelineChild(editor, getPos, ownerId, childId)) {
-          return unavailable(ownerId, childId, "child-missing");
+        const childStatus = currentDirectChildStatus({
+          childId,
+          childNodeType: TIMELINE_ITEM_NODE,
+          editor,
+          getPos,
+          ownerId,
+          ownerNodeType: TIMELINE_NODE,
+        });
+        if (childStatus !== "current") {
+          return unavailable(
+            ownerId,
+            childId,
+            childStatus === "child-missing" ? "child-missing" : "owner-unmounted",
+          );
         }
         const track = getTrackElement();
         const timelineEvent = track ? timelineEventById(track, childId) : null;
@@ -74,15 +89,28 @@ export function useTimelineSemanticActivationBinding({
             return;
           }
           queueMicrotask(() => {
+            if (settled) return;
             const currentTrack = getTrackElement();
             const currentTimelineEvent = currentTrack
               ? timelineEventById(currentTrack, childId)
               : null;
-            if (settled || !active || !isCurrentTimelineChild(editor, getPos, ownerId, childId)) {
+            const currentChildStatus = currentDirectChildStatus({
+              childId,
+              childNodeType: TIMELINE_ITEM_NODE,
+              editor,
+              getPos,
+              ownerId,
+              ownerNodeType: TIMELINE_NODE,
+            });
+            if (!active || currentChildStatus !== "current") {
               finish(
                 !active
                   ? unavailable(ownerId, childId, "owner-unmounted")
-                  : unavailable(ownerId, childId, "child-missing"),
+                  : unavailable(
+                      ownerId,
+                      childId,
+                      currentChildStatus === "child-missing" ? "child-missing" : "owner-unmounted",
+                    ),
               );
               return;
             }
@@ -109,11 +137,26 @@ export function useTimelineSemanticActivationBinding({
     return () => {
       active = false;
       if (pendingReveal) {
-        pendingReveal.finish(unavailable(ownerId, pendingReveal.childId, "owner-unmounted"));
+        pendingReveal.finish(
+          unavailable(
+            ownerId,
+            pendingReveal.childId,
+            currentDirectChildStatus({
+              childId: pendingReveal.childId,
+              childNodeType: TIMELINE_ITEM_NODE,
+              editor,
+              getPos,
+              ownerId,
+              ownerNodeType: TIMELINE_NODE,
+            }) === "child-missing"
+              ? "child-missing"
+              : "owner-unmounted",
+          ),
+        );
       }
       unregister();
     };
-  }, [editor, getPos, getTrackElement, node, presentation, semanticController, timelineId]);
+  }, [editor, getPos, getTrackElement, node, presentation, registry, timelineId]);
 }
 
 interface PendingReveal {
@@ -135,38 +178,6 @@ function unavailable(
   reason: "owner-unmounted" | "child-missing" | "temporarily-unavailable",
 ): SemanticActivationOutcome {
   return Object.freeze({ kind: "unavailable", ownerId, childId, reason });
-}
-
-function isCurrentTimelineChild(
-  editor: Editor,
-  getPos: () => number | undefined,
-  timelineId: EmbeddedNodeId,
-  childId: EmbeddedNodeId,
-): boolean {
-  let position: number | undefined;
-  try {
-    position = getPos();
-  } catch {
-    return false;
-  }
-  if (typeof position !== "number") return false;
-  const timeline = editor.state.doc.nodeAt(position);
-  const currentTimelineId = EmbeddedNodeIdSchema.safeParse(timeline?.attrs["id"]);
-  if (
-    timeline?.type.name !== TIMELINE_NODE ||
-    !currentTimelineId.success ||
-    currentTimelineId.data !== timelineId
-  ) {
-    return false;
-  }
-
-  let matches = false;
-  timeline.forEach((child) => {
-    if (matches || child.type.name !== TIMELINE_ITEM_NODE) return;
-    const currentChildId = EmbeddedNodeIdSchema.safeParse(child.attrs["id"]);
-    matches = currentChildId.success && currentChildId.data === childId;
-  });
-  return matches;
 }
 
 function timelineEventById(track: HTMLElement, childId: EmbeddedNodeId): HTMLElement | null {

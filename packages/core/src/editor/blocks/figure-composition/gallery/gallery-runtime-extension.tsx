@@ -13,6 +13,7 @@ import {
   useLearningEventReporter,
   type LearningEventReporter,
 } from "@/runtime/learning-events/LearningEventRuntimeProvider";
+import { useStatefulBlockSemanticActivationBinding } from "@/document/semantic-target-interaction/use-stateful-block-semantic-activation-binding";
 
 import {
   parseGalleryData,
@@ -29,6 +30,7 @@ import {
 import { galleryDefinition } from "./gallery-definition";
 import { createGalleryNode } from "./node";
 import { GalleryItemNode } from "./slots";
+import { GALLERY_ITEM_NODE, GALLERY_NODE } from "./content";
 
 import "./Gallery.css";
 
@@ -49,8 +51,13 @@ function GalleryRuntimeView(props: NodeViewProps) {
     galleryId: string;
     itemIds: Set<string>;
   } | null>(null);
+  const semanticActivationItemRef = useRef<string | null>(null);
   const recordDisplayedItem = useCallback(
     (itemId: string) => {
+      if (semanticActivationItemRef.current === itemId) {
+        semanticActivationItemRef.current = null;
+        return;
+      }
       if (!isPresented || typeof galleryId !== "string" || !galleryId.trim()) {
         return;
       }
@@ -89,13 +96,29 @@ function GalleryRuntimeView(props: NodeViewProps) {
   useEffect(() => {
     if (!rawItems.length) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
+      semanticActivationItemRef.current = null;
       setActiveId(null);
       return;
     }
     if (!rawItems.some((item) => item.id === activeId)) {
+      semanticActivationItemRef.current = null;
       setActiveId(rawItems[0]?.id ?? null);
     }
   }, [rawItems, activeId]);
+
+  useStatefulBlockSemanticActivationBinding({
+    childNodeType: GALLERY_ITEM_NODE,
+    editor: props.editor,
+    getPos: props.getPos,
+    isVisible: (childId) => data.layout === "grid" || activeId === childId,
+    node: props.node,
+    ownerId: galleryId,
+    ownerNodeType: GALLERY_NODE,
+    revealChild: (childId) => {
+      semanticActivationItemRef.current = childId;
+      setActiveId(childId);
+    },
+  });
 
   const activeIndex = Math.max(
     0,
@@ -120,6 +143,7 @@ function GalleryRuntimeView(props: NodeViewProps) {
             <GalleryGrid
               items={resolved}
               onTileClick={(id) => {
+                semanticActivationItemRef.current = null;
                 setActiveId(id);
                 setLightboxOpen(true);
               }}
@@ -130,8 +154,14 @@ function GalleryRuntimeView(props: NodeViewProps) {
               activeIndex={activeIndex}
               activeItem={activeItem}
               onActiveItemLoad={recordDisplayedItem}
-              onSelect={setActiveId}
-              onOpenLightbox={() => setLightboxOpen(true)}
+              onSelect={(id) => {
+                semanticActivationItemRef.current = null;
+                setActiveId(id);
+              }}
+              onOpenLightbox={() => {
+                semanticActivationItemRef.current = null;
+                setLightboxOpen(true);
+              }}
             />
           )}
         </div>

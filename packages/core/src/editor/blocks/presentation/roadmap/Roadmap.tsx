@@ -1,7 +1,7 @@
 import { NodeViewContent, type NodeViewProps } from "@tiptap/react";
 import { useRef, type ReactNode } from "react";
 
-import { useScrollableBlockSemanticActivationBinding } from "@/document/authoring/semantic-document/use-scrollable-block-semantic-activation-binding";
+import { useScrollableBlockSemanticActivationBinding } from "@/document/semantic-target-interaction/use-scrollable-block-semantic-activation-binding";
 import { normalizeBlockFrame } from "@/editor/frame/model/block-frame";
 
 import { ROADMAP_MILESTONE_NODE, ROADMAP_NODE } from "./content";

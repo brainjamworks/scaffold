@@ -747,6 +747,217 @@ describe("createLearnerActivityStore", () => {
     );
   });
 
+  it("preserves an accepted Flashcard event when a later guided update suppresses reporting", async () => {
+    const first = deferred<LearnerActivityRecord>();
+    const second = deferred<LearnerActivityRecord>();
+    const save = vi
+      .fn<LearnerActivityPort["save"]>()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
+    const { session, record } = createSessionDouble();
+    const store = createLearnerActivityStore({
+      artifactId: "course-1",
+      learnerActivityPort: createPort(save),
+      getLearningEventSession: () => session,
+    });
+    hydrateBlock(
+      store,
+      hostRecord(
+        { currentCardId: "card-one", flipped: {}, mastery: {}, total: 2 },
+        { activityKind: "flashcard" },
+      ),
+    );
+
+    store.getState().updateActivity("block0000001", {
+      data: {
+        currentCardId: "card-one",
+        flipped: { "card-one": true },
+        mastery: {},
+        total: 2,
+      },
+      completed: false,
+      learningEvent: {
+        kind: "flashcard-flipped",
+        cardId: "card-one",
+        face: "back",
+      },
+    });
+    store.getState().updateActivity("block0000001", {
+      data: {
+        currentCardId: "card-two",
+        flipped: { "card-one": true },
+        mastery: {},
+        total: 2,
+      },
+      completed: false,
+      learningEvent: null,
+    });
+    await vi.waitFor(() => expect(save).toHaveBeenCalledOnce());
+
+    first.resolve(
+      hostRecord(
+        {
+          currentCardId: "card-one",
+          flipped: { "card-one": true },
+          mastery: {},
+          total: 2,
+        },
+        { activityKind: "flashcard" },
+      ),
+    );
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(record).toHaveBeenCalledOnce();
+    expect(record).toHaveBeenCalledWith(
+      learnerActivityInput({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        blockId: "block0000001",
+        activityKind: "flashcard",
+        event: {
+          kind: "flashcard-flipped",
+          cardId: "card-one",
+          face: "back",
+        },
+      }),
+    );
+
+    second.resolve(
+      hostRecord(
+        {
+          currentCardId: "card-two",
+          flipped: { "card-one": true },
+          mastery: {},
+          total: 2,
+        },
+        { activityKind: "flashcard" },
+      ),
+    );
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("idle"));
+    expect(record).toHaveBeenCalledOnce();
+  });
+
+  it("preserves an accepted generic learner transition before a guided update", async () => {
+    const first = deferred<LearnerActivityRecord>();
+    const second = deferred<LearnerActivityRecord>();
+    const save = vi
+      .fn<LearnerActivityPort["save"]>()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
+    const { session, record } = createSessionDouble();
+    const store = createLearnerActivityStore({
+      artifactId: "course-1",
+      learnerActivityPort: createPort(save),
+      getLearningEventSession: () => session,
+    });
+    hydrateBlock(
+      store,
+      hostRecord(
+        { currentCardId: "card-one", flipped: {}, mastery: {}, total: 3 },
+        { activityKind: "flashcard" },
+      ),
+    );
+
+    store.getState().patchData("block0000001", { currentCardId: "card-two" });
+    store.getState().updateActivity("block0000001", {
+      data: {
+        currentCardId: "card-three",
+        flipped: {},
+        mastery: {},
+        total: 3,
+      },
+      completed: false,
+      learningEvent: null,
+    });
+    await vi.waitFor(() => expect(save).toHaveBeenCalledOnce());
+
+    first.resolve(
+      hostRecord(
+        { currentCardId: "card-two", flipped: {}, mastery: {}, total: 3 },
+        { activityKind: "flashcard" },
+      ),
+    );
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(store.getState().activities["block0000001"]?.data["currentCardId"]).toBe("card-three");
+    expect(record).toHaveBeenCalledOnce();
+    expect(record).toHaveBeenCalledWith(
+      learnerActivityInput({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        blockId: "block0000001",
+        activityKind: "flashcard",
+      }),
+    );
+
+    second.resolve(
+      hostRecord(
+        { currentCardId: "card-three", flipped: {}, mastery: {}, total: 3 },
+        { activityKind: "flashcard" },
+      ),
+    );
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("idle"));
+    expect(record).toHaveBeenCalledOnce();
+  });
+
+  it("does not attribute a stale guided delta to a later normalized learner update", async () => {
+    const first = deferred<LearnerActivityRecord>();
+    const second = deferred<LearnerActivityRecord>();
+    const save = vi
+      .fn<LearnerActivityPort["save"]>()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
+    const { session, record } = createSessionDouble();
+    const store = createLearnerActivityStore({
+      artifactId: "course-1",
+      learnerActivityPort: createPort(save),
+      getLearningEventSession: () => session,
+    });
+    hydrateBlock(
+      store,
+      hostRecord(
+        { currentCardId: "card-one", flipped: {}, mastery: {}, total: 2 },
+        { activityKind: "flashcard" },
+      ),
+    );
+
+    store.getState().updateActivity("block0000001", {
+      data: {
+        currentCardId: "card-two",
+        flipped: {},
+        mastery: {},
+        total: 2,
+      },
+      completed: false,
+      learningEvent: null,
+    });
+    store.getState().updateActivity("block0000001", {
+      data: {
+        currentCardId: "card-two",
+        flipped: {},
+        mastery: {},
+        total: 2,
+        attemptedLearnerChange: true,
+      },
+      completed: false,
+    });
+    await vi.waitFor(() => expect(save).toHaveBeenCalledOnce());
+
+    first.resolve(
+      hostRecord(
+        { currentCardId: "card-two", flipped: {}, mastery: {}, total: 2 },
+        { activityKind: "flashcard" },
+      ),
+    );
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(record).not.toHaveBeenCalled();
+
+    second.resolve(
+      hostRecord(
+        { currentCardId: "card-two", flipped: {}, mastery: {}, total: 2 },
+        { activityKind: "flashcard" },
+      ),
+    );
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("idle"));
+    expect(record).not.toHaveBeenCalled();
+  });
+
   it("records only completed when the current generation changes data and completes", async () => {
     const first = deferred<LearnerActivityRecord>();
     const second = deferred<LearnerActivityRecord>();

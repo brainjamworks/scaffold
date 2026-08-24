@@ -2,6 +2,7 @@ import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/re
 
 import {
   courseStateForRoadmapStatus,
+  readRequiredRoadmapMilestoneId,
   readMilestonePosition,
   readMilestoneStatus,
   roadmapMarkerClassName,
@@ -15,11 +16,13 @@ export function RoadmapMilestoneRuntimeView(props: NodeViewProps) {
   const roadmapData = resolveRoadmapData(props);
   const status = readMilestoneStatus(props.node);
   const courseState = courseStateForRoadmapStatus(status);
+  const milestoneId = readRequiredRoadmapMilestoneId(props.node.attrs["id"]);
 
   return (
     <NodeViewWrapper
       role="listitem"
       data-node="roadmap-milestone"
+      data-roadmap-milestone-id={milestoneId}
       aria-current={status === "current" ? "step" : undefined}
       className="sc-course-roadmap__milestone"
     >

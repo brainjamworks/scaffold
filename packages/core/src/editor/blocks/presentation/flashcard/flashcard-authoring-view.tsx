@@ -4,7 +4,7 @@ import { NodeViewContent, useEditorState, type NodeViewProps } from "@tiptap/rea
 
 import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
-import { useStatefulBlockSemanticActivationBinding } from "@/document/authoring/semantic-document/use-stateful-block-semantic-activation-binding";
+import { useStatefulBlockSemanticActivationBinding } from "@/document/semantic-target-interaction/use-stateful-block-semantic-activation-binding";
 
 import { FlashcardCardView, FlashcardDeckAuthoring } from "./FlashcardComponents";
 import { FlashcardFilmstrip, type FlashcardFilmstripCard } from "./FlashcardFilmstrip";

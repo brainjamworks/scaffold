@@ -129,6 +129,18 @@ function renderFlashcardEditor(
   return fixture;
 }
 
+function findNodeById(editor: import("@tiptap/core").Editor, id: string) {
+  const matches: Array<{ readonly position: number; readonly nodeSize: number }> = [];
+  editor.state.doc.descendants((node, position) => {
+    if (node.attrs["id"] !== id) return true;
+    matches.push({ position, nodeSize: node.nodeSize });
+    return false;
+  });
+  const found = matches[0];
+  if (!found) throw new Error(`Missing node "${id}"`);
+  return found;
+}
+
 describe("flashcard block", () => {
   it("registers semantic activation and reveals the requested card", async () => {
     const semanticHarness = createSemanticActivationBindingTestExtension();
@@ -151,6 +163,102 @@ describe("flashcard block", () => {
       ).not.toHaveClass("sc-course-flashcard-card--inactive");
     });
     await expect(activation).resolves.toEqual({ kind: "revealed", ownerId, childId: secondCardId });
+
+    fixture.destroy();
+  });
+
+  it("returns child-missing when the requested card is removed before visibility commits", async () => {
+    const semanticHarness = createSemanticActivationBindingTestExtension();
+    const fixture = renderFlashcardEditor(flashcardFixture(2), [semanticHarness.extension]);
+    const ownerId = EmbeddedNodeIdSchema.parse("flashcard001");
+    const targetId = EmbeddedNodeIdSchema.parse("flashcard002");
+    const binding = await waitFor(() =>
+      requireSemanticActivationBinding(semanticHarness.registry, ownerId),
+    );
+
+    const activation = binding.activate(semanticActivationRequest(ownerId, targetId));
+    const target = findNodeById(fixture.editor, targetId);
+    fixture.editor.view.dispatch(
+      fixture.editor.state.tr.delete(target.position, target.position + target.nodeSize),
+    );
+
+    await expect(activation).resolves.toEqual({
+      kind: "unavailable",
+      ownerId,
+      childId: targetId,
+      reason: "child-missing",
+    });
+    expect(fixture.json().content?.[0]?.content).toHaveLength(1);
+
+    fixture.destroy();
+  });
+
+  it("returns owner-unmounted when the whole deck is removed before visibility commits", async () => {
+    const semanticHarness = createSemanticActivationBindingTestExtension();
+    const fixture = renderFlashcardEditor(flashcardFixture(2), [semanticHarness.extension]);
+    const ownerId = EmbeddedNodeIdSchema.parse("flashcard001");
+    const targetId = EmbeddedNodeIdSchema.parse("flashcard002");
+    const binding = await waitFor(() =>
+      requireSemanticActivationBinding(semanticHarness.registry, ownerId),
+    );
+
+    const activation = binding.activate(semanticActivationRequest(ownerId, targetId));
+    const owner = findNodeById(fixture.editor, ownerId);
+    fixture.editor.view.dispatch(
+      fixture.editor.state.tr.delete(owner.position, owner.position + owner.nodeSize),
+    );
+
+    await expect(activation).resolves.toEqual({
+      kind: "unavailable",
+      ownerId,
+      childId: targetId,
+      reason: "owner-unmounted",
+    });
+
+    fixture.destroy();
+  });
+
+  it("interrupts a pending activation when a newer card reveal supersedes it", async () => {
+    const semanticHarness = createSemanticActivationBindingTestExtension();
+    const fixture = renderFlashcardEditor(flashcardFixture(2), [semanticHarness.extension]);
+    const ownerId = EmbeddedNodeIdSchema.parse("flashcard001");
+    const targetId = EmbeddedNodeIdSchema.parse("flashcard002");
+    const binding = await waitFor(() =>
+      requireSemanticActivationBinding(semanticHarness.registry, ownerId),
+    );
+
+    const superseded = binding.activate(semanticActivationRequest(ownerId, targetId));
+    const current = binding.activate(semanticActivationRequest(ownerId, targetId));
+
+    await expect(superseded).resolves.toEqual({
+      kind: "interrupted",
+      ownerId,
+      childId: targetId,
+    });
+    await expect(current).resolves.toEqual({ kind: "revealed", ownerId, childId: targetId });
+
+    fixture.destroy();
+  });
+
+  it("settles a pending activation when the mounted owner unmounts", async () => {
+    const semanticHarness = createSemanticActivationBindingTestExtension();
+    const fixture = renderFlashcardEditor(flashcardFixture(2), [semanticHarness.extension]);
+    const ownerId = EmbeddedNodeIdSchema.parse("flashcard001");
+    const targetId = EmbeddedNodeIdSchema.parse("flashcard002");
+    const binding = await waitFor(() =>
+      requireSemanticActivationBinding(semanticHarness.registry, ownerId),
+    );
+
+    const activation = binding.activate(semanticActivationRequest(ownerId, targetId));
+    cleanup();
+
+    await expect(activation).resolves.toEqual({
+      kind: "unavailable",
+      ownerId,
+      childId: targetId,
+      reason: "owner-unmounted",
+    });
+    expect(semanticHarness.registry.resolve(ownerId).kind).toBe("unavailable");
 
     fixture.destroy();
   });

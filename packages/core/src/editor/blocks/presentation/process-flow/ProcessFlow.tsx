@@ -6,7 +6,7 @@ import {
 } from "@tiptap/react";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 
-import { useScrollableBlockSemanticActivationBinding } from "@/document/authoring/semantic-document/use-scrollable-block-semantic-activation-binding";
+import { useScrollableBlockSemanticActivationBinding } from "@/document/semantic-target-interaction/use-scrollable-block-semantic-activation-binding";
 
 import { PROCESS_FLOW_NODE, PROCESS_FLOW_STEP_NODE } from "./content";
 import { parseProcessFlowData } from "./ProcessFlowModel";

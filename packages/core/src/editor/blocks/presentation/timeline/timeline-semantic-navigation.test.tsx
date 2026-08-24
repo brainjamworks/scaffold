@@ -11,6 +11,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vite-p
 
 import { createSemanticDefinitionLookup } from "@/composition/model/semantic-definition-lookup";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import {
   createSemanticDocumentExtension,
   getSemanticDocumentControllerForEditor,
@@ -19,6 +21,7 @@ import {
   requireSemanticActivationBinding,
   semanticActivationRequest,
 } from "@/document/authoring/semantic-document/testing/semantic-activation-binding-test-extension";
+import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import {
   LayoutAuthoringNode,
@@ -49,6 +52,7 @@ const SECOND_ENTRY_IDS = [
   "timeEntry004" as EmbeddedNodeId,
 ] as const;
 const editors: Editor[] = [];
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 const scrollToDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollTo");
 
 beforeAll(() => {
@@ -73,6 +77,58 @@ afterAll(() => {
 });
 
 describe("Timeline semantic navigation", () => {
+  it("reveals the exact runtime entry through the configured-presentation coordinator", async () => {
+    const editor = makeRuntimeEditor("carousel");
+    const rendered = render(createElement(EditorContent, { editor }));
+    const initiatingControl = document.createElement("button");
+    const click = vi.fn();
+    const keydown = vi.fn();
+    const pointerdown = vi.fn();
+
+    try {
+      document.body.append(initiatingControl);
+      initiatingControl.focus();
+      document.addEventListener("click", click);
+      document.addEventListener("keydown", keydown);
+      document.addEventListener("pointerdown", pointerdown);
+      const environment = getSemanticTargetInteractionEnvironmentForEditor(editor);
+      await waitFor(() => {
+        expect(environment.registry.resolve(TIMELINE_ID).kind).toBe("resolved");
+      });
+      const track = timelineRuntimeTrack(TIMELINE_ID);
+      const target = timelineEntry(track, ENTRY_IDS[1]);
+      const scrollTo = installGeometry(track, target, "carousel", false);
+      const authoredDocument = editor.getJSON();
+      const selection = editor.state.selection.toJSON();
+
+      await expect(
+        environment.coordinator.activate(ENTRY_IDS[1], {
+          origin: "configured-presentation",
+        }),
+      ).resolves.toEqual({ kind: "reached", requestedId: ENTRY_IDS[1] });
+
+      expect(scrollTo).toHaveBeenCalledWith({ behavior: "smooth", left: 260 });
+      expect(editor.getJSON()).toEqual(authoredDocument);
+      expect(editor.state.selection.toJSON()).toEqual(selection);
+      expect(document.activeElement).toBe(initiatingControl);
+      expect(click).not.toHaveBeenCalled();
+      expect(keydown).not.toHaveBeenCalled();
+      expect(pointerdown).not.toHaveBeenCalled();
+
+      rendered.unmount();
+      expect(environment.registry.resolve(TIMELINE_ID)).toEqual({
+        kind: "unavailable",
+        ownerId: TIMELINE_ID,
+        reason: "owner-unmounted",
+      });
+    } finally {
+      document.removeEventListener("click", click);
+      document.removeEventListener("keydown", keydown);
+      document.removeEventListener("pointerdown", pointerdown);
+      initiatingControl.remove();
+    }
+  });
+
   it("registers and unregisters its binding while exposing exact persisted entry IDs", async () => {
     const editor = makeEditor("vertical");
     const rendered = renderEditor(editor);
@@ -337,6 +393,16 @@ function makeEditor(presentation: "carousel" | "vertical", includeSecondTimeline
   return editor;
 }
 
+function makeRuntimeEditor(presentation: "carousel" | "vertical"): Editor {
+  const editor = new Editor({
+    editable: false,
+    extensions: createCourseDocumentRuntimeExtensions({ composition: runtimeComposition }),
+    content: documentContent(presentation, false),
+  });
+  editors.push(editor);
+  return editor;
+}
+
 function renderEditor(editor: Editor) {
   return render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
 }
@@ -410,6 +476,14 @@ function timelineTrack(timelineId: EmbeddedNodeId): HTMLElement {
     `[data-authoring-frame="block"][data-id="${timelineId}"] .sc-course-timeline__track`,
   );
   if (!track) throw new Error(`Missing track for Timeline ${timelineId}`);
+  return track;
+}
+
+function timelineRuntimeTrack(timelineId: EmbeddedNodeId): HTMLElement {
+  const track = document.querySelector<HTMLElement>(
+    `[data-runtime-frame="block"][data-id="${timelineId}"] .sc-course-timeline__track`,
+  );
+  if (!track) throw new Error(`Missing runtime track for Timeline ${timelineId}`);
   return track;
 }
 

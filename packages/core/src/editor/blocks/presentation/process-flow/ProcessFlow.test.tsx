@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { Extensions, JSONContent } from "@tiptap/core";
+import { Editor, type Extensions, type JSONContent } from "@tiptap/core";
 import UniqueID from "@tiptap/extension-unique-id";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -11,12 +11,15 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import {
   createSemanticActivationBindingTestExtension,
   requireSemanticActivationBinding,
   semanticActivationRequest,
 } from "@/document/authoring/semantic-document/testing/semantic-activation-binding-test-extension";
+import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import {
   builtInBlockDefinitions,
@@ -43,6 +46,7 @@ import { processFlowBlockDefinition } from "./process-flow-definition";
 import { ProcessFlowRuntimeExtension } from "./process-flow-runtime-extension";
 
 const testCapabilities = createScaffoldApplication().capabilities;
+const semanticRuntimeComposition = createCoreScaffoldRuntimeComposition();
 const blockInsertCatalog = createInsertCatalog(
   createBlockInsertActions([processFlowBlockDefinition]),
 );
@@ -59,6 +63,7 @@ describeBlockContract({
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   document.body.replaceChildren();
 });
 
@@ -91,6 +96,239 @@ describe("Process Flow presentation block", () => {
     expect(scrollTo).toHaveBeenCalledOnce();
 
     fixture.destroy();
+  });
+
+  it("reveals the exact runtime step through the owned scrollport", async () => {
+    const editor = new Editor({
+      editable: false,
+      extensions: createCourseDocumentRuntimeExtensions({
+        composition: semanticRuntimeComposition,
+      }),
+      content: runtimeProcessFlowDocument("horizontal"),
+    });
+    const rendered = render(createElement(EditorContent, { editor }));
+    const initiatingControl = document.createElement("button");
+    const click = vi.fn();
+    const keydown = vi.fn();
+    const pointerdown = vi.fn();
+
+    try {
+      document.body.append(initiatingControl);
+      initiatingControl.focus();
+      document.addEventListener("click", click);
+      document.addEventListener("keydown", keydown);
+      document.addEventListener("pointerdown", pointerdown);
+      const ownerId = EmbeddedNodeIdSchema.parse("procflow0001");
+      const targetId = EmbeddedNodeIdSchema.parse("flowstep0003");
+      const scrollport = await screen
+        .findByRole("region", { name: "Process flow" })
+        .then((region) => region.querySelector<HTMLElement>(".sc-course-process-flow__scrollport"));
+      const target = editor.view.dom.querySelector<HTMLElement>(
+        `[data-process-flow-step-id="${targetId}"]`,
+      );
+      expect(scrollport).not.toBeNull();
+      expect(target).not.toBeNull();
+      const scrollTo = installHorizontalRevealGeometry(scrollport!, target!);
+      const environment = getSemanticTargetInteractionEnvironmentForEditor(editor);
+      await waitFor(() => expect(environment.registry.resolve(ownerId).kind).toBe("resolved"));
+      const authoredDocument = editor.getJSON();
+      const selection = editor.state.selection.toJSON();
+
+      await expect(
+        environment.coordinator.activate(targetId, { origin: "configured-presentation" }),
+      ).resolves.toEqual({ kind: "reached", requestedId: targetId });
+      expect(scrollTo).toHaveBeenCalledOnce();
+      expect(scrollTo).toHaveBeenCalledWith({ behavior: "smooth", left: 260 });
+      expect(editor.getJSON()).toEqual(authoredDocument);
+      expect(editor.state.selection.toJSON()).toEqual(selection);
+      expect(document.activeElement).toBe(initiatingControl);
+      expect(click).not.toHaveBeenCalled();
+      expect(keydown).not.toHaveBeenCalled();
+      expect(pointerdown).not.toHaveBeenCalled();
+      expect(editor.view.dom.querySelector('[class*="sc-app-process-flow"]')).toBeNull();
+
+      rendered.unmount();
+      expect(environment.registry.resolve(ownerId)).toEqual({
+        kind: "unavailable",
+        ownerId,
+        reason: "owner-unmounted",
+      });
+    } finally {
+      document.removeEventListener("click", click);
+      document.removeEventListener("keydown", keydown);
+      document.removeEventListener("pointerdown", pointerdown);
+      initiatingControl.remove();
+      rendered.unmount();
+      editor.destroy();
+    }
+  });
+
+  it("interrupts a superseded runtime reveal before scrolling", async () => {
+    const editor = new Editor({
+      editable: false,
+      extensions: createCourseDocumentRuntimeExtensions({
+        composition: semanticRuntimeComposition,
+      }),
+      content: runtimeProcessFlowDocument("horizontal"),
+    });
+    const rendered = render(createElement(EditorContent, { editor }));
+
+    try {
+      const ownerId = EmbeddedNodeIdSchema.parse("procflow0001");
+      const targetId = EmbeddedNodeIdSchema.parse("flowstep0003");
+      const scrollport = await screen
+        .findByRole("region", { name: "Process flow" })
+        .then((region) => region.querySelector<HTMLElement>(".sc-course-process-flow__scrollport"));
+      const target = editor.view.dom.querySelector<HTMLElement>(
+        `[data-process-flow-step-id="${targetId}"]`,
+      );
+      expect(scrollport).not.toBeNull();
+      expect(target).not.toBeNull();
+      const scrollTo = installHorizontalRevealGeometry(scrollport!, target!);
+      const environment = getSemanticTargetInteractionEnvironmentForEditor(editor);
+      const binding = await waitFor(() => {
+        const resolution = environment.registry.resolve(ownerId);
+        expect(resolution.kind).toBe("resolved");
+        if (resolution.kind !== "resolved") throw new Error("Missing Process Flow binding");
+        return resolution.binding;
+      });
+
+      const superseded = binding.activate(semanticActivationRequest(ownerId, targetId));
+      const current = binding.activate(semanticActivationRequest(ownerId, targetId));
+
+      await expect(superseded).resolves.toEqual({
+        kind: "interrupted",
+        ownerId,
+        childId: targetId,
+      });
+      await expect(current).resolves.toEqual({ kind: "revealed", ownerId, childId: targetId });
+      expect(scrollTo).toHaveBeenCalledOnce();
+    } finally {
+      rendered.unmount();
+      editor.destroy();
+    }
+  });
+
+  it("returns child-missing when a pending step is removed before scrolling", async () => {
+    const semanticHarness = createSemanticActivationBindingTestExtension();
+    const fixture = renderProcessFlowEditor(processFlowFixture("horizontal"), true, [
+      semanticHarness.extension,
+    ]);
+    const { editor } = fixture;
+
+    try {
+      const ownerId = EmbeddedNodeIdSchema.parse("procflow0001");
+      const targetId = EmbeddedNodeIdSchema.parse("flowstep0003");
+      const scrollport = await screen
+        .findByRole("region", { name: "Process flow" })
+        .then((region) => region.querySelector<HTMLElement>(".sc-course-process-flow__scrollport"));
+      const targetElement = editor.view.dom.querySelector<HTMLElement>(
+        `[data-process-flow-step-id="${targetId}"]`,
+      );
+      if (!scrollport || !targetElement) throw new Error("Missing Process Flow reveal DOM");
+      const scrollTo = installHorizontalRevealGeometry(scrollport, targetElement);
+      const binding = await waitFor(() => {
+        const resolution = semanticHarness.registry.resolve(ownerId);
+        expect(resolution.kind).toBe("resolved");
+        if (resolution.kind !== "resolved") throw new Error("Missing Process Flow binding");
+        return resolution.binding;
+      });
+
+      const activation = binding.activate(semanticActivationRequest(ownerId, targetId));
+      const targetNode = findNodeById(editor, targetId);
+      editor.view.dispatch(
+        editor.state.tr.delete(targetNode.position, targetNode.position + targetNode.nodeSize),
+      );
+      expect(JSON.stringify(editor.getJSON())).not.toContain(targetId);
+
+      await expect(activation).resolves.toEqual({
+        kind: "unavailable",
+        ownerId,
+        childId: targetId,
+        reason: "child-missing",
+      });
+      expect(scrollTo).not.toHaveBeenCalled();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it("returns temporarily-unavailable when the runtime step DOM is absent", async () => {
+    const editor = new Editor({
+      editable: false,
+      extensions: createCourseDocumentRuntimeExtensions({
+        composition: semanticRuntimeComposition,
+      }),
+      content: runtimeProcessFlowDocument("horizontal"),
+    });
+    const rendered = render(createElement(EditorContent, { editor }));
+
+    try {
+      const ownerId = EmbeddedNodeIdSchema.parse("procflow0001");
+      const targetId = EmbeddedNodeIdSchema.parse("flowstep0003");
+      const environment = getSemanticTargetInteractionEnvironmentForEditor(editor);
+      const binding = await waitFor(() => {
+        const resolution = environment.registry.resolve(ownerId);
+        expect(resolution.kind).toBe("resolved");
+        if (resolution.kind !== "resolved") throw new Error("Missing Process Flow binding");
+        return resolution.binding;
+      });
+      const target = editor.view.dom.querySelector<HTMLElement>(
+        `[data-process-flow-step-id="${targetId}"]`,
+      );
+      if (!target) throw new Error("Missing Process Flow target DOM");
+      target.removeAttribute("data-process-flow-step-id");
+      try {
+        await expect(
+          binding.activate(semanticActivationRequest(ownerId, targetId)),
+        ).resolves.toEqual({
+          kind: "unavailable",
+          ownerId,
+          childId: targetId,
+          reason: "temporarily-unavailable",
+        });
+      } finally {
+        target.dataset.processFlowStepId = targetId;
+      }
+    } finally {
+      rendered.unmount();
+      editor.destroy();
+    }
+  });
+
+  it("uses auto scrolling for a reduced-motion runtime reveal", async () => {
+    vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true } as MediaQueryList);
+    const editor = new Editor({
+      editable: false,
+      extensions: createCourseDocumentRuntimeExtensions({
+        composition: semanticRuntimeComposition,
+      }),
+      content: runtimeProcessFlowDocument("horizontal"),
+    });
+    const rendered = render(createElement(EditorContent, { editor }));
+
+    try {
+      const ownerId = EmbeddedNodeIdSchema.parse("procflow0001");
+      const targetId = EmbeddedNodeIdSchema.parse("flowstep0003");
+      const scrollport = await screen
+        .findByRole("region", { name: "Process flow" })
+        .then((region) => region.querySelector<HTMLElement>(".sc-course-process-flow__scrollport"));
+      const target = editor.view.dom.querySelector<HTMLElement>(
+        `[data-process-flow-step-id="${targetId}"]`,
+      );
+      if (!scrollport || !target) throw new Error("Missing Process Flow reveal DOM");
+      const scrollTo = installHorizontalRevealGeometry(scrollport, target);
+      const environment = getSemanticTargetInteractionEnvironmentForEditor(editor);
+      await waitFor(() => expect(environment.registry.resolve(ownerId).kind).toBe("resolved"));
+
+      await expect(
+        environment.coordinator.activate(targetId, { origin: "configured-presentation" }),
+      ).resolves.toEqual({ kind: "reached", requestedId: targetId });
+      expect(scrollTo).toHaveBeenCalledWith({ behavior: "auto", left: 260 });
+    } finally {
+      rendered.unmount();
+      editor.destroy();
+    }
   });
 
   it("seeds structured Research, Draft, and Review steps with stable ids", () => {
@@ -268,6 +506,29 @@ function processFlowFixture(orientation: "horizontal" | "vertical" = "horizontal
   };
 }
 
+function runtimeProcessFlowDocument(
+  orientation: "horizontal" | "vertical" = "horizontal",
+): JSONContent {
+  const content = processFlowFixture(orientation).content?.slice(0, 1);
+  if (!content) throw new Error("Process Flow runtime fixture has no content");
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: { mode: "page" },
+        content: [
+          {
+            type: "surface",
+            attrs: { id: "surfaceFlow1", variant: "page-default" },
+            content,
+          },
+        ],
+      },
+    ],
+  };
+}
+
 function renderProcessFlowEditor(
   content: JSONContent = processFlowFixture(),
   editable = true,
@@ -301,8 +562,21 @@ function renderProcessFlowEditor(
 function installHorizontalRevealGeometry(scrollport: HTMLElement, target: HTMLElement) {
   scrollport.getBoundingClientRect = () =>
     DOMRect.fromRect({ x: 0, y: 0, width: 200, height: 100 });
+  Object.defineProperty(scrollport, "clientWidth", { configurable: true, value: 200 });
   target.getBoundingClientRect = () => DOMRect.fromRect({ x: 320, y: 0, width: 80, height: 80 });
   const scrollTo = vi.fn();
   Object.defineProperty(scrollport, "scrollTo", { configurable: true, value: scrollTo });
   return scrollTo;
+}
+
+function findNodeById(editor: Editor, id: string) {
+  const matches: Array<{ readonly position: number; readonly nodeSize: number }> = [];
+  editor.state.doc.descendants((node, position) => {
+    if (node.attrs["id"] !== id) return true;
+    matches.push({ position, nodeSize: node.nodeSize });
+    return false;
+  });
+  const found = matches[0];
+  if (!found) throw new Error(`Missing node "${id}"`);
+  return found;
 }

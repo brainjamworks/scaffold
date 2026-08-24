@@ -28,6 +28,7 @@ import {
   semanticActivationRequest,
 } from "@/document/authoring/semantic-document/testing/semantic-activation-binding-test-extension";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import {
@@ -179,6 +180,7 @@ function renderGalleryLearningEventRuntime(
   gallery: JSONContent,
   learningEventPort: LearningEventPort,
   visibleSurfaceId?: string,
+  onReady?: (editor: Editor) => void,
 ) {
   const surfaceId = createEmbeddedNodeId();
   const surface = slideContentSurfaceDefinition.createSurface({ surfaceId });
@@ -198,7 +200,7 @@ function renderGalleryLearningEventRuntime(
   if (!courseSection) throw new Error("Gallery fixture has no courseSection.");
   courseDocument.content = [courseSection, surface];
 
-  render(
+  return render(
     createElement(ScaffoldServicesProvider, {
       ports: { learningEvents: learningEventPort },
       children: createElement(ScaffoldArtifactIdentityProvider, {
@@ -207,6 +209,7 @@ function renderGalleryLearningEventRuntime(
           children: createElement(CourseDocumentRuntimeRenderer, {
             composition: coreRuntimeComposition,
             initialContent: content,
+            ...(onReady ? { onReady } : {}),
             productAccess: { scaffoldPlusAuthorized: false },
             visibleSurfaceId: visibleSurfaceId ?? surfaceId,
           }),
@@ -256,6 +259,125 @@ it("registers semantic activation and reveals the requested carousel item", asyn
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
   editor.destroy();
+});
+
+it("reaches the exact hidden carousel item through the runtime coordinator", async () => {
+  let runtimeEditor: Editor | null = null;
+  const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
+  renderGalleryLearningEventRuntime(
+    galleryFixture(),
+    {
+      rootActivityId: "https://lms.example.test/courses/gallery",
+      accept,
+    },
+    undefined,
+    (editor) => {
+      runtimeEditor = editor;
+    },
+  );
+
+  await waitFor(() => expect(runtimeEditor).not.toBeNull());
+  const editor = runtimeEditor!;
+  const ownerId = EmbeddedNodeIdSchema.parse("gallery_0001");
+  const targetId = EmbeddedNodeIdSchema.parse("galleryimg02");
+  const environment = getSemanticTargetInteractionEnvironmentForEditor(editor);
+  await waitFor(() => expect(environment.registry.resolve(ownerId).kind).toBe("resolved"));
+
+  await expect(
+    environment.coordinator.activate(targetId, { origin: "configured-presentation" }),
+  ).resolves.toEqual({ kind: "reached", requestedId: targetId });
+
+  await waitFor(() => {
+    expect(screen.getByRole("img", { name: "Second image" })).toBeInTheDocument();
+  });
+  expect(screen.queryByRole("dialog", { name: "Gallery viewer" })).not.toBeInTheDocument();
+});
+
+it("does not report a runtime carousel item revealed by semantic activation", async () => {
+  let runtimeEditor: Editor | null = null;
+  const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
+  renderGalleryLearningEventRuntime(
+    galleryFixture(),
+    {
+      rootActivityId: "https://lms.example.test/courses/gallery",
+      accept,
+    },
+    undefined,
+    (editor) => {
+      runtimeEditor = editor;
+    },
+  );
+
+  await waitFor(() => expect(runtimeEditor).not.toBeNull());
+  const editor = runtimeEditor!;
+  const ownerId = EmbeddedNodeIdSchema.parse("gallery_0001");
+  const targetId = EmbeddedNodeIdSchema.parse("galleryimg02");
+  const environment = getSemanticTargetInteractionEnvironmentForEditor(editor);
+  await waitFor(() => expect(environment.registry.resolve(ownerId).kind).toBe("resolved"));
+
+  await expect(
+    environment.coordinator.activate(targetId, { origin: "configured-presentation" }),
+  ).resolves.toEqual({ kind: "reached", requestedId: targetId });
+  const targetImage = await screen.findByRole("img", { name: "Second image" });
+  fireEvent.load(targetImage);
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  expect(accept).not.toHaveBeenCalled();
+});
+
+it("reports an already-visible runtime grid item without changing interaction state", async () => {
+  let runtimeEditor: Editor | null = null;
+  const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
+  const rendered = renderGalleryLearningEventRuntime(
+    galleryFixture("grid"),
+    {
+      rootActivityId: "https://lms.example.test/courses/gallery",
+      accept,
+    },
+    undefined,
+    (editor) => {
+      runtimeEditor = editor;
+    },
+  );
+
+  await waitFor(() => expect(runtimeEditor).not.toBeNull());
+  const editor = runtimeEditor!;
+  const ownerId = EmbeddedNodeIdSchema.parse("gallery_0001");
+  const targetId = EmbeddedNodeIdSchema.parse("galleryimg02");
+  const environment = getSemanticTargetInteractionEnvironmentForEditor(editor);
+  const binding = await waitFor(() => {
+    const resolution = environment.registry.resolve(ownerId);
+    expect(resolution.kind).toBe("resolved");
+    if (resolution.kind !== "resolved") throw new Error("Missing runtime Gallery binding");
+    return resolution.binding;
+  });
+  const authoredDocument = editor.getJSON();
+  const selection = editor.state.selection.toJSON();
+
+  await expect(
+    binding.activate(
+      semanticActivationRequest(ownerId, targetId, {
+        origin: "configured-presentation",
+      }),
+    ),
+  ).resolves.toEqual({ kind: "already-visible", ownerId, childId: targetId });
+
+  expect(screen.getByRole("img", { name: "First image" })).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: "Second image" })).toBeInTheDocument();
+  expect(screen.queryByRole("dialog", { name: "Gallery viewer" })).not.toBeInTheDocument();
+  expect(accept).not.toHaveBeenCalled();
+  expect(editor.getJSON()).toEqual(authoredDocument);
+  expect(editor.state.selection.toJSON()).toEqual(selection);
+
+  rendered.unmount();
+  expect(environment.registry.resolve(ownerId)).toEqual({
+    kind: "unavailable",
+    ownerId,
+    reason: "owner-unmounted",
+  });
 });
 
 it("resolves selected gallery blocks to their declared visual surface", async () => {

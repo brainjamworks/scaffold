@@ -5,7 +5,10 @@ import { useEffect, useRef } from "react";
 
 import type { SemanticActivationOutcome } from "@/document/semantic-target-interaction";
 
-import { semanticDocumentPluginKey } from "./semantic-document-storage";
+import {
+  currentDirectChildStatus,
+  semanticActivationRegistryForEditor,
+} from "./block-semantic-activation-binding";
 
 export interface UseStatefulBlockSemanticActivationBindingInput {
   readonly childNodeType: string;
@@ -29,25 +32,44 @@ export function useStatefulBlockSemanticActivationBinding({
   ownerNodeType,
   revealChild,
 }: UseStatefulBlockSemanticActivationBindingInput): void {
-  const semanticController = semanticDocumentPluginKey.getState(editor.state);
+  const registry = semanticActivationRegistryForEditor(editor);
   const behaviorRef = useRef({ isVisible, revealChild });
   const pendingRef = useRef<PendingActivation | null>(null);
   behaviorRef.current = { isVisible, revealChild };
 
   useEffect(() => {
     const pending = pendingRef.current;
-    if (pending && behaviorRef.current.isVisible(pending.childId)) {
+    if (!pending) return;
+    const status = currentDirectChildStatus({
+      childId: pending.childId,
+      childNodeType,
+      editor,
+      getPos,
+      ownerId: pending.ownerId,
+      ownerNodeType,
+    });
+    if (status !== "current") {
+      pending.finish(
+        unavailable(
+          pending.ownerId,
+          pending.childId,
+          status === "child-missing" ? "child-missing" : "owner-unmounted",
+        ),
+      );
+      return;
+    }
+    if (behaviorRef.current.isVisible(pending.childId)) {
       pending.finish(outcome("revealed", pending.ownerId, pending.childId));
     }
   });
 
   useEffect(() => {
     const semanticOwnerId = EmbeddedNodeIdSchema.safeParse(ownerId);
-    if (!semanticController || !semanticOwnerId.success) return;
+    if (!registry || !semanticOwnerId.success) return;
     const mountedOwnerId = semanticOwnerId.data;
     let active = true;
 
-    const unregister = semanticController.semanticActivations.register({
+    const unregister = registry.register({
       ownerId: mountedOwnerId,
       activate: async ({ relationship, signal }) => {
         const childId = relationship.childId;
@@ -55,18 +77,22 @@ export function useStatefulBlockSemanticActivationBinding({
         if (pending) {
           pending.finish(outcome("interrupted", pending.ownerId, pending.childId));
         }
+        if (!active) return unavailable(mountedOwnerId, childId, "owner-unmounted");
         if (signal.aborted) return outcome("interrupted", mountedOwnerId, childId);
-        if (
-          !isCurrentDirectChild({
+        const childStatus = currentDirectChildStatus({
+          childId,
+          childNodeType,
+          editor,
+          getPos,
+          ownerId: mountedOwnerId,
+          ownerNodeType,
+        });
+        if (childStatus !== "current") {
+          return unavailable(
+            mountedOwnerId,
             childId,
-            childNodeType,
-            editor,
-            getPos,
-            ownerId: mountedOwnerId,
-            ownerNodeType,
-          })
-        ) {
-          return unavailable(mountedOwnerId, childId, "child-missing");
+            childStatus === "child-missing" ? "child-missing" : "owner-unmounted",
+          );
         }
         if (behaviorRef.current.isVisible(childId)) {
           return outcome("already-visible", mountedOwnerId, childId);
@@ -82,7 +108,12 @@ export function useStatefulBlockSemanticActivationBinding({
             resolve(result);
           };
           const handleAbort = () => finish(outcome("interrupted", mountedOwnerId, childId));
-          pendingRef.current = { ownerId: mountedOwnerId, childId, finish };
+          pendingRef.current = {
+            ownerId: mountedOwnerId,
+            childId,
+            document: editor.state.doc,
+            finish,
+          };
           signal.addEventListener("abort", handleAbort, { once: true });
           if (signal.aborted || !active) {
             finish(
@@ -101,16 +132,33 @@ export function useStatefulBlockSemanticActivationBinding({
       active = false;
       const pending = pendingRef.current;
       if (pending) {
-        pending.finish(unavailable(pending.ownerId, pending.childId, "owner-unmounted"));
+        const status = currentDirectChildStatus({
+          childId: pending.childId,
+          childNodeType,
+          editor,
+          getPos,
+          ownerId: pending.ownerId,
+          ownerNodeType,
+        });
+        pending.finish(
+          unavailable(
+            pending.ownerId,
+            pending.childId,
+            editor.state.doc !== pending.document && status === "child-missing"
+              ? "child-missing"
+              : "owner-unmounted",
+          ),
+        );
       }
       unregister();
     };
-  }, [childNodeType, editor, getPos, node, ownerId, ownerNodeType, semanticController]);
+  }, [childNodeType, editor, getPos, node, ownerId, ownerNodeType, registry]);
 }
 
 interface PendingActivation {
   readonly ownerId: EmbeddedNodeId;
   readonly childId: EmbeddedNodeId;
+  readonly document: ProseMirrorNode;
   readonly finish: (result: SemanticActivationOutcome) => void;
 }
 
@@ -128,45 +176,4 @@ function unavailable(
   reason: "owner-unmounted" | "child-missing",
 ): SemanticActivationOutcome {
   return Object.freeze({ kind: "unavailable", ownerId, childId, reason });
-}
-
-export function isCurrentDirectChild({
-  childId,
-  childNodeType,
-  editor,
-  getPos,
-  ownerId,
-  ownerNodeType,
-}: {
-  readonly childId: EmbeddedNodeId;
-  readonly childNodeType: string;
-  readonly editor: Editor;
-  readonly getPos: () => number | undefined;
-  readonly ownerId: EmbeddedNodeId;
-  readonly ownerNodeType: string;
-}): boolean {
-  let position: number | undefined;
-  try {
-    position = getPos();
-  } catch {
-    return false;
-  }
-  if (typeof position !== "number") return false;
-  const owner = editor.state.doc.nodeAt(position);
-  const currentOwnerId = EmbeddedNodeIdSchema.safeParse(owner?.attrs["id"]);
-  if (
-    owner?.type.name !== ownerNodeType ||
-    !currentOwnerId.success ||
-    currentOwnerId.data !== ownerId
-  ) {
-    return false;
-  }
-
-  let found = false;
-  owner.forEach((child) => {
-    if (found || child.type.name !== childNodeType) return;
-    const currentChildId = EmbeddedNodeIdSchema.safeParse(child.attrs["id"]);
-    found = currentChildId.success && currentChildId.data === childId;
-  });
-  return found;
 }

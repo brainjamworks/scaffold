@@ -5,8 +5,10 @@ import { useEffect, useRef } from "react";
 
 import type { SemanticActivationOutcome } from "@/document/semantic-target-interaction";
 
-import { semanticDocumentPluginKey } from "./semantic-document-storage";
-import { isCurrentDirectChild } from "./use-stateful-block-semantic-activation-binding";
+import {
+  currentDirectChildStatus,
+  semanticActivationRegistryForEditor,
+} from "./block-semantic-activation-binding";
 
 export interface UseScrollableBlockSemanticActivationBindingInput {
   readonly axis: "horizontal" | "vertical";
@@ -32,32 +34,41 @@ export function useScrollableBlockSemanticActivationBinding({
   ownerId,
   ownerNodeType,
 }: UseScrollableBlockSemanticActivationBindingInput): void {
-  const semanticController = semanticDocumentPluginKey.getState(editor.state);
+  const registry = semanticActivationRegistryForEditor(editor);
   const behaviorRef = useRef({ axis, getChildElement, getScrollOwner });
+  const pendingRef = useRef<PendingActivation | null>(null);
   behaviorRef.current = { axis, getChildElement, getScrollOwner };
 
   useEffect(() => {
     const semanticOwnerId = EmbeddedNodeIdSchema.safeParse(ownerId);
-    if (!semanticController || !semanticOwnerId.success) return;
+    if (!registry || !semanticOwnerId.success) return;
     const mountedOwnerId = semanticOwnerId.data;
     let active = true;
 
-    const unregister = semanticController.semanticActivations.register({
+    const unregister = registry.register({
       ownerId: mountedOwnerId,
       activate: async ({ relationship, signal }) => {
         const childId = relationship.childId;
+        const pending = pendingRef.current;
+        if (pending) {
+          pending.finish(outcome("interrupted", pending.ownerId, pending.childId));
+        }
+        if (!active) return unavailable(mountedOwnerId, childId, "owner-unmounted");
         if (signal.aborted) return outcome("interrupted", mountedOwnerId, childId);
-        if (
-          !isCurrentDirectChild({
+        const childStatus = currentDirectChildStatus({
+          childId,
+          childNodeType,
+          editor,
+          getPos,
+          ownerId: mountedOwnerId,
+          ownerNodeType,
+        });
+        if (childStatus !== "current") {
+          return unavailable(
+            mountedOwnerId,
             childId,
-            childNodeType,
-            editor,
-            getPos,
-            ownerId: mountedOwnerId,
-            ownerNodeType,
-          })
-        ) {
-          return unavailable(mountedOwnerId, childId, "child-missing");
+            childStatus === "child-missing" ? "child-missing" : "owner-unmounted",
+          );
         }
         const owner = behaviorRef.current.getScrollOwner();
         const child = behaviorRef.current.getChildElement(childId);
@@ -74,9 +85,11 @@ export function useScrollableBlockSemanticActivationBinding({
             if (settled) return;
             settled = true;
             signal.removeEventListener("abort", handleAbort);
+            if (pendingRef.current?.finish === finish) pendingRef.current = null;
             resolve(result);
           };
           const handleAbort = () => finish(outcome("interrupted", mountedOwnerId, childId));
+          pendingRef.current = { ownerId: mountedOwnerId, childId, finish };
           signal.addEventListener("abort", handleAbort, { once: true });
           if (signal.aborted) {
             finish(outcome("interrupted", mountedOwnerId, childId));
@@ -84,24 +97,29 @@ export function useScrollableBlockSemanticActivationBinding({
           }
 
           queueMicrotask(() => {
+            if (settled) return;
             const currentOwner = behaviorRef.current.getScrollOwner();
             const currentChild = behaviorRef.current.getChildElement(childId);
-            if (settled) return;
             if (!active) {
               finish(unavailable(mountedOwnerId, childId, "owner-unmounted"));
               return;
             }
-            if (
-              !isCurrentDirectChild({
-                childId,
-                childNodeType,
-                editor,
-                getPos,
-                ownerId: mountedOwnerId,
-                ownerNodeType,
-              })
-            ) {
-              finish(unavailable(mountedOwnerId, childId, "child-missing"));
+            const currentChildStatus = currentDirectChildStatus({
+              childId,
+              childNodeType,
+              editor,
+              getPos,
+              ownerId: mountedOwnerId,
+              ownerNodeType,
+            });
+            if (currentChildStatus !== "current") {
+              finish(
+                unavailable(
+                  mountedOwnerId,
+                  childId,
+                  currentChildStatus === "child-missing" ? "child-missing" : "owner-unmounted",
+                ),
+              );
               return;
             }
             if (!currentOwner || !currentChild) {
@@ -117,9 +135,34 @@ export function useScrollableBlockSemanticActivationBinding({
 
     return () => {
       active = false;
+      const pending = pendingRef.current;
+      if (pending) {
+        pending.finish(
+          unavailable(
+            pending.ownerId,
+            pending.childId,
+            currentDirectChildStatus({
+              childId: pending.childId,
+              childNodeType,
+              editor,
+              getPos,
+              ownerId: pending.ownerId,
+              ownerNodeType,
+            }) === "child-missing"
+              ? "child-missing"
+              : "owner-unmounted",
+          ),
+        );
+      }
       unregister();
     };
-  }, [childNodeType, editor, getPos, node, ownerId, ownerNodeType, semanticController]);
+  }, [childNodeType, editor, getPos, node, ownerId, ownerNodeType, registry]);
+}
+
+interface PendingActivation {
+  readonly ownerId: EmbeddedNodeId;
+  readonly childId: EmbeddedNodeId;
+  readonly finish: (result: SemanticActivationOutcome) => void;
 }
 
 function outcome(
