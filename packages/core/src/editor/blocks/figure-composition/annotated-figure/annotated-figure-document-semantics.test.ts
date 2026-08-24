@@ -16,6 +16,7 @@ import {
   projectSemanticDocument,
   type SemanticDefinitionLookup,
 } from "@/document/model/semantic-document";
+import { MAX_SEMANTIC_LABEL_LENGTH } from "@/document/model/semantic-document/semantic-labels";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 
 import { annotatedFigureDefinition } from "./annotated-figure-definition";
@@ -77,16 +78,19 @@ const schema = new Schema({
 });
 
 describe("Annotated Figure document semantics", () => {
-  it("publishes real annotation nodes with safe labels and presentation metadata", () => {
+  it("publishes real annotation nodes with stable locations and presentation-neutral labels", () => {
     const figureId = makeId("fi", 1);
     const annotations = [
       annotation(makeId("an", 1), "  Repeated\n title ", "First caption"),
       annotation(makeId("an", 2), "Repeated title", "Second caption"),
-      annotation(makeId("an", 3), "", "Caption fallback"),
+      annotation(makeId("an", 3), "", "  Caption\n fallback "),
       annotation(makeId("an", 4), "", ""),
+      annotation(makeId("an", 5), "  Normalized\n title ", "Private caption"),
+      annotation(makeId("an", 6), "L".repeat(MAX_SEMANTIC_LABEL_LENGTH + 20), ""),
     ];
     const figure = figureNode(figureId, annotations);
-    const snapshot = project(documentNode(figure), 4);
+    const doc = documentNode(figure);
+    const snapshot = project(doc, 4);
     const annotationIds = annotations.map(({ attrs }) => attrs["id"] as EmbeddedNodeId);
 
     expect(snapshot.itemById.get(figureId)?.label).toBe("Architecture diagram");
@@ -96,25 +100,112 @@ describe("Annotated Figure document semantics", () => {
       "Repeated title 2",
       "Caption fallback",
       "Annotation 4",
+      "Normalized title",
+      `${"L".repeat(MAX_SEMANTIC_LABEL_LENGTH - 1)}…`,
     ]);
-    for (const annotationId of annotationIds) {
+    for (const [index, annotationId] of annotationIds.entries()) {
       expect(snapshot.itemById.get(annotationId)).toMatchObject({
+        id: annotationId,
         kind: "published-child",
         nodeType: ANNOTATED_FIGURE_ANNOTATION_NODE,
-        presentation: { actionIds: ["reveal", "highlight"], disabledReason: null },
+        presentation: { actionIds: [], disabledReason: null },
       });
       expect(snapshot.parentById.get(annotationId)).toBe(figureId);
       const location = snapshot.locationById.get(annotationId);
-      expect(location?.activationPath).toEqual([]);
-      expect(location?.authoringAnchorId).toBe(figureId);
+      const current = requireNodeById(doc, annotationId);
+      expect(location).toMatchObject({
+        id: annotationId,
+        nodeType: ANNOTATED_FIGURE_ANNOTATION_NODE,
+        from: current.pos,
+        to: current.pos + current.node.nodeSize,
+        selectionTarget: { kind: "node", pos: current.pos },
+        surfaceId: makeId("su", 1),
+        authoringAnchorId: figureId,
+        activationPath: [],
+      });
+      if (index > 0) {
+        expect(location!.from).toBeGreaterThan(
+          snapshot.locationById.get(annotationIds[index - 1]!)!.from,
+        );
+      }
       expect(Object.isFrozen(location)).toBe(true);
     }
-    expect(snapshot.itemById.has(makeId("cv", 1))).toBe(false);
-    expect(snapshot.itemById.has(makeId("le", 1))).toBe(false);
-    for (const captionId of [makeId("pa", 1), makeId("pa", 2), makeId("pa", 3), makeId("pa", 4)]) {
-      expect(snapshot.itemById.has(captionId)).toBe(false);
+    for (const privateId of [
+      makeId("cv", 1),
+      makeId("le", 1),
+      ...annotations.map((node) => node.child(0).attrs["id"] as EmbeddedNodeId),
+    ]) {
+      expect(snapshot.itemById.has(privateId)).toBe(false);
+      expect(snapshot.parentById.has(privateId)).toBe(false);
+      expect(snapshot.locationById.has(privateId)).toBe(false);
+      expect(snapshot.itemById.get(figureId)?.children.some(({ id }) => id === privateId)).toBe(
+        false,
+      );
     }
     expect(snapshot.diagnostics).toEqual([]);
+  });
+
+  it("reprojects edited annotation labels and current locations without changing identity", () => {
+    const figureId = makeId("fi", 5);
+    const firstId = makeId("an", 10);
+    const secondId = makeId("an", 11);
+    const initialDoc = documentNode(
+      figureNode(figureId, [
+        annotation(firstId, "Initial title", "Short"),
+        annotation(secondId, "", "Initial caption"),
+      ]),
+    );
+    const editedDoc = documentNode(
+      figureNode(figureId, [
+        annotation(firstId, "Edited title", "A much longer private caption"),
+        annotation(secondId, "", "Edited caption"),
+      ]),
+    );
+
+    const initial = project(initialDoc, 8);
+    const edited = project(editedDoc, 9);
+
+    expect(initial.revision).toBe(8);
+    expect(edited.revision).toBe(9);
+    expect(initial.itemById.get(figureId)?.children.map(({ id }) => id)).toEqual([
+      firstId,
+      secondId,
+    ]);
+    expect(edited.itemById.get(figureId)?.children.map(({ id }) => id)).toEqual([
+      firstId,
+      secondId,
+    ]);
+    expect([initial.itemById.get(firstId)?.label, initial.itemById.get(secondId)?.label]).toEqual([
+      "Initial title",
+      "Initial caption",
+    ]);
+    expect([edited.itemById.get(firstId)?.label, edited.itemById.get(secondId)?.label]).toEqual([
+      "Edited title",
+      "Edited caption",
+    ]);
+
+    for (const annotationId of [firstId, secondId]) {
+      const initialNode = requireNodeById(initialDoc, annotationId);
+      const editedNode = requireNodeById(editedDoc, annotationId);
+      expect(initial.locationById.get(annotationId)).toMatchObject({
+        id: annotationId,
+        from: initialNode.pos,
+        to: initialNode.pos + initialNode.node.nodeSize,
+        authoringAnchorId: figureId,
+        activationPath: [],
+      });
+      expect(edited.locationById.get(annotationId)).toMatchObject({
+        id: annotationId,
+        from: editedNode.pos,
+        to: editedNode.pos + editedNode.node.nodeSize,
+        authoringAnchorId: figureId,
+        activationPath: [],
+      });
+      expect(edited.itemById.get(annotationId)?.presentation.actionIds).toEqual([]);
+      expect(edited.locationById.get(annotationId)).not.toEqual(
+        initial.locationById.get(annotationId),
+      );
+    }
   });
 
   it("selects and scrolls the owning Figure while preserving annotation selection", async () => {
@@ -124,7 +215,6 @@ describe("Annotated Figure document semantics", () => {
     let state = EditorState.create({ doc });
     let controller: SemanticDocumentController;
     const navigationEditor: SemanticNavigationEditor = {
-      getState: () => state,
       dispatch: (transaction: Transaction) => {
         state = state.apply(transaction);
         controller.applyTransaction(transaction, state);
@@ -214,7 +304,16 @@ describe("Annotated Figure document semantics", () => {
 
     expect(snapshot.itemById.get(figureId)?.label).toBe("Annotated figure");
     expect(snapshot.itemById.get(figureId)?.children).toEqual([]);
-    expect(snapshot.itemById.has(makeId("an", 8))).toBe(false);
+    for (const privateId of [
+      makeId("cv", 3),
+      makeId("le", 3),
+      makeId("an", 8),
+      makeId("pa", 8),
+    ]) {
+      expect(snapshot.itemById.has(privateId)).toBe(false);
+      expect(snapshot.parentById.has(privateId)).toBe(false);
+      expect(snapshot.locationById.has(privateId)).toBe(false);
+    }
     expect(JSON.stringify(snapshot)).not.toContain("Private");
   });
 });
@@ -299,6 +398,20 @@ function requireCourseStructure(doc: ProseMirrorNode): ProjectedCourseStructure 
   const courseStructure = projectCourseStructure(doc.toJSON());
   if (!courseStructure) throw new Error("Invalid Annotated Figure semantics fixture.");
   return courseStructure;
+}
+
+function requireNodeById(
+  doc: ProseMirrorNode,
+  nodeId: EmbeddedNodeId,
+): { node: ProseMirrorNode; pos: number } {
+  let found: { node: ProseMirrorNode; pos: number } | null = null;
+  doc.descendants((node, pos) => {
+    if (node.attrs["id"] !== nodeId) return true;
+    found = { node, pos };
+    return false;
+  });
+  if (!found) throw new Error(`Expected node ${nodeId} in Annotated Figure fixture.`);
+  return found;
 }
 
 function makeId(prefix: string, ordinal: number): EmbeddedNodeId {

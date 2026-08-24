@@ -1,5 +1,3 @@
-import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
-
 import type {
   DocumentSemanticsDefinition,
   PublishedSemanticChild,
@@ -23,17 +21,12 @@ const projectAnnotatedFigureChildren: SemanticChildProjector = ({ owner, ownerId
 
   const candidates: PublishedSemanticChild[] = [];
   for (const annotation of model.annotations) {
-    const nodeId = EmbeddedNodeIdSchema.safeParse(annotation.node.attrs["id"]);
-    if (!nodeId.success) continue;
     const labelSource = annotation.title.trim() || annotation.captionNode.textContent;
     candidates.push(
       Object.freeze({
         relativePos: annotation.relativePos,
         semanticRole: "published-child" as const,
         label: normalizeSemanticLabel(labelSource, `Annotation ${annotation.number}`),
-        presentation: Object.freeze({
-          actionIds: Object.freeze(["reveal", "highlight"]),
-        }),
         authoringAnchorId: ownerId,
       }),
     );
