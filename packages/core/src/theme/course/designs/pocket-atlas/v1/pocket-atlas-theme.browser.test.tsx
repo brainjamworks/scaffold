@@ -1,11 +1,13 @@
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
+import { page, userEvent } from "vite-plus/test/browser/context";
 
 import "@/styles/globals.css";
 import "@/ui/components/app/Combobox/Combobox.css";
 import "@/editor/blocks/code/code-block/CodeBlock.css";
 import "@/editor/blocks/code/code-block/CodeBlockAuthoringControls.css";
 import "@/editor/blocks/presentation/flashcard/flashcard.css";
+import "@/editor/blocks/presentation/timeline/timeline.css";
 import "@/editor/blocks/structured-content/comparison/Comparison.css";
 import "@/editor/blocks/structured-content/comparison/ComparisonAuthoringControls.css";
 import "@/editor/blocks/structured-content/glossary/GlossaryAuthoringControls.css";
@@ -98,10 +100,7 @@ describe("Pocket Atlas Course theme", () => {
       const entry = requiredElement<HTMLElement>(host, '[data-testid="entry"]');
       const activeTab = requiredElement<HTMLElement>(host, '[data-testid="active-tab"]');
       const appControl = requiredElement<HTMLElement>(host, '[data-testid="app-control"]');
-      const appHintTrigger = requiredElement<HTMLElement>(
-        host,
-        '[data-testid="app-hint-trigger"]',
-      );
+      const appHintTrigger = requiredElement<HTMLElement>(host, '[data-testid="app-hint-trigger"]');
 
       expect(courseRoot).toHaveClass("sc-course-theme-pocket-atlas-v1");
       expect(getComputedStyle(courseRoot).backgroundColor).toBe("rgba(0, 0, 0, 0)");
@@ -582,14 +581,20 @@ describe("Pocket Atlas Course theme", () => {
       const meta = requiredElement<HTMLElement>(host, ".sc-course-quiz__runtime-meta");
       const incomplete = requiredElement<HTMLElement>(host, ".sc-course-quiz__runtime-incomplete");
       const review = requiredElement<HTMLElement>(host, ".sc-course-quiz__review-context");
-      const reviewLabel = requiredElement<HTMLElement>(host, ".sc-course-quiz__review-context-label");
+      const reviewLabel = requiredElement<HTMLElement>(
+        host,
+        ".sc-course-quiz__review-context-label",
+      );
       const timer = requiredElement<HTMLElement>(host, ".sc-course-quiz__timer");
       const request = requiredElement<HTMLElement>(host, ".sc-course-quiz__request-feedback");
       const completion = requiredElement<HTMLElement>(host, ".sc-course-quiz__completion");
       const expired = requiredElement<HTMLElement>(host, ".sc-course-quiz__expired");
       const timesup = requiredElement<HTMLElement>(host, ".sc-course-quiz__timesup");
       const completionMark = requiredElement<HTMLElement>(host, ".sc-course-quiz__completion-mark");
-      const completionScore = requiredElement<HTMLElement>(host, ".sc-course-quiz__completion-score");
+      const completionScore = requiredElement<HTMLElement>(
+        host,
+        ".sc-course-quiz__completion-score",
+      );
 
       expect(getComputedStyle(card).paddingTop).toBe("20px");
       expect(getComputedStyle(card).rowGap).toBe("12px");
@@ -752,6 +757,117 @@ describe("Pocket Atlas Course theme", () => {
     );
     expect(getComputedStyle(submit).fontFamily).toContain("Silkscreen");
     expect(getComputedStyle(submit).boxShadow).not.toBe("none");
+  });
+
+  it.each(["light", "dark"] as const)(
+    "gives the Timeline a complete %s chronology recipe",
+    async (appearance) => {
+      await page.viewport(1000, 800);
+      const host = document.createElement("div");
+      document.body.append(host);
+      const root = createRoot(host);
+      mountedRoots.push(root);
+
+      root.render(
+        <AppThemeProvider appearance={appearance}>
+          <CourseThemeProvider
+            appearance={appearance}
+            theme={{
+              schemaVersion: 1,
+              design: { id: "pocket-atlas", revision: "1" },
+              colourSystem: { id: "pocket-atlas", revision: "1" },
+              overrides: {},
+            }}
+          >
+            <TimelineThemeSpecimen width={700} />
+          </CourseThemeProvider>
+        </AppThemeProvider>,
+      );
+
+      await waitForCondition(() => host.querySelector(".sc-course-timeline__event") !== null);
+
+      const timeline = requiredElement<HTMLElement>(host, ".sc-course-timeline");
+      const rail = requiredElement<HTMLElement>(host, ".sc-course-timeline__rail");
+      const track = requiredElement<HTMLElement>(host, ".sc-course-timeline__track");
+      const event = requiredElement<HTMLElement>(host, ".sc-course-timeline__event");
+      const card = requiredElement<HTMLElement>(host, ".sc-course-timeline__card");
+      const date = requiredElement<HTMLElement>(host, '[data-timeline-copy="date"]');
+      const title = requiredElement<HTMLElement>(host, '[data-timeline-copy="title"]');
+      const description = requiredElement<HTMLElement>(host, '[data-timeline-copy="description"]');
+      const navigation = requiredElement<HTMLElement>(host, ".sc-course-timeline__navigation");
+      const navigationButton = requiredElement<HTMLButtonElement>(
+        host,
+        ".sc-course-timeline__navigation-button:not(:disabled)",
+      );
+      const disabledNavigationButton = requiredElement<HTMLButtonElement>(
+        host,
+        ".sc-course-timeline__navigation-button:disabled",
+      );
+
+      expect(
+        getComputedStyle(timeline).getPropertyValue("--sc-course-timeline-axis-lane").trim(),
+      ).toBe("2rem");
+      expect(getComputedStyle(event).gridTemplateColumns.split(" ")).toHaveLength(3);
+      expect(getComputedStyle(track).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+      expect(getComputedStyle(rail, "::before").content).not.toBe("none");
+      expect(getComputedStyle(card).borderTopWidth).toBe("2px");
+      expect(getComputedStyle(card).boxShadow).not.toBe("none");
+      expect(getComputedStyle(date).fontFamily).toContain("Silkscreen");
+      expect(getComputedStyle(title).fontFamily).toContain("Silkscreen");
+      expect(Number.parseFloat(getComputedStyle(title).fontSize)).toBeGreaterThan(
+        Number.parseFloat(getComputedStyle(date).fontSize),
+      );
+      expect(
+        contrastRatio(getComputedStyle(description).color, getComputedStyle(card).backgroundColor),
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(getComputedStyle(navigation).position).toBe("relative");
+      expect(navigationButton.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
+      expect(navigationButton.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+      expect(getComputedStyle(navigationButton).transitionDuration).not.toBe("0s");
+      const restingBackground = getComputedStyle(navigationButton).backgroundColor;
+      await userEvent.hover(navigationButton);
+      await waitForCondition(
+        () => getComputedStyle(navigationButton).backgroundColor !== restingBackground,
+      );
+      expect(getComputedStyle(navigationButton).backgroundColor).not.toBe(restingBackground);
+      expect(getComputedStyle(disabledNavigationButton).cursor).toBe("not-allowed");
+      expect(getComputedStyle(disabledNavigationButton).boxShadow).toBe("none");
+    },
+  );
+
+  it("collapses alternating Pocket Atlas events into one readable narrow lane", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mountedRoots.push(root);
+
+    root.render(
+      <CourseThemeProvider
+        appearance="light"
+        theme={{
+          schemaVersion: 1,
+          design: { id: "pocket-atlas", revision: "1" },
+          colourSystem: { id: "pocket-atlas", revision: "1" },
+          overrides: {},
+        }}
+      >
+        <TimelineThemeSpecimen width={320} />
+      </CourseThemeProvider>,
+    );
+
+    await waitForCondition(() => host.querySelector(".sc-course-timeline__event") !== null);
+
+    const timeline = requiredElement<HTMLElement>(host, ".sc-course-timeline");
+    const event = requiredElement<HTMLElement>(host, ".sc-course-timeline__event");
+    const card = requiredElement<HTMLElement>(host, ".sc-course-timeline__card");
+    const dot = requiredElement<HTMLElement>(host, ".sc-course-timeline__dot");
+
+    expect(getComputedStyle(event).gridTemplateColumns.split(" ")).toHaveLength(2);
+    expect(card.getBoundingClientRect().width).toBeGreaterThan(270);
+    expect(dot.getBoundingClientRect().right).toBeLessThan(card.getBoundingClientRect().left);
+    expect(card.getBoundingClientRect().right).toBeLessThanOrEqual(
+      timeline.getBoundingClientRect().right + 1,
+    );
   });
 
   it("supplies a complete square-edged chart recipe", async () => {
@@ -1004,6 +1120,66 @@ function QuizNavigationSpecimen() {
         </div>
       </div>
     </section>
+  );
+}
+
+function TimelineThemeSpecimen({ width }: { width: number }) {
+  return (
+    <div className="sc-course-timeline" style={{ width }}>
+      <section
+        aria-label="Timeline"
+        className="sc-course-timeline__shell"
+        data-alignment="alternate"
+        data-presentation="vertical"
+        data-show-axis="true"
+      >
+        <div className="sc-course-timeline__track">
+          <div className="sc-course-timeline__rail">
+            <div aria-label="Timeline events" className="sc-course-timeline__events" role="list">
+              {[
+                ["1969", "First lunar landing", "Apollo 11 touches down."],
+                ["1989", "World Wide Web proposed", "A new information system takes shape."],
+              ].map(([date, title, description], index) => (
+                <div
+                  className={`sc-course-timeline__event sc-course-timeline__event--${index === 0 ? "left" : "right"}`}
+                  data-timeline-event=""
+                  key={date}
+                  role="listitem"
+                >
+                  <span aria-hidden className="sc-course-timeline__dot" />
+                  <div className="sc-course-timeline__card">
+                    <div className="sc-course-timeline__content">
+                      <div data-node-view-content-react="">
+                        <p data-timeline-copy="date">{date}</p>
+                        <p data-timeline-copy="title">{title}</p>
+                        <p data-timeline-copy="description">{description}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <nav aria-label="Timeline navigation" className="sc-course-timeline__navigation">
+          <button
+            aria-label="Previous event"
+            className="sc-course-timeline__navigation-button"
+            disabled
+            type="button"
+          >
+            Previous
+          </button>
+          <button
+            aria-label="Next event"
+            className="sc-course-timeline__navigation-button"
+            type="button"
+          >
+            Next
+          </button>
+        </nav>
+      </section>
+    </div>
   );
 }
 
