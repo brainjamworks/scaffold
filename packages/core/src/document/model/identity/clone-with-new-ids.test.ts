@@ -1,8 +1,19 @@
 import type { JSONContent } from "@tiptap/core";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { EmbeddedDataIdSchema, EmbeddedNodeIdSchema } from "@scaffold/contracts";
+import {
+  EmbeddedDataIdSchema,
+  EmbeddedNodeIdSchema,
+  type EmbeddedNodeId,
+} from "@scaffold/contracts";
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import {
+  APPROVED_SEMANTIC_MEMBER_FAMILY_CASES,
+  SEMANTIC_LIFECYCLE_AUTHORING_STATE,
+  createSemanticLifecycleDocument,
+  projectSemanticLifecycleDocument,
+  requireLifecycleNodeById,
+} from "@/document/model/semantic-document/testing/semantic-publication-lifecycle-fixtures";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createEmbeddedNodeId } from "./stable-ids";
 
@@ -625,6 +636,82 @@ describe("cloneJsonWithNewStableIds", () => {
     expect(clone.attrs?.["data"]).toEqual(source.attrs?.["data"]);
   });
 
+  it.each(APPROVED_SEMANTIC_MEMBER_FAMILY_CASES)(
+    "$label gives repeated copies pairwise-disjoint persisted and semantic identities",
+    (family) => {
+      const sourceOwner = family.createOwner();
+      const source = sourceOwner.toJSON() as JSONContent;
+      const sourceBefore = structuredClone(source);
+      const firstCopy = cloneJsonWithNewStableIds(source);
+      const secondCopy = cloneJsonWithNewStableIds(source);
+      const sourceIds = collectPersistedNodeIds(source);
+      const firstCopyIds = collectPersistedNodeIds(firstCopy);
+      const secondCopyIds = collectPersistedNodeIds(secondCopy);
+
+      expect(source).toEqual(sourceBefore);
+      expect(withoutPersistedNodeIds(firstCopy)).toEqual(withoutPersistedNodeIds(source));
+      expect(withoutPersistedNodeIds(secondCopy)).toEqual(withoutPersistedNodeIds(source));
+      expectPairwiseDisjoint(sourceIds, firstCopyIds, secondCopyIds);
+      expect([...firstCopyIds, ...secondCopyIds]).not.toContain(family.unrelatedSiblingId);
+
+      const sourceDocument = family.createDocument();
+      const sibling = requireLifecycleNodeById(sourceDocument, family.unrelatedSiblingId).node;
+      const firstCopyNode = SEMANTIC_LIFECYCLE_AUTHORING_STATE.schema.nodeFromJSON(firstCopy);
+      const secondCopyNode = SEMANTIC_LIFECYCLE_AUTHORING_STATE.schema.nodeFromJSON(secondCopy);
+      const combined = createSemanticLifecycleDocument([
+        sourceOwner,
+        firstCopyNode,
+        secondCopyNode,
+        sibling,
+      ]);
+      const snapshot = projectSemanticLifecycleDocument(combined, 31);
+      const ownerIds = [sourceOwner, firstCopyNode, secondCopyNode].map((node) =>
+        EmbeddedNodeIdSchema.parse(node.attrs["id"]),
+      );
+      const semanticIdentitySets = ownerIds.map(
+        (ownerId) =>
+          new Set([
+            ownerId,
+            ...(snapshot.itemById.get(ownerId)?.children.map(({ id }) => id) ?? []),
+          ]),
+      );
+
+      expect(snapshot.diagnostics).toEqual([]);
+      expectPairwiseDisjoint(...semanticIdentitySets);
+      const semanticLocations = ownerIds.flatMap((ownerId) =>
+        (snapshot.itemById.get(ownerId)?.children ?? []).map(({ id }) =>
+          snapshot.locationById.get(id),
+        ),
+      );
+      expect(new Set(semanticLocations).size).toBe(semanticLocations.length);
+      for (const ownerId of ownerIds) {
+        const children = snapshot.itemById.get(ownerId)?.children ?? [];
+        expect(children.map(({ nodeType }) => nodeType)).toEqual([
+          family.memberNodeType,
+          family.memberNodeType,
+        ]);
+        for (const child of children) {
+          expect(snapshot.parentById.get(child.id)).toBe(ownerId);
+        }
+      }
+      expect(snapshot.itemById.has(family.unrelatedSiblingId)).toBe(true);
+    },
+  );
+
+  it("needs no feature-specific duplication repair for approved public member IDs", () => {
+    expect(
+      APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.map(({ ownerNodeType }) => ({
+        ownerNodeType,
+        operation: CORE_BLOCK_DUPLICATIONS.getByNodeType(ownerNodeType),
+      })),
+    ).toEqual(
+      APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.map(({ ownerNodeType }) => ({
+        ownerNodeType,
+        operation: undefined,
+      })),
+    );
+  });
+
   it("regenerates Matching pair and child node identities without relationship attrs", () => {
     const clone = cloneJsonWithNewStableIds({
       type: "matching_pair",
@@ -922,3 +1009,35 @@ describe("cloneJsonWithNewStableIds", () => {
     expect(data.encoding.y[0]?.columnId).toBe(valueId);
   });
 });
+
+function collectPersistedNodeIds(node: JSONContent): ReadonlySet<EmbeddedNodeId> {
+  const ids = new Set<EmbeddedNodeId>();
+  const visit = (current: JSONContent): void => {
+    const parsed = EmbeddedNodeIdSchema.safeParse(current.attrs?.["id"]);
+    if (parsed.success) ids.add(parsed.data);
+    for (const child of current.content ?? []) visit(child);
+  };
+  visit(node);
+  return ids;
+}
+
+function withoutPersistedNodeIds(node: JSONContent): JSONContent {
+  const clone = structuredClone(node);
+  const visit = (current: JSONContent): void => {
+    if (current.attrs && typeof current.attrs === "object") {
+      const { id: _id, ...attrs } = current.attrs;
+      current.attrs = attrs;
+    }
+    for (const child of current.content ?? []) visit(child);
+  };
+  visit(clone);
+  return clone;
+}
+
+function expectPairwiseDisjoint(...sets: readonly ReadonlySet<EmbeddedNodeId>[]): void {
+  for (const [index, current] of sets.entries()) {
+    for (const other of sets.slice(index + 1)) {
+      expect([...current].filter((id) => other.has(id))).toEqual([]);
+    }
+  }
+}

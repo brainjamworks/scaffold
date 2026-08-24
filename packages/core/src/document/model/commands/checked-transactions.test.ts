@@ -1,8 +1,17 @@
 // @vitest-environment happy-dom
 
 import { Editor, type JSONContent } from "@tiptap/core";
+import { Transform } from "@tiptap/pm/transform";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
+import {
+  APPROVED_SEMANTIC_MEMBER_FAMILY_CASES,
+  SEMANTIC_LIFECYCLE_APPLICATION,
+  projectSemanticLifecycleDocument,
+  requireLifecycleNodeById,
+} from "@/document/model/semantic-document/testing/semantic-publication-lifecycle-fixtures";
 
 import {
   deleteNodeChecked,
@@ -280,6 +289,58 @@ describe("checked transaction primitives", () => {
     expect(tr.doc.toJSON()).toEqual(before);
     expect(tr.steps).toHaveLength(0);
   });
+
+  it.each(APPROVED_SEMANTIC_MEMBER_FAMILY_CASES)(
+    "$label checked duplicate regenerates owner and public-descendant identity",
+    (family) => {
+      const doc = family.createDocument();
+      const source = requireLifecycleNodeById(doc, family.ownerId);
+      const sourceBefore = source.node.toJSON();
+      const originalDocument = doc.toJSON();
+      const tr = new Transform(doc);
+
+      const result = duplicateNodeChecked({
+        tr,
+        pos: source.pos,
+        regenerateNodeIds: true,
+        blockDuplications: SEMANTIC_LIFECYCLE_APPLICATION.capabilities.blocks.duplication,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const duplicateOwnerId = EmbeddedNodeIdSchema.parse(result.node.attrs["id"]);
+      const snapshot = projectSemanticLifecycleDocument(result.tr.doc, 41);
+      const sourceChildren = snapshot.itemById.get(family.ownerId)?.children ?? [];
+      const duplicateChildren = snapshot.itemById.get(duplicateOwnerId)?.children ?? [];
+      const sourceIdentities = new Set([
+        family.ownerId,
+        ...sourceChildren.map(({ id }) => id),
+      ]);
+      const duplicateIdentities = new Set([
+        duplicateOwnerId,
+        ...duplicateChildren.map(({ id }) => id),
+      ]);
+
+      expect(duplicateOwnerId).not.toBe(family.ownerId);
+      expect(sourceChildren.map(({ id }) => id)).toEqual([
+        family.memberIds.first,
+        family.memberIds.second,
+      ]);
+      expect(duplicateChildren.map(({ nodeType }) => nodeType)).toEqual([
+        family.memberNodeType,
+        family.memberNodeType,
+      ]);
+      expect([...sourceIdentities].filter((id) => duplicateIdentities.has(id))).toEqual([]);
+      for (const child of duplicateChildren) {
+        expect(EmbeddedNodeIdSchema.safeParse(child.id).success).toBe(true);
+        expect(snapshot.parentById.get(child.id)).toBe(duplicateOwnerId);
+      }
+      expect(result.tr.doc.nodeAt(source.pos)?.toJSON()).toEqual(sourceBefore);
+      expect(doc.toJSON()).toEqual(originalDocument);
+      expect(snapshot.itemById.has(family.unrelatedSiblingId)).toBe(true);
+      expect(snapshot.diagnostics).toEqual([]);
+    },
+  );
 
   it("rejects invalid duplicate positions before mutating the transform", () => {
     const editor = makeEditor();
