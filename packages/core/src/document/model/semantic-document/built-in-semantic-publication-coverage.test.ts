@@ -146,6 +146,7 @@ describe("built-in semantic publication coverage", () => {
       "gallery",
       "glossary",
       "key_value_list",
+      "numbered_list",
     ]);
     expect(approvedMemberBoundaries).toEqual([
       "annotated_figure",
