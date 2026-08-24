@@ -11,6 +11,7 @@ import {
   checklistItemContent,
   emptyChecklistData,
 } from "./content";
+import { checklistDocumentSemantics } from "./checklist-document-semantics";
 
 export const CHECKLIST_BLOCK_ID = "checklist";
 
@@ -23,6 +24,7 @@ const DEFAULT_ITEMS = [
 export const checklistBlockDefinition = defineBlock({
   nodeType: CHECKLIST_NODE,
   title: "Checklist",
+  documentSemantics: checklistDocumentSemantics,
   configuration: defineConfiguration({
     attr: "data",
     schema: ChecklistDataSchema,
