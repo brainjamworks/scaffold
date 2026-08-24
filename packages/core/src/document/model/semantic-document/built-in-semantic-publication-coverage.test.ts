@@ -150,6 +150,7 @@ describe("built-in semantic publication coverage", () => {
       "process_flow",
       "roadmap",
       "table",
+      "timeline",
     ]);
     expect(approvedMemberBoundaries).toEqual([
       "annotated_figure",
