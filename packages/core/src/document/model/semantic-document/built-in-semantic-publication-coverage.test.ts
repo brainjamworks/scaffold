@@ -141,6 +141,7 @@ describe("built-in semantic publication coverage", () => {
     expect(runtimeBlockProjectors).toEqual([
       "annotated_figure",
       "checklist",
+      "comparison",
       "flashcard",
       "gallery",
     ]);

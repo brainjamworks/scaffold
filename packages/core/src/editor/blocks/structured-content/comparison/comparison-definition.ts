@@ -5,10 +5,12 @@ import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 
 import { COMPARISON_BLOCK_ID, COMPARISON_NODE, createComparisonContent } from "./content";
+import { comparisonDocumentSemantics } from "./comparison-document-semantics";
 
 export const comparisonBlockDefinition = defineBlock({
   nodeType: COMPARISON_NODE,
   title: "Comparison",
+  documentSemantics: comparisonDocumentSemantics,
   configuration: defineConfiguration({
     attr: "data",
     schema: ComparisonDataSchema,
