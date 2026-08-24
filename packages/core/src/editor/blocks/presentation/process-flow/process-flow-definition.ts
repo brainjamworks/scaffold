@@ -10,12 +10,14 @@ import { defineBlock } from "@/editor/blocks/block-definition";
 import { defineConfiguration } from "@/editor/configuration/definition";
 
 import { PROCESS_FLOW_NODE, PROCESS_FLOW_STEP_NODE, createProcessFlowContent } from "./content";
+import { processFlowDocumentSemantics } from "./process-flow-document-semantics";
 
 export const PROCESS_FLOW_BLOCK_ID = "process-flow";
 
 export const processFlowBlockDefinition = defineBlock({
   nodeType: PROCESS_FLOW_NODE,
   title: "Process flow",
+  documentSemantics: processFlowDocumentSemantics,
   configuration: defineConfiguration({
     attr: "data",
     schema: ProcessFlowDataSchema,

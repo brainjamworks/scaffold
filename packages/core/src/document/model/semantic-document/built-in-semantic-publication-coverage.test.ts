@@ -147,6 +147,7 @@ describe("built-in semantic publication coverage", () => {
       "glossary",
       "key_value_list",
       "numbered_list",
+      "process_flow",
       "table",
     ]);
     expect(approvedMemberBoundaries).toEqual([
