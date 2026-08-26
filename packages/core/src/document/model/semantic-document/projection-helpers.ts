@@ -22,6 +22,10 @@ export function createSemanticProjectionHelpers(
   });
 }
 
+// TODO(semantic-publication): When the next conventional direct-member family is added,
+// consider replacing repetitive owner projectors with opt-in semantic metadata on member node
+// types and generic projection. Retain custom projectors for derived or virtual members; DOM
+// attributes should bind published addresses to mounted elements, not define public semantics.
 function projectDirectOwnedMembers(
   owner: ProseMirrorNode,
   input: ProjectDirectOwnedMembersInput,
