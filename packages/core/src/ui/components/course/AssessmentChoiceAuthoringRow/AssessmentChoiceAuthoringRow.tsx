@@ -90,9 +90,10 @@ export interface AssessmentChoiceAuthoringRowProps {
   feedbackControl?: ReactNode;
   movementControl?: ReactNode;
   onToggleCorrect: () => void;
+  surfaceOwner?: "app" | "course";
 }
 
-/** Course-owned choice surface composed by authoring behavior adapters. */
+/** Choice content composed inside an App- or Course-owned authoring workspace surface. */
 export function AssessmentChoiceAuthoringRow({
   children,
   correct,
@@ -102,11 +103,17 @@ export function AssessmentChoiceAuthoringRow({
   feedbackControl,
   movementControl,
   onToggleCorrect,
+  surfaceOwner = "course",
 }: AssessmentChoiceAuthoringRowProps) {
   return (
     <div
       {...authoringMovementSilhouetteSurfaceAttributes()}
-      className="sc-course-assessment-choice sc-course-assessment-choice--authoring sc-app-assessment-choice-authoring-surface"
+      className={cn(
+        "sc-app-assessment-choice-authoring-surface",
+        surfaceOwner === "course"
+          ? "sc-course-assessment-choice sc-course-assessment-choice--authoring"
+          : "sc-app-assessment-choice-authoring-surface--workspace",
+      )}
       data-author-correct={correct || undefined}
     >
       {movementControl ? (

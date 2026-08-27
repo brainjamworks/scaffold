@@ -64,6 +64,21 @@ describe("surface Fill in Blanks question", () => {
       expect(assessment.blanksById[String(createdBlank?.attrs?.["id"])]).toMatchObject({
         acceptedAnswers: ["evidence"],
       });
+
+      let blankPos = -1;
+      let blankSize = 0;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name !== "fill_blank" || node.attrs["id"] !== createdBlank?.attrs?.["id"])
+          return;
+        blankPos = pos;
+        blankSize = node.nodeSize;
+      });
+      expect(blankPos).toBeGreaterThan(0);
+      editor.view.dispatch(editor.state.tr.delete(blankPos, blankPos + blankSize));
+      expect(
+        FillBlanksPrivateAssessmentSchema.parse(findQuestion(editor).attrs["assessment"])
+          .blanksById,
+      ).not.toHaveProperty(String(createdBlank?.attrs?.["id"]));
     } finally {
       editor.destroy();
     }

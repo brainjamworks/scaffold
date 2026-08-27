@@ -305,6 +305,7 @@ function DropdownChoiceNodeView(props: NodeViewProps) {
         correctnessLabel={`Toggle whether ${choiceLabel} is correct`}
         feedbackControl={feedbackControl}
         onToggleCorrect={toggleCorrect}
+        surfaceOwner="app"
         deleteAction={{
           label: `Delete choice ${choicePosition.index}`,
           onAction: deleteChoice,

@@ -46,7 +46,7 @@
   .sc-dropdown-slide-surface-view .sc-course-dropdown-interaction__focal {
     box-sizing: border-box;
     display: grid;
-    inline-size: min(100%, 44rem);
+    inline-size: min(100%, 48rem);
     max-block-size: 100%;
     min-inline-size: 0;
     min-block-size: 0;
@@ -59,8 +59,36 @@
   }
 
   .sc-dropdown-slide-surface-view .sc-course-dropdown-select {
+    --sc-dropdown-slide-status-reserve: 6.125rem;
+
     inline-size: 100%;
     max-inline-size: none;
+  }
+
+  .sc-dropdown-slide-surface-view
+    [data-dropdown-presentation="full-slide"]
+    .sc-course-dropdown-select__label,
+  .sc-dropdown-slide-surface-view
+    [data-dropdown-presentation="full-slide"]
+    .sc-course-dropdown-select__correct-answer {
+    margin-inline: var(--sc-dropdown-slide-status-reserve);
+  }
+
+  .sc-dropdown-slide-surface-view
+    [data-dropdown-presentation="full-slide"]
+    .sc-course-dropdown-select__row {
+    position: relative;
+    padding-inline: var(--sc-dropdown-slide-status-reserve);
+  }
+
+  .sc-dropdown-slide-surface-view
+    [data-dropdown-presentation="full-slide"]
+    .sc-course-dropdown-select__status {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    inline-size: var(--sc-dropdown-slide-status-reserve);
+    gap: 0.625rem;
   }
 
   .sc-assessment-slide-surface-runtime-view.sc-dropdown-slide-surface-runtime-view

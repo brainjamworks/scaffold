@@ -13,12 +13,12 @@ import {
 import { SlideCompositionSurfaceRuntimeView } from "./variants/slide-composition";
 
 describe("surface runtime view map", () => {
-  it("covers the exact built-in 24-variant set", () => {
+  it("covers the exact built-in 26-variant set", () => {
     expect(
       builtInSurfaceVariantRegistry.definitions.filter((definition) =>
         builtInSurfaceRuntimeViewMap.get(definition.id),
       ),
-    ).toHaveLength(25);
+    ).toHaveLength(26);
     expect(builtInSurfaceRuntimeViewBindings.map(({ variantId }) => variantId)).toEqual(
       builtInSurfaceVariantRegistry.definitions.map(({ id }) => id),
     );

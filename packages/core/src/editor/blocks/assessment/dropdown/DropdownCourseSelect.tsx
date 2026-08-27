@@ -122,18 +122,20 @@ export function DropdownCourseSelect({
           </Select.Portal>
         </Select.Root>
 
-        {state === "correct" || state === "missed" ? (
-          <span className="sc-course-dropdown-select__side-icon">
-            <CheckCircle size={iconMd} weight="fill" aria-hidden />
-          </span>
-        ) : state === "incorrect" ? (
-          <span className="sc-course-dropdown-select__side-icon">
-            <XCircle size={iconMd} weight="fill" aria-hidden />
-          </span>
-        ) : null}
-        {feedbackControl ? (
-          <span className="sc-course-dropdown-select__feedback">{feedbackControl}</span>
-        ) : null}
+        <span className="sc-course-dropdown-select__status">
+          {state === "correct" || state === "missed" ? (
+            <span className="sc-course-dropdown-select__side-icon">
+              <CheckCircle size={iconMd} weight="fill" aria-hidden />
+            </span>
+          ) : state === "incorrect" ? (
+            <span className="sc-course-dropdown-select__side-icon">
+              <XCircle size={iconMd} weight="fill" aria-hidden />
+            </span>
+          ) : null}
+          {feedbackControl ? (
+            <span className="sc-course-dropdown-select__feedback">{feedbackControl}</span>
+          ) : null}
+        </span>
         {accessibilityDescription ? (
           <VisuallyHidden.Root id={descriptionId}>{accessibilityDescription}</VisuallyHidden.Root>
         ) : null}

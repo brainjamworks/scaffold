@@ -61,6 +61,15 @@ describe("full-slide Dropdown authoring", () => {
     );
     expect(getComputedStyle(rail).overflowY).toBe("auto");
     expect(rows()).toHaveLength(4);
+    expect(
+      rows().every((row) => {
+        const surface = requiredElement<HTMLElement>(
+          row,
+          ".sc-app-assessment-choice-authoring-surface",
+        );
+        return !surface.classList.contains("sc-course-assessment-choice");
+      }),
+    ).toBe(true);
     expect(add.closest(".sc-app-assessment-choices-scroll--authoring")).toBe(rail);
     expect(add.querySelector("[class^='sc-course-']")).toBeNull();
     expect(

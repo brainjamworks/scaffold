@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
 
 import "@/styles/globals.css";
+import "@/editor/surfaces/view/variants/assessment/slide-dropdown-question.css";
 import "@/theme/course/designs/pocket-atlas/v1/theme.css";
 import "@/theme/course/designs/scaffold-flow/v1/theme.css";
 
@@ -21,6 +22,59 @@ afterEach(() => {
 });
 
 describe("Dropdown Course surface geometry", () => {
+  it("keeps the full-slide trigger stable when submitted status controls appear", async () => {
+    await page.viewport(1100, 700);
+    host = document.createElement("section");
+    host.className =
+      "sc-course sc-course-theme-pocket-atlas-v1 sc-dropdown-slide-surface-view radix-themes light";
+    host.style.cssText = [
+      "position: fixed",
+      "inset: 24px auto auto 24px",
+      "width: 1024px",
+      "height: 576px",
+      "--default-font-family: sans-serif",
+      "--heading-font-family: sans-serif",
+      "--sc-course-state-correct-border: rgb(22 163 74)",
+      "--sc-course-state-correct-background: rgb(220 252 231)",
+      "--sc-course-state-correct-text: rgb(22 101 52)",
+    ].join(";");
+    const mount = document.createElement("div");
+    mount.className = "sc-course-dropdown-interaction__focal";
+    host.append(mount);
+    document.body.append(host);
+
+    root = createRoot(mount);
+    const renderSelect = (submitted: boolean) =>
+      root?.render(
+        <div data-dropdown-presentation="full-slide">
+          <DropdownCourseSelect
+            disabled={submitted}
+            feedbackControl={submitted ? <button type="button">Feedback</button> : null}
+            label="Choose an answer"
+            onValueChange={() => undefined}
+            options={[
+              { id: "option-a", text: "Option A", content: "Option A" },
+              { id: "option-b", text: "Option B", content: "Option B" },
+            ]}
+            placeholder="Select..."
+            state={submitted ? "correct" : null}
+            value={submitted ? "option-a" : ""}
+          />
+        </div>,
+      );
+
+    renderSelect(false);
+    await waitForCondition(() => host?.querySelector('[role="combobox"]'));
+    const trigger = requireElement<HTMLButtonElement>(host, '[role="combobox"]');
+    const idleWidth = trigger.getBoundingClientRect().width;
+
+    renderSelect(true);
+    await waitForCondition(() => trigger.disabled);
+
+    expect(Math.abs(trigger.getBoundingClientRect().width - idleWidth)).toBeLessThanOrEqual(1);
+    expect(getComputedStyle(trigger).cursor).toBe("not-allowed");
+  });
+
   it("keeps variable-height surfaces bounded and wrapped under full roundness", async () => {
     await page.viewport(760, 640);
     host = document.createElement("section");

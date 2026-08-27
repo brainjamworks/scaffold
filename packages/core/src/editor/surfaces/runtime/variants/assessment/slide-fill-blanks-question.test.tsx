@@ -24,6 +24,7 @@ import type { AssessmentStoreApi } from "@/runtime/assessment/types";
 
 const assessmentTargetId = "target000001";
 const problemId = `artifact:artifact-1/block:${assessmentTargetId}`;
+const longRevealedAnswer = "a substantially longer accepted response with several words";
 
 afterEach(() => {
   cleanup();
@@ -111,7 +112,7 @@ describe("SlideFillBlanksQuestionSurfaceRuntimeView", () => {
         blanks: [
           {
             blankId: "blank0000001",
-            acceptedAnswers: ["alpha"],
+            acceptedAnswers: [longRevealedAnswer],
             caseSensitive: false,
             trimWhitespace: true,
           },
@@ -161,10 +162,16 @@ describe("SlideFillBlanksQuestionSurfaceRuntimeView", () => {
         }),
       );
       expect(await screen.findByRole("button", { name: "Try again" })).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "Blank 1 of 2, first term" })).toHaveAttribute(
+        "readonly",
+      );
+      expect(
+        screen.getByRole("textbox", { name: "Blank 1 of 2, first term" }),
+      ).toHaveAccessibleDescription("Submitted answer, incorrect. Feedback available");
       fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
       await waitFor(() => {
         expect(screen.getByRole("textbox", { name: "Blank 1 of 2, first term" })).toHaveValue(
-          "alpha",
+          longRevealedAnswer,
         );
       });
       expect(revealAnswer).toHaveBeenCalledWith(

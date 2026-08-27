@@ -3516,6 +3516,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   outline-offset: 3px;
 }
 
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-dropdown-select__trigger:disabled {
+  cursor: not-allowed;
+}
+
 .sc-course.sc-course-theme-pocket-atlas-v1
   .sc-course-dropdown-select__trigger[data-locked]:not([data-course-state]) {
   background: var(--pa-paper-muted);

@@ -130,7 +130,9 @@ describe("full-slide Fill in Blanks runtime geometry", () => {
       ".sc-slide-fill-blanks-question-surface-runtime-view",
     );
     const group = requiredElement<HTMLElement>(surface, '[role="group"]');
-    const first = requiredElement<HTMLInputElement>(group, 'input[type="text"]');
+    const inputs = Array.from(group.querySelectorAll<HTMLInputElement>('input[type="text"]'));
+    const first = inputs[0]!;
+    const second = inputs[1]!;
     const emptyPrompt = requiredElement<HTMLElement>(
       surface,
       '[data-slot="assessment-prompt"][data-assessment-prompt-empty="true"]',
@@ -142,12 +144,19 @@ describe("full-slide Fill in Blanks runtime geometry", () => {
     expect(first.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
 
     first.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "東" }));
-    first.value = "東京";
+    setNativeInputValue(first, "東京");
     first.dispatchEvent(
-      new InputEvent("input", { bubbles: true, data: "東京", inputType: "insertCompositionText" }),
+      new InputEvent("input", {
+        bubbles: true,
+        data: "東京",
+        inputType: "insertCompositionText",
+        isComposing: true,
+      }),
     );
     first.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "東京" }));
     await waitForCondition(() => first.value === "東京");
+    await userEvent.fill(second, "second answer");
+    await waitForCondition(() => second.value === "second answer");
     expect(first).toHaveValue("東京");
   });
 
@@ -407,6 +416,12 @@ function requiredElement<T extends Element>(root: ParentNode, selector: string):
   const element = root.querySelector<T>(selector);
   if (!element) throw new Error(`Expected element ${selector}.`);
   return element;
+}
+
+function setNativeInputValue(input: HTMLInputElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+  if (!setter) throw new Error("Expected the native input value setter.");
+  setter.call(input, value);
 }
 
 function requiredStyleRule(selector: string, media: string): CSSStyleRule {

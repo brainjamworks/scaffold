@@ -82,6 +82,21 @@ describe("full-slide Fill in Blanks authoring", () => {
       '.sc-app-fill-blank__author-trigger[aria-label^="Edit blank: evidence"]',
     );
     expect(trigger.closest('[data-slot="fill-blanks-body"]')).toBe(currentBody);
+
+    await userEvent.click(trigger);
+    await waitForCondition(() => document.querySelector('input[id$="-accepted-0"]'));
+    const acceptedAnswer = requiredElement<HTMLInputElement>(document, 'input[id$="-accepted-0"]');
+    await userEvent.fill(acceptedAnswer, "evidence-based reasoning");
+    await waitForCondition(
+      () =>
+        FillBlanksPrivateAssessmentSchema.parse(findQuestion(editor!).attrs["assessment"])
+          .blanksById[blankId]?.acceptedAnswers[0] === "evidence-based reasoning",
+    );
+    expect(
+      FillBlanksPrivateAssessmentSchema.parse(findQuestion(editor).attrs["assessment"]).blanksById[
+        blankId
+      ]?.acceptedAnswers,
+    ).toEqual(["evidence-based reasoning"]);
   });
 });
 
