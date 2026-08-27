@@ -8,6 +8,11 @@ interface ToggleAccordionInput {
   origin?: LayoutSectionChangeOrigin;
 }
 
+interface CloseAccordionInput {
+  defaultOpenIds: readonly string[];
+  origin?: LayoutSectionChangeOrigin;
+}
+
 interface LayoutSectionChangeInput {
   origin?: LayoutSectionChangeOrigin;
 }
@@ -28,8 +33,13 @@ export interface LayoutInteractionStoreState {
   activeTabByLayoutId: Record<string, string>;
   lastSectionChangeByLayoutId: Record<string, LayoutSectionChange>;
   openAccordionSectionsByLayoutId: Record<string, readonly string[]>;
-  pendingSemanticAccordionOpenIdsByLayoutId: Record<string, readonly string[]>;
-  consumePendingSemanticAccordionOpenIds: (layoutId: string) => void;
+  pendingProgrammaticAccordionOpenIdsByLayoutId: Record<string, readonly string[]>;
+  consumePendingProgrammaticAccordionOpenIds: (layoutId: string) => void;
+  setAccordionSectionClosed: (
+    layoutId: string,
+    sectionId: string,
+    input: CloseAccordionInput,
+  ) => void;
   setAccordionSectionOpen: (
     layoutId: string,
     sectionId: string,
@@ -54,13 +64,13 @@ function createLayoutInteractionStore(): LayoutInteractionStore {
     activeTabByLayoutId: {},
     lastSectionChangeByLayoutId: {},
     openAccordionSectionsByLayoutId: {},
-    pendingSemanticAccordionOpenIdsByLayoutId: {},
-    consumePendingSemanticAccordionOpenIds: (layoutId) => {
+    pendingProgrammaticAccordionOpenIdsByLayoutId: {},
+    consumePendingProgrammaticAccordionOpenIds: (layoutId) => {
       set((state) => {
-        if (!(layoutId in state.pendingSemanticAccordionOpenIdsByLayoutId)) return state;
+        if (!(layoutId in state.pendingProgrammaticAccordionOpenIdsByLayoutId)) return state;
         const { [layoutId]: _consumed, ...remaining } =
-          state.pendingSemanticAccordionOpenIdsByLayoutId;
-        return { pendingSemanticAccordionOpenIdsByLayoutId: remaining };
+          state.pendingProgrammaticAccordionOpenIdsByLayoutId;
+        return { pendingProgrammaticAccordionOpenIdsByLayoutId: remaining };
       });
     },
     setActivePage: (layoutId, sectionId, input) => {
@@ -104,17 +114,33 @@ function createLayoutInteractionStore(): LayoutInteractionStore {
           ...state.lastSectionChangeByLayoutId,
           [layoutId]: { origin: input.origin ?? "direct", sectionId },
         },
-        ...(input.origin === "semantic-activation" && !current.includes(sectionId)
+        ...((input.origin === "semantic-activation" || input.origin === "control-command") &&
+        !current.includes(sectionId)
           ? {
-              pendingSemanticAccordionOpenIdsByLayoutId: {
-                ...state.pendingSemanticAccordionOpenIdsByLayoutId,
+              pendingProgrammaticAccordionOpenIdsByLayoutId: {
+                ...state.pendingProgrammaticAccordionOpenIdsByLayoutId,
                 [layoutId]: [
-                  ...(state.pendingSemanticAccordionOpenIdsByLayoutId[layoutId] ?? []),
+                  ...(state.pendingProgrammaticAccordionOpenIdsByLayoutId[layoutId] ?? []),
                   sectionId,
                 ],
               },
             }
           : {}),
+      }));
+    },
+    setAccordionSectionClosed: (layoutId, sectionId, input) => {
+      const current = get().openAccordionSectionsByLayoutId[layoutId] ?? input.defaultOpenIds;
+      const next = current.includes(sectionId) ? current.filter((id) => id !== sectionId) : current;
+
+      set((state) => ({
+        openAccordionSectionsByLayoutId: {
+          ...state.openAccordionSectionsByLayoutId,
+          [layoutId]: next,
+        },
+        lastSectionChangeByLayoutId: {
+          ...state.lastSectionChangeByLayoutId,
+          [layoutId]: { origin: input.origin ?? "direct", sectionId },
+        },
       }));
     },
     toggleAccordionSection: (layoutId, sectionId, input) => {
@@ -153,6 +179,16 @@ function layoutInteractionStoreForEditor(editor: Editor): LayoutInteractionStore
 
 export function getLayoutInteractionStoreState(editor: Editor): LayoutInteractionStoreState {
   return layoutInteractionStoreForEditor(editor).getState();
+}
+
+export function subscribeToLayoutInteractionStore(
+  editor: Editor,
+  listener: (
+    state: LayoutInteractionStoreState,
+    previousState: LayoutInteractionStoreState,
+  ) => void,
+): () => void {
+  return layoutInteractionStoreForEditor(editor).subscribe(listener);
 }
 
 export function useLayoutInteractionStore<Selected>(

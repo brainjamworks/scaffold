@@ -30,6 +30,7 @@ import {
   readRequiredAccordionNodeId,
   accordionPanelId,
 } from "./accordion-components";
+import { useAccordionControlBinding } from "./accordion-control-binding";
 
 import "./accordion.css";
 
@@ -47,13 +48,13 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
     (state) => state.setAccordionSectionOpen,
   );
   const openSectionIds = accordionOpenSectionIds({ defaultOpenIds, storedOpenIds });
-  const pendingSemanticOpenIds = useLayoutInteractionStore(
+  const pendingProgrammaticOpenIds = useLayoutInteractionStore(
     props.editor,
-    (state) => state.pendingSemanticAccordionOpenIdsByLayoutId[layoutId],
+    (state) => state.pendingProgrammaticAccordionOpenIdsByLayoutId[layoutId],
   );
-  const consumePendingSemanticOpenIds = useLayoutInteractionStore(
+  const consumePendingProgrammaticOpenIds = useLayoutInteractionStore(
     props.editor,
-    (state) => state.consumePendingSemanticAccordionOpenIds,
+    (state) => state.consumePendingProgrammaticAccordionOpenIds,
   );
   const learningEventReporter = useLearningEventReporter();
   const presentedSurfaceId = useRuntimePresentedSurfaceId();
@@ -65,6 +66,13 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
     reporter: LearningEventReporter;
     sectionIds: ReadonlySet<string>;
   } | null>(null);
+
+  useAccordionControlBinding({
+    editor: props.editor,
+    getPos: props.getPos,
+    layoutId,
+    node: props.node,
+  });
 
   useLayoutSemanticActivationBinding({
     editor: props.editor,
@@ -98,11 +106,11 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
       recordedOpenRef.current?.reporter === learningEventReporter
         ? recordedOpenRef.current.sectionIds
         : new Set<string>();
-    const semanticOpenIds = new Set(pendingSemanticOpenIds ?? []);
+    const programmaticOpenIds = new Set(pendingProgrammaticOpenIds ?? []);
 
     for (const sectionId of openSectionIds) {
       if (previous.has(sectionId)) continue;
-      if (semanticOpenIds.has(sectionId)) continue;
+      if (programmaticOpenIds.has(sectionId)) continue;
       const sectionIndex = sections.findIndex((section) => section.id === sectionId);
       if (sectionIndex < 0) continue;
 
@@ -124,14 +132,14 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
       reporter: learningEventReporter,
       sectionIds: new Set(openSectionIds),
     };
-    if (pendingSemanticOpenIds?.length) consumePendingSemanticOpenIds(layoutId);
+    if (pendingProgrammaticOpenIds?.length) consumePendingProgrammaticOpenIds(layoutId);
   }, [
-    consumePendingSemanticOpenIds,
+    consumePendingProgrammaticOpenIds,
     isPresented,
     layoutId,
     learningEventReporter,
     openSectionIds,
-    pendingSemanticOpenIds,
+    pendingProgrammaticOpenIds,
     sections,
   ]);
 

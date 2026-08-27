@@ -11,6 +11,21 @@ export const paginatedLayoutDefinition = {
   boundedPlacement: "fill",
   keywords: ["pages", "pagination", "book", "sequence"],
   documentSemantics: hiddenLayoutSectionDocumentSemantics,
+  control: {
+    semanticChildren: {
+      section: {
+        events: [{ type: "selected", label: "Selected" }],
+        states: [
+          {
+            key: "selected",
+            label: "Selected",
+            valueType: { kind: "boolean" },
+          },
+        ],
+        commands: [{ type: "select", label: "Select" }],
+      },
+    },
+  },
   section: {
     label: "Page",
     addLabel: "Add page",

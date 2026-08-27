@@ -27,6 +27,7 @@ import {
   readPaginatedPages,
   readRequiredPaginatedNodeId,
 } from "./paginated-components";
+import { usePaginatedControlBinding } from "./paginated-control-binding";
 
 import "@/editor/bounded-containers/view/bounded-container.css";
 import { BoundedScrollHint } from "@/editor/bounded-containers/view/bounded-scroll";
@@ -57,6 +58,13 @@ export function PaginatedLayoutRuntimeView(props: LayoutRuntimeViewProps) {
   } | null>(null);
   const activeIndex = pages.findIndex((page) => page.id === activeId);
 
+  const commitLearnerSelection = usePaginatedControlBinding({
+    editor: props.editor,
+    getPos: props.getPos,
+    layoutId,
+    node: props.node,
+  });
+
   useLayoutSemanticActivationBinding({
     editor: props.editor,
     getPos: props.getPos,
@@ -79,7 +87,8 @@ export function PaginatedLayoutRuntimeView(props: LayoutRuntimeViewProps) {
     }
     if (!activeId || activeIndex < 0) return;
     if (
-      lastSectionChange?.origin === "semantic-activation" &&
+      (lastSectionChange?.origin === "semantic-activation" ||
+        lastSectionChange?.origin === "control-command") &&
       lastSectionChange.sectionId === activeId
     ) {
       recordedSectionRef.current = { reporter: learningEventReporter, sectionId: activeId };
@@ -118,7 +127,7 @@ export function PaginatedLayoutRuntimeView(props: LayoutRuntimeViewProps) {
       <PaginatedLayoutShell
         activeId={activeId}
         layoutId={layoutId}
-        onActivate={(pageId) => setActivePage(layoutId, pageId)}
+        onActivate={commitLearnerSelection}
         pages={pages}
       >
         <NodeViewContent className="sc-course-paginated__content" />

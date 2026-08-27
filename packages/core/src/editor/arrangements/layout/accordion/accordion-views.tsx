@@ -31,6 +31,7 @@ import {
   createAccordionAuthoringReorderProjection,
   resolveAccordionAuthoringSectionElement,
 } from "./accordion-authoring-reorder-projection";
+import { useAccordionControlBinding } from "./accordion-control-binding";
 
 import "./accordion.css";
 
@@ -44,6 +45,13 @@ export function AccordionLayoutView(props: LayoutComponentProps) {
     props.editor,
     (state) => state.setAccordionSectionOpen,
   );
+
+  useAccordionControlBinding({
+    editor: props.editor,
+    getPos: props.getPos,
+    layoutId,
+    node: props.node,
+  });
 
   useLayoutSemanticActivationBinding({
     editor: props.editor,

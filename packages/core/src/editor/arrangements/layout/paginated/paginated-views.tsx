@@ -34,6 +34,7 @@ import {
   readRequiredPaginatedNodeId,
   type PaginatedPageSummary,
 } from "./paginated-components";
+import { usePaginatedControlBinding } from "./paginated-control-binding";
 
 import "@/editor/bounded-containers/view/bounded-container.css";
 import { BoundedScrollHint } from "@/editor/bounded-containers/view/bounded-scroll";
@@ -56,6 +57,14 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
   });
   const activeId = normalizeActivePageId(storedActiveId, pages);
   const addLabel = props.definition?.section?.addLabel ?? "Add page";
+
+  usePaginatedControlBinding({
+    editor: props.editor,
+    getPos: props.getPos,
+    layoutId,
+    node: props.node,
+  });
+
   const activatePage = (pageId: string, pageIndex: number) => {
     const selectionPageId = resolvePaginatedSelectionPageId(props.editor.state, layoutId, pages);
     setActivePage(layoutId, pageId);

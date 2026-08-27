@@ -72,6 +72,27 @@ export const accordionLayoutDefinition = {
     accordion_section_title: "Enter your section title",
   },
   documentSemantics: hiddenLayoutSectionDocumentSemantics,
+  control: {
+    semanticChildren: {
+      section: {
+        events: [
+          { type: "opened", label: "Opened" },
+          { type: "closed", label: "Closed" },
+        ],
+        states: [
+          {
+            key: "open",
+            label: "Open",
+            valueType: { kind: "boolean" },
+          },
+        ],
+        commands: [
+          { type: "open", label: "Open" },
+          { type: "close", label: "Close" },
+        ],
+      },
+    },
+  },
   configuration: defineConfiguration({
     attr: "options",
     schema: AccordionLayoutOptionsSchema,
