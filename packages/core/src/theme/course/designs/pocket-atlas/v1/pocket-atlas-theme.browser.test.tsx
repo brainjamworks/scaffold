@@ -15,6 +15,10 @@ import "@/editor/blocks/assessment/shared/chrome/assessment-control-layout.css";
 import "@/editor/blocks/assessment/shared/nodes/assessment-shared-chrome.css";
 import "@/editor/blocks/assessment/quiz/Quiz.css";
 import "@/editor/blocks/media/ImageBlock.css";
+import "@/editor/arrangements/layout/shared/view/layout.css";
+import "@/editor/arrangements/layout/tabs/tabs.css";
+import "@/editor/movement/view/movement-handles.css";
+import "@/editor/suggestions/insert/ghost-add.css";
 
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
@@ -117,6 +121,152 @@ describe("Pocket Atlas Course theme", () => {
       expect(getComputedStyle(appHintTrigger).fontFamily).toContain("Satoshi");
     },
   );
+
+  it("keeps tab variants distinct and authoring chrome clear of the tab label", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mountedRoots.push(root);
+
+    root.render(
+      <AppThemeProvider appearance="light">
+        <CourseThemeProvider
+          appearance="light"
+          theme={{
+            schemaVersion: 1,
+            design: { id: "pocket-atlas", revision: "1" },
+            colourSystem: { id: "pocket-atlas", revision: "1" },
+            overrides: {},
+          }}
+        >
+          <div className="sc-course-tabs">
+            <div className="sc-course-tabs__list" data-testid="pills-list" data-variant="pills">
+              <div className="sc-course-tabs__item" data-course-tabs-item="">
+                <button
+                  aria-label="Move section"
+                  className="sc-app-structure-movement-handle sc-app-structure-movement-handle--bare sc-app-compact-movement-handle sc-app-tabs-handle"
+                  data-testid="tab-handle"
+                  type="button"
+                >
+                  <span
+                    className="sc-app-structure-movement-handle__visual sc-app-compact-movement-handle__visual"
+                    data-testid="tab-handle-visual"
+                  />
+                </button>
+                <button
+                  className="sc-course-tabs__trigger"
+                  data-state="active"
+                  data-testid="pills-tab"
+                  type="button"
+                >
+                  <span className="sc-course-tabs__trigger-label" data-testid="tab-label">
+                    Specimen
+                  </span>
+                </button>
+                <button
+                  aria-label="Section options"
+                  className="sc-layout-section-action-trigger sc-app-tabs-action"
+                  type="button"
+                />
+              </div>
+              <button
+                className="sc-app-block-add sc-layout-add-ghost sc-layout-add-ghost--inline sc-app-tabs-add"
+                data-testid="add-tab"
+                type="button"
+              >
+                <span className="sc-app-block-add__icon" />
+                <span>Add tab</span>
+              </button>
+            </div>
+            <div
+              className="sc-course-tabs__list"
+              data-testid="underline-list"
+              data-variant="underline"
+            >
+              <div className="sc-course-tabs__item">
+                <button
+                  className="sc-course-tabs__trigger"
+                  data-state="active"
+                  data-testid="underline-tab"
+                  type="button"
+                >
+                  <span className="sc-course-tabs__trigger-label">Details</span>
+                </button>
+              </div>
+              <div className="sc-course-tabs__item">
+                <button
+                  className="sc-course-tabs__trigger"
+                  data-state="inactive"
+                  data-testid="underline-tab-inactive"
+                  type="button"
+                >
+                  <span className="sc-course-tabs__trigger-label">Examples</span>
+                </button>
+              </div>
+            </div>
+            <div className="sc-course-tabs__list" data-testid="default-list" data-variant="default">
+              <div className="sc-course-tabs__item">
+                <button
+                  className="sc-course-tabs__trigger"
+                  data-state="active"
+                  data-testid="default-tab"
+                  type="button"
+                >
+                  <span className="sc-course-tabs__trigger-label">Overview</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </CourseThemeProvider>
+      </AppThemeProvider>,
+    );
+
+    await waitForCondition(() => host.querySelector('[data-testid="pills-tab"]') !== null);
+
+    const pillsList = requiredElement<HTMLElement>(host, '[data-testid="pills-list"]');
+    const underlineList = requiredElement<HTMLElement>(host, '[data-testid="underline-list"]');
+    const defaultList = requiredElement<HTMLElement>(host, '[data-testid="default-list"]');
+    const pillsTab = requiredElement<HTMLElement>(host, '[data-testid="pills-tab"]');
+    const underlineTab = requiredElement<HTMLElement>(host, '[data-testid="underline-tab"]');
+    const inactiveUnderlineTab = requiredElement<HTMLElement>(
+      host,
+      '[data-testid="underline-tab-inactive"]',
+    );
+    const defaultTab = requiredElement<HTMLElement>(host, '[data-testid="default-tab"]');
+    const handle = requiredElement<HTMLElement>(host, '[data-testid="tab-handle"]');
+    const handleVisual = requiredElement<HTMLElement>(host, '[data-testid="tab-handle-visual"]');
+    const label = requiredElement<HTMLElement>(host, '[data-testid="tab-label"]');
+    const addTab = requiredElement<HTMLElement>(host, '[data-testid="add-tab"]');
+    const triggerRect = pillsTab.getBoundingClientRect();
+    const handleRect = handle.getBoundingClientRect();
+
+    expect(getComputedStyle(pillsList).borderBottomWidth).toBe("0px");
+    expect(getComputedStyle(pillsTab).borderRadius).not.toBe("0px");
+    expect(getComputedStyle(underlineTab).boxShadow).toBe("none");
+    expect(getComputedStyle(underlineTab).transform).toBe("none");
+    expect(getComputedStyle(defaultTab).boxShadow).not.toBe("none");
+    expect(label.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+      handleVisual.getBoundingClientRect().right + 4,
+    );
+    expect(triggerRect.left + triggerRect.width / 2).toBeGreaterThan(handleRect.right);
+    expect(addTab.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    for (const list of [defaultList, pillsList, underlineList]) {
+      const style = getComputedStyle(list);
+      expect(Number.parseFloat(style.paddingTop)).toBeGreaterThanOrEqual(8);
+      expect(Number.parseFloat(style.paddingLeft)).toBeGreaterThanOrEqual(8);
+      expect(Number.parseFloat(style.paddingRight)).toBeGreaterThanOrEqual(8);
+    }
+
+    const restingUnderlineBackground = getComputedStyle(inactiveUnderlineTab).backgroundColor;
+    await userEvent.hover(inactiveUnderlineTab);
+    await waitForCondition(
+      () => getComputedStyle(inactiveUnderlineTab).backgroundColor !== restingUnderlineBackground,
+    );
+    expect(getComputedStyle(inactiveUnderlineTab).backgroundColor).not.toBe(
+      restingUnderlineBackground,
+    );
+    expect(getComputedStyle(inactiveUnderlineTab).transform).toBe("none");
+  });
 
   it.each(["light", "dark"] as const)(
     "keeps the code block legible and correctly owned in %s mode",
@@ -549,6 +699,12 @@ describe("Pocket Atlas Course theme", () => {
         expect(style.boxShadow).not.toBe("none");
         expect(contrastRatio(style.color, style.backgroundColor)).toBeGreaterThanOrEqual(4.5);
       }
+
+      await userEvent.hover(next);
+      const hoveredNextStyle = getComputedStyle(next);
+      expect(
+        contrastRatio(hoveredNextStyle.color, hoveredNextStyle.backgroundColor),
+      ).toBeGreaterThanOrEqual(4.5);
     },
   );
 
@@ -737,6 +893,14 @@ describe("Pocket Atlas Course theme", () => {
           <button className="sc-course-assessment-submission-control__button" type="button">
             Submit
           </button>
+          <button
+            className="sc-course-assessment-submission-control__button"
+            data-disabled-submit
+            disabled
+            type="button"
+          >
+            Submit
+          </button>
         </main>
       </CourseThemeProvider>,
     );
@@ -757,6 +921,11 @@ describe("Pocket Atlas Course theme", () => {
     );
     expect(getComputedStyle(submit).fontFamily).toContain("Silkscreen");
     expect(getComputedStyle(submit).boxShadow).not.toBe("none");
+    const disabledSubmit = requiredElement<HTMLButtonElement>(host, "[data-disabled-submit]");
+    expect(getComputedStyle(disabledSubmit).backgroundColor).not.toBe(
+      getComputedStyle(submit).backgroundColor,
+    );
+    expect(getComputedStyle(disabledSubmit).boxShadow).toBe("none");
   });
 
   it.each(["light", "dark"] as const)(

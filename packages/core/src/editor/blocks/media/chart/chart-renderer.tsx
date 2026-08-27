@@ -17,6 +17,8 @@ import { useCourseTheme } from "@/theme/course/CourseThemeProvider";
 
 import {
   buildChartTheme,
+  CHART_BACKGROUND_COLOUR_ROLE,
+  CHART_BAR_RADIUS_ROLE,
   CHART_BODY_FONT_ROLE,
   CHART_INK_COLOUR_ROLE,
   CHART_MUTED_COLOUR_ROLE,
@@ -49,7 +51,7 @@ interface ChartRendererProps {
 }
 
 /** Floor below which ECharts struggles to render axes / pie radius cleanly. */
-const MIN_CHART_HEIGHT = 120;
+const MIN_CHART_HEIGHT = 256;
 
 /**
  * Thin wrapper around an ECharts instance. The renderer owns
@@ -237,9 +239,16 @@ export function applyChartCourseTypography(
 
 export function applyChartCourseColours(
   option: Record<string, unknown>,
-  colours: Pick<ChartTokens, "ink" | "muted">,
+  colours: Pick<ChartTokens, "background" | "ink" | "muted">,
 ): Record<string, unknown> {
   return replaceChartColourRoles(option, colours) as Record<string, unknown>;
+}
+
+export function applyChartCourseGeometry(
+  option: Record<string, unknown>,
+  geometry: Pick<ChartTokens, "radiusBar">,
+): Record<string, unknown> {
+  return replaceChartGeometryRoles(option, geometry) as Record<string, unknown>;
 }
 
 export function applyChartAccessibility(
@@ -266,7 +275,10 @@ function prepareChartOption(
   accessibleName: string,
 ): Record<string, unknown> {
   return applyChartAccessibility(
-    applyChartCourseColours(applyChartCourseTypography(option, tokens.sans), tokens),
+    applyChartCourseColours(
+      applyChartCourseGeometry(applyChartCourseTypography(option, tokens.sans), tokens),
+      tokens,
+    ),
     accessibleName,
   );
 }
@@ -289,17 +301,33 @@ function replaceChartFontRoles(value: unknown, bodyFont: string): unknown {
 
 function replaceChartColourRoles(
   value: unknown,
-  colours: Pick<ChartTokens, "ink" | "muted">,
+  colours: Pick<ChartTokens, "background" | "ink" | "muted">,
 ): unknown {
   if (Array.isArray(value)) {
     return value.map((entry) => replaceChartColourRoles(entry, colours));
   }
   if (value === CHART_INK_COLOUR_ROLE) return colours.ink;
   if (value === CHART_MUTED_COLOUR_ROLE) return colours.muted;
+  if (value === CHART_BACKGROUND_COLOUR_ROLE) return colours.background;
   if (value === null || typeof value !== "object") return value;
 
   return Object.fromEntries(
     Object.entries(value).map(([key, entry]) => [key, replaceChartColourRoles(entry, colours)]),
+  );
+}
+
+function replaceChartGeometryRoles(
+  value: unknown,
+  geometry: Pick<ChartTokens, "radiusBar">,
+): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => replaceChartGeometryRoles(entry, geometry));
+  }
+  if (value === CHART_BAR_RADIUS_ROLE) return geometry.radiusBar;
+  if (value === null || typeof value !== "object") return value;
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, replaceChartGeometryRoles(entry, geometry)]),
   );
 }
 

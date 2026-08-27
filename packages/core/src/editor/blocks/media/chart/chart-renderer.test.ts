@@ -3,14 +3,18 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { cartesianGridLabelBounds } from "./chart-profiles/shared";
+import { pieResponsive, pieRichLabel } from "./chart-profiles/pie-shared";
 import {
   applyChartCourseColours,
+  applyChartCourseGeometry,
   applyChartCourseTypography,
   applyChartAccessibility,
   applyProfileResponsive,
 } from "./chart-renderer";
 import {
   buildChartTheme,
+  CHART_BACKGROUND_COLOUR_ROLE,
+  CHART_BAR_RADIUS_ROLE,
   CHART_BODY_FONT_ROLE,
   CHART_INK_COLOUR_ROLE,
   CHART_MUTED_COLOUR_ROLE,
@@ -143,6 +147,7 @@ describe("chart theme baseline", () => {
       graphic: [
         { style: { fill: CHART_INK_COLOUR_ROLE } },
         { style: { fill: CHART_MUTED_COLOUR_ROLE } },
+        { style: { fill: CHART_BACKGROUND_COLOUR_ROLE } },
       ],
       xAxis: {
         nameTextStyle: { color: CHART_MUTED_COLOUR_ROLE },
@@ -151,15 +156,57 @@ describe("chart theme baseline", () => {
 
     expect(
       applyChartCourseColours(option, {
+        background: "#18181b",
         ink: "#f5f3ff",
         muted: "#a78bfa",
       }),
     ).toEqual({
-      graphic: [{ style: { fill: "#f5f3ff" } }, { style: { fill: "#a78bfa" } }],
+      graphic: [
+        { style: { fill: "#f5f3ff" } },
+        { style: { fill: "#a78bfa" } },
+        { style: { fill: "#18181b" } },
+      ],
       xAxis: {
         nameTextStyle: { color: "#a78bfa" },
       },
     });
+  });
+
+  it("projects the Course bar radius through profile geometry", () => {
+    expect(
+      applyChartCourseGeometry(
+        {
+          series: [
+            { itemStyle: { borderRadius: [0, CHART_BAR_RADIUS_ROLE, CHART_BAR_RADIUS_ROLE, 0] } },
+          ],
+        },
+        { radiusBar: 0 },
+      ),
+    ).toEqual({ series: [{ itemStyle: { borderRadius: [0, 0, 0, 0] } }] });
+  });
+
+  it("uses Course ink and surface roles for pie labels instead of series colours", () => {
+    expect(pieRichLabel()).toMatchObject({
+      rich: {
+        name: { color: CHART_INK_COLOUR_ROLE },
+        percent: { color: CHART_INK_COLOUR_ROLE },
+      },
+    });
+
+    const responsive = pieResponsive(
+      { series: [{ type: "pie" }] },
+      { height: 256, width: 280 },
+      { showLegend: false, subtitle: "", title: "" },
+      "pie",
+    );
+    expect(responsive["series"]).toMatchObject([
+      {
+        label: {
+          backgroundColor: CHART_BACKGROUND_COLOUR_ROLE,
+          color: CHART_INK_COLOUR_ROLE,
+        },
+      },
+    ]);
   });
 
   it("sets explicit ECharts naming and restrained non-colour differentiation", () => {
@@ -199,7 +246,12 @@ describe("chart profile responsive dispatch", () => {
       data: ["Apples", "Bananas"],
     });
     expect(responsive["series"]).toMatchObject([
-      { type: "bar", itemStyle: { borderRadius: [0, 6, 6, 0] } },
+      {
+        type: "bar",
+        itemStyle: {
+          borderRadius: [0, CHART_BAR_RADIUS_ROLE, CHART_BAR_RADIUS_ROLE, 0],
+        },
+      },
     ]);
     // Pure: input unchanged.
     expect(option["xAxis"]).toEqual({

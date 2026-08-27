@@ -7,14 +7,12 @@
   background: var(--gray-1);
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-course-accordion__root[data-variant="default"] {
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-accordion__root[data-variant="default"] {
   border: var(--sc-course-author-stroke-width) solid var(--gray-a6);
   border-radius: var(--radius-3);
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-course-accordion__root[data-variant="borderless"] {
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-accordion__root[data-variant="borderless"] {
   border-block: var(--sc-course-author-stroke-width) solid var(--gray-a6);
   border-radius: 0;
 }
@@ -32,8 +30,6 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-accordion__title-row {
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
   background: transparent;
   color: var(--gray-12);
   font-size: calc(var(--font-size-3) * var(--sc-course-author-text-scale));
@@ -43,14 +39,11 @@
   text-align: start;
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-course-accordion__title-row[data-editable="true"] {
-  padding-inline: var(--space-7);
-  padding-inline-start: calc(var(--space-7) + var(--space-5));
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-accordion__title-content {
+  padding: var(--space-3) var(--space-4);
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-course-accordion__title-row[data-state="open"] {
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-accordion__title-row[data-state="open"] {
   background: var(--gray-a2);
 }
 
@@ -91,16 +84,9 @@
 }
 
 @container (max-width: 20rem) {
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-accordion__title-row {
-    gap: var(--space-1);
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-accordion__title-content {
     padding-inline: var(--space-3);
   }
-
-  .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-course-accordion__title-row[data-editable="true"] {
-    padding-inline: var(--space-3);
-  }
-
 }
 
 @media (hover: hover) and (pointer: fine) {

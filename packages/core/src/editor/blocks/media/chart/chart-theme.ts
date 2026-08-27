@@ -45,6 +45,8 @@ export interface ChartTokens {
 export const CHART_BODY_FONT_ROLE = "__sc_course_chart_body_font__";
 export const CHART_INK_COLOUR_ROLE = "__sc_course_chart_ink__";
 export const CHART_MUTED_COLOUR_ROLE = "__sc_course_chart_muted__";
+export const CHART_BACKGROUND_COLOUR_ROLE = "__sc_course_chart_background__";
+export const CHART_BAR_RADIUS_ROLE = "__sc_course_chart_bar_radius__";
 
 export function readChartTokens(scope: Element): ChartTokens {
   const style = getComputedStyle(scope);

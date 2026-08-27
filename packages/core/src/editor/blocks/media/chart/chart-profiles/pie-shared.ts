@@ -1,6 +1,10 @@
 import type { ChartBlockData } from "@/schemas/shared";
 
-import { CHART_BODY_FONT_ROLE } from "../chart-theme";
+import {
+  CHART_BACKGROUND_COLOUR_ROLE,
+  CHART_BODY_FONT_ROLE,
+  CHART_INK_COLOUR_ROLE,
+} from "../chart-theme";
 import { isRecord } from "./axis-utils";
 import { chartHeaderReserve } from "./shared";
 
@@ -46,12 +50,12 @@ export function pieRichLabel(): Record<string, unknown> {
     formatter: "{name|{b}}\n{percent|{d}%}",
     lineHeight: 16,
     rich: {
-      name: { fontSize: 12, fontWeight: 500, color: "inherit" },
+      name: { fontSize: 12, fontWeight: 500, color: CHART_INK_COLOUR_ROLE },
       percent: {
         fontFamily: CHART_BODY_FONT_ROLE,
         fontSize: 11,
         fontWeight: 500,
-        color: "inherit",
+        color: CHART_INK_COLOUR_ROLE,
         padding: [2, 0, 0, 0],
       },
     },
@@ -153,7 +157,9 @@ function labelForState(radius: number, useOuterLabels: boolean): Record<string, 
   return {
     show: true,
     position: "inside",
-    color: "#fff",
+    color: CHART_INK_COLOUR_ROLE,
+    backgroundColor: CHART_BACKGROUND_COLOUR_ROLE,
+    padding: [2, 4],
     fontFamily: CHART_BODY_FONT_ROLE,
     fontSize: 11,
     fontWeight: 600,

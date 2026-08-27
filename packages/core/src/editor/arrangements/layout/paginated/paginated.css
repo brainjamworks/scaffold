@@ -128,6 +128,8 @@
   .sc-course-paginated__page-item {
     position: relative;
     flex: 0 0 auto;
+    margin: 0;
+    padding: 0;
   }
 
   .sc-course-paginated__page {
@@ -174,7 +176,7 @@
     display: none;
   }
 
-  .sc-app-paginated-action {
+  .sc-course-paginated__panel > .sc-app-paginated-action {
     position: absolute;
     top: 0.75rem;
     inset-inline-end: 0.5rem;

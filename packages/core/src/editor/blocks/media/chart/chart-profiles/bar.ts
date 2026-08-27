@@ -1,5 +1,7 @@
 import type { BarChartEncoding } from "@/schemas/shared";
 
+import { CHART_BAR_RADIUS_ROLE } from "../chart-theme";
+
 import { isAxisRecordOfType, isRecord } from "./axis-utils";
 import {
   applyCategoryDensity,
@@ -56,13 +58,16 @@ export const barChartProfile: ChartProfile<BarChartEncoding> = {
     const valueName = showAxisNames ? joinYLabel(yColumns) : "";
     const series = yColumns.map((column, index) => {
       const isLastStackSegment = !encoding.stacked || index === yColumns.length - 1;
-      const itemStyleOverride: { borderRadius: number | number[] } | null = encoding.stacked
-        ? isLastStackSegment
-          ? { borderRadius: horizontal ? [0, 6, 6, 0] : [6, 6, 0, 0] }
-          : { borderRadius: 0 }
-        : horizontal
-          ? { borderRadius: [0, 6, 6, 0] }
-          : null;
+      const themedEndRadius = [0, CHART_BAR_RADIUS_ROLE, CHART_BAR_RADIUS_ROLE, 0];
+      const themedTopRadius = [CHART_BAR_RADIUS_ROLE, CHART_BAR_RADIUS_ROLE, 0, 0];
+      const itemStyleOverride: { borderRadius: number | (number | string)[] } | null =
+        encoding.stacked
+          ? isLastStackSegment
+            ? { borderRadius: horizontal ? themedEndRadius : themedTopRadius }
+            : { borderRadius: 0 }
+          : horizontal
+            ? { borderRadius: themedEndRadius }
+            : null;
       return {
         name: column.label,
         type: "bar",
@@ -141,7 +146,10 @@ function rotateBarRadius(series: unknown): unknown {
   if (existing?.["borderRadius"] === 0) return series;
   return {
     ...series,
-    itemStyle: { ...(existing ?? {}), borderRadius: [0, 6, 6, 0] },
+    itemStyle: {
+      ...(existing ?? {}),
+      borderRadius: [0, CHART_BAR_RADIUS_ROLE, CHART_BAR_RADIUS_ROLE, 0],
+    },
   };
 }
 

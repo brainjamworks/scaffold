@@ -157,21 +157,21 @@
     position: relative;
   }
 
-  .sc-app-accordion-handle,
-  .sc-app-accordion-action {
+  .sc-course-accordion__section-frame > .sc-app-accordion-handle,
+  .sc-course-accordion__section-frame > .sc-app-accordion-action {
     position: absolute;
-    top: 2.125rem;
+    top: 1.5rem;
     z-index: var(--z-interactive, 5);
     pointer-events: none;
     transform: translateY(-50%);
   }
 
-  .sc-app-accordion-handle {
-    inset-inline-start: 0.625rem;
+  .sc-course-accordion__section-frame > .sc-app-accordion-handle {
+    inset-inline-start: 0;
   }
 
-  .sc-app-accordion-action {
-    inset-inline-end: 0.625rem;
+  .sc-course-accordion__section-frame > .sc-app-accordion-action {
+    inset-inline-end: 3.375rem;
   }
 
   .sc-course-accordion__section-frame:focus-within .sc-app-accordion-handle,
@@ -195,14 +195,6 @@
   }
 
   @container (max-width: 20rem) {
-    .sc-app-accordion-handle {
-      inset-inline-start: 0.5rem;
-    }
-
-    .sc-app-accordion-action {
-      inset-inline-end: 0.5rem;
-    }
-
     [data-authoring-frame="layout"][data-authoring-chrome-active]
       .sc-course-accordion__section-frame[data-state="open"]
       .sc-app-accordion-handle,
@@ -242,7 +234,19 @@
     width: 100%;
     min-height: 2.75rem;
     grid-template-columns: minmax(0, 1fr) 2.75rem;
-    align-items: start;
+    align-items: stretch;
+  }
+
+  .sc-course-accordion__title-row[data-editable="true"] {
+    grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem 2.75rem;
+  }
+
+  .sc-course-accordion__title-row[data-editable="true"] .sc-course-accordion__title-content {
+    grid-column: 2;
+  }
+
+  .sc-course-accordion__title-row[data-editable="true"] .sc-course-accordion__trigger {
+    grid-column: 4;
   }
 
   .sc-course-accordion__title-row:not([data-editable="true"]) {
@@ -250,6 +254,7 @@
   }
 
   .sc-course-accordion__title-content {
+    display: block;
     min-width: 0;
     align-self: center;
     overflow-wrap: normal;
@@ -264,7 +269,7 @@
   .sc-course-accordion__trigger {
     display: flex;
     width: 2.75rem;
-    height: 2.75rem;
+    min-height: 2.75rem;
     flex-shrink: 0;
     align-items: center;
     justify-content: center;

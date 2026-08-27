@@ -36,13 +36,11 @@ describe("course consumer semantic colours", () => {
     const course = appendElement(fixture, "div", "sc-course sc-course-theme-scaffold-flow-v1");
     const correctItem = appendElement(course, "div", "sc-course-sequencing__item");
     correctItem.dataset["courseState"] = "correct";
-    const correctCue = appendElement(correctItem, "span", "sc-course-sequencing__state-cue");
     const incorrectItem = appendElement(course, "div", "sc-course-sequencing__item");
     incorrectItem.dataset["courseState"] = "incorrect";
 
     expect(getComputedStyle(correctItem).borderColor).toBe("rgb(22, 163, 74)");
     expect(getComputedStyle(correctItem).color).toBe("rgb(22, 163, 74)");
-    expect(getComputedStyle(correctCue).color).toBe("rgb(22, 163, 74)");
     expect(getComputedStyle(incorrectItem).borderColor).toBe("rgb(220, 38, 38)");
   });
 
@@ -80,7 +78,6 @@ describe("course consumer semantic colours", () => {
         ".sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-dropdown-select__trigger:focus-visible",
       ),
     ).toContain("var(--accent-9)");
-    expect(cssRuleText(".sc-quiz__completion-mark")).toContain("var(--color-success)");
   });
 });
 

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createDefaultPersistedCourseTheme } from "@/theme/course";
@@ -60,6 +60,16 @@ afterEach(() => {
 });
 
 describe("ChartRenderer Course theme redraw", () => {
+  it("keeps enough intrinsic height for chart labels and multi-row plots", () => {
+    render(
+      <CourseThemeProvider appearance="light" theme={createDefaultPersistedCourseTheme()}>
+        <ChartRenderer ariaLabel="Learner confidence" chartType="bar" option={{ series: [] }} />
+      </CourseThemeProvider>,
+    );
+
+    expect(screen.getByRole("img", { name: "Learner confidence" }).style.minHeight).toBe("256px");
+  });
+
   it("recreates ECharts after Course appearance changes commit", async () => {
     const theme = createDefaultPersistedCourseTheme();
     const { rerender } = render(

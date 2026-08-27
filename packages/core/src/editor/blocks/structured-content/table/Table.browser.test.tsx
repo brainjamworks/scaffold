@@ -4,11 +4,15 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "@/styles/globals.css";
+import "@/theme/course/designs/scaffold-flow/v1/theme.css";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor.test-harness";
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 const mountedEditors: TiptapEditor[] = [];
 const mountedRoots: Root[] = [];
@@ -31,17 +35,21 @@ describe("Table presentation", () => {
     const editorRef: { current: TiptapEditor | null } = { current: null };
     root.render(
       <AppThemeProvider appearance="light">
-        <main>
-          <CourseDocumentEditor
-            composition={coreAuthoringComposition}
-            source={{ mode: "document", content: tableDocument() }}
-            editable
-            onReady={(readyEditor) => {
-              editorRef.current = readyEditor;
-              mountedEditors.push(readyEditor);
-            }}
-          />
-        </main>
+        <div>
+          <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+            <main>
+              <CourseDocumentEditor
+                composition={coreAuthoringComposition}
+                source={{ mode: "document", content: tableDocument() }}
+                editable
+                onReady={(readyEditor) => {
+                  editorRef.current = readyEditor;
+                  mountedEditors.push(readyEditor);
+                }}
+              />
+            </main>
+          </CourseThemeProvider>
+        </div>
       </AppThemeProvider>,
     );
 
@@ -53,15 +61,16 @@ describe("Table presentation", () => {
     if (!editor) throw new Error("Expected the Table authoring editor.");
 
     const application = requiredElement<HTMLElement>(host, ".sc-app");
-    const course = requiredElement<HTMLElement>(host, ".sc-course");
     application.style.setProperty("--sc-app-color-focus-ring", "rgb(220 38 38 / 0.28)");
     application.style.setProperty("--sc-app-color-focus-outline", "rgb(220 38 38)");
+    const wrapper = requiredElement<HTMLElement>(host, ".tableWrapper.sc-course-table");
+    const course = wrapper.closest<HTMLElement>(".sc-course");
+    if (!course) throw new Error("Expected the Table Course boundary.");
     course.style.setProperty("--gray-1", "rgb(250 250 250)");
     course.style.setProperty("--gray-a6", "rgb(82 82 91 / 0.4)");
     course.style.setProperty("--accent-a3", "rgb(224 231 255)");
     course.style.setProperty("--accent-11", "rgb(55 48 163)");
 
-    const wrapper = requiredElement<HTMLElement>(host, ".tableWrapper.sc-course-table");
     const table = requiredElement<HTMLTableElement>(wrapper, ":scope > table");
     const header = requiredElement<HTMLTableCellElement>(table, "th");
 
@@ -158,15 +167,19 @@ function tableDocument(): JSONContent {
       content: [
         {
           type: "tableRow",
+          attrs: { id: createEmbeddedNodeId() },
           content: columns.map((column) => ({
             type: "tableHeader",
+            attrs: { id: createEmbeddedNodeId() },
             content: [paragraph(`Column ${column}`)],
           })),
         },
         {
           type: "tableRow",
+          attrs: { id: createEmbeddedNodeId() },
           content: columns.map((column) => ({
             type: "tableCell",
+            attrs: { id: createEmbeddedNodeId() },
             content: [paragraph(`Value ${column}`)],
           })),
         },
@@ -177,7 +190,11 @@ function tableDocument(): JSONContent {
 }
 
 function paragraph(text: string): JSONContent {
-  return { type: "paragraph", content: [{ type: "text", text }] };
+  return {
+    type: "paragraph",
+    attrs: { id: createEmbeddedNodeId() },
+    content: [{ type: "text", text }],
+  };
 }
 
 function firstNodePos(editor: TiptapEditor, nodeType: "tableCell" | "tableHeader"): number {

@@ -4,8 +4,11 @@ import { userEvent } from "vite-plus/test/browser/context";
 
 import "@/styles/globals.css";
 import "@/editor/blocks/assessment/sequencing/Sequencing.css";
+import "@/editor/surfaces/view/variants/assessment/slide-sequencing-question.css";
+import "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow.css";
 
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 
 import "./theme.css";
 
@@ -17,6 +20,67 @@ afterEach(() => {
 });
 
 describe("Pocket Atlas Sequencing recipe", () => {
+  it("centres Course position markers and the App add marker on one authoring rail", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    mountedRoots.push(root);
+
+    root.render(
+      <AppThemeProvider appearance="light">
+        <div>
+          <CourseThemeProvider
+            appearance="light"
+            theme={{
+              schemaVersion: 1,
+              design: { id: "pocket-atlas", revision: "1" },
+              colourSystem: { id: "pocket-atlas", revision: "1" },
+              overrides: {},
+            }}
+          >
+            <section className="sc-slide-sequencing-question-surface-view sc-slide-sequencing-question-surface-authoring-view">
+              <div className="sc-course-sequencing__group" data-sequencing-density="comfortable">
+                <div className="sc-course-sequencing__scroll">
+                  <ul className="sc-course-sequencing__list">
+                    <SequencingItem label="First field note" position={1} />
+                    <SequencingItem label="Second field note" position={2} />
+                  </ul>
+                  <button
+                    className="sc-app-assessment-choice-add sc-app-sequencing-add-item"
+                    type="button"
+                  >
+                    <span className="sc-app-sequencing-add-item__position">3</span>
+                    <span className="sc-app-assessment-choice-add__icon">+</span>
+                    <span>Add item</span>
+                  </button>
+                </div>
+              </div>
+            </section>
+          </CourseThemeProvider>
+        </div>
+      </AppThemeProvider>,
+    );
+
+    await waitForCondition(() => host.querySelector(".sc-app-sequencing-add-item") !== null);
+    const list = requiredElement<HTMLElement>(host, ".sc-course-sequencing__list");
+    const position = requiredElement<HTMLElement>(host, ".sc-course-sequencing__position");
+    const add = requiredElement<HTMLElement>(host, ".sc-app-sequencing-add-item");
+    const addPosition = requiredElement<HTMLElement>(host, ".sc-app-sequencing-add-item__position");
+    const listRect = list.getBoundingClientRect();
+    const positionRect = position.getBoundingClientRect();
+    const addRect = add.getBoundingClientRect();
+    const addPositionRect = addPosition.getBoundingClientRect();
+    const railOffset = Number.parseFloat(getComputedStyle(list, "::before").left);
+    const addRailOffset = Number.parseFloat(getComputedStyle(add, "::before").left);
+
+    expect(listRect.left + railOffset).toBeCloseTo(positionRect.left + positionRect.width / 2, 0);
+    expect(addRect.left + addRailOffset).toBeCloseTo(listRect.left + railOffset, 0);
+    expect(addPositionRect.left + addPositionRect.width / 2).toBeCloseTo(
+      listRect.left + railOffset,
+      0,
+    );
+  });
+
   it.each(["light", "dark"] as const)(
     "keeps rows distinct and the runtime drag affordance visible in %s mode",
     async (appearance) => {
@@ -91,9 +155,10 @@ describe("Pocket Atlas Sequencing recipe", () => {
   );
 });
 
-function SequencingItem({ label }: { label: string }) {
+function SequencingItem({ label, position }: { label: string; position?: number }) {
   return (
     <li className="sc-course-sequencing__item" data-draggable="">
+      {position ? <span className="sc-course-sequencing__position">{position}</span> : null}
       <button
         aria-label={`Drag ${label}`}
         className="sc-course-sequencing__runtime-handle"

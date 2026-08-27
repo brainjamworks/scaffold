@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import "@/styles/globals.css";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import "@/theme/course/designs/pocket-atlas/v1/theme.css";
 
 import { emptyTextWrapImageData } from "./content";
 import { TextWrapImageMediaSurface } from "./TextWrapImageSurface";
@@ -72,6 +73,104 @@ describe("Text Wrap Image geometry", () => {
     expect(Number.parseFloat(getComputedStyle(media).marginLeft)).toBeCloseTo(20, 0);
     expect(getComputedStyle(media).shapeOutside).toBe("circle()");
     expect(getComputedStyle(image).borderRadius).toBe("9999px");
+  });
+
+  it("preserves wrapping size and authored shape in Pocket Atlas", async () => {
+    const host = document.createElement("div");
+    host.style.width = "600px";
+    document.body.append(host);
+
+    const root = createRoot(host);
+    mountedRoots.push(root);
+    root.render(
+      <CourseThemeProvider
+        theme={{
+          ...createDefaultPersistedCourseTheme(),
+          design: { id: "pocket-atlas", revision: "1" },
+          colourSystem: { id: "pocket-atlas", revision: "1" },
+        }}
+        appearance="light"
+      >
+        <div className="sc-course-text-wrap-image">
+          <div
+            className="sc-course-text-wrap-image__shell"
+            data-position="left"
+            data-size="sm"
+            data-shape="rounded"
+          >
+            <TextWrapImageMediaSurface
+              data={emptyTextWrapImageData({
+                source: { mode: "external", src: "https://example.com/wrapped-image.png" },
+                alt: "Pocket Atlas wrap geometry fixture",
+              })}
+              fileUrl={testImageUrl()}
+            />
+            <div className="sc-course-text-wrap-image__body-content">
+              <div data-node-view-content-react>
+                <p>Body copy remains beside the image rather than starting below it.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </CourseThemeProvider>,
+    );
+
+    await waitForCondition(() => host.querySelector(".sc-course-text-wrap-image__img"));
+    const shell = requiredElement<HTMLElement>(host, ".sc-course-text-wrap-image__shell");
+    const media = requiredElement<HTMLElement>(shell, ".sc-course-text-wrap-image__media");
+
+    expect(media.getBoundingClientRect().width).toBeCloseTo(168, 0);
+    expect(Number.parseFloat(getComputedStyle(media).marginRight)).toBeCloseTo(20, 0);
+    expect(Number.parseFloat(getComputedStyle(media).borderRadius)).toBeGreaterThan(0);
+
+    shell.dataset["position"] = "right";
+    shell.dataset["size"] = "lg";
+    shell.dataset["shape"] = "circle";
+    await waitForCondition(() => getComputedStyle(media).float === "right");
+
+    expect(media.getBoundingClientRect().width).toBeCloseTo(270, 0);
+    expect(Number.parseFloat(getComputedStyle(media).marginLeft)).toBeCloseTo(20, 0);
+    expect(getComputedStyle(media).shapeOutside).toBe("circle()");
+    expect(getComputedStyle(media).borderRadius).toBe("50%");
+  });
+
+  it("keeps Pocket Atlas runtime empty media readable", async () => {
+    const host = document.createElement("div");
+    host.style.width = "600px";
+    document.body.append(host);
+
+    const root = createRoot(host);
+    mountedRoots.push(root);
+    root.render(
+      <CourseThemeProvider
+        theme={{
+          ...createDefaultPersistedCourseTheme(),
+          design: { id: "pocket-atlas", revision: "1" },
+          colourSystem: { id: "pocket-atlas", revision: "1" },
+        }}
+        appearance="light"
+      >
+        <div className="sc-course-text-wrap-image">
+          <div
+            className="sc-course-text-wrap-image__shell"
+            data-position="left"
+            data-size="md"
+            data-shape="square"
+          >
+            <TextWrapImageMediaSurface data={emptyTextWrapImageData()} fileUrl={null} />
+          </div>
+        </div>
+      </CourseThemeProvider>,
+    );
+
+    await waitForCondition(() => host.querySelector(".sc-course-text-wrap-image__empty"));
+    const media = requiredElement<HTMLElement>(host, ".sc-course-text-wrap-image__media");
+    const empty = requiredElement<HTMLElement>(media, ".sc-course-text-wrap-image__empty");
+
+    expect(media.getBoundingClientRect().width).toBeCloseTo(248, 0);
+    expect(getComputedStyle(empty).display).toBe("flex");
+    expect(getComputedStyle(empty).alignItems).toBe("center");
+    expect(empty.getBoundingClientRect().height).toBeGreaterThan(100);
   });
 
   it("recolours learner text and image treatment with Course appearance", async () => {

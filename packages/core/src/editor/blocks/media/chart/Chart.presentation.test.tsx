@@ -18,7 +18,7 @@ describe("Chart Course presentation", () => {
   it.each([
     { caption: "Learner confidence", title: "Confidence", expected: "Learner confidence" },
     { caption: "", title: "Confidence", expected: "Confidence" },
-    { caption: "   ", title: "   ", expected: "Chart" },
+    { caption: "   ", title: "   ", expected: "Bar chart" },
   ])("names the visual and data table from $expected", ({ caption, title, expected }) => {
     const chart = { ...createChartSample("bar"), caption, title };
     const { container } = render(<Chart chart={chart} showCaption />);

@@ -9,7 +9,6 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-    background: var(--color-muted);
   }
 
   .sc-surface-owned-image-slot__media,
@@ -25,10 +24,5 @@
   .sc-surface-owned-image-slot__media {
     border: 0;
     object-fit: cover;
-  }
-
-  .sc-surface-owned-image-slot__missing {
-    border: var(--sc-border-width) solid var(--color-border);
-    background: var(--color-muted);
   }
 }

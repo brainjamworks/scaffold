@@ -89,18 +89,6 @@
   font-weight: var(--font-weight-bold);
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-course-tabs__item:has(.sc-app-tabs-handle)
-  .sc-course-tabs__trigger {
-  padding-inline-start: var(--space-6);
-}
-
-.sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-course-tabs__item:has(.sc-app-tabs-action)
-  .sc-course-tabs__trigger {
-  padding-inline-end: var(--space-6);
-}
-
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-tabs__panel,
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-tabs__panel-content {
   color: var(--gray-12);
@@ -131,7 +119,6 @@
     border-color: var(--accent-9);
     color: var(--accent-contrast);
   }
-
 }
 
 @media (forced-colors: active) {

@@ -4,6 +4,7 @@ import type { ChartBlockData } from "@/schemas/shared";
 
 import { compileChart } from "./chart-compiler";
 import { ChartRenderer } from "./chart-renderer";
+import { getChartTypeDefinition } from "./chart-types";
 
 import "./chart.css";
 
@@ -14,7 +15,10 @@ export interface ChartProps {
 
 export function Chart({ chart, showCaption }: ChartProps) {
   const compiled = useMemo(() => (chart ? compileChart(chart) : null), [chart]);
-  const accessibleName = chart ? chart.caption.trim() || chart.title?.trim() || "Chart" : "Chart";
+  const fallbackName = chart ? `${getChartTypeDefinition(chart.chartType).label} chart` : "Chart";
+  const accessibleName = chart
+    ? chart.caption.trim() || chart.title?.trim() || fallbackName
+    : fallbackName;
 
   return (
     <figure className="sc-course-chart__figure">
