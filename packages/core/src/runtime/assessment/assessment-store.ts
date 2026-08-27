@@ -26,6 +26,8 @@ import type {
   AssessmentRegistration,
   AssessmentRegistrationIdentity,
   AssessmentRegistrationInput,
+  AssessmentCommittedOperation,
+  AssessmentCommittedOperationListener,
   AssessmentRequestOperation,
   AssessmentScopedId,
   AssessmentStore,
@@ -297,7 +299,24 @@ export function createAssessmentStore({
     throw new Error("artifactId must be a non-blank string");
   }
 
-  return createStore((set, get) => {
+  const committedOperationListeners = new Set<AssessmentCommittedOperationListener>();
+  const publishCommittedOperation = (commit: AssessmentCommittedOperation): void => {
+    let firstDefect: unknown;
+    for (const listener of [...committedOperationListeners]) {
+      try {
+        listener(commit);
+      } catch (error) {
+        firstDefect ??= error;
+      }
+    }
+    if (firstDefect !== undefined) throw firstDefect;
+  };
+
+  class CommittedOperationDeliveryDefect {
+    constructor(readonly cause: unknown) {}
+  }
+
+  const store = createStore<AssessmentStore>((set, get) => {
     let requestSequence = 0;
 
     const recordStandaloneAnswer = (
@@ -513,6 +532,7 @@ export function createAssessmentStore({
         problems: Record<AssessmentProblemId, AssessmentProblemSnapshot>;
       },
       clearRequest: boolean,
+      lifecycleBaseline?: QuizAttemptState | null,
     ): boolean => {
       const groupId = registration.groupId;
       const previousDurable = get().durable;
@@ -538,8 +558,34 @@ export function createAssessmentStore({
           get().durable,
           outcome.quizAttempt,
         );
+        const previousAttempt =
+          lifecycleBaseline === undefined
+            ? previousDurable.quizzes[groupId]
+            : (lifecycleBaseline ?? undefined);
+        const currentAttempt = outcome.quizAttempt;
+        const lifecycleCommit: AssessmentCommittedOperation | null =
+          operation === "quiz-start" &&
+          currentAttempt.status === "in_progress" &&
+          previousAttempt?.attemptId !== currentAttempt.attemptId
+            ? { operation: "quiz-started", groupId }
+            : previousAttempt?.attemptId === currentAttempt.attemptId &&
+                previousAttempt.status === "in_progress" &&
+                (currentAttempt.status === "completed" || currentAttempt.status === "expired")
+              ? { operation: "quiz-finished", groupId }
+              : null;
+        if (lifecycleCommit) {
+          try {
+            publishCommittedOperation(Object.freeze(lifecycleCommit));
+          } catch (error) {
+            throw new CommittedOperationDeliveryDefect(error);
+          }
+        }
       }
       return committed;
+    };
+
+    const rethrowCommittedOperationDeliveryDefect = (error: unknown): void => {
+      if (error instanceof CommittedOperationDeliveryDefect) throw error.cause;
     };
 
     return {
@@ -769,6 +815,7 @@ export function createAssessmentStore({
           return null;
         }
 
+        let committed = false;
         try {
           const outcome = validatedProblemOutcome(
             await assessmentPort.check({
@@ -783,6 +830,7 @@ export function createAssessmentStore({
           if (get().requests[problemId]?.requestId !== requestId) return null;
           set((state) => {
             if (state.requests[problemId]?.requestId !== requestId) return state;
+            committed = true;
             const requests = { ...state.requests };
             delete requests[problemId];
             return {
@@ -796,11 +844,19 @@ export function createAssessmentStore({
               requests,
             };
           });
-          return outcome.problem.checkResult;
         } catch (error) {
           failCurrentRequest(problemId, requestId, error);
           return null;
         }
+        if (!committed) return null;
+        const committedProblem = get().durable.problems[problemId];
+        if (!committedProblem) {
+          throw new Error("Committed assessment check is missing its authoritative problem.");
+        }
+        if (committedProblem.checkResult) {
+          publishCommittedOperation(Object.freeze({ operation: "check", problemId }));
+        }
+        return committedProblem.checkResult;
       },
       submit: async (identity) => {
         const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.authoredBlockId);
@@ -828,6 +884,7 @@ export function createAssessmentStore({
           return null;
         }
 
+        let committedProblem: AssessmentProblemSnapshot | null = null;
         try {
           const outcome = validatedProblemOutcome(
             await assessmentPort.submit({
@@ -858,12 +915,16 @@ export function createAssessmentStore({
             };
           });
           if (!committed) return null;
-          recordStandaloneAnswer(registration, outcome.problem);
-          return outcome.problem.submissionResult;
+          committedProblem = outcome.problem;
         } catch (error) {
           failCurrentRequest(problemId, requestId, error);
           return null;
         }
+        recordStandaloneAnswer(registration, committedProblem);
+        if (committedProblem.submitted && committedProblem.submissionResult) {
+          publishCommittedOperation(Object.freeze({ operation: "submit", problemId }));
+        }
+        return committedProblem.submissionResult;
       },
       reset: (identity) => {
         const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.authoredBlockId);
@@ -1058,6 +1119,7 @@ export function createAssessmentStore({
             ? outcome.quizAttempt
             : null;
         } catch (error) {
+          rethrowCommittedOperationDeliveryDefect(error);
           failCurrentRequest(groupId, requestId, error);
           return null;
         }
@@ -1115,6 +1177,7 @@ export function createAssessmentStore({
             ? outcome.quizAttempt
             : null;
         } catch (error) {
+          rethrowCommittedOperationDeliveryDefect(error);
           failCurrentRequest(groupId, requestId, error);
           return null;
         }
@@ -1151,6 +1214,7 @@ export function createAssessmentStore({
             ? outcome.quizAttempt
             : null;
         } catch (error) {
+          rethrowCommittedOperationDeliveryDefect(error);
           failCurrentRequest(groupId, requestId, error);
           return null;
         }
@@ -1197,7 +1261,7 @@ export function createAssessmentStore({
               initialAttempt.attemptId,
             );
             if (get().requests[groupId]?.requestId !== requestId) return null;
-            if (!commitQuizOutcome(registration, requestId, submittedOutcome, false)) {
+            if (!commitQuizOutcome(registration, requestId, submittedOutcome, false, null)) {
               return null;
             }
             currentAttempt = submittedOutcome.quizAttempt;
@@ -1217,10 +1281,11 @@ export function createAssessmentStore({
             throw new Error("Quiz expiry must return an expired attempt");
           }
           if (get().requests[groupId]?.requestId !== requestId) return null;
-          return commitQuizOutcome(registration, requestId, expiredOutcome, true)
+          return commitQuizOutcome(registration, requestId, expiredOutcome, true, initialAttempt)
             ? expiredOutcome.quizAttempt
             : null;
         } catch (error) {
+          rethrowCommittedOperationDeliveryDefect(error);
           failCurrentRequest(groupId, requestId, error);
           return null;
         }
@@ -1260,10 +1325,22 @@ export function createAssessmentStore({
             ? outcome.quizAttempt
             : null;
         } catch (error) {
+          rethrowCommittedOperationDeliveryDefect(error);
           failCurrentRequest(groupId, requestId, error);
           return null;
         }
       },
     };
+  });
+  return Object.assign(store, {
+    subscribeToCommittedOperations(listener: AssessmentCommittedOperationListener) {
+      committedOperationListeners.add(listener);
+      let subscribed = true;
+      return () => {
+        if (!subscribed) return;
+        subscribed = false;
+        committedOperationListeners.delete(listener);
+      };
+    },
   });
 }

@@ -21,10 +21,10 @@ export interface LearnerActivityRuntimeFacade {
   activity: LearnerActivityRuntimeRecord | null;
   hasUnsafeIdentity: boolean;
   persistence: LearnerActivitySaveState;
-  setData(data: LearnerActivityData): void;
-  patchData(patch: LearnerActivityData): void;
-  setCompleted(completed: boolean): void;
-  updateActivity(update: LearnerActivityUpdate): void;
+  setData(data: LearnerActivityData): boolean;
+  patchData(patch: LearnerActivityData): boolean;
+  setCompleted(completed: boolean): boolean;
+  updateActivity(update: LearnerActivityUpdate): boolean;
 }
 
 const unavailable: LearnerActivitySaveState = {
@@ -69,16 +69,16 @@ export function useLearnerActivityRuntime({
       hasUnsafeIdentity,
       persistence,
       setData: (data: LearnerActivityData) => {
-        if (blockId) store.getState().setData(blockId, data);
+        return blockId ? store.getState().setData(blockId, data) : false;
       },
       patchData: (patch: LearnerActivityData) => {
-        if (blockId) store.getState().patchData(blockId, patch);
+        return blockId ? store.getState().patchData(blockId, patch) : false;
       },
       setCompleted: (completed: boolean) => {
-        if (blockId) store.getState().setCompleted(blockId, completed);
+        return blockId ? store.getState().setCompleted(blockId, completed) : false;
       },
       updateActivity: (update: LearnerActivityUpdate) => {
-        if (blockId) store.getState().updateActivity(blockId, update);
+        return blockId ? store.getState().updateActivity(blockId, update) : false;
       },
     }),
     [activity, blockId, hasUnsafeIdentity, persistence, store],

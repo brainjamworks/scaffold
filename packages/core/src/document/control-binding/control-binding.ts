@@ -37,9 +37,31 @@ export interface ControlCommandRequest {
   readonly signal: AbortSignal;
 }
 
-export type ControlCommandError = {
-  readonly reason: "cancelled";
-};
+export type ControlCommandError =
+  | {
+      readonly reason: "cancelled";
+    }
+  | {
+      readonly reason: "playback-not-allowed";
+    }
+  | {
+      readonly reason: "media-unavailable";
+      readonly mediaErrorCode: number | null;
+    }
+  | {
+      readonly reason: "seek-out-of-range";
+      readonly requestedSeconds: number;
+      readonly durationSeconds: number;
+    }
+  | {
+      readonly reason: "page-out-of-range";
+      readonly requestedPage: number;
+      readonly pageCount: number;
+    }
+  | {
+      readonly reason: "pdf-unavailable";
+      readonly requestedPage: number;
+    };
 
 export type ControlCommandResult = ResultType<void, ControlCommandError>;
 

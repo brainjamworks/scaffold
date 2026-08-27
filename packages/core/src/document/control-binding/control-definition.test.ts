@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  normalizeControlDefinition,
-  type ControlDefinition,
-} from "./control-definition";
+import { normalizeControlDefinition, type ControlDefinition } from "./control-definition";
 
 describe("normalizeControlDefinition", () => {
   it("leaves passive definitions absent", () => {
@@ -57,7 +54,9 @@ describe("normalizeControlDefinition", () => {
     expect(normalized).toEqual(control);
     expect(normalized?.semanticChildren).not.toBe(control.semanticChildren);
     expect(state?.valueType).not.toBe(control.semanticChildren.media_item.states[0].valueType);
-    expect(state?.valueType.kind === "enum" ? state.valueType.options : undefined).not.toBe(options);
+    expect(state?.valueType.kind === "enum" ? state.valueType.options : undefined).not.toBe(
+      options,
+    );
     expect(Object.isFrozen(normalized?.semanticChildren)).toBe(true);
     expect(Object.isFrozen(normalized?.semanticChildren?.["media_item"])).toBe(true);
     expect(Object.isFrozen(state?.valueType)).toBe(true);
@@ -65,9 +64,7 @@ describe("normalizeControlDefinition", () => {
       Object.isFrozen(state?.valueType.kind === "enum" ? state.valueType.options : undefined),
     ).toBe(true);
     expect(
-      Object.isFrozen(
-        state?.valueType.kind === "enum" ? state.valueType.options[0] : undefined,
-      ),
+      Object.isFrozen(state?.valueType.kind === "enum" ? state.valueType.options[0] : undefined),
     ).toBe(true);
   });
 
@@ -115,6 +112,77 @@ describe("normalizeControlDefinition", () => {
     );
   });
 
+  it("normalizes a command-only runtime-bounded numeric input without weakening state numbers", () => {
+    const control = {
+      owner: {
+        commands: [
+          {
+            type: "seek-to",
+            label: "Seek to",
+            input: {
+              kind: "runtime-bounded-number",
+              min: 0,
+              unitLabel: "seconds",
+              step: 0.25,
+            },
+          },
+        ],
+      },
+    };
+
+    const normalized = normalizeControlDefinition(control as never);
+
+    expect(normalized).toEqual(control);
+    expect(Object.isFrozen(normalized?.owner?.commands?.[0]?.input)).toBe(true);
+  });
+
+  it("normalizes an explicitly runtime-bounded numeric state without inventing its live maximum", () => {
+    const control = {
+      owner: {
+        states: [
+          {
+            key: "page-number",
+            label: "Page number",
+            valueType: {
+              kind: "runtime-bounded-number",
+              min: 1,
+              unitLabel: "page",
+              step: 1,
+            },
+          },
+        ],
+      },
+    };
+
+    const normalized = normalizeControlDefinition(control as never);
+
+    expect(normalized).toEqual(control);
+    expect(Object.isFrozen(normalized?.owner?.states?.[0]?.valueType)).toBe(true);
+  });
+
+  it.each([
+    {
+      valueType: {
+        kind: "runtime-bounded-number",
+        min: Number.NaN,
+        unitLabel: "page",
+      },
+      message: "minimum must be finite",
+    },
+    {
+      valueType: { kind: "runtime-bounded-number", min: 1, unitLabel: "page", step: 0 },
+      message: "step must be finite and positive",
+    },
+  ])("rejects an invalid runtime-bounded numeric state", ({ valueType, message }) => {
+    expect(() =>
+      normalizeControlDefinition({
+        owner: {
+          states: [{ key: "page-number", label: "Page number", valueType }],
+        },
+      } as never),
+    ).toThrow(message);
+  });
+
   it.each([
     {
       name: "an empty definition",
@@ -136,7 +204,8 @@ describe("normalizeControlDefinition", () => {
     {
       name: "an empty semantic-child capability set",
       control: { semanticChildren: { panel: {} } },
-      message: 'Control capability set "semanticChildren.panel" must declare at least one capability.',
+      message:
+        'Control capability set "semanticChildren.panel" must declare at least one capability.',
     },
     {
       name: "an empty event tuple",

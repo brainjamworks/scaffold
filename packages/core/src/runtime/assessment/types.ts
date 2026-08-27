@@ -46,6 +46,18 @@ export type AssessmentRequestOperation =
   | "quiz-expire"
   | "quiz-reveal-answers";
 
+export type AssessmentCommittedOperation =
+  | {
+      readonly operation: "check" | "submit";
+      readonly problemId: AssessmentProblemId;
+    }
+  | {
+      readonly operation: "quiz-started" | "quiz-finished";
+      readonly groupId: AssessmentGroupId;
+    };
+
+export type AssessmentCommittedOperationListener = (commit: AssessmentCommittedOperation) => void;
+
 interface AssessmentRequestStateBase {
   readonly ownerId: AssessmentScopedId;
   readonly requestId: string;
@@ -151,4 +163,8 @@ export interface AssessmentStore {
   ) => Promise<QuizAttemptState | null>;
 }
 
-export type AssessmentStoreApi = StoreApi<AssessmentStore>;
+export interface AssessmentStoreApi extends StoreApi<AssessmentStore> {
+  readonly subscribeToCommittedOperations: (
+    listener: AssessmentCommittedOperationListener,
+  ) => () => void;
+}

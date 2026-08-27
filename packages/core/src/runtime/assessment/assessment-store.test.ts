@@ -276,6 +276,330 @@ function createQuizRegistration(
 }
 
 describe("createAssessmentStore", () => {
+  it("publishes only accepted standalone check and submit commits after authority updates", async () => {
+    const checkedProblem = {
+      ...createProblemSnapshot(),
+      checkResult: assessmentResult({ isCorrect: false, score: { scaled: 0 } }),
+    };
+    const submittedProblem = {
+      ...createProblemSnapshot(),
+      attemptNumber: 1,
+      submitted: true as const,
+      submissionResult: assessmentResult(),
+    };
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        check: vi.fn().mockResolvedValue({ problem: checkedProblem }),
+        submit: vi.fn().mockResolvedValue({ problem: submittedProblem }),
+      }),
+    });
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
+    const commits: unknown[] = [];
+    store.subscribeToCommittedOperations((commit) => {
+      commits.push({ commit, problem: store.getState().durable.problems[problemId] });
+    });
+
+    store.getState().register(createRegistration());
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
+    await store.getState().check(registrationIdentity());
+    store.getState().reset(registrationIdentity());
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
+    await store.getState().submit(registrationIdentity());
+
+    expect(commits).toEqual([
+      { commit: { operation: "check", problemId }, problem: checkedProblem },
+      { commit: { operation: "submit", problemId }, problem: submittedProblem },
+    ]);
+  });
+
+  it("keeps hydration, response editing, reset, refusal, failure, and stale outcomes out of commits", async () => {
+    const staleCheck = deferred<{ problem: AssessmentProblemSnapshot }>();
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        check: vi
+          .fn()
+          .mockRejectedValueOnce(new Error("offline"))
+          .mockImplementationOnce(() => staleCheck.promise)
+          .mockResolvedValueOnce({
+            problem: { ...createProblemSnapshot(), checkResult: assessmentResult() },
+          }),
+      }),
+    });
+    const commits: unknown[] = [];
+    store.subscribeToCommittedOperations((commit) => commits.push(commit));
+    const identity = registrationIdentity();
+
+    store.setState({
+      durable: {
+        problems: {
+          [scopeAssessmentProblemId("artifact-one", "block_000001")]: {
+            ...createProblemSnapshot(),
+            checkResult: assessmentResult(),
+          },
+        },
+        quizzes: {},
+      },
+    });
+    store.getState().register(createRegistration());
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
+    await store.getState().check(identity);
+    const older = store.getState().check(identity);
+    const newer = store.getState().check(identity);
+    staleCheck.resolve({
+      problem: { ...createProblemSnapshot(), checkResult: assessmentResult({ isCorrect: false }) },
+    });
+    await Promise.all([older, newer]);
+    store.getState().reset(identity);
+
+    expect(commits).toEqual([
+      {
+        operation: "check",
+        problemId: scopeAssessmentProblemId("artifact-one", "block_000001"),
+      },
+    ]);
+  });
+
+  it("publishes Quiz start and normal finish lifecycle commits after authoritative state updates", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
+    const startedAttempt = createQuizAttempt(groupId);
+    const finishedAttempt = createQuizAttempt(groupId, {
+      status: "completed",
+      currentTargetId: null,
+      submittedTargetIds: ["target_00001"],
+      finishedAt: "2026-07-16T12:05:00.000Z",
+      score: { scaled: 1 },
+    });
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt: vi.fn().mockResolvedValue({
+            quizAttempt: startedAttempt,
+            problemsByTargetId: {},
+          }),
+          submitQuestion: vi.fn(),
+          finishAttempt: vi.fn().mockResolvedValue({
+            quizAttempt: finishedAttempt,
+            problemsByTargetId: {},
+          }),
+        },
+      }),
+    });
+    const commits: unknown[] = [];
+    store.subscribeToCommittedOperations((commit) => {
+      commits.push({ commit, attempt: store.getState().durable.quizzes[groupId] });
+    });
+    store.getState().register(createRegistration());
+    store.getState().registerQuiz(
+      createQuizRegistration({
+        targetIds: ["target_00001"],
+        settings: { ...quizSettings, reviewTiming: "after_quiz" },
+      }),
+    );
+
+    await store.getState().startQuizAttempt({ groupId: "quiz__000001" });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
+    await store.getState().finishQuizAttempt({ groupId: "quiz__000001" });
+
+    expect(commits).toEqual([
+      {
+        commit: { operation: "quiz-started", groupId },
+        attempt: startedAttempt,
+      },
+      {
+        commit: { operation: "quiz-finished", groupId },
+        attempt: finishedAttempt,
+      },
+    ]);
+  });
+
+  it("publishes Quiz finish when an accepted question submission returns a terminal attempt", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
+    const result = assessmentResult();
+    const terminalAttempt = createQuizAttempt(groupId, {
+      status: "completed",
+      currentTargetId: null,
+      submittedTargetIds: ["target_00001"],
+      finishedAt: "2026-07-16T12:05:00.000Z",
+      score: { scaled: 1 },
+      resultsByTargetId: { target_00001: result },
+    });
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt: vi.fn(),
+          submitQuestion: vi.fn().mockResolvedValue({
+            quizAttempt: terminalAttempt,
+            problemsByTargetId: {
+              target_00001: {
+                ...createProblemSnapshot(),
+                attemptNumber: 1,
+                submitted: true,
+                submissionResult: result,
+              },
+            },
+          }),
+          finishAttempt: vi.fn(),
+        },
+      }),
+    });
+    const commits: unknown[] = [];
+    store.subscribeToCommittedOperations((commit) => commits.push(commit));
+    store.getState().register(createRegistration());
+    store.getState().registerQuiz(createQuizRegistration({ targetIds: ["target_00001"] }));
+    store.setState({
+      durable: { problems: {}, quizzes: { [groupId]: createQuizAttempt(groupId) } },
+    });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
+
+    await store.getState().submitQuizQuestion({ groupId: "quiz__000001" }, registrationIdentity());
+
+    expect(commits).toEqual([{ operation: "quiz-finished", groupId }]);
+  });
+
+  it("publishes one Quiz finish when expiry commits a terminal attempt", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
+    const expiredAttempt = createQuizAttempt(groupId, {
+      status: "expired",
+      currentTargetId: null,
+      finishedAt: "2026-07-16T12:05:00.000Z",
+      score: { scaled: 0 },
+    });
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt: vi.fn(),
+          submitQuestion: vi.fn(),
+          finishAttempt: vi.fn().mockResolvedValue({
+            quizAttempt: expiredAttempt,
+            problemsByTargetId: {},
+          }),
+        },
+      }),
+    });
+    const commits: unknown[] = [];
+    store.subscribeToCommittedOperations((commit) => commits.push(commit));
+    store.getState().register(createRegistration());
+    store.getState().registerQuiz(
+      createQuizRegistration({
+        targetIds: ["target_00001"],
+        settings: { ...quizSettings, reviewTiming: "after_quiz" },
+      }),
+    );
+    store.setState({
+      durable: { problems: {}, quizzes: { [groupId]: createQuizAttempt(groupId) } },
+    });
+
+    await store.getState().expireQuizAttempt({ groupId: "quiz__000001" });
+
+    expect(commits).toEqual([{ operation: "quiz-finished", groupId }]);
+  });
+
+  it("publishes expiry finish once against the final expired authority after a terminal answer commit", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
+    const result = assessmentResult();
+    const submittedAttempt = createQuizAttempt(groupId, {
+      status: "completed",
+      currentTargetId: null,
+      submittedTargetIds: ["target_00001"],
+      finishedAt: "2026-07-16T12:04:59.000Z",
+      score: { scaled: 1 },
+      resultsByTargetId: { target_00001: result },
+    });
+    const expiredAttempt = createQuizAttempt(groupId, {
+      status: "expired",
+      currentTargetId: null,
+      submittedTargetIds: ["target_00001"],
+      finishedAt: "2026-07-16T12:05:00.000Z",
+      score: { scaled: 0 },
+      resultsByTargetId: { target_00001: result },
+    });
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt: vi.fn(),
+          submitQuestion: vi.fn().mockResolvedValue({
+            quizAttempt: submittedAttempt,
+            problemsByTargetId: {
+              target_00001: {
+                ...createProblemSnapshot(),
+                attemptNumber: 1,
+                submitted: true,
+                submissionResult: result,
+              },
+            },
+          }),
+          finishAttempt: vi.fn().mockResolvedValue({
+            quizAttempt: expiredAttempt,
+            problemsByTargetId: {},
+          }),
+        },
+      }),
+    });
+    const commits: unknown[] = [];
+    store.subscribeToCommittedOperations((commit) => {
+      commits.push({ commit, status: store.getState().durable.quizzes[groupId]?.status });
+    });
+    store.getState().register(createRegistration());
+    store.getState().registerQuiz(createQuizRegistration({ targetIds: ["target_00001"] }));
+    store.setState({
+      durable: { problems: {}, quizzes: { [groupId]: createQuizAttempt(groupId) } },
+    });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
+
+    await store.getState().expireQuizAttempt({ groupId: "quiz__000001" });
+
+    expect(commits).toEqual([
+      { commit: { operation: "quiz-finished", groupId }, status: "expired" },
+    ]);
+  });
+
+  it("keeps hydration, rejected Quiz operations, and duplicate terminal writes out of lifecycle commits", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
+    const terminalAttempt = createQuizAttempt(groupId, {
+      status: "completed",
+      currentTargetId: null,
+      finishedAt: "2026-07-16T12:05:00.000Z",
+      score: { scaled: 1 },
+    });
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt: vi.fn().mockRejectedValue(new Error("offline")),
+          submitQuestion: vi.fn(),
+          finishAttempt: vi.fn(),
+          revealAnswers: vi.fn().mockResolvedValue({
+            quizAttempt: { ...terminalAttempt, answerReviewAuthorized: true },
+            problemsByTargetId: {},
+          }),
+        },
+      }),
+    });
+    const commits: unknown[] = [];
+    store.subscribeToCommittedOperations((commit) => commits.push(commit));
+    store.getState().register(createRegistration());
+    store.getState().registerQuiz(
+      createQuizRegistration({
+        targetIds: ["target_00001"],
+        settings: { ...quizSettings, reviewDetail: "full_review" },
+      }),
+    );
+    store.setState({
+      durable: { problems: {}, quizzes: { [groupId]: terminalAttempt } },
+    });
+
+    await store.getState().startQuizAttempt({ groupId: "quiz__000001" });
+    await store.getState().revealQuizAnswers({ groupId: "quiz__000001" });
+
+    expect(commits).toEqual([]);
+  });
+
   it("validates and encodes local responses before storing canonical durable state", () => {
     const store = createAssessmentStore({
       artifactId: "artifact-one",
@@ -394,6 +718,8 @@ describe("createAssessmentStore", () => {
       getLearningEventSession: getLearningEventSession,
     });
     store.getState().registerQuiz(createQuizRegistration());
+    const commits: unknown[] = [];
+    store.subscribeToCommittedOperations((commit) => commits.push(commit));
 
     await expect(store.getState().startQuizAttempt({ groupId: "quiz__000001" })).resolves.toEqual(
       hostAttempt,
@@ -405,6 +731,7 @@ describe("createAssessmentStore", () => {
     expect(startAttempt).toHaveBeenCalledTimes(2);
     expect(getLearningEventSession).toHaveBeenCalledOnce();
     expect(sessionDouble.record).toHaveBeenCalledOnce();
+    expect(commits).toEqual([{ operation: "quiz-started", groupId }]);
   });
 
   it("records only the current response when Quiz starts overlap", async () => {
@@ -430,6 +757,8 @@ describe("createAssessmentStore", () => {
       getLearningEventSession: () => sessionDouble.session,
     });
     store.getState().registerQuiz(createQuizRegistration());
+    const commits: unknown[] = [];
+    store.subscribeToCommittedOperations((commit) => commits.push(commit));
 
     const firstStart = store.getState().startQuizAttempt({ groupId: "quiz__000001" });
     const secondStart = store.getState().startQuizAttempt({ groupId: "quiz__000001" });
@@ -447,6 +776,7 @@ describe("createAssessmentStore", () => {
         attemptId: "attempt-two",
       }),
     );
+    expect(commits).toEqual([{ operation: "quiz-started", groupId }]);
   });
 
   it("keeps an authoritative Quiz start successful when Learning Events are unavailable", async () => {
@@ -531,6 +861,8 @@ describe("createAssessmentStore", () => {
       getLearningEventSession: getLearningEventSession,
     });
     store.getState().registerQuiz(createQuizRegistration());
+    const commits: unknown[] = [];
+    store.subscribeToCommittedOperations((commit) => commits.push(commit));
 
     await expect(
       store.getState().startQuizAttempt({ groupId: "quiz__000001" }),
@@ -542,6 +874,7 @@ describe("createAssessmentStore", () => {
       error: "start rejected",
     });
     expect(getLearningEventSession).not.toHaveBeenCalled();
+    expect(commits).toEqual([]);
   });
 
   it("preserves historical null success returned by ensure-start", async () => {
@@ -573,12 +906,15 @@ describe("createAssessmentStore", () => {
         settings: { ...quizSettings, passingScore: 0.5 },
       }),
     );
+    const commits: unknown[] = [];
+    store.subscribeToCommittedOperations((commit) => commits.push(commit));
 
     await expect(store.getState().startQuizAttempt({ groupId: "quiz__000001" })).resolves.toEqual(
       terminalAttempt,
     );
     expect(store.getState().durable.quizzes[groupId]).toEqual(terminalAttempt);
     expect(getLearningEventSession).not.toHaveBeenCalled();
+    expect(commits).toEqual([]);
   });
 
   it("submits a Quiz question with its canonical response and applies authoritative target state", async () => {

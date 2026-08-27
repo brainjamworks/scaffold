@@ -12,7 +12,12 @@ import type {
   EventSource,
   StateReader,
 } from "./control-binding";
-import type { ControlDefinition, ControlValue, ControlValueTypeDefinition } from "./control-definition";
+import type {
+  ControlCommandInputDefinition,
+  ControlDefinition,
+  ControlStateValueTypeDefinition,
+  ControlValue,
+} from "./control-definition";
 
 export interface CreateControlBindingRegistryInput {
   readonly requireOwnerControlDefinition: ControlCapabilityCatalogue["requireOwnerControlDefinition"];
@@ -165,10 +170,7 @@ function createRegisteredStateReader(
   return Object.freeze({
     read(request: ControlStateReadRequest) {
       assertActive(registration);
-      const capabilities = requireOwnedTargetCapabilities(
-        registration.ownerId,
-        request.targetId,
-      );
+      const capabilities = requireOwnedTargetCapabilities(registration.ownerId, request.targetId);
       const state = capabilities.states?.find((candidate) => candidate.key === request.key);
       if (!state) {
         throw new Error(
@@ -177,10 +179,13 @@ function createRegisteredStateReader(
       }
 
       const value = stateReader.read(request);
-      assertControlValue(value, state.valueType, () =>
-        new Error(
-          `Control state "${request.key}" returned an invalid value for target "${request.targetId}".`,
-        ),
+      assertControlValue(
+        value,
+        state.valueType,
+        () =>
+          new Error(
+            `Control state "${request.key}" returned an invalid value for target "${request.targetId}".`,
+          ),
       );
       assertActive(registration);
       return value;
@@ -196,10 +201,7 @@ function createRegisteredCommandExecutor(
   return Object.freeze({
     async execute(request: ControlCommandRequest) {
       assertActive(registration);
-      const capabilities = requireOwnedTargetCapabilities(
-        registration.ownerId,
-        request.targetId,
-      );
+      const capabilities = requireOwnedTargetCapabilities(registration.ownerId, request.targetId);
       const command = capabilities.commands?.find((candidate) => candidate.type === request.type);
       if (!command) {
         throw new Error(
@@ -219,10 +221,13 @@ function createRegisteredCommandExecutor(
         );
       }
       if (command.input) {
-        assertControlValue(request.input, command.input, () =>
-          new Error(
-            `Control command "${request.type}" received invalid input for target "${request.targetId}".`,
-          ),
+        assertControlCommandInput(
+          request.input,
+          command.input,
+          () =>
+            new Error(
+              `Control command "${request.type}" received invalid input for target "${request.targetId}".`,
+            ),
         );
       }
 
@@ -251,8 +256,16 @@ function assertFacetAgreement(binding: ControlBinding, definition: ControlDefini
     ...(definition.owner ? [definition.owner] : []),
     ...Object.values(definition.semanticChildren ?? {}),
   ];
-  assertFacet(binding, "eventSource", capabilitySets.some(({ events }) => events !== undefined));
-  assertFacet(binding, "stateReader", capabilitySets.some(({ states }) => states !== undefined));
+  assertFacet(
+    binding,
+    "eventSource",
+    capabilitySets.some(({ events }) => events !== undefined),
+  );
+  assertFacet(
+    binding,
+    "stateReader",
+    capabilitySets.some(({ states }) => states !== undefined),
+  );
   assertFacet(
     binding,
     "commandExecutor",
@@ -267,18 +280,52 @@ function assertFacet(
 ): void {
   const present = binding[facet] !== undefined;
   if (required && !present) {
-    throw new Error(`Control binding for owner "${binding.ownerId}" is missing required ${facet} facet.`);
+    throw new Error(
+      `Control binding for owner "${binding.ownerId}" is missing required ${facet} facet.`,
+    );
   }
   if (!required && present) {
-    throw new Error(`Control binding for owner "${binding.ownerId}" has undeclared ${facet} facet.`);
+    throw new Error(
+      `Control binding for owner "${binding.ownerId}" has undeclared ${facet} facet.`,
+    );
+  }
+}
+
+function assertControlCommandInput(
+  value: ControlValue | undefined,
+  type: ControlCommandInputDefinition,
+  createError: () => Error,
+): asserts value is ControlValue {
+  if (type.kind !== "runtime-bounded-number") {
+    assertControlValue(value, type, createError);
+    return;
+  }
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    value < type.min ||
+    (type.step !== undefined && !isStepAligned(value, type.min, type.step))
+  ) {
+    throw createError();
   }
 }
 
 function assertControlValue(
   value: ControlValue | undefined,
-  type: ControlValueTypeDefinition,
+  type: ControlStateValueTypeDefinition,
   createError: () => Error,
 ): asserts value is ControlValue {
+  if (type.kind === "runtime-bounded-number") {
+    if (
+      typeof value !== "number" ||
+      !Number.isFinite(value) ||
+      value < type.min ||
+      (type.step !== undefined && !isStepAligned(value, type.min, type.step))
+    ) {
+      throw createError();
+    }
+    return;
+  }
   if (type.kind === "boolean") {
     if (typeof value !== "boolean") throw createError();
     return;

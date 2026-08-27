@@ -17,6 +17,7 @@ import { normalizeControlDefinition } from "./control-definition";
 import type {
   CommandExecutor,
   ControlBinding,
+  ControlCommandError,
   ControlCommandRequest,
   ControlEvent,
   EventSource,
@@ -77,13 +78,7 @@ const OWNER_CAPABILITIES = FULL_CONTROL.owner!;
 describe("ControlBindingRegistry", () => {
   it("uses the catalogue target map to validate an exact semantic child", () => {
     const child = semanticItem(CHILD_ID, "published-child", "section", "controlled_block");
-    const owner = semanticItem(
-      OWNER_ID,
-      "block",
-      "controlled_block",
-      "controlled_block",
-      [child],
-    );
+    const owner = semanticItem(OWNER_ID, "block", "controlled_block", "controlled_block", [child]);
     const snapshot = Object.freeze({
       revision: 1,
       mode: "page",
@@ -117,8 +112,7 @@ describe("ControlBindingRegistry", () => {
     const catalogue = createControlCapabilityCatalogue({ snapshot, definitions });
     const source = createEventSource();
     const registry = createControlBindingRegistry({
-      requireOwnerControlDefinition: (ownerId) =>
-        catalogue.requireOwnerControlDefinition(ownerId),
+      requireOwnerControlDefinition: (ownerId) => catalogue.requireOwnerControlDefinition(ownerId),
       requireOwnedTargetCapabilities: (ownerId, targetId) =>
         catalogue.requireOwnedTargetCapabilities(ownerId, targetId),
     });
@@ -342,10 +336,95 @@ describe("ControlBindingRegistry", () => {
     await expect(executor.execute(commandRequest(CHILD_ID, "select"))).rejects.toThrow(
       `Control command "select" requires input for target "${CHILD_ID}".`,
     );
-    await expect(
-      executor.execute(commandRequest(CHILD_ID, "select", "missing")),
-    ).rejects.toThrow(`Control command "select" received invalid input for target "${CHILD_ID}".`);
+    await expect(executor.execute(commandRequest(CHILD_ID, "select", "missing"))).rejects.toThrow(
+      `Control command "select" received invalid input for target "${CHILD_ID}".`,
+    );
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("validates runtime-bounded numeric command input without inventing a static maximum", async () => {
+    const execute = vi.fn(async () => Result.ok());
+    const registry = registryFor(
+      control({
+        owner: {
+          commands: [
+            {
+              type: "seek-to",
+              label: "Seek to",
+              input: { kind: "runtime-bounded-number", min: 0, unitLabel: "seconds" },
+            },
+          ],
+        },
+      }),
+    );
+    registry.register({ ownerId: OWNER_ID, commandExecutor: { execute } });
+    const executor = requireBinding(registry.get(OWNER_ID)).commandExecutor!;
+
+    await expect(executor.execute(commandRequest(OWNER_ID, "seek-to", 86_400))).resolves.toSatisfy(
+      (result) => result.isOk(),
+    );
+    for (const invalid of [-1, Number.NaN, Number.POSITIVE_INFINITY, "12"]) {
+      await expect(
+        executor.execute(commandRequest(OWNER_ID, "seek-to", invalid as ControlValue)),
+      ).rejects.toThrow(
+        `Control command "seek-to" received invalid input for target "${OWNER_ID}".`,
+      );
+    }
+    expect(execute).toHaveBeenCalledOnce();
+  });
+
+  it("validates a declared runtime-bounded numeric state without requiring its private live maximum", () => {
+    let pageNumber: ControlValue = 2;
+    const registry = registryFor(
+      control({
+        owner: {
+          states: [
+            {
+              key: "page-number",
+              label: "Page number",
+              valueType: {
+                kind: "runtime-bounded-number",
+                min: 1,
+                unitLabel: "page",
+                step: 1,
+              },
+            },
+          ],
+        },
+      } as never),
+    );
+    registry.register({ ownerId: OWNER_ID, stateReader: { read: () => pageNumber } });
+    const reader = requireBinding(registry.get(OWNER_ID)).stateReader!;
+
+    expect(reader.read({ targetId: OWNER_ID, key: "page-number" })).toBe(2);
+    pageNumber = 100_000;
+    expect(reader.read({ targetId: OWNER_ID, key: "page-number" })).toBe(100_000);
+    for (const invalid of [0, 1.5, Number.NaN, Number.POSITIVE_INFINITY, "2"]) {
+      pageNumber = invalid as ControlValue;
+      expect(() => reader.read({ targetId: OWNER_ID, key: "page-number" })).toThrow(
+        `Control state "page-number" returned an invalid value for target "${OWNER_ID}".`,
+      );
+    }
+  });
+
+  it("preserves each demonstrated reason-specific media command failure", () => {
+    const errors = [
+      { reason: "cancelled" },
+      { reason: "playback-not-allowed" },
+      { reason: "media-unavailable", mediaErrorCode: 4 },
+      { reason: "seek-out-of-range", requestedSeconds: 61, durationSeconds: 60 },
+      { reason: "page-out-of-range", requestedPage: 6, pageCount: 5 },
+      { reason: "pdf-unavailable", requestedPage: 2 },
+    ] as const satisfies readonly ControlCommandError[];
+
+    expect(errors).toEqual([
+      { reason: "cancelled" },
+      { reason: "playback-not-allowed" },
+      { reason: "media-unavailable", mediaErrorCode: 4 },
+      { reason: "seek-out-of-range", requestedSeconds: 61, durationSeconds: 60 },
+      { reason: "page-out-of-range", requestedPage: 6, pageCount: 5 },
+      { reason: "pdf-unavailable", requestedPage: 2 },
+    ]);
   });
 
   it("preserves asynchronous success, expected cancellation and unexpected executor defects", async () => {

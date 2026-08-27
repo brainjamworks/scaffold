@@ -18,11 +18,7 @@ export type ControlValueTypeDefinition =
     }
   | {
       readonly kind: "enum";
-      readonly options: readonly [
-        ControlValueOption,
-        ControlValueOption,
-        ...ControlValueOption[],
-      ];
+      readonly options: readonly [ControlValueOption, ControlValueOption, ...ControlValueOption[]];
     }
   | {
       readonly kind: "number";
@@ -34,16 +30,31 @@ export type ControlValueTypeDefinition =
 
 export type ControlValue = boolean | string | number;
 
+export interface ControlRuntimeBoundedNumberDefinition {
+  readonly kind: "runtime-bounded-number";
+  readonly min: number;
+  readonly unitLabel: string;
+  readonly step?: number;
+}
+
+export type ControlStateValueTypeDefinition =
+  | ControlValueTypeDefinition
+  | ControlRuntimeBoundedNumberDefinition;
+
+export type ControlCommandInputDefinition =
+  | ControlValueTypeDefinition
+  | ControlRuntimeBoundedNumberDefinition;
+
 export interface ControlStateDefinition {
   readonly key: ControlStateKey;
   readonly label: string;
-  readonly valueType: ControlValueTypeDefinition;
+  readonly valueType: ControlStateValueTypeDefinition;
 }
 
 export interface ControlCommandDefinition {
   readonly type: ControlCommandType;
   readonly label: string;
-  readonly input?: ControlValueTypeDefinition;
+  readonly input?: ControlCommandInputDefinition;
 }
 
 export interface ControlCapabilitySetDefinition {
@@ -183,7 +194,10 @@ function normalizeStates(
     return Object.freeze({
       key: state["key"],
       label: state["label"],
-      valueType: normalizeValueType(state["valueType"], `${path}.states.${state["key"]}.valueType`),
+      valueType: normalizeStateValueType(
+        state["valueType"],
+        `${path}.states.${state["key"]}.valueType`,
+      ),
     });
   });
 }
@@ -214,12 +228,55 @@ function normalizeCommands(
     const input =
       command["input"] === undefined
         ? undefined
-        : normalizeValueType(command["input"], `${path}.commands.${command["type"]}.input`);
+        : normalizeCommandInput(command["input"], `${path}.commands.${command["type"]}.input`);
     return Object.freeze({
       type: command["type"],
       label: command["label"],
       ...(input ? { input } : {}),
     });
+  });
+}
+
+function normalizeCommandInput(valueType: unknown, path: string): ControlCommandInputDefinition {
+  if (isRuntimeBoundedNumber(valueType)) return normalizeRuntimeBoundedNumber(valueType, path);
+  return normalizeValueType(valueType, path);
+}
+
+function normalizeStateValueType(
+  valueType: unknown,
+  path: string,
+): ControlStateValueTypeDefinition {
+  if (isRuntimeBoundedNumber(valueType)) return normalizeRuntimeBoundedNumber(valueType, path);
+  return normalizeValueType(valueType, path);
+}
+
+function isRuntimeBoundedNumber(valueType: unknown): valueType is Record<string, unknown> {
+  return isRecord(valueType) && valueType["kind"] === "runtime-bounded-number";
+}
+
+function normalizeRuntimeBoundedNumber(
+  valueType: Record<string, unknown>,
+  path: string,
+): ControlRuntimeBoundedNumberDefinition {
+  if (
+    !hasOnlyKeys(valueType, ["kind", "min", "unitLabel", "step"]) ||
+    typeof valueType["min"] !== "number" ||
+    typeof valueType["unitLabel"] !== "string"
+  ) {
+    throw new Error(`Control runtime number "${path}" has an invalid shape.`);
+  }
+  if (!Number.isFinite(valueType["min"])) {
+    throw new Error(`Control runtime number "${path}" minimum must be finite.`);
+  }
+  const step = valueType["step"];
+  if (step !== undefined && (typeof step !== "number" || !Number.isFinite(step) || step <= 0)) {
+    throw new Error(`Control runtime number "${path}" step must be finite and positive.`);
+  }
+  return Object.freeze({
+    kind: "runtime-bounded-number",
+    min: valueType["min"],
+    unitLabel: valueType["unitLabel"],
+    ...(step === undefined ? {} : { step }),
   });
 }
 
