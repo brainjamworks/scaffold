@@ -12,6 +12,7 @@ import { createBlockRegistry, type BlockRegistry } from "@/editor/blocks/block-r
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import { mcqResponseCodec } from "@/editor/blocks/assessment/mcq/assessment";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 
 import {
   projectLearnerPublication,
@@ -21,15 +22,27 @@ import {
 } from "./document-projection";
 
 function projectBuiltInAssessmentDocument(authorDocument: JSONContent) {
-  return projectAssessmentDocumentWithBlocks(supported(authorDocument), builtInBlockRegistry);
+  return projectAssessmentDocumentWithBlocks(
+    supported(authorDocument),
+    builtInBlockRegistry,
+    builtInSurfaceVariantRegistry,
+  );
 }
 
 function projectAssessmentTargets(authorDocument: JSONContent) {
-  return projectAssessmentTargetsWithBlocks(supported(authorDocument), builtInBlockRegistry);
+  return projectAssessmentTargetsWithBlocks(
+    supported(authorDocument),
+    builtInBlockRegistry,
+    builtInSurfaceVariantRegistry,
+  );
 }
 
 function projectLearnerDocument(authorDocument: JSONContent) {
-  return projectLearnerDocumentWithBlocks(supported(authorDocument), builtInBlockRegistry);
+  return projectLearnerDocumentWithBlocks(
+    supported(authorDocument),
+    builtInBlockRegistry,
+    builtInSurfaceVariantRegistry,
+  );
 }
 
 function supported(canonicalDocument: JSONContent) {
@@ -104,11 +117,19 @@ describe("authoring publication document projection", () => {
     const getByNodeType = vi.fn(() => {
       throw new Error("projection lookup must not run for rejected readiness");
     });
+    const getSurfaceVariant = vi.fn(() => {
+      throw new Error("Surface projection lookup must not run for rejected readiness");
+    });
 
-    const result = projectLearnerPublication(readiness, { getByNodeType });
+    const result = projectLearnerPublication(
+      readiness,
+      { getByNodeType },
+      { get: getSurfaceVariant },
+    );
 
     expect(result).toBe(readiness);
     expect(getByNodeType).not.toHaveBeenCalled();
+    expect(getSurfaceVariant).not.toHaveBeenCalled();
   });
 
   it("preserves exact Course theme references for learners", () => {
@@ -134,6 +155,158 @@ describe("authoring publication document projection", () => {
     expect(projectedTheme).toEqual(theme);
     expect(projectedTheme).not.toHaveProperty("preset");
     expect(projectedTheme).not.toHaveProperty("values");
+  });
+
+  it("projects a Surface-owned Categorise question as one classify target", () => {
+    const projection = projectBuiltInAssessmentDocument(categoriseQuestionDocument("categorise01"));
+
+    expect(projection.targets).toEqual([
+      {
+        schemaVersion: 2,
+        targetId: "categorise01",
+        blockId: "categorise01",
+        blockType: "categorise",
+        interaction: {
+          kind: "classify",
+          categories: [
+            { id: "category0001", label: "Mammal" },
+            { id: "category0002", label: "Bird" },
+          ],
+          items: [
+            { id: "item00000002", label: "Robin" },
+            { id: "item00000001", label: "Whale" },
+          ],
+        },
+        assessment: {
+          kind: "classify",
+          correctPlacements: [
+            { itemId: "item00000002", categoryId: "category0002" },
+            { itemId: "item00000001", categoryId: "category0001" },
+          ],
+          feedbackByItemId: {
+            item00000001: richFeedback("Whales are mammals"),
+          },
+          summaryFeedback: richFeedback("Review the animal groups"),
+        },
+        settings: {
+          feedbackMode: "on_submit",
+          isGraded: true,
+          showAnswer: true,
+          points: 3,
+          maxAttempts: 2,
+          legend: "Sort each animal",
+        },
+      },
+    ]);
+    expect(projection.warnings).toEqual([]);
+    expect(AssessmentTargetContractSchema.parse(projection.targets[0])).toEqual(
+      projection.targets[0],
+    );
+  });
+
+  it("keeps a missing Surface-owned assessment target id observable", () => {
+    expect(() => projectBuiltInAssessmentDocument(categoriseQuestionDocument(null))).toThrow(
+      'Surface "slide-categorise-question" question is missing its assessment target id.',
+    );
+  });
+
+  it("keeps an unsupported Categorise question Surface structure observable", () => {
+    const document = categoriseQuestionDocument("categorise01");
+    document.content![0]!.content!.push({ type: "paragraph" });
+
+    expect(() => projectBuiltInAssessmentDocument(document)).toThrow(
+      'Surface "slide-categorise-question" must contain exactly one categorise question.',
+    );
+  });
+
+  it("keeps invalid Surface-owned assessment contract data observable", () => {
+    const document = categoriseQuestionDocument("categorise01");
+    const question = firstDescendant(document, "surface_categorise_question");
+    question.attrs = { ...question.attrs, settings: { feedbackMode: "after_quiz" } };
+
+    expect(() => projectBuiltInAssessmentDocument(document)).toThrow();
+  });
+
+  it("keeps unexpected Surface projection defects observable", () => {
+    const ordinarySurface = builtInSurfaceVariantRegistry.get("page-default");
+    if (!ordinarySurface) throw new Error("Expected the ordinary test Surface variant");
+    const surfaceVariants = {
+      get: (variantId: string) =>
+        variantId === "defective-assessment-surface"
+          ? {
+              ...ordinarySurface,
+              id: variantId,
+              assessmentTargets: {
+                projectTargets: () => {
+                  throw new Error("Surface projection invariant failed");
+                },
+                projectLearnerSurface: (surface: JSONContent) => surface,
+              },
+            }
+          : builtInSurfaceVariantRegistry.get(variantId),
+    };
+
+    expect(() =>
+      projectAssessmentDocumentWithBlocks(
+        supported({
+          type: "courseDocument",
+          content: [
+            {
+              type: "surface",
+              attrs: { id: "surface00018", variant: "defective-assessment-surface" },
+            },
+          ],
+        }),
+        builtInBlockRegistry,
+        surfaceVariants,
+      ),
+    ).toThrow("Surface projection invariant failed");
+  });
+
+  it("redacts private Surface-owned assessment data while preserving learner content", () => {
+    const projection = projectBuiltInAssessmentDocument(categoriseQuestionDocument("categorise01"));
+    const learnerQuestion = firstDescendant(
+      projection.learnerDocument,
+      "surface_categorise_question",
+    );
+    const learnerJson = JSON.stringify(learnerQuestion);
+
+    expect(attrsOf(learnerQuestion)).toEqual({
+      id: "categorise01",
+      settings: {
+        feedbackMode: "on_submit",
+        isGraded: true,
+        showAnswer: true,
+        points: 3,
+        maxAttempts: 2,
+        legend: "Sort each animal",
+      },
+    });
+    expect(learnerJson).not.toContain('"assessment"');
+    expect(learnerJson).not.toContain("Whales are mammals");
+    expect(learnerJson).not.toContain("Review the animal groups");
+    expect(textBetween(learnerQuestion)).toContain("Categorise animals");
+    expect(textBetween(learnerQuestion)).toContain("Mammal");
+    expect(textBetween(learnerQuestion)).toContain("Whale");
+  });
+
+  it("treats ordinary Surface variants as a no-op assessment source", () => {
+    const document: JSONContent = {
+      type: "courseDocument",
+      content: [
+        {
+          type: "surface",
+          attrs: { id: "surface00016", variant: "page-default" },
+          content: [fieldWithText("paragraph", "Ordinary content")],
+        },
+      ],
+    };
+
+    const projection = projectBuiltInAssessmentDocument(document);
+
+    expect(projection.targets).toEqual([]);
+    expect(projection.warnings).toEqual([]);
+    expect(projection.learnerDocument).toEqual(document);
   });
 
   it("reads assessment projection from the explicit built-in registry", async () => {
@@ -1315,6 +1488,83 @@ function matchingBlock(): JSONContent {
         ],
       },
       assessmentActions(),
+    ],
+  };
+}
+
+function categoriseQuestionDocument(assessmentTargetId: string | null): JSONContent {
+  return {
+    type: "courseDocument",
+    content: [
+      {
+        type: "surface",
+        attrs: { id: "surface00015", variant: "slide-categorise-question" },
+        content: [
+          {
+            type: "surface_categorise_question",
+            attrs: {
+              id: assessmentTargetId,
+              assessment: {
+                feedbackByItemId: {
+                  item00000001: richFeedback("Whales are mammals"),
+                },
+                summaryFeedback: richFeedback("Review the animal groups"),
+              },
+              settings: {
+                feedbackMode: "on_submit",
+                isGraded: true,
+                showAnswer: true,
+                points: 3,
+                maxAttempts: 2,
+                legend: "Sort each animal",
+              },
+            },
+            content: [
+              fieldWithText("assessment_title", "Categorise animals"),
+              fieldWithText("assessment_instructions", "Sort into categories"),
+              fieldWithText("assessment_prompt", "Where does each animal belong?"),
+              {
+                type: "categorise_content",
+                content: [
+                  {
+                    type: "categorise_bins_group",
+                    content: [
+                      categoriseBin("category0001", "Mammal", "item00000001", "Whale"),
+                      categoriseBin("category0002", "Bird", "item00000002", "Robin"),
+                    ],
+                  },
+                ],
+              },
+              assessmentActions(),
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function categoriseBin(
+  categoryId: string,
+  categoryLabel: string,
+  itemId: string,
+  itemLabel: string,
+): JSONContent {
+  return {
+    type: "categorise_bin",
+    attrs: { id: categoryId },
+    content: [
+      fieldWithText("categorise_bin_title", categoryLabel),
+      {
+        type: "categorise_items_group",
+        content: [
+          {
+            type: "categorise_item",
+            attrs: { id: itemId },
+            content: [fieldWithText("categorise_item_body", itemLabel)],
+          },
+        ],
+      },
     ],
   };
 }

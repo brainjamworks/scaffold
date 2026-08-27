@@ -107,8 +107,11 @@
     grid-template-columns: auto auto minmax(0, 1fr) auto auto;
   }
 
+  .sc-course-sequencing__item[data-contained-movement-target] {
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  }
+
   .sc-course-sequencing__position,
-  .sc-course-sequencing__state-cue,
   .sc-course-sequencing__review-status {
     display: inline-flex;
     flex-shrink: 0;
@@ -116,13 +119,46 @@
     justify-content: center;
   }
 
-  .sc-course-sequencing__state-cue {
-    max-width: 12rem;
-  }
-
   .sc-course-sequencing__review-status {
     align-self: flex-start;
     margin: 0;
+  }
+
+  .sc-app-sequencing-add-item {
+    position: relative;
+    min-block-size: 3.75rem;
+    flex: 0 0 auto;
+  }
+
+  .sc-app-sequencing-add-item::before {
+    position: absolute;
+    z-index: 0;
+    inset-block: calc(-1 * var(--sc-course-sequencing-row-gap, 0.75rem)) 50%;
+    inset-inline-start: var(--sc-course-sequencing-route-offset, calc(0.75rem + 1rem));
+    inline-size: 0.1875rem;
+    background: var(--sc-app-color-border);
+    content: "";
+    transform: translateX(-50%);
+  }
+
+  .sc-app-sequencing-add-item__position {
+    display: inline-flex;
+    box-sizing: border-box;
+    inline-size: 2rem;
+    block-size: 2rem;
+    flex: 0 0 2rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--sc-app-color-border);
+    border-radius: 999px;
+    color: var(--sc-app-color-text-muted);
+    font-family: var(--sc-app-font-family);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    background: var(--sc-app-color-surface);
+    position: relative;
+    z-index: 1;
   }
 
   .sc-course-sequencing__item[data-interaction-drag-placeholder] {
@@ -160,12 +196,6 @@
       .sc-course-sequencing__runtime-handle {
       grid-column: 1;
       grid-row: 2;
-    }
-
-    .sc-course-sequencing__state-cue {
-      grid-column: 2;
-      grid-row: 2;
-      justify-self: start;
     }
 
     .sc-course-sequencing__item:not([data-contained-movement-target])

@@ -11,6 +11,7 @@ import {
   type BlockAuthoringControlsInput,
   type BlockAuthoringMenuControlDescriptor,
 } from "@/editor/blocks/block-definition";
+import { assessmentControlDefinition } from "../shared/model/assessment-control-definition";
 import { FillBlanksPrivateAssessmentSchema, FillBlanksSettingsSchema } from "@scaffold/contracts";
 
 import {
@@ -106,6 +107,7 @@ function fillBlanksAuthoringControls({
 export const fillBlanksBlockDefinition = defineBlock({
   nodeType: "fill_blanks",
   title: "Fill in the blanks",
+  control: assessmentControlDefinition,
   boundedPlacement: "fill",
   authoringControls: {
     controls: fillBlanksAuthoringControls,

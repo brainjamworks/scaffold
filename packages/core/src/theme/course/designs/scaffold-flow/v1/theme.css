@@ -50,6 +50,7 @@
 @import "./assessment-support-controls.css";
 @import "./assessment-submission-control.css";
 @import "./assessment-choice.css";
+@import "./assessment-mcq.css";
 @import "./assessment-dropdown.css";
 @import "./assessment-fill-blanks.css";
 @import "./assessment-sequencing.css";

@@ -76,6 +76,7 @@ function AssessmentInstructionsNodeView(props: NodeViewProps) {
           ? [props.node.textContent.trim(), pointsLabel].filter(Boolean).join(" ")
           : undefined
       }
+      role={!isEditable && hasOverflow ? "group" : undefined}
       data-course-overflow={hasOverflow ? "true" : undefined}
       data-slot="assessment-instructions"
       className="sc-course-assessment-meta-instructions"

@@ -7,6 +7,7 @@ import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import type { ConfigurationControlDescriptor } from "@/editor/configuration/definition";
 import { defineAssessmentCapability, defineBlock } from "@/editor/blocks/block-definition";
+import { assessmentControlDefinition } from "../shared/model/assessment-control-definition";
 import {
   matchingResponseCodec,
   projectMatchingAssessment,
@@ -71,6 +72,7 @@ function makePair() {
 export const matchingBlockDefinition = defineBlock({
   nodeType: "matching",
   title: "Matching",
+  control: assessmentControlDefinition,
   boundedPlacement: "fill",
   configuration: matchingConfiguration,
   placeholders: {

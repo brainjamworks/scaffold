@@ -50,6 +50,7 @@ import { applySettingsSheetSettings } from "@/editor/shell/settings/sheets/Confi
 import { createAuthoringNodeTarget } from "@/editor/prosemirror/authoring-target";
 import { InteractionSettingsSheetHost } from "@/editor/shell/settings/sheets/InteractionSettingsSheetHost";
 import { builtInSurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-views";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { createDisposableEditor, describeBlockContract } from "@/editor/testing";
 import {
   QuizAttemptStateSchema,
@@ -57,6 +58,7 @@ import {
   type QuizSettings,
   AssessmentProblemSnapshotSchema,
   AssessmentResultSchema,
+  AssessmentTargetContractSchema,
   EmbeddedNodeIdSchema,
   type AssessmentProblemSnapshot,
   type AssessmentResult,
@@ -2822,6 +2824,7 @@ describe("quiz block skeleton", () => {
       projectAssessmentDocument(
         { status: "supported", canonicalDocument: editor.getJSON() },
         builtInBlockRegistry,
+        builtInSurfaceVariantRegistry,
       ).groups[0]?.targetIds,
     ).toEqual(["questn_00002", "questn_00001"]);
     expect(
@@ -2832,6 +2835,69 @@ describe("quiz block skeleton", () => {
     ]);
 
     editor.destroy();
+  });
+
+  it("does not infer Quiz membership from a nearby Surface-owned target", () => {
+    const canonicalDocument = quizMcqDocument("quiz-nearby1", {
+      placement: "flow",
+      questionIds: ["questn_00001"],
+    });
+    canonicalDocument.content!.push({
+      type: "surface",
+      attrs: { id: "surface00017", variant: "nearby-assessment-surface" },
+    });
+    const surfaceTarget = AssessmentTargetContractSchema.parse({
+      schemaVersion: 2,
+      targetId: "surfaceQ0001",
+      blockId: "surfaceQ0001",
+      blockType: "test-surface-assessment",
+      interaction: {
+        kind: "single-select",
+        options: [{ id: "option000003", label: "Surface option" }],
+      },
+      assessment: {
+        kind: "single-select",
+        correctOptionId: "option000003",
+        feedbackByOptionId: {},
+        summaryFeedback: null,
+      },
+      settings: {
+        feedbackMode: "on_submit",
+        isGraded: true,
+        showAnswer: true,
+        points: 1,
+        maxAttempts: null,
+      },
+    });
+    const ordinarySurface = builtInSurfaceVariantRegistry.get("page-default");
+    if (!ordinarySurface) throw new Error("Expected the ordinary test Surface variant");
+    const nearbySurfaceVariants = {
+      get(variantId: string) {
+        if (variantId !== "nearby-assessment-surface") {
+          return builtInSurfaceVariantRegistry.get(variantId);
+        }
+        return {
+          ...ordinarySurface,
+          id: "nearby-assessment-surface",
+          assessmentTargets: {
+            projectTargets: () => [surfaceTarget],
+            projectLearnerSurface: (surface: JSONContent) => surface,
+          },
+        };
+      },
+    };
+
+    const projection = projectAssessmentDocument(
+      { status: "supported", canonicalDocument },
+      builtInBlockRegistry,
+      nearbySurfaceVariants,
+    );
+
+    expect(projection.targets.map((target) => target.targetId)).toEqual([
+      "questn_00001",
+      "surfaceQ0001",
+    ]);
+    expect(projection.groups).toEqual([expect.objectContaining({ targetIds: ["questn_00001"] })]);
   });
 
   it("reorders differently sized questions non-adjacently with one dispatch and one undo", () => {

@@ -46,6 +46,7 @@ const CATALOGUE_SECTIONS: readonly {
   { id: "title", label: "Title layouts" },
   { id: "content", label: "Content layouts" },
   { id: "image", label: "Image layouts" },
+  { id: "assessment", label: "Assessment slides" },
 ];
 
 export function SurfaceTemplatePicker({
@@ -54,8 +55,7 @@ export function SurfaceTemplatePicker({
   surfaceCreationCatalog,
   surfaceVariants,
 }: SurfaceTemplatePickerProps) {
-  const [activeSectionId, setActiveSectionId] =
-    useState<SurfaceCatalogueSection>("title");
+  const [activeSectionId, setActiveSectionId] = useState<SurfaceCatalogueSection>("title");
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const selectedChoiceRef = useRef<HTMLInputElement>(null);
   const request = useEditorState({
@@ -92,10 +92,7 @@ export function SurfaceTemplatePicker({
     setSelectedVariantId(group.entries[0]?.variantId ?? null);
   };
 
-  const handleCategoryKeyDown = (
-    event: KeyboardEvent<HTMLButtonElement>,
-    currentIndex: number,
-  ) => {
+  const handleCategoryKeyDown = (event: KeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
     let nextIndex: number | null = null;
     if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % groups.length;
     if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + groups.length) % groups.length;
@@ -334,11 +331,7 @@ function SurfaceTemplatePreviewNodeView({
         data-role={node.role}
         data-surface-template-preview-node="slot"
       >
-        <SurfaceTemplatePreviewSlotContent
-          path={path}
-          role={node.role}
-          variantId={variantId}
-        />
+        <SurfaceTemplatePreviewSlotContent path={path} role={node.role} variantId={variantId} />
       </span>
     );
   }
@@ -373,8 +366,7 @@ function SurfaceTemplatePreviewNodeView({
       data-surface-template-preview-node={node.kind}
       data-preview-content-group={
         node.children.every(
-          (child) =>
-            child.kind === "slot" && (child.role === "title" || child.role === "label"),
+          (child) => child.kind === "slot" && (child.role === "title" || child.role === "label"),
         )
           ? "typographic"
           : undefined
@@ -435,14 +427,9 @@ function SurfaceTemplatePreviewSlotContent({
   }
 
   return (
-    <span
-      className="sc-surface-template-picker-preview-copy"
-      data-preview-content={role}
-    >
+    <span className="sc-surface-template-picker-preview-copy" data-preview-content={role}>
       <span className="sc-surface-template-picker-preview-copy-title">{copy.contentTitle}</span>
-      <span className="sc-surface-template-picker-preview-copy-body">
-        {copy.contentBody}
-      </span>
+      <span className="sc-surface-template-picker-preview-copy-body">{copy.contentBody}</span>
     </span>
   );
 }

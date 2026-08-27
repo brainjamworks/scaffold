@@ -7,6 +7,7 @@ import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import type { ConfigurationControlDescriptor } from "@/editor/configuration/definition";
 import { defineAssessmentCapability, defineBlock } from "@/editor/blocks/block-definition";
+import { assessmentControlDefinition } from "../shared/model/assessment-control-definition";
 import {
   dropdownResponseCodec,
   projectDropdownAssessment,
@@ -70,6 +71,7 @@ const dropdownConfiguration = createAssessmentConfiguration({
 export const dropdownBlockDefinition = defineBlock({
   nodeType: "dropdown",
   title: "Dropdown",
+  control: assessmentControlDefinition,
   boundedPlacement: "fill",
   configuration: dropdownConfiguration,
   placeholders: {

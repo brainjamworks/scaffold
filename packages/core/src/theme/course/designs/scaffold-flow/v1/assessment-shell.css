@@ -25,7 +25,7 @@
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-meta-title,
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-meta-instructions {
   min-height: var(--space-5);
-  color: var(--gray-10);
+  color: var(--gray-11);
   font-family: var(--default-font-family);
   font-size: var(--font-size-1);
   font-weight: var(--font-weight-medium);
@@ -35,7 +35,7 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-meta-title {
-  max-inline-size: 45%;
+  max-inline-size: var(--sc-course-assessment-meta-title-max-inline-size, 45%);
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
@@ -171,6 +171,33 @@
   padding-right: 0.125rem;
 }
 
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-assessment-slide-surface-view {
+  background: var(--gray-1);
+  color: var(--gray-12);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-assessment-slide-surface-view
+  :is([data-slot="assessment-title"], [data-slot="assessment-instructions"]) {
+  border-block-end: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+  background: var(--gray-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-assessment-slide-surface-view
+  [data-slot="assessment-prompt"] {
+  border-block-end: var(--sc-course-author-stroke-width) solid var(--gray-a5);
+  background: var(--gray-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-assessment-slide-surface-view
+  [data-slot="assessment-actions-group"] {
+  margin-top: 0;
+  border-block-start: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+  background: var(--gray-1);
+}
+
 @media (hover: hover) and (pointer: fine) {
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-shell:hover {
     border-color: var(--gray-a8);
@@ -216,5 +243,20 @@
 @media (prefers-reduced-motion: reduce) {
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-shell {
     transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-assessment-slide-surface-view
+    :is(
+      [data-slot="assessment-title"],
+      [data-slot="assessment-instructions"],
+      [data-slot="assessment-prompt"],
+      [data-slot="assessment-actions-group"]
+    ) {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
   }
 }

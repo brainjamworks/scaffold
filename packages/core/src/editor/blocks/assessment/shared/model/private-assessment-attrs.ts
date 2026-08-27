@@ -14,13 +14,18 @@ import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-posi
 
 export const ASSESSMENT_ATTR_NODE_TYPES = [
   "mcq",
+  "surface_multiple_choice_question",
   "multiselect",
+  "surface_multiselect_question",
   "dropdown",
+  "surface_dropdown_question",
   "fill_blanks",
   "sequencing",
+  "surface_sequencing_question",
   "matching",
   "categorise",
   "image_hotspot",
+  "surface_image_hotspot_question",
 ] as const;
 
 export type AssessmentAttrNodeType = (typeof ASSESSMENT_ATTR_NODE_TYPES)[number];

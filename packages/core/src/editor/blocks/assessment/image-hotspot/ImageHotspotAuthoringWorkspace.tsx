@@ -48,7 +48,10 @@ export const ImageHotspotAuthoringWorkspaceContent = forwardRef<
           <WorkspaceDialog.Title>{title}</WorkspaceDialog.Title>
           <WorkspaceDialog.Description>{description}</WorkspaceDialog.Description>
         </div>
-        <WorkspaceDialog.Close aria-label="Close expanded hotspot workspace" />
+        <WorkspaceDialog.Close
+          aria-label="Close expanded hotspot workspace"
+          className="sc-app-image-hotspot__icon-action"
+        />
       </WorkspaceDialog.Header>
       {toolbar ? (
         <WorkspaceDialog.Toolbar aria-label="Image hotspot tools">

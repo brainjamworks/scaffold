@@ -9,6 +9,9 @@ import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { slideCategoriseQuestionSurfaceDefinition } from "@/editor/surfaces/model/templates/assessment/slide-categorise-question";
+import { slideSequencingQuestionSurfaceDefinition } from "@/editor/surfaces/model/templates/assessment/slide-sequencing-question";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { prepareRuntimeLearnerPublication } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 
@@ -54,6 +57,7 @@ describe("assessment learner publication runtime compatibility", () => {
       const publication = projectLearnerPublication(
         { status: "supported", canonicalDocument },
         builtInBlockRegistry,
+        builtInSurfaceVariantRegistry,
       );
       if (publication.status !== "supported") {
         throw new Error(`Expected supported publication for ${nodeType}`);
@@ -80,6 +84,88 @@ describe("assessment learner publication runtime compatibility", () => {
       expect(readiness.preparedDocument.composition).toBe(runtimeComposition);
     },
   );
+
+  it("projects a Surface-owned Categorise question into learner content accepted by runtime", () => {
+    const insertDocument = createScaffoldDocumentContent({
+      mode: "slideshow",
+      initialCourseSectionTitle: "Assessment",
+    });
+    const courseDocument = insertDocument.content?.[0];
+    if (!courseDocument) throw new Error("Assessment publication fixture has no course document");
+    courseDocument.content = [
+      ...(courseDocument.content ?? []).filter((node) => node.type === "courseSection"),
+      slideCategoriseQuestionSurfaceDefinition.createSurface({
+        surfaceId: createEmbeddedNodeId(),
+      }),
+    ];
+    assignMissingNodeIds(insertDocument);
+    const canonicalDocument = authoringSchema.nodeFromJSON(insertDocument).toJSON();
+
+    const publication = projectLearnerPublication(
+      { status: "supported", canonicalDocument },
+      builtInBlockRegistry,
+      builtInSurfaceVariantRegistry,
+    );
+    if (publication.status !== "supported") {
+      throw new Error("Expected supported publication for Surface-owned Categorise");
+    }
+
+    expect(publication.assessmentTargets).toHaveLength(1);
+    expect(publication.assessmentTargets[0]).toMatchObject({
+      blockType: "categorise",
+      interaction: { kind: "classify" },
+      assessment: { kind: "classify" },
+    });
+    expect(JSON.stringify(publication.learnerContent)).not.toContain('"assessment":');
+
+    const readiness = prepareRuntimeLearnerPublication(
+      { status: "supported", learnerContent: publication.learnerContent },
+      runtimeComposition,
+      coreProductAccess,
+    );
+    expect(readiness.status).toBe("supported");
+  });
+
+  it("projects a Surface-owned Sequencing question into learner content accepted by runtime", () => {
+    const insertDocument = createScaffoldDocumentContent({
+      mode: "slideshow",
+      initialCourseSectionTitle: "Assessment",
+    });
+    const courseDocument = insertDocument.content?.[0];
+    if (!courseDocument) throw new Error("Assessment publication fixture has no course document");
+    courseDocument.content = [
+      ...(courseDocument.content ?? []).filter((node) => node.type === "courseSection"),
+      slideSequencingQuestionSurfaceDefinition.createSurface({
+        surfaceId: createEmbeddedNodeId(),
+      }),
+    ];
+    assignMissingNodeIds(insertDocument);
+    const canonicalDocument = authoringSchema.nodeFromJSON(insertDocument).toJSON();
+
+    const publication = projectLearnerPublication(
+      { status: "supported", canonicalDocument },
+      builtInBlockRegistry,
+      builtInSurfaceVariantRegistry,
+    );
+    if (publication.status !== "supported") {
+      throw new Error("Expected supported publication for Surface-owned Sequencing");
+    }
+
+    expect(publication.assessmentTargets).toHaveLength(1);
+    expect(publication.assessmentTargets[0]).toMatchObject({
+      blockType: "sequencing",
+      interaction: { kind: "sequence" },
+      assessment: { kind: "sequence" },
+    });
+    expect(JSON.stringify(publication.learnerContent)).not.toContain('"assessment":');
+
+    const readiness = prepareRuntimeLearnerPublication(
+      { status: "supported", learnerContent: publication.learnerContent },
+      runtimeComposition,
+      coreProductAccess,
+    );
+    expect(readiness.status).toBe("supported");
+  });
 });
 
 function descendantsByType(root: JSONContent, type: string): JSONContent[] {

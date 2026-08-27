@@ -1,8 +1,11 @@
+import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAssessmentQuizFacade } from "@/runtime/assessment/runtime-facade";
+import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
+import { useQuizControlBinding } from "./quiz-control-binding";
 import { getQuizSummary } from "./quiz-shared";
 import {
   deriveQuizLearnerViewModel,
@@ -12,7 +15,15 @@ import {
   runtimeQuizActiveChildKey,
 } from "./quiz-runtime-policy";
 
-export function useQuizRuntimeController({ node }: { node: ProseMirrorNode }) {
+export function useQuizRuntimeController({
+  editor,
+  getPos,
+  node,
+}: {
+  editor: Editor;
+  getPos: () => number | undefined;
+  node: ProseMirrorNode;
+}) {
   const quizSummary = useMemo(() => getQuizSummary(node), [node]);
   const { childCount, childKeys, isEmpty, quizViewId, settings } = quizSummary;
   const [runtimeActiveChildId, setRuntimeActiveChildId] = useState<string | null>(null);
@@ -25,6 +36,15 @@ export function useQuizRuntimeController({ node }: { node: ProseMirrorNode }) {
     [childKeys, quizViewId, settings],
   );
   const quizFacade = useAssessmentQuizFacade(quizRegistration, !isEmpty);
+  const assessmentStore = useAssessmentStoreApi();
+  useQuizControlBinding({
+    editor,
+    enabled: !isEmpty && quizFacade.status === "registered",
+    getPos,
+    groupId: quizFacade.groupId,
+    node,
+    store: assessmentStore,
+  });
   const quiz = quizFacade.attempt;
   const request = quizFacade.request;
   const pendingOperation = request?.status === "pending" ? request.operation : null;

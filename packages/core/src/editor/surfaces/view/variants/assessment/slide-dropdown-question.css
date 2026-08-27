@@ -1,0 +1,111 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-dropdown-slide-surface-view [data-slot="assessment-prompt"] {
+    max-block-size: 7rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .sc-dropdown-slide-surface-runtime-view [data-assessment-interaction-content],
+  .sc-dropdown-slide-surface-authoring-view [data-slot="dropdown-choices-group"] {
+    box-sizing: border-box;
+    inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+    align-self: stretch;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    overflow: hidden;
+    padding: clamp(1rem, 3cqw, 2rem) clamp(1rem, 6.25cqw, 4rem);
+  }
+
+  .sc-dropdown-slide-surface-runtime-view [data-assessment-interaction-content] {
+    display: grid;
+    block-size: 100%;
+    max-block-size: 100%;
+  }
+
+  .sc-dropdown-slide-surface-view .sc-course-dropdown-interaction__content,
+  .sc-dropdown-slide-surface-view .sc-course-dropdown-interaction {
+    box-sizing: border-box;
+    inline-size: 100%;
+    block-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+  }
+
+  .sc-dropdown-slide-surface-view .sc-course-dropdown-interaction {
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+
+  .sc-dropdown-slide-surface-view .sc-course-dropdown-interaction__focal {
+    box-sizing: border-box;
+    display: grid;
+    inline-size: min(100%, 44rem);
+    max-block-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+    align-content: center;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.25rem;
+    scrollbar-gutter: stable;
+  }
+
+  .sc-dropdown-slide-surface-view .sc-course-dropdown-select {
+    inline-size: 100%;
+    max-inline-size: none;
+  }
+
+  .sc-assessment-slide-surface-runtime-view.sc-dropdown-slide-surface-runtime-view
+    [data-dropdown-presentation="full-slide"]
+    .sc-course-dropdown-select__trigger {
+    min-block-size: max(3.5rem, calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1)));
+  }
+
+  .sc-dropdown-slide-surface-view .sc-course-dropdown-select__value {
+    display: block;
+    min-inline-size: 0;
+  }
+
+  .sc-dropdown-slide-surface-authoring-view [data-slot="dropdown-choices-group"] {
+    display: flex;
+    block-size: 100%;
+    max-block-size: 100%;
+  }
+
+  .sc-dropdown-slide-surface-authoring-view [data-slot="dropdown-choices-group"] > .react-renderer,
+  .sc-dropdown-slide-surface-authoring-view
+    [data-slot="dropdown-choices-group"]
+    .sc-course-dropdown-choices-group {
+    display: flex;
+    inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+  }
+
+  .sc-dropdown-slide-surface-authoring-view .sc-app-assessment-choices-scroll--authoring {
+    min-block-size: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  @container (max-width: 42rem) {
+    .sc-dropdown-slide-surface-runtime-view [data-assessment-interaction-content],
+    .sc-dropdown-slide-surface-authoring-view [data-slot="dropdown-choices-group"] {
+      padding-inline: 1rem;
+    }
+
+    .sc-dropdown-slide-surface-view .sc-course-dropdown-interaction__focal {
+      inline-size: 100%;
+    }
+  }
+}

@@ -158,6 +158,8 @@ describe("assessment metadata", () => {
     });
     expect(title).toHaveAttribute("tabindex", "0");
     expect(instructions).toHaveAttribute("tabindex", "0");
+    expect(title).toHaveAttribute("role", "group");
+    expect(instructions).toHaveAttribute("role", "group");
     expect(title).toHaveAccessibleName("A deliberately long assessment title");
     expect(instructions).toHaveAccessibleName(
       "Complete every response before checking your work. 3 POINTS",

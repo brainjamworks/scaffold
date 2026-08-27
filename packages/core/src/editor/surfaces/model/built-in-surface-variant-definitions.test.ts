@@ -30,6 +30,13 @@ const BUILT_IN_SURFACE_VARIANT_IDS = [
   "slide-image-cover",
   "slide-image-band",
   "slide-module-cover",
+  "slide-categorise-question",
+  "slide-sequencing-question",
+  "slide-matching-question",
+  "slide-image-hotspot-question",
+  "slide-multiple-choice-question",
+  "slide-multiselect-question",
+  "slide-dropdown-question",
 ] as const;
 
 const BUILT_IN_SLIDESHOW_CATALOGUE_IDS = [
@@ -50,10 +57,17 @@ const BUILT_IN_SLIDESHOW_CATALOGUE_IDS = [
   "slide-image-backdrop-panel",
   "slide-diptych",
   "slide-triptych",
+  "slide-categorise-question",
+  "slide-sequencing-question",
+  "slide-matching-question",
+  "slide-image-hotspot-question",
+  "slide-multiple-choice-question",
+  "slide-multiselect-question",
+  "slide-dropdown-question",
 ] as const;
 
 describe("built-in surface variant definitions", () => {
-  it("assembles the exact deterministic 18-variant production set", () => {
+  it("assembles the exact deterministic 25-variant production set", () => {
     expect(builtInSurfaceVariantDefinitions.map(({ id }) => id)).toEqual(
       BUILT_IN_SURFACE_VARIANT_IDS,
     );
@@ -79,6 +93,7 @@ describe("built-in surface variant definitions", () => {
     catalogue.sort(compareSurfaceCatalogueDefinitions);
 
     expect(catalogue.map(({ id }) => id)).toEqual(BUILT_IN_SLIDESHOW_CATALOGUE_IDS);
+    expect(catalogue.at(-1)?.catalogue.section).toBe("assessment");
   });
 
   it("preserves factory identity and validates every factory default", () => {
@@ -113,13 +128,20 @@ describe("built-in surface variant definitions", () => {
     }
   });
 
-  it("keeps the five specialized declarations as pure unregistered values", () => {
+  it("keeps specialized declarations as pure unregistered values", () => {
     const specializedIds = new Set([
       "page-default",
       "slide-cover",
       "slide-image-cover",
       "slide-image-band",
       "slide-module-cover",
+      "slide-categorise-question",
+      "slide-sequencing-question",
+      "slide-matching-question",
+      "slide-image-hotspot-question",
+      "slide-multiple-choice-question",
+      "slide-multiselect-question",
+      "slide-dropdown-question",
     ]);
 
     for (const definition of builtInSurfaceVariantDefinitions) {

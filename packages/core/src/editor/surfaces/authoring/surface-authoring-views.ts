@@ -43,6 +43,13 @@ import { SlideCoverSurfaceAuthoringView } from "./variants/slide-cover";
 import { SlideImageBandSurfaceAuthoringView } from "./variants/slide-image-band";
 import { SlideImageCoverSurfaceAuthoringView } from "./variants/slide-image-cover";
 import { SlideModuleCoverSurfaceAuthoringView } from "./variants/slide-module-cover";
+import { SlideCategoriseQuestionSurfaceAuthoringView } from "./variants/assessment/slide-categorise-question";
+import { SlideDropdownQuestionSurfaceAuthoringView } from "./variants/assessment/slide-dropdown-question";
+import { SlideMatchingQuestionSurfaceAuthoringView } from "./variants/assessment/slide-matching-question";
+import { SlideImageHotspotQuestionSurfaceAuthoringView } from "./variants/assessment/slide-image-hotspot-question";
+import { SlideMultipleChoiceQuestionSurfaceAuthoringView } from "./variants/assessment/slide-multiple-choice-question";
+import { SlideMultiselectQuestionSurfaceAuthoringView } from "./variants/assessment/slide-multiselect-question";
+import { SlideSequencingQuestionSurfaceAuthoringView } from "./variants/assessment/slide-sequencing-question";
 
 const SURFACE_SETTINGS_DRAFT_ID = EmbeddedNodeIdSchema.parse("settings0001");
 
@@ -362,6 +369,62 @@ const SPECIALISED_SURFACE_AUTHORING_VIEWS = [
     configuration: defineSurfaceSettingsConfiguration({
       title: "Slide settings",
       description: "Configure presentation settings for this slide.",
+    }),
+  },
+  {
+    variantId: "slide-categorise-question",
+    component: SlideCategoriseQuestionSurfaceAuthoringView,
+    configuration: defineSurfaceSettingsConfiguration({
+      title: "Question slide settings",
+      description: "Configure presentation settings for this question slide.",
+    }),
+  },
+  {
+    variantId: "slide-sequencing-question",
+    component: SlideSequencingQuestionSurfaceAuthoringView,
+    configuration: defineSurfaceSettingsConfiguration({
+      title: "Question slide settings",
+      description: "Configure presentation settings for this question slide.",
+    }),
+  },
+  {
+    variantId: "slide-matching-question",
+    component: SlideMatchingQuestionSurfaceAuthoringView,
+    configuration: defineSurfaceSettingsConfiguration({
+      title: "Question slide settings",
+      description: "Configure presentation settings for this question slide.",
+    }),
+  },
+  {
+    variantId: "slide-image-hotspot-question",
+    component: SlideImageHotspotQuestionSurfaceAuthoringView,
+    configuration: defineSurfaceSettingsConfiguration({
+      title: "Question slide settings",
+      description: "Configure presentation settings for this question slide.",
+    }),
+  },
+  {
+    variantId: "slide-multiple-choice-question",
+    component: SlideMultipleChoiceQuestionSurfaceAuthoringView,
+    configuration: defineSurfaceSettingsConfiguration({
+      title: "Question slide settings",
+      description: "Configure presentation settings for this question slide.",
+    }),
+  },
+  {
+    variantId: "slide-multiselect-question",
+    component: SlideMultiselectQuestionSurfaceAuthoringView,
+    configuration: defineSurfaceSettingsConfiguration({
+      title: "Question slide settings",
+      description: "Configure presentation settings for this question slide.",
+    }),
+  },
+  {
+    variantId: "slide-dropdown-question",
+    component: SlideDropdownQuestionSurfaceAuthoringView,
+    configuration: defineSurfaceSettingsConfiguration({
+      title: "Question slide settings",
+      description: "Configure presentation settings for this question slide.",
     }),
   },
 ] as const satisfies readonly SurfaceAuthoringViewBinding[];

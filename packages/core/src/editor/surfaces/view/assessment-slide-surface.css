@@ -1,0 +1,106 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-assessment-slide-surface-view {
+    --sc-course-assessment-meta-title-max-inline-size: none;
+
+    box-sizing: border-box;
+    display: grid;
+    block-size: 100%;
+    inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 100%;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    align-content: stretch;
+    column-gap: 0;
+    container-type: inline-size;
+    padding: 0;
+    row-gap: 0;
+  }
+
+  .sc-assessment-slide-surface-runtime-view {
+    overflow: hidden;
+  }
+
+  .sc-assessment-slide-surface-view [data-surface-assessment-question] {
+    min-inline-size: 0;
+    min-block-size: 0;
+  }
+
+  .sc-assessment-slide-surface-view > [data-surface-content],
+  .sc-assessment-slide-surface-view > [data-surface-content] > [data-node-view-content-react],
+  .sc-assessment-slide-surface-view
+    > [data-surface-content]
+    > [data-node-view-content-react]
+    > [data-node-view-wrapper],
+  .sc-assessment-slide-surface-view [data-surface-assessment-question],
+  .sc-assessment-slide-surface-view [data-surface-assessment-question] > .react-renderer {
+    display: contents;
+  }
+
+  .sc-assessment-slide-surface-view .sc-course-assessment-meta-title[data-slot="assessment-title"] {
+    inline-size: max-content;
+    max-inline-size: none;
+    min-inline-size: 0;
+    align-self: stretch;
+    grid-column: 1;
+    grid-row: 1;
+    padding: 0.75rem 0.75rem 0.75rem clamp(1rem, 4cqw, 2.5rem);
+  }
+
+  .sc-assessment-slide-surface-view [data-slot="assessment-instructions"] {
+    min-inline-size: 0;
+    align-self: stretch;
+    grid-column: 2;
+    grid-row: 1;
+    padding: 0.75rem clamp(1rem, 4cqw, 2.5rem) 0.75rem 0;
+  }
+
+  .sc-assessment-slide-surface-view [data-slot="assessment-prompt"] {
+    min-inline-size: 0;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding: clamp(0.75rem, 2.5cqw, 1.25rem) clamp(1rem, 6.25cqw, 4rem);
+  }
+
+  .sc-assessment-slide-surface-runtime-view
+    [data-slot="assessment-prompt"][data-assessment-prompt-empty="true"] {
+    display: none;
+  }
+
+  .sc-assessment-slide-surface-view [data-assessment-interaction-content] {
+    inline-size: 100%;
+    max-inline-size: none;
+    min-inline-size: 0;
+    min-block-size: 0;
+    align-self: stretch;
+    justify-self: stretch;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    margin-inline: 0;
+  }
+
+  .sc-assessment-slide-surface-view [data-slot="assessment-actions-group"] {
+    min-inline-size: 0;
+    align-self: end;
+    grid-column: 1 / -1;
+    grid-row: 4;
+    padding: 0.75rem clamp(1rem, 4cqw, 2.5rem);
+  }
+
+  .sc-assessment-slide-surface-view .sc-assessment-control-layout {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sc-assessment-slide-surface-view .sc-assessment-control-layout__support {
+    flex: 1 1 auto;
+  }
+
+  .sc-assessment-slide-surface-view .sc-assessment-control-layout__submission {
+    flex: 0 0 auto;
+    margin-inline-start: auto;
+  }
+}

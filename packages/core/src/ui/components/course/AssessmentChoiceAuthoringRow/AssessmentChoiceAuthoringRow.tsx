@@ -151,12 +151,14 @@ export interface AssessmentChoiceAddButtonProps extends Omit<
   "children"
 > {
   label?: string;
+  leading?: ReactNode;
 }
 
 /** App-owned add action embedded beneath authored Course choices. */
 export function AssessmentChoiceAddButton({
   className,
   label = "Add choice",
+  leading,
   type = "button",
   ...props
 }: AssessmentChoiceAddButtonProps) {
@@ -169,6 +171,7 @@ export function AssessmentChoiceAddButton({
       data-authoring-movement-snapshot-chrome=""
       data-no-select=""
     >
+      {leading}
       <span className="sc-app-assessment-choice-add__icon" aria-hidden>
         <Plus size={iconSm} />
       </span>

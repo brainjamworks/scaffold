@@ -21,6 +21,7 @@ import {
   normalizeSurfaceDefinition,
   type FixedSurfaceChild,
   type RegisteredSurfaceVariantCatalogueDefinition,
+  type SurfaceCatalogueSection,
   type SurfaceTemplatePreviewNode,
   type SurfaceVariantDefinition,
 } from "./surface-variant-definition";
@@ -167,7 +168,7 @@ function createCatalogueTestSurface({
   preview = TEST_CATALOGUE_PREVIEW,
 }: {
   id: string;
-  section: "title" | "content" | "image";
+  section: SurfaceCatalogueSection;
   order: number;
   preview?: SurfaceTemplatePreviewNode;
 }) {
@@ -308,6 +309,54 @@ describe("surface definitions", () => {
         }),
       }),
     ).toThrow("number step must divide the declared range");
+  });
+
+  it("preserves an immutable assessment target capability without executing its callbacks", () => {
+    const projectTargets = vi.fn(() => []);
+    const projectLearnerSurface = vi.fn((surface: JSONContent) => surface);
+    const assessmentTargets = { projectTargets, projectLearnerSurface };
+
+    const registry = createSurfaceVariantRegistry([
+      {
+        id: "surface-definition-assessment-capability-test",
+        modes: ["page"],
+        defaultForModes: ["page"],
+        title: "Assessment surface",
+        description: "Surface assessment capability fixture",
+        assessmentTargets,
+        createSurface: ({ surfaceId }) => ({
+          type: "surface",
+          attrs: { id: surfaceId, variant: "surface-definition-assessment-capability-test" },
+        }),
+      },
+    ]);
+    const registered = registry.get("surface-definition-assessment-capability-test");
+
+    expect(registered?.assessmentTargets).not.toBe(assessmentTargets);
+    expect(registered?.assessmentTargets?.projectTargets).toBe(projectTargets);
+    expect(registered?.assessmentTargets?.projectLearnerSurface).toBe(projectLearnerSurface);
+    expect(Object.isFrozen(registered?.assessmentTargets)).toBe(true);
+    expect(projectTargets).not.toHaveBeenCalled();
+    expect(projectLearnerSurface).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed assessment target capabilities as broken definition invariants", () => {
+    const definitionId = "surface-definition-invalid-assessment-capability-test";
+
+    expect(() =>
+      normalizeSurfaceDefinition({
+        id: definitionId,
+        modes: ["page"],
+        title: "Invalid assessment surface",
+        description: "Surface with an invalid assessment target capability.",
+        // @ts-expect-error Runtime normalization must reject untyped inputs too.
+        assessmentTargets: { projectTargets: "not-a-function" },
+        createSurface: ({ surfaceId }) => ({
+          type: "surface",
+          attrs: { id: surfaceId, variant: definitionId },
+        }),
+      }),
+    ).toThrow(`Surface definition "${definitionId}" has an invalid assessment target capability.`);
   });
 
   it("uses fixed signatures as the only constrained slideshow structure policy", () => {
@@ -1235,6 +1284,11 @@ describe("surface definitions", () => {
         order: 1030,
       }),
       createCatalogueTestSurface({
+        id: "surface-catalogue-assessment-10-test",
+        section: "assessment",
+        order: 1010,
+      }),
+      createCatalogueTestSurface({
         id: "surface-catalogue-content-20-test",
         section: "content",
         order: 1020,
@@ -1270,6 +1324,7 @@ describe("surface definitions", () => {
       "surface-catalogue-content-10-test",
       "surface-catalogue-content-20-test",
       "surface-catalogue-image-30-test",
+      "surface-catalogue-assessment-10-test",
     ]);
   });
 

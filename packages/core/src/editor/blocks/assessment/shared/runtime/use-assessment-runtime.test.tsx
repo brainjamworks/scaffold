@@ -37,7 +37,9 @@ import { SelectableChoiceBodyNode, SelectableChoiceNode } from "../nodes/selecta
 import {
   useAssessmentRuntime,
   useAssessmentRuntimeById,
+  useAssessmentRuntimeForTarget,
   type AssessmentRuntimeController,
+  type AssessmentRuntimeProblemConfig,
 } from "./use-assessment-runtime";
 import { imageHotspotBlockDefinition } from "@/editor/blocks/assessment/image-hotspot/image-hotspot-definition";
 import { mcqBlockDefinition } from "@/editor/blocks/assessment/mcq/mcq-definition";
@@ -417,6 +419,46 @@ function RuntimeProbe({
   );
 }
 
+function TargetRuntimeProbe({
+  assessmentTargetId,
+  configTargetId = assessmentTargetId,
+}: {
+  assessmentTargetId: string;
+  configTargetId?: string;
+}) {
+  const config = useMemo<AssessmentRuntimeProblemConfig>(
+    () => ({
+      kind: "single-select",
+      targetId: configTargetId,
+      interactionKind: "single-select",
+      learningEventDefinition: {
+        interaction: {
+          kind: "single-select",
+          options: [{ id: "option000001", label: "First" }],
+        },
+      },
+      choiceMode: "single",
+      feedbackMode: "on_submit",
+      maxAttempts: null,
+      maxSelect: null,
+      currentOptionIds: ["option000001"],
+      responseName: `${assessmentTargetId}:response`,
+      legend: "Choose one",
+      placeholder: "",
+      showAnswerEnabled: true,
+      experience: pageAssessmentExperience,
+      hintsTotal: 0,
+      points: 1,
+      isGraded: true,
+      responseCodec: mcqResponseCodec,
+    }),
+    [assessmentTargetId, configTargetId],
+  );
+  const runtime = useAssessmentRuntimeForTarget({ assessmentTargetId, config });
+
+  return <p data-testid="target-runtime-status">{runtime.problem ? "registered" : "pending"}</p>;
+}
+
 function MismatchedDefinitionProbe({
   editor,
   getPos,
@@ -691,6 +733,38 @@ afterEach(() => {
 });
 
 describe("useAssessmentRuntime", () => {
+  it("registers an already-built config with the target id as compatibility authoredBlockId", async () => {
+    render(withAssessmentPort(<TargetRuntimeProbe assessmentTargetId="surfaceTarget01" />, null));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("target-runtime-status")).toHaveTextContent("registered");
+    });
+    const registration =
+      scopedAssessmentStore?.getState().registrations["artifact:artifact-1/block:surfaceTarget01"];
+    expect(registration).toMatchObject({
+      targetId: "surfaceTarget01",
+      interactionKind: "single-select",
+    });
+  });
+
+  it("keeps a Surface target/config identity mismatch observable", async () => {
+    render(
+      withAssessmentPort(
+        <RuntimeErrorBoundary>
+          <TargetRuntimeProbe
+            assessmentTargetId="surfaceTarget01"
+            configTargetId="differentTarget1"
+          />
+        </RuntimeErrorBoundary>,
+        null,
+      ),
+    );
+
+    expect(await screen.findByTestId("runtime-error")).toHaveTextContent(
+      'Assessment runtime target "surfaceTarget01" does not match config target "differentTarget1".',
+    );
+  });
+
   it("registers a real question consumer in the artifact-scoped assessment store", async () => {
     const setup = makeEditor();
     const assessmentPort: AssessmentPort = {

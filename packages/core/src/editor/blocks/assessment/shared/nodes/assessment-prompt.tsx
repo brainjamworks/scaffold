@@ -3,6 +3,7 @@ import {
   NodeViewContent,
   NodeViewWrapper,
   ReactNodeViewRenderer,
+  useEditorState,
   type NodeViewProps,
 } from "@tiptap/react";
 
@@ -15,6 +16,7 @@ import {
   findAncestorAssessmentBlockId,
 } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
+import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
 import { isAssessmentQuestionNode } from "./assessment-meta";
 import "./assessment-shared-chrome.css";
 
@@ -60,10 +62,16 @@ function AssessmentPromptNodeView(props: NodeViewProps) {
     safeGetPos(props.getPos),
     isAssessmentQuestionNode,
   );
+  const isEditable = useEditorState({
+    editor: props.editor,
+    selector: ({ editor }) => editor.isEditable,
+  });
+  const isEmpty = isFieldContentEmpty(props.node);
 
   return (
     <NodeViewWrapper
       id={assessmentPromptDomId(authoredBlockId)}
+      data-assessment-prompt-empty={!isEditable && isEmpty ? "true" : undefined}
       data-slot="assessment-prompt"
       className="sc-course-assessment-prompt"
     >

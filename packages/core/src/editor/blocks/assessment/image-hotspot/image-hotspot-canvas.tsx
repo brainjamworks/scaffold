@@ -25,6 +25,7 @@ import {
 } from "react";
 
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
+import { cn } from "@/lib/cn";
 import { MediaWorkspace } from "@/editor/media/presentation/MediaWorkspace";
 import { CourseThemePortalBoundary } from "@/theme/course";
 import { Button } from "@/ui/components/Button/Button";
@@ -36,7 +37,6 @@ import {
   richTextDocumentToAssessmentFeedback,
 } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
 import { AssessmentChoiceAuthoringAction } from "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";
 import {
   useAuthoringNodeTarget,
@@ -166,20 +166,32 @@ function ImageHotspotCanvasNodeView(props: NodeViewProps) {
   }, [props.getPos]);
   const pos = getCanvasPos();
 
-  const blockId = useMemo(
-    () => findAncestorAssessmentBlockId(props.editor, pos ?? undefined, ["image_hotspot"]),
+  const owner = useMemo(
+    () =>
+      pos === null
+        ? null
+        : resolveAssessmentAttrParent(props.editor, pos, [
+            "image_hotspot",
+            "surface_image_hotspot_question",
+          ]),
     [pos, props.editor],
   );
+  const blockId = typeof owner?.node.attrs["id"] === "string" ? owner.node.attrs["id"] : null;
   const target = useAuthoringNodeTarget(
     props.editor,
-    blockId ? { id: blockId, nodeType: "image_hotspot" } : null,
+    blockId && owner ? { id: blockId, nodeType: owner.typeName } : null,
   );
   const resolvedOwner = target?.read();
   const model = resolvedOwner ? resolveImageHotspotAuthoringModel(resolvedOwner) : null;
   const data = model?.data ?? ImageHotspotCanvasDataSchema.parse({});
   const assessment = model?.assessment ?? ImageHotspotPrivateAssessmentSchema.parse({});
   return (
-    <NodeViewWrapper data-node="image-hotspot-canvas">
+    <NodeViewWrapper
+      data-node="image-hotspot-canvas"
+      data-surface-owned-image-hotspot-canvas={
+        owner?.typeName === "surface_image_hotspot_question" ? "" : undefined
+      }
+    >
       <AuthorCanvas
         assessment={assessment}
         data={data}
@@ -187,6 +199,9 @@ function ImageHotspotCanvasNodeView(props: NodeViewProps) {
         getCanvasPos={getCanvasPos}
         blockId={blockId}
         authoredBlockId={blockId}
+        presentation={
+          owner?.typeName === "surface_image_hotspot_question" ? "full-slide" : "compact"
+        }
         target={target}
       />
     </NodeViewWrapper>
@@ -209,7 +224,7 @@ interface AuthorCanvasProps {
   authoredBlockId: string | null;
   target: AuthoringNodeTarget | null;
   popoverPortalContainerRef?: RefObject<HTMLDivElement | null> | undefined;
-  presentation?: "compact" | "expanded";
+  presentation?: "compact" | "full-slide" | "expanded";
   selectedHotspotRequestId?: string | null;
   onAnnounce?: ((message: string) => void) | undefined;
   renderLiveRegion?: boolean | undefined;
@@ -230,6 +245,7 @@ function AuthorCanvas({
   renderLiveRegion = true,
 }: AuthorCanvasProps) {
   const isExpanded = presentation === "expanded";
+  const isFullSlide = presentation === "full-slide";
   const mediaPort = useMediaPort();
   const pickerKey = nodeViewUiStateKey({
     owner: "image-hotspot",
@@ -286,9 +302,9 @@ function AuthorCanvas({
     editor,
     selector: ({ editor }) => isImageHotspotBoundedFillActive(editor, getCanvasPos),
   });
-  const isBoundedCompact = !isExpanded && boundedFillActive;
-  const canEditInline = isExpanded || !boundedFillActive;
-  const fitStrategy = isExpanded || isBoundedCompact ? "contain" : "width";
+  const isBoundedCompact = !isExpanded && !isFullSlide && boundedFillActive;
+  const canEditInline = isExpanded || isFullSlide || !boundedFillActive;
+  const fitStrategy = "contain";
   const visibleHotspots = draftHotspotsState ?? data.hotspots;
 
   useEffect(() => {
@@ -1050,7 +1066,16 @@ function AuthorCanvas({
       ) : (
         <MediaWorkspace.Empty className="sc-app-image-hotspot-workspace__empty">
           <strong>No hotspots yet</strong>
-          <span>Draw a region on the image or add one from the toolbar.</span>
+          <span>Add a region to define an interactive hotspot.</span>
+          <MediaEmptyAction
+            aria-label="Add first hotspot region"
+            icon={<Plus size={iconSm} aria-hidden />}
+            label="Add first region"
+            onClick={() => {
+              const id = addKeyboardHotspotRegion();
+              if (id) setWorkspaceSelectionRequestId(id);
+            }}
+          />
         </MediaWorkspace.Empty>
       )}
       <MissFeedbackEditor
@@ -1104,7 +1129,12 @@ function AuthorCanvas({
   }
 
   return (
-    <div className="sc-course-image-hotspot-shell">
+    <div
+      className={cn(
+        "sc-course-image-hotspot-shell",
+        isFullSlide && "sc-course-image-hotspot-shell--full-slide",
+      )}
+    >
       <ImageHotspotAuthoringWorkspace.Root
         open={workspaceOpen}
         onOpenChange={(open) => {
@@ -1112,7 +1142,13 @@ function AuthorCanvas({
           if (!open) setWorkspaceSelectionRequestId(null);
         }}
       >
-        <div ref={fitStageRef} className="sc-course-image-hotspot-fit-stage">
+        <div
+          ref={fitStageRef}
+          className="sc-course-image-hotspot-fit-stage"
+          data-image-hotspot-presentation={
+            isFullSlide ? "full-slide" : isBoundedCompact ? "bounded" : "compact"
+          }
+        >
           {canvasSurface}
           {isBoundedCompact && (
             <div

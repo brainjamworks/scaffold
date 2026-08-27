@@ -509,7 +509,7 @@ describe("composite matching node", () => {
     const doc = matchingDoc();
     const pairs = doc.content[0]?.content[3];
     if (!pairs) throw new Error("Expected matching pair group fixture");
-    pairs.content = pairs.content?.slice(0, 1);
+    pairs.content = (pairs.content ?? []).slice(0, 1);
     editor.commands.setContent(doc);
     renderAssessmentEditor(editor);
 
@@ -552,7 +552,7 @@ describe("composite matching node", () => {
     runtimeEditor.destroy();
   });
 
-  it("marks bounded authoring matching pairs as the internal scroll lane", async () => {
+  it("marks authoring matching pairs as slide interaction content and the internal scroll lane", async () => {
     const editor = makeEditor();
     editor.commands.setContent({
       type: "doc",
@@ -582,6 +582,7 @@ describe("composite matching node", () => {
 
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(pairs).toBeInstanceOf(HTMLElement);
+    expect(pairs?.getAttribute("data-assessment-interaction-content")).toBe("");
     expect(pairs?.getAttribute("data-bounded-scroll-frame")).toBe("");
     expect(pairs?.hasAttribute("data-bounded-scroll")).toBe(false);
     expect(scrollLane?.getAttribute("data-bounded-scroll")).toBe("");
@@ -680,6 +681,25 @@ describe("composite matching node", () => {
     editor.destroy();
   });
 
+  it("names runtime matching controls from their learner-visible content", async () => {
+    const editor = makeEditor(false);
+    editor.commands.setContent(matchingRuntimeDoc());
+    renderAssessmentEditor(editor);
+
+    await waitFor(() => {
+      expect(document.body.querySelectorAll("[data-matching-draggable-item]")).toHaveLength(2);
+    });
+
+    expect(screen.getByRole("button", { name: "Select ‘Term 1’ (item 1 of 2)" })).toBeInstanceOf(
+      HTMLButtonElement,
+    );
+    expect(
+      screen.getByRole("button", { name: /Match ‘Target 1’ \(target [12] of 2\)/ }),
+    ).toBeInstanceOf(HTMLButtonElement);
+
+    editor.destroy();
+  });
+
   it("uses a sibling placement action with discoverable unavailable state", async () => {
     const editor = makeEditor(false);
     editor.commands.setContent(matchingRuntimeDoc());
@@ -699,7 +719,7 @@ describe("composite matching node", () => {
     expect(placement).toHaveAttribute("aria-disabled", "true");
     expect(placement).toHaveAttribute("tabindex", "0");
 
-    fireEvent.click(screen.getByRole("button", { name: "Select matching item 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select ‘Term 1’ (item 1 of 2)" }));
     await waitFor(() => {
       expect(placement).not.toHaveAttribute("aria-disabled");
     });
@@ -727,7 +747,7 @@ describe("composite matching node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
 
-    const item = screen.getByRole("button", { name: "Select matching item 1" });
+    const item = screen.getByRole("button", { name: "Select ‘Term 1’ (item 1 of 2)" });
     const target = document.body.querySelector<HTMLElement>(
       '[data-target-id="target_00002"][data-matching-drop-target] .sc-course-matching__place-action',
     );
@@ -760,7 +780,7 @@ describe("composite matching node", () => {
     await waitFor(() => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
-    const source = screen.getByRole("button", { name: "Select matching item 1" });
+    const source = screen.getByRole("button", { name: "Select ‘Term 1’ (item 1 of 2)" });
     fireEvent.click(source);
     expect(source).toHaveAttribute("aria-pressed", "true");
 
@@ -915,7 +935,7 @@ describe("composite matching node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Select matching item 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select ‘Term 1’ (item 1 of 2)" }));
 
     await waitFor(() => {
       expect(describedText('[data-item-id="item__000001"][data-matching-draggable-item]')).toBe(

@@ -31,11 +31,14 @@ import {
   type AssessmentProblemFacade,
 } from "@/runtime/assessment/runtime-facade";
 import type { AssessmentProblemId } from "@/runtime/assessment/types";
+import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 import {
   useAssessmentBlockSetup,
+  useAssessmentTargetSetup,
   type AssessmentBlockSetupConfig,
 } from "./use-assessment-block-setup";
 import { assessmentResponseName } from "./assessment-response-name";
+import { useAssessmentControlBinding } from "./assessment-control-binding";
 
 export type ChoiceMode = "single" | "multiple";
 
@@ -101,6 +104,11 @@ interface UseAssessmentRuntimeArgs {
   editor: Editor;
   getPos?: () => number | undefined;
   node: PMNode;
+}
+
+interface UseAssessmentRuntimeForTargetArgs {
+  assessmentTargetId: string;
+  config: AssessmentRuntimeProblemConfig;
 }
 
 export interface AssessmentRuntimeProblemConfig extends AssessmentBlockSetupConfig {
@@ -179,9 +187,46 @@ export function useAssessmentRuntime({
     hasUnsafeIdentity: setup.hasUnsafeIdentity,
     problemId: setup.problemId,
   });
+  const store = useAssessmentStoreApi();
+  useAssessmentControlBinding({
+    editor,
+    enabled: Boolean(getPos) && runtime?.problem?.context === "standalone",
+    getPos: getPos ?? (() => undefined),
+    node,
+    problemId: runtime?.problemId ?? null,
+    store,
+  });
 
   if (!runtime) {
     throw new Error("Assessment runtime could not build a parent runtime facade.");
+  }
+
+  return runtime;
+}
+
+export function useAssessmentRuntimeForTarget({
+  assessmentTargetId,
+  config,
+}: UseAssessmentRuntimeForTargetArgs): AssessmentRuntimeController {
+  if (config.targetId !== assessmentTargetId) {
+    throw new Error(
+      `Assessment runtime target "${assessmentTargetId}" does not match config target "${config.targetId}".`,
+    );
+  }
+
+  const setup = useAssessmentTargetSetup({
+    authoredBlockId: assessmentTargetId,
+    config,
+  });
+  const runtime = useAssessmentRuntimeFacade({
+    facade: setup.facade,
+    fallbackConfig: config,
+    hasUnsafeIdentity: setup.hasUnsafeIdentity,
+    problemId: setup.problemId,
+  });
+
+  if (!runtime) {
+    throw new Error("Assessment runtime could not build a target runtime facade.");
   }
 
   return runtime;

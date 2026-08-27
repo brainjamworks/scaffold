@@ -6,6 +6,7 @@ import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import type { ConfigurationControlDescriptor } from "@/editor/configuration/definition";
 import { defineAssessmentCapability, defineBlock } from "@/editor/blocks/block-definition";
+import { assessmentControlDefinition } from "../shared/model/assessment-control-definition";
 import {
   ImageHotspotPrivateAssessmentSchema,
   ImageHotspotSettingsSchema,
@@ -66,6 +67,7 @@ const imageHotspotConfiguration = createAssessmentConfiguration({
 export const imageHotspotBlockDefinition = defineBlock({
   nodeType: "image_hotspot",
   title: "Image hotspot",
+  control: assessmentControlDefinition,
   configuration: imageHotspotConfiguration,
   placeholders: assessmentShellPlaceholders,
   boundedPlacement: "fill",

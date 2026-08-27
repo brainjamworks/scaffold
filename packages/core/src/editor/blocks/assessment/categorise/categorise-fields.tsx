@@ -1,4 +1,8 @@
-import { DotsThreeIcon as DotsThree, TrashIcon as Trash } from "@phosphor-icons/react";
+import {
+  CaretDownIcon as CaretDown,
+  DotsThreeIcon as DotsThree,
+  TrashIcon as Trash,
+} from "@phosphor-icons/react";
 import {
   NodeViewContent,
   NodeViewWrapper,
@@ -123,6 +127,7 @@ function CategoriseBinNodeView(props: NodeViewProps) {
         : { count: 1, index: 1 };
     },
   });
+  const [expanded, setExpanded] = useState(binPosition.index === 1);
   const deleteBin = () => {
     if (!props.editor.isEditable) return;
     const currentPos = currentNodeViewPos(props.editor, props.getPos, "categorise_bin");
@@ -146,6 +151,7 @@ function CategoriseBinNodeView(props: NodeViewProps) {
       ref={presentationRef}
       data-node="categorise-bin"
       data-bin-id={categoryId}
+      data-expanded={expanded ? "true" : "false"}
       role="group"
       aria-label={`Category ‘${categoryLabel}’`}
       {...containedMovementTargetAttributes()}
@@ -164,20 +170,34 @@ function CategoriseBinNodeView(props: NodeViewProps) {
         )}
         <NodeViewContent className="sc-course-categorise__bin-content" />
         {isEditable && (
-          <AssessmentChoiceAuthoringAction
-            className="sc-app-categorise__delete-category"
-            onClick={() => {
-              deleteBin();
-            }}
-            label={`Delete category ${binPosition.index}`}
-            intent="delete"
-            owner="app"
-            {...(deleteUnavailable
-              ? { unavailableReason: "Categorise requires two categories and one item." }
-              : {})}
-          >
-            <Trash size={iconSm} />
-          </AssessmentChoiceAuthoringAction>
+          <>
+            <AssessmentChoiceAuthoringAction
+              active={expanded}
+              aria-expanded={expanded}
+              className="sc-app-categorise__category-disclosure"
+              data-categorise-category-disclosure=""
+              onClick={() => setExpanded((current) => !current)}
+              label={`${expanded ? "Collapse" : "Expand"} category ${binPosition.index}, ${categoryLabel}`}
+              intent="options"
+              owner="app"
+            >
+              <CaretDown size={iconSm} weight="bold" />
+            </AssessmentChoiceAuthoringAction>
+            <AssessmentChoiceAuthoringAction
+              className="sc-app-categorise__delete-category"
+              onClick={() => {
+                deleteBin();
+              }}
+              label={`Delete category ${binPosition.index}`}
+              intent="delete"
+              owner="app"
+              {...(deleteUnavailable
+                ? { unavailableReason: "Categorise requires two categories and one item." }
+                : {})}
+            >
+              <Trash size={iconSm} />
+            </AssessmentChoiceAuthoringAction>
+          </>
         )}
       </div>
     </NodeViewWrapper>
@@ -521,7 +541,9 @@ function CategoriseContentNodeView(props: NodeViewProps) {
   const group = authoringCategoriseGroup(props);
   return (
     <NodeViewWrapper
+      data-assessment-interaction-content=""
       data-bounded-scroll-frame=""
+      data-categorise-presentation="authoring-outline"
       data-slot="categorise-content"
       className="sc-course-categorise__content"
     >

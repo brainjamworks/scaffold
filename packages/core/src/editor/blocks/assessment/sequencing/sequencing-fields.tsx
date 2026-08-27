@@ -33,6 +33,7 @@ import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
 import { currentNodeViewPos, safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { assessmentPromptDomId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { isAssessmentQuestionNode } from "@/editor/blocks/assessment/shared/nodes/assessment-meta";
 import {
   isScaffoldRichTextDocumentEmpty,
   toTiptapRichTextDocument,
@@ -162,6 +163,9 @@ function SequencingItemNodeView(props: NodeViewProps) {
       {...containedMovementTargetAttributes()}
       className="sc-course-sequencing__item"
     >
+      <span contentEditable={false} aria-hidden="true" className="sc-course-sequencing__position">
+        {itemIndex}
+      </span>
       <SequencingAuthoringMovementAction
         getPresentationElement={() => presentationRef.current}
         getSourcePos={() => safeGetPos(props.getPos)}
@@ -286,7 +290,9 @@ function SequencingItemsGroupNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      data-assessment-interaction-content=""
       data-bounded-scroll-frame=""
+      data-sequencing-density={props.node.childCount >= 6 ? "compact" : "comfortable"}
       data-slot="sequencing-items-group"
       className="sc-course-sequencing__group"
     >
@@ -299,7 +305,13 @@ function SequencingItemsGroupNodeView(props: NodeViewProps) {
           className="sc-course-sequencing__list"
         />
         <AssessmentChoiceAddButton
+          className="sc-app-sequencing-add-item"
           label="Add item"
+          leading={
+            <span aria-hidden="true" className="sc-app-sequencing-add-item__position">
+              {props.node.childCount + 1}
+            </span>
+          }
           contentEditable={false}
           onClick={addItem}
         />
@@ -318,7 +330,7 @@ function authoringSequencingGroup(props: NodeViewProps): {
   const resolved = props.editor.state.doc.resolve(pos);
   for (let depth = resolved.depth; depth >= 0; depth -= 1) {
     const node = resolved.node(depth);
-    if (node.type.name !== "sequencing") continue;
+    if (!isAssessmentQuestionNode(node)) continue;
     const id = node.attrs["id"];
     const settings = SequencingSettingsSchema.safeParse(node.attrs["settings"] ?? {});
     return {
@@ -342,7 +354,10 @@ function readSequencingItemFeedback(
   itemPos: number,
   itemId: string,
 ): AssessmentFeedbackContent | null {
-  const parent = resolveAssessmentAttrParent(editor, itemPos, ["sequencing"]);
+  const parent = resolveAssessmentAttrParent(editor, itemPos, [
+    "sequencing",
+    "surface_sequencing_question",
+  ]);
   if (!parent || !itemId) return null;
   const assessment = SequencingPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
   return assessment.feedbackByItemId[itemId] ?? null;
@@ -354,7 +369,10 @@ function setSequencingItemFeedback(
   itemId: string,
   feedback: AssessmentFeedbackContent | null,
 ) {
-  const parent = resolveAssessmentAttrParent(editor, itemPos, ["sequencing"]);
+  const parent = resolveAssessmentAttrParent(editor, itemPos, [
+    "sequencing",
+    "surface_sequencing_question",
+  ]);
   if (!parent || !itemId) return;
   const assessment = SequencingPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
   setAssessmentAttr(editor, parent, {

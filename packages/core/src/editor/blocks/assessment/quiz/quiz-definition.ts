@@ -5,6 +5,7 @@ import { ASSESSMENT_QUESTION_CONTENT } from "@/document/model/content-model/cont
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
+import { quizControlDefinition } from "./quiz-control-definition";
 import { emptyQuizSettings } from "./quiz-shared";
 
 export const QUIZ_BLOCK_ID = "quiz";
@@ -123,6 +124,7 @@ const quizConfiguration = defineConfiguration({
 export const quizBlockDefinition = defineBlock({
   nodeType: "quiz",
   title: "Quiz",
+  control: quizControlDefinition,
   boundedPlacement: "fill",
   stagedBoundedHost: {
     childGroup: ASSESSMENT_QUESTION_CONTENT,

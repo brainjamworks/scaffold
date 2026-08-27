@@ -312,6 +312,7 @@ function MatchingPairsGroupNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      data-assessment-interaction-content=""
       data-bounded-scroll-frame=""
       data-slot="matching-pairs-group"
       className="sc-course-matching__group"

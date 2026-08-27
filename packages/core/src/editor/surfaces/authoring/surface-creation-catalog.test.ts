@@ -34,6 +34,13 @@ describe("surface creation catalog", () => {
       "slide-image-backdrop-panel",
       "slide-diptych",
       "slide-triptych",
+      "slide-categorise-question",
+      "slide-sequencing-question",
+      "slide-matching-question",
+      "slide-image-hotspot-question",
+      "slide-multiple-choice-question",
+      "slide-multiselect-question",
+      "slide-dropdown-question",
     ]);
   });
 
@@ -60,6 +67,46 @@ describe("surface creation catalog", () => {
 
     expect(catalog.forMode("page").map(({ variantId }) => variantId)).toEqual(["page-catalogued"]);
     expect(catalog.forMode("slideshow")).toEqual([]);
+  });
+
+  it("places assessment entries after ordinary title, content, and image entries", () => {
+    const registry = createSurfaceVariantRegistry([
+      createCataloguedTestDefinition({
+        id: "assessment-catalogue-test",
+        modes: ["slideshow"],
+        section: "assessment",
+        defaultForModes: ["slideshow"],
+      }),
+      createCataloguedTestDefinition({
+        id: "image-catalogue-test",
+        modes: ["slideshow"],
+        section: "image",
+        defaultForModes: [],
+      }),
+      createCataloguedTestDefinition({
+        id: "title-catalogue-test",
+        modes: ["slideshow"],
+        section: "title",
+        defaultForModes: [],
+      }),
+      createCataloguedTestDefinition({
+        id: "content-catalogue-test",
+        modes: ["slideshow"],
+        section: "content",
+        defaultForModes: [],
+      }),
+    ]);
+
+    expect(
+      createSurfaceCreationCatalog(registry)
+        .forMode("slideshow")
+        .map(({ variantId }) => variantId),
+    ).toEqual([
+      "title-catalogue-test",
+      "content-catalogue-test",
+      "image-catalogue-test",
+      "assessment-catalogue-test",
+    ]);
   });
 
   it("owns recursively copied and frozen preview snapshots", () => {
@@ -170,20 +217,24 @@ function createTestDefinition({
 function createCataloguedTestDefinition({
   id,
   modes,
+  section = "content",
+  defaultForModes,
   preview = { kind: "slot", role: "content" },
 }: {
   id: string;
   modes: SurfaceVariantDefinition["modes"];
+  section?: NonNullable<SurfaceVariantDefinition["catalogue"]>["section"];
+  defaultForModes?: SurfaceVariantDefinition["defaultForModes"];
   preview?: SurfaceTemplatePreviewNode;
 }): SurfaceVariantDefinition {
   return {
     id,
     modes,
-    defaultForModes: modes,
+    defaultForModes: defaultForModes ?? modes,
     title: id,
     description: id,
     catalogue: {
-      section: "content",
+      section,
       order: 1,
       preview,
     },

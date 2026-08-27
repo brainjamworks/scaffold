@@ -17,6 +17,11 @@ import {
 import { IMAGE_HOTSPOT_CANVAS_NODE_TYPE } from "./image-hotspot-canvas-shared";
 
 const IMAGE_HOTSPOT_NODE_TYPE = "image_hotspot";
+const SURFACE_IMAGE_HOTSPOT_QUESTION_NODE_TYPE = "surface_image_hotspot_question";
+const IMAGE_HOTSPOT_OWNER_NODE_TYPES = new Set([
+  IMAGE_HOTSPOT_NODE_TYPE,
+  SURFACE_IMAGE_HOTSPOT_QUESTION_NODE_TYPE,
+]);
 
 export interface ImageHotspotAuthoringModel {
   owner: ResolvedAuthoringNode;
@@ -28,7 +33,7 @@ export interface ImageHotspotAuthoringModel {
 export function resolveImageHotspotAuthoringModel(
   target: ResolvedAuthoringNode,
 ): ImageHotspotAuthoringModel | null {
-  if (target.node.type.name !== IMAGE_HOTSPOT_NODE_TYPE) return null;
+  if (!IMAGE_HOTSPOT_OWNER_NODE_TYPES.has(target.node.type.name)) return null;
 
   let canvas: { node: ProseMirrorNode; pos: number } | null = null;
   let canvasCount = 0;
@@ -329,7 +334,7 @@ function setModelChecked(
     }
     if (next.assessment) {
       const currentOwner = tr.doc.nodeAt(model.owner.pos);
-      if (!currentOwner || currentOwner.type.name !== IMAGE_HOTSPOT_NODE_TYPE) {
+      if (!currentOwner || !IMAGE_HOTSPOT_OWNER_NODE_TYPES.has(currentOwner.type.name)) {
         throw new Error("The image-hotspot owner is no longer current.");
       }
       tr.setNodeMarkup(model.owner.pos, undefined, {

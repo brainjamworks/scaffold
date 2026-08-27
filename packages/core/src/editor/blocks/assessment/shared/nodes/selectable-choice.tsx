@@ -26,7 +26,17 @@ export type ChoiceAssessmentParent =
       node: ProseMirrorNode;
     }
   | {
+      typeName: "surface_multiple_choice_question";
+      pos: number;
+      node: ProseMirrorNode;
+    }
+  | {
       typeName: "multiselect";
+      pos: number;
+      node: ProseMirrorNode;
+    }
+  | {
+      typeName: "surface_multiselect_question";
       pos: number;
       node: ProseMirrorNode;
     };
@@ -53,7 +63,14 @@ export function resolveChoiceAssessmentParent(
   const $pos = editor.state.doc.resolve(choicePos);
   for (let depth = $pos.depth; depth > 0; depth -= 1) {
     const node = $pos.node(depth);
-    if (node.type.name !== "mcq" && node.type.name !== "multiselect") continue;
+    if (
+      node.type.name !== "mcq" &&
+      node.type.name !== "surface_multiple_choice_question" &&
+      node.type.name !== "multiselect" &&
+      node.type.name !== "surface_multiselect_question"
+    ) {
+      continue;
+    }
     return {
       typeName: node.type.name,
       pos: $pos.before(depth),
@@ -85,7 +102,7 @@ export function readPrivateChoiceState(
   const parent = resolveChoiceAssessmentParent(editor, choicePos);
   if (!parent) return emptyPrivateChoiceState;
 
-  if (parent.typeName === "mcq") {
+  if (isSingleSelectChoiceParent(parent)) {
     const assessment = McqPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
     return {
       isCorrect: assessment.correctOptionId === choiceId,
@@ -112,7 +129,7 @@ export function setPrivateChoiceFeedback(
   const parent = resolveChoiceAssessmentParent(editor, choicePos);
   if (!parent) return;
 
-  if (parent.typeName === "mcq") {
+  if (isSingleSelectChoiceParent(parent)) {
     const assessment = McqPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
     setParentAssessment(editor, parent, {
       ...assessment,
@@ -156,7 +173,7 @@ export function toggleChoiceCorrect(editor: Editor, choicePos: number): boolean 
   const parent = resolveChoiceAssessmentParent(editor, choicePos);
   if (!parent) return false;
 
-  if (parent.typeName === "mcq") {
+  if (isSingleSelectChoiceParent(parent)) {
     const assessment = McqPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
     if (assessment.correctOptionId === attrs.data.id) return false;
     setParentAssessment(editor, parent, {
@@ -197,7 +214,7 @@ export function choiceCorrectnessUnavailableReason(
 
   const parent = resolveChoiceAssessmentParent(editor, choicePos);
   if (!parent) return undefined;
-  if (parent.typeName === "mcq") {
+  if (isSingleSelectChoiceParent(parent)) {
     const assessment = McqPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
     return assessment.correctOptionId === attrs.data.id
       ? "A multiple-choice assessment must have one correct answer. Select another choice instead."
@@ -215,6 +232,15 @@ export function choiceCorrectnessUnavailableReason(
   return correctIds.size >= readMultiselectMaxSelections(parent.node)
     ? "Increase max selections or unmark another correct answer."
     : undefined;
+}
+
+function isSingleSelectChoiceParent(
+  parent: ChoiceAssessmentParent,
+): parent is Extract<
+  ChoiceAssessmentParent,
+  { typeName: "mcq" | "surface_multiple_choice_question" }
+> {
+  return parent.typeName === "mcq" || parent.typeName === "surface_multiple_choice_question";
 }
 
 function readMultiselectMaxSelections(node: ProseMirrorNode): number {

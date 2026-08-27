@@ -73,7 +73,10 @@ function toggleDropdownChoiceCorrect(editor: Editor, choicePos: number): boolean
   if (!node || node.type.name !== "dropdown_choice") return false;
   const choiceId = String(node.attrs["id"] ?? "");
   if (!choiceId) return false;
-  const parent = resolveAssessmentAttrParent(editor, choicePos, ["dropdown"]);
+  const parent = resolveAssessmentAttrParent(editor, choicePos, [
+    "dropdown",
+    "surface_dropdown_question",
+  ]);
   if (!parent) return false;
   const assessment = DropdownPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
 
@@ -91,7 +94,10 @@ function readDropdownChoiceState(
   choiceId: string,
 ): { isCorrect: boolean; feedback: AssessmentFeedbackContent | null } {
   if (!choiceId) return { isCorrect: false, feedback: null };
-  const parent = resolveAssessmentAttrParent(editor, choicePos, ["dropdown"]);
+  const parent = resolveAssessmentAttrParent(editor, choicePos, [
+    "dropdown",
+    "surface_dropdown_question",
+  ]);
   if (!parent) return { isCorrect: false, feedback: null };
   const assessment = DropdownPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
   return {
@@ -107,7 +113,10 @@ function setDropdownChoiceFeedback(
   feedback: AssessmentFeedbackContent | null,
 ) {
   if (!choiceId) return;
-  const parent = resolveAssessmentAttrParent(editor, choicePos, ["dropdown"]);
+  const parent = resolveAssessmentAttrParent(editor, choicePos, [
+    "dropdown",
+    "surface_dropdown_question",
+  ]);
   if (!parent) return;
   const assessment = DropdownPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
   setAssessmentAttr(editor, parent, {

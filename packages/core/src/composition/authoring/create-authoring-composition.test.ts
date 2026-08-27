@@ -252,6 +252,64 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(missingBlockNames).toEqual([]);
   });
 
+  it("mounts the private Surface Categorise question owner in authoring", () => {
+    const schema = getSchema(
+      createCourseDocumentAuthoringExtensions({
+        editable: true,
+        composition: coreAuthoringComposition,
+      }),
+    );
+
+    expect(schema.nodes["surface_categorise_question"]).toBeDefined();
+    expect(schema.nodes["surface_categorise_question"]?.spec.attrs?.["id"]).toBeDefined();
+    expect(schema.nodes["categorise_content"]).toBeDefined();
+    expect(schema.nodes["categorise_bin"]).toBeDefined();
+    expect(schema.nodes["categorise_item"]).toBeDefined();
+  });
+
+  it("mounts the private Surface Sequencing question owner in authoring", () => {
+    const schema = getSchema(
+      createCourseDocumentAuthoringExtensions({
+        editable: true,
+        composition: coreAuthoringComposition,
+      }),
+    );
+
+    expect(schema.nodes["surface_sequencing_question"]).toBeDefined();
+    expect(schema.nodes["surface_sequencing_question"]?.spec.attrs?.["id"]).toBeDefined();
+    expect(schema.nodes["sequencing_items_group"]).toBeDefined();
+    expect(schema.nodes["sequencing_item"]).toBeDefined();
+  });
+
+  it("mounts the private Surface Matching question owner in authoring", () => {
+    const schema = getSchema(
+      createCourseDocumentAuthoringExtensions({
+        editable: true,
+        composition: coreAuthoringComposition,
+      }),
+    );
+
+    expect(schema.nodes["surface_matching_question"]).toBeDefined();
+    expect(schema.nodes["surface_matching_question"]?.spec.attrs?.["id"]).toBeDefined();
+    expect(schema.nodes["matching_pairs_group"]).toBeDefined();
+    expect(schema.nodes["matching_pair"]).toBeDefined();
+    expect(schema.nodes["matching_item"]).toBeDefined();
+    expect(schema.nodes["matching_target"]).toBeDefined();
+  });
+
+  it("mounts the private Surface Image Hotspot question owner in authoring", () => {
+    const schema = getSchema(
+      createCourseDocumentAuthoringExtensions({
+        editable: true,
+        composition: coreAuthoringComposition,
+      }),
+    );
+
+    expect(schema.nodes["surface_image_hotspot_question"]).toBeDefined();
+    expect(schema.nodes["surface_image_hotspot_question"]?.spec.attrs?.["id"]).toBeDefined();
+    expect(schema.nodes["image_hotspot_canvas"]).toBeDefined();
+  });
+
   it("configures identity for every eligible mounted node in editable authoring", () => {
     const uniqueId = createCourseDocumentAuthoringExtensions({
       editable: true,

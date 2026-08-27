@@ -10,6 +10,13 @@ import { SlideCoverSurfaceRuntimeView } from "./variants/slide-cover";
 import { SlideImageBandSurfaceRuntimeView } from "./variants/slide-image-band";
 import { SlideImageCoverSurfaceRuntimeView } from "./variants/slide-image-cover";
 import { SlideModuleCoverSurfaceRuntimeView } from "./variants/slide-module-cover";
+import { SlideCategoriseQuestionSurfaceRuntimeView } from "./variants/assessment/slide-categorise-question";
+import { SlideDropdownQuestionSurfaceRuntimeView } from "./variants/assessment/slide-dropdown-question";
+import { SlideMatchingQuestionSurfaceRuntimeView } from "./variants/assessment/slide-matching-question";
+import { SlideImageHotspotQuestionSurfaceRuntimeView } from "./variants/assessment/slide-image-hotspot-question";
+import { SlideMultipleChoiceQuestionSurfaceRuntimeView } from "./variants/assessment/slide-multiple-choice-question";
+import { SlideMultiselectQuestionSurfaceRuntimeView } from "./variants/assessment/slide-multiselect-question";
+import { SlideSequencingQuestionSurfaceRuntimeView } from "./variants/assessment/slide-sequencing-question";
 
 const SPECIALISED_SURFACE_RUNTIME_VIEWS = [
   {
@@ -31,6 +38,34 @@ const SPECIALISED_SURFACE_RUNTIME_VIEWS = [
   {
     variantId: "slide-module-cover",
     component: SlideModuleCoverSurfaceRuntimeView,
+  },
+  {
+    variantId: "slide-categorise-question",
+    component: SlideCategoriseQuestionSurfaceRuntimeView,
+  },
+  {
+    variantId: "slide-sequencing-question",
+    component: SlideSequencingQuestionSurfaceRuntimeView,
+  },
+  {
+    variantId: "slide-matching-question",
+    component: SlideMatchingQuestionSurfaceRuntimeView,
+  },
+  {
+    variantId: "slide-image-hotspot-question",
+    component: SlideImageHotspotQuestionSurfaceRuntimeView,
+  },
+  {
+    variantId: "slide-multiple-choice-question",
+    component: SlideMultipleChoiceQuestionSurfaceRuntimeView,
+  },
+  {
+    variantId: "slide-multiselect-question",
+    component: SlideMultiselectQuestionSurfaceRuntimeView,
+  },
+  {
+    variantId: "slide-dropdown-question",
+    component: SlideDropdownQuestionSurfaceRuntimeView,
   },
 ] as const satisfies readonly SurfaceRuntimeViewBinding[];
 

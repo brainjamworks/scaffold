@@ -22,6 +22,7 @@ const SECTION_ORDER: Readonly<Record<SurfaceCatalogueSection, number>> = {
   title: 0,
   content: 1,
   image: 2,
+  assessment: 3,
 };
 
 export function createSurfaceCreationCatalog(

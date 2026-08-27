@@ -83,11 +83,13 @@ const canonicalAssessmentResult = { feedback: null, items: {} };
 const sessionBoundedHostNodeType = "image_hotspot_session_bounded_host";
 const sessionBoundedHostDefinition: BlockDefinition = {
   nodeType: sessionBoundedHostNodeType,
+  title: "Bounded image hotspot test host",
   boundedPlacement: "fill",
   stagedBoundedHost: { childGroup: "block" },
 };
 const sessionUnboundedHostDefinition: BlockDefinition = {
   nodeType: sessionBoundedHostNodeType,
+  title: "Unbounded image hotspot test host",
 };
 const SessionBoundedHostNode = Node.create({
   name: sessionBoundedHostNodeType,
@@ -617,7 +619,7 @@ describe("composite image_hotspot node", () => {
     editor.destroy();
   });
 
-  it("declares fill capability but fits a normal compact canvas by width", async () => {
+  it("declares fill capability but contains a normal compact canvas in its capped stage", async () => {
     expect(imageHotspotBlockDefinition.boundedPlacement).toBe("fill");
 
     const editor = makeEditor();
@@ -676,11 +678,12 @@ describe("composite image_hotspot node", () => {
     fireEvent.load(image);
 
     const surface = image.closest<HTMLElement>("[data-image-hotspot-canvas-surface]");
-    expect(surface?.getAttribute("data-image-hotspot-fit")).toBe("width");
+    expect(surface?.getAttribute("data-image-hotspot-fit")).toBe("contain");
+    expect(fitStage.getAttribute("data-image-hotspot-presentation")).toBe("compact");
     await waitFor(() => {
       expect(surface?.style.getPropertyValue("--sc-course-image-hotspot-aspect-ratio")).toBe("2");
-      expect(surface?.style.width).toBe("482px");
-      expect(surface?.style.height).toBe("241px");
+      expect(surface?.style.width).toBe("178px");
+      expect(surface?.style.height).toBe("89px");
     });
 
     editor.destroy();
@@ -874,7 +877,7 @@ describe("composite image_hotspot node", () => {
       unboundedView.container
         .querySelector("[data-image-hotspot-canvas-surface]")
         ?.getAttribute("data-image-hotspot-fit"),
-    ).toBe("width");
+    ).toBe("contain");
 
     installedEditor.destroy();
     unboundedEditor.destroy();
@@ -922,7 +925,7 @@ describe("composite image_hotspot node", () => {
       unboundedView.container
         .querySelector("[data-image-hotspot-canvas-surface]")
         ?.getAttribute("data-image-hotspot-fit"),
-    ).toBe("width");
+    ).toBe("contain");
 
     installedEditor.destroy();
     unboundedEditor.destroy();
@@ -957,7 +960,7 @@ describe("composite image_hotspot node", () => {
     expect(
       within(panel).getByText("Select a region or row to edit its details."),
     ).toBeInTheDocument();
-    expect(within(panel).getByLabelText("3 total hotspots").textContent).toBe("3");
+    expect(within(panel).getByText("3 total hotspots")).toHaveClass("sc-sr-only");
 
     const list = within(panel).getByRole("list", { name: "Hotspots" });
     const rowButtons = within(list).getAllByRole("button", { name: /^Select hotspot/ });
@@ -1044,11 +1047,14 @@ describe("composite image_hotspot node", () => {
     const dialog = await screen.findByRole("dialog", { name: "Edit image hotspots" });
     const panel = within(dialog).getByRole("region", { name: "Selected hotspot details" });
     expect(within(panel).getByRole("heading", { name: "Hotspots" })).toBeInTheDocument();
-    expect(within(panel).getByLabelText("0 total hotspots").textContent).toBe("0");
+    expect(within(panel).getByText("0 total hotspots")).toHaveClass("sc-sr-only");
     expect(within(panel).queryByRole("list", { name: "Hotspots" })).toBeNull();
     expect(within(panel).getByText("No hotspots yet")).toBeInTheDocument();
     expect(
-      within(panel).getByText("Draw a region on the image or add one from the toolbar."),
+      within(panel).getByText("Add a region to define an interactive hotspot."),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByRole("button", { name: "Add first hotspot region" }),
     ).toBeInTheDocument();
 
     editor.destroy();
@@ -1244,11 +1250,11 @@ describe("composite image_hotspot node", () => {
       inline: "nearest",
     });
 
-    await user.click(
-      within(dialog).getByRole("button", {
-        name: "Close expanded hotspot workspace",
-      }),
-    );
+    const closeWorkspace = within(dialog).getByRole("button", {
+      name: "Close expanded hotspot workspace",
+    });
+    expect(closeWorkspace).toHaveClass("sc-app-image-hotspot__icon-action");
+    await user.click(closeWorkspace);
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Edit image hotspots" })).toBeNull();
     });
@@ -3208,7 +3214,7 @@ describe("composite image_hotspot node", () => {
 
     await waitFor(() => {
       expect(describedText('[aria-label="Image hotspot response area"]')).toBe(
-        "0 of 1 click placed",
+        "0 of 1 click placed Use the arrow keys to move the selection cursor. Press Enter or Space to place a click.",
       );
     });
 
@@ -3231,7 +3237,7 @@ describe("composite image_hotspot node", () => {
 
     await waitFor(() => {
       expect(describedText('[aria-label="Image hotspot response area"]')).toBe(
-        "1 of 1 click placed. Click limit reached",
+        "1 of 1 click placed. Click limit reached Use the arrow keys to move the selection cursor. Press Enter or Space to place a click.",
       );
       expect(describedText("[data-hotspot-marker-id]")).toBe("Pending click");
     });
@@ -3526,7 +3532,7 @@ describe("composite image_hotspot node", () => {
         "Revealed click, correct. Feedback available",
       );
       expect(describedText('[aria-label="Image hotspot response area"]')).toBe(
-        "1 click placed. Answer revealed",
+        "1 click placed. Answer revealed Use the arrow keys to move the selection cursor. Press Enter or Space to place a click.",
       );
     });
 

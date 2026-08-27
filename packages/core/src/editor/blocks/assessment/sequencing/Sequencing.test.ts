@@ -267,9 +267,8 @@ function sequencingBlock(attrs: Record<string, unknown> = {}): JSONContent {
 }
 
 function sequencingItemDescription(index: number): string | null {
-  const item = screen.getByRole("listitem", {
-    name: `Sequencing item ${index}`,
-  });
+  const item = screen.getAllByRole("listitem")[index - 1];
+  if (!item) throw new Error(`Expected sequencing item at position ${index}`);
   const describedBy = item.getAttribute("aria-describedby");
   return describedBy ? (document.getElementById(describedBy)?.textContent ?? null) : null;
 }
@@ -621,6 +620,7 @@ describe("composite sequencing node", () => {
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(items).toBeInstanceOf(HTMLElement);
     expect(items?.getAttribute("data-bounded-scroll-frame")).toBe("");
+    expect(items?.getAttribute("data-sequencing-density")).toBe("comfortable");
     expect(items?.hasAttribute("data-bounded-scroll")).toBe(false);
     expect(scrollLane?.getAttribute("data-bounded-scroll")).toBe("");
     expect(hint?.textContent).toBe("Scroll for more ↓");
@@ -677,6 +677,7 @@ describe("composite sequencing node", () => {
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(items).toBeInstanceOf(HTMLElement);
     expect(items?.getAttribute("data-bounded-scroll-frame")).toBe("");
+    expect(frame?.querySelectorAll("[data-bounded-scroll-frame]")).toHaveLength(1);
     expect(items?.hasAttribute("data-bounded-scroll")).toBe(false);
     expect(scrollLane?.getAttribute("data-bounded-scroll")).toBe("");
     expect(hint?.textContent).toBe("Scroll for more ↓");
@@ -694,9 +695,7 @@ describe("composite sequencing node", () => {
     ]);
 
     await waitFor(() => {
-      expect(screen.getByRole("listitem", { name: "Sequencing item 1" }).textContent).toContain(
-        "Gamma",
-      );
+      expect(screen.getByRole("listitem", { name: "Gamma" }).textContent).toContain("Gamma");
       expect(scrollLane?.querySelector(".sc-course-sequencing__list")?.textContent).toContain(
         "Gamma",
       );
@@ -912,14 +911,10 @@ describe("composite sequencing node", () => {
     ]);
 
     await waitFor(() => {
-      expect(screen.getByRole("listitem", { name: "Sequencing item 1" }).textContent).toContain(
-        "Gamma",
-      );
+      expect(screen.getByRole("listitem", { name: "Gamma" }).textContent).toContain("Gamma");
       expect(sequencingItemDescription(1)).toBe("Position 1 of 3. Reorderable");
     });
-    const firstItem = screen.getByRole("listitem", {
-      name: "Sequencing item 1",
-    });
+    const firstItem = screen.getByRole("listitem", { name: "Gamma" });
     expect(firstItem.className).toContain("sc-course-sequencing__item");
     expect(firstItem).toHaveAttribute("data-id", "seqitm_00003");
     expect(firstItem).not.toHaveAttribute("data-item-id");
@@ -985,9 +980,7 @@ describe("composite sequencing node", () => {
     fireEvent.click(screen.getByText("Submit"));
 
     await waitFor(() => {
-      expect(screen.getByRole("listitem", { name: "Sequencing item 1" }).textContent).toContain(
-        "Gamma",
-      );
+      expect(screen.getByRole("listitem", { name: "Gamma" }).textContent).toContain("Gamma");
       expect(sequencingItemDescription(1)).toBe("Position 1 of 3. Submitted position, incorrect");
     });
 
@@ -1049,12 +1042,8 @@ describe("composite sequencing node", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("listitem", { name: "Sequencing item 1" }).textContent).toContain(
-        "Alpha",
-      );
-      expect(screen.getByRole("listitem", { name: "Sequencing item 2" }).textContent).toContain(
-        "Beta",
-      );
+      expect(screen.getByRole("listitem", { name: "Alpha" }).textContent).toContain("Alpha");
+      expect(screen.getByRole("listitem", { name: "Beta" }).textContent).toContain("Beta");
       expect(sequencingItemDescription(2)).toBe(
         "Position 2 of 3. Revealed correct position. Feedback available",
       );

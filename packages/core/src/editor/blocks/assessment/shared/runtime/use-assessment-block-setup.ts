@@ -39,6 +39,11 @@ interface UseAssessmentBlockSetupArgs {
   config: AssessmentBlockSetupConfig;
 }
 
+interface UseAssessmentTargetSetupArgs {
+  authoredBlockId: string;
+  config: AssessmentBlockSetupConfig;
+}
+
 export interface UseAssessmentBlockSetupResult {
   authoredBlockId: string;
   problemId: AssessmentProblemId | null;
@@ -51,6 +56,13 @@ export function useAssessmentBlockSetup({
   config,
 }: UseAssessmentBlockSetupArgs): UseAssessmentBlockSetupResult {
   const authoredBlockId = typeof node.attrs["id"] === "string" ? node.attrs["id"] : "";
+  return useAssessmentTargetSetup({ authoredBlockId, config });
+}
+
+export function useAssessmentTargetSetup({
+  authoredBlockId,
+  config,
+}: UseAssessmentTargetSetupArgs): UseAssessmentBlockSetupResult {
   const registration = useMemo(() => {
     const settings: AssessmentTargetSettings = {
       feedbackMode: config.feedbackMode,

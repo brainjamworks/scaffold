@@ -9,6 +9,8 @@ import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import { EditorMovementLayer } from "@/editor/movement/view/EditorMovementLayer";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
@@ -58,6 +60,11 @@ import {
 } from "./categorise-fields";
 
 const canonicalAssessmentResult = { feedback: null, items: {} };
+const categoriseTestCapabilities = resolveScaffoldCapabilities({
+  blockCapabilities: [{ definition: categoriseBlockDefinition }],
+  layoutDefinitions: [],
+  surfaceDefinitions: [],
+});
 
 const BoundedRegionTestNode = TiptapNode.create({
   name: "region",
@@ -79,6 +86,7 @@ function makeEditor(editable = true) {
     editable,
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createScaffoldCapabilitiesStorageExtension(categoriseTestCapabilities),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([categoriseBlockDefinition.nodeType]),
       BoundedRegionTestNode,
@@ -100,6 +108,7 @@ function createDisposableCategoriseEditor(content: JSONContent) {
   return createDisposableEditor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createScaffoldCapabilitiesStorageExtension(categoriseTestCapabilities),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([categoriseBlockDefinition.nodeType]),
       BoundedRegionTestNode,
@@ -485,6 +494,7 @@ describe("composite categorise node", () => {
 
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(content).toBeInstanceOf(HTMLElement);
+    expect(content).toHaveAttribute("data-assessment-interaction-content");
     expect(content?.getAttribute("data-bounded-scroll-frame")).toBe("");
     expect(content?.hasAttribute("data-bounded-scroll")).toBe(false);
     expect(shell?.querySelectorAll("[data-bounded-scroll]")).toHaveLength(1);
@@ -494,6 +504,24 @@ describe("composite categorise node", () => {
     expect(scrollLane?.textContent).toContain("Eagle");
     expect(scrollLane?.textContent).toContain("Add item to category 1");
     expect(scrollLane?.textContent).toContain("Add category");
+    expect(
+      scrollLane?.querySelector('[data-categorise-category-disclosure][aria-expanded="true"]'),
+    ).toBeInstanceOf(HTMLButtonElement);
+    expect(
+      scrollLane?.querySelector('[data-categorise-category-disclosure][aria-expanded="false"]'),
+    ).toBeInstanceOf(HTMLButtonElement);
+    expect(content?.getAttribute("data-categorise-presentation")).toBe("authoring-outline");
+    const disclosures = Array.from(
+      scrollLane?.querySelectorAll<HTMLButtonElement>("[data-categorise-category-disclosure]") ??
+        [],
+    );
+    expect(disclosures).toHaveLength(2);
+    fireEvent.click(disclosures[0]!);
+    expect(disclosures[0]).toHaveAttribute("aria-expanded", "false");
+    expect(disclosures[1]).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(disclosures[1]!);
+    expect(disclosures[0]).toHaveAttribute("aria-expanded", "false");
+    expect(disclosures[1]).toHaveAttribute("aria-expanded", "true");
     expect(
       scrollLane?.querySelector('[data-node="categorise-bin"] [data-bounded-scroll]'),
     ).toBeNull();
@@ -560,10 +588,18 @@ describe("composite categorise node", () => {
     expect(source).toBeInstanceOf(HTMLElement);
     expect(bins).toBeInstanceOf(HTMLElement);
     expect(source?.nextElementSibling).toBe(bins);
-    expect(source?.querySelectorAll("button[data-id]")).toHaveLength(2);
+    expect(source?.querySelectorAll("[data-current-item]")).toHaveLength(1);
+    expect(source?.querySelectorAll("button[data-id]")).toHaveLength(1);
+    expect(source?.querySelector("button[data-current-item]")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(
+      bins?.querySelectorAll<HTMLButtonElement>(".sc-course-categorise__category-choice")[0],
+    ).toBeDisabled();
     expect(source?.querySelector("[data-item-id]")).toBeNull();
-    expect(source?.querySelectorAll("[data-interaction-drag-activation-area]")).toHaveLength(2);
-    expect(bins?.querySelectorAll('[role="button"][data-id]')).toHaveLength(2);
+    expect(bins?.querySelectorAll(".sc-course-categorise__category-target")).toHaveLength(2);
+    expect(bins?.querySelectorAll(".sc-course-categorise__category-choice")).toHaveLength(2);
     expect(bins?.querySelector("[data-bin-id]")).toBeNull();
     expect(bins?.querySelector("[data-bounded-scroll]")).toBeNull();
     expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
@@ -735,9 +771,7 @@ describe("composite categorise node", () => {
       expect(element).toBeInstanceOf(HTMLElement);
       return element!;
     });
-    await user.click(
-      within(salmonItem).getByRole("button", { name: "Item options for ‘Salmon’" }),
-    );
+    await user.click(within(salmonItem).getByRole("button", { name: "Item options for ‘Salmon’" }));
 
     const selectors = await waitFor(() => {
       const elements = document.body.querySelectorAll<HTMLElement>(
@@ -847,7 +881,7 @@ describe("composite categorise node", () => {
     const user = userEvent.setup();
 
     expect(screen.queryByRole("button", { name: /remove item .* from category/i })).toBeNull();
-    expect(screen.getByRole("button", { name: "Delete category 2" })).toHaveAttribute(
+    expect(await screen.findByRole("button", { name: "Delete category 2" })).toHaveAttribute(
       "aria-disabled",
       "true",
     );
@@ -859,7 +893,7 @@ describe("composite categorise node", () => {
     await user.click(
       within(salmonItem!).getByRole("button", { name: "Item options for ‘Salmon’" }),
     );
-    await user.click(await screen.findByRole("button", { name: "Delete item" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete item" }));
 
     await waitFor(() => {
       expect(
@@ -961,7 +995,7 @@ describe("composite categorise node", () => {
       return element!;
     });
     await user.click(within(salmonItem).getByRole("button", { name: "Item options for ‘Salmon’" }));
-    await user.click(await screen.findByRole("button", { name: "Delete item" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete item" }));
 
     await waitFor(() => {
       expect(
@@ -1178,33 +1212,33 @@ describe("composite categorise node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
 
-    const category = screen.getByRole("button", { name: "Category 1" });
-    expect(category).toHaveAttribute("aria-disabled", "true");
-    expect(category).toHaveAttribute("tabindex", "0");
-
-    const source = screen.getByRole("button", { name: "Select item 1" });
+    const source = screen.getByRole("button", { name: /^Select .+ for placement$/ });
     const selectedItemId = source.getAttribute("data-id");
     expect(selectedItemId).not.toBeNull();
+    const currentLabel = source
+      .getAttribute("aria-label")
+      ?.replace(/^Select /, "")
+      .replace(/ for placement$/, "");
+    expect(currentLabel).toBeTruthy();
+
     fireEvent.click(source);
+    expect(source).toHaveAttribute("aria-pressed", "true");
+    const category = screen.getByRole("button", { name: `Place ${currentLabel} in Birds` });
 
-    await waitFor(() => {
-      expect(describedText(`[data-id="${selectedItemId}"]`)).toBe("Selected item");
-      expect(describedText('[data-id="birds_000001"]')).toBe("Ready to place selected item");
-      expect(category).not.toHaveAttribute("aria-disabled");
-    });
-
-    fireEvent.click(document.body.querySelector('[data-id="birds_000001"]')!);
+    fireEvent.click(category);
 
     await waitFor(() => {
       expect(describedText('[data-id="birds_000001"]')).toBe("Contains 1 item");
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review Birds, 1 item" }));
+    await waitFor(() => {
       expect(describedText(`[data-placed-item-id="${selectedItemId}"]`)).toBe("Placed item");
-      expect(category).toHaveAttribute("aria-disabled", "true");
     });
 
     editor.destroy();
   });
 
-  it("places once through the Enter then Space selection contract", async () => {
+  it("selects and places the current item through keyboard activation", async () => {
     const editor = makeEditor(false);
     editor.commands.setContent(learnerCategoriseDoc({ showAnswer: true }));
     const problemId = "artifact:artifact-1/block:categorise-1";
@@ -1213,30 +1247,28 @@ describe("composite categorise node", () => {
     await waitFor(() => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
-    const source = screen.getByRole("button", { name: "Select item 1" });
-    expect(source).toBeInstanceOf(HTMLButtonElement);
-    expect(source).not.toHaveAttribute("role");
-    expect(source).not.toHaveAttribute("aria-roledescription");
-    expect(source).not.toHaveAttribute("aria-description");
-    expect(source).toHaveAttribute("data-interaction-drag-activation-area", "");
+    const user = userEvent.setup();
+    const source = screen.getByRole("button", { name: /^Select .+ for placement$/ });
     const selectedItemId = source.getAttribute("data-id");
     expect(selectedItemId).not.toBeNull();
-    const category = document.body.querySelector<HTMLElement>('[data-id="birds_000001"]');
-    expect(category).toBeInstanceOf(HTMLElement);
+    const currentLabel = source
+      .getAttribute("aria-label")
+      ?.replace(/^Select /, "")
+      .replace(/ for placement$/, "");
 
-    fireEvent.keyDown(source, { key: "Enter" });
-    fireEvent.keyDown(category!, { key: " " });
+    source.focus();
+    await user.keyboard("[Space]");
+    expect(source).toHaveAttribute("aria-pressed", "true");
+    const category = screen.getByRole("button", { name: `Place ${currentLabel} in Birds` });
+
+    category.focus();
+    await user.keyboard("[Space]");
 
     await waitFor(() => {
       expect(localAssessmentResponse(assessmentStore, problemId)).toMatchObject({
         placements: { [selectedItemId!]: "birds_000001" },
       });
     });
-    fireEvent.keyDown(category!, { key: " " });
-    expect(localAssessmentResponse(assessmentStore, problemId)).toMatchObject({
-      placements: { [selectedItemId!]: "birds_000001" },
-    });
-
     editor.destroy();
   });
 
@@ -1249,10 +1281,12 @@ describe("composite categorise node", () => {
     await waitFor(() => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
-    const source = screen.getByRole("button", { name: "Select item 1" });
+    const source = screen.getByRole("button", { name: /^Select .+ for placement$/ });
     const selectedItemId = source.getAttribute("data-id");
     expect(selectedItemId).not.toBeNull();
+
     fireEvent.click(source);
+    expect(source).toHaveAttribute("aria-pressed", "true");
 
     setAssessmentResponseField(assessmentStore, problemId, "placements", {
       [selectedItemId!]: "fish__000001",
@@ -1270,7 +1304,12 @@ describe("composite categorise node", () => {
       ).toBeNull();
     });
 
-    fireEvent.click(document.body.querySelector('[data-id="birds_000001"]')!);
+    const nextItem = screen.getByRole("button", { name: /^Select .+ for placement$/ });
+    expect(nextItem).not.toHaveAttribute("data-id", selectedItemId);
+    expect(nextItem).toHaveAttribute("aria-pressed", "false");
+    const category = screen.getByRole("button", { name: "Birds, 0 items" });
+    expect(category).toBeDisabled();
+    fireEvent.click(category);
     expect(localAssessmentResponse(assessmentStore, problemId)).toMatchObject({
       placements: { [selectedItemId!]: "fish__000001" },
     });
@@ -1316,6 +1355,10 @@ describe("composite categorise node", () => {
       eagle_000001: "birds_000001",
     });
 
+    const reviewBirds = await waitFor(() =>
+      screen.getByRole("button", { name: "Review Birds, 2 items" }),
+    );
+    fireEvent.click(reviewBirds);
     await waitFor(() => {
       expect(describedText('[data-placed-item-id="salmon_00001"]')).toBe("Placed item");
     });
@@ -1326,10 +1369,9 @@ describe("composite categorise node", () => {
         "Placed item. Submitted placement, incorrect",
       );
       for (const category of document.body.querySelectorAll(
-        ".sc-course-categorise__runtime-bin[data-id]",
+        ".sc-course-categorise__category-choice",
       )) {
-        expect(category).toHaveAttribute("aria-disabled", "true");
-        expect(category).toHaveAttribute("tabindex", "-1");
+        expect(category).toBeDisabled();
       }
     });
 
@@ -1376,6 +1418,10 @@ describe("composite categorise node", () => {
       eagle_000001: "birds_000001",
     });
 
+    const reviewFish = await waitFor(() =>
+      screen.getByRole("button", { name: "Review Fish, 1 item" }),
+    );
+    fireEvent.click(reviewFish);
     await waitFor(() => {
       expect(describedText('[data-placed-item-id="salmon_00001"]')).toBe("Placed item");
     });
@@ -1387,11 +1433,10 @@ describe("composite categorise node", () => {
       );
     });
     fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Review Birds, 1 item" }));
 
     await waitFor(() => {
-      expect(document.body.querySelector('[data-id="birds_000001"]')?.textContent).toContain(
-        "Salmon",
-      );
+      expect(screen.getByRole("dialog", { name: "Items in Birds" })).toHaveTextContent("Salmon");
       expect(describedText('[data-placed-item-id="salmon_00001"]')).toBe(
         "Placed item. Revealed correct placement. Feedback available",
       );
@@ -1449,13 +1494,11 @@ describe("composite categorise node", () => {
       );
     });
     fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Review Birds, 1 item" }));
 
     await waitFor(() => {
-      const birds = document.body.querySelector('[data-id="birds_000001"]');
-      const fish = document.body.querySelector('[data-id="fish__000001"]');
-
-      expect(birds?.textContent).toContain("Salmon");
-      expect(fish?.textContent).not.toContain("Salmon");
+      expect(screen.getByRole("dialog", { name: "Items in Birds" })).toHaveTextContent("Salmon");
+      expect(screen.queryByRole("dialog", { name: "Items in Fish" })).toBeNull();
     });
 
     editor.destroy();

@@ -17,6 +17,7 @@
 
   .sc-course-dropdown-select__trigger {
     display: inline-flex;
+    min-block-size: 2.75rem;
     min-width: 0;
     flex: 1 1 auto;
     align-items: center;
@@ -67,6 +68,7 @@
   .sc-course-dropdown-select__item {
     position: relative;
     display: flex;
+    min-block-size: 2.75rem;
     min-width: 0;
     align-items: center;
   }

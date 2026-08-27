@@ -209,6 +209,17 @@
   font-weight: var(--font-weight-medium);
 }
 
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-slide-image-hotspot-question-surface-view
+  .sc-course-image-hotspot-runtime-counter {
+  padding: var(--space-2) var(--space-3);
+  border: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+  border-radius: max(var(--radius-3), min(var(--radius-full), 1.5rem));
+  background: var(--color-panel-translucent);
+  box-shadow: var(--shadow-2);
+  backdrop-filter: blur(10px);
+}
+
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-image-hotspot-workspace__overlay {
   background: var(--black-a9);
 }
@@ -277,6 +288,11 @@
 }
 
 @media (forced-colors: active) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-image-hotspot-canvas {
+    border-color: CanvasText;
+    box-shadow: none;
+  }
+
   .sc-course.sc-course-theme-scaffold-flow-v1
     :is(.sc-course-image-hotspot-canvas, .sc-course-image-hotspot-workspace) {
     border-color: CanvasText;

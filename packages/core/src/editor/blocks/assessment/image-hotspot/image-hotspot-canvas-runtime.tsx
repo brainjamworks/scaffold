@@ -25,7 +25,10 @@ import type {
   HotspotClickRecord,
   ImageHotspotClickChangeStatus,
 } from "@/editor/blocks/assessment/shared/runtime/assessment-interaction-runtime";
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import {
+  findAncestorAssessmentBlockId,
+  isInsideAssessmentContainer,
+} from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { AssessmentRuntimePopoverShell } from "@/editor/blocks/assessment/shared/chrome/AssessmentRuntimePopoverShell";
 import { resolveAssessmentAttrParent } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
 import { renderRuntimeRichTextNode } from "@/editor/rich-text/runtime/render-rich-text";
@@ -62,11 +65,11 @@ import { ImageHotspotCourseWorkspace } from "./ImageHotspotCourseWorkspace";
 
 import "./ImageHotspot.css";
 
-interface RuntimeCanvasProps {
+export interface ImageHotspotCourseInteractionProps {
   data: ImageHotspotCanvasData;
-  authoredBlockId: string | null;
+  assessmentTargetId: string | null;
   fitStrategy?: ImageHotspotFitStrategy | undefined;
-  presentation?: "compact" | "expanded";
+  presentation?: "compact" | "full-slide" | "expanded";
   onAnnounce?: ((message: string) => void) | undefined;
   renderLiveRegion?: boolean | undefined;
 }
@@ -161,13 +164,28 @@ export function ImageHotspotCanvasRuntimeNodeView(props: NodeViewProps) {
   );
   const authoredBlockId = findAncestorAssessmentBlockId(props.editor, pos ?? undefined, [
     "image_hotspot",
+    "surface_image_hotspot_question",
   ]);
+  const surfaceOwned = isInsideAssessmentContainer(
+    props.editor,
+    pos ?? undefined,
+    "surface_image_hotspot_question",
+  );
   const boundedFillActive = pos !== null && isImageHotspotBoundedFillActive(props.editor, pos);
+
+  if (surfaceOwned) {
+    return (
+      <NodeViewWrapper
+        data-node="image-hotspot-canvas"
+        data-surface-owned-image-hotspot-canvas=""
+      />
+    );
+  }
 
   return (
     <NodeViewWrapper data-node="image-hotspot-canvas">
-      <RuntimeCanvas
-        authoredBlockId={authoredBlockId}
+      <ImageHotspotCourseInteraction
+        assessmentTargetId={authoredBlockId}
         data={data}
         fitStrategy={boundedFillActive ? "contain" : "width"}
       />
@@ -175,19 +193,20 @@ export function ImageHotspotCanvasRuntimeNodeView(props: NodeViewProps) {
   );
 }
 
-function RuntimeCanvas({
-  authoredBlockId,
+export function ImageHotspotCourseInteraction({
+  assessmentTargetId,
   data,
   fitStrategy = "width",
   presentation = "compact",
   onAnnounce,
   renderLiveRegion = true,
-}: RuntimeCanvasProps) {
+}: ImageHotspotCourseInteractionProps) {
   const isExpanded = presentation === "expanded";
-  const effectiveFitStrategy = isExpanded ? "contain" : fitStrategy;
-  const isBoundedCompact = !isExpanded && fitStrategy === "contain";
+  const isFullSlide = presentation === "full-slide";
+  const effectiveFitStrategy: ImageHotspotFitStrategy = "contain";
+  const isBoundedCompact = !isExpanded && !isFullSlide && fitStrategy === "contain";
   const mediaPort = useMediaPort();
-  const assessment = useAssessmentRuntimeById(authoredBlockId, "spatial-hotspot");
+  const assessment = useAssessmentRuntimeById(assessmentTargetId, "spatial-hotspot");
   const problem = assessment?.interaction ?? null;
   const runtimeProblem = assessment?.problem ?? null;
   const [resolvedManagedSrc, setResolvedManagedSrc] = useState<{
@@ -199,7 +218,7 @@ function RuntimeCanvas({
   const workspaceKey = nodeViewUiStateKey({
     owner: "image-hotspot",
     surface: "course-workspace-runtime",
-    id: authoredBlockId,
+    id: assessmentTargetId,
   });
   const [workspaceOpen, setWorkspaceOpen] = useNodeViewOpenState(workspaceKey);
   const [announcement, setAnnouncement] = useState("");
@@ -387,7 +406,6 @@ function RuntimeCanvas({
       </p>
     );
   }
-
   const markerState = (click: HotspotClickRecord) => {
     if (!showGraded) return "pending" as const;
     if (click.hotspotId) {
@@ -539,6 +557,7 @@ function RuntimeCanvas({
     <div
       className={cn(
         "sc-course-image-hotspot-shell",
+        isFullSlide && "sc-course-image-hotspot-shell--full-slide",
         isExpanded && "sc-course-image-hotspot-shell--expanded",
       )}
     >
@@ -556,7 +575,13 @@ function RuntimeCanvas({
 
       {!isExpanded ? (
         <ImageHotspotCourseWorkspace.Root open={workspaceOpen} onOpenChange={setWorkspaceOpen}>
-          <div ref={fitStageRef} className="sc-course-image-hotspot-fit-stage">
+          <div
+            ref={fitStageRef}
+            className="sc-course-image-hotspot-fit-stage"
+            data-image-hotspot-presentation={
+              isFullSlide ? "full-slide" : isBoundedCompact ? "bounded" : "compact"
+            }
+          >
             {runtimeSurface}
             {isBoundedCompact && (
               <div
@@ -581,8 +606,8 @@ function RuntimeCanvas({
             description="Select every correct region on the image."
           >
             <div className="sc-course-image-hotspot-runtime-workspace__body">
-              <RuntimeCanvas
-                authoredBlockId={authoredBlockId}
+              <ImageHotspotCourseInteraction
+                assessmentTargetId={assessmentTargetId}
                 data={data}
                 fitStrategy="contain"
                 presentation="expanded"
@@ -594,7 +619,11 @@ function RuntimeCanvas({
         </ImageHotspotCourseWorkspace.Root>
       ) : (
         <>
-          <div ref={fitStageRef} className="sc-course-image-hotspot-fit-stage">
+          <div
+            ref={fitStageRef}
+            className="sc-course-image-hotspot-fit-stage"
+            data-image-hotspot-presentation="expanded"
+          >
             {runtimeSurface}
           </div>
         </>

@@ -2,11 +2,12 @@ import type { EmbeddedNodeId } from "@scaffold/contracts";
 import type { JSONContent } from "@tiptap/core";
 import type { ZodTypeAny } from "zod";
 
-import {
-  normalizeControlDefinition,
-  type ControlDefinition,
-} from "@/document/control-binding";
+import { normalizeControlDefinition, type ControlDefinition } from "@/document/control-binding";
 import type { DocumentSemanticsDefinition } from "@/document/model/semantic-document";
+import {
+  normalizeSurfaceAssessmentTargetCapability,
+  type SurfaceAssessmentTargetCapability,
+} from "./assessment/surface-assessment-target";
 import {
   SurfaceSettingsSchema,
   type CourseMode,
@@ -17,7 +18,7 @@ export interface CreateSurfaceInput {
   surfaceId: EmbeddedNodeId;
 }
 
-export type SurfaceCatalogueSection = "title" | "content" | "image";
+export type SurfaceCatalogueSection = "title" | "content" | "image" | "assessment";
 
 export type SurfaceTemplatePreviewNode =
   | {
@@ -77,6 +78,7 @@ export interface SurfaceVariantDefinition {
   structurePolicy?: SurfaceStructurePolicy;
   documentSemantics?: DocumentSemanticsDefinition;
   control?: ControlDefinition;
+  assessmentTargets?: SurfaceAssessmentTargetCapability;
   createSurface: (input: CreateSurfaceInput) => JSONContent;
 }
 
@@ -97,6 +99,7 @@ const surfaceCatalogueSectionOrder: Readonly<Record<SurfaceCatalogueSection, num
   title: 0,
   content: 1,
   image: 2,
+  assessment: 3,
 };
 
 export function compareSurfaceCatalogueDefinitions(
@@ -115,12 +118,16 @@ export function normalizeSurfaceDefinition(
   const { control: controlInput, ...definitionWithoutControl } = definition;
   validateSurfaceCatalogue(definitionWithoutControl);
   const control = normalizeControlDefinition(controlInput);
+  const assessmentTargets = normalizeSurfaceAssessmentTargetCapability(
+    definitionWithoutControl.assessmentTargets,
+    definitionWithoutControl.id,
+  );
 
   for (const mode of definitionWithoutControl.defaultForModes ?? []) {
     assertSurfaceSupportsDefaultMode(definitionWithoutControl, mode);
   }
 
-  return createRegisteredSurfaceDefinition(definitionWithoutControl, control);
+  return createRegisteredSurfaceDefinition(definitionWithoutControl, control, assessmentTargets);
 }
 
 function validateSurfaceCatalogue(definition: SurfaceVariantDefinition): string | undefined {
@@ -151,10 +158,12 @@ function assertSurfaceSupportsDefaultMode(
 function createRegisteredSurfaceDefinition(
   definition: SurfaceVariantDefinition,
   control: ControlDefinition | undefined,
+  assessmentTargets: SurfaceAssessmentTargetCapability | undefined,
 ): RegisteredSurfaceVariantDefinition {
   return {
     ...definition,
     ...(control ? { control } : {}),
+    ...(assessmentTargets ? { assessmentTargets } : {}),
     nodeType: "surface",
     settingsSchema: definition.settingsSchema ?? SurfaceSettingsSchema.strict(),
   };
@@ -217,7 +226,7 @@ function isSurfaceTemplatePreviewNode(value: unknown): value is SurfaceTemplateP
 }
 
 function isSurfaceCatalogueSection(value: unknown): value is SurfaceCatalogueSection {
-  return isOneOf(value, ["title", "content", "image"]);
+  return isOneOf(value, ["title", "content", "image", "assessment"]);
 }
 
 function isOneOf<const Value extends string>(

@@ -167,8 +167,8 @@ describe("bounded image hotspot layout", () => {
     expect(getComputedStyle(number).width).toBe("24px");
     expect(getComputedStyle(number).height).toBe("24px");
     expect(getComputedStyle(number).borderRadius).toBe("50%");
-    expect(getComputedStyle(resizeHandle).width).toBe("24px");
-    expect(getComputedStyle(resizeHandle).height).toBe("24px");
+    expect(getComputedStyle(resizeHandle).width).toBe("44px");
+    expect(getComputedStyle(resizeHandle).height).toBe("44px");
     expect(getComputedStyle(resizeHandle).cursor).toBe("ew-resize");
     expect(getComputedStyle(resizeHandle, "::before").width).toBe("10px");
     expect(getComputedStyle(resizeHandle, "::before").borderRadius).toBe("0px");
@@ -213,6 +213,69 @@ describe("bounded image hotspot layout", () => {
     );
     expect(getComputedStyle(revealed).fill).toBe("none");
     expect(getComputedStyle(revealed).stroke).not.toBe("none");
+  });
+
+  it("gives the Pocket Atlas learner workspace a complete panel and 44px actions", async () => {
+    host = document.createElement("div");
+    host.className = "sc-course sc-course-theme-pocket-atlas-v1 radix-themes light";
+    host.innerHTML = `
+      <div class="sc-course-image-hotspot-workspace__overlay"></div>
+      <section class="sc-course-image-hotspot-workspace">
+        <header class="sc-course-image-hotspot-workspace__header">
+          <div class="sc-course-image-hotspot-workspace__heading">
+            <h2 class="sc-course-image-hotspot-workspace__title">Answer image hotspot</h2>
+            <p class="sc-course-image-hotspot-workspace__description">Select every correct region.</p>
+          </div>
+          <button class="sc-course-image-hotspot__icon-action" data-intent="close">Close</button>
+        </header>
+        <div class="sc-course-image-hotspot-runtime-workspace__body">Canvas</div>
+      </section>
+      <button class="sc-course-image-hotspot__icon-action" data-intent="edit">Expand</button>
+    `;
+    document.body.append(host);
+
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    const overlay = requireElement<HTMLElement>(
+      host,
+      ".sc-course-image-hotspot-workspace__overlay",
+    );
+    const workspace = requireElement<HTMLElement>(host, ".sc-course-image-hotspot-workspace");
+    const header = requireElement<HTMLElement>(host, ".sc-course-image-hotspot-workspace__header");
+    const body = requireElement<HTMLElement>(
+      host,
+      ".sc-course-image-hotspot-runtime-workspace__body",
+    );
+    const actions = Array.from(
+      host.querySelectorAll<HTMLElement>(".sc-course-image-hotspot__icon-action"),
+    );
+
+    expect(actions.map((action) => getComputedStyle(action).width)).toEqual(["44px", "44px"]);
+    expect(actions.map((action) => getComputedStyle(action).height)).toEqual(["44px", "44px"]);
+    expect(getComputedStyle(overlay).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    expect(getComputedStyle(workspace).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    expect(Number.parseFloat(getComputedStyle(workspace).borderTopWidth)).toBeGreaterThan(0);
+    expect(Number.parseFloat(getComputedStyle(header).paddingTop)).toBeGreaterThan(0);
+    expect(Number.parseFloat(getComputedStyle(body).paddingTop)).toBeGreaterThan(0);
+  });
+
+  it("caps a compact image hotspot stage for tall media", async () => {
+    await page.viewport(1200, 800);
+    host = document.createElement("div");
+    host.className = "sc-course sc-course-theme-pocket-atlas-v1 radix-themes light";
+    host.style.width = "700px";
+    host.innerHTML = `
+      <div
+        class="sc-course-image-hotspot-fit-stage"
+        data-image-hotspot-presentation="compact"
+      ></div>
+    `;
+    document.body.append(host);
+
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    const stage = requireElement<HTMLElement>(host, ".sc-course-image-hotspot-fit-stage");
+    expect(stage.getBoundingClientRect().height).toBe(512);
   });
 });
 

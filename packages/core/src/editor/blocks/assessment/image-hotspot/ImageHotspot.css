@@ -28,8 +28,13 @@
   .sc-course-image-hotspot-fit-stage {
     position: relative;
     display: grid;
+    box-sizing: border-box;
     overflow: hidden;
     place-items: center;
+  }
+
+  .sc-course-image-hotspot-fit-stage[data-image-hotspot-presentation="compact"] {
+    block-size: min(32rem, 70dvh);
   }
 
   .sc-course-image-hotspot-canvas {
@@ -67,6 +72,20 @@
     inset-block-start: 0;
     inset-inline-end: 0;
     display: flex;
+  }
+
+  .sc-course-image-hotspot__icon-action {
+    box-sizing: border-box;
+    display: inline-flex;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
   }
 
   .sc-app-image-hotspot-author-marker,
@@ -187,6 +206,10 @@
     min-width: 0;
     align-items: center;
     justify-content: space-between;
+  }
+
+  .sc-course-image-hotspot-workspace__heading {
+    min-width: 0;
   }
 
   .sc-course-image-hotspot-shell--expanded .sc-course-image-hotspot-canvas {
@@ -345,8 +368,8 @@
   .sc-app-image-hotspot__author-resize-handle {
     position: absolute;
     z-index: 4;
-    width: 24px;
-    height: 24px;
+    width: 44px;
+    height: 44px;
     left: var(--sc-image-hotspot-resize-handle-x);
     top: var(--sc-image-hotspot-resize-handle-y);
     display: block;
@@ -432,6 +455,13 @@
 
     .sc-app-image-hotspot__author-resize-handle:hover::before {
       background: var(--sc-app-color-primary-muted);
+    }
+  }
+
+  @media (max-width: 48rem) {
+    .sc-course-image-hotspot-workspace {
+      inset: max(0.5rem, env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-right))
+        max(0.5rem, env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left));
     }
   }
 

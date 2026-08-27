@@ -185,6 +185,51 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     }
   });
 
+  it("mounts the private Surface Categorise question owner in runtime", () => {
+    const schema = getSchema(
+      createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition }),
+    );
+
+    expect(schema.nodes["surface_categorise_question"]).toBeDefined();
+    expect(schema.nodes["surface_categorise_question"]?.spec.attrs?.["id"]).toBeDefined();
+    expect(schema.nodes["categorise_content"]).toBeDefined();
+    expect(schema.nodes["categorise_bin"]).toBeDefined();
+    expect(schema.nodes["categorise_item"]).toBeDefined();
+  });
+
+  it("mounts the private Surface Sequencing question owner in runtime", () => {
+    const schema = getSchema(
+      createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition }),
+    );
+
+    expect(schema.nodes["surface_sequencing_question"]).toBeDefined();
+    expect(schema.nodes["surface_sequencing_question"]?.spec.attrs?.["id"]).toBeDefined();
+    expect(schema.nodes["sequencing_items_group"]).toBeDefined();
+    expect(schema.nodes["sequencing_item"]).toBeDefined();
+  });
+
+  it("mounts the private Surface Matching question owner in runtime", () => {
+    const schema = getSchema(
+      createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition }),
+    );
+
+    expect(schema.nodes["surface_matching_question"]).toBeDefined();
+    expect(schema.nodes["surface_matching_question"]?.spec.attrs?.["id"]).toBeDefined();
+    expect(schema.nodes["matching_pairs_group"]).toBeDefined();
+    expect(schema.nodes["matching_pair"]).toBeDefined();
+    expect(schema.nodes["matching_item"]).toBeDefined();
+    expect(schema.nodes["matching_target"]).toBeDefined();
+  });
+
+  it("mounts the private Surface Image Hotspot question owner in runtime", () => {
+    const schema = getSchema(
+      createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition }),
+    );
+
+    expect(schema.nodes["surface_image_hotspot_question"]).toBeDefined();
+    expect(schema.nodes["surface_image_hotspot_question"]?.spec.attrs?.["id"]).toBeDefined();
+    expect(schema.nodes["image_hotspot_canvas"]).toBeDefined();
+  });
 
   it("configures identity for every eligible mounted node without mutating runtime documents", () => {
     const extensions = createCourseDocumentRuntimeExtensions({
@@ -651,11 +696,13 @@ function replaceNodeWithParagraph(editor: Editor, nodeType: string): void {
   const paragraph = editor.schema.nodes["paragraph"];
   if (!paragraph) throw new Error("Expected runtime paragraph schema.");
   editor.view.dispatch(
-    editor.state.tr.replaceWith(
-      mountedTarget.pos,
-      mountedTarget.pos + mountedTarget.nodeSize,
-      paragraph.create({ id: "replacePara01" }, editor.schema.text("Replacement")),
-    ).setMeta("studentGuard", "allow"),
+    editor.state.tr
+      .replaceWith(
+        mountedTarget.pos,
+        mountedTarget.pos + mountedTarget.nodeSize,
+        paragraph.create({ id: "replacePara01" }, editor.schema.text("Replacement")),
+      )
+      .setMeta("studentGuard", "allow"),
   );
 }
 

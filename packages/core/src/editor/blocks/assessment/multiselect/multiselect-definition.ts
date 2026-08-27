@@ -15,6 +15,7 @@ import {
 import type { SettingsSheetApplyInput } from "@/editor/configuration/settings-sheet";
 import { updateNodeSettingsChecked } from "@/document/model/commands/settings";
 import { defineAssessmentCapability, defineBlock } from "@/editor/blocks/block-definition";
+import { assessmentControlDefinition } from "../shared/model/assessment-control-definition";
 import {
   multiselectResponseCodec,
   projectMultiselectAssessment,
@@ -129,6 +130,7 @@ function applyMultiselectSettings({ attr, schema, target, tr, value }: SettingsS
 export const multiselectBlockDefinition = defineBlock({
   nodeType: "multiselect",
   title: "Multi-select",
+  control: assessmentControlDefinition,
   boundedPlacement: "fill",
   configuration: multiselectConfiguration,
   placeholders: {

@@ -16,6 +16,16 @@
     align-items: stretch;
   }
 
+  .sc-course-matching__runtime-board,
+  .sc-course-matching__runtime-row,
+  .sc-course-matching__runtime-header {
+    box-sizing: border-box;
+    inline-size: 100%;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+  }
+
   .sc-course-matching__group {
     position: relative;
   }

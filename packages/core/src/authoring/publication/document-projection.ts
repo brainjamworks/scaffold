@@ -22,6 +22,7 @@ import {
   requireAssessmentProjection,
 } from "@/editor/blocks/assessment/shared/publication/assessment-target";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-variant-registry";
 import type { RequiresScaffoldPlusResult } from "@/host/contracts/product-access";
 import type {
   LearnerProjectionReadinessResult,
@@ -99,10 +100,11 @@ interface VisitedAssessmentBlock {
 export function projectLearnerPublication(
   readiness: LearnerProjectionReadinessResult,
   blockDefinitions: BlockDefinitionLookup,
+  surfaceVariants: SurfaceVariantLookup,
 ): LearnerPublicationProjection {
   if (readiness.status !== "supported") return readiness;
 
-  const projection = projectAssessmentDocument(readiness, blockDefinitions);
+  const projection = projectAssessmentDocument(readiness, blockDefinitions, surfaceVariants);
   return {
     status: "supported",
     learnerContent: projection.learnerDocument,
@@ -115,9 +117,10 @@ export function projectLearnerPublication(
 export function projectAssessmentDocument(
   readiness: SupportedLearnerProjectionReadiness,
   blockDefinitions: BlockDefinitionLookup,
+  surfaceVariants: SurfaceVariantLookup,
 ): AssessmentDocumentProjection {
-  const learner = projectLearnerDocument(readiness, blockDefinitions);
-  const targets = projectAssessmentTargets(readiness, blockDefinitions);
+  const learner = projectLearnerDocument(readiness, blockDefinitions, surfaceVariants);
+  const targets = projectAssessmentTargets(readiness, blockDefinitions, surfaceVariants);
   const groupProjection = projectAssessmentGroups(
     readiness.canonicalDocument,
     targets,
@@ -133,20 +136,20 @@ export function projectAssessmentDocument(
 
 /**
  * Redacts private answer data from authoring JSON by asking each registered
- * assessment block capability for its learner-facing projection.
+ * Block or Surface assessment capability for its learner-facing projection.
  */
 export function projectLearnerDocument(
   readiness: SupportedLearnerProjectionReadiness,
   blockDefinitions: BlockDefinitionLookup,
+  surfaceVariants: SurfaceVariantLookup,
 ): LearnerDocumentProjection {
   const authorDocument = readiness.canonicalDocument;
   const warnings: AssessmentProjectionWarning[] = [];
   collectAssessmentBlocks(authorDocument, blockDefinitions).forEach((block) => {
     if (!block.blockId) warnings.push(missingBlockIdWarning(block));
   });
-
   return {
-    document: redactLearnerNode(authorDocument, blockDefinitions),
+    document: redactLearnerNode(authorDocument, blockDefinitions, surfaceVariants),
     warnings,
   };
 }
@@ -154,9 +157,10 @@ export function projectLearnerDocument(
 export function projectAssessmentTargets(
   readiness: SupportedLearnerProjectionReadiness,
   blockDefinitions: BlockDefinitionLookup,
+  surfaceVariants: SurfaceVariantLookup,
 ): AssessmentTargetContract[] {
   const authorDocument = readiness.canonicalDocument;
-  return collectAssessmentBlocks(authorDocument, blockDefinitions)
+  const blockTargets = collectAssessmentBlocks(authorDocument, blockDefinitions)
     .filter((block) => block.blockId.length > 0)
     .map((block) =>
       projectAssessmentTargetContract({
@@ -165,6 +169,30 @@ export function projectAssessmentTargets(
         node: block.node,
       }),
     );
+  const surfaceTargets = projectSurfaceAssessmentTargets(authorDocument, surfaceVariants);
+  return [...blockTargets, ...surfaceTargets];
+}
+
+function projectSurfaceAssessmentTargets(
+  root: JSONContent,
+  surfaceVariants: SurfaceVariantLookup,
+): AssessmentTargetContract[] {
+  const targets: AssessmentTargetContract[] = [];
+
+  function walk(node: JSONContent) {
+    if (node.type === "surface") {
+      const variantId = readStringAttr(node, "variant");
+      const capability = surfaceVariants.get(variantId)?.assessmentTargets;
+      if (capability) {
+        targets.push(...capability.projectTargets(node));
+      }
+    }
+
+    for (const child of readContent(node)) walk(child);
+  }
+
+  walk(root);
+  return targets;
 }
 
 interface AssessmentGroupProjection {
@@ -324,6 +352,7 @@ function invalidAssessmentGroupWarning(quiz: VisitedQuizBlock): AssessmentProjec
 function redactLearnerNode(
   node: JSONContent,
   blockDefinitions: BlockDefinitionLookup,
+  surfaceVariants: SurfaceVariantLookup,
 ): JSONContent {
   const registered = assessmentDefinitionForNode(node, blockDefinitions);
   if (registered) {
@@ -331,13 +360,33 @@ function redactLearnerNode(
     return projection.projectLearnerNode(node);
   }
 
+  if (node.type === "surface") {
+    const variantId = readStringAttr(node, "variant");
+    const capability = surfaceVariants.get(variantId)?.assessmentTargets;
+    if (capability) {
+      return redactLearnerChildren(
+        capability.projectLearnerSurface(node),
+        blockDefinitions,
+        surfaceVariants,
+      );
+    }
+  }
+
+  return redactLearnerChildren(node, blockDefinitions, surfaceVariants);
+}
+
+function redactLearnerChildren(
+  node: JSONContent,
+  blockDefinitions: BlockDefinitionLookup,
+  surfaceVariants: SurfaceVariantLookup,
+): JSONContent {
   return {
     ...cloneJsonNodeWithoutContent(node),
     ...(node.content
       ? {
           content: readContent(node)
             .filter((child) => !isOmittableEmptyQuiz(child, blockDefinitions))
-            .map((child) => redactLearnerNode(child, blockDefinitions)),
+            .map((child) => redactLearnerNode(child, blockDefinitions, surfaceVariants)),
         }
       : {}),
   };

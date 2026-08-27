@@ -16,12 +16,12 @@ import {
 } from "./surface-authoring-views";
 
 describe("surface authoring view map", () => {
-  it("covers the exact built-in 18-variant set", () => {
+  it("covers the exact built-in 24-variant set", () => {
     expect(
       builtInSurfaceVariantRegistry.definitions.filter((definition) =>
         builtInSurfaceAuthoringViewMap.get(definition.id),
       ),
-    ).toHaveLength(18);
+    ).toHaveLength(25);
     expect(builtInSurfaceAuthoringViewBindings.map(({ variantId }) => variantId)).toEqual(
       builtInSurfaceVariantRegistry.definitions.map(({ id }) => id),
     );

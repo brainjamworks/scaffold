@@ -39,6 +39,13 @@ import { AuthoringSlideDividers } from "@/editor/surfaces/authoring/AuthoringSli
 import { createSurfaceRootSelectionPolicy } from "@/editor/surfaces/authoring/surface-root-selection-policy";
 import { createSurfaceAuthoringNode } from "@/editor/surfaces/authoring/nodes/surface-authoring-node";
 import { RegionAuthoringNode } from "@/editor/surfaces/authoring/nodes/region-authoring-node";
+import { SurfaceCategoriseQuestionNode } from "@/editor/surfaces/model/assessment/surface-categorise-question-node";
+import { SurfaceDropdownQuestionNode } from "@/editor/surfaces/model/assessment/surface-dropdown-question-node";
+import { SurfaceMatchingQuestionNode } from "@/editor/surfaces/model/assessment/surface-matching-question-node";
+import { SurfaceImageHotspotQuestionNode } from "@/editor/surfaces/model/assessment/surface-image-hotspot-question-node";
+import { SurfaceMultipleChoiceQuestionNode } from "@/editor/surfaces/model/assessment/surface-multiple-choice-question-node";
+import { SurfaceMultiselectQuestionNode } from "@/editor/surfaces/model/assessment/surface-multiselect-question-node";
+import { SurfaceSequencingQuestionNode } from "@/editor/surfaces/model/assessment/surface-sequencing-question-node";
 import { ContentLayoutAuthoringExtension } from "@/editor/content-layout/prosemirror/content-layout-authoring-extension";
 import { ContentLayoutProjectionExtension } from "@/editor/content-layout/prosemirror/content-layout-projection-extension";
 import "@/editor/surfaces/authoring/AuthoringSlideDividers.css";
@@ -179,6 +186,13 @@ export function createCourseDocumentAuthoringExtensions({
     ...baseExtensions,
     AuthoringSlideDividers,
     createSurfaceRootSelectionPolicy({ surfaceVariants: surfaceRegistry }),
+    SurfaceCategoriseQuestionNode,
+    SurfaceSequencingQuestionNode,
+    SurfaceMatchingQuestionNode,
+    SurfaceImageHotspotQuestionNode,
+    SurfaceMultipleChoiceQuestionNode,
+    SurfaceMultiselectQuestionNode,
+    SurfaceDropdownQuestionNode,
     createScaffoldInteractionOwnerExtension(blockRegistry, {
       resolveStructuralActivationPlacement: resolveContentLayoutStructuralActivationPlacement,
     }),

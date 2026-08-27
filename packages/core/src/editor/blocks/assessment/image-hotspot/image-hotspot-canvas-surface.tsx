@@ -149,9 +149,16 @@ export function ImageHotspotCanvasSurface({
       // post-transform whereas inline width/height are interpreted pre-transform.
       // clientWidth/clientHeight stay in the same layout coordinate system as
       // the style values we set on the surface.
+      const fitParentStyle = getComputedStyle(fitParent);
+      const horizontalPadding =
+        (Number.parseFloat(fitParentStyle.paddingLeft) || 0) +
+        (Number.parseFloat(fitParentStyle.paddingRight) || 0);
+      const verticalPadding =
+        (Number.parseFloat(fitParentStyle.paddingTop) || 0) +
+        (Number.parseFloat(fitParentStyle.paddingBottom) || 0);
       const nextSize = resolveMediaFitSize({
-        availableHeight: fitParent.clientHeight,
-        availableWidth: fitParent.clientWidth,
+        availableHeight: Math.max(0, fitParent.clientHeight - verticalPadding),
+        availableWidth: Math.max(0, fitParent.clientWidth - horizontalPadding),
         intrinsicHeight: naturalSize.h,
         intrinsicWidth: naturalSize.w,
         strategy: fitStrategy,

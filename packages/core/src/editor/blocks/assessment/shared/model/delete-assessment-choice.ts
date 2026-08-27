@@ -29,12 +29,19 @@ export function deleteAssessmentChoice(editor: Editor, choicePos: number): boole
   const choiceId = String(choice.attrs["id"] ?? "");
   if (!choiceId) return false;
   const allowedParents =
-    choiceType === "dropdown_choice" ? (["dropdown"] as const) : (["mcq", "multiselect"] as const);
+    choiceType === "dropdown_choice"
+      ? (["dropdown", "surface_dropdown_question"] as const)
+      : ([
+          "mcq",
+          "surface_multiple_choice_question",
+          "multiselect",
+          "surface_multiselect_question",
+        ] as const);
   const parent = resolveAssessmentAttrParent(editor, choicePos, allowedParents);
   if (!parent) return false;
 
   const nextAssessment = (() => {
-    if (parent.typeName === "mcq") {
+    if (parent.typeName === "mcq" || parent.typeName === "surface_multiple_choice_question") {
       const assessment = McqPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
       return {
         ...assessment,
@@ -43,7 +50,7 @@ export function deleteAssessmentChoice(editor: Editor, choicePos: number): boole
         feedbackByOptionId: withoutChoiceFeedback(assessment.feedbackByOptionId, choiceId),
       };
     }
-    if (parent.typeName === "multiselect") {
+    if (parent.typeName === "multiselect" || parent.typeName === "surface_multiselect_question") {
       const assessment = MultiselectPrivateAssessmentSchema.parse(
         parent.node.attrs["assessment"] ?? {},
       );

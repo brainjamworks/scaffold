@@ -56,6 +56,7 @@ function AssessmentTitleNodeView(props: NodeViewProps) {
     <NodeViewWrapper
       ref={wrapperRef}
       aria-label={!isEditable && hasOverflow ? props.node.textContent.trim() : undefined}
+      role={!isEditable && hasOverflow ? "group" : undefined}
       data-course-overflow={hasOverflow ? "true" : undefined}
       data-slot="assessment-title"
       className="sc-course-assessment-meta-title"

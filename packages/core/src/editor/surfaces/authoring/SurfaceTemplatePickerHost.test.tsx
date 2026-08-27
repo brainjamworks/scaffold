@@ -15,6 +15,15 @@ import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extens
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
 import type { CourseStructureCommand } from "@/document/model/course-structure";
+import { CategoriseAuthoringExtension } from "@/editor/blocks/assessment/categorise/categorise-authoring-extension";
+import { SequencingAuthoringExtension } from "@/editor/blocks/assessment/sequencing/sequencing-authoring-extension";
+import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
+import { AssessmentHintNode } from "@/editor/blocks/assessment/shared/nodes/assessment-hint";
+import { AssessmentHintsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-hints-group";
+import { AssessmentInstructionsNode } from "@/editor/blocks/assessment/shared/nodes/assessment-instructions";
+import { AssessmentPromptNode } from "@/editor/blocks/assessment/shared/nodes/assessment-prompt";
+import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared/nodes/assessment-summary-feedback";
+import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
 import {
   ARRANGEMENT_CONTENT,
   SECTION_ARRANGEMENT_CONTENT,
@@ -27,6 +36,8 @@ import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SlideCoverSubtitleNode } from "@/editor/surfaces/model/nodes/slide-cover-subtitle";
 import { SlideTitleNode } from "@/editor/surfaces/model/nodes/slide-title";
+import { SurfaceCategoriseQuestionNode } from "@/editor/surfaces/model/assessment/surface-categorise-question-node";
+import { SurfaceSequencingQuestionNode } from "@/editor/surfaces/model/assessment/surface-sequencing-question-node";
 import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import type { SurfaceVariantDefinition } from "@/editor/surfaces/model/surface-variant-definition";
@@ -65,6 +76,7 @@ const surfaceVariantsWithContribution = createSurfaceVariantRegistry([
 const coreCapabilities = createCoreScaffoldAuthoringComposition().capabilities;
 const testCapabilities = Object.freeze({
   blocks: coreCapabilities.blocks,
+  documentSemantics: coreCapabilities.documentSemantics,
   layouts: coreCapabilities.layouts,
   surfaces: Object.freeze({ registry: surfaceVariants }),
 });
@@ -106,10 +118,12 @@ describe("SurfaceTemplatePickerHost", () => {
     const titleTab = within(dialog).getByRole("tab", { name: "Title layouts" });
     const contentTab = within(dialog).getByRole("tab", { name: "Content layouts" });
     const imageTab = within(dialog).getByRole("tab", { name: "Image layouts" });
+    const assessmentTab = within(dialog).getByRole("tab", { name: "Assessment slides" });
 
     expect(titleTab).toHaveAttribute("aria-selected", "true");
     expect(contentTab).toHaveAttribute("aria-selected", "false");
     expect(imageTab).toHaveAttribute("aria-selected", "false");
+    expect(assessmentTab).toHaveAttribute("aria-selected", "false");
 
     const titleChoices = within(dialog).getByRole("radiogroup", { name: "Title layouts" });
     expect(within(titleChoices).getAllByRole("radio")).toEqual([
@@ -139,6 +153,20 @@ describe("SurfaceTemplatePickerHost", () => {
     ]);
     expect(within(contentChoices).getByRole("radio", { name: "Content" })).toBeChecked();
     expect(within(dialog).getByRole("heading", { name: "Content", level: 2 })).toBeInTheDocument();
+
+    await user.click(assessmentTab);
+
+    expect(assessmentTab).toHaveAttribute("aria-selected", "true");
+    const assessmentChoices = within(dialog).getByRole("radiogroup", {
+      name: "Assessment slides",
+    });
+    expect(within(assessmentChoices).getAllByRole("radio")).toEqual([
+      within(assessmentChoices).getByRole("radio", { name: "Categorise Question" }),
+      within(assessmentChoices).getByRole("radio", { name: "Sequencing Question" }),
+    ]);
+    expect(
+      within(assessmentChoices).getByRole("radio", { name: "Categorise Question" }),
+    ).toBeChecked();
   });
 
   it("renders the same theme-aware miniature slide in the rail and stage", async () => {
@@ -539,6 +567,17 @@ function createEditorForDocument(
       RegionNode,
       SlideTitleNode,
       SlideCoverSubtitleNode,
+      SurfaceCategoriseQuestionNode,
+      SurfaceSequencingQuestionNode,
+      AssessmentTitleNode,
+      AssessmentInstructionsNode,
+      AssessmentPromptNode,
+      AssessmentActionsGroupNode,
+      AssessmentHintNode,
+      AssessmentHintsGroupNode,
+      AssessmentSummaryFeedbackNode,
+      CategoriseAuthoringExtension,
+      SequencingAuthoringExtension,
       TestArrangementNode,
       TestSectionArrangementNode,
       AuthoringSlideDividers,
@@ -552,12 +591,10 @@ function createEditorForDocument(
 }
 
 function slideshowDocument(surfaceIds: readonly EmbeddedNodeId[]): JSONContent {
-  return slideshowDocumentWithChildren(
-    [
-      courseSection(createEmbeddedNodeId() as EmbeddedNodeId, "Introduction"),
-      ...surfaceIds.map((surfaceId) => slideCoverSurfaceDefinition.createSurface({ surfaceId })),
-    ],
-  );
+  return slideshowDocumentWithChildren([
+    courseSection(createEmbeddedNodeId() as EmbeddedNodeId, "Introduction"),
+    ...surfaceIds.map((surfaceId) => slideCoverSurfaceDefinition.createSurface({ surfaceId })),
+  ]);
 }
 
 function slideshowDocumentWithChildren(children: readonly JSONContent[]): JSONContent {

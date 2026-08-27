@@ -8,6 +8,7 @@ import {
 } from "@scaffold/contracts";
 
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { isAssessmentQuestionNode } from "@/editor/blocks/assessment/shared/nodes/assessment-meta";
 import { itemContent } from "./sequencing-fields-shared";
 
 interface SequencingBlockLocation {
@@ -59,7 +60,7 @@ export function deleteSequencingItem(editor: Editor, itemPos: number): boolean {
 export function synchronizeSequencingAssessmentsInTransaction(tr: Transaction): Transaction {
   const blocks: SequencingBlockLocation[] = [];
   tr.doc.descendants((node, pos) => {
-    if (node.type.name !== "sequencing") return true;
+    if (!isAssessmentQuestionNode(node) || !hasDirectSequencingItemsGroup(node)) return true;
     blocks.push({ node, pos });
     return false;
   });
@@ -107,7 +108,7 @@ export function synchronizeSequencingAssessmentsInTransaction(tr: Transaction): 
     if (!assessmentChanged) continue;
 
     const block = tr.doc.nodeAt(blockPos);
-    if (!block || block.type.name !== "sequencing") continue;
+    if (!block || !isAssessmentQuestionNode(block)) continue;
     tr.setNodeMarkup(blockPos, undefined, {
       ...block.attrs,
       assessment: {
@@ -118,6 +119,13 @@ export function synchronizeSequencingAssessmentsInTransaction(tr: Transaction): 
     });
   }
   return tr;
+}
+
+function hasDirectSequencingItemsGroup(node: ProseMirrorNode): boolean {
+  for (let index = 0; index < node.childCount; index += 1) {
+    if (node.child(index).type.name === "sequencing_items_group") return true;
+  }
+  return false;
 }
 
 function sameOrder(left: readonly string[], right: readonly string[]): boolean {

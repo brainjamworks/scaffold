@@ -47,15 +47,19 @@ export const AssessmentChoicesGroupRuntimeNode = Node.create({
 
 function AssessmentChoicesGroupRuntimeNodeView(props: NodeViewProps) {
   const pos = safeGetPos(props.getPos);
-  const authoredBlockId = findAncestorAssessmentBlockId(
+  const assessmentTargetId = findAncestorAssessmentBlockId(
     props.editor,
     pos,
     isAssessmentQuestionNode,
   );
-  const assessment = useAssessmentRuntimeById(authoredBlockId);
+  const inlineChoiceBlockId = findAncestorAssessmentBlockId(props.editor, pos, [
+    "mcq",
+    "multiselect",
+  ]);
+  const assessment = useAssessmentRuntimeById(assessmentTargetId);
   const problem = assessment?.problem ?? null;
   const legend = problem?.state.legend.trim() ?? "";
-  const promptId = assessmentPromptDomId(authoredBlockId);
+  const promptId = assessmentPromptDomId(assessmentTargetId);
   const multiselect =
     assessment?.interaction.kind === "multi-select" ? assessment.interaction : null;
   const selectionGuidance =
@@ -68,6 +72,16 @@ function AssessmentChoicesGroupRuntimeNodeView(props: NodeViewProps) {
         selectedCount: multiselect.selectedCount,
       })
     : null;
+
+  if (assessmentTargetId && !inlineChoiceBlockId) {
+    return (
+      <NodeViewWrapper
+        data-assessment-interaction-content=""
+        data-surface-assessment-interaction-content=""
+        hidden
+      />
+    );
+  }
 
   return (
     <NodeViewWrapper

@@ -10,8 +10,9 @@ import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { matchingPairContent } from "./matching-fields-shared";
 
 type MatchingMoveDirection = "up" | "down";
+const SURFACE_MATCHING_QUESTION_NODE_TYPE = "surface_matching_question";
 
-interface MatchingBlockLocation {
+interface MatchingOwnerLocation {
   readonly node: ProseMirrorNode;
   readonly pos: number;
 }
@@ -84,14 +85,14 @@ export function setMatchingPairFeedback(
   feedback: AssessmentFeedbackContent | null,
 ): boolean {
   if (!itemId.trim()) return false;
-  const block = findMatchingBlock(editor.state.doc, pairPos);
-  if (!block) return false;
-  const assessment = MatchingPrivateAssessmentSchema.parse(block.node.attrs["assessment"] ?? {});
+  const owner = findMatchingOwner(editor.state.doc, pairPos);
+  if (!owner) return false;
+  const assessment = MatchingPrivateAssessmentSchema.parse(owner.node.attrs["assessment"] ?? {});
   const feedbackByItemId = { ...assessment.feedbackByItemId };
   if (feedback) feedbackByItemId[itemId] = feedback;
   else delete feedbackByItemId[itemId];
-  const tr = editor.state.tr.setNodeMarkup(block.pos, undefined, {
-    ...block.node.attrs,
+  const tr = editor.state.tr.setNodeMarkup(owner.pos, undefined, {
+    ...owner.node.attrs,
     assessment: { ...assessment, feedbackByItemId },
   });
   editor.view.dispatch(tr);
@@ -100,16 +101,16 @@ export function setMatchingPairFeedback(
 
 /** Keeps pair identities and item-keyed feedback aligned in one history step. */
 export function synchronizeMatchingAssessmentsInTransaction(tr: Transaction): Transaction {
-  const blocks: MatchingBlockLocation[] = [];
+  const owners: MatchingOwnerLocation[] = [];
   tr.doc.descendants((node, pos) => {
-    if (node.type.name !== "matching") return true;
-    blocks.push({ node, pos });
+    if (!isMatchingAssessmentOwner(node)) return true;
+    owners.push({ node, pos });
     return false;
   });
 
-  for (const block of blocks) {
-    const assessment = MatchingPrivateAssessmentSchema.parse(block.node.attrs["assessment"] ?? {});
-    const group = directGroup(block);
+  for (const owner of owners) {
+    const assessment = MatchingPrivateAssessmentSchema.parse(owner.node.attrs["assessment"] ?? {});
+    const group = directGroup(owner);
     if (!group) continue;
     const feedbackByItemId: Record<string, AssessmentFeedbackContent> = {};
     const seenItemIds = new Set<string>();
@@ -135,10 +136,10 @@ export function synchronizeMatchingAssessmentsInTransaction(tr: Transaction): Tr
       feedbackIds.length !== Object.keys(feedbackByItemId).length ||
       feedbackIds.some((id) => feedbackByItemId[id] !== assessment.feedbackByItemId[id]);
     if (!changed) continue;
-    const currentBlock = tr.doc.nodeAt(block.pos);
-    if (!currentBlock || currentBlock.type.name !== "matching") continue;
-    tr.setNodeMarkup(block.pos, undefined, {
-      ...currentBlock.attrs,
+    const currentOwner = tr.doc.nodeAt(owner.pos);
+    if (!currentOwner || !isMatchingAssessmentOwner(currentOwner)) continue;
+    tr.setNodeMarkup(owner.pos, undefined, {
+      ...currentOwner.attrs,
       assessment: { ...assessment, feedbackByItemId },
     });
   }
@@ -167,27 +168,31 @@ function matchingMoveTarget(editor: Editor, pos: number, direction: MatchingMove
   }
 }
 
-function directGroup(block: MatchingBlockLocation): { node: ProseMirrorNode; pos: number } | null {
+function directGroup(owner: MatchingOwnerLocation): { node: ProseMirrorNode; pos: number } | null {
   let group: { node: ProseMirrorNode; pos: number } | null = null;
-  block.node.forEach((child, offset) => {
+  owner.node.forEach((child, offset) => {
     if (child.type.name === "matching_pairs_group") {
-      group = { node: child, pos: block.pos + 1 + offset };
+      group = { node: child, pos: owner.pos + 1 + offset };
     }
   });
   return group;
 }
 
-function findMatchingBlock(doc: ProseMirrorNode, pos: number): MatchingBlockLocation | null {
+function findMatchingOwner(doc: ProseMirrorNode, pos: number): MatchingOwnerLocation | null {
   try {
     const resolved = doc.resolve(pos);
     for (let depth = resolved.depth; depth > 0; depth -= 1) {
       const node = resolved.node(depth);
-      if (node.type.name === "matching") return { node, pos: resolved.before(depth) };
+      if (isMatchingAssessmentOwner(node)) return { node, pos: resolved.before(depth) };
     }
   } catch {
     return null;
   }
   return null;
+}
+
+function isMatchingAssessmentOwner(node: ProseMirrorNode): boolean {
+  return node.type.name === "matching" || node.type.name === SURFACE_MATCHING_QUESTION_NODE_TYPE;
 }
 
 function stringAttr(node: ProseMirrorNode, name: string): string {

@@ -28,6 +28,7 @@ export interface CategoriseReveal {
 
 interface CategoriseSourceItemAccessibilityState {
   interactionLocked: boolean;
+  placedCategoryLabel?: string | null;
   selected: boolean;
 }
 
@@ -214,10 +215,12 @@ export function resolveAuthorizedCategoriseReveal({
 
 export function describeCategoriseSourceItemAccessibilityState({
   interactionLocked,
+  placedCategoryLabel,
   selected,
 }: CategoriseSourceItemAccessibilityState): string {
   if (selected) return "Selected item";
-  return interactionLocked ? "Placement locked" : "Unplaced item";
+  if (interactionLocked) return "Placement locked";
+  return placedCategoryLabel ? `Placed in ${placedCategoryLabel}` : "Unplaced item";
 }
 
 export function describeCategoriseCategoryAccessibilityState({
@@ -486,6 +489,7 @@ export function createCategoriseContentNode(options: CategoriseFieldNodeOptions 
       return [
         "div",
         mergeAttributes(HTMLAttributes, {
+          "data-assessment-interaction-content": "",
           "data-bounded-scroll-frame": "",
           "data-slot": "categorise-content",
         }),

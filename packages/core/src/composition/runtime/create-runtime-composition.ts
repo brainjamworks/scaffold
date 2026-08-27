@@ -40,6 +40,13 @@ import {
   type SemanticTargetInteractionEnvironmentOwner,
 } from "@/document/semantic-target-interaction";
 import { createSurfaceRuntimeNode } from "@/editor/surfaces/runtime/nodes/surface-runtime-node";
+import { SurfaceCategoriseQuestionNode } from "@/editor/surfaces/model/assessment/surface-categorise-question-node";
+import { SurfaceDropdownQuestionNode } from "@/editor/surfaces/model/assessment/surface-dropdown-question-node";
+import { SurfaceMatchingQuestionNode } from "@/editor/surfaces/model/assessment/surface-matching-question-node";
+import { SurfaceImageHotspotQuestionNode } from "@/editor/surfaces/model/assessment/surface-image-hotspot-question-node";
+import { SurfaceMultipleChoiceQuestionNode } from "@/editor/surfaces/model/assessment/surface-multiple-choice-question-node";
+import { SurfaceMultiselectQuestionNode } from "@/editor/surfaces/model/assessment/surface-multiselect-question-node";
+import { SurfaceSequencingQuestionNode } from "@/editor/surfaces/model/assessment/surface-sequencing-question-node";
 import { ContentLayoutProjectionExtension } from "@/editor/content-layout/prosemirror/content-layout-projection-extension";
 import { StudentGuard } from "@/runtime/guards/student-guard";
 import {
@@ -50,8 +57,9 @@ import "@/editor/rich-text/view/text-alignment.css";
 
 import type { ScaffoldRuntimeComposition } from "./scaffold-runtime-composition";
 
-const runtimeSemanticDocumentPluginKey =
-  new PluginKey<RuntimeSemanticDocumentController>("runtimeSemanticDocument");
+const runtimeSemanticDocumentPluginKey = new PluginKey<RuntimeSemanticDocumentController>(
+  "runtimeSemanticDocument",
+);
 
 export function createCourseDocumentRuntimeExtensions({
   composition,
@@ -74,6 +82,13 @@ export function createCourseDocumentRuntimeExtensions({
     RuntimeSurfaceVisibility,
     createRuntimeSemanticDocumentExtension(composition.documentSemantics),
     ContentLayoutProjectionExtension,
+    SurfaceCategoriseQuestionNode,
+    SurfaceSequencingQuestionNode,
+    SurfaceMatchingQuestionNode,
+    SurfaceImageHotspotQuestionNode,
+    SurfaceMultipleChoiceQuestionNode,
+    SurfaceMultiselectQuestionNode,
+    SurfaceDropdownQuestionNode,
     ...createCourseDocumentBaseExtensions({
       assessmentActionsGroupNode: AssessmentActionsGroupRuntimeNode,
       assessmentChoicesGroupNode: AssessmentChoicesGroupRuntimeNode,
@@ -197,8 +212,7 @@ function createRuntimeSemanticDocumentExtension(definitions: SemanticDefinitionL
             requireRuntimeSemanticDocumentController(editor).getControlCapabilityCatalogue(),
         }),
         createControlBindingRegistryStorageExtension({
-          getRegistry: (editor) =>
-            requireRuntimeSemanticDocumentController(editor).controlBindings,
+          getRegistry: (editor) => requireRuntimeSemanticDocumentController(editor).controlBindings,
         }),
         createSemanticTargetInteractionEnvironmentStorageExtension({
           getEnvironment: (editor) => requireRuntimeSemanticDocumentController(editor).environment,
@@ -229,7 +243,9 @@ function createRuntimeSemanticDocumentExtension(definitions: SemanticDefinitionL
   });
 }
 
-function requireRuntimeSemanticDocumentController(editor: Editor): RuntimeSemanticDocumentController {
+function requireRuntimeSemanticDocumentController(
+  editor: Editor,
+): RuntimeSemanticDocumentController {
   const controller = runtimeSemanticDocumentPluginKey.getState(editor.state);
   if (!controller) {
     throw new Error("Runtime Semantic Document extension is not installed for this editor");

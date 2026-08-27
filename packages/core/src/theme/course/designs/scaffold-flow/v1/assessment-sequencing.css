@@ -1,6 +1,12 @@
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-sequencing__group,
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-sequencing__scroll,
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-sequencing__list {
+  --sc-course-sequencing-item-border-width: var(--sc-course-author-stroke-width);
+  --sc-course-sequencing-item-inline-padding: calc(
+    var(--space-3) * var(--sc-course-author-density)
+  );
+  --sc-course-sequencing-row-gap: calc(var(--space-2) * var(--sc-course-author-density));
+
   gap: calc(var(--space-2) * var(--sc-course-author-density));
 }
 
@@ -22,6 +28,12 @@
     background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
     color 150ms cubic-bezier(0.16, 1, 0.3, 1),
     opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-slide-sequencing-question-surface-view
+  .sc-course-sequencing__list::before {
+  background: var(--gray-a6);
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
@@ -81,14 +93,6 @@
   outline-offset: -2px;
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-sequencing__state-cue {
-  gap: var(--space-1);
-  color: currentColor;
-  font-size: var(--font-size-1);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--line-height-1);
-}
-
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-sequencing__review-status {
   gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
@@ -122,6 +126,12 @@
     .sc-course-sequencing__item[data-course-state="incorrect"] {
     border-style: dashed;
     border-width: 2px;
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-slide-sequencing-question-surface-view
+    .sc-course-sequencing__list::before {
+    background: CanvasText;
   }
 
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-sequencing__runtime-handle:focus-visible {

@@ -2,8 +2,10 @@ import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { createRoot, type Root } from "react-dom/client";
 
-import type { ScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
-import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor.test-harness";
+import {
+  CourseDocumentEditor,
+  type CourseDocumentEditorTestHarnessProps,
+} from "@/document/authoring/CourseDocumentEditor.test-harness";
 import { isRegisteredSlideCompositionSurfaceDefinition } from "@/editor/surfaces/model/slide-composition-definition";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { createScaffoldDocumentContent } from "@/format/artifact";
@@ -26,6 +28,8 @@ const INTRINSIC_WIDTH = 1024;
 export const COMPOSITION_TEST_SURFACE_ID = EmbeddedNodeIdSchema.parse("geometry0001");
 const INTRINSIC_HEIGHT = 576;
 const RECT_TOLERANCE = 0.5;
+
+type AuthoringComposition = CourseDocumentEditorTestHarnessProps["composition"];
 
 export interface IntrinsicRect {
   readonly x: number;
@@ -81,7 +85,7 @@ export interface RenderRegisteredSurfaceVariantOptions {
 
 export async function renderCompositionStateCase(
   state: CompositionStateCase,
-  authoringComposition: ScaffoldAuthoringComposition,
+  authoringComposition: AuthoringComposition,
   runtimeComposition: CourseDocumentRuntimeRendererProps["composition"],
   options: RenderCompositionStateCaseOptions = {},
 ): Promise<RenderedCompositionStateCase> {
@@ -103,7 +107,7 @@ export async function renderCompositionStateCase(
 
 export async function renderRegisteredSurfaceVariant(
   variant: string,
-  authoringComposition: ScaffoldAuthoringComposition,
+  authoringComposition: AuthoringComposition,
   runtimeComposition: CourseDocumentRuntimeRendererProps["composition"],
   options: RenderRegisteredSurfaceVariantOptions = {},
 ): Promise<RenderedCompositionStateCase> {
@@ -129,7 +133,7 @@ async function renderDocumentPair(
   visibleSurfaceId: string,
   authoringEditable: boolean,
   description: string,
-  authoringComposition: ScaffoldAuthoringComposition,
+  authoringComposition: AuthoringComposition,
   runtimeComposition: CourseDocumentRuntimeRendererProps["composition"],
 ): Promise<RenderedCompositionStateCase> {
   const harnessHost = globalThis.document.createElement("div");
@@ -783,12 +787,15 @@ function createCompositionDocument(
   const content = createScaffoldDocumentContent({
     mode: "slideshow",
     surfaceId,
+    initialCourseSectionTitle: "Composition geometry",
   });
   const courseDocument = content.content?.[0];
   if (courseDocument?.type !== "courseDocument") {
     throw new Error(`Could not create a slideshow document for ${describeState(state)}.`);
   }
-  courseDocument.content = [populatedSurface];
+  const courseSection = courseDocument.content?.find((node) => node.type === "courseSection");
+  if (!courseSection) throw new Error("Expected the initial Course Section.");
+  courseDocument.content = [courseSection, populatedSurface];
   return content;
 }
 
@@ -842,12 +849,18 @@ function createRegisteredSurfaceDocument(
         }
       : {}),
   };
-  const content = createScaffoldDocumentContent({ mode: "slideshow", surfaceId });
+  const content = createScaffoldDocumentContent({
+    mode: "slideshow",
+    surfaceId,
+    initialCourseSectionTitle: "Registered surface geometry",
+  });
   const courseDocument = content.content?.[0];
   if (courseDocument?.type !== "courseDocument") {
     throw new Error(`Could not create a slideshow document for variant=${variant}.`);
   }
-  courseDocument.content = [populatedSurface];
+  const courseSection = courseDocument.content?.find((node) => node.type === "courseSection");
+  if (!courseSection) throw new Error("Expected the initial Course Section.");
+  courseDocument.content = [courseSection, populatedSurface];
   return content;
 }
 

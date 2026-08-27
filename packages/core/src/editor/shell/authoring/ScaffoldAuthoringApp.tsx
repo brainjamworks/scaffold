@@ -716,6 +716,7 @@ function ScaffoldAuthoringAppSessionContent({
         const publication = projectLearnerPublication(
           readiness,
           application.capabilities.blocks.registry,
+          application.capabilities.surfaces.registry,
         );
         switch (publication.status) {
           case "unavailable-content":
@@ -832,6 +833,7 @@ function ScaffoldAuthoringAppSessionContent({
     const projection = projectLearnerPublication(
       readiness,
       application.capabilities.blocks.registry,
+      application.capabilities.surfaces.registry,
     );
     if (projection.status !== "supported") {
       setPublishActionState(publicationRefusalState(projection.status));
@@ -894,6 +896,7 @@ function ScaffoldAuthoringAppSessionContent({
   }, [
     activeAuthoringMount,
     application.capabilities.blocks.registry,
+    application.capabilities.surfaces.registry,
     authoringEnvironment,
     notifyPublicationOutcome,
     publicationStatus,

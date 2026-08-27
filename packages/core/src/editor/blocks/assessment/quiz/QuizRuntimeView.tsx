@@ -26,6 +26,8 @@ import "./Quiz.css";
 
 export function QuizRuntimeView(props: NodeViewProps) {
   const quiz = useQuizRuntimeController({
+    editor: props.editor,
+    getPos: props.getPos,
     node: props.node,
   });
 

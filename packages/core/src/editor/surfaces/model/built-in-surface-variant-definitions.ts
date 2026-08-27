@@ -1,4 +1,11 @@
 import { pageDefaultSurfaceDefinition } from "./templates/page-default";
+import { slideCategoriseQuestionSurfaceDefinition } from "./templates/assessment/slide-categorise-question";
+import { slideDropdownQuestionSurfaceDefinition } from "./templates/assessment/slide-dropdown-question";
+import { slideMatchingQuestionSurfaceDefinition } from "./templates/assessment/slide-matching-question";
+import { slideImageHotspotQuestionSurfaceDefinition } from "./templates/assessment/slide-image-hotspot-question";
+import { slideMultipleChoiceQuestionSurfaceDefinition } from "./templates/assessment/slide-multiple-choice-question";
+import { slideMultiselectQuestionSurfaceDefinition } from "./templates/assessment/slide-multiselect-question";
+import { slideSequencingQuestionSurfaceDefinition } from "./templates/assessment/slide-sequencing-question";
 import { slideCentredStageSurfaceDefinition } from "./templates/slide-centred-stage";
 import { slideContentSurfaceDefinition } from "./templates/slide-content";
 import { slideCoverSurfaceDefinition } from "./templates/slide-cover";
@@ -38,6 +45,13 @@ export const builtInSurfaceVariantDefinitions: readonly SurfaceVariantDefinition
   slideImageCoverSurfaceDefinition,
   slideImageBandSurfaceDefinition,
   slideModuleCoverSurfaceDefinition,
+  slideCategoriseQuestionSurfaceDefinition,
+  slideSequencingQuestionSurfaceDefinition,
+  slideMatchingQuestionSurfaceDefinition,
+  slideImageHotspotQuestionSurfaceDefinition,
+  slideMultipleChoiceQuestionSurfaceDefinition,
+  slideMultiselectQuestionSurfaceDefinition,
+  slideDropdownQuestionSurfaceDefinition,
 ]);
 
 export const builtInSurfaceVariantRegistry = createSurfaceVariantRegistry(
