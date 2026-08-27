@@ -737,6 +737,7 @@ describe("SlideshowPlayer", () => {
     expect(canvas.style.width).toBe("1024px");
     expect(canvas.style.height).toBe("576px");
     expect(canvas.style.transform).toBe("scale(0.5)");
+    expect(canvas.style.getPropertyValue("--sc-slideshow-canvas-inverse-scale")).toBe("2");
     expect(canvas.style.transformOrigin).toBe("top left");
     expect(
       screen.getByTestId("slideshow-controls").closest(".sc-slideshow-player__canvas"),
@@ -746,11 +747,13 @@ describe("SlideshowPlayer", () => {
     await waitFor(() => expect(stage.style.width).toBe("2048px"));
     expect(stage.style.height).toBe("1152px");
     expect(canvas.style.transform).toBe("scale(2)");
+    expect(canvas.style.getPropertyValue("--sc-slideshow-canvas-inverse-scale")).toBe("0.5");
 
     observer.emit(400, 1000);
     await waitFor(() => expect(stage.style.width).toBe("400px"));
     expect(stage.style.height).toBe("225px");
     expect(canvas.style.transform).toBe("scale(0.390625)");
+    expect(canvas.style.getPropertyValue("--sc-slideshow-canvas-inverse-scale")).toBe("2.56");
 
     observer.emit(0, 0);
     expect(stage.style.width).toBe("400px");
@@ -968,7 +971,7 @@ describe("SlideshowPlayer", () => {
       expect(boundary.textContent).toBe("");
     }
     expect(document.body.querySelectorAll('[data-node="surface"]')).toHaveLength(3);
-    expect(screen.getAllByText("Introduction")).toHaveLength(1);
+    expect(screen.queryByText("Introduction")).toBeNull();
     await user.click(trigger);
     await user.click(
       screen.getByRole("menuitemradio", { name: "Practice, Course Section 2 of 2" }),

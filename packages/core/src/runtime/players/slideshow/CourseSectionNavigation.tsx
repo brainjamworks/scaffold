@@ -1,9 +1,10 @@
-import { CaretDownIcon as CaretDown, CheckIcon as Check } from "@phosphor-icons/react";
+import { CheckIcon as Check, ListBulletsIcon as ListBullets } from "@phosphor-icons/react";
 
 import type { SurfaceId } from "@/document/model/course-structure";
 import * as DropdownMenu from "@/ui/components/DropdownMenu/DropdownMenu";
+import { IconButton } from "@/ui/components/IconButton/IconButton";
 import { zIndex } from "@/ui/overlays/z-index";
-import { iconSm } from "@/ui/tokens/icon-sizes";
+import { iconMd, iconSm } from "@/ui/tokens/icon-sizes";
 
 import type {
   CourseSectionNavigationItem,
@@ -29,21 +30,14 @@ export function CourseSectionNavigation({
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <button
-          type="button"
+        <IconButton
           className="sc-slideshow-player__course-section-trigger"
+          variant="ghost"
+          size="md"
           aria-label={triggerLabel}
         >
-          <span className="sc-slideshow-player__course-section-title">
-            {currentCourseSection?.title ?? "Course Sections"}
-          </span>
-          <span className="sc-slideshow-player__course-section-position">
-            {currentCourseSection
-              ? `${currentCourseSection.number} of ${currentCourseSection.count}`
-              : "No slides"}
-          </span>
-          <CaretDown size={iconSm} weight="bold" aria-hidden />
-        </button>
+          <ListBullets size={iconMd} weight="bold" aria-hidden />
+        </IconButton>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content

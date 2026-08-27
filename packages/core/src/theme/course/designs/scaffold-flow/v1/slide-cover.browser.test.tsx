@@ -64,8 +64,9 @@ describe("Scaffold Flow Cover recipe", () => {
     expect(Number(authoringView.dataset["authoringSlideScale"])).toBeLessThan(1);
     expect(authoringStyle.backgroundColor).toBe(runtimeStyle.backgroundColor);
     expect(authoringStyle.borderRadius).toBe(runtimeStyle.borderRadius);
+    expect(authoringStyle.borderRadius).toBe("0px");
     expect(authoringStyle.boxShadow).toBe(runtimeStyle.boxShadow);
-    expect(authoringStyle.boxShadow).not.toBe("none");
+    expect(authoringStyle.boxShadow).toBe("none");
     expect(authoringStyle.padding).toBe(getComputedStyle(runtimeCover).padding);
     expect(runtimeSurface.querySelector('[class*="sc-app-"]')).toBeNull();
   });

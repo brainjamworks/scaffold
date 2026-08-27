@@ -75,8 +75,10 @@ describe("CourseSectionNavigation", () => {
     const trigger = screen.getByRole("button", {
       name: "Practice, Course Section 2 of 3",
     });
-    expect(trigger.textContent).toContain("Practice");
-    expect(trigger.textContent).toContain("2 of 3");
+    expect(trigger).toHaveClass("sc-icon-button");
+    expect(trigger).toHaveAttribute("data-variant", "ghost");
+    expect(trigger.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(trigger).not.toHaveTextContent("Practice");
 
     await user.click(trigger);
 

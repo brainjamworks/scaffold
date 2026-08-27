@@ -31,7 +31,7 @@
     width: var(--sc-authoring-slide-rendered-width);
     height: var(--sc-authoring-slide-rendered-height);
     margin-inline: auto;
-    border-radius: var(--sc-app-radius-surface);
+    border-radius: 0;
   }
 
   .scaffold-authoring-surface-view .sc-slideshow-authoring-surface-stage::after {

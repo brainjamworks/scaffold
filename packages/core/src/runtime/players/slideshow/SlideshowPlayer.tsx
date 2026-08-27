@@ -39,6 +39,10 @@ interface EmbeddedStageStyle extends CSSProperties {
   "--sc-slideshow-stage-aspect-ratio": string;
 }
 
+interface ScaledCanvasStyle extends CSSProperties {
+  "--sc-slideshow-canvas-inverse-scale": number;
+}
+
 export interface SlideshowPlayerProps {
   artifactId?: string | null;
   preparedDocument: PreparedRuntimeDocument;
@@ -240,12 +244,15 @@ export function SlideshowPlayer({
                 <div
                   ref={setCanvasElement}
                   className="sc-slideshow-player__canvas"
-                  style={{
-                    width: metrics.intrinsicWidth,
-                    height: metrics.intrinsicHeight,
-                    transform: `scale(${scaleState.scale})`,
-                    transformOrigin: "top left",
-                  }}
+                  style={
+                    {
+                      "--sc-slideshow-canvas-inverse-scale": 1 / scaleState.scale,
+                      width: metrics.intrinsicWidth,
+                      height: metrics.intrinsicHeight,
+                      transform: `scale(${scaleState.scale})`,
+                      transformOrigin: "top left",
+                    } as ScaledCanvasStyle
+                  }
                 >
                   <InteractionDragEnvironmentProvider
                     coordinateRoot={canvasElement}
@@ -263,17 +270,18 @@ export function SlideshowPlayer({
                   className="sc-slideshow-player__chrome"
                   data-fullscreen-available={fullscreenAvailable}
                 >
-                  <CourseSectionNavigation
-                    currentCourseSection={navigation.currentCourseSection}
-                    courseSectionItems={navigation.courseSectionItems}
-                    onSelectSurface={setActiveSurfaceId}
-                  />
                   <div
                     data-testid="slideshow-controls"
                     className="sc-slideshow-player__controls"
                     data-fullscreen-available={fullscreenAvailable}
                   >
-                    <span className="sc-slideshow-player__control-balance" aria-hidden />
+                    <div className="sc-slideshow-player__section-navigation">
+                      <CourseSectionNavigation
+                        currentCourseSection={navigation.currentCourseSection}
+                        courseSectionItems={navigation.courseSectionItems}
+                        onSelectSurface={setActiveSurfaceId}
+                      />
+                    </div>
                     <div
                       className="sc-slideshow-player__navigation"
                       role="group"

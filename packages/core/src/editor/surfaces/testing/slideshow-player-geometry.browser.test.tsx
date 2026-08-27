@@ -1,4 +1,5 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
@@ -8,7 +9,11 @@ import { projectCourseStructure } from "@/document/model/course-structure";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { slideModuleCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-module-cover";
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";
-import { SlideshowPlayer } from "@/runtime/players/slideshow/SlideshowPlayer";
+import {
+  SlideshowPlayer as RuntimeSlideshowPlayer,
+  type SlideshowPlayerProps,
+} from "@/runtime/players/slideshow/SlideshowPlayer";
+import { checkRuntimeDocumentReadiness } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
@@ -100,7 +105,11 @@ afterEach(() => {
 describe("slideshow player geometry", () => {
   it("contains a representative long module-cover title in the real player canvas", async () => {
     const surfaceId = createEmbeddedNodeId();
-    const initialContent = createScaffoldDocumentContent({ mode: "slideshow", surfaceId });
+    const initialContent = createScaffoldDocumentContent({
+      mode: "slideshow",
+      surfaceId,
+      initialCourseSectionTitle: "Module cover geometry",
+    });
     const courseDocument = initialContent.content?.[0];
     if (courseDocument?.type !== "courseDocument") {
       throw new Error("Could not create a slideshow document for module-cover geometry.");
@@ -141,7 +150,9 @@ describe("slideshow player geometry", () => {
       },
     ];
     surface.content = moduleCoverContent;
-    courseDocument.content = [surface];
+    const courseSection = courseDocument.content?.find((node) => node.type === "courseSection");
+    if (!courseSection) throw new Error("Expected the initial Course Section.");
+    courseDocument.content = [courseSection, surface];
 
     let editor: TiptapEditor | null = null;
     host = document.createElement("div");
@@ -294,6 +305,10 @@ describe("slideshow player geometry", () => {
         player,
         ".sc-slideshow-player__course-section-trigger",
       );
+      expect(controls.contains(sectionTrigger)).toBe(true);
+      chrome.style.transition = "none";
+      sectionTrigger.focus({ preventScroll: true });
+      await waitForCondition(() => chrome.getBoundingClientRect().height >= 43);
       expectElementWithin(sectionTrigger, stage);
       expect(chromeRect.left + chromeRect.width / 2).toBeCloseTo(
         stageRect.left + stageRect.width / 2,
@@ -366,7 +381,7 @@ describe("slideshow player geometry", () => {
       expect(playerRect.height).toBeCloseTo(bounds.stageHeight, 2);
       expect(viewportRect.height).toBeCloseTo(bounds.stageHeight, 2);
       expect(stageRect.top).toBeCloseTo(playerRect.top, 2);
-      expect(getComputedStyle(stage).borderRadius).not.toBe("0px");
+      expect(getComputedStyle(stage).borderRadius).toBe("0px");
       expect(stageBoundary.borderTopWidth).toBe("1px");
       expect(stageBoundary.borderTopStyle).toBe("solid");
       expect(stageBoundary.borderTopColor).not.toBe("rgba(0, 0, 0, 0)");
@@ -391,10 +406,15 @@ describe("slideshow player geometry", () => {
       const matrix = new DOMMatrix(getComputedStyle(chrome).transform);
       expect(matrix.a).toBeCloseTo(1, 5);
       expect(matrix.d).toBeCloseTo(1, 5);
-      expectElementWithin(
-        uniqueElement<HTMLElement>(player, ".sc-slideshow-player__course-section-trigger"),
-        stage,
+      const sectionTrigger = uniqueElement<HTMLElement>(
+        player,
+        ".sc-slideshow-player__course-section-trigger",
       );
+      expect(controls.contains(sectionTrigger)).toBe(true);
+      chrome.style.transition = "none";
+      sectionTrigger.focus({ preventScroll: true });
+      await waitForCondition(() => chrome.getBoundingClientRect().height >= 43);
+      expectElementWithin(sectionTrigger, stage);
     }
 
     expect(runtimeEditor.getJSON()).toEqual(initialDocument);
@@ -402,12 +422,11 @@ describe("slideshow player geometry", () => {
 
   it("keeps Course Section navigation inside embedded and fullscreen presentation bounds", async () => {
     installFullscreenHarness();
-    const initialContent = withCourseSection(
-      createScaffoldDocumentContent({
-        mode: "slideshow",
-        surfaceId: createEmbeddedNodeId(),
-      }),
-    );
+    const initialContent = createScaffoldDocumentContent({
+      mode: "slideshow",
+      surfaceId: createEmbeddedNodeId(),
+      initialCourseSectionTitle: "Navigation geometry",
+    });
     host = document.createElement("div");
     host.style.cssText = "position: absolute; inset: 0 auto auto 0; width: 512px; height: 320px;";
     document.body.append(host);
@@ -434,6 +453,10 @@ describe("slideshow player geometry", () => {
       player,
       ".sc-slideshow-player__course-section-trigger",
     );
+    const chrome = uniqueElement<HTMLElement>(player, ".sc-slideshow-player__chrome");
+    chrome.style.transition = "none";
+    trigger.focus({ preventScroll: true });
+    await waitForCondition(() => chrome.getBoundingClientRect().height >= 43);
     expectElementWithin(trigger, stage);
 
     buttonByName(player, "Enter fullscreen").click();
@@ -459,6 +482,11 @@ describe("slideshow player geometry", () => {
     );
     await waitForCondition(() => fullscreenHost.querySelector("[role='menu']"));
     const menu = uniqueElement<HTMLElement>(fullscreenHost, "[role='menu']");
+    const controls = uniqueElement<HTMLElement>(player, ".sc-slideshow-player__controls");
+    await waitForCondition(() => Number.parseFloat(getComputedStyle(controls).opacity) >= 0.99);
+    expect(fullscreenTrigger.dataset.state).toBe("open");
+    expect(chrome.getBoundingClientRect().height).toBeGreaterThanOrEqual(43);
+    expect(Number.parseFloat(getComputedStyle(controls).opacity)).toBeGreaterThanOrEqual(0.99);
     expectElementWithin(menu, viewport);
     expect(menu.closest("[data-scaffold-overlay-host]")).toBe(fullscreenHost);
   });
@@ -611,9 +639,10 @@ function slideshowDocumentWithRuntimeHint(): JSONContent {
   const content = createScaffoldDocumentContent({
     mode: "slideshow",
     surfaceId: OVERLAY_SURFACE_ID,
+    initialCourseSectionTitle: "Overlay geometry",
   });
   const courseDocument = content.content?.[0];
-  const surface = courseDocument?.content?.[0];
+  const surface = courseDocument?.content?.find((node) => node.type === "surface");
   if (!courseDocument || !surface) throw new Error("Missing overlay geometry slideshow surface.");
   courseDocument.attrs = { ...courseDocument.attrs, mode: "slideshow" };
   surface.attrs = { ...surface.attrs, id: OVERLAY_SURFACE_ID, variant: "slide-cover" };
@@ -679,6 +708,45 @@ function requireSlideshowStructure(content: JSONContent) {
     throw new Error("Expected a projected Slideshow fixture.");
   }
   return structure;
+}
+
+type TestSlideshowPlayerProps = Omit<SlideshowPlayerProps, "preparedDocument"> & {
+  composition: typeof runtimeComposition;
+  initialContent: JSONContent;
+  productAccess: typeof coreProductAccess;
+};
+
+function SlideshowPlayer({
+  composition,
+  initialContent,
+  productAccess,
+  ...playerProps
+}: TestSlideshowPlayerProps) {
+  normalizeRuntimeFixtureIds(initialContent);
+  const readiness = checkRuntimeDocumentReadiness(initialContent, composition, productAccess);
+  if (readiness.status !== "supported") {
+    const issues = readiness.status === "invalid-learner-content" ? readiness.issues : undefined;
+    throw new Error(
+      `Expected a prepared Slideshow fixture, received ${readiness.status}${issues ? `: ${JSON.stringify(issues)}` : ""}.`,
+    );
+  }
+  return <RuntimeSlideshowPlayer {...playerProps} preparedDocument={readiness.preparedDocument} />;
+}
+
+function normalizeRuntimeFixtureIds(content: JSONContent): void {
+  const seen = new Set<string>();
+  const stack = [content];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node.type !== "doc" && node.type !== "text") {
+      const id = node.attrs?.id;
+      if (!EmbeddedNodeIdSchema.safeParse(id).success || seen.has(String(id))) {
+        node.attrs = { ...node.attrs, id: createEmbeddedNodeId() };
+      }
+      seen.add(String(node.attrs?.id));
+    }
+    stack.push(...(node.content ?? []));
+  }
 }
 
 function withCourseSection(content: JSONContent): JSONContent {
@@ -788,7 +856,7 @@ function installFullscreenHarness(): void {
   );
   let fullscreenElement: Element | null = null;
   const requestFullscreen = async function requestFullscreen(this: HTMLElement) {
-    fullscreenElement = this;
+    setFullscreenElement(this);
     document.dispatchEvent(new Event("fullscreenchange"));
   };
   const exitFullscreen = async () => {
@@ -805,6 +873,10 @@ function installFullscreenHarness(): void {
     configurable: true,
     value: requestFullscreen,
   });
+
+  function setFullscreenElement(element: Element | null): void {
+    fullscreenElement = element;
+  }
 
   restoreFullscreenHarness = () => {
     restoreProperty(document, "fullscreenEnabled", fullscreenEnabledDescriptor);
