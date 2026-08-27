@@ -2,7 +2,9 @@
 
 @layer sc-components {
   .sc-course-audio-player {
+    box-sizing: border-box;
     display: flex;
+    width: 100%;
     min-width: 0;
     flex-direction: column;
     container-name: sc-course-audio-player;
@@ -10,7 +12,9 @@
   }
 
   .sc-course-audio-player__bar {
+    box-sizing: border-box;
     display: flex;
+    width: 100%;
     min-width: 0;
     align-items: center;
   }
@@ -25,12 +29,63 @@
   }
 
   .sc-course-audio-player__progress {
-    min-width: 0;
+    min-width: 3rem;
     flex: 1 1 0;
+    cursor: pointer;
   }
 
   .sc-course-audio-player__volume-group {
     display: inline-flex;
     align-items: center;
+  }
+
+  .sc-course-audio-player__play,
+  .sc-course-audio-player__rate,
+  .sc-course-audio-player__mute {
+    /* Radix ships unlayered resets and fixed sizes; these interaction invariants must survive them. */
+    min-width: 2.75rem !important;
+    min-height: 2.75rem !important;
+    flex: none !important;
+    cursor: pointer;
+  }
+
+  .sc-course-audio-player__play,
+  .sc-course-audio-player__mute {
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+  }
+
+  .sc-course-audio-player__time {
+    white-space: nowrap;
+  }
+
+  .sc-course-audio-player__volume {
+    width: 3.5rem !important;
+    flex: 0 0 3.5rem !important;
+    cursor: pointer;
+  }
+
+  :is(.sc-course-audio-player__progress, .sc-course-audio-player__volume) .rt-SliderThumb::before {
+    /* Keep the pointer target independent from each Course theme's visible thumb recipe. */
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+  }
+}
+
+@container sc-course-audio-player (max-width: 420px) {
+  .sc-course-audio-player__volume {
+    display: none;
+  }
+}
+
+@container sc-course-audio-player (max-width: 340px) {
+  .sc-course-audio-player__rate {
+    display: none;
+  }
+}
+
+@container sc-course-audio-player (max-width: 260px) {
+  .sc-course-audio-player__time {
+    display: none;
   }
 }

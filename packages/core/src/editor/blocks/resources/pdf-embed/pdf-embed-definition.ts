@@ -38,6 +38,40 @@ const pdfEmbedConfiguration = defineConfiguration({
 export const pdfEmbedBlockDefinition = defineBlock({
   nodeType: "pdf_embed",
   title: "PDF",
+  control: {
+    owner: {
+      events: [{ type: "page-changed", label: "Page changed" }],
+      states: [
+        {
+          key: "page-number",
+          label: "Page number",
+          valueType: {
+            kind: "runtime-bounded-number",
+            min: 1,
+            unitLabel: "page",
+            step: 1,
+          },
+        },
+        {
+          key: "last-page",
+          label: "Last page",
+          valueType: { kind: "boolean" },
+        },
+      ],
+      commands: [
+        {
+          type: "go-to-page",
+          label: "Go to page",
+          input: {
+            kind: "runtime-bounded-number",
+            min: 1,
+            unitLabel: "page",
+            step: 1,
+          },
+        },
+      ],
+    },
+  },
   configuration: pdfEmbedConfiguration,
   frame: {
     resizable: true,

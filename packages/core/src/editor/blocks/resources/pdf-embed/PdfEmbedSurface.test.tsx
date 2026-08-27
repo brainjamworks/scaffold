@@ -7,6 +7,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 import { emptyPdfEmbedData } from "./content";
 import { PdfEmbedSurface } from "./PdfEmbedSurface";
+import { createPdfEmbedRuntimeController } from "./pdf-embed-runtime-controller";
 
 const pdfPageRenders = vi.hoisted(
   () =>
@@ -18,6 +19,11 @@ const pdfPageRenders = vi.hoisted(
       width: number | undefined;
     }>,
 );
+const pdfRenderConfirmation = vi.hoisted(() => ({
+  automatic: true,
+  callbacks: new Map<number, () => void>(),
+  errorCallbacks: new Map<number, (error: Error) => void>(),
+}));
 
 vi.mock("react-pdf", () => ({
   pdfjs: { GlobalWorkerOptions: {} },
@@ -36,6 +42,8 @@ vi.mock("react-pdf", () => ({
   },
   Page({
     onLoadSuccess,
+    onRenderSuccess,
+    onRenderError,
     pageNumber,
     renderAnnotationLayer,
     renderTextLayer,
@@ -47,6 +55,8 @@ vi.mock("react-pdf", () => ({
       originalWidth: number;
       pageNumber: number;
     }) => void;
+    onRenderSuccess?: (result: { pageNumber: number }) => void;
+    onRenderError?: (error: Error) => void;
     pageNumber: number;
     renderAnnotationLayer?: boolean;
     renderTextLayer?: boolean;
@@ -62,7 +72,19 @@ vi.mock("react-pdf", () => ({
           ? { originalHeight: 800, originalWidth: 600 }
           : { originalHeight: 600, originalWidth: 800 }),
       });
-    }, [onLoadSuccess, pageNumber]);
+      const confirm = () => onRenderSuccess?.({ pageNumber });
+      pdfRenderConfirmation.callbacks.set(pageNumber, confirm);
+      if (onRenderError) pdfRenderConfirmation.errorCallbacks.set(pageNumber, onRenderError);
+      if (pdfRenderConfirmation.automatic) confirm();
+      return () => {
+        if (pdfRenderConfirmation.callbacks.get(pageNumber) === confirm) {
+          pdfRenderConfirmation.callbacks.delete(pageNumber);
+        }
+        if (pdfRenderConfirmation.errorCallbacks.get(pageNumber) === onRenderError) {
+          pdfRenderConfirmation.errorCallbacks.delete(pageNumber);
+        }
+      };
+    }, [onLoadSuccess, onRenderError, onRenderSuccess, pageNumber]);
 
     return (
       <div
@@ -101,6 +123,9 @@ let clientHeightSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   pdfPageRenders.length = 0;
+  pdfRenderConfirmation.automatic = true;
+  pdfRenderConfirmation.callbacks.clear();
+  pdfRenderConfirmation.errorCallbacks.clear();
   clientWidthSpy = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(640);
   clientHeightSpy = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(360);
   vi.stubGlobal("ResizeObserver", MockResizeObserver);
@@ -222,6 +247,100 @@ it("waits until an already-rendered PDF page is presented", async () => {
   await waitFor(() => {
     expect(onPagePresented).toHaveBeenCalledWith({ pageNumber: 1, pageCount: 3 });
   });
+});
+
+it("does not commit a loaded page until react-pdf confirms successful rendering", async () => {
+  pdfRenderConfirmation.automatic = false;
+  const onPagePresented = vi.fn();
+  render(
+    <PdfEmbedSurface
+      data={emptyPdfEmbedData({
+        source: { mode: "external", src: "https://example.com/sample.pdf" },
+      })}
+      mediaPort={null}
+      onPagePresented={onPagePresented}
+    />,
+  );
+
+  await screen.findByText("PDF page 1");
+  await waitFor(() => expect(pdfRenderConfirmation.callbacks.get(1)).toBeDefined());
+  expect(onPagePresented).not.toHaveBeenCalled();
+
+  pdfRenderConfirmation.callbacks.get(1)?.();
+  await waitFor(() => {
+    expect(onPagePresented).toHaveBeenCalledWith({ pageNumber: 1, pageCount: 3 });
+  });
+});
+
+it("routes learner page requests through the runtime controller and commits their origin after render", async () => {
+  pdfRenderConfirmation.automatic = false;
+  const user = userEvent.setup();
+  const controller = createPdfEmbedRuntimeController();
+  const presentations: unknown[] = [];
+  controller.subscribeToPresentations((presentation) => presentations.push(presentation));
+  render(
+    <PdfEmbedSurface
+      controller={controller}
+      data={emptyPdfEmbedData({
+        source: { mode: "external", src: "https://example.com/sample.pdf" },
+      })}
+      mediaPort={null}
+    />,
+  );
+
+  await waitFor(() => expect(pdfRenderConfirmation.callbacks.get(1)).toBeDefined());
+  expect(controller.isReady()).toBe(false);
+  pdfRenderConfirmation.callbacks.get(1)?.();
+  await waitFor(() => expect(controller.isReady()).toBe(true));
+  expect(presentations).toEqual([
+    {
+      previousPageNumber: null,
+      pageNumber: 1,
+      pageCount: 3,
+      origin: "reconciliation",
+    },
+  ]);
+
+  await user.click(screen.getByRole("button", { name: "Next page" }));
+  await waitFor(() => expect(pdfRenderConfirmation.callbacks.get(2)).toBeDefined());
+  expect(controller.getPresentedPageNumber()).toBe(1);
+  expect(presentations).toHaveLength(1);
+  pdfRenderConfirmation.callbacks.get(2)?.();
+  await waitFor(() => expect(controller.getPresentedPageNumber()).toBe(2));
+  expect(presentations.at(-1)).toEqual({
+    previousPageNumber: 1,
+    pageNumber: 2,
+    pageCount: 3,
+    origin: "learner",
+  });
+});
+
+it("settles an in-flight page request as unavailable when react-pdf cannot render it", async () => {
+  pdfRenderConfirmation.automatic = false;
+  const controller = createPdfEmbedRuntimeController();
+  render(
+    <PdfEmbedSurface
+      controller={controller}
+      data={emptyPdfEmbedData({
+        source: { mode: "external", src: "https://example.com/sample.pdf" },
+      })}
+      mediaPort={null}
+    />,
+  );
+  await waitFor(() => expect(pdfRenderConfirmation.callbacks.get(1)).toBeDefined());
+  pdfRenderConfirmation.callbacks.get(1)?.();
+  await waitFor(() => expect(controller.isReady()).toBe(true));
+
+  const navigation = controller.navigateTo(2, "control-command", new AbortController().signal);
+  await waitFor(() => expect(pdfRenderConfirmation.errorCallbacks.get(2)).toBeDefined());
+  pdfRenderConfirmation.errorCallbacks.get(2)?.(new Error("private renderer diagnostic"));
+
+  await expect(navigation).resolves.toEqual({ kind: "pdf-unavailable", requestedPage: 2 });
+  expect(controller.isReady()).toBe(false);
+  expect((await screen.findByRole("alert")).textContent).toBe(
+    "We couldn't load this PDF. Check the source or your network.",
+  );
+  expect(screen.queryByText("private renderer diagnostic")).toBeNull();
 });
 
 it("keeps PDF loading, empty, and error states semantic without exposing diagnostics", async () => {

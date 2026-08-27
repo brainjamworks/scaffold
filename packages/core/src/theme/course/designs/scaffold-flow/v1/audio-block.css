@@ -75,8 +75,7 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-audio-player__play {
-  width: 1.875rem;
-  height: 1.875rem;
+  padding: 0;
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-audio-player__rate {
@@ -109,33 +108,8 @@
   :is(.sc-course-audio-player__progress, .sc-course-audio-player__volume) {
   --slider-track-size: 0.375rem;
   --slider-thumb-size: 0.75rem;
+
   cursor: pointer;
-}
-
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-audio-player__progress {
-  min-width: 3rem;
-}
-
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-audio-player__volume {
-  width: 3.5rem;
-}
-
-@container sc-course-audio-player (max-width: 420px) {
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-audio-player__volume {
-    display: none;
-  }
-}
-
-@container sc-course-audio-player (max-width: 340px) {
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-audio-player__rate {
-    display: none;
-  }
-}
-
-@container sc-course-audio-player (max-width: 260px) {
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-audio-player__time {
-    display: none;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

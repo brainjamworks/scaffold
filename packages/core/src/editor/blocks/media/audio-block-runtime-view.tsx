@@ -1,14 +1,14 @@
 import { type NodeViewProps } from "@tiptap/react";
-import { useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
-import {
-  useLearningEventReporter,
-  type LearningEventReporter,
-} from "@/runtime/learning-events/LearningEventRuntimeProvider";
+import { useLearningEventReporter } from "@/runtime/learning-events/LearningEventRuntimeProvider";
 
 import { parseAudioBlockData, useResolvedAudioBlockSource } from "./AudioBlockModel";
 import { AudioBlockSurface } from "./AudioBlockSurface";
+import { useAudioControlBinding } from "./audio-control-binding";
+import { createAudioLearningEventConsumer } from "./audio-learning-event-translation";
+import { createAudioRuntimeController } from "./audio-runtime-controller";
 
 export function AudioBlockRuntimeView(props: NodeViewProps) {
   const mediaPort = useMediaPort();
@@ -16,65 +16,35 @@ export function AudioBlockRuntimeView(props: NodeViewProps) {
   const { errorMessage, resolvedUrl } = useResolvedAudioBlockSource(data, mediaPort);
   const learningEventReporter = useLearningEventReporter();
   const resourceId = props.node.attrs["id"];
-  const recordedRef = useRef<{
-    reporter: LearningEventReporter;
-    resourceId: string;
-    attempted: boolean;
-    completed: boolean;
-  } | null>(null);
-  const getRecorded = () => {
-    if (typeof resourceId !== "string" || !resourceId.trim()) return null;
-    let recorded = recordedRef.current;
-    if (
-      !recorded ||
-      recorded.reporter !== learningEventReporter ||
-      recorded.resourceId !== resourceId
-    ) {
-      recorded = {
-        reporter: learningEventReporter,
+  const [controller] = useState(() => createAudioRuntimeController());
+  const [authorityMounted, setAuthorityMounted] = useState(false);
+  const handleAuthorityMountedChange = useCallback((mounted: boolean) => {
+    setAuthorityMounted(mounted);
+  }, []);
+  useAudioControlBinding({
+    controller,
+    editor: props.editor,
+    enabled: authorityMounted && resolvedUrl !== null && errorMessage === null,
+    getPos: props.getPos,
+    node: props.node,
+    ownerId: resourceId,
+  });
+  useEffect(() => {
+    if (typeof resourceId !== "string" || !resourceId.trim()) return;
+    return controller.subscribeToCommits(
+      createAudioLearningEventConsumer({
+        report: (input) => learningEventReporter.report(input),
         resourceId,
-        attempted: false,
-        completed: false,
-      };
-      recordedRef.current = recorded;
-    }
-    return recorded;
-  };
-  const recordAttempted = () => {
-    const recorded = getRecorded();
-    if (!recorded || recorded.attempted) return;
-    try {
-      recorded.reporter.report({
-        type: "resource.attempted",
-        resourceId: recorded.resourceId,
-        resourceKind: "audio",
-      });
-      recorded.attempted = true;
-    } catch {
-      // Audio recording is observational and cannot change playback.
-    }
-  };
-  const recordCompleted = () => {
-    const recorded = getRecorded();
-    if (!recorded || recorded.completed) return;
-    try {
-      recorded.reporter.report({
-        type: "resource.completed",
-        resourceId: recorded.resourceId,
-        resourceKind: "audio",
-      });
-      recorded.completed = true;
-    } catch {
-      // Audio recording is observational and cannot change playback.
-    }
-  };
+      }),
+    );
+  }, [controller, learningEventReporter, resourceId]);
 
   return (
     <AudioBlockSurface
       data={data}
+      controller={controller}
       errorMessage={errorMessage}
-      onPlaybackEnded={recordCompleted}
-      onPlaybackStarted={recordAttempted}
+      onAuthorityMountedChange={handleAuthorityMountedChange}
       resolvedUrl={resolvedUrl}
     />
   );

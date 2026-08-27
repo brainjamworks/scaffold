@@ -29,6 +29,8 @@ import {
 import { BOUNDED_PLACEMENT_ATTR } from "@/editor/frame/model/bounded-placement";
 import { CourseButton, CourseIconButton } from "@/ui/components/course/CourseActions/CourseActions";
 
+import type { PdfEmbedRuntimeController } from "./pdf-embed-runtime-controller";
+
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?worker&url";
 
 import "./PdfEmbed.css";
@@ -50,7 +52,9 @@ interface ViewerProps {
   width?: number;
   onLoadSuccess: (numPages: number) => void;
   onLoadError: (message: string) => void;
+  onPageRenderError: (pageNumber: number, message: string) => void;
   onPageLoadSuccess: (dimensions: PdfPageDimensions) => void;
+  onPageRenderSuccess: (pageNumber: number) => void;
 }
 
 const PDF_ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3] as const;
@@ -76,16 +80,16 @@ const PdfViewer = lazy<ComponentType<ViewerProps>>(async () => {
     width,
     onLoadSuccess,
     onLoadError,
+    onPageRenderError,
     onPageLoadSuccess,
+    onPageRenderSuccess,
   }: ViewerProps) {
     return (
       <Document
         className="sc-course-pdf-embed__document"
         file={url}
         loading={<PdfStateMessage>{mediaLoadingMessage("pdf")}</PdfStateMessage>}
-        error={
-          <PdfErrorMessage>{PDF_LOAD_ERROR_MESSAGE}</PdfErrorMessage>
-        }
+        error={<PdfErrorMessage>{PDF_LOAD_ERROR_MESSAGE}</PdfErrorMessage>}
         noData={<PdfErrorMessage>{mediaMissingMessage("pdf")}</PdfErrorMessage>}
         onLoadSuccess={({ numPages }) => onLoadSuccess(numPages)}
         onLoadError={(error) => onLoadError(error.message)}
@@ -103,6 +107,11 @@ const PdfViewer = lazy<ComponentType<ViewerProps>>(async () => {
               pageNumber: loadedPageNumber,
             })
           }
+          onLoadError={(error) => onPageRenderError(pageNumber, error.message)}
+          onRenderError={(error) => onPageRenderError(pageNumber, error.message)}
+          onRenderSuccess={({ pageNumber: renderedPageNumber }) =>
+            onPageRenderSuccess(renderedPageNumber)
+          }
         />
       </Document>
     );
@@ -112,6 +121,7 @@ const PdfViewer = lazy<ComponentType<ViewerProps>>(async () => {
 });
 
 export function PdfEmbedSurface({
+  controller,
   data,
   emptyAction,
   mediaPort,
@@ -120,6 +130,7 @@ export function PdfEmbedSurface({
   presented = true,
   replaceAction,
 }: {
+  controller?: PdfEmbedRuntimeController;
   data: PdfEmbedData;
   emptyAction?: ReactNode;
   mediaPort: MediaPortLite | null;
@@ -136,6 +147,7 @@ export function PdfEmbedSurface({
     width: number;
   }>({ boundedHeight: null, borderBlockSize: 0, width: 0 });
   const [pageDimensions, setPageDimensions] = useState<PdfPageDimensions | null>(null);
+  const [renderedPageNumber, setRenderedPageNumber] = useState<number | null>(null);
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState<number>(data.initialPage);
   const [zoom, setZoom] = useState<PdfZoom>("fit");
@@ -158,6 +170,11 @@ export function PdfEmbedSurface({
   const zoomStatusId = `${generatedId}-zoom-status`;
   const managedMediaId = source?.mode === "managed" ? source.mediaId : null;
   const externalSrc = source?.mode === "external" ? source.src : null;
+
+  useEffect(() => {
+    if (!controller) return;
+    return controller.attachRequestPage(setPageNumber);
+  }, [controller]);
 
   useEffect(() => {
     if (!managedMediaId) {
@@ -236,10 +253,12 @@ export function PdfEmbedSurface({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPageNumber(Math.max(1, data.initialPage));
     setPageDimensions(null);
+    setRenderedPageNumber(null);
     setZoom("fit");
     setErrorMessage(null);
     setNumPages(null);
-  }, [fileUrl, data.initialPage]);
+    controller?.reset();
+  }, [controller, fileUrl, data.initialPage]);
 
   useEffect(() => {
     if (numPages !== null && pageNumber > numPages) {
@@ -249,24 +268,28 @@ export function PdfEmbedSurface({
   }, [numPages, pageNumber]);
 
   useEffect(() => {
-    if (
-      !presented ||
-      !onPagePresented ||
-      numPages === null ||
-      pageDimensions?.pageNumber !== pageNumber
-    ) {
+    if (!presented || !onPagePresented || numPages === null || renderedPageNumber !== pageNumber) {
       return;
     }
     onPagePresented({ pageNumber, pageCount: numPages });
-  }, [numPages, onPagePresented, pageDimensions?.pageNumber, pageNumber, presented]);
+  }, [numPages, onPagePresented, pageNumber, presented, renderedPageNumber]);
+
+  useEffect(() => {
+    if (!controller || !presented || numPages === null || renderedPageNumber !== pageNumber) return;
+    controller.present(pageNumber);
+  }, [controller, numPages, pageNumber, presented, renderedPageNumber]);
 
   const goToPage = useCallback(
     (next: number) => {
       if (numPages === null) return;
       const clamped = Math.max(1, Math.min(next, numPages));
-      setPageNumber(clamped);
+      if (!controller) {
+        setPageNumber(clamped);
+        return;
+      }
+      void controller.navigateTo(clamped, "learner", new AbortController().signal);
     },
-    [numPages],
+    [controller, numPages],
   );
 
   const showStats = useMemo(() => numPages !== null && !errorMessage, [numPages, errorMessage]);
@@ -323,7 +346,7 @@ export function PdfEmbedSurface({
         }
         tabIndex={zoom === "fit" ? undefined : 0}
       >
-        {fileUrl && fittedPageWidth > 0 ? (
+        {fileUrl && fittedPageWidth > 0 && !hasLoadFailure ? (
           <Suspense fallback={<PdfStateMessage>{mediaLoadingMessage("pdf")}</PdfStateMessage>}>
             <PdfViewer
               url={fileUrl}
@@ -332,10 +355,17 @@ export function PdfEmbedSurface({
               onLoadSuccess={(pages) => {
                 setNumPages(pages);
                 setErrorMessage(null);
+                controller?.load(pages);
               }}
               onLoadError={(message) => {
                 setErrorMessage(message);
                 setNumPages(null);
+                controller?.fail();
+              }}
+              onPageRenderError={(_failedPageNumber, message) => {
+                setErrorMessage(message);
+                setNumPages(null);
+                controller?.fail();
               }}
               onPageLoadSuccess={(dimensions) => {
                 setPageDimensions((current) =>
@@ -346,6 +376,7 @@ export function PdfEmbedSurface({
                     : dimensions,
                 );
               }}
+              onPageRenderSuccess={setRenderedPageNumber}
             />
           </Suspense>
         ) : hasLoadFailure ? (

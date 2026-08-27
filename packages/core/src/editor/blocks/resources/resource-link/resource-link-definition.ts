@@ -6,6 +6,7 @@ import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 
 import { emptyResourceLinkData } from "./content";
+import { resourceLinkControlDefinition } from "./resource-link-control-definition";
 import { RESOURCE_LINK_KIND_LABELS } from "./resource-link-presentation";
 
 export const RESOURCE_LINK_BLOCK_ID = "resource-link";
@@ -49,6 +50,7 @@ const resourceLinkConfiguration = defineConfiguration({
 export const resourceLinkBlockDefinition = defineBlock({
   nodeType: "resource_link",
   title: "Resource link",
+  control: resourceLinkControlDefinition,
   configuration: resourceLinkConfiguration,
   placeholders: {
     resource_link_description: "One-line context for learners",

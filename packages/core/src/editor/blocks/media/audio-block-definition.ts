@@ -34,6 +34,39 @@ const audioBlockConfiguration = defineConfiguration({
 export const audioBlockDefinition = defineBlock({
   nodeType: "audio_block",
   title: "Audio",
+  control: {
+    owner: {
+      events: [
+        { type: "played", label: "Played" },
+        { type: "paused", label: "Paused" },
+        { type: "ended", label: "Ended" },
+      ],
+      states: [
+        {
+          key: "status",
+          label: "Status",
+          valueType: {
+            kind: "enum",
+            options: [
+              { value: "idle", label: "Idle" },
+              { value: "playing", label: "Playing" },
+              { value: "paused", label: "Paused" },
+              { value: "ended", label: "Ended" },
+            ],
+          },
+        },
+      ],
+      commands: [
+        { type: "play", label: "Play" },
+        { type: "pause", label: "Pause" },
+        {
+          type: "seek-to",
+          label: "Seek to",
+          input: { kind: "runtime-bounded-number", min: 0, unitLabel: "seconds" },
+        },
+      ],
+    },
+  },
   configuration: audioBlockConfiguration,
   frame: {
     resizable: true,

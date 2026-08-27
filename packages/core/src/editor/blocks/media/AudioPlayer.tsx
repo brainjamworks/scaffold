@@ -4,10 +4,12 @@ import {
   SpeakerHighIcon as SpeakerHigh,
   SpeakerSlashIcon as SpeakerSlash,
 } from "@phosphor-icons/react";
-import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 
 import { CourseButton, CourseIconButton } from "@/ui/components/course/CourseActions/CourseActions";
 import { CourseMediaSlider } from "@/ui/components/course/CourseInputs/CourseInputs";
+
+import type { AudioRuntimeController } from "./audio-runtime-controller";
 
 import "./AudioPlayer.css";
 
@@ -43,11 +45,21 @@ interface AudioPlayerProps {
   onStarted?: () => void;
   /** Called when the native media element reports playback reached the end. */
   onEnded?: () => void;
+  /** Optional runtime-only facade over this mounted native media authority. */
+  controller?: AudioRuntimeController;
+  /** Reports whether the runtime controller has a real mounted native authority. */
+  onAuthorityMountedChange?: (mounted: boolean) => void;
 }
 
-export function AudioPlayer({ src, title, onStarted, onEnded }: AudioPlayerProps) {
+export function AudioPlayer({
+  controller,
+  onAuthorityMountedChange,
+  onEnded,
+  onStarted,
+  src,
+  title,
+}: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const titleId = useId();
 
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -60,6 +72,8 @@ export function AudioPlayer({ src, title, onStarted, onEnded }: AudioPlayerProps
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return undefined;
+    const detachController = controller?.attach(audio, src);
+    if (controller) onAuthorityMountedChange?.(true);
     const onPlay = () => {
       setPlaying(true);
       onStarted?.();
@@ -104,17 +118,27 @@ export function AudioPlayer({ src, title, onStarted, onEnded }: AudioPlayerProps
       audio.removeEventListener("durationchange", onMeta);
       audio.removeEventListener("volumechange", onVolume);
       audio.removeEventListener("ratechange", onRate);
+      detachController?.();
+      if (controller) onAuthorityMountedChange?.(false);
     };
-  }, [onEnded, onStarted, src]);
+  }, [controller, onAuthorityMountedChange, onEnded, onStarted, src]);
 
   const togglePlay = (event: MouseEvent) => {
     event.stopPropagation();
     const audio = audioRef.current;
     if (!audio) return;
     if (audio.paused) {
-      void audio.play();
+      if (controller) {
+        void controller.play("learner", new AbortController().signal);
+      } else {
+        void audio.play();
+      }
     } else {
-      audio.pause();
+      if (controller) {
+        void controller.pause("learner", new AbortController().signal);
+      } else {
+        audio.pause();
+      }
     }
   };
 
@@ -137,7 +161,11 @@ export function AudioPlayer({ src, title, onStarted, onEnded }: AudioPlayerProps
   const onSeek = (next: number) => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.currentTime = next;
+    if (controller) {
+      void controller.seekTo(next, "learner", new AbortController().signal);
+    } else {
+      audio.currentTime = next;
+    }
     setCurrentTime(next);
   };
 
@@ -153,20 +181,11 @@ export function AudioPlayer({ src, title, onStarted, onEnded }: AudioPlayerProps
   const effectiveVolume = muted ? 0 : volume;
 
   return (
-    <div
-      className="sc-course-audio-player"
-      aria-labelledby={title ? titleId : undefined}
-      aria-label={title ? undefined : "Audio player"}
-      onClick={(event) => event.stopPropagation()}
-    >
+    <div className="sc-course-audio-player" onClick={(event) => event.stopPropagation()}>
       {/* Hidden native element for codec support + a11y fallback. */}
       <audio ref={audioRef} src={src} preload="metadata" />
 
-      {title ? (
-        <div id={titleId} className="sc-course-audio-player__title">
-          {title}
-        </div>
-      ) : null}
+      {title ? <div className="sc-course-audio-player__title">{title}</div> : null}
 
       <div
         role="group"

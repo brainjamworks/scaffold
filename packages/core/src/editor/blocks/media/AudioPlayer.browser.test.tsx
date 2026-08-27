@@ -9,6 +9,7 @@ import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course
 import { AudioPlayer } from "./AudioPlayer";
 import "./AudioBlockAuthoringControls.css";
 import "./AudioPlayer.css";
+import "@/theme/course/designs/pocket-atlas/v1/theme.css";
 
 const mountedRoots: Root[] = [];
 
@@ -70,6 +71,49 @@ describe("Audio Player responsive controls", () => {
     await waitForCondition(() => rate.getAttribute("aria-label") === "Playback speed, 1x");
   });
 
+  it("keeps Pocket Atlas media controls contained with usable targets", async () => {
+    const { player } = await mountAudioPlayer("pocket-atlas");
+    const bar = requiredElement<HTMLElement>(player, ".sc-course-audio-player__bar");
+    const controls = [
+      requiredElement<HTMLElement>(player, ".sc-course-audio-player__play"),
+      requiredElement<HTMLElement>(player, ".sc-course-audio-player__rate"),
+      requiredElement<HTMLElement>(player, ".sc-course-audio-player__mute"),
+    ];
+
+    expect(player.scrollWidth).toBeLessThanOrEqual(player.clientWidth);
+    const barRect = bar.getBoundingClientRect();
+    for (const control of controls) {
+      const controlRect = control.getBoundingClientRect();
+      expect(controlRect.left).toBeGreaterThanOrEqual(barRect.left);
+      expect(controlRect.right).toBeLessThanOrEqual(barRect.right);
+      expect(controlRect.width).toBe(44);
+      expect(controlRect.height).toBe(44);
+    }
+  });
+
+  it("progressively reduces Pocket Atlas secondary controls", async () => {
+    const { host, player } = await mountAudioPlayer("pocket-atlas");
+    const volume = requiredElement<HTMLElement>(player, ".sc-course-audio-player__volume");
+    const rate = requiredElement<HTMLElement>(player, ".sc-course-audio-player__rate");
+    const time = requiredElement<HTMLElement>(player, ".sc-course-audio-player__time");
+
+    host.style.width = "400px";
+    await waitForCondition(() => !isVisible(volume));
+    host.style.width = "300px";
+    await waitForCondition(() => !isVisible(rate));
+    host.style.width = "240px";
+    await waitForCondition(() => !isVisible(time));
+  });
+
+  it("keeps slider visuals theme-owned while core provides the effective target", async () => {
+    const { player } = await mountAudioPlayer();
+    const volume = requiredElement<HTMLElement>(player, '[role="slider"][aria-label="Volume"]');
+
+    expect(getComputedStyle(volume).width).toBe("12px");
+    expect(getComputedStyle(volume, "::before").width).toBe("44px");
+    expect(getComputedStyle(volume, "::before").height).toBe("44px");
+  });
+
   it("centers the reserved replace rail against the player bar", async () => {
     const { host, player } = await mountAudioPlayer();
     const frame = document.createElement("div");
@@ -93,7 +137,7 @@ describe("Audio Player responsive controls", () => {
   });
 });
 
-async function mountAudioPlayer() {
+async function mountAudioPlayer(design: "scaffold-flow" | "pocket-atlas" = "scaffold-flow") {
   const host = document.createElement("div");
   host.style.width = "480px";
   document.body.append(host);
@@ -101,7 +145,19 @@ async function mountAudioPlayer() {
   const root = createRoot(host);
   mountedRoots.push(root);
   root.render(
-    <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+    <CourseThemeProvider
+      theme={
+        design === "pocket-atlas"
+          ? {
+              schemaVersion: 1,
+              design: { id: "pocket-atlas", revision: "1" },
+              colourSystem: { id: "pocket-atlas", revision: "1" },
+              overrides: {},
+            }
+          : createDefaultPersistedCourseTheme()
+      }
+      appearance="light"
+    >
       <AudioPlayer src="data:audio/wav;base64," title="Browser test audio" />
     </CourseThemeProvider>,
   );

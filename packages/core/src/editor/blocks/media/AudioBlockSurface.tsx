@@ -1,6 +1,7 @@
 import type { AudioBlockAttrs } from "@scaffold/contracts";
 
 import { AudioPlayer } from "./AudioPlayer";
+import type { AudioRuntimeController } from "./audio-runtime-controller";
 import {
   mediaLoadingMessage,
   mediaMissingMessage,
@@ -9,15 +10,19 @@ import "./AudioBlock.css";
 
 interface AudioBlockSurfaceProps {
   data: AudioBlockAttrs | null;
+  controller?: AudioRuntimeController;
   errorMessage: string | null;
+  onAuthorityMountedChange?: (mounted: boolean) => void;
   onPlaybackEnded?: () => void;
   onPlaybackStarted?: () => void;
   resolvedUrl: string | null;
 }
 
 export function AudioBlockSurface({
+  controller,
   data,
   errorMessage,
+  onAuthorityMountedChange,
   onPlaybackEnded,
   onPlaybackStarted,
   resolvedUrl,
@@ -35,7 +40,9 @@ export function AudioBlockSurface({
       ) : resolvedUrl ? (
         <AudioPlayer
           src={resolvedUrl}
+          {...(controller ? { controller } : {})}
           {...(data.title ? { title: data.title } : {})}
+          {...(onAuthorityMountedChange ? { onAuthorityMountedChange } : {})}
           {...(onPlaybackEnded ? { onEnded: onPlaybackEnded } : {})}
           {...(onPlaybackStarted ? { onStarted: onPlaybackStarted } : {})}
         />
