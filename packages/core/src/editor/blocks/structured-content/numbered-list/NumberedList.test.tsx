@@ -14,6 +14,7 @@ import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/t
 import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
 import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { describeBlockContract } from "@/editor/testing";
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
 import { projectLearnerDocument } from "@/authoring/publication/document-projection";
@@ -293,6 +294,7 @@ it("persists an author-selected item state into learner runtime", async () => {
   const learnerContent = projectLearnerDocument(
     { status: "supported", canonicalDocument: authoring.json() },
     builtInBlockRegistry,
+    builtInSurfaceVariantRegistry,
   ).document;
   authoring.destroy();
   cleanup();
