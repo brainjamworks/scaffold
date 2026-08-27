@@ -419,9 +419,9 @@ function requiredElement<T extends Element>(root: ParentNode, selector: string):
 }
 
 function setNativeInputValue(input: HTMLInputElement, value: string): void {
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-  if (!setter) throw new Error("Expected the native input value setter.");
-  setter.call(input, value);
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+  if (!descriptor?.set) throw new Error("Expected the native input value setter.");
+  descriptor.set.call(input, value);
 }
 
 function requiredStyleRule(selector: string, media: string): CSSStyleRule {
