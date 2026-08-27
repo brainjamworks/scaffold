@@ -70,8 +70,9 @@ function SidebarHeader({
         <h3 className="sc-media-workspace__sidebar-title">{title}</h3>
         <p className="sc-media-workspace__sidebar-description">{description}</p>
       </div>
-      <span className="sc-media-workspace__sidebar-count" aria-label={countLabel}>
-        {count}
+      <span className="sc-media-workspace__sidebar-count">
+        <span aria-hidden="true">{count}</span>
+        <span className="sc-sr-only">{countLabel}</span>
       </span>
     </div>
   );

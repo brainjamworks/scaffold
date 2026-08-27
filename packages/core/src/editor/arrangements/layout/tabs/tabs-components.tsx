@@ -134,13 +134,39 @@ export function tabsPanelAttributes({
 
 export function TabsList({
   label,
+  ownedTabIds,
   variant,
   children,
 }: {
   label: string;
+  ownedTabIds?: readonly string[];
   variant: RenderedTabsVariant;
   children: ReactNode;
 }) {
+  if (ownedTabIds) {
+    return (
+      <>
+        {ownedTabIds.length > 0 ? (
+          <div
+            role="tablist"
+            aria-label={label}
+            aria-orientation="horizontal"
+            aria-owns={ownedTabIds.join(" ")}
+            className="sc-sr-only"
+          />
+        ) : null}
+        <div
+          contentEditable={false}
+          data-course-tabs-list=""
+          data-variant={variant}
+          className="sc-course-tabs__list"
+        >
+          {children}
+        </div>
+      </>
+    );
+  }
+
   return (
     <div
       role="tablist"

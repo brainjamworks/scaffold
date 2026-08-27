@@ -9,6 +9,7 @@ import { createElement } from "react";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { createSemanticDefinitionLookup } from "@/composition/model/semantic-definition-lookup";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import {
@@ -40,9 +41,20 @@ import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 const editors: Editor[] = [];
 const coreCapabilities = Object.freeze({
-  blocks: Object.freeze({ registry: builtInBlockRegistry }),
+  blocks: Object.freeze({
+    registry: builtInBlockRegistry,
+    duplication: Object.freeze({
+      getByNodeType: () => undefined,
+      hasNodeType: (nodeType: string) => builtInBlockRegistry.getByNodeType(nodeType) !== undefined,
+    }),
+  }),
   layouts: Object.freeze({ registry: builtInLayoutRegistry }),
   surfaces: Object.freeze({ registry: builtInSurfaceVariantRegistry }),
+  documentSemantics: createSemanticDefinitionLookup({
+    blocks: builtInBlockRegistry,
+    layouts: builtInLayoutRegistry,
+    surfaces: builtInSurfaceVariantRegistry,
+  }),
 });
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
@@ -87,6 +99,23 @@ function renderEditorContent(editor: Editor) {
 }
 
 describe("bounded tabs authoring", () => {
+  it("keeps authoring controls outside the semantic tablist", async () => {
+    const editor = makeEditor({ editable: true, placement: "region" });
+    renderEditorContent(editor);
+
+    await waitFor(() => {
+      expect(screen.getByRole("tablist", { name: "Lesson sections" })).toBeInTheDocument();
+    });
+
+    const tablist = screen.getByRole("tablist", { name: "Lesson sections" });
+    const tabs = screen.getAllByRole("tab");
+
+    expect(tablist.querySelector("[data-authoring-move-handle]")).toBeNull();
+    expect(tablist.querySelector("[data-layout-section-menu-trigger]")).toBeNull();
+    expect(tablist.querySelector("[data-layout-add-ghost]")).toBeNull();
+    expect(tablist.getAttribute("aria-owns")?.split(/\s+/)).toEqual(tabs.map((tab) => tab.id));
+  });
+
   it("hands the finite region from the generic frame to the inner tabs surface", async () => {
     const user = userEvent.setup();
     const editor = makeEditor({ editable: true, placement: "region" });

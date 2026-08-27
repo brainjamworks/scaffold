@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
+import "../authoring/grid-authoring.css";
 import "./grid.css";
 
 const CELL_CLASS_NAMES = ["sc-grid-cell", "sc-grid-cell sc-app-grid-cell-authoring"] as const;
@@ -22,6 +23,27 @@ describe("Cell vertical content geometry", () => {
         0,
       );
     }
+  });
+});
+
+describe("Grid authoring resize target", () => {
+  it("provides a 24px minimum hit area without widening the visible divider", () => {
+    const grid = document.createElement("div");
+    grid.className = "sc-grid sc-app-grid-authoring";
+    grid.style.cssText = "width: 320px; height: 96px;";
+
+    const controls = document.createElement("div");
+    controls.className = "sc-app-grid-column-controls";
+
+    const handle = document.createElement("button");
+    handle.className = "sc-app-grid-column-resize-handle";
+    handle.style.setProperty("--sc-grid-column-position", "50%");
+    controls.append(handle);
+    grid.append(controls);
+    document.body.append(grid);
+
+    expect(handle.getBoundingClientRect().width).toBeGreaterThanOrEqual(24);
+    expect(getComputedStyle(handle, "::before").width).toBe("1px");
   });
 });
 

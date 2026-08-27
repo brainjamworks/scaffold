@@ -41,7 +41,9 @@ describe("MediaWorkspace", () => {
     expect(screen.getByText("Canvas")).toBe(canvas);
     expect(within(sidebar).getByRole("heading", { name: "Captions", level: 3 })).toBeVisible();
     expect(within(sidebar).getByText("Select a pin or row to edit its caption.")).toBeVisible();
-    expect(within(sidebar).getByLabelText("2 total annotations")).toHaveTextContent("2");
+    const count = sidebar.querySelector(".sc-media-workspace__sidebar-count");
+    expect(count).not.toHaveAttribute("aria-label");
+    expect(within(count as HTMLElement).getByText("2 total annotations")).toHaveClass("sc-sr-only");
     expect(within(list).getAllByRole("listitem")).toHaveLength(1);
     expect(
       within(list).getByRole("button", { name: "Select annotation 1 caption" }),

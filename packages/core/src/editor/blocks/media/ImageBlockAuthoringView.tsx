@@ -1,4 +1,5 @@
 import { type NodeViewProps } from "@tiptap/react";
+import { useRef } from "react";
 
 import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
 import { MediaReplaceButton } from "@/ui/components/app/MediaReplaceButton/MediaReplaceButton";
@@ -41,6 +42,7 @@ function applyImagePickerResult(result: FilePickerResult): ImageBlockAttrs | nul
 
 export function ImageBlockAuthoringView(props: NodeViewProps) {
   const mediaPort = useMediaPort();
+  const pickerTriggerRef = useRef<HTMLButtonElement>(null);
   const data = parseImageBlockData(props.node.attrs["data"]);
   const pickerKey = nodeViewUiStateKey({
     owner: "image-block",
@@ -62,6 +64,7 @@ export function ImageBlockAuthoringView(props: NodeViewProps) {
       resolvedUrl={resolvedUrl}
       emptyAction={
         <MediaEmptyAction
+          ref={pickerTriggerRef}
           {...authoringMovementSnapshotChromeAttributes()}
           onClick={() => setOpen(true)}
           aria-label="Add image"
@@ -72,6 +75,7 @@ export function ImageBlockAuthoringView(props: NodeViewProps) {
       replaceAction={
         resolvedUrl ? (
           <MediaReplaceButton
+            ref={pickerTriggerRef}
             {...authoringMovementSnapshotChromeAttributes()}
             onClick={() => setOpen(true)}
             aria-label="Replace image"
@@ -87,6 +91,7 @@ export function ImageBlockAuthoringView(props: NodeViewProps) {
         defaultMediaType="image"
         title={data ? "Replace image" : "Add image"}
         onResolved={handlePickerResolved}
+        returnFocusRef={pickerTriggerRef}
       />
     </ImageBlockSurface>
   );

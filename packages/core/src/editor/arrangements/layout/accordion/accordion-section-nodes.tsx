@@ -107,6 +107,7 @@ function AccordionSectionTitleView(props: NodeViewProps) {
     context.toggleAccordionSection(context.layoutId, context.sectionId, {
       allowMultiple: context.allowMultiple,
       defaultOpenIds: context.defaultOpenIds,
+      origin: editable ? "direct" : "learner",
     });
   };
 

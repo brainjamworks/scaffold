@@ -60,6 +60,7 @@ export function DataGridEditor({
   value,
 }: DataGridEditorProps) {
   const [isPasteOpen, setIsPasteOpen] = useState(false);
+  const gridShellRef = useRef<HTMLDivElement | null>(null);
   const headerEditCallbackRef = useRef<HeaderEditCallbackRef["current"]>(null);
   const headerInputIdPrefix = useId();
   const pastePanelId = useId();
@@ -93,6 +94,28 @@ export function DataGridEditor({
     GRID_HEADER_HEIGHT +
     Math.min(GRID_MAX_VISIBLE_ROWS, Math.max(GRID_MIN_VISIBLE_ROWS, value.rows.length)) *
       GRID_ROW_HEIGHT;
+
+  useEffect(() => {
+    const shell = gridShellRef.current;
+    if (!shell) return undefined;
+
+    const repair = () => {
+      repairRevoGridAria(shell, {
+        columnCount: value.headers.length,
+        rowCount: value.rows.length,
+      });
+    };
+    repair();
+
+    const observer = new MutationObserver(repair);
+    observer.observe(shell, {
+      attributeFilter: ["data-rgcol", "data-rgrow"],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+    return () => observer.disconnect();
+  }, [value.headers.length, value.rows.length]);
 
   const revoColumns = useMemo(
     () =>
@@ -226,7 +249,11 @@ export function DataGridEditor({
       role="group"
       {...labelProps}
     >
-      <div className="sc-settings-data-grid__grid-shell" style={{ height: gridHeight }}>
+      <div
+        ref={gridShellRef}
+        className="sc-settings-data-grid__grid-shell"
+        style={{ height: gridHeight }}
+      >
         <RevoGrid
           canFocus
           className="sc-settings-data-grid__grid"
@@ -354,6 +381,82 @@ export function DataGridEditor({
       )}
     </div>
   );
+}
+
+interface RevoGridAriaDimensions {
+  columnCount: number;
+  rowCount: number;
+}
+
+/**
+ * RevoGrid's WCAG plugin currently emits zero-based indices and omits the
+ * row/rowgroup ownership required by the ARIA grid pattern. Repair the live,
+ * virtualised DOM at our App-owned adapter boundary until the upstream
+ * component projects a valid hierarchy itself.
+ */
+export function repairRevoGridAria(
+  root: ParentNode,
+  { columnCount, rowCount }: RevoGridAriaDimensions,
+): void {
+  const grid = root.querySelector("revo-grid");
+  if (!(grid instanceof HTMLElement)) return;
+
+  grid.setAttribute("role", "grid");
+  grid.setAttribute("aria-colcount", String(columnCount));
+  grid.setAttribute("aria-rowcount", String(rowCount + 1));
+
+  grid.querySelectorAll("revogr-attribution").forEach((attribution) => {
+    attribution.setAttribute("aria-hidden", "true");
+    attribution.querySelectorAll<HTMLElement>("a, button").forEach((control) => {
+      control.setAttribute("tabindex", "-1");
+    });
+  });
+
+  grid.querySelectorAll("revogr-header").forEach((header) => {
+    header.setAttribute("role", "rowgroup");
+  });
+  grid.querySelectorAll(".header-rgRow").forEach((row) => {
+    row.setAttribute("role", "row");
+    row.setAttribute("aria-rowindex", "1");
+  });
+  grid.querySelectorAll<HTMLElement>(".rgHeaderCell[data-rgcol]").forEach((cell) => {
+    cell.setAttribute("role", "columnheader");
+    cell.setAttribute("aria-colindex", String(readGridIndex(cell, "data-rgcol") + 1));
+  });
+
+  grid.querySelectorAll('revogr-data[slot="content"]').forEach((rowHeaders) => {
+    rowHeaders.setAttribute("aria-hidden", "true");
+  });
+  grid
+    .querySelectorAll("revogr-row-headers, revogr-viewport-scroll[row-header]")
+    .forEach((rowHeaders) => {
+      rowHeaders.setAttribute("aria-hidden", "true");
+    });
+  grid.querySelectorAll('revogr-data[slot="data"]').forEach((data) => {
+    const rows = data.querySelectorAll<HTMLElement>(".rgRow[data-rgrow]");
+    if (rows.length === 0) {
+      data.removeAttribute("role");
+      data.setAttribute("aria-hidden", "true");
+      return;
+    }
+
+    data.removeAttribute("aria-hidden");
+    data.setAttribute("role", "rowgroup");
+    rows.forEach((row) => {
+      row.setAttribute("role", "row");
+      row.setAttribute("aria-rowindex", String(readGridIndex(row, "data-rgrow") + 2));
+    });
+    data.querySelectorAll<HTMLElement>(".rgCell[data-rgcol][data-rgrow]").forEach((cell) => {
+      cell.setAttribute("role", "gridcell");
+      cell.setAttribute("aria-colindex", String(readGridIndex(cell, "data-rgcol") + 1));
+      cell.setAttribute("aria-rowindex", String(readGridIndex(cell, "data-rgrow") + 2));
+    });
+  });
+}
+
+function readGridIndex(element: Element, attribute: "data-rgcol" | "data-rgrow"): number {
+  const value = Number(element.getAttribute(attribute));
+  return Number.isInteger(value) && value >= 0 ? value : 0;
 }
 
 type HeaderTemplateProps = ColumnTemplateProp & {

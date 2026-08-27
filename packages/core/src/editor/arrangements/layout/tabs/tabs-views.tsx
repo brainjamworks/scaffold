@@ -135,7 +135,11 @@ export function TabsLayoutView(props: LayoutComponentProps) {
 
   return (
     <div className="sc-course-tabs">
-      <TabsList label={options.label} variant={renderTabsVariant(options.variant)}>
+      <TabsList
+        label={options.label}
+        ownedTabIds={sections.map((section) => tabTriggerId(layoutId, section.id))}
+        variant={renderTabsVariant(options.variant)}
+      >
         {sections.map((section, index) => (
           <TabsAuthoringItem
             key={section.id}

@@ -66,6 +66,14 @@
     text-overflow: ellipsis;
   }
 
+  .sc-course-tabs__item:has(.sc-app-tabs-handle) .sc-course-tabs__trigger-label {
+    margin-inline-start: 1.25rem;
+  }
+
+  .sc-course-tabs__item:has(.sc-app-tabs-action) .sc-course-tabs__trigger-label {
+    margin-inline-end: 1rem;
+  }
+
   .sc-app-tabs-add {
     flex: 0 0 auto;
     white-space: nowrap;
@@ -174,7 +182,7 @@
   }
 
   .sc-course-tabs__list[data-variant="pills"] > .sc-app-block-add.sc-app-tabs-add {
-    min-height: 2.25rem;
+    min-height: var(--spacing-touch-target);
     padding: 0.5rem 0.75rem;
     border-radius: 9999px;
   }

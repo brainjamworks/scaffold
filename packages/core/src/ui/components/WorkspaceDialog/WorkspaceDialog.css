@@ -125,8 +125,16 @@
       animation: sc-workspace-dialog-content-in 220ms var(--ease-out-soft);
     }
 
+    /*
+     * Radix keeps animated content mounted until its exit animation ends.
+     * WorkspaceDialog wraps Content in FocusScope/RemoveScroll; in Chromium
+     * that composition can miss the exit animation event and leave the
+     * closed workspace visibly mounted. Close synchronously and retain the
+     * short entrance motion, which preserves reliable dismissal and focus
+     * restoration.
+     */
     :where(.sc-workspace-dialog-content)[data-state="closed"] {
-      animation: sc-workspace-dialog-content-out 220ms var(--ease-out-soft);
+      animation: none;
     }
   }
 
@@ -144,13 +152,6 @@
 
   @keyframes sc-workspace-dialog-content-in {
     from {
-      opacity: 0;
-      transform: translate(-50%, -48%) scale(0.98);
-    }
-  }
-
-  @keyframes sc-workspace-dialog-content-out {
-    to {
       opacity: 0;
       transform: translate(-50%, -48%) scale(0.98);
     }

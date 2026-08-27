@@ -7,3 +7,12 @@
     border-width: 2px;
   }
 }
+
+/* Course text-selection recipes are intentionally unlayered. This equally
+ * unlayered authoring accommodation prevents those colors obscuring an atomic
+ * image while ProseMirror's node selection supplies the App resize chrome. */
+.ProseMirror-selectednode
+  > .sc-course-image-block[data-authoring-frame="block"]
+  .sc-course-image-block__media::selection {
+  background: transparent;
+}
