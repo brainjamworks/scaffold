@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { CircleIcon } from "@phosphor-icons/react";
+import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { Editor, Extension, Node, getSchema } from "@tiptap/core";
 import { EditorContent, NodeViewContent } from "@tiptap/react";
 import { cleanup, render, waitFor } from "@testing-library/react";
@@ -15,6 +16,11 @@ import {
   type SurfaceCapability,
 } from "@/composition/application/create-scaffold-application";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
+import {
+  getControlBindingRegistryForEditor,
+  getControlCapabilityCatalogueForEditor,
+  type ControlEventListener,
+} from "@/document/control-binding";
 import { CellRuntimeNode, GridRuntimeNode } from "@/editor/arrangements/grid/runtime/grid-nodes";
 import {
   LayoutRuntimeNode,
@@ -22,6 +28,7 @@ import {
 } from "@/editor/arrangements/layout/runtime/layout-nodes";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInBlockRuntimeBindings } from "@/editor/blocks/runtime-block-extensions";
+import { defineBlock } from "@/editor/blocks/block-definition";
 import type { LayoutRuntimeViewProps } from "@/editor/arrangements/layout/runtime/layout-view-definition";
 import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
@@ -177,6 +184,7 @@ describe("createCourseDocumentRuntimeExtensions", () => {
       expect(runtimeExtensionNames).not.toContain(authoringOnlyName);
     }
   });
+
 
   it("configures identity for every eligible mounted node without mutating runtime documents", () => {
     const extensions = createCourseDocumentRuntimeExtensions({
@@ -367,6 +375,71 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     }
   });
 
+  it("keeps runtime control resolution current through feature and controller lifecycle", () => {
+    const capability = controlledHostBlockCapability("controlled_runtime_block");
+    const application = createScaffoldApplication({
+      packs: [defineScaffoldExtensionPack({ id: "controlled-runtime", blocks: [capability] })],
+    });
+    const editor = new Editor({
+      editable: false,
+      extensions: createCourseDocumentRuntimeExtensions({ composition: application.runtime }),
+      content: contributedIdentityDocument(capability.definition.nodeType),
+    });
+    const ownerId = "hostRoot0001" as EmbeddedNodeId;
+    const listeners = new Set<ControlEventListener>();
+    const binding = {
+      ownerId,
+      eventSource: {
+        subscribe(listener: ControlEventListener) {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+      },
+      stateReader: { read: () => true },
+    };
+
+    try {
+      const initialCatalogue = getControlCapabilityCatalogueForEditor(editor);
+      const initialResolution = initialCatalogue.resolve(ownerId);
+      expect(initialResolution.isOk()).toBe(true);
+      expect(getControlCapabilityCatalogueForEditor(editor)).toBe(initialCatalogue);
+
+      const registry = getControlBindingRegistryForEditor(editor);
+      const unregisterFirst = registry.register(binding);
+      registry.get(ownerId)?.eventSource?.subscribe(() => undefined);
+      expect(listeners.size).toBe(1);
+      unregisterFirst();
+      expect(registry.get(ownerId)).toBeUndefined();
+      expect(listeners.size).toBe(0);
+
+      registry.register(binding);
+      const mounted = registry.get(ownerId);
+      mounted?.eventSource?.subscribe(() => undefined);
+      expect(listeners.size).toBe(1);
+
+      replaceNodeWithParagraph(editor, capability.definition.nodeType);
+      expect(documentContainsNodeType(editor, capability.definition.nodeType)).toBe(false);
+
+      const replacedCatalogue = getControlCapabilityCatalogueForEditor(editor);
+      const replacedResolution = replacedCatalogue.resolve(ownerId);
+      expect(replacedCatalogue).not.toBe(initialCatalogue);
+      expect(replacedResolution.isErr()).toBe(true);
+      if (replacedResolution.isOk()) throw new Error("Expected deleted runtime target.");
+      expect(replacedResolution.error).toEqual({ reason: "target-not-public", targetId: ownerId });
+      expect(() => mounted?.stateReader?.read({ targetId: ownerId, key: "ready" })).toThrow(
+        `Control owner "${ownerId}" is not public.`,
+      );
+
+      editor.destroy();
+      expect(listeners.size).toBe(0);
+      expect(() => registry.register(binding)).toThrow(
+        "Cannot register a Control Binding after registry disposal.",
+      );
+    } finally {
+      editor.destroy();
+    }
+  });
+
   it("keeps host Block registries and runtime schemas isolated between applications", () => {
     const first = hostBlockCapability("first_runtime_host_block");
     const second = hostBlockCapability("second_runtime_host_block");
@@ -473,6 +546,7 @@ function hostBlockCapability(nodeType: string): BlockCapability {
   return {
     definition: {
       nodeType,
+      title: nodeType,
       frame: { resizable: true },
     },
     authoringExtension: Extension.create({
@@ -544,6 +618,55 @@ function hostBlockCapability(nodeType: string): BlockCapability {
       ],
     }),
   };
+}
+
+function controlledHostBlockCapability(nodeType: string): BlockCapability {
+  const capability = hostBlockCapability(nodeType);
+  return {
+    ...capability,
+    definition: defineBlock({
+      nodeType,
+      title: "Controlled runtime block",
+      ...(capability.definition.frame ? { frame: capability.definition.frame } : {}),
+      documentSemantics: { describe: () => ({ label: "Controlled runtime block" }) },
+      control: {
+        owner: {
+          events: [{ type: "changed", label: "Changed" }],
+          states: [{ key: "ready", label: "Ready", valueType: { kind: "boolean" } }],
+        },
+      },
+    }),
+  };
+}
+
+function replaceNodeWithParagraph(editor: Editor, nodeType: string): void {
+  let target: { readonly pos: number; readonly nodeSize: number } | null = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name !== nodeType) return true;
+    target = { pos, nodeSize: node.nodeSize };
+    return false;
+  });
+  const mountedTarget = target as { readonly pos: number; readonly nodeSize: number } | null;
+  if (!mountedTarget) throw new Error(`Expected runtime node ${nodeType}.`);
+  const paragraph = editor.schema.nodes["paragraph"];
+  if (!paragraph) throw new Error("Expected runtime paragraph schema.");
+  editor.view.dispatch(
+    editor.state.tr.replaceWith(
+      mountedTarget.pos,
+      mountedTarget.pos + mountedTarget.nodeSize,
+      paragraph.create({ id: "replacePara01" }, editor.schema.text("Replacement")),
+    ).setMeta("studentGuard", "allow"),
+  );
+}
+
+function documentContainsNodeType(editor: Editor, nodeType: string): boolean {
+  let found = false;
+  editor.state.doc.descendants((node) => {
+    if (node.type.name !== nodeType) return true;
+    found = true;
+    return false;
+  });
+  return found;
 }
 
 function contributedIdentityDocument(nodeType: string) {

@@ -4,6 +4,10 @@ import type { Icon } from "@phosphor-icons/react";
 
 import type { ConfigurationDefinition } from "@/editor/configuration/definition";
 import {
+  normalizeControlDefinition,
+  type ControlDefinition,
+} from "@/document/control-binding";
+import {
   normalizeDocumentSemanticsDefinition,
   type DocumentSemanticsDefinition,
 } from "@/document/model/semantic-document";
@@ -73,6 +77,7 @@ export interface LayoutDefinition {
   readonly placeholders?: LayoutPlaceholderDefinition;
   readonly section?: LayoutSectionDefinition;
   readonly documentSemantics?: DocumentSemanticsDefinition;
+  readonly control?: ControlDefinition;
 }
 
 export interface RegisteredLayoutSectionDefinition extends LayoutSectionDefinition {
@@ -88,11 +93,13 @@ export interface RegisteredLayoutDefinition extends LayoutDefinition {
 }
 
 export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefinition {
+  const { control: controlInput, ...definitionWithoutControl } = definition;
   const quickMenu = deriveQuickMenuDefinition(definition.configuration);
   const settingsSheet = deriveSettingsSheetDefinition(definition.configuration);
   const sectionQuickMenu = deriveQuickMenuDefinition(definition.section?.configuration);
   const sectionSettingsSheet = deriveSettingsSheetDefinition(definition.section?.configuration);
   const documentSemantics = normalizeDocumentSemanticsDefinition(definition.documentSemantics);
+  const control = normalizeControlDefinition(controlInput);
   const keywords = definition.keywords ? Object.freeze([...definition.keywords]) : undefined;
   const placeholders = definition.placeholders
     ? Object.freeze({ ...definition.placeholders })
@@ -119,7 +126,7 @@ export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefi
       })()
     : undefined;
   return Object.freeze({
-    ...definition,
+    ...definitionWithoutControl,
     nodeType: "layout",
     ...(keywords ? { keywords } : {}),
     ...(placeholders ? { placeholders } : {}),
@@ -127,6 +134,7 @@ export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefi
     ...(layoutSettingsSheet ? { settingsSheet: layoutSettingsSheet } : {}),
     ...(section ? { section } : {}),
     ...(documentSemantics ? { documentSemantics } : {}),
+    ...(control ? { control } : {}),
   });
 }
 

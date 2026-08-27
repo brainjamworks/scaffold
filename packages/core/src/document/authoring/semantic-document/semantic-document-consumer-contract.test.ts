@@ -5,14 +5,31 @@ import { resolve } from "node:path";
 
 import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { Editor } from "@tiptap/core";
+import { EditorContent, NodeViewContent, NodeViewWrapper } from "@tiptap/react";
+import { cleanup, render, waitFor } from "@testing-library/react";
+import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
+import {
+  createScaffoldApplication,
+  defineScaffoldExtensionPack,
+  type SurfaceCapability,
+} from "@/composition/application/create-scaffold-application";
+import {
+  createCourseDocumentAuthoringEnvironment,
+  getCourseDocumentAuthoringEnvironmentState,
+} from "@/composition/authoring/create-authoring-composition";
+import {
+  getControlBindingRegistryForEditor,
+  getControlCapabilityCatalogueForEditor,
+} from "@/document/control-binding";
 import {
   APPROVED_SEMANTIC_MEMBER_FAMILY_CASES,
   SEMANTIC_LIFECYCLE_AUTHORING_STATE,
   createCompleteSemanticLifecycleDocument,
 } from "@/document/model/semantic-document/testing/semantic-publication-lifecycle-fixtures";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 
 import {
   getSemanticDocumentControllerForEditor,
@@ -21,8 +38,19 @@ import {
 } from "./index";
 
 const editors: Editor[] = [];
+const CURRENT_SURFACE_ID = EmbeddedNodeIdSchema.parse("surfaceCur01");
+const OTHER_SURFACE_ID = EmbeddedNodeIdSchema.parse("surfaceOth01");
+const CURRENT_LAYOUT_ID = EmbeddedNodeIdSchema.parse("layoutCur001");
+const OTHER_LAYOUT_ID = EmbeddedNodeIdSchema.parse("layoutOth001");
+const CURRENT_SECTION_IDS = [
+  EmbeddedNodeIdSchema.parse("sectionCur01"),
+  EmbeddedNodeIdSchema.parse("sectionCur02"),
+] as const;
+const OTHER_SECTION_ID = EmbeddedNodeIdSchema.parse("sectionOth01");
+const CONTROLLED_SURFACE_VARIANT = "control-intersection-surface";
 
 afterEach(() => {
+  cleanup();
   for (const editor of editors.splice(0)) editor.destroy();
 });
 
@@ -122,6 +150,48 @@ describe("semantic document internal consumer contract", () => {
     timeline.destroy();
   });
 
+  it("intersects current-Surface catalogue targets with mounted owner membership", async () => {
+    const editor = createControlIntersectionEditor();
+    render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
+    const controller = getSemanticDocumentControllerForEditor(editor);
+    controller.reportComponentSelection(CURRENT_SURFACE_ID);
+    const snapshot = controller.getSnapshot().semantics;
+    const catalogue = getControlCapabilityCatalogueForEditor(editor);
+    const registry = getControlBindingRegistryForEditor(editor);
+
+    await waitFor(() => {
+      expect(registry.get(CURRENT_LAYOUT_ID)).toBeDefined();
+      expect(registry.get(OTHER_LAYOUT_ID)).toBeDefined();
+    });
+
+    const actionableCurrentSurfaceTargets = [...snapshot.itemById.keys()].flatMap((targetId) => {
+      if (snapshot.locationById.get(targetId)?.surfaceId !== CURRENT_SURFACE_ID) return [];
+      const resolved = catalogue.resolve(targetId);
+      if (resolved.isErr()) return [];
+      return registry.get(resolved.value.ownerId) ? [resolved.value] : [];
+    });
+
+    expect(controller.getSnapshot().selectedId).toBe(CURRENT_SURFACE_ID);
+    expect(actionableCurrentSurfaceTargets.map(({ targetId }) => targetId)).toEqual(
+      CURRENT_SECTION_IDS,
+    );
+    const unmountedSurface = catalogue.resolve(CURRENT_SURFACE_ID);
+    expect(unmountedSurface.isOk()).toBe(true);
+    if (unmountedSurface.isErr()) throw new Error("Expected controlled current Surface.");
+    expect(unmountedSurface.value.ownerId).toBe(CURRENT_SURFACE_ID);
+    expect(registry.get(unmountedSurface.value.ownerId)).toBeUndefined();
+    expect(actionableCurrentSurfaceTargets).not.toContainEqual(unmountedSurface.value);
+
+    const mountedOtherSurfaceTarget = catalogue.resolve(OTHER_SECTION_ID);
+    expect(mountedOtherSurfaceTarget.isOk()).toBe(true);
+    if (mountedOtherSurfaceTarget.isErr()) {
+      throw new Error("Expected controlled target on the other Surface.");
+    }
+    expect(registry.get(mountedOtherSurfaceTarget.value.ownerId)).toBeDefined();
+    expect(snapshot.locationById.get(OTHER_SECTION_ID)?.surfaceId).toBe(OTHER_SURFACE_ID);
+    expect(actionableCurrentSurfaceTargets).not.toContainEqual(mountedOtherSurfaceTarget.value);
+  });
+
   it("keeps the internal seam out of the host-facing authoring entrypoint", () => {
     const authoringEntrypoint = readFileSync(resolve("src/entrypoints/authoring.ts"), "utf8");
     const outlineSource = readFileSync(
@@ -158,6 +228,111 @@ function createEditor(): Editor {
   });
   editors.push(editor);
   return editor;
+}
+
+function createControlIntersectionEditor(): Editor {
+  const application = createScaffoldApplication({
+    packs: [
+      defineScaffoldExtensionPack({
+        id: "control-intersection",
+        surfaces: [controlIntersectionSurfaceCapability()],
+      }),
+    ],
+  });
+  const environment = createCourseDocumentAuthoringEnvironment({
+    composition: application.authoring,
+    editable: true,
+  });
+  const editor = new Editor({
+    editable: true,
+    extensions: getCourseDocumentAuthoringEnvironmentState(environment).extensions,
+    content: controlIntersectionDocument(),
+  });
+  editors.push(editor);
+  return editor;
+}
+
+function controlIntersectionSurfaceCapability(): SurfaceCapability {
+  return {
+    definition: {
+      id: CONTROLLED_SURFACE_VARIANT,
+      modes: ["slideshow"],
+      title: "Control intersection Surface",
+      description: "Test-only Surface with static capability and no mounted binding",
+      control: {
+        owner: { commands: [{ type: "advance", label: "Advance" }] },
+      },
+      createSurface: ({ surfaceId }) => ({
+        type: "surface",
+        attrs: { id: surfaceId, variant: CONTROLLED_SURFACE_VARIANT, settings: {} },
+        content: [{ type: "paragraph" }],
+      }),
+    },
+    authoringView: {
+      variantId: CONTROLLED_SURFACE_VARIANT,
+      component: ControlIntersectionSurfaceView,
+    },
+    runtimeView: {
+      variantId: CONTROLLED_SURFACE_VARIANT,
+      component: ControlIntersectionSurfaceView,
+    },
+  };
+}
+
+function ControlIntersectionSurfaceView() {
+  return createElement(NodeViewWrapper, {}, createElement(NodeViewContent));
+}
+
+function controlIntersectionDocument() {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: { id: "courseCtrl01", mode: "slideshow" },
+        content: [
+          {
+            type: "courseSection",
+            attrs: { id: "courseSec001", title: "Control intersection" },
+          },
+          controlIntersectionSurface(CURRENT_SURFACE_ID, CURRENT_LAYOUT_ID, CURRENT_SECTION_IDS),
+          controlIntersectionSurface(OTHER_SURFACE_ID, OTHER_LAYOUT_ID, [OTHER_SECTION_ID]),
+        ],
+      },
+    ],
+  };
+}
+
+function controlIntersectionSurface(
+  surfaceId: EmbeddedNodeId,
+  layoutId: EmbeddedNodeId,
+  sectionIds: readonly EmbeddedNodeId[],
+) {
+  return {
+    type: "surface",
+    attrs: { id: surfaceId, variant: CONTROLLED_SURFACE_VARIANT, settings: {} },
+    content: [
+      {
+        type: "layout",
+        attrs: {
+          id: layoutId,
+          variant: "tabs",
+          options: { label: "Controlled sections", variant: "default" },
+        },
+        content: sectionIds.map((sectionId, index) => ({
+          type: "section",
+          attrs: { id: sectionId, options: { label: `Section ${index + 1}` } },
+          content: [
+            {
+              type: "paragraph",
+              attrs: { id: EmbeddedNodeIdSchema.parse(`para${surfaceId.slice(-7)}${index}`) },
+              content: [{ type: "text", text: `Section ${index + 1}` }],
+            },
+          ],
+        })),
+      },
+    ],
+  };
 }
 
 function ancestorIds(

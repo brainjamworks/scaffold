@@ -2,6 +2,10 @@ import { Extension } from "@tiptap/core";
 import { Plugin } from "@tiptap/pm/state";
 
 import type { SemanticDefinitionLookup } from "@/document/model/semantic-document";
+import {
+  createControlBindingRegistryStorageExtension,
+  createControlCapabilityCatalogueStorageExtension,
+} from "@/document/control-binding";
 import { createSemanticTargetInteractionEnvironmentStorageExtension } from "@/document/semantic-target-interaction";
 
 import { SemanticDocumentController } from "./semantic-document-controller";
@@ -13,6 +17,28 @@ export function createSemanticDocumentExtension(definitions: SemanticDefinitionL
 
     addExtensions() {
       return [
+        createControlCapabilityCatalogueStorageExtension({
+          getCatalogue: (editor) => {
+            const controller = semanticDocumentPluginKey.getState(editor.state);
+            if (!controller) {
+              throw new Error(
+                "Semantic Document Controller extension is not installed for this editor",
+              );
+            }
+            return controller.getControlCapabilityCatalogue();
+          },
+        }),
+        createControlBindingRegistryStorageExtension({
+          getRegistry: (editor) => {
+            const controller = semanticDocumentPluginKey.getState(editor.state);
+            if (!controller) {
+              throw new Error(
+                "Semantic Document Controller extension is not installed for this editor",
+              );
+            }
+            return controller.controlBindings;
+          },
+        }),
         createSemanticTargetInteractionEnvironmentStorageExtension({
           getEnvironment: (editor) => {
             const controller = semanticDocumentPluginKey.getState(editor.state);

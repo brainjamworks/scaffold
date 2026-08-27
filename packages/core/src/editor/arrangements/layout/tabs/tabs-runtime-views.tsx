@@ -34,6 +34,7 @@ import {
   tabPanelId,
   type TabsSectionSummary,
 } from "./tabs-components";
+import { useTabsControlBinding } from "./tabs-control-binding";
 
 import "@/editor/bounded-containers/view/bounded-container.css";
 import { BoundedScrollHint } from "@/editor/bounded-containers/view/bounded-scroll";
@@ -64,6 +65,12 @@ export function TabsLayoutRuntimeView(props: LayoutRuntimeViewProps) {
     sectionId: string;
   } | null>(null);
   const activeIndex = sections.findIndex((section) => section.id === activeId);
+  const commitLearnerSelection = useTabsControlBinding({
+    editor: props.editor,
+    getPos: props.getPos,
+    layoutId,
+    node: props.node,
+  });
 
   useLayoutSemanticActivationBinding({
     editor: props.editor,
@@ -87,7 +94,8 @@ export function TabsLayoutRuntimeView(props: LayoutRuntimeViewProps) {
     }
     if (!activeId || activeIndex < 0) return;
     if (
-      lastSectionChange?.origin === "semantic-activation" &&
+      (lastSectionChange?.origin === "semantic-activation" ||
+        lastSectionChange?.origin === "control-command") &&
       lastSectionChange.sectionId === activeId
     ) {
       recordedSectionRef.current = { reporter: learningEventReporter, sectionId: activeId };
@@ -132,14 +140,14 @@ export function TabsLayoutRuntimeView(props: LayoutRuntimeViewProps) {
                 layoutId={layoutId}
                 section={section}
                 isActive={isActive}
-                onActivate={() => setActiveTab(layoutId, section.id)}
+                onActivate={() => commitLearnerSelection(section.id)}
                 onKeyDown={(event) =>
                   handleTabsKeyDown({
                     event,
                     layoutId,
                     sectionId: section.id,
                     sections,
-                    setActiveTab,
+                    commitLearnerSelection,
                   })
                 }
               />
@@ -192,17 +200,17 @@ function handleTabsKeyDown({
   layoutId,
   sectionId,
   sections,
-  setActiveTab,
+  commitLearnerSelection,
 }: {
   event: KeyboardEvent<HTMLButtonElement>;
   layoutId: string;
   sectionId: string;
   sections: readonly TabsSectionSummary[];
-  setActiveTab: (layoutId: string, sectionId: string) => void;
+  commitLearnerSelection: (sectionId: string) => void;
 }) {
   const next = nextTabForKey({ key: event.key, sectionId, sections });
   if (!next) return;
   event.preventDefault();
-  setActiveTab(layoutId, next.id);
+  commitLearnerSelection(next.id);
   focusTabTrigger(layoutId, next.id);
 }

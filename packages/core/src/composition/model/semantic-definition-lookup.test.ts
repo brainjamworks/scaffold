@@ -16,6 +16,9 @@ describe("createSemanticDefinitionLookup", () => {
       nodeType: "host_semantic_block",
       title: "Host semantic block",
       documentSemantics: { describe, projectChildren },
+      control: {
+        owner: { events: [{ type: "submitted", label: "Submitted" }] },
+      },
       insert: {
         id: "host-semantic-block",
         title: "Insert host semantic block",
@@ -32,6 +35,11 @@ describe("createSemanticDefinitionLookup", () => {
         description: "Host layout",
         icon: CircleIcon,
         documentSemantics: { describe },
+        control: {
+          semanticChildren: {
+            section: { commands: [{ type: "select", label: "Select" }] },
+          },
+        },
         section: {
           label: "Panel",
           addLabel: "Add panel",
@@ -49,6 +57,11 @@ describe("createSemanticDefinitionLookup", () => {
         title: "Host semantic surface",
         description: "Host surface",
         documentSemantics: { describe },
+        control: {
+          owner: {
+            states: [{ key: "active", label: "Active", valueType: { kind: "boolean" } }],
+          },
+        },
         createSurface: ({ surfaceId }) => ({
           type: "surface",
           attrs: { id: surfaceId, variant: "host-semantic-surface" },
@@ -68,6 +81,7 @@ describe("createSemanticDefinitionLookup", () => {
       title: block.title,
       isAssessment: false,
       documentSemantics: block.documentSemantics,
+      control: block.control,
     });
     expect(semanticBlock).toBe(lookup.blocks.get(block.nodeType));
     expect(semanticBlock).not.toHaveProperty("insert");
@@ -75,6 +89,7 @@ describe("createSemanticDefinitionLookup", () => {
       id: "host-semantic-layout",
       title: "Host semantic layout",
       documentSemantics: layouts.getById("host-semantic-layout")?.documentSemantics,
+      control: layouts.getById("host-semantic-layout")?.control,
       section: {
         label: "Panel",
         documentSemantics: layouts.getById("host-semantic-layout")?.section?.documentSemantics,
@@ -84,6 +99,7 @@ describe("createSemanticDefinitionLookup", () => {
       id: "host-semantic-surface",
       title: "Host semantic surface",
       documentSemantics: surfaces.get("host-semantic-surface")?.documentSemantics,
+      control: surfaces.get("host-semantic-surface")?.control,
     });
     expect(lookup.blocks.get("unmounted_block")).toBeUndefined();
     expect(lookup.layouts.get("unmounted-layout")).toBeUndefined();
@@ -91,6 +107,8 @@ describe("createSemanticDefinitionLookup", () => {
     expect(Object.isFrozen(lookup)).toBe(true);
     expect(Object.isFrozen(lookup.blocks)).toBe(true);
     expect(Object.isFrozen(semanticBlock)).toBe(true);
+    expect(semanticBlock?.control).toBe(block.control);
+    expect(Object.isFrozen(semanticBlock?.control)).toBe(true);
     expect(describe).not.toHaveBeenCalled();
     expect(projectChildren).not.toHaveBeenCalled();
   });

@@ -28,6 +28,21 @@ export const tabsLayoutDefinition = {
   boundedPlacement: "fill",
   keywords: ["tabs", "panels", "sections", "switcher"],
   documentSemantics: hiddenLayoutSectionDocumentSemantics,
+  control: {
+    semanticChildren: {
+      section: {
+        events: [{ type: "selected", label: "Selected" }],
+        states: [
+          {
+            key: "selected",
+            label: "Selected",
+            valueType: { kind: "boolean" },
+          },
+        ],
+        commands: [{ type: "select", label: "Select" }],
+      },
+    },
+  },
   configuration: defineConfiguration({
     attr: "options",
     schema: TabsLayoutOptionsSchema,

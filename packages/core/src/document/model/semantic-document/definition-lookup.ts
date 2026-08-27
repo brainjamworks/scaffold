@@ -1,3 +1,5 @@
+import type { ControlDefinition } from "@/document/control-binding/control-definition";
+
 import type { DocumentSemanticsDefinition } from "./definition";
 
 export interface SemanticBlockDefinition {
@@ -5,6 +7,7 @@ export interface SemanticBlockDefinition {
   readonly title: string;
   readonly isAssessment: boolean;
   readonly documentSemantics?: DocumentSemanticsDefinition;
+  readonly control?: ControlDefinition;
 }
 
 export interface SemanticLayoutSectionDefinition {
@@ -16,6 +19,7 @@ export interface SemanticLayoutDefinition {
   readonly id: string;
   readonly title: string;
   readonly documentSemantics?: DocumentSemanticsDefinition;
+  readonly control?: ControlDefinition;
   readonly section?: SemanticLayoutSectionDefinition;
 }
 
@@ -23,6 +27,7 @@ export interface SemanticSurfaceDefinition {
   readonly id: string;
   readonly title: string;
   readonly documentSemantics?: DocumentSemanticsDefinition;
+  readonly control?: ControlDefinition;
 }
 
 export interface SemanticDefinitionLookup {

@@ -195,6 +195,7 @@ describe("surface definitions", () => {
       modes: ["page"],
       title: "Import-inert surface",
       description: "Test definition whose content factory must remain dormant.",
+      control: undefined as never,
       structurePolicy: {
         fixedChildren: [{ type: "paragraph" }],
       },
@@ -209,6 +210,7 @@ describe("surface definitions", () => {
     });
 
     expect(normalized.nodeType).toBe("surface");
+    expect(Object.hasOwn(normalized, "control")).toBe(false);
     expect(factoryCalls).toBe(0);
   });
 
@@ -234,6 +236,78 @@ describe("surface definitions", () => {
     expect(normalized.documentSemantics?.projectChildren).toBe(projectChildren);
     expect(describe).not.toHaveBeenCalled();
     expect(projectChildren).not.toHaveBeenCalled();
+  });
+
+  it("normalizes a mixed owner and semantic-child Control Definition", () => {
+    const projectChildren = vi.fn(() => []);
+    const control = {
+      owner: {
+        states: [{ key: "enabled", label: "Enabled", valueType: { kind: "boolean" } }],
+      },
+      semanticChildren: {
+        region: {
+          events: [{ type: "activated", label: "Activated" }],
+          commands: [
+            {
+              type: "set-weight",
+              label: "Set weight",
+              input: { kind: "number", min: 0, max: 10, unitLabel: "weight", step: 0.5 },
+            },
+          ],
+        },
+      },
+    } as const;
+
+    const normalized = normalizeSurfaceDefinition({
+      id: "surface-definition-control-test",
+      modes: ["page"],
+      title: "Controlled surface",
+      description: "Surface control fixture",
+      documentSemantics: { projectChildren },
+      control,
+      createSurface: ({ surfaceId }) => ({
+        type: "surface",
+        attrs: { id: surfaceId, variant: "surface-definition-control-test" },
+      }),
+    });
+
+    expect(normalized.control).toEqual(control);
+    expect(normalized.control).not.toBe(control);
+    expect(Object.isFrozen(normalized.control)).toBe(true);
+    expect(Object.isFrozen(normalized.control?.owner?.states?.[0]?.valueType)).toBe(true);
+    expect(Object.isFrozen(normalized.control?.semanticChildren?.["region"]?.commands)).toBe(true);
+    expect(
+      Object.isFrozen(normalized.control?.semanticChildren?.["region"]?.commands?.[0]?.input),
+    ).toBe(true);
+    expect(projectChildren).not.toHaveBeenCalled();
+  });
+
+  it("rejects incompatible numeric Control Definition steps", () => {
+    const definitionId = "surface-definition-invalid-control-test";
+
+    expect(() =>
+      normalizeSurfaceDefinition({
+        id: definitionId,
+        modes: ["page"],
+        title: "Invalid controlled surface",
+        description: "Invalid surface control fixture",
+        control: {
+          owner: {
+            states: [
+              {
+                key: "progress",
+                label: "Progress",
+                valueType: { kind: "number", min: 0, max: 1, unitLabel: "%", step: 0.3 },
+              },
+            ],
+          },
+        } as never,
+        createSurface: ({ surfaceId }) => ({
+          type: "surface",
+          attrs: { id: surfaceId, variant: definitionId },
+        }),
+      }),
+    ).toThrow("number step must divide the declared range");
   });
 
   it("uses fixed signatures as the only constrained slideshow structure policy", () => {

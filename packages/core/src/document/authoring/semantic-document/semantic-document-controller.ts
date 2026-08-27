@@ -3,6 +3,13 @@ import type { EditorState, Transaction } from "@tiptap/pm/state";
 
 import type { ProjectedCourseStructure } from "@/document/model/course-structure";
 import {
+  createControlBindingRegistry,
+  createControlCapabilityCatalogue,
+  type ControlBindingRegistry,
+  type ControlBindingRegistryPort,
+  type ControlCapabilityCatalogue,
+} from "@/document/control-binding";
+import {
   projectSemanticDocument,
   type SemanticDefinitionLookup,
   type SemanticDocumentSnapshot,
@@ -40,7 +47,10 @@ export interface CreateSemanticDocumentControllerInput {
 }
 
 export class SemanticDocumentController {
+  readonly controlBindings: ControlBindingRegistryPort;
   readonly semanticTargetInteractions: SemanticTargetInteractionEnvironment;
+  readonly #controlBindingRegistry: ControlBindingRegistry;
+  #controlCapabilityCatalogue: ControlCapabilityCatalogue;
   readonly #definitions: SemanticDefinitionLookup;
   readonly #interactionEnvironmentOwner: SemanticTargetInteractionEnvironmentOwner;
   readonly #listeners = new Set<() => void>();
@@ -60,6 +70,20 @@ export class SemanticDocumentController {
       selectedId,
       selectedId ? "editor" : null,
     );
+    this.#controlCapabilityCatalogue = createControlCapabilityCatalogue({
+      snapshot: this.#snapshot.semantics,
+      definitions,
+    });
+    this.#controlBindingRegistry = createControlBindingRegistry({
+      requireOwnerControlDefinition: (ownerId) =>
+        this.#controlCapabilityCatalogue.requireOwnerControlDefinition(ownerId),
+      requireOwnedTargetCapabilities: (ownerId, targetId) =>
+        this.#controlCapabilityCatalogue.requireOwnedTargetCapabilities(ownerId, targetId),
+    });
+    this.controlBindings = Object.freeze({
+      register: (binding) => this.#controlBindingRegistry.register(binding),
+      get: (ownerId) => this.#controlBindingRegistry.get(ownerId),
+    });
     this.#interactionEnvironmentOwner = createSemanticTargetInteractionEnvironment({
       getSemantics: () => this.#snapshot.semantics,
       getCourseStructure: () => this.#courseStructure,
@@ -84,6 +108,9 @@ export class SemanticDocumentController {
   }
 
   readonly getSnapshot = (): SemanticDocumentControllerSnapshot => this.#snapshot;
+
+  readonly getControlCapabilityCatalogue = (): ControlCapabilityCatalogue =>
+    this.#controlCapabilityCatalogue;
 
   readonly subscribe = (listener: () => void): (() => void) => {
     if (this.#destroyed) return () => undefined;
@@ -172,12 +199,19 @@ export class SemanticDocumentController {
       return;
     }
     this.#snapshot = createControllerSnapshot(semantics, selectedId, selectionOrigin);
+    if (projected) {
+      this.#controlCapabilityCatalogue = createControlCapabilityCatalogue({
+        snapshot: semantics,
+        definitions: this.#definitions,
+      });
+    }
     this.#publish();
   }
 
   destroy(): void {
     this.#destroyed = true;
     this.#navigation.interrupt();
+    this.#controlBindingRegistry.dispose();
     this.#interactionEnvironmentOwner.dispose();
     this.#navigationEnvironment = null;
     this.#listeners.clear();

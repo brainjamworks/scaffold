@@ -16,6 +16,15 @@ import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extens
 import { createCourseDocumentBaseExtensions } from "@/composition/model/create-document-composition";
 import { createCourseSectionNode } from "@/document/model/nodes";
 import {
+  createControlBindingRegistry,
+  createControlBindingRegistryStorageExtension,
+  createControlCapabilityCatalogue,
+  createControlCapabilityCatalogueStorageExtension,
+  type ControlBindingRegistry,
+  type ControlBindingRegistryPort,
+  type ControlCapabilityCatalogue,
+} from "@/document/control-binding";
+import {
   projectCourseStructure,
   type ProjectedCourseStructure,
 } from "@/document/model/course-structure";
@@ -41,8 +50,8 @@ import "@/editor/rich-text/view/text-alignment.css";
 
 import type { ScaffoldRuntimeComposition } from "./scaffold-runtime-composition";
 
-const runtimeSemanticTargetInteractionPluginKey =
-  new PluginKey<RuntimeSemanticTargetInteractionController>("runtimeSemanticTargetInteraction");
+const runtimeSemanticDocumentPluginKey =
+  new PluginKey<RuntimeSemanticDocumentController>("runtimeSemanticDocument");
 
 export function createCourseDocumentRuntimeExtensions({
   composition,
@@ -63,7 +72,7 @@ export function createCourseDocumentRuntimeExtensions({
   return [
     createScaffoldCapabilitiesStorageExtension(composition.capabilities),
     RuntimeSurfaceVisibility,
-    createRuntimeSemanticTargetInteractionExtension(composition.documentSemantics),
+    createRuntimeSemanticDocumentExtension(composition.documentSemantics),
     ContentLayoutProjectionExtension,
     ...createCourseDocumentBaseExtensions({
       assessmentActionsGroupNode: AssessmentActionsGroupRuntimeNode,
@@ -89,17 +98,21 @@ export function createCourseDocumentRuntimeExtensions({
   ];
 }
 
-interface RuntimeSemanticSnapshotSource {
+interface RuntimeSemanticDocumentSnapshotSource {
   readonly semantics: SemanticDocumentSnapshot;
   readonly courseStructure: ProjectedCourseStructure;
 }
 
-class RuntimeSemanticTargetInteractionController {
+class RuntimeSemanticDocumentController {
+  readonly controlBindings: ControlBindingRegistryPort;
   readonly environment: SemanticTargetInteractionEnvironment;
+  readonly #controlBindingRegistry: ControlBindingRegistry;
+  #controlCapabilityCatalogue: ControlCapabilityCatalogue | null = null;
+  #controlCapabilityCatalogueSnapshot: SemanticDocumentSnapshot | null = null;
   readonly #environmentOwner: SemanticTargetInteractionEnvironmentOwner;
   readonly #definitions: SemanticDefinitionLookup;
   #revision = 0;
-  #snapshot: RuntimeSemanticSnapshotSource | null = null;
+  #snapshot: RuntimeSemanticDocumentSnapshotSource | null = null;
   #state: EditorState;
 
   constructor({
@@ -113,6 +126,16 @@ class RuntimeSemanticTargetInteractionController {
   }) {
     this.#definitions = definitions;
     this.#state = state;
+    this.#controlBindingRegistry = createControlBindingRegistry({
+      requireOwnerControlDefinition: (ownerId) =>
+        this.getControlCapabilityCatalogue().requireOwnerControlDefinition(ownerId),
+      requireOwnedTargetCapabilities: (ownerId, targetId) =>
+        this.getControlCapabilityCatalogue().requireOwnedTargetCapabilities(ownerId, targetId),
+    });
+    this.controlBindings = Object.freeze({
+      register: (binding) => this.#controlBindingRegistry.register(binding),
+      get: (ownerId) => this.#controlBindingRegistry.get(ownerId),
+    });
     this.#environmentOwner = createSemanticTargetInteractionEnvironment({
       getSemantics: () => this.#getSnapshot().semantics,
       getCourseStructure: () => this.#getSnapshot().courseStructure,
@@ -126,6 +149,21 @@ class RuntimeSemanticTargetInteractionController {
     this.environment = this.#environmentOwner.environment;
   }
 
+  readonly getControlCapabilityCatalogue = (): ControlCapabilityCatalogue => {
+    const snapshot = this.#getSnapshot().semantics;
+    if (this.#controlCapabilityCatalogueSnapshot !== snapshot) {
+      this.#controlCapabilityCatalogue = createControlCapabilityCatalogue({
+        snapshot,
+        definitions: this.#definitions,
+      });
+      this.#controlCapabilityCatalogueSnapshot = snapshot;
+    }
+    if (!this.#controlCapabilityCatalogue) {
+      throw new Error("Runtime Control Capability Catalogue was not created");
+    }
+    return this.#controlCapabilityCatalogue;
+  };
+
   applyTransaction(transaction: Transaction, state: EditorState): void {
     if (!transaction.docChanged) return;
     this.#state = state;
@@ -134,10 +172,11 @@ class RuntimeSemanticTargetInteractionController {
   }
 
   destroy(): void {
+    this.#controlBindingRegistry.dispose();
     this.#environmentOwner.dispose();
   }
 
-  #getSnapshot(): RuntimeSemanticSnapshotSource {
+  #getSnapshot(): RuntimeSemanticDocumentSnapshotSource {
     this.#snapshot ??= projectRuntimeSemanticSnapshot(
       this.#state,
       this.#definitions,
@@ -147,30 +186,38 @@ class RuntimeSemanticTargetInteractionController {
   }
 }
 
-function createRuntimeSemanticTargetInteractionExtension(definitions: SemanticDefinitionLookup) {
+function createRuntimeSemanticDocumentExtension(definitions: SemanticDefinitionLookup) {
   return Extension.create({
-    name: "runtimeSemanticTargetInteraction",
+    name: "runtimeSemanticDocument",
 
     addExtensions() {
       return [
+        createControlCapabilityCatalogueStorageExtension({
+          getCatalogue: (editor) =>
+            requireRuntimeSemanticDocumentController(editor).getControlCapabilityCatalogue(),
+        }),
+        createControlBindingRegistryStorageExtension({
+          getRegistry: (editor) =>
+            requireRuntimeSemanticDocumentController(editor).controlBindings,
+        }),
         createSemanticTargetInteractionEnvironmentStorageExtension({
-          getEnvironment: (editor) => requireRuntimeInteractionController(editor).environment,
+          getEnvironment: (editor) => requireRuntimeSemanticDocumentController(editor).environment,
         }),
       ];
     },
 
     onDestroy() {
-      runtimeSemanticTargetInteractionPluginKey.getState(this.editor.state)?.destroy();
+      runtimeSemanticDocumentPluginKey.getState(this.editor.state)?.destroy();
     },
 
     addProseMirrorPlugins() {
       const editor = this.editor;
       return [
-        new Plugin<RuntimeSemanticTargetInteractionController>({
-          key: runtimeSemanticTargetInteractionPluginKey,
+        new Plugin<RuntimeSemanticDocumentController>({
+          key: runtimeSemanticDocumentPluginKey,
           state: {
             init: (_configuration, state) =>
-              new RuntimeSemanticTargetInteractionController({ definitions, editor, state }),
+              new RuntimeSemanticDocumentController({ definitions, editor, state }),
             apply: (transaction, controller, _oldState, newState) => {
               controller.applyTransaction(transaction, newState);
               return controller;
@@ -182,14 +229,10 @@ function createRuntimeSemanticTargetInteractionExtension(definitions: SemanticDe
   });
 }
 
-function requireRuntimeInteractionController(
-  editor: Editor,
-): RuntimeSemanticTargetInteractionController {
-  const controller = runtimeSemanticTargetInteractionPluginKey.getState(editor.state);
+function requireRuntimeSemanticDocumentController(editor: Editor): RuntimeSemanticDocumentController {
+  const controller = runtimeSemanticDocumentPluginKey.getState(editor.state);
   if (!controller) {
-    throw new Error(
-      "Runtime Semantic Target Interaction extension is not installed for this editor",
-    );
+    throw new Error("Runtime Semantic Document extension is not installed for this editor");
   }
   return controller;
 }
@@ -198,7 +241,7 @@ function projectRuntimeSemanticSnapshot(
   state: EditorState,
   definitions: SemanticDefinitionLookup,
   revision: number,
-): RuntimeSemanticSnapshotSource {
+): RuntimeSemanticDocumentSnapshotSource {
   const courseStructure = projectCourseStructure(state.doc.toJSON());
   if (!courseStructure) {
     throw new Error("Cannot project runtime semantics from invalid Course Structure");

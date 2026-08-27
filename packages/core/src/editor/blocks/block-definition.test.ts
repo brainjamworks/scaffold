@@ -53,6 +53,7 @@ describe("defineBlock", () => {
       configuration,
       frame,
       insert: insertDefinition,
+      control: undefined as never,
     });
 
     expect(definition).toMatchObject({
@@ -76,6 +77,7 @@ describe("defineBlock", () => {
       },
     });
     expect(getBlockAttrSchema(definition, "settings")).toBe(schema);
+    expect(Object.hasOwn(definition, "control")).toBe(false);
   });
 
   it("returns a shallow-frozen owned record without freezing embedded values", () => {
@@ -223,6 +225,41 @@ describe("defineBlock", () => {
     expect(Object.isFrozen(definition.documentSemantics?.presentation?.actionIds)).toBe(true);
     expect(describe).not.toHaveBeenCalled();
     expect(projectChildren).not.toHaveBeenCalled();
+  });
+
+  it("normalizes an owner Control Definition without invoking semantic callbacks", () => {
+    const projectChildren = vi.fn(() => []);
+    const control = {
+      owner: {
+        events: [{ type: "submitted", label: "Submitted" }],
+      },
+    } as const;
+
+    const definition = defineBlock({
+      nodeType: "controlled_fixture",
+      title: "Controlled fixture",
+      documentSemantics: { projectChildren },
+      control,
+    });
+
+    expect(definition.control).toEqual(control);
+    expect(definition.control).not.toBe(control);
+    expect(Object.isFrozen(definition.control)).toBe(true);
+    expect(Object.isFrozen(definition.control?.owner)).toBe(true);
+    expect(Object.isFrozen(definition.control?.owner?.events)).toBe(true);
+    expect(Object.isFrozen(definition.control?.owner?.events?.[0])).toBe(true);
+    expect(Object.isFrozen(control)).toBe(false);
+    expect(projectChildren).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed Control Definitions as broken definition invariants", () => {
+    expect(() =>
+      defineBlock({
+        nodeType: "invalid_control_fixture",
+        title: "Invalid control fixture",
+        control: { owner: {} } as never,
+      }),
+    ).toThrow('Control capability set "owner" must declare at least one capability.');
   });
 
   it("preserves concrete interaction and structural policy metadata", () => {

@@ -11,6 +11,10 @@ import type {
   AssessmentTargetSettings,
 } from "@scaffold/contracts";
 import {
+  normalizeControlDefinition,
+  type ControlDefinition,
+} from "@/document/control-binding";
+import {
   normalizeDocumentSemanticsDefinition,
   type DocumentSemanticsDefinition,
 } from "@/document/model/semantic-document";
@@ -205,6 +209,7 @@ export interface BlockDefinitionInput {
   readonly stagedBoundedHost?: BlockStagedBoundedHostDefinition;
   readonly frame?: BlockFrameDefinition;
   readonly documentSemantics?: DocumentSemanticsDefinition;
+  readonly control?: ControlDefinition;
 }
 
 export interface BlockDefinition extends BlockDefinitionInput {
@@ -214,15 +219,17 @@ export interface BlockDefinition extends BlockDefinitionInput {
 }
 
 export function defineBlock(input: BlockDefinitionInput): BlockDefinition {
+  const { control: controlInput, ...inputWithoutControl } = input;
   const attrSchemas = deriveAttrSchemas(input.configuration);
   const quickMenu = deriveQuickMenuDefinition(input.configuration);
   const settingsSheet = deriveSettingsSheetDefinition(input.configuration);
   const frame = normalizeFrameDefinition(input.frame);
   const insert = normalizeBlockInsertDefinition(input.insert);
   const documentSemantics = normalizeDocumentSemanticsDefinition(input.documentSemantics);
+  const control = normalizeControlDefinition(controlInput);
 
   return Object.freeze({
-    ...input,
+    ...inputWithoutControl,
     title: normalizeBlockTitle(input.title),
     ...(attrSchemas ? { attrSchemas } : {}),
     ...(quickMenu ? { quickMenu } : {}),
@@ -230,6 +237,7 @@ export function defineBlock(input: BlockDefinitionInput): BlockDefinition {
     ...(frame ? { frame } : {}),
     ...(insert ? { insert } : {}),
     ...(documentSemantics ? { documentSemantics } : {}),
+    ...(control ? { control } : {}),
   });
 }
 

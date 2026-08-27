@@ -2,6 +2,10 @@ import type { EmbeddedNodeId } from "@scaffold/contracts";
 import type { JSONContent } from "@tiptap/core";
 import type { ZodTypeAny } from "zod";
 
+import {
+  normalizeControlDefinition,
+  type ControlDefinition,
+} from "@/document/control-binding";
 import type { DocumentSemanticsDefinition } from "@/document/model/semantic-document";
 import {
   SurfaceSettingsSchema,
@@ -72,6 +76,7 @@ export interface SurfaceVariantDefinition {
   settingsSchema?: ZodTypeAny;
   structurePolicy?: SurfaceStructurePolicy;
   documentSemantics?: DocumentSemanticsDefinition;
+  control?: ControlDefinition;
   createSurface: (input: CreateSurfaceInput) => JSONContent;
 }
 
@@ -107,13 +112,15 @@ export function compareSurfaceCatalogueDefinitions(
 export function normalizeSurfaceDefinition(
   definition: SurfaceVariantDefinition,
 ): RegisteredSurfaceVariantDefinition {
-  validateSurfaceCatalogue(definition);
+  const { control: controlInput, ...definitionWithoutControl } = definition;
+  validateSurfaceCatalogue(definitionWithoutControl);
+  const control = normalizeControlDefinition(controlInput);
 
-  for (const mode of definition.defaultForModes ?? []) {
-    assertSurfaceSupportsDefaultMode(definition, mode);
+  for (const mode of definitionWithoutControl.defaultForModes ?? []) {
+    assertSurfaceSupportsDefaultMode(definitionWithoutControl, mode);
   }
 
-  return createRegisteredSurfaceDefinition(definition);
+  return createRegisteredSurfaceDefinition(definitionWithoutControl, control);
 }
 
 function validateSurfaceCatalogue(definition: SurfaceVariantDefinition): string | undefined {
@@ -143,9 +150,11 @@ function assertSurfaceSupportsDefaultMode(
 
 function createRegisteredSurfaceDefinition(
   definition: SurfaceVariantDefinition,
+  control: ControlDefinition | undefined,
 ): RegisteredSurfaceVariantDefinition {
   return {
     ...definition,
+    ...(control ? { control } : {}),
     nodeType: "surface",
     settingsSchema: definition.settingsSchema ?? SurfaceSettingsSchema.strict(),
   };

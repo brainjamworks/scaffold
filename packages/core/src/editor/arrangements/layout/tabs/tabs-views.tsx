@@ -43,6 +43,7 @@ import {
   type TabsSectionSummary,
 } from "./tabs-components";
 import { createTabsAuthoringReorderProjection } from "./tabs-authoring-reorder-projection";
+import { useTabsControlBinding } from "./tabs-control-binding";
 
 import "@/editor/bounded-containers/view/bounded-container.css";
 import { BoundedScrollHint } from "@/editor/bounded-containers/view/bounded-scroll";
@@ -66,6 +67,12 @@ export function TabsLayoutView(props: LayoutComponentProps) {
   });
   const activeId = normalizeActiveTabId(storedActiveId, sections);
   const addLabel = props.definition?.section?.addLabel ?? "Add tab";
+  useTabsControlBinding({
+    editor: props.editor,
+    getPos: props.getPos,
+    layoutId,
+    node: props.node,
+  });
   const activateTab = (sectionId: string, sectionIndex: number) => {
     const selectionSectionId = resolveTabsSelectionSectionId(
       props.editor.state,

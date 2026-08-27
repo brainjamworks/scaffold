@@ -14,6 +14,7 @@ import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
+import { getControlBindingRegistryForEditor } from "@/document/control-binding";
 import { semanticActivationRequest } from "@/document/authoring/semantic-document/testing/semantic-activation-binding-test-extension";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { CellRuntimeNode, GridRuntimeNode } from "@/editor/arrangements/grid/runtime/grid-nodes";
@@ -344,6 +345,49 @@ describe("layout runtime nodes", () => {
       }
     },
   );
+
+  it("treats Tabs control-command selection as programmatic", async () => {
+    learningEventReport.mockClear();
+    const testCase = SEMANTIC_RUNTIME_CASES[0];
+    const editor = new Editor({
+      editable: false,
+      extensions: createCourseDocumentRuntimeExtensions({
+        composition: semanticRuntimeComposition,
+      }),
+      content: runtimeSemanticLayoutDocument(testCase),
+    });
+
+    try {
+      render(createElement(EditorContent, { editor }));
+      const layoutId = EmbeddedNodeIdSchema.parse(testCase.layoutId);
+      const targetId = EmbeddedNodeIdSchema.parse(testCase.sectionIds[1]);
+      const registry = getControlBindingRegistryForEditor(editor);
+
+      await waitFor(() => {
+        expect(registry.get(layoutId)).toBeDefined();
+        expect(learningEventReport).toHaveBeenCalledWith(
+          expect.objectContaining({ sectionId: testCase.sectionIds[0] }),
+        );
+      });
+      learningEventReport.mockClear();
+
+      const result = await registry.get(layoutId)?.commandExecutor?.execute({
+        targetId,
+        type: "select",
+        signal: new AbortController().signal,
+      });
+
+      expect(result?.isOk()).toBe(true);
+      await waitFor(() => {
+        expect(
+          getLayoutInteractionStoreState(editor).activeTabByLayoutId[layoutId],
+        ).toBe(targetId);
+      });
+      expect(learningEventReport).not.toHaveBeenCalled();
+    } finally {
+      editor.destroy();
+    }
+  });
 
   it("renders built-in layouts without authoring chrome", async () => {
     const editor = new Editor({

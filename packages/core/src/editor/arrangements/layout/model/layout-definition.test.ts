@@ -32,6 +32,7 @@ describe("createLayoutInsertAction", () => {
       title: "Semantic layout",
       description: "Layout semantics fixture",
       icon: ColumnsIcon,
+      control: undefined as never,
       documentSemantics: {
         describe: describeLayout,
         projectChildren: projectLayoutChildren,
@@ -54,9 +55,63 @@ describe("createLayoutInsertAction", () => {
     expect(definition.documentSemantics?.projectChildren).toBe(projectLayoutChildren);
     expect(definition.section?.documentSemantics?.describe).toBe(describeSection);
     expect(definition.section?.documentSemantics?.projectChildren).toBe(projectSectionChildren);
+    expect(Object.hasOwn(definition, "control")).toBe(false);
     expect(describeLayout).not.toHaveBeenCalled();
     expect(projectLayoutChildren).not.toHaveBeenCalled();
     expect(describeSection).not.toHaveBeenCalled();
     expect(projectSectionChildren).not.toHaveBeenCalled();
+  });
+
+  it("normalizes a semantic-child-only Control Definition without invoking callbacks", () => {
+    const projectChildren = vi.fn(() => []);
+    const control = {
+      semanticChildren: {
+        section: {
+          commands: [{ type: "select", label: "Select" }],
+        },
+      },
+    } as const;
+
+    const definition = defineLayout({
+      id: "controlled-layout",
+      title: "Controlled layout",
+      description: "Controlled layout fixture",
+      icon: ColumnsIcon,
+      documentSemantics: { projectChildren },
+      control,
+      createContent: () => ({ type: "layout", attrs: { variant: "controlled-layout" } }),
+    });
+
+    expect(definition.control).toEqual(control);
+    expect(definition.control).not.toBe(control);
+    expect(definition.control?.semanticChildren).not.toBe(control.semanticChildren);
+    expect(Object.isFrozen(definition.control)).toBe(true);
+    expect(Object.isFrozen(definition.control?.semanticChildren)).toBe(true);
+    expect(Object.isFrozen(definition.control?.semanticChildren?.["section"])).toBe(true);
+    expect(Object.isFrozen(definition.control?.semanticChildren?.["section"]?.commands)).toBe(true);
+    expect(projectChildren).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate Control Definition capabilities", () => {
+    expect(() =>
+      defineLayout({
+        id: "invalid-controlled-layout",
+        title: "Invalid controlled layout",
+        description: "Invalid control fixture",
+        icon: ColumnsIcon,
+        control: {
+          owner: {
+            events: [
+              { type: "selected", label: "Selected" },
+              { type: "selected", label: "Selected again" },
+            ],
+          },
+        } as never,
+        createContent: () => ({
+          type: "layout",
+          attrs: { variant: "invalid-controlled-layout" },
+        }),
+      }),
+    ).toThrow('Control capability set "owner" contains duplicate event type "selected".');
   });
 });

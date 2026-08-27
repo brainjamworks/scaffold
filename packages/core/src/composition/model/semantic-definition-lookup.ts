@@ -60,6 +60,7 @@ function createSemanticBlockDefinition(
     title: definition.title,
     isAssessment: definition.capabilities?.assessment !== undefined,
     ...(definition.documentSemantics ? { documentSemantics: definition.documentSemantics } : {}),
+    ...(definition.control ? { control: definition.control } : {}),
   });
 }
 
@@ -70,6 +71,7 @@ function createSemanticLayoutDefinition(
     id: definition.id,
     title: definition.title,
     ...(definition.documentSemantics ? { documentSemantics: definition.documentSemantics } : {}),
+    ...(definition.control ? { control: definition.control } : {}),
     ...(definition.section ? { section: createSemanticLayoutSection(definition.section) } : {}),
   });
 }
@@ -90,5 +92,6 @@ function createSemanticSurfaceDefinition(
     id: definition.id,
     title: definition.title,
     ...(definition.documentSemantics ? { documentSemantics: definition.documentSemantics } : {}),
+    ...(definition.control ? { control: definition.control } : {}),
   });
 }

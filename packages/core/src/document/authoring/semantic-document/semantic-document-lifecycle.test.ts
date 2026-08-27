@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { SemanticLocation } from "@/document/model/semantic-document";
 import { projectAuthoringCourseStructure } from "@/document/authoring/course-structure/project-authoring-course-structure";
+import { getControlCapabilityCatalogueForEditor } from "@/document/control-binding";
 import {
   APPROVED_SEMANTIC_MEMBER_FAMILY_CASES,
   SEMANTIC_LIFECYCLE_AUTHORING_STATE,
@@ -255,6 +256,7 @@ describe("semantic document lifecycle", () => {
     const editor = createLifecycleEditor(createCompleteSemanticLifecycleDocument());
     const controller = getSemanticDocumentControllerForEditor(editor);
     const semantics = controller.getSnapshot().semantics;
+    const catalogue = getControlCapabilityCatalogueForEditor(editor);
     let replacements = 0;
     let previousSemantics = semantics;
     const unsubscribe = controller.subscribe(() => {
@@ -269,12 +271,40 @@ describe("semantic document lifecycle", () => {
 
     editor.view.dispatch(transactionForLocation(editor, targetLocation));
     expect(controller.getSnapshot().semantics).toBe(semantics);
+    expect(getControlCapabilityCatalogueForEditor(editor)).toBe(catalogue);
     expect(replacements).toBe(0);
 
     editor.view.dispatch(editor.state.tr.setMeta("presentation-activity", { active: true }));
     expect(controller.getSnapshot().semantics).toBe(semantics);
+    expect(getControlCapabilityCatalogueForEditor(editor)).toBe(catalogue);
     expect(replacements).toBe(0);
     unsubscribe();
+  });
+
+  it("replaces the current catalogue with a semantic revision and drops deleted targets", () => {
+    const editor = createLifecycleEditor(createCompleteSemanticLifecycleDocument());
+    const deletedTarget = APPROVED_SEMANTIC_MEMBER_FAMILY_CASES[2]!.memberIds.second;
+    const initial = getControlCapabilityCatalogueForEditor(editor);
+    const initialResolution = initial.resolve(deletedTarget);
+    expect(initialResolution.isErr()).toBe(true);
+    if (initialResolution.isOk()) throw new Error("Expected a passive target resolution.");
+    expect(initialResolution.error).toEqual({
+      reason: "no-declared-capabilities",
+      targetId: deletedTarget,
+    });
+
+    dispatchReplacement(editor, createReplacementDocument());
+
+    const replaced = getControlCapabilityCatalogueForEditor(editor);
+    const replacedResolution = replaced.resolve(deletedTarget);
+    expect(replaced).not.toBe(initial);
+    expect(replacedResolution.isErr()).toBe(true);
+    if (replacedResolution.isOk()) throw new Error("Expected a deleted target resolution.");
+    expect(replacedResolution.error).toEqual({
+      reason: "target-not-public",
+      targetId: deletedTarget,
+    });
+    expect(getControlCapabilityCatalogueForEditor(editor)).toBe(replaced);
   });
 });
 

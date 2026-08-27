@@ -12,7 +12,11 @@ interface LayoutSectionChangeInput {
   origin?: LayoutSectionChangeOrigin;
 }
 
-export type LayoutSectionChangeOrigin = "direct" | "semantic-activation";
+export type LayoutSectionChangeOrigin =
+  | "direct"
+  | "learner"
+  | "semantic-activation"
+  | "control-command";
 
 export interface LayoutSectionChange {
   readonly origin: LayoutSectionChangeOrigin;
