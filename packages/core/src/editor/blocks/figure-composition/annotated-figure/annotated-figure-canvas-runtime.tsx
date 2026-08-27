@@ -27,10 +27,19 @@ import { zIndex } from "@/ui/overlays/z-index";
 
 import { createAnnotatedFigureCanvasNode } from "./annotated-figure-canvas-shared";
 import {
+  useAnnotatedFigureControlBinding,
+  useAnnotatedFigureSemanticActivationBinding,
+} from "./annotated-figure-control-binding";
+import {
   resolveAnnotatedFigureModel,
   resolveAnnotatedFigureOwnerAtPosition,
   type AnnotatedFigureAnnotationProjection,
 } from "./annotated-figure-document-model";
+import {
+  createAnnotatedFigureRuntimeController,
+  useAnnotatedFigureOpenAnnotationId,
+  type AnnotatedFigureRuntimeController,
+} from "./annotated-figure-runtime-controller";
 import { AnnotatedFigureRuntimeCaptionList } from "./AnnotatedFigureRuntimeCaptionList";
 import { useResolvedAnnotatedFigureSource } from "./AnnotatedFigureModel";
 import { AnnotatedFigureSurface } from "./AnnotatedFigureSurface";
@@ -39,7 +48,9 @@ import { emptyAnnotatedFigureData } from "./content";
 const EMPTY_ANNOTATIONS: readonly AnnotatedFigureAnnotationProjection[] = [];
 
 interface AnnotatedFigureRuntimeCompositionProps {
+  active: boolean;
   annotations: readonly AnnotatedFigureAnnotationProjection[];
+  controller: AnnotatedFigureRuntimeController;
   data: AnnotatedFigureData;
   errorMessage: string | null;
   expandAction?: ReactElement | null;
@@ -55,7 +66,9 @@ export function hasAnnotatedFigureRuntimeCaption(
 }
 
 function AnnotatedFigureRuntimeComposition({
+  active,
   annotations,
+  controller,
   data,
   errorMessage,
   expandAction,
@@ -63,33 +76,31 @@ function AnnotatedFigureRuntimeComposition({
   onOpenAnnotation,
   presentation,
 }: AnnotatedFigureRuntimeCompositionProps) {
-  const [openAnnotationId, setOpenAnnotationId] = useState<string | null>(null);
+  const openAnnotationId = useAnnotatedFigureOpenAnnotationId(controller);
   const popoverTitlePrefix = useId();
   const stageRef = useRef<HTMLDivElement | null>(null);
-  const openAnnotation = annotations.find(
-    (annotation) =>
-      annotation.id === openAnnotationId && hasAnnotatedFigureRuntimeCaption(annotation),
-  );
-  const liveOpenAnnotation = data.captionDisplay === "popover" ? openAnnotation : undefined;
+  const openAnnotation = annotations.find((annotation) => annotation.id === openAnnotationId);
+  const liveOpenAnnotation =
+    active && data.captionDisplay === "popover" ? openAnnotation : undefined;
   const openRuntimeAnnotation = (annotationId: string) => {
+    if (controller.getOpenAnnotationId() === annotationId) return;
     onOpenAnnotation?.(annotationId);
-    setOpenAnnotationId(annotationId);
+    controller.setOpenAnnotationId(annotationId, "learner");
   };
-
-  useEffect(() => {
-    if (openAnnotationId === null || liveOpenAnnotation) return;
-    // The selected caption was removed, emptied, or changed back to List presentation.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setOpenAnnotationId(null);
-    queueMicrotask(() => stageRef.current?.focus());
-  }, [liveOpenAnnotation, openAnnotationId]);
+  const toggleRuntimeAnnotation = (annotationId: string) => {
+    if (controller.getOpenAnnotationId() === annotationId) {
+      controller.setOpenAnnotationId(null, "learner");
+      return;
+    }
+    openRuntimeAnnotation(annotationId);
+  };
 
   const renderPinActivator = (
     annotation: Pick<AnnotatedFigureAnnotationProjection, "id" | "number" | "x" | "y">,
     activator: ReactElement,
   ) => {
     const projectedAnnotation = annotations.find((candidate) => candidate.id === annotation.id);
-    if (!projectedAnnotation || !hasAnnotatedFigureRuntimeCaption(projectedAnnotation)) {
+    if (!projectedAnnotation) {
       return <span className="sc-course-annotated-figure__pin-number">{annotation.number}</span>;
     }
 
@@ -100,11 +111,7 @@ function AnnotatedFigureRuntimeComposition({
       <Popover.Root
         open={open}
         onOpenChange={(nextOpen) => {
-          if (nextOpen) {
-            openRuntimeAnnotation(annotation.id);
-          } else {
-            setOpenAnnotationId((current) => (current === annotation.id ? null : current));
-          }
+          if (active && !nextOpen) controller.requestLearnerClose(annotation.id);
         }}
       >
         <Popover.Trigger asChild>{activator}</Popover.Trigger>
@@ -117,7 +124,7 @@ function AnnotatedFigureRuntimeComposition({
               onClick={(event) => event.stopPropagation()}
               onEscapeKeyDown={(event) => {
                 event.preventDefault();
-                setOpenAnnotationId(null);
+                controller.setOpenAnnotationId(null, "learner");
               }}
               onPointerDown={(event) => event.stopPropagation()}
               side="bottom"
@@ -157,7 +164,7 @@ function AnnotatedFigureRuntimeComposition({
         stageRef={stageRef}
         {...(data.captionDisplay === "popover"
           ? {
-              onActivatePin: openRuntimeAnnotation,
+              onActivatePin: toggleRuntimeAnnotation,
               pinActivationLabel: (annotation: { number: number }) =>
                 `View annotation ${annotation.number}`,
               renderPinActivator,
@@ -198,6 +205,36 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
   const expandButtonRef = useRef<HTMLButtonElement | null>(null);
   const annotations = model?.annotations ?? EMPTY_ANNOTATIONS;
   const ownerId = String(model?.owner.node.attrs["id"] ?? "annotated-figure");
+  const controller = useMemo(createAnnotatedFigureRuntimeController, []);
+  const getOwnerPos = useCallback(() => {
+    const currentOwner = resolveAnnotatedFigureOwnerAtPosition(
+      props.editor.state.doc,
+      safeGetPos(props.getPos),
+    );
+    return currentOwner?.pos;
+  }, [props.editor, props.getPos]);
+  const controlEnabled = data.captionDisplay === "popover" && model !== null;
+  const controlBindingInput = {
+    controller,
+    editor: props.editor,
+    enabled: controlEnabled,
+    getPos: getOwnerPos,
+    node: model?.owner.node ?? null,
+    ownerId,
+  };
+  useAnnotatedFigureControlBinding(controlBindingInput);
+  useAnnotatedFigureSemanticActivationBinding(controlBindingInput);
+
+  useEffect(() => {
+    const openAnnotationId = controller.getOpenAnnotationId();
+    if (
+      openAnnotationId === null ||
+      (controlEnabled && annotations.some((annotation) => annotation.id === openAnnotationId))
+    ) {
+      return;
+    }
+    controller.setOpenAnnotationId(null, "reconciliation");
+  }, [annotations, controlEnabled, controller]);
   const recordedAnnotationsRef = useRef<{
     reporter: LearningEventReporter;
     ownerId: string;
@@ -254,7 +291,9 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
             data-caption-display={data.captionDisplay}
           >
             <AnnotatedFigureRuntimeComposition
+              active={lightboxOpen}
               annotations={annotations}
+              controller={controller}
               data={data}
               errorMessage={source.errorMessage}
               fileUrl={source.resolvedUrl}
@@ -265,7 +304,16 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
         ),
       },
     ];
-  }, [annotations, data, ownerId, recordAnnotationOpened, source.errorMessage, source.resolvedUrl]);
+  }, [
+    annotations,
+    controller,
+    data,
+    lightboxOpen,
+    ownerId,
+    recordAnnotationOpened,
+    source.errorMessage,
+    source.resolvedUrl,
+  ]);
 
   return (
     <NodeViewWrapper
@@ -273,7 +321,9 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
       className="sc-course-annotated-figure__canvas-node"
     >
       <AnnotatedFigureRuntimeComposition
+        active={!lightboxOpen}
         annotations={annotations}
+        controller={controller}
         data={data}
         errorMessage={source.errorMessage}
         expandAction={
@@ -282,7 +332,10 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
               ref={expandButtonRef}
               aria-label="Expand annotated figure"
               className="sc-course-annotated-figure__expand-action"
-              onClick={() => setLightboxOpen(true)}
+              onClick={() => {
+                controller.cancelPendingLearnerClose();
+                setLightboxOpen(true);
+              }}
               tooltipLabel="Expand annotated figure"
             />
           ) : null

@@ -11,6 +11,7 @@ import {
   readNodeId,
 } from "./ChecklistModel";
 import { ChecklistSection } from "./ChecklistSurface";
+import { useChecklistControlBinding } from "./checklist-control-binding";
 import { checklistBlockDefinition } from "./checklist-definition";
 import { createChecklistNode } from "./node";
 import { ChecklistItemRuntimeNode } from "./checklist-item-runtime";
@@ -26,6 +27,12 @@ function ChecklistRuntimeView(props: NodeViewProps) {
     activityKind: "checklist",
     blockId,
     initial: CHECKLIST_INITIAL_ACTIVITY,
+  });
+  useChecklistControlBinding({
+    editor: props.editor,
+    getPos: props.getPos,
+    blockId,
+    node: props.node,
   });
   const checkedForBlock = readChecklistActivityData(activity.activity?.data).checked;
   const completedCount = countChecklistCompleted(props.node, checkedForBlock);

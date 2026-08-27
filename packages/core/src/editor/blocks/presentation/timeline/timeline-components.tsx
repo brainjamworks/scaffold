@@ -10,6 +10,8 @@ import {
   type ReactNode,
 } from "react";
 
+import type { TimelineRuntimeController } from "./timeline-runtime-controller";
+
 export interface TimelineOptions {
   showAxis: boolean;
   alignment: "alternate" | "left" | "right";
@@ -38,12 +40,14 @@ export function readRequiredTimelineNodeId(
 
 export function TimelineTrack({
   children,
+  controller,
   eventCount,
   footer,
   onTrackElementChange,
   options,
 }: {
   children: ReactNode;
+  controller?: TimelineRuntimeController;
   eventCount: number;
   footer?: ReactNode;
   onTrackElementChange?: (element: HTMLDivElement | null) => void;
@@ -69,6 +73,7 @@ export function TimelineTrack({
   useLayoutEffect(() => {
     const track = trackRef.current;
     if (!track) return;
+    const detachController = controller?.attach(track);
 
     if (options.presentation === "carousel" && initialisedPresentationRef.current !== "carousel") {
       scrollTimelineEventAtIndex(track, 0, "auto");
@@ -102,9 +107,15 @@ export function TimelineTrack({
     };
 
     updateNavigation();
+    controller?.reconcile();
     track.addEventListener("scroll", updateNavigation, { passive: true });
     const resizeObserver =
-      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateNavigation);
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => {
+            updateNavigation();
+            controller?.reconcile();
+          });
     resizeObserver?.observe(track);
     const rail = track.querySelector<HTMLElement>(".sc-course-timeline__rail");
     if (rail) resizeObserver?.observe(rail);
@@ -112,8 +123,9 @@ export function TimelineTrack({
     return () => {
       track.removeEventListener("scroll", updateNavigation);
       resizeObserver?.disconnect();
+      detachController?.();
     };
-  }, [eventCount, options.presentation]);
+  }, [controller, eventCount, options.presentation]);
 
   const scrollByOneEvent = (direction: 1 | -1, event: MouseEvent<HTMLButtonElement>) => {
     const track = trackRef.current;
@@ -125,6 +137,11 @@ export function TimelineTrack({
     );
     const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
     const behavior = event.detail === 0 || reduceMotion ? "auto" : "smooth";
+    const targetId = events[targetIndex]?.dataset.timelineEntryId;
+    if (controller && targetId) {
+      void controller.navigateTo({ behavior, origin: "learner", targetId });
+      return;
+    }
     scrollTimelineEventAtIndex(track, targetIndex, behavior);
   };
 

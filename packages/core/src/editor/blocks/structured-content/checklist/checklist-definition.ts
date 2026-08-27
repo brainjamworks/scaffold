@@ -25,6 +25,33 @@ export const checklistBlockDefinition = defineBlock({
   nodeType: CHECKLIST_NODE,
   title: "Checklist",
   documentSemantics: checklistDocumentSemantics,
+  control: {
+    owner: {
+      events: [{ type: "completed", label: "Completed" }],
+      states: [
+        {
+          key: "completed",
+          label: "Completed",
+          valueType: { kind: "boolean" },
+        },
+      ],
+    },
+    semanticChildren: {
+      [CHECKLIST_ITEM_NODE]: {
+        events: [
+          { type: "checked", label: "Checked" },
+          { type: "unchecked", label: "Unchecked" },
+        ],
+        states: [
+          {
+            key: "checked",
+            label: "Checked",
+            valueType: { kind: "boolean" },
+          },
+        ],
+      },
+    },
+  },
   configuration: defineConfiguration({
     attr: "data",
     schema: ChecklistDataSchema,

@@ -1,10 +1,11 @@
-import { ImageIcon as ImagePlaceholder, XIcon as X } from "@phosphor-icons/react";
+import { ImageIcon as ImagePlaceholder } from "@phosphor-icons/react";
 import {
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactElement,
@@ -13,8 +14,6 @@ import {
 } from "react";
 
 import type { AnnotatedFigureData } from "@scaffold/contracts";
-import { CourseIconButton } from "@/ui/components/course/CourseActions/CourseActions";
-
 import type { AnnotatedFigureAnnotationProjection } from "./annotated-figure-document-model";
 
 import {
@@ -45,9 +44,9 @@ export function AnnotatedFigureSurface({
   onActivatePin,
   onPinPointerCancel,
   onPinPointerDown,
+  onPinKeyDown,
   onPinPointerMove,
   onPinPointerUp,
-  onRemovePin,
   onStageClick,
   pinActivationLabel,
   presentation = "compact",
@@ -64,9 +63,9 @@ export function AnnotatedFigureSurface({
   onActivatePin?: (pinId: string) => void;
   onPinPointerCancel?: (pinId: string, event: ReactPointerEvent<HTMLButtonElement>) => void;
   onPinPointerDown?: (pinId: string, event: ReactPointerEvent<HTMLButtonElement>) => void;
+  onPinKeyDown?: (pinId: string, event: ReactKeyboardEvent<HTMLButtonElement>) => void;
   onPinPointerMove?: (pinId: string, event: ReactPointerEvent<HTMLButtonElement>) => void;
   onPinPointerUp?: (pinId: string, event: ReactPointerEvent<HTMLButtonElement>) => void;
-  onRemovePin?: (pinId: string) => void;
   onStageClick?: (event: ReactMouseEvent<HTMLDivElement>) => void;
   pinActivationLabel?: (
     annotation: Pick<AnnotatedFigureAnnotationProjection, "id" | "number" | "x" | "y">,
@@ -205,6 +204,12 @@ export function AnnotatedFigureSurface({
                       onPinPointerDown(annotation.id, event),
                   }
                 : {})}
+              {...(onPinKeyDown
+                ? {
+                    onKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>) =>
+                      onPinKeyDown(annotation.id, event),
+                  }
+                : {})}
               {...(onPinPointerMove
                 ? {
                     onPointerMove: (event: ReactPointerEvent<HTMLButtonElement>) =>
@@ -217,7 +222,6 @@ export function AnnotatedFigureSurface({
                       onPinPointerUp(annotation.id, event),
                   }
                 : {})}
-              {...(onRemovePin ? { onRemove: () => onRemovePin(annotation.id) } : {})}
             />
           ))}
 
@@ -259,7 +263,7 @@ function AnnotatedFigurePinMarker({
   onPointerDown,
   onPointerMove,
   onPointerUp,
-  onRemove,
+  onKeyDown,
   renderActivator,
 }: {
   annotation: Pick<AnnotatedFigureAnnotationProjection, "id" | "number" | "x" | "y">;
@@ -270,7 +274,7 @@ function AnnotatedFigurePinMarker({
   onPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onPointerMove?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onPointerUp?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
-  onRemove?: () => void;
+  onKeyDown?: (event: ReactKeyboardEvent<HTMLButtonElement>) => void;
   renderActivator?: (
     annotation: Pick<AnnotatedFigureAnnotationProjection, "id" | "number" | "x" | "y">,
     activator: ReactElement,
@@ -285,6 +289,9 @@ function AnnotatedFigurePinMarker({
           : "sc-course-annotated-figure__pin-activate"
       }
       aria-label={activationLabel ?? `Select annotation ${annotation.number}`}
+      {...(onKeyDown
+        ? { "aria-keyshortcuts": "ArrowUp ArrowDown ArrowLeft ArrowRight", onKeyDown }
+        : {})}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -316,22 +323,6 @@ function AnnotatedFigurePinMarker({
       ) : (
         <span className="sc-course-annotated-figure__pin-number">{annotation.number}</span>
       )}
-      {onRemove ? (
-        <CourseIconButton
-          type="button"
-          size="compact"
-          emphasis="strong"
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => {
-            event.stopPropagation();
-            onRemove();
-          }}
-          aria-label={`Remove pin ${annotation.number}`}
-          className="sc-course-annotated-figure__pin-remove"
-        >
-          <X size={9} weight="bold" aria-hidden />
-        </CourseIconButton>
-      ) : null}
     </div>
   );
 }

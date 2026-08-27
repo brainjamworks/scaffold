@@ -11,6 +11,7 @@ import { FlashcardFilmstrip, type FlashcardFilmstripCard } from "./FlashcardFilm
 import { useFlashcardAuthoringDeckController } from "./flashcard-authoring-controller";
 import { reorderFlashcardCard } from "./flashcard-authoring";
 import { FLASHCARD_CARD_NODE, FLASHCARD_NODE, createFlashcardCard } from "./content";
+import { useFlashcardAuthoringControlBinding } from "./flashcard-control-binding";
 import {
   readNodeViewPos,
   readRequiredNodeId,
@@ -30,8 +31,17 @@ export interface FlashcardAuthoringViewProps extends NodeViewProps {
 }
 
 export function FlashcardAuthoringView(props: FlashcardAuthoringViewProps) {
+  const blockId = readRequiredNodeId(props.node.attrs["id"], "flashcard block");
   const deckController = useFlashcardAuthoringDeckController({
     deckNode: props.node,
+  });
+
+  useFlashcardAuthoringControlBinding({
+    editor: props.editor,
+    getPos: props.getPos,
+    blockId,
+    node: props.node,
+    controller: deckController,
   });
 
   useStatefulBlockSemanticActivationBinding({
@@ -40,7 +50,7 @@ export function FlashcardAuthoringView(props: FlashcardAuthoringViewProps) {
     getPos: props.getPos,
     isVisible: (childId) => deckController.currentCardId === childId,
     node: props.node,
-    ownerId: props.node.attrs["id"],
+    ownerId: blockId,
     ownerNodeType: FLASHCARD_NODE,
     revealChild: deckController.setCurrentCard,
   });

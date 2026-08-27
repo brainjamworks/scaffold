@@ -29,6 +29,18 @@ export function useFlashcardRuntimePresentation(
   return useMemo(() => ({ currentCardId, setCurrentCardId }), [currentCardId, setCurrentCardId]);
 }
 
+export function readFlashcardPresentedCardId(editor: Editor, blockId: string): string | null {
+  return presentationStoreForEditor(editor).getState().presentedCardByBlockId[blockId] ?? null;
+}
+
+export function setFlashcardPresentedCardId(
+  editor: Editor,
+  blockId: string,
+  cardId: string | null,
+): void {
+  presentationStoreForEditor(editor).getState().setPresentedCard(blockId, cardId);
+}
+
 function presentationStoreForEditor(editor: Editor): FlashcardRuntimePresentationStore {
   const existing = storesByEditor.get(editor);
   if (existing) return existing;

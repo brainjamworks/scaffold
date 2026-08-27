@@ -31,6 +31,8 @@ import { galleryDefinition } from "./gallery-definition";
 import { createGalleryNode } from "./node";
 import { GalleryItemNode } from "./slots";
 import { GALLERY_ITEM_NODE, GALLERY_NODE } from "./content";
+import { useGalleryControlBinding } from "./gallery-control-binding";
+import { createGalleryRuntimeController, useGalleryActiveId } from "./gallery-runtime-controller";
 
 import "./Gallery.css";
 
@@ -92,19 +94,28 @@ function GalleryRuntimeView(props: NodeViewProps) {
     [galleryId, isPresented, learningEventReporter, resolved],
   );
 
-  const [activeId, setActiveId] = useState<string | null>(rawItems[0]?.id ?? null);
+  const [controller] = useState(() => createGalleryRuntimeController(rawItems[0]?.id ?? null));
+  const activeId = useGalleryActiveId(controller);
   useEffect(() => {
     if (!rawItems.length) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       semanticActivationItemRef.current = null;
-      setActiveId(null);
+      controller.setActiveId(null, "reconciliation");
       return;
     }
     if (!rawItems.some((item) => item.id === activeId)) {
       semanticActivationItemRef.current = null;
-      setActiveId(rawItems[0]?.id ?? null);
+      controller.setActiveId(rawItems[0]?.id ?? null, "reconciliation");
     }
-  }, [rawItems, activeId]);
+  }, [rawItems, activeId, controller]);
+
+  useGalleryControlBinding({
+    controller,
+    editor: props.editor,
+    enabled: data.layout === "carousel",
+    getPos: props.getPos,
+    node: props.node,
+    ownerId: galleryId,
+  });
 
   useStatefulBlockSemanticActivationBinding({
     childNodeType: GALLERY_ITEM_NODE,
@@ -116,7 +127,7 @@ function GalleryRuntimeView(props: NodeViewProps) {
     ownerNodeType: GALLERY_NODE,
     revealChild: (childId) => {
       semanticActivationItemRef.current = childId;
-      setActiveId(childId);
+      controller.setActiveId(childId, "semantic-activation");
     },
   });
 
@@ -144,7 +155,7 @@ function GalleryRuntimeView(props: NodeViewProps) {
               items={resolved}
               onTileClick={(id) => {
                 semanticActivationItemRef.current = null;
-                setActiveId(id);
+                controller.setActiveId(id, "lightbox");
                 setLightboxOpen(true);
               }}
             />
@@ -156,7 +167,7 @@ function GalleryRuntimeView(props: NodeViewProps) {
               onActiveItemLoad={recordDisplayedItem}
               onSelect={(id) => {
                 semanticActivationItemRef.current = null;
-                setActiveId(id);
+                controller.setActiveId(id, "learner");
               }}
               onOpenLightbox={() => {
                 semanticActivationItemRef.current = null;

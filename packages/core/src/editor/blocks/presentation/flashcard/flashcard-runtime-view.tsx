@@ -5,6 +5,7 @@ import { useStatefulBlockSemanticActivationBinding } from "@/document/semantic-t
 
 import { FlashcardCardView, FlashcardDeckReader } from "./FlashcardComponents";
 import { FLASHCARD_CARD_NODE, FLASHCARD_NODE } from "./content";
+import { useFlashcardRuntimeControlBinding } from "./flashcard-control-binding";
 import { readRequiredNodeId, resolveParentFlashcardBlock } from "./flashcard-node-view";
 import {
   useFlashcardCardController,
@@ -18,11 +19,19 @@ export function FlashcardRuntimeView(props: NodeViewProps) {
   const deckController = useFlashcardDeckController({
     blockId,
     deckNode: props.node,
+    editor: props.editor,
     presentation,
   });
   const clearPresentedCard = presentation.setCurrentCardId;
 
   useEffect(() => () => clearPresentedCard(null), [clearPresentedCard]);
+
+  useFlashcardRuntimeControlBinding({
+    editor: props.editor,
+    getPos: props.getPos,
+    blockId,
+    node: props.node,
+  });
 
   useStatefulBlockSemanticActivationBinding({
     childNodeType: FLASHCARD_CARD_NODE,
@@ -53,6 +62,7 @@ export function FlashcardCardRuntimeView(props: NodeViewProps) {
     blockId,
     deckNode: parent?.node,
     cardId,
+    editor: props.editor,
     presentation,
   });
   return <FlashcardCardView editable={false} cardId={cardId} controller={controller} />;

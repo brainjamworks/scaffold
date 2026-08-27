@@ -1,32 +1,34 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-components {
-  .sc-course-annotated-figure__empty-action {
-    display: flex;
-    box-sizing: border-box;
+  .sc-app-annotated-figure__empty-action {
     width: 100%;
     min-width: 0;
-    align-items: center;
-    justify-content: center;
     aspect-ratio: 16 / 9;
-  }
-
-  .sc-course-annotated-figure__empty-action-icon {
-    display: inline-flex;
-    flex: none;
   }
 
   .sc-course-annotated-figure__canvas--authoring {
     cursor: var(--sc-cursor-place, crosshair);
   }
 
-  .sc-course-annotated-figure__image-toolbar {
+  .sc-app-annotated-figure__image-toolbar {
     display: flex;
     align-items: center;
+    gap: var(--space-1);
   }
 
-  .sc-course-annotated-figure__image-action {
+  .radix-themes .sc-icon-button.sc-app-annotated-figure__image-action {
     position: static;
+    width: var(--spacing-touch-target, 2.75rem);
+    height: var(--spacing-touch-target, 2.75rem);
+    min-width: var(--spacing-touch-target, 2.75rem);
+    min-height: var(--spacing-touch-target, 2.75rem);
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: var(--sc-app-radius-control);
+    background: color-mix(in oklch, var(--sc-app-color-background) 92%, transparent);
+    box-shadow: 0 1px 3px rgb(9 9 11 / 16%);
+    color: var(--sc-app-color-text-secondary);
+    opacity: 1;
   }
 
   .sc-course-annotated-figure__pin-activate--authoring {
@@ -39,27 +41,13 @@
     cursor: grabbing;
   }
 
-  .sc-course-annotated-figure__pin-remove {
-    position: absolute;
-    inset-block-start: 0;
-    inset-inline-end: 0;
-    width: var(--spacing-touch-target-inline, 1.5rem);
-    height: var(--spacing-touch-target-inline, 1.5rem);
-    min-width: 0;
-    min-height: 0;
-    cursor: pointer;
-  }
-
-  .sc-course-annotated-figure__annotation-actions {
+  .sc-app-annotated-figure__annotation-actions {
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
   }
 
-  :is(
-    .sc-course-annotated-figure__annotation-action,
-    .sc-course-annotated-figure__annotation-remove
-  ) {
+  :is(.sc-app-annotated-figure__annotation-action, .sc-app-annotated-figure__annotation-remove) {
     flex: 0 0 auto;
     cursor: pointer;
   }
@@ -70,7 +58,7 @@
     color: var(--sc-app-color-error);
   }
 
-  .sc-course-annotated-figure__title-field,
+  .sc-app-annotated-figure__title-field,
   .sc-app-annotated-figure-workspace__title-field {
     width: 100%;
     min-width: 0;
@@ -80,9 +68,48 @@
     font-weight: 600;
   }
 
-  .sc-course-annotated-figure__caption-editor,
-  .sc-course-annotated-figure__caption-field {
+  .sc-app-annotated-figure__caption-editor,
+  .sc-app-annotated-figure__caption-field {
     min-height: 3rem;
+  }
+
+  .sc-app-annotated-figure__caption-popover {
+    inline-size: min(28rem, var(--sc-overlay-available-inline-size, 28rem));
+    max-inline-size: min(28rem, var(--sc-overlay-available-inline-size, 28rem));
+  }
+
+  .sc-app-annotated-figure__caption-field {
+    color: var(--sc-app-color-ink);
+  }
+
+  .sc-app-annotated-figure__caption-field:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 3px;
+  }
+
+  .radix-themes .sc-icon-button.sc-app-annotated-figure__annotation-action {
+    color: var(--sc-app-color-text-muted);
+  }
+
+  .radix-themes .sc-icon-button.sc-app-annotated-figure__annotation-remove {
+    color: var(--sc-app-color-text-muted);
+  }
+
+  .radix-themes .sc-icon-button.sc-app-annotated-figure__image-action:hover:not(:disabled) {
+    border-color: var(--sc-app-color-primary);
+    background: color-mix(in oklch, var(--sc-app-color-primary) 6%, var(--sc-app-color-background));
+    color: var(--sc-app-color-primary);
+  }
+
+  .radix-themes .sc-icon-button.sc-app-annotated-figure__image-action--danger:hover:not(:disabled) {
+    border-color: var(--sc-app-color-error);
+    background: var(--sc-app-color-error-background);
+    color: var(--sc-app-color-error);
+  }
+
+  .radix-themes .sc-icon-button.sc-app-annotated-figure__image-action:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
   }
 
   .sc-app-annotated-figure-workspace__course-surface {
@@ -152,5 +179,20 @@
   .sc-app-annotated-figure-workspace__caption-field > p,
   .sc-app-annotated-figure-workspace__caption-preview > p {
     margin: 0;
+  }
+
+  @media (forced-colors: active) {
+    .radix-themes .sc-icon-button.sc-app-annotated-figure__image-action {
+      border-color: ButtonText;
+      background: ButtonFace;
+      box-shadow: none;
+      color: ButtonText;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .radix-themes .sc-icon-button.sc-app-annotated-figure__image-action {
+      transition: none;
+    }
   }
 }

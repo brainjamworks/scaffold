@@ -5,7 +5,7 @@ import {
   type NodeViewProps,
 } from "@tiptap/react";
 import type { ReactNode } from "react";
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 
@@ -17,17 +17,40 @@ import {
   readRequiredTimelineNodeId,
 } from "./timeline-components";
 import { useTimelineSemanticActivationBinding } from "./use-timeline-semantic-activation-binding";
+import { useTimelineControlBinding } from "./timeline-control-binding";
+import { createTimelineRuntimeController } from "./timeline-runtime-controller";
 
 import "./timeline.css";
 
-export function TimelineView({ footer, props }: { footer?: ReactNode; props: NodeViewProps }) {
+export function TimelineView({
+  footer,
+  props,
+  runtime = false,
+}: {
+  footer?: ReactNode;
+  props: NodeViewProps;
+  runtime?: boolean;
+}) {
   const data = parseTimelineData(props.node.attrs["data"]);
   const trackElementRef = useRef<HTMLDivElement | null>(null);
   const getTrackElement = useCallback(() => trackElementRef.current, []);
   const setTrackElement = useCallback((element: HTMLDivElement | null) => {
     trackElementRef.current = element;
   }, []);
+  const [controller] = useState(() => createTimelineRuntimeController(getTrackElement));
   useTimelineEntryMetadata(props);
+  useLayoutEffect(() => {
+    if (runtime && data.presentation === "carousel") controller.reconcile();
+  }, [controller, data.presentation, props.node, runtime]);
+  useTimelineControlBinding({
+    controller,
+    editor: props.editor,
+    enabled: runtime && data.presentation === "carousel",
+    getPos: props.getPos,
+    node: props.node,
+    ownerId: props.node.attrs["id"],
+  });
+  const runtimeController = runtime && data.presentation === "carousel" ? controller : undefined;
   useTimelineSemanticActivationBinding({
     editor: props.editor,
     getPos: props.getPos,
@@ -35,6 +58,7 @@ export function TimelineView({ footer, props }: { footer?: ReactNode; props: Nod
     node: props.node,
     presentation: data.presentation,
     timelineId: props.node.attrs["id"],
+    ...(runtimeController ? { controller: runtimeController } : {}),
   });
 
   return (
@@ -50,6 +74,7 @@ export function TimelineView({ footer, props }: { footer?: ReactNode; props: Nod
         footer={footer}
         onTrackElementChange={setTrackElement}
         options={data}
+        {...(runtimeController ? { controller: runtimeController } : {})}
       >
         <NodeViewContent<"div">
           as="div"
@@ -63,7 +88,7 @@ export function TimelineView({ footer, props }: { footer?: ReactNode; props: Nod
 }
 
 export function TimelineRuntimeView(props: NodeViewProps) {
-  return <TimelineView props={props} />;
+  return <TimelineView props={props} runtime />;
 }
 
 export function TimelineItemRuntimeView(props: NodeViewProps) {

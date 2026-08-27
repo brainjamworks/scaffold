@@ -38,6 +38,21 @@ export const timelineBlockDefinition = defineBlock({
   nodeType: TIMELINE_NODE,
   title: "Timeline",
   documentSemantics: timelineDocumentSemantics,
+  control: {
+    semanticChildren: {
+      [TIMELINE_ITEM_NODE]: {
+        events: [{ type: "navigated-to", label: "Navigated to" }],
+        states: [
+          {
+            key: "current",
+            label: "Current",
+            valueType: { kind: "boolean" },
+          },
+        ],
+        commands: [{ type: "scroll-to", label: "Scroll to" }],
+      },
+    },
+  },
   configuration: defineConfiguration({
     attr: "data",
     schema: TimelineDataSchema,

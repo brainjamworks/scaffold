@@ -1,9 +1,11 @@
 import { useEffect, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import type { Editor } from "@tiptap/core";
 
 import type { LearnerActivityData } from "@scaffold/contracts";
 import { useLearnerActivityRuntime } from "@/runtime/learner-activity";
 
 import type { FlashcardCardController, FlashcardDeckController } from "./FlashcardComponents";
+import { publishFlashcardLearnerCommits } from "./flashcard-learner-commits";
 import {
   EMPTY_FLASHCARD_DATA,
   FLASHCARD_INITIAL_ACTIVITY,
@@ -25,10 +27,12 @@ import {
 export function useFlashcardDeckController({
   blockId,
   deckNode,
+  editor,
   presentation,
 }: {
   blockId: string;
   deckNode: FlashcardDeckNodeLike;
+  editor?: Editor;
   presentation: FlashcardRuntimePresentation;
 }): FlashcardDeckController {
   const cardSummaries = readCardSummaries(deckNode);
@@ -74,7 +78,10 @@ export function useFlashcardDeckController({
       return;
     }
     presentation.setCurrentCardId(null);
-    activity.patchData({ currentCardId: cardId });
+    const committed = activity.patchData({ currentCardId: cardId });
+    if (committed && cardId !== currentCardId) {
+      publishFlashcardLearnerCommits(editor, blockId, [{ type: "selected", targetId: cardId }]);
+    }
   };
 
   const goNext = () => {
@@ -87,20 +94,26 @@ export function useFlashcardDeckController({
 
   const resetDeck = () => {
     presentation.setCurrentCardId(null);
-    activity.setData(
+    const committed = activity.setData(
       flashcardDataForPersistence(
         { ...EMPTY_FLASHCARD_DATA, ...(shuffle ? { order: orderedCardIds } : {}) },
         cardSummaries.length,
       ),
     );
     activity.setCompleted(false);
+    const resetCardId = orderedCards[0]?.id ?? null;
+    if (committed && resetCardId && resetCardId !== currentCardId) {
+      publishFlashcardLearnerCommits(editor, blockId, [
+        { type: "selected", targetId: resetCardId },
+      ]);
+    }
   };
 
   const flipCurrent = () => {
     if (!currentCardId) return;
     presentation.setCurrentCardId(null);
     const flipped = toggleFlashcardFlipped(deck, currentCardId);
-    activity.updateActivity({
+    const committed = activity.updateActivity({
       data: flashcardDataForPersistence({ ...deck, flipped }, cardSummaries.length),
       completed: activity.activity?.completed ?? false,
       learningEvent: {
@@ -109,6 +122,11 @@ export function useFlashcardDeckController({
         face: flipped[currentCardId] ? "back" : "front",
       },
     });
+    if (committed) {
+      publishFlashcardLearnerCommits(editor, blockId, [
+        { type: "flipped", targetId: currentCardId },
+      ]);
+    }
   };
 
   const rateCurrent = (status: FlashcardMasteryStatus) => {
@@ -118,7 +136,8 @@ export function useFlashcardDeckController({
     const masteredCount = orderedCards.filter(
       (card) => result.data.mastery[card.id] === "gotIt",
     ).length;
-    activity.updateActivity({
+    const completedBefore = activity.activity?.completed ?? false;
+    const committed = activity.updateActivity({
       data: flashcardDataForPersistence(
         { ...result.data, ...(shuffle ? { order: orderedCardIds } : {}) },
         cardSummaries.length,
@@ -132,6 +151,15 @@ export function useFlashcardDeckController({
         total: orderedCards.length,
       },
     });
+    if (committed) {
+      publishFlashcardLearnerCommits(editor, blockId, [
+        { type: "rated", targetId: currentCardId },
+        ...(result.data.currentCardId && result.data.currentCardId !== currentCardId
+          ? [{ type: "selected" as const, targetId: result.data.currentCardId }]
+          : []),
+        ...(!completedBefore && result.completed ? [{ type: "completed" as const }] : []),
+      ]);
+    }
   };
 
   useEffect(() => {
@@ -183,11 +211,13 @@ export function useFlashcardCardController({
   blockId,
   deckNode,
   cardId,
+  editor,
   presentation,
 }: {
   blockId: string | null;
   deckNode: FlashcardDeckNodeLike | null | undefined;
   cardId: string;
+  editor?: Editor;
   presentation: FlashcardRuntimePresentation;
 }): FlashcardCardController {
   const activity = useLearnerActivityRuntime({
@@ -226,7 +256,7 @@ export function useFlashcardCardController({
   const flip = () => {
     presentation.setCurrentCardId(null);
     const flipped = toggleFlashcardFlipped(deck, cardId);
-    activity.updateActivity({
+    const committed = activity.updateActivity({
       data: flashcardDataForPersistence({ ...deck, flipped }, deckNode?.childCount),
       completed: activity.activity?.completed ?? false,
       learningEvent: {
@@ -235,6 +265,9 @@ export function useFlashcardCardController({
         face: flipped[cardId] ? "back" : "front",
       },
     });
+    if (committed && blockId) {
+      publishFlashcardLearnerCommits(editor, blockId, [{ type: "flipped", targetId: cardId }]);
+    }
   };
 
   return {

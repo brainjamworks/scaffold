@@ -24,6 +24,8 @@ export function AnnotatedFigureRuntimeCaptionList({
   const frameRef = useRef<HTMLDivElement | null>(null);
   useBoundedScrollAffordance(frameRef);
 
+  if (annotations.length === 0) return null;
+
   const list = (
     <ol
       aria-label="Annotations"

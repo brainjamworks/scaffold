@@ -7,6 +7,7 @@ import { page, userEvent } from "vite-plus/test/browser/context";
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor.test-harness";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
@@ -40,7 +41,6 @@ describe("Annotated Figure image geometry", () => {
     host.style.width = "500px";
     document.body.append(host);
     let canvasActivations = 0;
-    const removedPins: string[] = [];
 
     const root = createRoot(host);
     mountedRoots.push(root);
@@ -61,9 +61,7 @@ describe("Annotated Figure image geometry", () => {
           onStageClick={() => {
             canvasActivations += 1;
           }}
-          onRemovePin={(annotationId) => {
-            removedPins.push(annotationId);
-          }}
+          onActivatePin={() => undefined}
         />
       </CourseThemeProvider>,
     );
@@ -82,14 +80,14 @@ describe("Annotated Figure image geometry", () => {
     const canvas = requiredElement<HTMLElement>(host, ".sc-course-annotated-figure__canvas");
     const topLeftPin = requiredElement<HTMLElement>(canvas, '[data-pin="pin-top-left"]');
     const bottomRightPin = requiredElement<HTMLElement>(canvas, '[data-pin="pin-bot-rght"]');
-    const topLeftRemove = requiredElement<HTMLElement>(topLeftPin, "button");
-    const bottomRightRemove = requiredElement<HTMLElement>(bottomRightPin, "button");
+    const topLeftActivator = requiredElement<HTMLElement>(topLeftPin, "button");
+    const bottomRightActivator = requiredElement<HTMLElement>(bottomRightPin, "button");
     const stageRect = stage.getBoundingClientRect();
     const canvasRect = canvas.getBoundingClientRect();
     const topLeftPinRect = topLeftPin.getBoundingClientRect();
     const bottomRightPinRect = bottomRightPin.getBoundingClientRect();
-    const topLeftRemoveRect = topLeftRemove.getBoundingClientRect();
-    const bottomRightRemoveRect = bottomRightRemove.getBoundingClientRect();
+    const topLeftActivatorRect = topLeftActivator.getBoundingClientRect();
+    const bottomRightActivatorRect = bottomRightActivator.getBoundingClientRect();
 
     expect(canvasRect.width / canvasRect.height).toBeCloseTo(2, 2);
     expect(canvasRect.right).toBeLessThanOrEqual(stageRect.right + 1);
@@ -104,31 +102,20 @@ describe("Annotated Figure image geometry", () => {
     for (const rect of [
       topLeftPinRect,
       bottomRightPinRect,
-      topLeftRemoveRect,
-      bottomRightRemoveRect,
+      topLeftActivatorRect,
+      bottomRightActivatorRect,
     ]) {
       expect(rect.left).toBeGreaterThanOrEqual(stageRect.left - 1);
       expect(rect.top).toBeGreaterThanOrEqual(stageRect.top - 1);
       expect(rect.right).toBeLessThanOrEqual(stageRect.right + 1);
       expect(rect.bottom).toBeLessThanOrEqual(stageRect.bottom + 1);
     }
-    for (const remove of [topLeftRemove, bottomRightRemove]) {
-      const rect = remove.getBoundingClientRect();
-      expect(rect.width).toBeGreaterThanOrEqual(24);
-      expect(rect.height).toBeGreaterThanOrEqual(24);
-      expect(getComputedStyle(remove).opacity).not.toBe("0");
+    for (const activator of [topLeftActivator, bottomRightActivator]) {
+      const rect = activator.getBoundingClientRect();
+      expect(rect.width).toBeGreaterThanOrEqual(44);
+      expect(rect.height).toBeGreaterThanOrEqual(44);
     }
-
-    topLeftRemove.dispatchEvent(
-      new PointerEvent("pointerdown", {
-        bubbles: true,
-        button: 0,
-        pointerId: 23,
-        pointerType: "touch",
-      }),
-    );
-    topLeftRemove.click();
-    expect(removedPins).toEqual(["pin-top-left"]);
+    expect(canvas.querySelector(".sc-app-annotated-figure__pin-delete")).toBeNull();
     expect(canvasActivations).toBe(0);
   });
 
@@ -654,12 +641,26 @@ function boundedAnnotatedFigureDocument(
       ],
     },
   ];
+  assignFixtureNodeIds(surface);
 
-  const content = createScaffoldDocumentContent({ mode: "slideshow", surfaceId });
+  const content = createScaffoldDocumentContent({
+    mode: "slideshow",
+    surfaceId,
+    initialCourseSectionTitle: "Annotated Figure",
+  });
   const courseDocument = content.content?.[0];
   if (!courseDocument) throw new Error("Slideshow fixture has no courseDocument.");
-  courseDocument.content = [surface];
+  const courseSection = courseDocument.content?.find((child) => child.type === "courseSection");
+  if (!courseSection) throw new Error("Slideshow fixture has no courseSection.");
+  courseDocument.content = [courseSection, surface];
   return content;
+}
+
+function assignFixtureNodeIds(node: JSONContent): void {
+  if (node.type !== "text") {
+    node.attrs = { ...node.attrs, id: node.attrs?.["id"] ?? createEmbeddedNodeId() };
+  }
+  for (const child of node.content ?? []) assignFixtureNodeIds(child);
 }
 
 function rendererHost(kind: "authoring" | "runtime"): HTMLElement {

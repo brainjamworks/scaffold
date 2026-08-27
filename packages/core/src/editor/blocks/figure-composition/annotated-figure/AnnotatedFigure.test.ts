@@ -153,11 +153,18 @@ function renderAnnotatedFigureLearningEventRuntime(
   const region = surface.content?.find((child) => child.type === "region");
   if (!region) throw new Error("Annotated Figure fixture is missing its Region.");
   region.content = [figure];
+  assignFixtureNodeIds(surface);
 
-  const content = createScaffoldDocumentContent({ mode: "slideshow", surfaceId });
+  const content = createScaffoldDocumentContent({
+    mode: "slideshow",
+    surfaceId,
+    initialCourseSectionTitle: "Annotated Figure",
+  });
   const courseDocument = content.content?.[0];
   if (!courseDocument) throw new Error("Annotated Figure fixture has no courseDocument.");
-  courseDocument.content = [surface];
+  const courseSection = courseDocument.content?.find((child) => child.type === "courseSection");
+  if (!courseSection) throw new Error("Annotated Figure fixture has no courseSection.");
+  courseDocument.content = [courseSection, surface];
 
   render(
     createElement(ScaffoldServicesProvider, {
@@ -290,13 +297,27 @@ it("uses compact over-image actions without legacy canvas prompts", async () => 
       .getAllByRole("button")
       .map((button) => button.getAttribute("aria-label")),
   ).toEqual(["Replace image", "Add annotation", "Edit annotated figure in expanded workspace"]);
+  expect(
+    within(toolbar)
+      .getAllByRole("button")
+      .every(
+        (button) =>
+          button.classList.contains("sc-icon-button") &&
+          button.classList.contains("sc-app-annotated-figure__image-action") &&
+          !button.classList.contains("sc-course-icon-action"),
+      ),
+  ).toBe(true);
   expect(screen.queryByText("Replace image")).toBeNull();
 
   await user.click(within(toolbar).getByRole("button", { name: "Add annotation" }));
 
   await waitFor(() => {
-    expect(screen.getByRole("button", { name: "Remove pin 1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete annotation 1" })).toBeInTheDocument();
   });
+  const pin = screen.getByRole("button", { name: "Select annotation 1" });
+  expect(
+    pin.closest("[data-pin]")?.querySelector(".sc-app-annotated-figure__pin-delete"),
+  ).toBeNull();
 
   const figure = editor.state.doc.firstChild;
   const model = figure ? resolveAnnotatedFigureModel({ node: figure, pos: 0 }) : null;
@@ -304,6 +325,26 @@ it("uses compact over-image actions without legacy canvas prompts", async () => 
   expect(model?.annotations).toMatchObject([{ x: 50, y: 50, number: 1 }]);
   expect(model?.annotations[0]?.captionNode.toJSON()).toEqual({ type: "paragraph" });
 
+  editor.destroy();
+});
+
+it("uses the App-owned first-media action for an empty authoring figure", async () => {
+  const editor = renderAnnotatedFigureEditor(
+    annotatedFigureFixture({
+      type: "annotated_figure",
+      source: null,
+      alt: "",
+      captionDisplay: "list",
+    }),
+  );
+
+  const addImage = await screen.findByRole("button", { name: "Add annotated figure image" });
+
+  expect(addImage).toHaveClass(
+    "sc-app-media-empty-action",
+    "sc-app-annotated-figure__empty-action",
+  );
+  expect(addImage.className).not.toContain("sc-course-");
   editor.destroy();
 });
 
@@ -441,6 +482,26 @@ it("previews a pin drag locally and commits it once without activating the pin",
     ).toMatchObject({ x: 45, y: 60 });
   });
   expect(transactionCount).toBe(1);
+  editor.destroy();
+});
+
+it("repositions an authoring pin with arrow keys", async () => {
+  const editor = renderAnnotatedFigureEditor(
+    annotatedFigureFixture(undefined, [
+      { id: "annotation-one", x: 25, y: 30, caption: "Move this caption" },
+    ]),
+  );
+  const pin = await screen.findByRole("button", { name: "Select annotation 1" });
+
+  expect(pin).toHaveAttribute("aria-keyshortcuts", "ArrowUp ArrowDown ArrowLeft ArrowRight");
+  fireEvent.keyDown(pin, { key: "ArrowRight" });
+  fireEvent.keyDown(pin, { key: "ArrowUp", shiftKey: true });
+
+  await waitFor(() => {
+    expect(
+      resolveAnnotatedFigureModel({ node: editor.state.doc.firstChild!, pos: 0 })?.annotations[0],
+    ).toMatchObject({ x: 26, y: 25 });
+  });
   editor.destroy();
 });
 
@@ -1428,7 +1489,7 @@ it("keeps annotated figure missing, loading, and error states semantic", () => {
   expect(screen.getByRole("alert").textContent).toBe("Annotated image unavailable");
 });
 
-it("removes complete annotations from a pin", async () => {
+it("removes the selected annotation from the App image toolbar", async () => {
   const editor = renderAnnotatedFigureEditor(
     annotatedFigureFixture(
       {
@@ -1444,10 +1505,12 @@ it("removes complete annotations from a pin", async () => {
     ),
   );
 
-  fireEvent.click(await screen.findByRole("button", { name: "Remove pin 1" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Select annotation 1" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Delete annotation 1" }));
 
   await waitFor(() => {
-    expect(screen.queryByRole("button", { name: "Remove pin 1" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Select annotation 1" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete annotation 1" })).toBeNull();
   });
 
   const figure = editor.state.doc.firstChild;
@@ -1455,6 +1518,13 @@ it("removes complete annotations from a pin", async () => {
 
   editor.destroy();
 });
+
+function assignFixtureNodeIds(node: JSONContent): void {
+  if (node.type !== "text") {
+    node.attrs = { ...node.attrs, id: node.attrs?.["id"] ?? createEmbeddedNodeId() };
+  }
+  for (const child of node.content ?? []) assignFixtureNodeIds(child);
+}
 
 it("does not expose pin controls until an annotated figure image exists", async () => {
   const editor = renderAnnotatedFigureEditor(
@@ -1555,7 +1625,7 @@ it("renders List presentation as one visible semantic ordered caption tray", asy
   editor.destroy();
 });
 
-it("keeps empty Popover captions noninteractive and retains an ordered semantic fallback", async () => {
+it("opens an honest ordinal fallback popover for an annotation without authored content", async () => {
   const user = userEvent.setup();
   const editor = renderAnnotatedFigureRuntime(
     annotatedFigureFixture(popoverFigureData(), [
@@ -1566,15 +1636,24 @@ it("keeps empty Popover captions noninteractive and retains an ordered semantic 
 
   const fallback = await screen.findByRole("list", { name: "Annotations" });
   const captionPin = screen.getByRole("button", { name: "View annotation 1" });
-  const emptyPin = document.querySelector('[data-pin="annotation-empty"]');
+  const emptyPin = screen.getByRole("button", { name: "View annotation 2" });
 
   expect(fallback.getAttribute("data-visual")).toBe("false");
   expect(fallback.classList.contains("sc-sr-only")).toBe(true);
   expect(fallback.classList.contains("sc-course-annotated-figure__legend")).toBe(false);
   expect(within(fallback).getAllByRole("listitem")).toHaveLength(2);
-  expect(screen.queryByRole("button", { name: "View annotation 2" })).toBeNull();
-  expect(emptyPin?.querySelector("button")).toBeNull();
-  expect(emptyPin?.querySelector(".sc-course-annotated-figure__pin-number")?.textContent).toBe("2");
+
+  await user.click(emptyPin);
+  await waitFor(() => {
+    expect(document.querySelector(".sc-course-annotated-figure__caption-popover")).not.toBeNull();
+  });
+  expect(screen.getByText("Annotation 2")).toBeInTheDocument();
+
+  await user.keyboard("{Escape}");
+  await waitFor(() => {
+    expect(document.querySelector(".sc-course-annotated-figure__caption-popover")).toBeNull();
+    expect(document.activeElement).toBe(emptyPin);
+  });
 
   await user.click(captionPin);
   await waitFor(() => {
@@ -1592,6 +1671,18 @@ it("keeps empty Popover captions noninteractive and retains an ordered semantic 
     expect(document.querySelector(".sc-course-annotated-figure__caption-popover")).toBeNull();
     expect(document.activeElement).toBe(captionPin);
   });
+  editor.destroy();
+});
+
+it("omits the visual caption tray when an annotated figure has no annotations", async () => {
+  const editor = renderAnnotatedFigureRuntime(annotatedFigureFixture(undefined, []));
+
+  await screen.findByRole("group", { name: "Annotated figure image" });
+  expect(screen.queryByRole("list", { name: "Annotations" })).toBeNull();
+  expect(document.querySelector(".sc-course-annotated-figure__content")).toHaveAttribute(
+    "data-has-annotations",
+    "false",
+  );
   editor.destroy();
 });
 
@@ -1633,8 +1724,8 @@ it("reports each opened runtime annotation once per Learning Event reporter", as
   const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
   renderAnnotatedFigureLearningEventRuntime(
     annotatedFigureFixture(popoverFigureData(), [
-      { id: "annotation-one", x: 20, y: 30, caption: "First private caption" },
-      { id: "annotation-two", x: 70, y: 80, caption: "Second private caption" },
+      { id: "annotpin0001", x: 20, y: 30, caption: "First private caption" },
+      { id: "annotpin0002", x: 70, y: 80, caption: "Second private caption" },
     ]),
     {
       rootActivityId,
@@ -1664,7 +1755,7 @@ it("reports each opened runtime annotation once per Learning Event reporter", as
   expect(accept.mock.calls[1]?.[0]).toMatchObject({
     verb: { display: { en: "experienced" } },
     object: {
-      id: createVisualItemActivityId(rootActivityId, "figure_00001", "annotation-one"),
+      id: createVisualItemActivityId(rootActivityId, "figure_00001", "annotpin0001"),
       definition: {
         type: LEARNING_EVENT_ACTIVITY_TYPES.visualItem,
         extensions: {
@@ -1695,7 +1786,7 @@ it("does not report annotation openings on a non-presented runtime surface", asy
   const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
   renderAnnotatedFigureLearningEventRuntime(
     annotatedFigureFixture(popoverFigureData(), [
-      { id: "annotation-one", x: 20, y: 30, caption: "Hidden caption" },
+      { id: "annotpin0001", x: 20, y: 30, caption: "Hidden caption" },
     ]),
     {
       rootActivityId: "https://lms.example.test/courses/annotated-figure",

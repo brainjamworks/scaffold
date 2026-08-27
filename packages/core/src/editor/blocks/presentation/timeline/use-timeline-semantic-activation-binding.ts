@@ -11,8 +11,10 @@ import {
 
 import { TIMELINE_ITEM_NODE, TIMELINE_NODE } from "./content";
 import { scrollTimelineEventIntoView, type TimelineOptions } from "./timeline-components";
+import type { TimelineRuntimeController } from "./timeline-runtime-controller";
 
 export interface UseTimelineSemanticActivationBindingInput {
+  readonly controller?: TimelineRuntimeController;
   readonly editor: Editor;
   readonly getPos: () => number | undefined;
   readonly getTrackElement: () => HTMLElement | null;
@@ -23,6 +25,7 @@ export interface UseTimelineSemanticActivationBindingInput {
 
 /** Owns Timeline's mounted semantic reveal registration. */
 export function useTimelineSemanticActivationBinding({
+  controller,
   editor,
   getPos,
   getTrackElement,
@@ -72,7 +75,7 @@ export function useTimelineSemanticActivationBinding({
           return outcome("already-visible", ownerId, childId);
         }
 
-        return new Promise<SemanticActivationOutcome>((resolve) => {
+        return new Promise<SemanticActivationOutcome>((resolve, reject) => {
           let settled = false;
           const finish: PendingReveal["finish"] = (result) => {
             if (settled) return;
@@ -122,6 +125,45 @@ export function useTimelineSemanticActivationBinding({
               currentTrack.ownerDocument.defaultView?.matchMedia?.(
                 "(prefers-reduced-motion: reduce)",
               ).matches === true;
+            if (controller && presentation === "carousel") {
+              void controller
+                .navigateTo({
+                  behavior: reduceMotion ? "auto" : "smooth",
+                  origin: "semantic-activation",
+                  signal,
+                  targetId: childId,
+                })
+                .then((result) => {
+                  if (result === "settled") {
+                    finish(outcome("revealed", ownerId, childId));
+                    return;
+                  }
+                  if (result === "cancelled") {
+                    finish(outcome("interrupted", ownerId, childId));
+                    return;
+                  }
+                  const status = currentDirectChildStatus({
+                    childId,
+                    childNodeType: TIMELINE_ITEM_NODE,
+                    editor,
+                    getPos,
+                    ownerId,
+                    ownerNodeType: TIMELINE_NODE,
+                  });
+                  finish(
+                    unavailable(
+                      ownerId,
+                      childId,
+                      status === "child-missing"
+                        ? "child-missing"
+                        : status === "owner-missing"
+                          ? "owner-unmounted"
+                          : "temporarily-unavailable",
+                    ),
+                  );
+                }, reject);
+              return;
+            }
             scrollTimelineEventIntoView(
               currentTrack,
               currentTimelineEvent,
@@ -156,7 +198,7 @@ export function useTimelineSemanticActivationBinding({
       }
       unregister();
     };
-  }, [editor, getPos, getTrackElement, node, presentation, registry, timelineId]);
+  }, [controller, editor, getPos, getTrackElement, node, presentation, registry, timelineId]);
 }
 
 interface PendingReveal {

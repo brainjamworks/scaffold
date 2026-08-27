@@ -47,6 +47,21 @@ export const galleryDefinition = defineBlock({
   nodeType: GALLERY_NODE,
   title: "Gallery",
   documentSemantics: galleryDocumentSemantics,
+  control: {
+    semanticChildren: {
+      [GALLERY_ITEM_NODE]: {
+        events: [{ type: "selected", label: "Selected" }],
+        states: [
+          {
+            key: "selected",
+            label: "Selected",
+            valueType: { kind: "boolean" },
+          },
+        ],
+        commands: [{ type: "select", label: "Select" }],
+      },
+    },
+  },
   configuration: defineConfiguration({
     attr: "data",
     schema: GalleryDataSchema,

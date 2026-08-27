@@ -12,6 +12,7 @@ import { useLearnerActivityRuntime } from "@/runtime/learner-activity";
 import { CourseCompletionCheckbox } from "@/ui/components/course/CourseInputs/CourseInputs";
 
 import { CHECKLIST_ITEM_NODE, CHECKLIST_NODE } from "./content";
+import { publishChecklistLearnerCommits } from "./checklist-learner-commits";
 import {
   CHECKLIST_INITIAL_ACTIVITY,
   readChecklistActivityData,
@@ -39,7 +40,8 @@ export function ChecklistItemRuntimeNodeView(props: NodeViewProps) {
     };
     const completed = siblingIds.length > 0 && siblingIds.every((id) => nextChecked[id]);
     const completedCount = siblingIds.filter((id) => nextChecked[id]).length;
-    activity.updateActivity({
+    const completedBefore = activity.activity?.completed ?? false;
+    const committed = activity.updateActivity({
       data: { checked: nextChecked, total: siblingIds.length },
       completed,
       learningEvent: {
@@ -50,6 +52,12 @@ export function ChecklistItemRuntimeNodeView(props: NodeViewProps) {
         total: siblingIds.length,
       },
     });
+    if (committed) {
+      publishChecklistLearnerCommits(props.editor, blockId, [
+        { type: !checked ? "checked" : "unchecked", targetId: itemId },
+        ...(!completedBefore && completed ? [{ type: "completed" as const }] : []),
+      ]);
+    }
   };
 
   return (

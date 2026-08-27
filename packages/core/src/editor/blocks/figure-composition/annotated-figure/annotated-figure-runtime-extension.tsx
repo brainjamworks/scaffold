@@ -25,13 +25,23 @@ import { emptyAnnotatedFigureData } from "./content";
 import "./AnnotatedFigure.css";
 
 function AnnotatedFigureRuntimeView(props: NodeViewProps) {
+  useEditorState({
+    editor: props.editor,
+    selector: ({ transactionNumber }) => transactionNumber,
+  });
   const parsedData = AnnotatedFigureDataSchema.safeParse(props.node.attrs["data"]);
   const data = parsedData.success ? parsedData.data : emptyAnnotatedFigureData();
+  const ownerPos = safeGetPos(props.getPos);
+  const model =
+    ownerPos === undefined
+      ? null
+      : resolveAnnotatedFigureModel({ node: props.node, pos: ownerPos });
 
   return (
     <NodeViewContent
       className="sc-course-annotated-figure__content"
       data-caption-display={data.captionDisplay}
+      data-has-annotations={model && model.annotations.length > 0 ? "true" : "false"}
     />
   );
 }
@@ -47,15 +57,17 @@ function AnnotatedFigureRuntimeLegendView(props: NodeViewProps) {
   );
   const model = owner ? resolveAnnotatedFigureModel(owner) : null;
   const data = model?.data ?? emptyAnnotatedFigureData();
+  const annotations = model?.annotations ?? [];
 
   return (
     <NodeViewWrapper
       className="sc-course-annotated-figure__runtime-caption-host"
       data-caption-display={data.captionDisplay}
+      data-has-annotations={annotations.length > 0 ? "true" : "false"}
       data-slot="annotated-figure-legend"
     >
       <AnnotatedFigureRuntimeCaptionList
-        annotations={model?.annotations ?? []}
+        annotations={annotations}
         visuallyHidden={data.captionDisplay === "popover"}
       />
     </NodeViewWrapper>

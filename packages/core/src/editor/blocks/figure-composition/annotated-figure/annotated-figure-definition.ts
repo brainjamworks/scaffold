@@ -26,6 +26,27 @@ export const annotatedFigureDefinition = defineBlock({
   nodeType: ANNOTATED_FIGURE_NODE,
   title: "Annotated figure",
   documentSemantics: annotatedFigureDocumentSemantics,
+  control: {
+    semanticChildren: {
+      [ANNOTATED_FIGURE_ANNOTATION_NODE]: {
+        events: [
+          { type: "opened", label: "Opened" },
+          { type: "closed", label: "Closed" },
+        ],
+        states: [
+          {
+            key: "open",
+            label: "Open",
+            valueType: { kind: "boolean" },
+          },
+        ],
+        commands: [
+          { type: "open", label: "Open" },
+          { type: "close", label: "Close" },
+        ],
+      },
+    },
+  },
   placeholders: {
     [ANNOTATED_FIGURE_ANNOTATION_NODE]: "Describe a numbered pin",
   },

@@ -121,7 +121,7 @@ describe("Annotated Figure document semantics", () => {
         selectionTarget: { kind: "node", pos: current.pos },
         surfaceId: makeId("su", 1),
         authoringAnchorId: figureId,
-        activationPath: [],
+        activationPath: [{ ownerId: figureId, childId: annotationId, ownerKind: "block" }],
       });
       if (index > 0) {
         expect(location!.from).toBeGreaterThan(
@@ -192,14 +192,14 @@ describe("Annotated Figure document semantics", () => {
         from: initialNode.pos,
         to: initialNode.pos + initialNode.node.nodeSize,
         authoringAnchorId: figureId,
-        activationPath: [],
+        activationPath: [{ ownerId: figureId, childId: annotationId, ownerKind: "block" }],
       });
       expect(edited.locationById.get(annotationId)).toMatchObject({
         id: annotationId,
         from: editedNode.pos,
         to: editedNode.pos + editedNode.node.nodeSize,
         authoringAnchorId: figureId,
-        activationPath: [],
+        activationPath: [{ ownerId: figureId, childId: annotationId, ownerKind: "block" }],
       });
       expect(edited.itemById.get(annotationId)?.presentation.actionIds).toEqual([]);
       expect(edited.locationById.get(annotationId)).not.toEqual(
@@ -208,7 +208,7 @@ describe("Annotated Figure document semantics", () => {
     }
   });
 
-  it("reaches the exact annotation through its Figure anchor with zero binding lookup", async () => {
+  it("reaches the exact annotation through its Figure activation binding", async () => {
     const figureId = makeId("fi", 4);
     const annotationId = makeId("an", 9);
     const doc = documentNode(figureNode(figureId, [annotation(annotationId, "Detail", "Caption")]));
@@ -240,16 +240,18 @@ describe("Annotated Figure document semantics", () => {
       navigationEditor,
     });
     controller.setNavigationEnvironment(environment);
+    const activate = vi.fn(async () => ({
+      kind: "revealed" as const,
+      ownerId: figureId,
+      childId: annotationId,
+    }));
+    controller.semanticTargetInteractions.registry.register({ ownerId: figureId, activate });
     const initialFigureLocation = controller.getSnapshot().semantics.locationById.get(figureId)!;
     navigationEditor.dispatch(
       state.tr.insert(initialFigureLocation.from, paragraph(makeId("pa", 10), "Before figure")),
     );
     const currentFigureLocation = controller.getSnapshot().semantics.locationById.get(figureId)!;
-    const activationLookup = vi
-      .spyOn(controller.semanticTargetInteractions.registry, "resolve")
-      .mockImplementation(() => {
-        throw new Error("Anchor-only navigation must not resolve an activation binding");
-      });
+    const activationLookup = vi.spyOn(controller.semanticTargetInteractions.registry, "resolve");
 
     await expect(controller.select(annotationId, { origin: "document-outline" })).resolves.toEqual({
       kind: "reached",
@@ -265,7 +267,8 @@ describe("Annotated Figure document semantics", () => {
       selectionOrigin: "document-outline",
     });
     expect(bringIntoView).toHaveBeenCalledWith(currentFigureLocation, "smooth");
-    expect(activationLookup).not.toHaveBeenCalled();
+    expect(activationLookup).toHaveBeenCalledWith(figureId);
+    expect(activate).toHaveBeenCalledOnce();
   });
 
   it("tracks annotation reorder and removal in legend order", () => {
