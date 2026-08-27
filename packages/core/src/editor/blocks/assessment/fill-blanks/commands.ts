@@ -13,7 +13,7 @@ import {
 } from "@scaffold/contracts";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
-import { createFillBlankAttrs } from "./fill-blank-shared";
+import { createFillBlankAttrs, isFillBlanksAssessmentOwnerNodeType } from "./fill-blank-shared";
 
 export function createFillBlankAssessmentEntry(selectedText = ""): FillBlankPrivateAssessmentEntry {
   return FillBlankPrivateAssessmentEntrySchema.parse({
@@ -27,6 +27,13 @@ export function createFillBlankAssessmentEntry(selectedText = ""): FillBlankPriv
 function closestDepth($pos: ResolvedPos, nodeType: string): number | null {
   for (let depth = $pos.depth; depth > 0; depth -= 1) {
     if ($pos.node(depth).type.name === nodeType) return depth;
+  }
+  return null;
+}
+
+function closestFillBlanksOwnerDepth($pos: ResolvedPos): number | null {
+  for (let depth = $pos.depth; depth > 0; depth -= 1) {
+    if (isFillBlanksAssessmentOwnerNodeType($pos.node(depth).type.name)) return depth;
   }
   return null;
 }
@@ -68,7 +75,7 @@ export function applyFillBlankToEditor(editor: Editor): boolean {
 
   try {
     const tr = editor.state.tr.replaceRangeWith(from, to, node);
-    const fillBlanksDepth = closestDepth(editor.state.doc.resolve(from), "fill_blanks");
+    const fillBlanksDepth = closestFillBlanksOwnerDepth(editor.state.doc.resolve(from));
     if (fillBlanksDepth !== null) {
       const parent = editor.state.doc.resolve(from).node(fillBlanksDepth);
       const parentPos = editor.state.doc.resolve(from).before(fillBlanksDepth);
@@ -102,7 +109,7 @@ export function repairFillBlanksInEditor(editor: Editor): boolean {
 
 export function repairFillBlanksInTransaction(state: EditorState, tr: Transaction): Transaction {
   state.doc.descendants((block, blockPos) => {
-    if (block.type.name !== "fill_blanks") return true;
+    if (!isFillBlanksAssessmentOwnerNodeType(block.type.name)) return true;
     const assessment = FillBlanksPrivateAssessmentSchema.parse(block.attrs["assessment"] ?? {});
     const blanksById: Record<string, FillBlankPrivateAssessmentEntry> = {};
     const seen = new Set<string>();
@@ -152,7 +159,7 @@ export function cleanupRemovedFillBlanksInTransaction(
 ): Transaction {
   const oldIdsByBlock = fillBlankIdsByBlock(oldState.doc);
   newState.doc.descendants((block, blockPos) => {
-    if (block.type.name !== "fill_blanks") return true;
+    if (!isFillBlanksAssessmentOwnerNodeType(block.type.name)) return true;
     const blockId = typeof block.attrs["id"] === "string" ? block.attrs["id"] : "";
     const oldIds = oldIdsByBlock.get(blockId);
     if (!oldIds) return false;
@@ -182,7 +189,7 @@ export function cleanupRemovedFillBlanksInTransaction(
 function fillBlankIdsByBlock(doc: ProseMirrorNode): Map<string, Set<string>> {
   const out = new Map<string, Set<string>>();
   doc.descendants((node) => {
-    if (node.type.name !== "fill_blanks") return true;
+    if (!isFillBlanksAssessmentOwnerNodeType(node.type.name)) return true;
     const blockId = typeof node.attrs["id"] === "string" ? node.attrs["id"] : "";
     out.set(blockId, fillBlankIds(node));
     return false;

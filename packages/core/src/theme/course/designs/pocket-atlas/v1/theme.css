@@ -3314,6 +3314,29 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   line-height: 2.15;
 }
 
+.sc-course.sc-course-theme-pocket-atlas-v1
+  .sc-fill-blanks-slide-surface-view
+  .sc-course-fill-blanks__body {
+  font-size: 1.05rem;
+  line-height: 2.55;
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1
+  .sc-fill-blanks-slide-surface-view
+  .sc-course-fill-blanks__scroll {
+  padding: 1.25rem 1.5rem;
+  border: var(--pa-keyline) solid var(--pa-ink);
+  background: var(--pa-paper-raised);
+  box-shadow: 5px 5px 0 var(--pa-ink);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1
+  .sc-fill-blanks-slide-surface-view
+  .sc-course-fill-blank__input {
+  min-height: max(2.75rem, calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1)));
+  font-size: 1rem;
+}
+
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-fill-blank__input {
   --sc-course-fill-blank-input-padding-inline: 0.75rem;
 
@@ -3400,6 +3423,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 @media (prefers-reduced-motion: reduce) {
   .sc-course.sc-course-theme-pocket-atlas-v1
+    .sc-fill-blanks-slide-surface-view
+    .sc-course-fill-blank__input {
+    transition: none;
+  }
+
+  .sc-course.sc-course-theme-pocket-atlas-v1
     .sc-course-fill-blank__feedback-anchor
     .sc-course-assessment-feedback-action {
     transition: none;
@@ -3407,6 +3436,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 }
 
 @media (forced-colors: active) {
+  .sc-course.sc-course-theme-pocket-atlas-v1
+    .sc-fill-blanks-slide-surface-view
+    .sc-course-fill-blanks__scroll {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    box-shadow: none;
+  }
+
   .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-fill-blank__input,
   .sc-course.sc-course-theme-pocket-atlas-v1
     .sc-course-fill-blank__feedback-anchor

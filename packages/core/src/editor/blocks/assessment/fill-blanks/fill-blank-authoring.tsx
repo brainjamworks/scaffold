@@ -52,6 +52,7 @@ import {
   compactAnswers,
   createFillBlankNode,
   defaultBlankAssessment,
+  FILL_BLANKS_ASSESSMENT_OWNER_NODE_TYPES,
   firstAnswer,
 } from "./fill-blank-shared";
 import "./FillBlanks.css";
@@ -456,7 +457,7 @@ function readFillBlankAssessment(
   pos: number,
   blankId: string,
 ): FillBlankPrivateAssessmentEntry {
-  const parent = resolveAssessmentAttrParent(editor, pos, ["fill_blanks"]);
+  const parent = resolveAssessmentAttrParent(editor, pos, FILL_BLANKS_ASSESSMENT_OWNER_NODE_TYPES);
   if (!parent || !blankId) return defaultBlankAssessment();
   const assessment = FillBlanksPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
   return assessment.blanksById[blankId] ?? defaultBlankAssessment();
@@ -469,7 +470,7 @@ function updateBlankAssessment(
   patch: Partial<FillBlankPrivateAssessmentEntry>,
 ) {
   if (pos === null || !blankId) return;
-  const parent = resolveAssessmentAttrParent(editor, pos, ["fill_blanks"]);
+  const parent = resolveAssessmentAttrParent(editor, pos, FILL_BLANKS_ASSESSMENT_OWNER_NODE_TYPES);
   if (!parent) return;
   const assessment = FillBlanksPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
   const current = assessment.blanksById[blankId] ?? defaultBlankAssessment();
@@ -491,7 +492,7 @@ function removeFillBlankAssessmentInTransaction(
   pos: number,
   blankId: string,
 ) {
-  const parent = resolveAssessmentAttrParent(editor, pos, ["fill_blanks"]);
+  const parent = resolveAssessmentAttrParent(editor, pos, FILL_BLANKS_ASSESSMENT_OWNER_NODE_TYPES);
   if (!parent || !blankId) return;
   const assessment = FillBlanksPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
   const blanksById = { ...assessment.blanksById };

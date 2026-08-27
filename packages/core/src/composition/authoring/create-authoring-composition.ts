@@ -41,6 +41,7 @@ import { createSurfaceAuthoringNode } from "@/editor/surfaces/authoring/nodes/su
 import { RegionAuthoringNode } from "@/editor/surfaces/authoring/nodes/region-authoring-node";
 import { SurfaceCategoriseQuestionNode } from "@/editor/surfaces/model/assessment/surface-categorise-question-node";
 import { SurfaceDropdownQuestionNode } from "@/editor/surfaces/model/assessment/surface-dropdown-question-node";
+import { SurfaceFillBlanksQuestionNode } from "@/editor/surfaces/model/assessment/surface-fill-blanks-question-node";
 import { SurfaceMatchingQuestionNode } from "@/editor/surfaces/model/assessment/surface-matching-question-node";
 import { SurfaceImageHotspotQuestionNode } from "@/editor/surfaces/model/assessment/surface-image-hotspot-question-node";
 import { SurfaceMultipleChoiceQuestionNode } from "@/editor/surfaces/model/assessment/surface-multiple-choice-question-node";
@@ -193,6 +194,7 @@ export function createCourseDocumentAuthoringExtensions({
     SurfaceMultipleChoiceQuestionNode,
     SurfaceMultiselectQuestionNode,
     SurfaceDropdownQuestionNode,
+    SurfaceFillBlanksQuestionNode,
     createScaffoldInteractionOwnerExtension(blockRegistry, {
       resolveStructuralActivationPlacement: resolveContentLayoutStructuralActivationPlacement,
     }),

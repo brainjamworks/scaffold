@@ -1,0 +1,98 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-fill-blanks-slide-surface-view [data-slot="assessment-prompt"] {
+    max-block-size: 7rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .sc-fill-blanks-slide-surface-view [data-slot="fill-blanks-body"] {
+    box-sizing: border-box;
+    display: grid;
+    inline-size: 100%;
+    block-size: 100%;
+    max-block-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+    align-self: stretch;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    overflow: hidden;
+    padding: clamp(1rem, 3cqw, 2rem) clamp(1rem, 6.25cqw, 4rem);
+  }
+
+  .sc-fill-blanks-slide-surface-authoring-view [data-slot="fill-blanks-body"] {
+    padding-block-start: clamp(3.75rem, 8cqw, 4.5rem);
+  }
+
+  .sc-fill-blanks-slide-surface-view .sc-course-fill-blanks__scroll {
+    box-sizing: border-box;
+    inline-size: min(100%, 56rem);
+    max-block-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+    justify-self: center;
+    justify-content: safe center;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .sc-fill-blanks-slide-surface-view .sc-course-fill-blanks__scroll[data-bounded-scroll-overflow] {
+    justify-content: flex-start;
+  }
+
+  .sc-fill-blanks-slide-surface-view .sc-course-fill-blanks__content {
+    flex: 0 0 auto;
+    gap: 0.75rem;
+  }
+
+  .sc-fill-blanks-slide-surface-view .sc-course-fill-blanks__content p {
+    margin-block: 0;
+  }
+
+  .sc-course
+    .sc-assessment-slide-surface-runtime-view.sc-fill-blanks-slide-surface-runtime-view
+    .sc-course-fill-blank__input {
+    block-size: auto;
+    min-block-size: max(2.75rem, calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1)));
+    min-height: max(2.75rem, calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1)));
+  }
+
+  .sc-fill-blanks-slide-surface-runtime-view
+    .sc-course-fill-blank__feedback-anchor
+    .sc-course-assessment-feedback-action {
+    min-inline-size: max(2.75rem, calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1)));
+    min-block-size: max(2.75rem, calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1)));
+  }
+
+  .sc-app-fill-blanks-slide__authoring-actions {
+    z-index: 2;
+    display: flex;
+    min-inline-size: 0;
+    align-self: start;
+    justify-self: end;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    margin: 1rem clamp(1rem, 6.25cqw, 4rem) 0;
+    pointer-events: none;
+  }
+
+  .sc-app-fill-blanks-slide__create-blank {
+    pointer-events: auto;
+  }
+
+  @container (max-width: 42rem) {
+    .sc-fill-blanks-slide-surface-view [data-slot="fill-blanks-body"] {
+      padding-inline: 1rem;
+    }
+
+    .sc-app-fill-blanks-slide__authoring-actions {
+      margin-inline: 1rem;
+    }
+  }
+}

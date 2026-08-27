@@ -1,6 +1,7 @@
 import { pageDefaultSurfaceDefinition } from "./templates/page-default";
 import { slideCategoriseQuestionSurfaceDefinition } from "./templates/assessment/slide-categorise-question";
 import { slideDropdownQuestionSurfaceDefinition } from "./templates/assessment/slide-dropdown-question";
+import { slideFillBlanksQuestionSurfaceDefinition } from "./templates/assessment/slide-fill-blanks-question";
 import { slideMatchingQuestionSurfaceDefinition } from "./templates/assessment/slide-matching-question";
 import { slideImageHotspotQuestionSurfaceDefinition } from "./templates/assessment/slide-image-hotspot-question";
 import { slideMultipleChoiceQuestionSurfaceDefinition } from "./templates/assessment/slide-multiple-choice-question";
@@ -52,6 +53,7 @@ export const builtInSurfaceVariantDefinitions: readonly SurfaceVariantDefinition
   slideMultipleChoiceQuestionSurfaceDefinition,
   slideMultiselectQuestionSurfaceDefinition,
   slideDropdownQuestionSurfaceDefinition,
+  slideFillBlanksQuestionSurfaceDefinition,
 ]);
 
 export const builtInSurfaceVariantRegistry = createSurfaceVariantRegistry(

@@ -37,6 +37,7 @@ const BUILT_IN_SURFACE_VARIANT_IDS = [
   "slide-multiple-choice-question",
   "slide-multiselect-question",
   "slide-dropdown-question",
+  "slide-fill-blanks-question",
 ] as const;
 
 const BUILT_IN_SLIDESHOW_CATALOGUE_IDS = [
@@ -64,10 +65,11 @@ const BUILT_IN_SLIDESHOW_CATALOGUE_IDS = [
   "slide-multiple-choice-question",
   "slide-multiselect-question",
   "slide-dropdown-question",
+  "slide-fill-blanks-question",
 ] as const;
 
 describe("built-in surface variant definitions", () => {
-  it("assembles the exact deterministic 25-variant production set", () => {
+  it("assembles the exact deterministic 26-variant production set", () => {
     expect(builtInSurfaceVariantDefinitions.map(({ id }) => id)).toEqual(
       BUILT_IN_SURFACE_VARIANT_IDS,
     );
@@ -142,6 +144,7 @@ describe("built-in surface variant definitions", () => {
       "slide-multiple-choice-question",
       "slide-multiselect-question",
       "slide-dropdown-question",
+      "slide-fill-blanks-question",
     ]);
 
     for (const definition of builtInSurfaceVariantDefinitions) {

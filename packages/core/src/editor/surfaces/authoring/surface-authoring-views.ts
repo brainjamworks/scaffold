@@ -45,6 +45,7 @@ import { SlideImageCoverSurfaceAuthoringView } from "./variants/slide-image-cove
 import { SlideModuleCoverSurfaceAuthoringView } from "./variants/slide-module-cover";
 import { SlideCategoriseQuestionSurfaceAuthoringView } from "./variants/assessment/slide-categorise-question";
 import { SlideDropdownQuestionSurfaceAuthoringView } from "./variants/assessment/slide-dropdown-question";
+import { SlideFillBlanksQuestionSurfaceAuthoringView } from "./variants/assessment/slide-fill-blanks-question";
 import { SlideMatchingQuestionSurfaceAuthoringView } from "./variants/assessment/slide-matching-question";
 import { SlideImageHotspotQuestionSurfaceAuthoringView } from "./variants/assessment/slide-image-hotspot-question";
 import { SlideMultipleChoiceQuestionSurfaceAuthoringView } from "./variants/assessment/slide-multiple-choice-question";
@@ -422,6 +423,14 @@ const SPECIALISED_SURFACE_AUTHORING_VIEWS = [
   {
     variantId: "slide-dropdown-question",
     component: SlideDropdownQuestionSurfaceAuthoringView,
+    configuration: defineSurfaceSettingsConfiguration({
+      title: "Question slide settings",
+      description: "Configure presentation settings for this question slide.",
+    }),
+  },
+  {
+    variantId: "slide-fill-blanks-question",
+    component: SlideFillBlanksQuestionSurfaceAuthoringView,
     configuration: defineSurfaceSettingsConfiguration({
       title: "Question slide settings",
       description: "Configure presentation settings for this question slide.",

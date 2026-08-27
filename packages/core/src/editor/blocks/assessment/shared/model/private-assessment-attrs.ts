@@ -20,6 +20,7 @@ export const ASSESSMENT_ATTR_NODE_TYPES = [
   "dropdown",
   "surface_dropdown_question",
   "fill_blanks",
+  "surface_fill_blanks_question",
   "sequencing",
   "surface_sequencing_question",
   "matching",

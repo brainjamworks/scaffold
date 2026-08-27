@@ -4,6 +4,7 @@ import { assessmentControlDefinition } from "@/editor/blocks/assessment/shared/m
 
 import { slideCategoriseQuestionSurfaceDefinition } from "./slide-categorise-question";
 import { slideDropdownQuestionSurfaceDefinition } from "./slide-dropdown-question";
+import { slideFillBlanksQuestionSurfaceDefinition } from "./slide-fill-blanks-question";
 import { slideImageHotspotQuestionSurfaceDefinition } from "./slide-image-hotspot-question";
 import { slideMatchingQuestionSurfaceDefinition } from "./slide-matching-question";
 import { slideMultipleChoiceQuestionSurfaceDefinition } from "./slide-multiple-choice-question";
@@ -14,6 +15,7 @@ const definitions = [
   slideMultipleChoiceQuestionSurfaceDefinition,
   slideMultiselectQuestionSurfaceDefinition,
   slideDropdownQuestionSurfaceDefinition,
+  slideFillBlanksQuestionSurfaceDefinition,
   slideCategoriseQuestionSurfaceDefinition,
   slideSequencingQuestionSurfaceDefinition,
   slideMatchingQuestionSurfaceDefinition,
@@ -21,11 +23,12 @@ const definitions = [
 ] as const;
 
 describe("assessment Surface Control Definitions", () => {
-  it("shares the exact root-only assessment vocabulary across all seven variants", () => {
+  it("shares the exact root-only assessment vocabulary across all eight variants", () => {
     expect(definitions.map((definition) => definition.id)).toEqual([
       "slide-multiple-choice-question",
       "slide-multiselect-question",
       "slide-dropdown-question",
+      "slide-fill-blanks-question",
       "slide-categorise-question",
       "slide-sequencing-question",
       "slide-matching-question",

@@ -6,6 +6,29 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-fill-blanks-slide-surface-view
+  .sc-course-fill-blanks__body {
+  font-size: calc(1.125rem * var(--sc-course-author-text-scale));
+  line-height: calc(2.75rem * var(--sc-course-author-text-scale));
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-fill-blanks-slide-surface-view
+  .sc-course-fill-blanks__scroll {
+  padding: 1.25rem 1.5rem;
+  border-block: 1px solid var(--gray-a6);
+  background: var(--gray-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-fill-blanks-slide-surface-view
+  .sc-course-fill-blank__input {
+  min-height: max(2.75rem, calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1)));
+  background: var(--color-background);
+  font-size: 1rem;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
   .sc-course-assessment-shell.sc-course-fill-blanks[data-editable="false"] {
   background: var(--color-background);
 }
@@ -72,8 +95,7 @@
   box-shadow: inset 0 -2px 0 var(--sc-course-state-incorrect-border);
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-course-fill-blank[data-course-mode="runtime"] {
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-fill-blank[data-course-mode="runtime"] {
   --sc-course-fill-blank-feedback-action-size: 1.75rem;
 }
 
@@ -102,6 +124,15 @@
 }
 
 @media (forced-colors: active) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-fill-blanks-slide-surface-view
+    .sc-course-fill-blank__input {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    box-shadow: none;
+  }
+
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-fill-blank__input {
     border-color: CanvasText;
     box-shadow: none;
@@ -128,6 +159,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-fill-blanks-slide-surface-view
+    .sc-course-fill-blank__input {
+    transition: none;
+  }
+
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-fill-blank__input,
   .sc-course.sc-course-theme-scaffold-flow-v1
     .sc-course-fill-blank__feedback-anchor

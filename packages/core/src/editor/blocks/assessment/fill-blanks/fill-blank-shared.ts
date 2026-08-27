@@ -9,6 +9,14 @@ import {
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 export const FILL_BLANK_NODE_TYPE = "fill_blank";
+export const FILL_BLANKS_ASSESSMENT_OWNER_NODE_TYPES = [
+  "fill_blanks",
+  "surface_fill_blanks_question",
+] as const;
+
+export function isFillBlanksAssessmentOwnerNodeType(nodeType: string): boolean {
+  return FILL_BLANKS_ASSESSMENT_OWNER_NODE_TYPES.some((candidate) => candidate === nodeType);
+}
 
 export interface FillBlankNodeOptions {
   addNodeView?: () => NodeViewRenderer;

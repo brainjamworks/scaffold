@@ -12,6 +12,7 @@ import { SlideImageCoverSurfaceRuntimeView } from "./variants/slide-image-cover"
 import { SlideModuleCoverSurfaceRuntimeView } from "./variants/slide-module-cover";
 import { SlideCategoriseQuestionSurfaceRuntimeView } from "./variants/assessment/slide-categorise-question";
 import { SlideDropdownQuestionSurfaceRuntimeView } from "./variants/assessment/slide-dropdown-question";
+import { SlideFillBlanksQuestionSurfaceRuntimeView } from "./variants/assessment/slide-fill-blanks-question";
 import { SlideMatchingQuestionSurfaceRuntimeView } from "./variants/assessment/slide-matching-question";
 import { SlideImageHotspotQuestionSurfaceRuntimeView } from "./variants/assessment/slide-image-hotspot-question";
 import { SlideMultipleChoiceQuestionSurfaceRuntimeView } from "./variants/assessment/slide-multiple-choice-question";
@@ -66,6 +67,10 @@ const SPECIALISED_SURFACE_RUNTIME_VIEWS = [
   {
     variantId: "slide-dropdown-question",
     component: SlideDropdownQuestionSurfaceRuntimeView,
+  },
+  {
+    variantId: "slide-fill-blanks-question",
+    component: SlideFillBlanksQuestionSurfaceRuntimeView,
   },
 ] as const satisfies readonly SurfaceRuntimeViewBinding[];
 

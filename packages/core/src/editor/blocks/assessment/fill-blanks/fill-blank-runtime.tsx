@@ -14,7 +14,12 @@ import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { AssessmentFeedbackContentSchema, FillBlanksAssessmentSchema } from "@scaffold/contracts";
 import type { FillBlankAttrs } from "@scaffold/contracts";
 
-import { blankAttrsFromNode, createFillBlankNode } from "./fill-blank-shared";
+import {
+  blankAttrsFromNode,
+  createFillBlankNode,
+  FILL_BLANKS_ASSESSMENT_OWNER_NODE_TYPES,
+  isFillBlanksAssessmentOwnerNodeType,
+} from "./fill-blank-shared";
 import "./FillBlanks.css";
 
 interface FillBlankAccessibilityState {
@@ -81,7 +86,11 @@ function RuntimeFillBlank({
   HTMLAttributes: NodeViewProps["HTMLAttributes"];
   pos: number | null;
 }) {
-  const authoredBlockId = findAncestorAssessmentBlockId(editor, pos ?? undefined, ["fill_blanks"]);
+  const authoredBlockId = findAncestorAssessmentBlockId(
+    editor,
+    pos ?? undefined,
+    FILL_BLANKS_ASSESSMENT_OWNER_NODE_TYPES,
+  );
   const assessment = useAssessmentRuntimeById(authoredBlockId, "fill-blanks");
   const problem = assessment?.interaction ?? null;
   const runtimeProblem = assessment?.problem ?? null;
@@ -151,7 +160,7 @@ function RuntimeFillBlank({
         onChange={(event) => problem?.setBlank(blank.id, event.target.value)}
         onBlur={() => problem?.commitImmediate()}
         onKeyDown={(event) => {
-          if (event.key !== "Enter") return;
+          if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
           event.preventDefault();
           problem?.commitImmediate();
         }}
@@ -210,7 +219,7 @@ function fillBlankDocumentPosition(
   const resolved = editor.state.doc.resolve(pos);
   for (let depth = resolved.depth; depth >= 0; depth -= 1) {
     const ancestor = resolved.node(depth);
-    if (ancestor.type.name !== "fill_blanks") continue;
+    if (!isFillBlanksAssessmentOwnerNodeType(ancestor.type.name)) continue;
     const ancestorStart = resolved.start(depth);
     const positions: number[] = [];
     ancestor.descendants((node, offset) => {
