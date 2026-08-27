@@ -13,7 +13,7 @@ import {
   APPROVED_SEMANTIC_MEMBER_FAMILY_CASES,
   SEMANTIC_LIFECYCLE_AUTHORING_STATE,
   createCompleteSemanticLifecycleDocument,
-} from "@/document/model/semantic-document/testing/semantic-publication-lifecycle-fixtures";
+} from "@/composition/application/testing/semantic-publication-lifecycle-fixtures";
 import { insertSurfaceTemplateAfterSurface } from "@/editor/surfaces/authoring/surface-template-insertion";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 

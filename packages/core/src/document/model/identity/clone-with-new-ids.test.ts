@@ -13,7 +13,7 @@ import {
   createSemanticLifecycleDocument,
   projectSemanticLifecycleDocument,
   requireLifecycleNodeById,
-} from "@/document/model/semantic-document/testing/semantic-publication-lifecycle-fixtures";
+} from "@/composition/application/testing/semantic-publication-lifecycle-fixtures";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createEmbeddedNodeId } from "./stable-ids";
 

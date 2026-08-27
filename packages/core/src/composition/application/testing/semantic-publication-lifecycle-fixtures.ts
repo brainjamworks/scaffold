@@ -11,6 +11,9 @@ import { projectCourseStructure } from "@/document/model/course-structure/course
 import { projectSemanticDocument } from "@/document/model/semantic-document/project-semantic-document";
 import { emptyGalleryItemData } from "@/editor/blocks/figure-composition/gallery/content";
 
+// This fixture mounts the application and authoring composition roots, so its
+// ownership follows application integration rather than the neutral document model.
+
 export type SemanticLifecycleMember = "first" | "second" | "added";
 export type SemanticLifecycleOwnerPosition = "before-sibling" | "after-sibling";
 

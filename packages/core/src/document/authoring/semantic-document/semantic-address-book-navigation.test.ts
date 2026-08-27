@@ -16,7 +16,7 @@ import {
   SEMANTIC_LIFECYCLE_AUTHORING_STATE,
   createCompleteSemanticLifecycleDocument,
   createSemanticLifecycleDocument,
-} from "@/document/model/semantic-document/testing/semantic-publication-lifecycle-fixtures";
+} from "@/composition/application/testing/semantic-publication-lifecycle-fixtures";
 import type {
   SemanticActivationOutcome,
   SemanticActivationRequest,

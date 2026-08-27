@@ -11,7 +11,7 @@ import {
   SEMANTIC_LIFECYCLE_AUTHORING_STATE,
   createSemanticLifecycleDocument,
   projectSemanticLifecycleDocument,
-} from "./testing/semantic-publication-lifecycle-fixtures";
+} from "@/composition/application/testing/semantic-publication-lifecycle-fixtures";
 
 type BlockPublicationClassification =
   | { readonly kind: "root-only" }

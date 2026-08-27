@@ -8,7 +8,7 @@ import {
   SEMANTIC_LIFECYCLE_APPLICATION,
   projectSemanticLifecycleDocument,
   requireLifecycleNodeById,
-} from "./testing/semantic-publication-lifecycle-fixtures";
+} from "@/composition/application/testing/semantic-publication-lifecycle-fixtures";
 
 describe("semantic publication lifecycle", () => {
   it("enumerates the exact mounted approved member-family matrix", () => {

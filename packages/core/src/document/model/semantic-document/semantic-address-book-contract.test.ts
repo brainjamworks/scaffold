@@ -10,7 +10,7 @@ import {
   createCompleteSemanticLifecycleDocument,
   projectSemanticLifecycleDocument,
   requireLifecycleNodeById,
-} from "./testing/semantic-publication-lifecycle-fixtures";
+} from "@/composition/application/testing/semantic-publication-lifecycle-fixtures";
 
 const SEMANTIC_ITEM_KEYS = [
   "children",

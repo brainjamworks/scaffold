@@ -11,7 +11,7 @@ import {
   SEMANTIC_LIFECYCLE_APPLICATION,
   projectSemanticLifecycleDocument,
   requireLifecycleNodeById,
-} from "@/document/model/semantic-document/testing/semantic-publication-lifecycle-fixtures";
+} from "@/composition/application/testing/semantic-publication-lifecycle-fixtures";
 
 import {
   deleteNodeChecked,

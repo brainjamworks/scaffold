@@ -14,7 +14,7 @@ import {
   createCompleteSemanticLifecycleDocument,
   createSemanticLifecycleDocument,
   requireLifecycleNodeById,
-} from "@/document/model/semantic-document/testing/semantic-publication-lifecycle-fixtures";
+} from "@/composition/application/testing/semantic-publication-lifecycle-fixtures";
 
 import { getSemanticDocumentControllerForEditor } from "./semantic-document-storage";
 
