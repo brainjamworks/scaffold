@@ -1,6 +1,14 @@
-import { assign, createActor, fromCallback, setup } from "xstate";
+import { assign, createActor, enqueueActions, fromCallback, sendTo, setup } from "xstate";
 
-import type { CompiledInternalClockSurfaceTimeline } from "./compiled-presentation-program";
+import type {
+  CompiledInternalClockSurfaceTimeline,
+  CompiledPresentationCue,
+} from "./compiled-presentation-program";
+import type {
+  PresentationCueExecutionOutcome,
+  PresentationCueExecutor,
+  PresentationCueReport,
+} from "./presentation-cue-executor";
 import type { PresentationMonotonicClockPort } from "./presentation-monotonic-clock";
 
 type PresentationPlaybackMachinePhase =
@@ -10,14 +18,20 @@ type PresentationPlaybackMachinePhase =
   | "completed"
   | "stopped";
 
+type PresentationCueInterruptionReason = "seek" | "restart" | "stop";
+
 interface PresentationPlaybackMachineContext {
   readonly surfaceId: string;
   readonly durationMs: number;
   readonly monotonicClock: PresentationMonotonicClockPort;
+  readonly cueExecutor: PresentationCueExecutor;
+  readonly publishCueReport: (report: PresentationCueReport) => void;
+  readonly cues: readonly CompiledPresentationCue[];
   runNumber: number;
   currentTimeMs: number;
   anchorClockTimeMs: number;
   anchorPresentationTimeMs: number;
+  consumedCueIds: ReadonlySet<string>;
 }
 
 type PresentationPlaybackMachineEvent =
@@ -30,11 +44,15 @@ type PresentationPlaybackMachineEvent =
     }
   | { readonly type: "restart" }
   | { readonly type: "stop" }
-  | { readonly type: "clock-tick"; readonly projectedTimeMs: number };
+  | { readonly type: "clock-tick"; readonly projectedTimeMs: number }
+  | { readonly type: "cue-worker-drained"; readonly runNumber: number }
+  | { readonly type: "cue-worker-defect"; readonly error: unknown };
 
 interface PresentationPlaybackMachineInput {
   readonly timeline: CompiledInternalClockSurfaceTimeline;
   readonly monotonicClock: PresentationMonotonicClockPort;
+  readonly cueExecutor: PresentationCueExecutor;
+  readonly publishCueReport: (report: PresentationCueReport) => void;
 }
 
 interface PresentationClockActorInput {
@@ -42,6 +60,31 @@ interface PresentationClockActorInput {
   readonly anchorClockTimeMs: number;
   readonly anchorPresentationTimeMs: number;
   readonly durationMs: number;
+}
+
+interface QueuedPresentationCue {
+  readonly cue: CompiledPresentationCue;
+  readonly runNumber: number;
+  readonly surfaceId: string;
+}
+
+type PresentationCueWorkerEvent =
+  | {
+      readonly type: "enqueue-cues";
+      readonly cues: readonly CompiledPresentationCue[];
+      readonly runNumber: number;
+      readonly surfaceId: string;
+      readonly waitForDrain: boolean;
+    }
+  | {
+      readonly type: "interrupt-cues";
+      readonly runNumber: number;
+      readonly reason: PresentationCueInterruptionReason;
+    };
+
+interface PresentationCueWorkerInput {
+  readonly cueExecutor: PresentationCueExecutor;
+  readonly publishCueReport: (report: PresentationCueReport) => void;
 }
 
 interface PresentationPlaybackMachineSnapshot {
@@ -66,20 +109,177 @@ interface PresentationPlaybackMachine {
 const monotonicClockActor = fromCallback<
   PresentationPlaybackMachineEvent,
   PresentationClockActorInput
->(
-  ({ input, sendBack }) => {
-    let confirmedTimeMs = input.anchorPresentationTimeMs;
-    return input.monotonicClock.subscribe(() => {
-      const projectedTimeMs = projectedClockTime({
-        anchorClockTimeMs: input.anchorClockTimeMs,
-        anchorPresentationTimeMs: input.anchorPresentationTimeMs,
-        confirmedTimeMs,
-        durationMs: input.durationMs,
-        nowMs: input.monotonicClock.nowMs(),
-      });
-      confirmedTimeMs = projectedTimeMs;
-      sendBack({ type: "clock-tick", projectedTimeMs });
+>(({ input, sendBack }) => {
+  let confirmedTimeMs = input.anchorPresentationTimeMs;
+  return input.monotonicClock.subscribe(() => {
+    const projectedTimeMs = projectedClockTime({
+      anchorClockTimeMs: input.anchorClockTimeMs,
+      anchorPresentationTimeMs: input.anchorPresentationTimeMs,
+      confirmedTimeMs,
+      durationMs: input.durationMs,
+      nowMs: input.monotonicClock.nowMs(),
     });
+    confirmedTimeMs = projectedTimeMs;
+    sendBack({ type: "clock-tick", projectedTimeMs });
+  });
+});
+
+function freezeExecutionOutcome(
+  outcome: PresentationCueExecutionOutcome,
+): PresentationCueExecutionOutcome {
+  switch (outcome.kind) {
+    case "succeeded":
+      return Object.freeze({ kind: "succeeded" });
+    case "target-not-reached":
+      return Object.freeze({
+        kind: "target-not-reached",
+        result: Object.freeze({ ...outcome.result }),
+      });
+    case "control-command-error":
+      return Object.freeze({
+        kind: "control-command-error",
+        error: Object.freeze({ ...outcome.error }),
+      });
+  }
+}
+
+function freezeCueReport(
+  item: QueuedPresentationCue,
+  outcome:
+    | PresentationCueExecutionOutcome
+    | {
+        readonly kind: "session-interrupted";
+        readonly reason: PresentationCueInterruptionReason;
+      },
+): PresentationCueReport {
+  const frozenOutcome =
+    outcome.kind === "session-interrupted"
+      ? Object.freeze({ kind: "session-interrupted" as const, reason: outcome.reason })
+      : freezeExecutionOutcome(outcome);
+  return Object.freeze({
+    runNumber: item.runNumber,
+    surfaceId: item.surfaceId,
+    cueId: item.cue.id,
+    scheduledAtMs: item.cue.atMs,
+    outcome: frozenOutcome,
+  });
+}
+
+const presentationCueWorker = fromCallback<PresentationCueWorkerEvent, PresentationCueWorkerInput>(
+  ({ input, receive, sendBack }) => {
+    let queue: QueuedPresentationCue[] = [];
+    let current:
+      | {
+          readonly item: QueuedPresentationCue;
+          readonly controller: AbortController;
+          readonly operationNumber: number;
+        }
+      | undefined;
+    let nextOperationNumber = 1;
+    let drainRunNumber: number | undefined;
+    let disposed = false;
+
+    const notifyIfDrained = (): void => {
+      if (current || queue.length > 0 || drainRunNumber === undefined) return;
+      const runNumber = drainRunNumber;
+      drainRunNumber = undefined;
+      sendBack({ type: "cue-worker-drained", runNumber });
+    };
+
+    const startNext = (): void => {
+      if (disposed || current) return;
+      const item = queue.shift();
+      if (!item) {
+        notifyIfDrained();
+        return;
+      }
+
+      const controller = new AbortController();
+      const operationNumber = nextOperationNumber;
+      nextOperationNumber += 1;
+      current = { item, controller, operationNumber };
+
+      let execution: Promise<PresentationCueExecutionOutcome>;
+      try {
+        execution = input.cueExecutor.execute({
+          command: item.cue.command,
+          signal: controller.signal,
+        });
+      } catch (error) {
+        sendBack({ type: "cue-worker-defect", error });
+        return;
+      }
+
+      execution.then(
+        (outcome) => {
+          if (disposed || current?.operationNumber !== operationNumber) return;
+          if (current.item.runNumber !== item.runNumber || current.item.cue.id !== item.cue.id) {
+            sendBack({
+              type: "cue-worker-defect",
+              error: new Error("Presentation cue settlement contradicted the current operation."),
+            });
+            return;
+          }
+          input.publishCueReport(freezeCueReport(item, outcome));
+          current = undefined;
+          startNext();
+        },
+        (error: unknown) => {
+          if (disposed || current?.operationNumber !== operationNumber) return;
+          sendBack({ type: "cue-worker-defect", error });
+        },
+      );
+    };
+
+    receive((event) => {
+      if (event.type === "enqueue-cues") {
+        const activeRunNumber = current?.item.runNumber ?? queue[0]?.runNumber;
+        if (activeRunNumber !== undefined && activeRunNumber !== event.runNumber) {
+          sendBack({
+            type: "cue-worker-defect",
+            error: new Error("Presentation cue worker received work for a contradictory run."),
+          });
+          return;
+        }
+        queue.push(
+          ...event.cues.map((cue) => ({
+            cue,
+            runNumber: event.runNumber,
+            surfaceId: event.surfaceId,
+          })),
+        );
+        if (event.waitForDrain) drainRunNumber = event.runNumber;
+        startNext();
+        notifyIfDrained();
+        return;
+      }
+
+      const unsettled = [...(current ? [current.item] : []), ...queue];
+      if (unsettled.some((item) => item.runNumber !== event.runNumber)) {
+        sendBack({
+          type: "cue-worker-defect",
+          error: new Error("Presentation cue interruption contradicted the active run."),
+        });
+        return;
+      }
+      current?.controller.abort();
+      current = undefined;
+      queue = [];
+      drainRunNumber = undefined;
+      for (const item of unsettled) {
+        input.publishCueReport(
+          freezeCueReport(item, { kind: "session-interrupted", reason: event.reason }),
+        );
+      }
+    });
+
+    return () => {
+      disposed = true;
+      current?.controller.abort();
+      current = undefined;
+      queue = [];
+      drainRunNumber = undefined;
+    };
   },
 );
 
@@ -138,6 +338,22 @@ function projectedClockTime(input: {
   return projectedTimeMs;
 }
 
+function unconsumedCuesThrough(
+  context: PresentationPlaybackMachineContext,
+  timeMs: number,
+): readonly CompiledPresentationCue[] {
+  return context.cues.filter(
+    (cue) => cue.atMs <= timeMs && !context.consumedCueIds.has(cue.id),
+  );
+}
+
+function consumedCueIdsWith(
+  context: PresentationPlaybackMachineContext,
+  cues: readonly CompiledPresentationCue[],
+): ReadonlySet<string> {
+  return new Set([...context.consumedCueIds, ...cues.map((cue) => cue.id)]);
+}
+
 const presentationPlaybackMachineSetup = setup({
   types: {
     context: {} as PresentationPlaybackMachineContext,
@@ -146,6 +362,7 @@ const presentationPlaybackMachineSetup = setup({
   },
   actors: {
     monotonicClock: monotonicClockActor,
+    cueWorker: presentationCueWorker,
   },
   guards: {
     atDuration: ({ context }) => context.currentTimeMs === context.durationMs,
@@ -153,6 +370,8 @@ const presentationPlaybackMachineSetup = setup({
     seekAtStart: ({ event }) => seekTimeFrom(event) === 0,
     clockReachedDuration: ({ context, event }) =>
       projectedTimeFrom(event) === context.durationMs,
+    drainedCurrentRun: ({ context, event }) =>
+      event.type === "cue-worker-drained" && event.runNumber === context.runNumber,
   },
   actions: {
     anchorPlayback: assign({
@@ -173,12 +392,75 @@ const presentationPlaybackMachineSetup = setup({
         anchorPresentationTimeMs: timeMs,
       };
     }),
+    enqueueCurrentCues: enqueueActions(({ context, enqueue }) => {
+      const cues = unconsumedCuesThrough(context, context.currentTimeMs);
+      if (cues.length === 0) return;
+      enqueue.assign({ consumedCueIds: consumedCueIdsWith(context, cues) });
+      enqueue.sendTo("cueWorker", {
+        type: "enqueue-cues",
+        cues,
+        runNumber: context.runNumber,
+        surfaceId: context.surfaceId,
+        waitForDrain: false,
+      });
+    }),
+    enqueueClockCues: enqueueActions(({ context, event, enqueue }) => {
+      const cues = unconsumedCuesThrough(context, projectedTimeFrom(event));
+      if (cues.length === 0) return;
+      enqueue.assign({ consumedCueIds: consumedCueIdsWith(context, cues) });
+      enqueue.sendTo("cueWorker", {
+        type: "enqueue-cues",
+        cues,
+        runNumber: context.runNumber,
+        surfaceId: context.surfaceId,
+        waitForDrain: false,
+      });
+    }),
+    enqueueEndpointCues: enqueueActions(({ context, event, enqueue }) => {
+      const cues = unconsumedCuesThrough(context, projectedTimeFrom(event));
+      enqueue.assign({ consumedCueIds: consumedCueIdsWith(context, cues) });
+      enqueue.sendTo("cueWorker", {
+        type: "enqueue-cues",
+        cues,
+        runNumber: context.runNumber,
+        surfaceId: context.surfaceId,
+        waitForDrain: true,
+      });
+    }),
+    consumeSeekCues: assign({
+      consumedCueIds: ({ context, event }) => {
+        const cues = unconsumedCuesThrough(context, seekTimeFrom(event));
+        return consumedCueIdsWith(context, cues);
+      },
+    }),
+    interruptForSeek: sendTo("cueWorker", ({ context }) => ({
+      type: "interrupt-cues" as const,
+      runNumber: context.runNumber,
+      reason: "seek" as const,
+    })),
+    interruptForRestart: sendTo("cueWorker", ({ context }) => ({
+      type: "interrupt-cues" as const,
+      runNumber: context.runNumber,
+      reason: "restart" as const,
+    })),
+    interruptForStop: sendTo("cueWorker", ({ context }) => ({
+      type: "interrupt-cues" as const,
+      runNumber: context.runNumber,
+      reason: "stop" as const,
+    })),
     restartRun: assign({
       runNumber: ({ context }) => context.runNumber + 1,
       currentTimeMs: 0,
       anchorClockTimeMs: 0,
       anchorPresentationTimeMs: 0,
+      consumedCueIds: () => new Set<string>(),
     }),
+    throwWorkerDefect: ({ event }) => {
+      if (event.type !== "cue-worker-defect") {
+        throw new Error("Presentation cue defect action received an unexpected event.");
+      }
+      throw event.error;
+    },
   },
 });
 
@@ -188,32 +470,56 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
     surfaceId: input.timeline.surfaceId,
     durationMs: input.timeline.durationMs,
     monotonicClock: input.monotonicClock,
+    cueExecutor: input.cueExecutor,
+    publishCueReport: input.publishCueReport,
+    cues: input.timeline.cues,
     runNumber: 1,
     currentTimeMs: 0,
     anchorClockTimeMs: 0,
     anchorPresentationTimeMs: 0,
+    consumedCueIds: new Set<string>(),
   }),
+  invoke: {
+    id: "cueWorker",
+    src: "cueWorker",
+    input: ({ context }) => ({
+      cueExecutor: context.cueExecutor,
+      publishCueReport: context.publishCueReport,
+    }),
+  },
   initial: "awaiting-start",
   on: {
     restart: {
       target: ".awaiting-start",
-      actions: "restartRun",
+      actions: ["interruptForRestart", "restartRun"],
     },
     stop: {
       target: ".stopped",
+      actions: "interruptForStop",
     },
+    "cue-worker-defect": { actions: "throwWorkerDefect" },
   },
   states: {
     "awaiting-start": {
       on: {
         play: [
           { guard: "atDuration", target: "completed" },
-          { target: "playing", actions: "anchorPlayback" },
+          { target: "playing", actions: ["enqueueCurrentCues", "anchorPlayback"] },
         ],
         seek: [
-          { guard: "seekAtDuration", target: "completed", actions: "applySeek" },
-          { guard: "seekAtStart", actions: "applySeek" },
-          { target: "paused", actions: "applySeek" },
+          {
+            guard: "seekAtDuration",
+            target: "completed",
+            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+          },
+          {
+            guard: "seekAtStart",
+            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+          },
+          {
+            target: "paused",
+            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+          },
         ],
       },
     },
@@ -231,20 +537,38 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
         "clock-tick": [
           {
             guard: "clockReachedDuration",
-            target: "completed",
-            actions: "applyClockTick",
+            target: "settling-cues",
+            actions: ["enqueueEndpointCues", "applyClockTick"],
           },
-          { actions: "applyClockTick" },
+          { actions: ["enqueueClockCues", "applyClockTick"] },
         ],
-        pause: {
-          target: "paused",
-        },
+        pause: { target: "paused" },
         seek: [
-          { guard: "seekAtDuration", target: "completed", actions: "applySeek" },
+          {
+            guard: "seekAtDuration",
+            target: "completed",
+            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+          },
           {
             target: "playing",
             reenter: true,
-            actions: "applyPlayingSeek",
+            actions: ["interruptForSeek", "consumeSeekCues", "applyPlayingSeek"],
+          },
+        ],
+      },
+    },
+    "settling-cues": {
+      on: {
+        "cue-worker-drained": { guard: "drainedCurrentRun", target: "completed" },
+        seek: [
+          {
+            guard: "seekAtDuration",
+            target: "completed",
+            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+          },
+          {
+            target: "playing",
+            actions: ["interruptForSeek", "consumeSeekCues", "applyPlayingSeek"],
           },
         ],
       },
@@ -253,19 +577,29 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
       on: {
         play: [
           { guard: "atDuration", target: "completed" },
-          { target: "playing", actions: "anchorPlayback" },
+          { target: "playing", actions: ["enqueueCurrentCues", "anchorPlayback"] },
         ],
         seek: [
-          { guard: "seekAtDuration", target: "completed", actions: "applySeek" },
-          { actions: "applySeek" },
+          {
+            guard: "seekAtDuration",
+            target: "completed",
+            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+          },
+          { actions: ["interruptForSeek", "consumeSeekCues", "applySeek"] },
         ],
       },
     },
     completed: {
       on: {
         seek: [
-          { guard: "seekAtDuration", actions: "applySeek" },
-          { target: "paused", actions: "applySeek" },
+          {
+            guard: "seekAtDuration",
+            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+          },
+          {
+            target: "paused",
+            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+          },
         ],
       },
     },
@@ -281,6 +615,8 @@ function readMachinePhase(value: unknown): PresentationPlaybackMachinePhase {
     case "completed":
     case "stopped":
       return value;
+    case "settling-cues":
+      return "playing";
     default:
       throw new Error(`Presentation actor entered impossible state "${String(value)}".`);
   }

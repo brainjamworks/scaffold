@@ -1,12 +1,22 @@
+import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { CompiledInternalClockSurfaceTimeline } from "./compiled-presentation-program";
+import type {
+  CompiledInternalClockSurfaceTimeline,
+  CompiledPresentationCue,
+} from "./compiled-presentation-program";
+import type {
+  PresentationCueExecutionOutcome,
+  PresentationCueExecutor,
+  PresentationTargetCommand,
+} from "./presentation-cue-executor";
 import {
   createAnimationFramePresentationMonotonicClock,
   type PresentationMonotonicClockPort,
 } from "./presentation-monotonic-clock";
 import {
   createPresentationPlaybackSession,
+  type PresentationCueReport,
   type PresentationPlaybackPhase,
   type PresentationPlaybackSession,
   type PresentationSeekResult,
@@ -58,18 +68,66 @@ function createManualClock(initialNowMs = 1_000) {
   };
 }
 
-function createHarness(durationMs = 1_000) {
+function createDeferredCueExecutor() {
+  interface PendingExecution {
+    readonly command: PresentationTargetCommand;
+    readonly signal: AbortSignal;
+    readonly resolve: (outcome: PresentationCueExecutionOutcome) => void;
+    readonly reject: (reason?: unknown) => void;
+  }
+
+  const pending: PendingExecution[] = [];
+  const executor: PresentationCueExecutor = {
+    execute: vi.fn(({ command, signal }) =>
+      new Promise<PresentationCueExecutionOutcome>((resolve, reject) => {
+        pending.push({ command, signal, resolve, reject });
+      }),
+    ),
+  };
+
+  return { executor, pending };
+}
+
+function cue(id: string, atMs: number): CompiledPresentationCue {
+  return Object.freeze({
+    id,
+    atMs,
+    command: Object.freeze({
+      kind: "target-command",
+      ownerId: `owner-${id}` as EmbeddedNodeId,
+      targetId: `target-${id}` as EmbeddedNodeId,
+      type: `command-${id}`,
+    }),
+  });
+}
+
+async function settleCue(
+  execution: { readonly resolve: (outcome: PresentationCueExecutionOutcome) => void },
+  outcome: PresentationCueExecutionOutcome = { kind: "succeeded" },
+): Promise<void> {
+  execution.resolve(outcome);
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function createHarness(
+  durationMs = 1_000,
+  cues: readonly CompiledPresentationCue[] = [],
+  deferredCueExecutor = createDeferredCueExecutor(),
+) {
   const timeline: CompiledInternalClockSurfaceTimeline = Object.freeze({
     surfaceId: "surface-1",
     durationMs,
+    cues: Object.freeze([...cues]),
   });
   const manualClock = createManualClock();
   const session = createPresentationPlaybackSession({
     timeline,
     monotonicClock: manualClock.clock,
+    cueExecutor: deferredCueExecutor.executor,
   });
 
-  return { manualClock, session, timeline };
+  return { deferredCueExecutor, manualClock, session, timeline };
 }
 
 function expectSeekOk(result: PresentationSeekResult): void {
@@ -110,6 +168,7 @@ function expectDisposedSessionDefects(session: PresentationPlaybackSession): voi
   const operations: ReadonlyArray<readonly [string, () => unknown]> = [
     ["getSnapshot", () => session.getSnapshot()],
     ["subscribe", () => session.subscribe(() => undefined)],
+    ["subscribeCueReports", () => session.subscribeCueReports(() => undefined)],
     ["play", () => session.play()],
     ["pause", () => session.pause()],
     ["seek", () => session.seek(0)],
@@ -123,6 +182,290 @@ function expectDisposedSessionDefects(session: PresentationPlaybackSession): voi
 }
 
 describe("createPresentationPlaybackSession", () => {
+  it("consumes time-zero and crossed cues once in compiled order", async () => {
+    const cues = [cue("zero", 0), cue("first", 100), cue("second", 100), cue("later", 150)];
+    const { deferredCueExecutor, manualClock, session } = createHarness(1_000, cues);
+
+    session.play();
+    expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
+      "command-zero",
+    ]);
+
+    manualClock.emitAt(1_200);
+    expect(session.getSnapshot().currentTimeMs).toBe(200);
+    expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
+      "command-zero",
+    ]);
+
+    const zero = deferredCueExecutor.pending[0];
+    if (!zero) throw new Error("Expected the time-zero cue execution.");
+    await settleCue(zero);
+    expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
+      "command-zero",
+      "command-first",
+    ]);
+
+    const first = deferredCueExecutor.pending[1];
+    if (!first) throw new Error("Expected the first equal-time cue execution.");
+    await settleCue(first);
+    const second = deferredCueExecutor.pending[2];
+    if (!second) throw new Error("Expected the second equal-time cue execution.");
+    await settleCue(second);
+    const later = deferredCueExecutor.pending[3];
+    if (!later) throw new Error("Expected the later cue execution.");
+    await settleCue(later);
+
+    expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
+      "command-zero",
+      "command-first",
+      "command-second",
+      "command-later",
+    ]);
+    manualClock.emitAt(1_200);
+    expect(deferredCueExecutor.pending).toHaveLength(4);
+  });
+
+  it("publishes frozen expected outcomes without replay or snapshot history", async () => {
+    const cues = [cue("missing", 100), cue("refused", 100), cue("success", 100)];
+    const { deferredCueExecutor, manualClock, session } = createHarness(1_000, cues);
+    const reports: PresentationCueReport[] = [];
+    session.subscribeCueReports((report) => reports.push(report));
+
+    session.play();
+    manualClock.emitAt(1_100);
+    const missing = deferredCueExecutor.pending[0];
+    if (!missing) throw new Error("Expected the missing-target cue.");
+    await settleCue(missing, {
+      kind: "target-not-reached",
+      result: {
+        kind: "missing-target",
+        requestedId: "target-missing" as EmbeddedNodeId,
+      },
+    });
+
+    const refused = deferredCueExecutor.pending[1];
+    if (!refused) throw new Error("Expected the refused-command cue.");
+    await settleCue(refused, {
+      kind: "control-command-error",
+      error: { reason: "playback-not-allowed" },
+    });
+
+    const lateReports: PresentationCueReport[] = [];
+    session.subscribeCueReports((report) => lateReports.push(report));
+    const success = deferredCueExecutor.pending[2];
+    if (!success) throw new Error("Expected the successful cue.");
+    await settleCue(success);
+
+    expect(reports).toEqual([
+      {
+        runNumber: 1,
+        surfaceId: "surface-1",
+        cueId: "missing",
+        scheduledAtMs: 100,
+        outcome: {
+          kind: "target-not-reached",
+          result: { kind: "missing-target", requestedId: "target-missing" },
+        },
+      },
+      {
+        runNumber: 1,
+        surfaceId: "surface-1",
+        cueId: "refused",
+        scheduledAtMs: 100,
+        outcome: {
+          kind: "control-command-error",
+          error: { reason: "playback-not-allowed" },
+        },
+      },
+      {
+        runNumber: 1,
+        surfaceId: "surface-1",
+        cueId: "success",
+        scheduledAtMs: 100,
+        outcome: { kind: "succeeded" },
+      },
+    ]);
+    expect(lateReports).toEqual([reports[2]]);
+    for (const report of reports) {
+      expect(Object.isFrozen(report)).toBe(true);
+      expect(Object.isFrozen(report.outcome)).toBe(true);
+    }
+    expect(Object.isFrozen(reports[0]?.outcome.kind === "target-not-reached" && reports[0].outcome.result)).toBe(true);
+    expect(Object.keys(session.getSnapshot()).sort()).toEqual([
+      "currentTimeMs",
+      "durationMs",
+      "phase",
+      "runNumber",
+      "surfaceId",
+    ]);
+  });
+
+  it("waits for every reached cue at the endpoint before completing", async () => {
+    const { deferredCueExecutor, manualClock, session } = createHarness(100, [
+      cue("before-end", 50),
+      cue("at-end", 100),
+    ]);
+
+    session.play();
+    manualClock.emitAt(1_100);
+    expect(session.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 100 });
+    expect(manualClock.activeSubscriptions).toBe(0);
+
+    const beforeEnd = deferredCueExecutor.pending[0];
+    if (!beforeEnd) throw new Error("Expected the pre-endpoint cue.");
+    await settleCue(beforeEnd);
+    expect(session.getSnapshot().phase).toBe("playing");
+    const atEnd = deferredCueExecutor.pending[1];
+    if (!atEnd) throw new Error("Expected the endpoint cue.");
+    await settleCue(atEnd);
+    expect(session.getSnapshot()).toMatchObject({ phase: "completed", currentTimeMs: 100 });
+  });
+
+  it("consumes forward-Seek cues without execution and never rearms them on backward Seek", () => {
+    const { deferredCueExecutor, manualClock, session } = createHarness(500, [
+      cue("zero", 0),
+      cue("early", 100),
+      cue("middle", 200),
+      cue("later", 300),
+    ]);
+
+    expectSeekOk(session.seek(200));
+    expectSeekOk(session.seek(50));
+    expect(deferredCueExecutor.pending).toHaveLength(0);
+
+    session.play();
+    manualClock.emitAt(1_250);
+    expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
+      "command-later",
+    ]);
+  });
+
+  it("interrupts old-run work on Restart and replays every cue in the new run", async () => {
+    const { deferredCueExecutor, manualClock, session } = createHarness(500, [
+      cue("first", 100),
+      cue("second", 200),
+    ]);
+    const reports: PresentationCueReport[] = [];
+    session.subscribeCueReports((report) => reports.push(report));
+
+    session.play();
+    manualClock.emitAt(1_250);
+    const oldFirst = deferredCueExecutor.pending[0];
+    if (!oldFirst) throw new Error("Expected old-run cue work.");
+
+    session.restart();
+    expect(oldFirst.signal.aborted).toBe(true);
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "awaiting-start",
+      currentTimeMs: 0,
+      runNumber: 2,
+    });
+    expect(reports.map(({ cueId, outcome }) => [cueId, outcome])).toEqual([
+      ["first", { kind: "session-interrupted", reason: "restart" }],
+      ["second", { kind: "session-interrupted", reason: "restart" }],
+    ]);
+
+    await settleCue(oldFirst);
+    expect(reports).toHaveLength(2);
+    session.play();
+    manualClock.emitAt(1_500);
+    expect(deferredCueExecutor.pending[1]?.command.type).toBe("command-first");
+    const newFirst = deferredCueExecutor.pending[1];
+    if (!newFirst) throw new Error("Expected first cue in the restarted run.");
+    await settleCue(newFirst);
+    expect(deferredCueExecutor.pending[2]?.command.type).toBe("command-second");
+    const newSecond = deferredCueExecutor.pending[2];
+    if (!newSecond) throw new Error("Expected second cue in the restarted run.");
+    await settleCue(newSecond);
+    expect(reports.slice(2).map(({ runNumber, cueId, outcome }) => ({
+      runNumber,
+      cueId,
+      outcome,
+    }))).toEqual([
+      { runNumber: 2, cueId: "first", outcome: { kind: "succeeded" } },
+      { runNumber: 2, cueId: "second", outcome: { kind: "succeeded" } },
+    ]);
+  });
+
+  it.each([
+    { operation: "Seek", reason: "seek", interrupt: (session: PresentationPlaybackSession) => session.seek(50) },
+    { operation: "Stop", reason: "stop", interrupt: (session: PresentationPlaybackSession) => session.stop() },
+  ] as const)(
+    "$operation aborts active work, reports every unsettled cue, and ignores late settlement",
+    async ({ reason, interrupt }) => {
+      const { deferredCueExecutor, manualClock, session } = createHarness(500, [
+        cue("first", 100),
+        cue("second", 200),
+      ]);
+      const reports: PresentationCueReport[] = [];
+      session.subscribeCueReports((report) => reports.push(report));
+      session.play();
+      manualClock.emitAt(1_250);
+      const active = deferredCueExecutor.pending[0];
+      if (!active) throw new Error("Expected active cue work.");
+
+      interrupt(session);
+      expect(active.signal.aborted).toBe(true);
+      expect(reports.map(({ cueId, outcome }) => [cueId, outcome])).toEqual([
+        ["first", { kind: "session-interrupted", reason }],
+        ["second", { kind: "session-interrupted", reason }],
+      ]);
+
+      await settleCue(active);
+      expect(reports).toHaveLength(2);
+      expect(deferredCueExecutor.pending).toHaveLength(1);
+    },
+  );
+
+  it("Pause stops only the clock while cue work continues to drain", async () => {
+    const { deferredCueExecutor, manualClock, session } = createHarness(500, [
+      cue("first", 100),
+      cue("second", 200),
+    ]);
+    const reports: PresentationCueReport[] = [];
+    session.subscribeCueReports((report) => reports.push(report));
+    session.play();
+    manualClock.emitAt(1_250);
+    session.pause();
+    expect(manualClock.activeSubscriptions).toBe(0);
+
+    const first = deferredCueExecutor.pending[0];
+    if (!first) throw new Error("Expected the active cue.");
+    await settleCue(first);
+    const second = deferredCueExecutor.pending[1];
+    if (!second) throw new Error("Expected the queued cue.");
+    await settleCue(second);
+
+    expect(session.getSnapshot()).toMatchObject({ phase: "paused", currentTimeMs: 250 });
+    expect(reports.map(({ cueId }) => cueId)).toEqual(["first", "second"]);
+  });
+
+  it("Dispose aborts cue work and closes both streams without a disposal report", async () => {
+    const { deferredCueExecutor, manualClock, session } = createHarness(500, [
+      cue("first", 100),
+      cue("second", 200),
+    ]);
+    const snapshotListener = vi.fn();
+    const reportListener = vi.fn();
+    session.subscribe(snapshotListener);
+    session.subscribeCueReports(reportListener);
+    session.play();
+    manualClock.emitAt(1_250);
+    const active = deferredCueExecutor.pending[0];
+    if (!active) throw new Error("Expected active cue work.");
+    snapshotListener.mockClear();
+
+    session.dispose();
+    expect(active.signal.aborted).toBe(true);
+    expect(manualClock.activeSubscriptions).toBe(0);
+    expect(reportListener).not.toHaveBeenCalled();
+
+    await settleCue(active);
+    manualClock.emitAt(2_000);
+    expect(snapshotListener).not.toHaveBeenCalled();
+    expect(reportListener).not.toHaveBeenCalled();
+  });
+
   it("starts with one frozen Scaffold snapshot and no XState surface", () => {
     const { session } = createHarness();
     const snapshot = session.getSnapshot();
@@ -152,6 +495,7 @@ describe("createPresentationPlaybackSession", () => {
       "seek",
       "stop",
       "subscribe",
+      "subscribeCueReports",
     ]);
   });
 

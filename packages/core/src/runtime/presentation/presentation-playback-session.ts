@@ -1,6 +1,10 @@
 import { Result, type Result as ResultType } from "better-result";
 
 import type { CompiledInternalClockSurfaceTimeline } from "./compiled-presentation-program";
+import type {
+  PresentationCueExecutor,
+  PresentationCueReport,
+} from "./presentation-cue-executor";
 import {
   createAnimationFramePresentationMonotonicClock,
   type PresentationMonotonicClockPort,
@@ -33,6 +37,7 @@ export type PresentationSeekResult = ResultType<void, PresentationSeekError>;
 export interface PresentationPlaybackSession {
   getSnapshot(): PresentationPlaybackSnapshot;
   subscribe(listener: () => void): () => void;
+  subscribeCueReports(listener: (report: PresentationCueReport) => void): () => void;
   play(): void;
   pause(): void;
   seek(timeMs: number): PresentationSeekResult;
@@ -44,7 +49,13 @@ export interface PresentationPlaybackSession {
 export interface CreatePresentationPlaybackSessionInput {
   readonly timeline: CompiledInternalClockSurfaceTimeline;
   readonly monotonicClock?: PresentationMonotonicClockPort;
+  readonly cueExecutor: PresentationCueExecutor;
 }
+
+export type {
+  PresentationCueOutcome,
+  PresentationCueReport,
+} from "./presentation-cue-executor";
 
 function snapshotsAreEqual(
   left: PresentationPlaybackSnapshot,
@@ -72,10 +83,20 @@ function freezeSnapshot(snapshot: PresentationPlaybackSnapshot): PresentationPla
 export function createPresentationPlaybackSession({
   timeline,
   monotonicClock = createAnimationFramePresentationMonotonicClock(),
+  cueExecutor,
 }: CreatePresentationPlaybackSessionInput): PresentationPlaybackSession {
-  const machine = createPresentationPlaybackMachine({ timeline, monotonicClock });
   const listeners = new Set<() => void>();
+  const cueReportListeners = new Set<(report: PresentationCueReport) => void>();
   let disposed = false;
+  const machine = createPresentationPlaybackMachine({
+    timeline,
+    monotonicClock,
+    cueExecutor,
+    publishCueReport(report) {
+      if (disposed) return;
+      for (const listener of [...cueReportListeners]) listener(report);
+    },
+  });
   let snapshot = freezeSnapshot(machine.getSnapshot());
 
   const unsubscribeFromMachine = machine.subscribe((machineSnapshot) => {
@@ -114,6 +135,17 @@ export function createPresentationPlaybackSession({
         if (!active) return;
         active = false;
         listeners.delete(listener);
+      };
+    },
+    subscribeCueReports(listener: (report: PresentationCueReport) => void) {
+      assertNotDisposed("subscribe to cue reports from");
+      let active = true;
+      cueReportListeners.add(listener);
+
+      return () => {
+        if (!active) return;
+        active = false;
+        cueReportListeners.delete(listener);
       };
     },
     play() {
@@ -157,6 +189,7 @@ export function createPresentationPlaybackSession({
       if (disposed) return;
       disposed = true;
       listeners.clear();
+      cueReportListeners.clear();
       unsubscribeFromMachine();
       machine.dispose();
     },
