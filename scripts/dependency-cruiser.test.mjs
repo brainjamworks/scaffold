@@ -876,6 +876,10 @@ test("reports assessment, learner-activity, Quiz, and runtime-leaf crossings", a
       'import { runtimeComposition } from "../../composition/runtime/root";',
       "export { runtimeComposition };",
     ].join("\n"),
+    "packages/core/src/runtime/presentation/composition-backedge.ts": [
+      'import { runtimeComposition } from "../../composition/runtime/root";',
+      "export { runtimeComposition };",
+    ].join("\n"),
     "packages/core/src/editor/blocks/assessment/quiz/runtime-policy.ts": [
       'import type { ChildType } from "../mcq/runtime-child";',
       "export type QuizChildLeak = ChildType;",
@@ -897,6 +901,7 @@ test("reports assessment, learner-activity, Quiz, and runtime-leaf crossings", a
   assert.match(output, /quiz-does-not-reach-concrete-assessment-children/);
   assert.match(output, /concrete-assessment-children-do-not-reach-quiz/);
   assert.match(output, /runtime-leaves-do-not-import-public-entrypoints-or-composition-roots/);
+  assert.match(output, /runtime\/presentation\/composition-backedge\.ts/);
   assert.match(
     output,
     /runtime\/assessment\/root\.ts[\s\S]*runtime\/assessment\/intermediate\.ts[\s\S]*runtime\/learner-activity\/types\.ts/,

@@ -508,7 +508,7 @@ module.exports = {
       name: "runtime-leaves-do-not-import-public-entrypoints-or-composition-roots",
       severity: "error",
       from: {
-        path: "^packages/core/src/runtime/(?:assessment|foundation|guards|learner-activity|players)/",
+        path: "^packages/core/src/runtime/(?:assessment|foundation|guards|learner-activity|players|presentation)/",
       },
       to: {
         path: [

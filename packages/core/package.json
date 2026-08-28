@@ -124,6 +124,7 @@
     "react-pdf": "^10.4.1",
     "react-remove-scroll": "^2.7.2",
     "sonner": "2.0.8",
+    "xstate": "5.32.6",
     "zod": "^3.23.8",
     "zustand": "^5.0.14"
   },
