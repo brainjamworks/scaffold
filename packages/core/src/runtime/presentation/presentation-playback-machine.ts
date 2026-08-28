@@ -7,6 +7,7 @@ import type {
 import type {
   PresentationCueExecutionOutcome,
   PresentationCueExecutor,
+  PresentationCueOutcome,
   PresentationCueReport,
 } from "./presentation-cue-executor";
 import type { PresentationMonotonicClockPort } from "./presentation-monotonic-clock";
@@ -74,7 +75,6 @@ type PresentationCueWorkerEvent =
       readonly cues: readonly CompiledPresentationCue[];
       readonly runNumber: number;
       readonly surfaceId: string;
-      readonly waitForDrain: boolean;
     }
   | {
       readonly type: "interrupt-cues";
@@ -124,38 +124,11 @@ const monotonicClockActor = fromCallback<
   });
 });
 
-function freezeExecutionOutcome(
-  outcome: PresentationCueExecutionOutcome,
-): PresentationCueExecutionOutcome {
-  switch (outcome.kind) {
-    case "succeeded":
-      return Object.freeze({ kind: "succeeded" });
-    case "target-not-reached":
-      return Object.freeze({
-        kind: "target-not-reached",
-        result: Object.freeze({ ...outcome.result }),
-      });
-    case "control-command-error":
-      return Object.freeze({
-        kind: "control-command-error",
-        error: Object.freeze({ ...outcome.error }),
-      });
-  }
-}
-
 function freezeCueReport(
   item: QueuedPresentationCue,
-  outcome:
-    | PresentationCueExecutionOutcome
-    | {
-        readonly kind: "session-interrupted";
-        readonly reason: PresentationCueInterruptionReason;
-      },
+  outcome: PresentationCueOutcome,
 ): PresentationCueReport {
-  const frozenOutcome =
-    outcome.kind === "session-interrupted"
-      ? Object.freeze({ kind: "session-interrupted" as const, reason: outcome.reason })
-      : freezeExecutionOutcome(outcome);
+  const frozenOutcome: PresentationCueOutcome = Object.freeze({ ...outcome });
   return Object.freeze({
     runNumber: item.runNumber,
     surfaceId: item.surfaceId,
@@ -176,23 +149,17 @@ const presentationCueWorker = fromCallback<PresentationCueWorkerEvent, Presentat
         }
       | undefined;
     let nextOperationNumber = 1;
-    let drainRunNumber: number | undefined;
     let disposed = false;
 
-    const notifyIfDrained = (): void => {
-      if (current || queue.length > 0 || drainRunNumber === undefined) return;
-      const runNumber = drainRunNumber;
-      drainRunNumber = undefined;
+    const notifyIfDrained = (runNumber: number): void => {
+      if (current || queue.length > 0) return;
       sendBack({ type: "cue-worker-drained", runNumber });
     };
 
     const startNext = (): void => {
       if (disposed || current) return;
       const item = queue.shift();
-      if (!item) {
-        notifyIfDrained();
-        return;
-      }
+      if (!item) return;
 
       const controller = new AbortController();
       const operationNumber = nextOperationNumber;
@@ -213,16 +180,10 @@ const presentationCueWorker = fromCallback<PresentationCueWorkerEvent, Presentat
       execution.then(
         (outcome) => {
           if (disposed || current?.operationNumber !== operationNumber) return;
-          if (current.item.runNumber !== item.runNumber || current.item.cue.id !== item.cue.id) {
-            sendBack({
-              type: "cue-worker-defect",
-              error: new Error("Presentation cue settlement contradicted the current operation."),
-            });
-            return;
-          }
           input.publishCueReport(freezeCueReport(item, outcome));
           current = undefined;
           startNext();
+          notifyIfDrained(item.runNumber);
         },
         (error: unknown) => {
           if (disposed || current?.operationNumber !== operationNumber) return;
@@ -233,14 +194,6 @@ const presentationCueWorker = fromCallback<PresentationCueWorkerEvent, Presentat
 
     receive((event) => {
       if (event.type === "enqueue-cues") {
-        const activeRunNumber = current?.item.runNumber ?? queue[0]?.runNumber;
-        if (activeRunNumber !== undefined && activeRunNumber !== event.runNumber) {
-          sendBack({
-            type: "cue-worker-defect",
-            error: new Error("Presentation cue worker received work for a contradictory run."),
-          });
-          return;
-        }
         queue.push(
           ...event.cues.map((cue) => ({
             cue,
@@ -248,24 +201,15 @@ const presentationCueWorker = fromCallback<PresentationCueWorkerEvent, Presentat
             surfaceId: event.surfaceId,
           })),
         );
-        if (event.waitForDrain) drainRunNumber = event.runNumber;
         startNext();
-        notifyIfDrained();
+        notifyIfDrained(event.runNumber);
         return;
       }
 
       const unsettled = [...(current ? [current.item] : []), ...queue];
-      if (unsettled.some((item) => item.runNumber !== event.runNumber)) {
-        sendBack({
-          type: "cue-worker-defect",
-          error: new Error("Presentation cue interruption contradicted the active run."),
-        });
-        return;
-      }
       current?.controller.abort();
       current = undefined;
       queue = [];
-      drainRunNumber = undefined;
       for (const item of unsettled) {
         input.publishCueReport(
           freezeCueReport(item, { kind: "session-interrupted", reason: event.reason }),
@@ -278,7 +222,6 @@ const presentationCueWorker = fromCallback<PresentationCueWorkerEvent, Presentat
       current?.controller.abort();
       current = undefined;
       queue = [];
-      drainRunNumber = undefined;
     };
   },
 );
@@ -401,7 +344,6 @@ const presentationPlaybackMachineSetup = setup({
         cues,
         runNumber: context.runNumber,
         surfaceId: context.surfaceId,
-        waitForDrain: false,
       });
     }),
     enqueueClockCues: enqueueActions(({ context, event, enqueue }) => {
@@ -413,7 +355,6 @@ const presentationPlaybackMachineSetup = setup({
         cues,
         runNumber: context.runNumber,
         surfaceId: context.surfaceId,
-        waitForDrain: false,
       });
     }),
     enqueueEndpointCues: enqueueActions(({ context, event, enqueue }) => {
@@ -424,7 +365,6 @@ const presentationPlaybackMachineSetup = setup({
         cues,
         runNumber: context.runNumber,
         surfaceId: context.surfaceId,
-        waitForDrain: true,
       });
     }),
     consumeSeekCues: assign({
@@ -622,19 +562,9 @@ function readMachinePhase(value: unknown): PresentationPlaybackMachinePhase {
   }
 }
 
-function assertValidTimeline(timeline: CompiledInternalClockSurfaceTimeline): void {
-  if (timeline.surfaceId.length === 0) {
-    throw new Error("Presentation compiled timeline requires a Surface ID.");
-  }
-  if (!Number.isSafeInteger(timeline.durationMs) || timeline.durationMs < 0) {
-    throw new Error("Presentation compiled timeline duration must be a non-negative integer.");
-  }
-}
-
 export function createPresentationPlaybackMachine(
   input: PresentationPlaybackMachineInput,
 ): PresentationPlaybackMachine {
-  assertValidTimeline(input.timeline);
   const actor = createActor(presentationPlaybackMachine, { input });
   actor.start();
 

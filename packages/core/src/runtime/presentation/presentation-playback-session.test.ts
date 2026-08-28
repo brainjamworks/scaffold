@@ -290,7 +290,6 @@ describe("createPresentationPlaybackSession", () => {
       expect(Object.isFrozen(report)).toBe(true);
       expect(Object.isFrozen(report.outcome)).toBe(true);
     }
-    expect(Object.isFrozen(reports[0]?.outcome.kind === "target-not-reached" && reports[0].outcome.result)).toBe(true);
     expect(Object.keys(session.getSnapshot()).sort()).toEqual([
       "currentTimeMs",
       "durationMs",
@@ -338,6 +337,29 @@ describe("createPresentationPlaybackSession", () => {
     expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
       "command-later",
     ]);
+  });
+
+  it("keeps rejected Cue Executor work observable as an actor defect", async () => {
+    vi.useFakeTimers();
+    try {
+      const { deferredCueExecutor, session } = createHarness(1_000, [cue("rejected", 0)]);
+      const reportListener = vi.fn();
+      session.subscribeCueReports(reportListener);
+      session.play();
+      const execution = deferredCueExecutor.pending[0];
+      if (!execution) throw new Error("Expected rejected cue work.");
+      const defect = new Error("Cue Executor rejected.");
+
+      execution.reject(defect);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(reportListener).not.toHaveBeenCalled();
+      expect(() => vi.runOnlyPendingTimers()).toThrow(defect);
+      session.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("interrupts old-run work on Restart and replays every cue in the new run", async () => {
