@@ -271,10 +271,7 @@ function projectedClockTime(input: {
   }
 
   const elapsedMs = nowMs - anchorClockTimeMs;
-  const projectedTimeMs = Math.min(
-    durationMs,
-    Math.floor(anchorPresentationTimeMs + elapsedMs),
-  );
+  const projectedTimeMs = Math.min(durationMs, Math.floor(anchorPresentationTimeMs + elapsedMs));
   if (projectedTimeMs < confirmedTimeMs) {
     throw new Error("Presentation clock projection moved behind the last confirmed playhead.");
   }
@@ -285,9 +282,7 @@ function unconsumedCuesThrough(
   context: PresentationPlaybackMachineContext,
   timeMs: number,
 ): readonly CompiledPresentationCue[] {
-  return context.cues.filter(
-    (cue) => cue.atMs <= timeMs && !context.consumedCueIds.has(cue.id),
-  );
+  return context.cues.filter((cue) => cue.atMs <= timeMs && !context.consumedCueIds.has(cue.id));
 }
 
 function consumedCueIdsWith(
@@ -311,8 +306,7 @@ const presentationPlaybackMachineSetup = setup({
     atDuration: ({ context }) => context.currentTimeMs === context.durationMs,
     seekAtDuration: ({ context, event }) => seekTimeFrom(event) === context.durationMs,
     seekAtStart: ({ event }) => seekTimeFrom(event) === 0,
-    clockReachedDuration: ({ context, event }) =>
-      projectedTimeFrom(event) === context.durationMs,
+    clockReachedDuration: ({ context, event }) => projectedTimeFrom(event) === context.durationMs,
     drainedCurrentRun: ({ context, event }) =>
       event.type === "cue-worker-drained" && event.runNumber === context.runNumber,
   },

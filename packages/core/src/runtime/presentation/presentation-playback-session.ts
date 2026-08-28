@@ -1,10 +1,7 @@
 import { Result, type Result as ResultType } from "better-result";
 
 import type { CompiledInternalClockSurfaceTimeline } from "./compiled-presentation-program";
-import type {
-  PresentationCueExecutor,
-  PresentationCueReport,
-} from "./presentation-cue-executor";
+import type { PresentationCueExecutor, PresentationCueReport } from "./presentation-cue-executor";
 import {
   createAnimationFramePresentationMonotonicClock,
   type PresentationMonotonicClockPort,
@@ -52,10 +49,7 @@ export interface CreatePresentationPlaybackSessionInput {
   readonly cueExecutor: PresentationCueExecutor;
 }
 
-export type {
-  PresentationCueOutcome,
-  PresentationCueReport,
-} from "./presentation-cue-executor";
+export type { PresentationCueOutcome, PresentationCueReport } from "./presentation-cue-executor";
 
 function snapshotsAreEqual(
   left: PresentationPlaybackSnapshot,

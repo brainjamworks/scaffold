@@ -87,10 +87,11 @@ function createDeferredCueExecutor() {
 
   const pending: PendingExecution[] = [];
   const executor: PresentationCueExecutor = {
-    execute: vi.fn(({ command, signal }) =>
-      new Promise<PresentationCueExecutionOutcome>((resolve, reject) => {
-        pending.push({ command, signal, resolve, reject });
-      }),
+    execute: vi.fn(
+      ({ command, signal }) =>
+        new Promise<PresentationCueExecutionOutcome>((resolve, reject) => {
+          pending.push({ command, signal, resolve, reject });
+        }),
     ),
   };
 
@@ -117,10 +118,6 @@ async function settleCue(
   execution.resolve(outcome);
   await Promise.resolve();
   await Promise.resolve();
-}
-
-async function flushCueWork(): Promise<void> {
-  for (let index = 0; index < 10; index += 1) await Promise.resolve();
 }
 
 function createHarness(
@@ -243,6 +240,7 @@ describe("createPresentationCueExecutor", () => {
       origin: "configured-presentation",
       signal,
     });
+    expect(controlBindings.get).toHaveBeenCalledWith(ownerId);
     expect(execute).toHaveBeenCalledWith({ targetId, type: "show-answer", signal });
     expect(Object.hasOwn(execute.mock.calls[0]?.[0] ?? {}, "input")).toBe(false);
     expect(staleExecute).not.toHaveBeenCalled();
@@ -274,32 +272,32 @@ describe("createPresentationCueExecutor", () => {
       kind: "interrupted",
       requestedId: "target-semantic" as EmbeddedNodeId,
     },
-  ] satisfies readonly Exclude<
-    SemanticTargetInteractionResult,
-    { readonly kind: "reached" }
-  >[])("maps semantic $kind without reading Control Bindings", async (targetResult) => {
-    const controlBindings = { get: vi.fn() };
-    const executor = createPresentationCueExecutor({
-      semanticTargets: { activate: vi.fn(async () => targetResult) },
-      controlBindings,
-      origin: "author-preview",
-    });
-    const command = {
-      kind: "target-command",
-      ownerId: "owner-semantic" as EmbeddedNodeId,
-      targetId: "target-semantic" as EmbeddedNodeId,
-      type: "show-answer",
-    } as const satisfies PresentationTargetCommand;
+  ] satisfies readonly Exclude<SemanticTargetInteractionResult, { readonly kind: "reached" }>[])(
+    "maps semantic $kind without reading Control Bindings",
+    async (targetResult) => {
+      const controlBindings = { get: vi.fn() };
+      const executor = createPresentationCueExecutor({
+        semanticTargets: { activate: vi.fn(async () => targetResult) },
+        controlBindings,
+        origin: "author-preview",
+      });
+      const command = {
+        kind: "target-command",
+        ownerId: "owner-semantic" as EmbeddedNodeId,
+        targetId: "target-semantic" as EmbeddedNodeId,
+        type: "show-answer",
+      } as const satisfies PresentationTargetCommand;
 
-    const outcome = await executor.execute({ command, signal: new AbortController().signal });
+      const outcome = await executor.execute({ command, signal: new AbortController().signal });
 
-    expect(outcome).toEqual({ kind: "target-not-reached", result: targetResult });
-    if (outcome.kind !== "target-not-reached") {
-      throw new Error("Expected the semantic failure outcome.");
-    }
-    expect(outcome.result).toBe(targetResult);
-    expect(controlBindings.get).not.toHaveBeenCalled();
-  });
+      expect(outcome).toEqual({ kind: "target-not-reached", result: targetResult });
+      if (outcome.kind !== "target-not-reached") {
+        throw new Error("Expected the semantic failure outcome.");
+      }
+      expect(outcome.result).toBe(targetResult);
+      expect(controlBindings.get).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     { reason: "cancelled" },
@@ -376,10 +374,15 @@ describe("createPresentationCueExecutor", () => {
       cueExecutor,
     });
     const reports: PresentationCueReport[] = [];
-    session.subscribeCueReports((report) => reports.push(report));
+    const secondCueReported = new Promise<void>((resolve) => {
+      session.subscribeCueReports((report) => {
+        reports.push(report);
+        if (report.cueId === secondCue.id) resolve();
+      });
+    });
 
     session.play();
-    await flushCueWork();
+    await secondCueReported;
 
     expect(reports.map(({ cueId, outcome }) => ({ cueId, outcome }))).toEqual([
       {
@@ -734,19 +737,29 @@ describe("createPresentationPlaybackSession", () => {
     const newSecond = deferredCueExecutor.pending[2];
     if (!newSecond) throw new Error("Expected second cue in the restarted run.");
     await settleCue(newSecond);
-    expect(reports.slice(2).map(({ runNumber, cueId, outcome }) => ({
-      runNumber,
-      cueId,
-      outcome,
-    }))).toEqual([
+    expect(
+      reports.slice(2).map(({ runNumber, cueId, outcome }) => ({
+        runNumber,
+        cueId,
+        outcome,
+      })),
+    ).toEqual([
       { runNumber: 2, cueId: "first", outcome: { kind: "succeeded" } },
       { runNumber: 2, cueId: "second", outcome: { kind: "succeeded" } },
     ]);
   });
 
   it.each([
-    { operation: "Seek", reason: "seek", interrupt: (session: PresentationPlaybackSession) => session.seek(50) },
-    { operation: "Stop", reason: "stop", interrupt: (session: PresentationPlaybackSession) => session.stop() },
+    {
+      operation: "Seek",
+      reason: "seek",
+      interrupt: (session: PresentationPlaybackSession) => session.seek(50),
+    },
+    {
+      operation: "Stop",
+      reason: "stop",
+      interrupt: (session: PresentationPlaybackSession) => session.stop(),
+    },
   ] as const)(
     "$operation aborts active work, reports every unsettled cue, and ignores late settlement",
     async ({ reason, interrupt }) => {
