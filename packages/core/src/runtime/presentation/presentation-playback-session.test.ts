@@ -1,5 +1,13 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
+import { Result } from "better-result";
 import { describe, expect, it, vi } from "vite-plus/test";
+
+import type {
+  ControlBinding,
+  ControlCommandError,
+  ControlCommandRequest,
+} from "@/document/control-binding/control-binding";
+import type { SemanticTargetInteractionResult } from "@/document/semantic-target-interaction/semantic-target-interaction-coordinator";
 
 import type {
   CompiledInternalClockSurfaceTimeline,
@@ -10,6 +18,7 @@ import type {
   PresentationCueExecutor,
   PresentationTargetCommand,
 } from "./presentation-cue-executor";
+import { createPresentationCueExecutor } from "./presentation-cue-executor";
 import {
   createAnimationFramePresentationMonotonicClock,
   type PresentationMonotonicClockPort,
@@ -110,6 +119,10 @@ async function settleCue(
   await Promise.resolve();
 }
 
+async function flushCueWork(): Promise<void> {
+  for (let index = 0; index < 10; index += 1) await Promise.resolve();
+}
+
 function createHarness(
   durationMs = 1_000,
   cues: readonly CompiledPresentationCue[] = [],
@@ -180,6 +193,328 @@ function expectDisposedSessionDefects(session: PresentationPlaybackSession): voi
     expect(invoke, operation).toThrowError(/disposed/i);
   }
 }
+
+describe("createPresentationCueExecutor", () => {
+  it("prepares the target before a fresh binding lookup and executes the exact command", async () => {
+    const ownerId = "owner-current" as EmbeddedNodeId;
+    const targetId = "target-current" as EmbeddedNodeId;
+    const signal = new AbortController().signal;
+    const order: string[] = [];
+    const eventSubscribe = vi.fn();
+    const staleExecute = vi.fn(async () => Result.ok());
+    const execute = vi.fn(async (_request: ControlCommandRequest) => {
+      order.push("execute");
+      return Result.ok();
+    });
+    let currentBinding: ControlBinding = { ownerId, commandExecutor: { execute: staleExecute } };
+    const semanticTargets = {
+      activate: vi.fn(async () => {
+        order.push("activate");
+        currentBinding = {
+          ownerId,
+          commandExecutor: { execute },
+          eventSource: { subscribe: eventSubscribe },
+        };
+        return { kind: "reached" as const, requestedId: targetId };
+      }),
+    };
+    const controlBindings = {
+      get: vi.fn(() => {
+        order.push("get");
+        return currentBinding;
+      }),
+    };
+    const executor = createPresentationCueExecutor({
+      semanticTargets,
+      controlBindings,
+      origin: "configured-presentation",
+    });
+    const command = {
+      kind: "target-command",
+      ownerId,
+      targetId,
+      type: "show-answer",
+    } as const satisfies PresentationTargetCommand;
+
+    await expect(executor.execute({ command, signal })).resolves.toEqual({ kind: "succeeded" });
+
+    expect(order).toEqual(["activate", "get", "execute"]);
+    expect(semanticTargets.activate).toHaveBeenCalledWith(targetId, {
+      origin: "configured-presentation",
+      signal,
+    });
+    expect(execute).toHaveBeenCalledWith({ targetId, type: "show-answer", signal });
+    expect(Object.hasOwn(execute.mock.calls[0]?.[0] ?? {}, "input")).toBe(false);
+    expect(staleExecute).not.toHaveBeenCalled();
+    expect(eventSubscribe).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      kind: "missing-target",
+      requestedId: "target-semantic" as EmbeddedNodeId,
+    },
+    {
+      kind: "unavailable",
+      requestedId: "target-semantic" as EmbeddedNodeId,
+      ownerId: "owner-semantic" as EmbeddedNodeId,
+      childId: "child-semantic" as EmbeddedNodeId,
+      nearestReachableOwnerId: "nearest-semantic" as EmbeddedNodeId,
+      reason: "owner-unmounted",
+    },
+    {
+      kind: "refused",
+      requestedId: "target-semantic" as EmbeddedNodeId,
+      ownerId: "owner-semantic" as EmbeddedNodeId,
+      childId: "child-semantic" as EmbeddedNodeId,
+      nearestReachableOwnerId: null,
+      reason: "authority-boundary",
+    },
+    {
+      kind: "interrupted",
+      requestedId: "target-semantic" as EmbeddedNodeId,
+    },
+  ] satisfies readonly Exclude<
+    SemanticTargetInteractionResult,
+    { readonly kind: "reached" }
+  >[])("maps semantic $kind without reading Control Bindings", async (targetResult) => {
+    const controlBindings = { get: vi.fn() };
+    const executor = createPresentationCueExecutor({
+      semanticTargets: { activate: vi.fn(async () => targetResult) },
+      controlBindings,
+      origin: "author-preview",
+    });
+    const command = {
+      kind: "target-command",
+      ownerId: "owner-semantic" as EmbeddedNodeId,
+      targetId: "target-semantic" as EmbeddedNodeId,
+      type: "show-answer",
+    } as const satisfies PresentationTargetCommand;
+
+    const outcome = await executor.execute({ command, signal: new AbortController().signal });
+
+    expect(outcome).toEqual({ kind: "target-not-reached", result: targetResult });
+    if (outcome.kind !== "target-not-reached") {
+      throw new Error("Expected the semantic failure outcome.");
+    }
+    expect(outcome.result).toBe(targetResult);
+    expect(controlBindings.get).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { reason: "cancelled" },
+    { reason: "playback-not-allowed" },
+    { reason: "media-unavailable", mediaErrorCode: 4 },
+    { reason: "seek-out-of-range", requestedSeconds: 12, durationSeconds: 10 },
+    { reason: "page-out-of-range", requestedPage: 6, pageCount: 5 },
+    { reason: "pdf-unavailable", requestedPage: 3 },
+  ] satisfies readonly ControlCommandError[])(
+    "maps Control Command $reason with exact facts",
+    async (error) => {
+      const ownerId = "owner-command" as EmbeddedNodeId;
+      const targetId = "target-command" as EmbeddedNodeId;
+      const signal = new AbortController().signal;
+      const execute = vi.fn(async () => Result.err(error));
+      const executor = createPresentationCueExecutor({
+        semanticTargets: {
+          activate: vi.fn(async () => ({ kind: "reached" as const, requestedId: targetId })),
+        },
+        controlBindings: {
+          get: vi.fn(() => ({ ownerId, commandExecutor: { execute } })),
+        },
+        origin: "configured-presentation",
+      });
+      const command = {
+        kind: "target-command",
+        ownerId,
+        targetId,
+        type: "seek",
+        input: 12,
+      } as const satisfies PresentationTargetCommand;
+
+      const outcome = await executor.execute({ command, signal });
+
+      expect(outcome).toEqual({ kind: "control-command-error", error });
+      if (outcome.kind !== "control-command-error") {
+        throw new Error("Expected the Control Command failure outcome.");
+      }
+      expect(outcome.error).toBe(error);
+      expect(execute).toHaveBeenCalledWith({ targetId, type: "seek", input: 12, signal });
+    },
+  );
+
+  it("continues with a later due cue after an expected semantic failure", async () => {
+    const firstCue = cue("missing-adapter", 0);
+    const secondCue = cue("successful-adapter", 0);
+    const execute = vi.fn(async () => Result.ok());
+    const eventSubscribe = vi.fn();
+    const cueExecutor = createPresentationCueExecutor({
+      semanticTargets: {
+        activate: vi.fn(async (targetId) =>
+          targetId === firstCue.command.targetId
+            ? { kind: "missing-target" as const, requestedId: targetId }
+            : { kind: "reached" as const, requestedId: targetId },
+        ),
+      },
+      controlBindings: {
+        get: vi.fn(() => ({
+          ownerId: secondCue.command.ownerId,
+          commandExecutor: { execute },
+          eventSource: { subscribe: eventSubscribe },
+        })),
+      },
+      origin: "author-preview",
+    });
+    const timeline: CompiledInternalClockSurfaceTimeline = Object.freeze({
+      surfaceId: "surface-1",
+      durationMs: 100,
+      cues: Object.freeze([firstCue, secondCue]),
+    });
+    const session = createPresentationPlaybackSession({
+      timeline,
+      monotonicClock: createManualClock().clock,
+      cueExecutor,
+    });
+    const reports: PresentationCueReport[] = [];
+    session.subscribeCueReports((report) => reports.push(report));
+
+    session.play();
+    await flushCueWork();
+
+    expect(reports.map(({ cueId, outcome }) => ({ cueId, outcome }))).toEqual([
+      {
+        cueId: "missing-adapter",
+        outcome: {
+          kind: "target-not-reached",
+          result: {
+            kind: "missing-target",
+            requestedId: firstCue.command.targetId,
+          },
+        },
+      },
+      { cueId: "successful-adapter", outcome: { kind: "succeeded" } },
+    ]);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(eventSubscribe).not.toHaveBeenCalled();
+  });
+
+  it("rejects a reached result for a different target before binding lookup", async () => {
+    const targetId = "target-requested" as EmbeddedNodeId;
+    const controlBindings = { get: vi.fn() };
+    const executor = createPresentationCueExecutor({
+      semanticTargets: {
+        activate: vi.fn(async () => ({
+          kind: "reached" as const,
+          requestedId: "target-other" as EmbeddedNodeId,
+        })),
+      },
+      controlBindings,
+      origin: "configured-presentation",
+    });
+
+    await expect(
+      executor.execute({
+        command: {
+          kind: "target-command",
+          ownerId: "owner-requested" as EmbeddedNodeId,
+          targetId,
+          type: "show-answer",
+        },
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toThrow(/target identity/i);
+    expect(controlBindings.get).not.toHaveBeenCalled();
+  });
+
+  it("rejects a missing current owner binding", async () => {
+    const targetId = "target-unmounted" as EmbeddedNodeId;
+    const executor = createPresentationCueExecutor({
+      semanticTargets: {
+        activate: vi.fn(async () => ({ kind: "reached" as const, requestedId: targetId })),
+      },
+      controlBindings: { get: vi.fn(() => undefined) },
+      origin: "configured-presentation",
+    });
+
+    await expect(
+      executor.execute({
+        command: {
+          kind: "target-command",
+          ownerId: "owner-unmounted" as EmbeddedNodeId,
+          targetId,
+          type: "show-answer",
+        },
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toThrow(/current Control Binding/i);
+  });
+
+  it("rejects a current binding without a Command Executor", async () => {
+    const ownerId = "owner-no-executor" as EmbeddedNodeId;
+    const targetId = "target-no-executor" as EmbeddedNodeId;
+    const executor = createPresentationCueExecutor({
+      semanticTargets: {
+        activate: vi.fn(async () => ({ kind: "reached" as const, requestedId: targetId })),
+      },
+      controlBindings: { get: vi.fn(() => ({ ownerId })) },
+      origin: "configured-presentation",
+    });
+
+    await expect(
+      executor.execute({
+        command: { kind: "target-command", ownerId, targetId, type: "show-answer" },
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toThrow(/Command Executor/i);
+  });
+
+  it("preserves a Semantic Target rejection", async () => {
+    const ownerId = "owner-rejection" as EmbeddedNodeId;
+    const targetId = "target-rejection" as EmbeddedNodeId;
+    const signal = new AbortController().signal;
+    const semanticDefect = new Error("Semantic Target port rejected.");
+    const controlBindings = { get: vi.fn() };
+    const semanticExecutor = createPresentationCueExecutor({
+      semanticTargets: { activate: vi.fn(async () => Promise.reject(semanticDefect)) },
+      controlBindings,
+      origin: "configured-presentation",
+    });
+
+    await expect(
+      semanticExecutor.execute({
+        command: { kind: "target-command", ownerId, targetId, type: "show-answer" },
+        signal,
+      }),
+    ).rejects.toBe(semanticDefect);
+    expect(controlBindings.get).not.toHaveBeenCalled();
+  });
+
+  it("preserves a Command Executor rejection", async () => {
+    const ownerId = "owner-rejection" as EmbeddedNodeId;
+    const targetId = "target-rejection" as EmbeddedNodeId;
+    const signal = new AbortController().signal;
+    const commandDefect = new Error("Command Executor rejected.");
+    const commandExecutor = createPresentationCueExecutor({
+      semanticTargets: {
+        activate: vi.fn(async () => ({ kind: "reached" as const, requestedId: targetId })),
+      },
+      controlBindings: {
+        get: vi.fn(() => ({
+          ownerId,
+          commandExecutor: { execute: vi.fn(async () => Promise.reject(commandDefect)) },
+        })),
+      },
+      origin: "configured-presentation",
+    });
+
+    await expect(
+      commandExecutor.execute({
+        command: { kind: "target-command", ownerId, targetId, type: "show-answer" },
+        signal,
+      }),
+    ).rejects.toBe(commandDefect);
+  });
+});
 
 describe("createPresentationPlaybackSession", () => {
   it("consumes time-zero and crossed cues once in compiled order", async () => {
