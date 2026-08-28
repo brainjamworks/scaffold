@@ -214,6 +214,35 @@ describe("createPresentationPlaybackSession", () => {
     expect(manualClock.maximumActiveSubscriptions).toBe(1);
   });
 
+  it("rejects non-finite Play, Resume, and playing Seek anchors as defects", () => {
+    const initialPlay = createHarness();
+    initialPlay.manualClock.setNowMs(Number.NaN);
+    expect(() => initialPlay.session.play()).toThrowError(/finite/i);
+
+    const resume = createHarness();
+    resume.session.play();
+    resume.manualClock.emitAt(1_100);
+    resume.session.pause();
+    resume.manualClock.setNowMs(Number.POSITIVE_INFINITY);
+    expect(() => resume.session.play()).toThrowError(/finite/i);
+
+    const playingSeek = createHarness();
+    playingSeek.session.play();
+    playingSeek.manualClock.setNowMs(Number.NEGATIVE_INFINITY);
+    expect(() => playingSeek.session.seek(200)).toThrowError(/finite/i);
+  });
+
+  it("rejects a clock projection behind the last confirmed playhead", () => {
+    const { manualClock, session } = createHarness();
+    session.play();
+    manualClock.emitAt(1_200);
+    const confirmedSnapshot = session.getSnapshot();
+    expect(confirmedSnapshot.currentTimeMs).toBe(200);
+
+    expect(() => manualClock.emitAt(1_100)).toThrowError(/behind.*confirmed/i);
+    expect(session.getSnapshot()).toBe(confirmedSnapshot);
+  });
+
   it("clamps natural progression at the duration and stops clock work", () => {
     const { manualClock, session } = createHarness(300);
 

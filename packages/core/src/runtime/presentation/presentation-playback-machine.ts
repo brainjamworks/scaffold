@@ -21,16 +21,27 @@ interface PresentationPlaybackMachineContext {
 }
 
 type PresentationPlaybackMachineEvent =
-  | { readonly type: "play" }
+  | { readonly type: "play"; readonly anchorClockTimeMs: number }
   | { readonly type: "pause" }
-  | { readonly type: "seek"; readonly timeMs: number }
+  | {
+      readonly type: "seek";
+      readonly timeMs: number;
+      readonly anchorClockTimeMs: number;
+    }
   | { readonly type: "restart" }
   | { readonly type: "stop" }
-  | { readonly type: "clock-tick"; readonly nowMs: number };
+  | { readonly type: "clock-tick"; readonly projectedTimeMs: number };
 
 interface PresentationPlaybackMachineInput {
   readonly timeline: CompiledInternalClockSurfaceTimeline;
   readonly monotonicClock: PresentationMonotonicClockPort;
+}
+
+interface PresentationClockActorInput {
+  readonly monotonicClock: PresentationMonotonicClockPort;
+  readonly anchorClockTimeMs: number;
+  readonly anchorPresentationTimeMs: number;
+  readonly durationMs: number;
 }
 
 interface PresentationPlaybackMachineSnapshot {
@@ -54,12 +65,22 @@ interface PresentationPlaybackMachine {
 
 const monotonicClockActor = fromCallback<
   PresentationPlaybackMachineEvent,
-  PresentationMonotonicClockPort
+  PresentationClockActorInput
 >(
-  ({ input, sendBack }) =>
-    input.subscribe(() => {
-      sendBack({ type: "clock-tick", nowMs: input.nowMs() });
-    }),
+  ({ input, sendBack }) => {
+    let confirmedTimeMs = input.anchorPresentationTimeMs;
+    return input.monotonicClock.subscribe(() => {
+      const projectedTimeMs = projectedClockTime({
+        anchorClockTimeMs: input.anchorClockTimeMs,
+        anchorPresentationTimeMs: input.anchorPresentationTimeMs,
+        confirmedTimeMs,
+        durationMs: input.durationMs,
+        nowMs: input.monotonicClock.nowMs(),
+      });
+      confirmedTimeMs = projectedTimeMs;
+      sendBack({ type: "clock-tick", projectedTimeMs });
+    });
+  },
 );
 
 function seekTimeFrom(event: PresentationPlaybackMachineEvent): number {
@@ -69,26 +90,52 @@ function seekTimeFrom(event: PresentationPlaybackMachineEvent): number {
   return event.timeMs;
 }
 
-function clockTimeFrom(event: PresentationPlaybackMachineEvent): number {
+function anchorClockTimeFrom(event: PresentationPlaybackMachineEvent): number {
+  if (event.type !== "play" && event.type !== "seek") {
+    throw new Error(`Presentation anchor action received unexpected event "${event.type}".`);
+  }
+  return event.anchorClockTimeMs;
+}
+
+function projectedTimeFrom(event: PresentationPlaybackMachineEvent): number {
   if (event.type !== "clock-tick") {
     throw new Error(`Presentation clock action received unexpected event "${event.type}".`);
   }
-  return event.nowMs;
+  return event.projectedTimeMs;
 }
 
-function projectedClockTime(
-  context: PresentationPlaybackMachineContext,
-  nowMs: number,
-): number {
+function finiteClockReadingFrom(clock: PresentationMonotonicClockPort): number {
+  const nowMs = clock.nowMs();
   if (!Number.isFinite(nowMs)) {
     throw new Error("Presentation monotonic clock returned a non-finite reading.");
   }
+  return nowMs;
+}
 
-  const elapsedMs = Math.max(0, nowMs - context.anchorClockTimeMs);
-  return Math.min(
-    context.durationMs,
-    Math.floor(context.anchorPresentationTimeMs + elapsedMs),
+function projectedClockTime(input: {
+  readonly anchorClockTimeMs: number;
+  readonly anchorPresentationTimeMs: number;
+  readonly confirmedTimeMs: number;
+  readonly durationMs: number;
+  readonly nowMs: number;
+}): number {
+  const { anchorClockTimeMs, anchorPresentationTimeMs, confirmedTimeMs, durationMs, nowMs } = input;
+  if (!Number.isFinite(nowMs)) {
+    throw new Error("Presentation monotonic clock returned a non-finite reading.");
+  }
+  if (nowMs < anchorClockTimeMs) {
+    throw new Error("Presentation monotonic clock moved behind its playback anchor.");
+  }
+
+  const elapsedMs = nowMs - anchorClockTimeMs;
+  const projectedTimeMs = Math.min(
+    durationMs,
+    Math.floor(anchorPresentationTimeMs + elapsedMs),
   );
+  if (projectedTimeMs < confirmedTimeMs) {
+    throw new Error("Presentation clock projection moved behind the last confirmed playhead.");
+  }
+  return projectedTimeMs;
 }
 
 const presentationPlaybackMachineSetup = setup({
@@ -105,25 +152,24 @@ const presentationPlaybackMachineSetup = setup({
     seekAtDuration: ({ context, event }) => seekTimeFrom(event) === context.durationMs,
     seekAtStart: ({ event }) => seekTimeFrom(event) === 0,
     clockReachedDuration: ({ context, event }) =>
-      projectedClockTime(context, clockTimeFrom(event)) === context.durationMs,
+      projectedTimeFrom(event) === context.durationMs,
   },
   actions: {
     anchorPlayback: assign({
-      anchorClockTimeMs: ({ context }) => context.monotonicClock.nowMs(),
+      anchorClockTimeMs: ({ event }) => anchorClockTimeFrom(event),
       anchorPresentationTimeMs: ({ context }) => context.currentTimeMs,
     }),
     applyClockTick: assign({
-      currentTimeMs: ({ context, event }) =>
-        projectedClockTime(context, clockTimeFrom(event)),
+      currentTimeMs: ({ event }) => projectedTimeFrom(event),
     }),
     applySeek: assign({
       currentTimeMs: ({ event }) => seekTimeFrom(event),
     }),
-    applyPlayingSeek: assign(({ context, event }) => {
+    applyPlayingSeek: assign(({ event }) => {
       const timeMs = seekTimeFrom(event);
       return {
         currentTimeMs: timeMs,
-        anchorClockTimeMs: context.monotonicClock.nowMs(),
+        anchorClockTimeMs: anchorClockTimeFrom(event),
         anchorPresentationTimeMs: timeMs,
       };
     }),
@@ -174,7 +220,12 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
     playing: {
       invoke: {
         src: "monotonicClock",
-        input: ({ context }) => context.monotonicClock,
+        input: ({ context }) => ({
+          monotonicClock: context.monotonicClock,
+          anchorClockTimeMs: context.anchorClockTimeMs,
+          anchorPresentationTimeMs: context.anchorPresentationTimeMs,
+          durationMs: context.durationMs,
+        }),
       },
       on: {
         "clock-tick": [
@@ -275,9 +326,28 @@ export function createPresentationPlaybackMachine(
         subscription.unsubscribe();
       };
     },
-    play: () => actor.send({ type: "play" }),
+    play: () => {
+      const snapshot = actor.getSnapshot();
+      const phase = readMachinePhase(snapshot.value);
+      const needsAnchor =
+        (phase === "awaiting-start" || phase === "paused") &&
+        snapshot.context.currentTimeMs < snapshot.context.durationMs;
+      actor.send({
+        type: "play",
+        anchorClockTimeMs: needsAnchor ? finiteClockReadingFrom(input.monotonicClock) : 0,
+      });
+    },
     pause: () => actor.send({ type: "pause" }),
-    seek: (timeMs: number) => actor.send({ type: "seek", timeMs }),
+    seek: (timeMs: number) => {
+      const snapshot = actor.getSnapshot();
+      const needsAnchor =
+        readMachinePhase(snapshot.value) === "playing" && timeMs < snapshot.context.durationMs;
+      actor.send({
+        type: "seek",
+        timeMs,
+        anchorClockTimeMs: needsAnchor ? finiteClockReadingFrom(input.monotonicClock) : 0,
+      });
+    },
     restart: () => actor.send({ type: "restart" }),
     stop: () => actor.send({ type: "stop" }),
     dispose: () => actor.stop(),
