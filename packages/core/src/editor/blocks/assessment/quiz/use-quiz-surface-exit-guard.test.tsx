@@ -3,8 +3,8 @@
 import type { EmbeddedNodeId, QuizAttemptState } from "@scaffold/contracts";
 import { Editor, Node } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { act, cleanup, renderHook } from "@testing-library/react";
-import type { PropsWithChildren } from "react";
+import { act, cleanup, render, renderHook } from "@testing-library/react";
+import { useLayoutEffect, type PropsWithChildren } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { SurfaceId } from "@/document/model/course-structure";
@@ -56,6 +56,49 @@ describe("useQuizSurfaceExitGuard", () => {
 
     expect(getPos).not.toHaveBeenCalled();
     expect(subscribe).not.toHaveBeenCalled();
+  });
+
+  it("registers an unstarted Quiz before pre-paint layout observers run", () => {
+    const editor = createEditor();
+    const store = createStore();
+    const owner = createEnvironment([SURFACE_1], SURFACE_1);
+    const snapshotsAtLayout: unknown[] = [];
+
+    function LayoutBoundaryHarness() {
+      useQuizSurfaceExitGuard({
+        editor,
+        enabled: true,
+        getPos: () => findQuizPosition(editor),
+        groupId: GROUP_ID,
+        resolveSurfaceScope: resolveAssessmentSurfaceScope,
+        store,
+      });
+      useLayoutEffect(() => {
+        snapshotsAtLayout.push(owner.environment.getSnapshot());
+      }, []);
+      return null;
+    }
+
+    render(
+      <SurfaceExitEnvironmentProvider environment={owner.environment}>
+        <LayoutBoundaryHarness />
+      </SurfaceExitEnvironmentProvider>,
+    );
+
+    expect(snapshotsAtLayout).toEqual([
+      {
+        status: "blocked",
+        surfaceId: SURFACE_1,
+        blockers: [
+          {
+            reason: "quiz-not-complete",
+            ownerId: GROUP_ID,
+            surfaceId: SURFACE_1,
+            attemptStatus: "not_started",
+          },
+        ],
+      },
+    ]);
   });
 
   it("does not register an empty or unregistered Quiz", () => {

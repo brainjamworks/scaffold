@@ -1,6 +1,6 @@
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import type { Editor } from "@tiptap/core";
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 
 import type { SurfaceId } from "@/document/model/course-structure";
 import type { resolveAssessmentSurfaceScope } from "@/runtime/assessment/assessment-scope";
@@ -37,7 +37,7 @@ export function useQuizSurfaceExitGuard({
 }: UseQuizSurfaceExitGuardInput): void {
   const availability = useSurfaceExitEnvironmentAvailability();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (availability.status !== "available" || !enabled || !groupId || !store) return;
 
     const registration = store.getState().quizRegistrations[groupId];
