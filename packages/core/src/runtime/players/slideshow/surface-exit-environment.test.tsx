@@ -102,6 +102,31 @@ describe("Surface Exit Environment", () => {
     expect(environmentListener).toHaveBeenCalledTimes(1);
   });
 
+  it("freshly evaluates active guards when their authority changes before notification", () => {
+    const owner = createOwner();
+    const guard = createGuard({ ownerId: "quiz-one", surfaceId: SURFACE_ONE });
+    owner.environment.registerGuard(guard.guard);
+    const listener = vi.fn();
+    owner.environment.subscribe(listener);
+    const cachedAllowedSnapshot = owner.environment.getSnapshot();
+
+    guard.replaceSnapshot(blocked("quiz-one", SURFACE_ONE, "in_progress"));
+
+    expect(owner.environment.getSnapshot()).toBe(cachedAllowedSnapshot);
+
+    const evaluatedSnapshot = owner.environment.evaluateSnapshot();
+
+    expect(evaluatedSnapshot).toEqual({
+      status: "blocked",
+      surfaceId: SURFACE_ONE,
+      blockers: [quizBlocker("quiz-one", SURFACE_ONE, "in_progress")],
+    });
+    expect(owner.environment.getSnapshot()).toBe(evaluatedSnapshot);
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(owner.environment.evaluateSnapshot()).toBe(evaluatedSnapshot);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
   it("defers inactive guard reads and subscriptions until its Surface becomes active", () => {
     const owner = createOwner();
     const inactive = createGuard({

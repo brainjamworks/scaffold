@@ -35,6 +35,7 @@ export interface SurfaceExitGuard {
 export interface SurfaceExitEnvironment {
   registerGuard(guard: SurfaceExitGuard): () => void;
   getSnapshot(): SurfaceExitSnapshot;
+  evaluateSnapshot(): SurfaceExitSnapshot;
   subscribe(listener: () => void): () => void;
 }
 
@@ -106,11 +107,12 @@ export function createSurfaceExitEnvironment({
     });
   };
 
-  const publishAggregateSnapshot = () => {
+  const publishAggregateSnapshot = (): SurfaceExitSnapshot => {
     const nextSnapshot = readAggregateSnapshot();
-    if (sameSnapshot(currentSnapshot, nextSnapshot)) return;
+    if (sameSnapshot(currentSnapshot, nextSnapshot)) return currentSnapshot;
     currentSnapshot = nextSnapshot;
     for (const listener of listeners) listener();
+    return currentSnapshot;
   };
 
   const deactivateRegistration = (registration: GuardRegistration) => {
@@ -177,6 +179,11 @@ export function createSurfaceExitEnvironment({
     getSnapshot() {
       assertAvailable();
       return currentSnapshot;
+    },
+
+    evaluateSnapshot() {
+      assertAvailable();
+      return publishAggregateSnapshot();
     },
 
     subscribe(listener) {
