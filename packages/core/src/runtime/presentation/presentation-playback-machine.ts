@@ -3,6 +3,8 @@ import { assign, createActor, enqueueActions, fromCallback, sendTo, setup } from
 import type {
   CompiledInternalClockSurfaceTimeline,
   CompiledPresentationCue,
+  CompiledPresentationWait,
+  PresentationWaitId,
 } from "./compiled-presentation-program";
 import type {
   PresentationCueExecutionOutcome,
@@ -11,13 +13,20 @@ import type {
   PresentationCueReport,
 } from "./presentation-cue-executor";
 import type { PresentationMonotonicClockPort } from "./presentation-monotonic-clock";
+import type { PresentationGatePort } from "./presentation-progression-gate";
 
 type PresentationPlaybackMachinePhase =
   | "awaiting-start"
   | "playing"
   | "paused"
+  | "held"
   | "completed"
   | "stopped";
+
+interface PresentationPlaybackMachineManualHold {
+  readonly kind: "manual";
+  readonly waitId: PresentationWaitId;
+}
 
 type PresentationCueInterruptionReason = "seek" | "restart" | "stop";
 
@@ -26,18 +35,23 @@ interface PresentationPlaybackMachineContext {
   readonly durationMs: number;
   readonly monotonicClock: PresentationMonotonicClockPort;
   readonly cueExecutor: PresentationCueExecutor;
+  readonly gatePort: PresentationGatePort;
+  readonly autoAdvance: boolean;
   readonly publishCueReport: (report: PresentationCueReport) => void;
   readonly cues: readonly CompiledPresentationCue[];
+  readonly waits: readonly CompiledPresentationWait[];
   runNumber: number;
   currentTimeMs: number;
   anchorClockTimeMs: number;
   anchorPresentationTimeMs: number;
   consumedCueIds: ReadonlySet<string>;
+  pendingWait: CompiledPresentationWait | null;
 }
 
 type PresentationPlaybackMachineEvent =
   | { readonly type: "play"; readonly anchorClockTimeMs: number }
   | { readonly type: "pause" }
+  | { readonly type: "advance"; readonly anchorClockTimeMs: number }
   | {
       readonly type: "seek";
       readonly timeMs: number;
@@ -53,6 +67,8 @@ interface PresentationPlaybackMachineInput {
   readonly timeline: CompiledInternalClockSurfaceTimeline;
   readonly monotonicClock: PresentationMonotonicClockPort;
   readonly cueExecutor: PresentationCueExecutor;
+  readonly gatePort: PresentationGatePort;
+  readonly autoAdvance: boolean;
   readonly publishCueReport: (report: PresentationCueReport) => void;
 }
 
@@ -89,6 +105,7 @@ interface PresentationCueWorkerInput {
 
 interface PresentationPlaybackMachineSnapshot {
   readonly phase: PresentationPlaybackMachinePhase;
+  readonly hold?: PresentationPlaybackMachineManualHold;
   readonly runNumber: number;
   readonly surfaceId: string;
   readonly currentTimeMs: number;
@@ -100,6 +117,7 @@ interface PresentationPlaybackMachine {
   subscribe(listener: (snapshot: PresentationPlaybackMachineSnapshot) => void): () => void;
   play(): void;
   pause(): void;
+  advance(): void;
   seek(timeMs: number): void;
   restart(): void;
   stop(): void;
@@ -234,7 +252,7 @@ function seekTimeFrom(event: PresentationPlaybackMachineEvent): number {
 }
 
 function anchorClockTimeFrom(event: PresentationPlaybackMachineEvent): number {
-  if (event.type !== "play" && event.type !== "seek") {
+  if (event.type !== "play" && event.type !== "seek" && event.type !== "advance") {
     throw new Error(`Presentation anchor action received unexpected event "${event.type}".`);
   }
   return event.anchorClockTimeMs;
@@ -292,6 +310,41 @@ function consumedCueIdsWith(
   return new Set([...context.consumedCueIds, ...cues.map((cue) => cue.id)]);
 }
 
+type CompiledManualPresentationWait = Extract<
+  CompiledPresentationWait,
+  { readonly kind: "manual-wait" }
+>;
+
+function manualWaitAtCurrentTime(
+  context: PresentationPlaybackMachineContext,
+): CompiledManualPresentationWait | undefined {
+  return context.waits.find(
+    (wait): wait is CompiledManualPresentationWait =>
+      wait.kind === "manual-wait" && wait.atMs === context.currentTimeMs,
+  );
+}
+
+function crossedManualWait(
+  context: PresentationPlaybackMachineContext,
+  projectedTimeMs: number,
+): CompiledManualPresentationWait | undefined {
+  return context.waits.find(
+    (wait): wait is CompiledManualPresentationWait =>
+      wait.kind === "manual-wait" &&
+      wait.atMs > context.currentTimeMs &&
+      wait.atMs <= projectedTimeMs,
+  );
+}
+
+function pendingManualWait(
+  context: PresentationPlaybackMachineContext,
+): CompiledManualPresentationWait {
+  if (context.pendingWait?.kind !== "manual-wait") {
+    throw new Error("Presentation manual hold has no matching pending Wait.");
+  }
+  return context.pendingWait;
+}
+
 const presentationPlaybackMachineSetup = setup({
   types: {
     context: {} as PresentationPlaybackMachineContext,
@@ -304,8 +357,11 @@ const presentationPlaybackMachineSetup = setup({
   },
   guards: {
     atDuration: ({ context }) => context.currentTimeMs === context.durationMs,
+    hasManualWaitAtCurrentTime: ({ context }) => manualWaitAtCurrentTime(context) !== undefined,
     seekAtDuration: ({ context, event }) => seekTimeFrom(event) === context.durationMs,
     seekAtStart: ({ event }) => seekTimeFrom(event) === 0,
+    clockCrossedManualWait: ({ context, event }) =>
+      crossedManualWait(context, projectedTimeFrom(event)) !== undefined,
     clockReachedDuration: ({ context, event }) => projectedTimeFrom(event) === context.durationMs,
     drainedCurrentRun: ({ context, event }) =>
       event.type === "cue-worker-drained" && event.runNumber === context.runNumber,
@@ -333,6 +389,41 @@ const presentationPlaybackMachineSetup = setup({
       const cues = unconsumedCuesThrough(context, context.currentTimeMs);
       if (cues.length === 0) return;
       enqueue.assign({ consumedCueIds: consumedCueIdsWith(context, cues) });
+      enqueue.sendTo("cueWorker", {
+        type: "enqueue-cues",
+        cues,
+        runNumber: context.runNumber,
+        surfaceId: context.surfaceId,
+      });
+    }),
+    settleAtCurrentManualWait: enqueueActions(({ context, enqueue }) => {
+      const wait = manualWaitAtCurrentTime(context);
+      if (!wait) {
+        throw new Error("Presentation could not select the current manual Wait.");
+      }
+      const cues = unconsumedCuesThrough(context, wait.atMs);
+      enqueue.assign({
+        pendingWait: wait,
+        consumedCueIds: consumedCueIdsWith(context, cues),
+      });
+      enqueue.sendTo("cueWorker", {
+        type: "enqueue-cues",
+        cues,
+        runNumber: context.runNumber,
+        surfaceId: context.surfaceId,
+      });
+    }),
+    settleAtCrossedManualWait: enqueueActions(({ context, event, enqueue }) => {
+      const wait = crossedManualWait(context, projectedTimeFrom(event));
+      if (!wait) {
+        throw new Error("Presentation could not select the crossed manual Wait.");
+      }
+      const cues = unconsumedCuesThrough(context, wait.atMs);
+      enqueue.assign({
+        currentTimeMs: wait.atMs,
+        pendingWait: wait,
+        consumedCueIds: consumedCueIdsWith(context, cues),
+      });
       enqueue.sendTo("cueWorker", {
         type: "enqueue-cues",
         cues,
@@ -388,7 +479,9 @@ const presentationPlaybackMachineSetup = setup({
       anchorClockTimeMs: 0,
       anchorPresentationTimeMs: 0,
       consumedCueIds: () => new Set<string>(),
+      pendingWait: null,
     }),
+    clearPendingWait: assign({ pendingWait: null }),
     throwWorkerDefect: ({ event }) => {
       if (event.type !== "cue-worker-defect") {
         throw new Error("Presentation cue defect action received an unexpected event.");
@@ -405,13 +498,17 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
     durationMs: input.timeline.durationMs,
     monotonicClock: input.monotonicClock,
     cueExecutor: input.cueExecutor,
+    gatePort: input.gatePort,
+    autoAdvance: input.autoAdvance,
     publishCueReport: input.publishCueReport,
     cues: input.timeline.cues,
+    waits: input.timeline.waits,
     runNumber: 1,
     currentTimeMs: 0,
     anchorClockTimeMs: 0,
     anchorPresentationTimeMs: 0,
     consumedCueIds: new Set<string>(),
+    pendingWait: null,
   }),
   invoke: {
     id: "cueWorker",
@@ -437,6 +534,11 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
     "awaiting-start": {
       on: {
         play: [
+          {
+            guard: "hasManualWaitAtCurrentTime",
+            target: "settling-wait-cues",
+            actions: "settleAtCurrentManualWait",
+          },
           { guard: "atDuration", target: "completed" },
           { target: "playing", actions: ["enqueueCurrentCues", "anchorPlayback"] },
         ],
@@ -469,6 +571,11 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
       },
       on: {
         "clock-tick": [
+          {
+            guard: "clockCrossedManualWait",
+            target: "settling-wait-cues",
+            actions: "settleAtCrossedManualWait",
+          },
           {
             guard: "clockReachedDuration",
             target: "settling-cues",
@@ -507,9 +614,30 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
         ],
       },
     },
+    "settling-wait-cues": {
+      on: {
+        "cue-worker-drained": { guard: "drainedCurrentRun", target: "held-manual" },
+      },
+    },
+    "held-manual": {
+      on: {
+        advance: [
+          { guard: "atDuration", target: "completed", actions: "clearPendingWait" },
+          {
+            target: "playing",
+            actions: ["clearPendingWait", "anchorPlayback"],
+          },
+        ],
+      },
+    },
     paused: {
       on: {
         play: [
+          {
+            guard: "hasManualWaitAtCurrentTime",
+            target: "settling-wait-cues",
+            actions: "settleAtCurrentManualWait",
+          },
           { guard: "atDuration", target: "completed" },
           { target: "playing", actions: ["enqueueCurrentCues", "anchorPlayback"] },
         ],
@@ -550,7 +678,10 @@ function readMachinePhase(value: unknown): PresentationPlaybackMachinePhase {
     case "stopped":
       return value;
     case "settling-cues":
+    case "settling-wait-cues":
       return "playing";
+    case "held-manual":
+      return "held";
     default:
       throw new Error(`Presentation actor entered impossible state "${String(value)}".`);
   }
@@ -564,8 +695,17 @@ export function createPresentationPlaybackMachine(
 
   const readSnapshot = (): PresentationPlaybackMachineSnapshot => {
     const snapshot = actor.getSnapshot();
+    const phase = readMachinePhase(snapshot.value);
     return {
-      phase: readMachinePhase(snapshot.value),
+      phase,
+      ...(phase === "held"
+        ? {
+            hold: {
+              kind: "manual" as const,
+              waitId: pendingManualWait(snapshot.context).id,
+            },
+          }
+        : {}),
       runNumber: snapshot.context.runNumber,
       surfaceId: snapshot.context.surfaceId,
       currentTimeMs: snapshot.context.currentTimeMs,
@@ -598,6 +738,16 @@ export function createPresentationPlaybackMachine(
       });
     },
     pause: () => actor.send({ type: "pause" }),
+    advance: () => {
+      const snapshot = actor.getSnapshot();
+      const phase = readMachinePhase(snapshot.value);
+      const needsAnchor =
+        phase === "held" && snapshot.context.currentTimeMs < snapshot.context.durationMs;
+      actor.send({
+        type: "advance",
+        anchorClockTimeMs: needsAnchor ? finiteClockReadingFrom(input.monotonicClock) : 0,
+      });
+    },
     seek: (timeMs: number) => {
       const snapshot = actor.getSnapshot();
       const needsAnchor =

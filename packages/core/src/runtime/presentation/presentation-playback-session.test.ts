@@ -1,4 +1,4 @@
-import type { EmbeddedNodeId } from "@scaffold/contracts";
+import type { EmbeddedDataId, EmbeddedNodeId } from "@scaffold/contracts";
 import { Result } from "better-result";
 import { describe, expect, it, vi } from "vite-plus/test";
 
@@ -11,7 +11,10 @@ import type { SemanticTargetInteractionResult } from "@/document/semantic-target
 
 import type {
   CompiledInternalClockSurfaceTimeline,
+  CompiledLearnerRequirement,
   CompiledPresentationCue,
+  CompiledPresentationWait,
+  PresentationWaitId,
 } from "./compiled-presentation-program";
 import type {
   PresentationCueExecutionOutcome,
@@ -25,11 +28,13 @@ import {
 } from "./presentation-monotonic-clock";
 import {
   createPresentationPlaybackSession,
+  type PresentationAdvanceResult,
   type PresentationCueReport,
   type PresentationPlaybackPhase,
   type PresentationPlaybackSession,
   type PresentationSeekResult,
 } from "./presentation-playback-session";
+import type { PresentationGatePort } from "./presentation-progression-gate";
 
 function createManualClock(initialNowMs = 1_000) {
   let nowMs = initialNowMs;
@@ -111,6 +116,30 @@ function cue(id: string, atMs: number): CompiledPresentationCue {
   });
 }
 
+function waitId(id: string): PresentationWaitId {
+  return id as EmbeddedDataId;
+}
+
+function manualWait(id: string, atMs: number): CompiledPresentationWait {
+  return Object.freeze({ kind: "manual-wait", id: waitId(id), atMs });
+}
+
+function learnerWait(id: string, atMs: number): CompiledPresentationWait {
+  const requirement: CompiledLearnerRequirement = Object.freeze({
+    kind: "event",
+    ownerId: `owner-${id}` as EmbeddedNodeId,
+    targetId: `target-${id}` as EmbeddedNodeId,
+    type: `event-${id}`,
+  });
+  return Object.freeze({ kind: "learner-wait", id: waitId(id), atMs, requirement });
+}
+
+function createUnusedGatePort() {
+  const waitUntilSatisfied = vi.fn(async () => undefined);
+  const gatePort: PresentationGatePort = Object.freeze({ waitUntilSatisfied });
+  return { gatePort, waitUntilSatisfied };
+}
+
 async function settleCue(
   execution: { readonly resolve: (outcome: PresentationCueExecutionOutcome) => void },
   outcome: PresentationCueExecutionOutcome = { kind: "succeeded" },
@@ -124,25 +153,37 @@ function createHarness(
   durationMs = 1_000,
   cues: readonly CompiledPresentationCue[] = [],
   deferredCueExecutor = createDeferredCueExecutor(),
+  waits: readonly CompiledPresentationWait[] = [],
+  autoAdvance = false,
 ) {
   const timeline: CompiledInternalClockSurfaceTimeline = Object.freeze({
     surfaceId: "surface-1",
     durationMs,
     cues: Object.freeze([...cues]),
+    waits: Object.freeze([...waits]),
   });
   const manualClock = createManualClock();
+  const { gatePort, waitUntilSatisfied: gateWaitUntilSatisfied } = createUnusedGatePort();
   const session = createPresentationPlaybackSession({
     timeline,
     monotonicClock: manualClock.clock,
     cueExecutor: deferredCueExecutor.executor,
+    gatePort,
+    autoAdvance,
   });
 
-  return { deferredCueExecutor, manualClock, session, timeline };
+  return { deferredCueExecutor, gatePort, gateWaitUntilSatisfied, manualClock, session, timeline };
 }
 
 function expectSeekOk(result: PresentationSeekResult): void {
   expect(result.isOk()).toBe(true);
   if (result.isErr()) throw new Error(`Expected successful Seek: ${JSON.stringify(result.error)}`);
+}
+
+function expectAdvanceOk(result: PresentationAdvanceResult): void {
+  expect(result.isOk()).toBe(true);
+  if (result.isErr())
+    throw new Error(`Expected successful advance: ${JSON.stringify(result.error)}`);
 }
 
 function createHarnessInPhase(phase: PresentationPlaybackPhase) {
@@ -182,6 +223,7 @@ function expectDisposedSessionDefects(session: PresentationPlaybackSession): voi
     ["play", () => session.play()],
     ["pause", () => session.pause()],
     ["seek", () => session.seek(0)],
+    ["advance", () => session.advance()],
     ["restart", () => session.restart()],
     ["stop", () => session.stop()],
   ];
@@ -367,11 +409,14 @@ describe("createPresentationCueExecutor", () => {
       surfaceId: "surface-1",
       durationMs: 100,
       cues: Object.freeze([firstCue, secondCue]),
+      waits: Object.freeze([]),
     });
     const session = createPresentationPlaybackSession({
       timeline,
       monotonicClock: createManualClock().clock,
       cueExecutor,
+      gatePort: createUnusedGatePort().gatePort,
+      autoAdvance: false,
     });
     const reports: PresentationCueReport[] = [];
     const secondCueReported = new Promise<void>((resolve) => {
@@ -520,6 +565,180 @@ describe("createPresentationCueExecutor", () => {
 });
 
 describe("createPresentationPlaybackSession", () => {
+  it("projects only the earliest outstanding learner Wait from Surface entry", () => {
+    const noWaits = createHarness();
+    const manualOnly = createHarness(1_000, [], createDeferredCueExecutor(), [
+      manualWait("manual", 100),
+    ]);
+    const learnerWaits = createHarness(1_000, [], createDeferredCueExecutor(), [
+      manualWait("manual", 50),
+      learnerWait("learner-first", 100),
+      learnerWait("learner-next", 200),
+    ]);
+
+    expect(noWaits.session.getSnapshot().outstandingLearnerWait).toBeNull();
+    expect(manualOnly.session.getSnapshot().outstandingLearnerWait).toBeNull();
+    expect(learnerWaits.session.getSnapshot().outstandingLearnerWait).toEqual({
+      waitId: waitId("learner-first"),
+    });
+    expect(Object.isFrozen(learnerWaits.session.getSnapshot().outstandingLearnerWait)).toBe(true);
+    expect(learnerWaits.gateWaitUntilSatisfied).not.toHaveBeenCalled();
+  });
+
+  it("holds at a time-zero manual Wait until advance releases continuous playback", async () => {
+    const { gateWaitUntilSatisfied, manualClock, session } = createHarness(
+      1_000,
+      [],
+      createDeferredCueExecutor(),
+      [manualWait("zero", 0)],
+      true,
+    );
+
+    session.play();
+    await Promise.resolve();
+    const heldSnapshot = session.getSnapshot();
+    expect(heldSnapshot).toEqual({
+      phase: "held",
+      hold: { kind: "manual", waitId: waitId("zero") },
+      runNumber: 1,
+      surfaceId: "surface-1",
+      currentTimeMs: 0,
+      durationMs: 1_000,
+      outstandingLearnerWait: null,
+    });
+    expect(Object.isFrozen(heldSnapshot)).toBe(true);
+    expect(Object.isFrozen(heldSnapshot.hold)).toBe(true);
+    expect(manualClock.activeSubscriptions).toBe(0);
+
+    session.play();
+    session.pause();
+    expect(session.getSnapshot()).toBe(heldSnapshot);
+    expect(gateWaitUntilSatisfied).not.toHaveBeenCalled();
+
+    expectAdvanceOk(session.advance());
+    expect(session.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 0 });
+    expect(manualClock.activeSubscriptions).toBe(1);
+
+    const duplicateAdvance = session.advance();
+    expect(duplicateAdvance.isErr()).toBe(true);
+    if (duplicateAdvance.isOk()) throw new Error("Expected duplicate advance to fail.");
+    expect(duplicateAdvance.error).toEqual({ reason: "not-at-checkpoint", phase: "playing" });
+    expect(Object.isFrozen(duplicateAdvance.error)).toBe(true);
+  });
+
+  it("clamps an inline manual Wait and re-anchors playback after advance", async () => {
+    const { manualClock, session } = createHarness(1_000, [], createDeferredCueExecutor(), [
+      manualWait("inline", 100),
+    ]);
+
+    session.play();
+    manualClock.emitAt(1_200);
+    await Promise.resolve();
+
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "manual", waitId: waitId("inline") },
+      currentTimeMs: 100,
+    });
+    expect(manualClock.activeSubscriptions).toBe(0);
+
+    expectAdvanceOk(session.advance());
+    manualClock.emitAt(1_250);
+    expect(session.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 150 });
+  });
+
+  it("completes only after advancing a manual Wait at the duration", async () => {
+    const { manualClock, session } = createHarness(100, [], createDeferredCueExecutor(), [
+      manualWait("endpoint", 100),
+    ]);
+
+    session.play();
+    manualClock.emitAt(1_100);
+    await Promise.resolve();
+
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "manual", waitId: waitId("endpoint") },
+      currentTimeMs: 100,
+    });
+    expectAdvanceOk(session.advance());
+    expect(session.getSnapshot()).toMatchObject({ phase: "completed", currentTimeMs: 100 });
+  });
+
+  it("settles every due cue in compiled order before publishing a manual hold", async () => {
+    const cues = [
+      cue("earlier", 50),
+      cue("same-first", 100),
+      cue("same-second", 100),
+      cue("later", 150),
+    ];
+    const { deferredCueExecutor, manualClock, session } = createHarness(
+      1_000,
+      cues,
+      createDeferredCueExecutor(),
+      [manualWait("boundary", 100)],
+    );
+    const reports: PresentationCueReport[] = [];
+    session.subscribeCueReports((report) => reports.push(report));
+
+    session.play();
+    manualClock.emitAt(1_200);
+    expect(session.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 100 });
+    expect(manualClock.activeSubscriptions).toBe(0);
+    expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
+      "command-earlier",
+    ]);
+
+    const earlier = deferredCueExecutor.pending[0];
+    if (!earlier) throw new Error("Expected the earlier cue.");
+    await settleCue(earlier, {
+      kind: "control-command-error",
+      error: { reason: "playback-not-allowed" },
+    });
+    expect(session.getSnapshot().phase).toBe("playing");
+
+    const sameFirst = deferredCueExecutor.pending[1];
+    if (!sameFirst) throw new Error("Expected the first same-time cue.");
+    await settleCue(sameFirst);
+    expect(session.getSnapshot().phase).toBe("playing");
+
+    const sameSecond = deferredCueExecutor.pending[2];
+    if (!sameSecond) throw new Error("Expected the second same-time cue.");
+    await settleCue(sameSecond);
+
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "manual", waitId: waitId("boundary") },
+      currentTimeMs: 100,
+    });
+    expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
+      "command-earlier",
+      "command-same-first",
+      "command-same-second",
+    ]);
+    expect(reports.map(({ cueId }) => cueId)).toEqual(["earlier", "same-first", "same-second"]);
+  });
+
+  it.each([
+    "awaiting-start",
+    "playing",
+    "paused",
+    "completed",
+    "stopped",
+  ] satisfies readonly PresentationPlaybackPhase[])(
+    "returns the exact %s phase when advance has no releasable checkpoint",
+    (phase) => {
+      const { session } = createHarnessInPhase(phase);
+
+      const result = session.advance();
+
+      expect(result.isErr()).toBe(true);
+      if (result.isOk()) throw new Error("Expected advance away from a checkpoint to fail.");
+      expect(result.error).toEqual({ reason: "not-at-checkpoint", phase });
+      expect(Object.isFrozen(result.error)).toBe(true);
+    },
+  );
+
   it("consumes time-zero and crossed cues once in compiled order", async () => {
     const cues = [cue("zero", 0), cue("first", 100), cue("second", 100), cue("later", 150)];
     const { deferredCueExecutor, manualClock, session } = createHarness(1_000, cues);
@@ -631,6 +850,7 @@ describe("createPresentationPlaybackSession", () => {
     expect(Object.keys(session.getSnapshot()).sort()).toEqual([
       "currentTimeMs",
       "durationMs",
+      "outstandingLearnerWait",
       "phase",
       "runNumber",
       "surfaceId",
@@ -846,17 +1066,20 @@ describe("createPresentationPlaybackSession", () => {
       surfaceId: "surface-1",
       currentTimeMs: 0,
       durationMs: 1_000,
+      outstandingLearnerWait: null,
     });
     expect(Object.isFrozen(snapshot)).toBe(true);
     expect(session.getSnapshot()).toBe(snapshot);
     expect(Object.keys(snapshot).sort()).toEqual([
       "currentTimeMs",
       "durationMs",
+      "outstandingLearnerWait",
       "phase",
       "runNumber",
       "surfaceId",
     ]);
     expect(Object.keys(session).sort()).toEqual([
+      "advance",
       "dispose",
       "getSnapshot",
       "pause",
@@ -1060,6 +1283,7 @@ describe("createPresentationPlaybackSession", () => {
       surfaceId: "surface-1",
       currentTimeMs: 0,
       durationMs: 1_000,
+      outstandingLearnerWait: null,
     });
   });
 
@@ -1082,6 +1306,7 @@ describe("createPresentationPlaybackSession", () => {
         surfaceId: "surface-1",
         currentTimeMs: 0,
         durationMs: 1_000,
+        outstandingLearnerWait: null,
       });
       expect(Object.isFrozen(session.getSnapshot())).toBe(true);
       expect(manualClock.activeSubscriptions).toBe(0);
