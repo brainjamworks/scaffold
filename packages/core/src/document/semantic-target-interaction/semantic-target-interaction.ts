@@ -6,7 +6,8 @@ export type SemanticInteractionOrigin =
   | "document-outline"
   | "presentation-timeline"
   | "author-preview"
-  | "configured-presentation";
+  | "configured-presentation"
+  | "learner-interaction-rule";
 
 export interface SemanticActivationRequest {
   readonly requestedId: EmbeddedNodeId;
