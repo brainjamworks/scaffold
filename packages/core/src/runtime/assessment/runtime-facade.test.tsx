@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { useEffect, type PropsWithChildren } from "react";
+import { useEffect, useLayoutEffect, type PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
@@ -162,6 +162,30 @@ function ProblemFacadeCapture({
   onFacade: (facade: AssessmentProblemFacade) => void;
 }) {
   onFacade(useAssessmentProblemFacade(registration));
+  return null;
+}
+
+function QuizFacadeRegistration({
+  registration,
+}: {
+  registration: AssessmentQuizRegistrationInput;
+}) {
+  useAssessmentQuizFacade(registration);
+  return null;
+}
+
+function QuizRegistrationLayoutCapture({
+  authoredGroupId,
+  onRegistration,
+}: {
+  authoredGroupId: string;
+  onRegistration: (registered: boolean) => void;
+}) {
+  const store = useAssessmentStoreApi();
+  useLayoutEffect(() => {
+    const groupId = scopeAssessmentGroupId("artifact-one", authoredGroupId);
+    onRegistration(Boolean(store?.getState().quizRegistrations[groupId]));
+  }, [authoredGroupId, onRegistration, store]);
   return null;
 }
 
@@ -498,6 +522,24 @@ describe("assessment problem facade", () => {
 });
 
 describe("assessment Quiz facade", () => {
+  it("registers a Quiz before later layout observers run", () => {
+    const registration = quizRegistration();
+    const registrationsAtLayout: boolean[] = [];
+    const Wrapper = createRuntimeWrapper();
+
+    render(
+      <Wrapper>
+        <QuizFacadeRegistration registration={registration} />
+        <QuizRegistrationLayoutCapture
+          authoredGroupId={registration.groupId}
+          onRegistration={(registered) => registrationsAtLayout.push(registered)}
+        />
+      </Wrapper>,
+    );
+
+    expect(registrationsAtLayout).toEqual([true]);
+  });
+
   it("registers an artifact-scoped Quiz and selects its relevant problem snapshots", async () => {
     const wrapper = createRuntimeWrapper();
     const problem = problemRegistration();

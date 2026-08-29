@@ -38,7 +38,10 @@ const QUIZ_ID = "quiz00000001";
 const QUESTION_1_ID = "questn_00001";
 const QUESTION_2_ID = "questn_00002";
 const SCOPED_QUIZ_ID = `artifact:artifact-1/group:${QUIZ_ID}`;
-const surfaceExitEnvironmentProbe = vi.hoisted(() => ({ availability: null as unknown }));
+const surfaceExitEnvironmentProbe = vi.hoisted(() => ({
+  availability: null as unknown,
+  guardEnabledAtRender: [] as boolean[],
+}));
 
 vi.mock("../../renderer/CourseDocumentRuntimeRenderer", async (importOriginal) => {
   const actual =
@@ -50,8 +53,24 @@ vi.mock("../../renderer/CourseDocumentRuntimeRenderer", async (importOriginal) =
   return {
     ...actual,
     PreparedCourseDocumentRuntimeRenderer(props: PreparedCourseDocumentRuntimeRendererProps) {
-      surfaceExitEnvironmentProbe.availability = useSurfaceExitEnvironmentAvailability();
+      const availability = useSurfaceExitEnvironmentAvailability();
+      surfaceExitEnvironmentProbe.availability = availability;
       return createElement(actual.PreparedCourseDocumentRuntimeRenderer, props);
+    },
+  };
+});
+
+vi.mock("@/editor/blocks/assessment/quiz/use-quiz-surface-exit-guard", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("@/editor/blocks/assessment/quiz/use-quiz-surface-exit-guard")
+    >();
+
+  return {
+    ...actual,
+    useQuizSurfaceExitGuard(input: Parameters<typeof actual.useQuizSurfaceExitGuard>[0]): void {
+      actual.useQuizSurfaceExitGuard(input);
+      surfaceExitEnvironmentProbe.guardEnabledAtRender.push(input.enabled);
     },
   };
 });
@@ -76,6 +95,7 @@ class ResizeObserverStub implements ResizeObserver {
 
 beforeEach(() => {
   surfaceExitEnvironmentProbe.availability = null;
+  surfaceExitEnvironmentProbe.guardEnabledAtRender.length = 0;
   vi.stubGlobal("ResizeObserver", ResizeObserverStub);
 });
 
@@ -88,6 +108,40 @@ afterEach(() => {
 });
 
 describe("Quiz Surface exit integration", () => {
+  it("arms an initially active Quiz guard during the first controller render", async () => {
+    render(
+      createAssessmentRuntimeTestRoot({
+        children: (
+          <TestSlideshowPlayer
+            composition={runtimeComposition}
+            initialContent={initiallyActiveQuizSlideshowDocument()}
+          />
+        ),
+      }),
+    );
+
+    await waitFor(() =>
+      expect(surfaceExitEnvironmentProbe.guardEnabledAtRender).not.toHaveLength(0),
+    );
+    expect(surfaceExitEnvironmentProbe.guardEnabledAtRender[0]).toBe(true);
+    expect(surfaceExitEnvironment().getSnapshot()).toEqual({
+      status: "blocked",
+      surfaceId: QUIZ_SURFACE_ID,
+      blockers: [
+        {
+          reason: "quiz-not-complete",
+          ownerId: SCOPED_QUIZ_ID,
+          surfaceId: QUIZ_SURFACE_ID,
+          attemptStatus: "not_started",
+        },
+      ],
+    });
+    const next = buttonByName("Next slide");
+    expect(next).toBeDisabled();
+    fireEvent.click(next);
+    expect(surfaceById(QUIZ_SURFACE_ID)).toHaveAttribute("data-runtime-surface-visible", "true");
+  });
+
   it("allows arrival at an unstarted Quiz then blocks every real departure control", async () => {
     const user = userEvent.setup();
     const onActiveSurfaceChange = vi.fn();
@@ -523,6 +577,20 @@ function quizSlideshowDocument(): JSONContent {
     { type: "courseSection", attrs: { id: "section00002", title: "Practice" } },
     slide(QUIZ_SURFACE_ID, [quizNode()]),
     slide(AFTER_SURFACE_ID, [paragraph("After the quiz")]),
+  ];
+  return content;
+}
+
+function initiallyActiveQuizSlideshowDocument(): JSONContent {
+  const content = quizSlideshowDocument();
+  const courseDocument = content.content?.[0];
+  if (!courseDocument) throw new Error("Quiz Slideshow fixture is missing its course document.");
+  courseDocument.content = [
+    { type: "courseSection", attrs: { id: "section00002", title: "Practice" } },
+    slide(QUIZ_SURFACE_ID, [quizNode()]),
+    slide(AFTER_SURFACE_ID, [paragraph("After the quiz")]),
+    { type: "courseSection", attrs: { id: "section00001", title: "Introduction" } },
+    slide(BEFORE_SURFACE_ID, [paragraph("Before the quiz")]),
   ];
   return content;
 }

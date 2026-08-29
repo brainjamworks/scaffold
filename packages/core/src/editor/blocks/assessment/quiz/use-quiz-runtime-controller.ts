@@ -49,7 +49,7 @@ export function useQuizRuntimeController({
   });
   useQuizSurfaceExitGuard({
     editor,
-    enabled: !isEmpty && quizFacade.status === "registered",
+    enabled: !isEmpty && quizFacade.groupId !== null,
     getPos,
     groupId: quizFacade.groupId,
     resolveSurfaceScope: resolveAssessmentSurfaceScope,

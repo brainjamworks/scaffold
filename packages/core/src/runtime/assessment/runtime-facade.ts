@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 
 import type {
   AnswerReveal,
@@ -244,7 +244,7 @@ export function useAssessmentQuizFacade(
   const expireQuizAttempt = useAssessmentStoreSelector((state) => state.expireQuizAttempt);
   const revealQuizAnswers = useAssessmentStoreSelector((state) => state.revealQuizAnswers);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!groupId) return undefined;
     const mountedRegistration = initialRegistration.current;
     registerQuiz(mountedRegistration);
