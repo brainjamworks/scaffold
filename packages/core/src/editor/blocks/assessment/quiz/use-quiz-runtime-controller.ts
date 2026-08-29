@@ -2,11 +2,13 @@ import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { resolveAssessmentSurfaceScope } from "@/runtime/assessment/assessment-scope";
 import { useAssessmentQuizFacade } from "@/runtime/assessment/runtime-facade";
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
 import { useQuizControlBinding } from "./quiz-control-binding";
 import { getQuizSummary } from "./quiz-shared";
+import { useQuizSurfaceExitGuard } from "./use-quiz-surface-exit-guard";
 import {
   deriveQuizLearnerViewModel,
   isRetryableQuizSubmission,
@@ -43,6 +45,14 @@ export function useQuizRuntimeController({
     getPos,
     groupId: quizFacade.groupId,
     node,
+    store: assessmentStore,
+  });
+  useQuizSurfaceExitGuard({
+    editor,
+    enabled: !isEmpty && quizFacade.status === "registered",
+    getPos,
+    groupId: quizFacade.groupId,
+    resolveSurfaceScope: resolveAssessmentSurfaceScope,
     store: assessmentStore,
   });
   const quiz = quizFacade.attempt;
