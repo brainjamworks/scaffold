@@ -896,6 +896,47 @@ describe("createPresentationPlaybackSession", () => {
     expect(session.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 150 });
   });
 
+  it("stops at only the earliest eligible Wait during each forward passage", async () => {
+    const { deferredCueExecutor, manualClock, session } = createHarness(
+      1_000,
+      [cue("between-waits", 150)],
+      createDeferredCueExecutor(),
+      [manualWait("first", 100), manualWait("second", 200)],
+    );
+
+    session.play();
+    manualClock.emitAt(1_400);
+    await Promise.resolve();
+
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "manual", waitId: waitId("first") },
+      currentTimeMs: 100,
+    });
+    expect(deferredCueExecutor.pending).toHaveLength(0);
+
+    expectAdvanceOk(session.advance());
+    session.pause();
+    session.play();
+    await Promise.resolve();
+    expect(session.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 100 });
+
+    manualClock.emitAt(1_500);
+    expect(session.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 200 });
+    expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
+      "command-between-waits",
+    ]);
+
+    const betweenWaits = deferredCueExecutor.pending[0];
+    if (!betweenWaits) throw new Error("Expected the cue between Waits.");
+    await settleCue(betweenWaits);
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "manual", waitId: waitId("second") },
+      currentTimeMs: 200,
+    });
+  });
+
   it("completes only after advancing a manual Wait at the duration", async () => {
     const { manualClock, session } = createHarness(100, [], createDeferredCueExecutor(), [
       manualWait("endpoint", 100),
@@ -1146,6 +1187,169 @@ describe("createPresentationPlaybackSession", () => {
     ]);
   });
 
+  it("bypasses Wait playback on forward Seek without satisfying learner requirements", async () => {
+    const skippedRequirement: CompiledLearnerRequirement = Object.freeze({
+      kind: "event",
+      ownerId: "owner-skipped" as EmbeddedNodeId,
+      targetId: "target-skipped" as EmbeddedNodeId,
+      type: "skipped-event",
+    });
+    const reachedRequirement: CompiledLearnerRequirement = Object.freeze({
+      kind: "event",
+      ownerId: "owner-reached" as EmbeddedNodeId,
+      targetId: "target-reached" as EmbeddedNodeId,
+      type: "reached-event",
+    });
+    const { deferredCueExecutor, deferredGatePort, manualClock, session } = createHarness(
+      400,
+      [cue("crossed", 50)],
+      createDeferredCueExecutor(),
+      [
+        learnerWait("skipped-learner", 100, skippedRequirement),
+        manualWait("skipped-manual", 200),
+        learnerWait("reached-learner", 300, reachedRequirement),
+      ],
+    );
+
+    expectSeekOk(session.seek(250));
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "paused",
+      currentTimeMs: 250,
+      outstandingLearnerWait: { waitId: waitId("skipped-learner") },
+    });
+    expect(deferredCueExecutor.pending).toHaveLength(0);
+    expect(deferredGatePort.pending).toHaveLength(0);
+
+    session.play();
+    manualClock.emitAt(1_050);
+    await Promise.resolve();
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", waitId: waitId("reached-learner"), status: "waiting" },
+      currentTimeMs: 300,
+      outstandingLearnerWait: { waitId: waitId("skipped-learner") },
+    });
+    expect(deferredGatePort.pending[0]?.requirement).toBe(reachedRequirement);
+
+    const reachedObservation = deferredGatePort.pending[0];
+    if (!reachedObservation) throw new Error("Expected the reached learner observation.");
+    await settleGate(reachedObservation);
+    expect(session.getSnapshot().outstandingLearnerWait).toEqual({
+      waitId: waitId("skipped-learner"),
+    });
+  });
+
+  it.each([
+    {
+      requirementKind: "event",
+      requirement: Object.freeze({
+        kind: "event",
+        ownerId: "owner-rearmed-event" as EmbeddedNodeId,
+        targetId: "target-rearmed-event" as EmbeddedNodeId,
+        type: "completed",
+      }) satisfies CompiledLearnerRequirement,
+    },
+    {
+      requirementKind: "state",
+      requirement: Object.freeze({
+        kind: "state",
+        ownerId: "owner-rearmed-state" as EmbeddedNodeId,
+        targetId: "target-rearmed-state" as EmbeddedNodeId,
+        key: "complete",
+        equals: true,
+      }) satisfies CompiledLearnerRequirement,
+    },
+  ])(
+    "rearms a released $requirementKind learner Wait after seeking backward before it",
+    async ({ requirement }) => {
+      const { deferredCueExecutor, deferredGatePort, manualClock, session } = createHarness(
+        400,
+        [cue("once", 75)],
+        createDeferredCueExecutor(),
+        [learnerWait("rearmed", 100, requirement), learnerWait("later", 300)],
+        true,
+      );
+
+      session.play();
+      manualClock.emitAt(1_100);
+      const firstExecution = deferredCueExecutor.pending[0];
+      if (!firstExecution) throw new Error("Expected the once-per-run cue.");
+      await settleCue(firstExecution);
+      const firstObservation = deferredGatePort.pending[0];
+      if (!firstObservation) throw new Error("Expected the first learner observation.");
+      await settleGate(firstObservation);
+      expect(session.getSnapshot()).toMatchObject({
+        phase: "playing",
+        outstandingLearnerWait: { waitId: waitId("later") },
+      });
+
+      session.pause();
+      session.play();
+      await Promise.resolve();
+      expect(session.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 100 });
+      expect(deferredGatePort.pending).toHaveLength(1);
+      session.pause();
+
+      expectSeekOk(session.seek(50));
+      expect(session.getSnapshot()).toMatchObject({
+        phase: "paused",
+        currentTimeMs: 50,
+        outstandingLearnerWait: { waitId: waitId("rearmed") },
+      });
+
+      session.play();
+      manualClock.emitAt(1_150);
+      await Promise.resolve();
+      expect(session.getSnapshot()).toMatchObject({
+        phase: "held",
+        hold: { kind: "learner", waitId: waitId("rearmed"), status: "waiting" },
+        currentTimeMs: 100,
+        outstandingLearnerWait: { waitId: waitId("rearmed") },
+      });
+      expect(deferredCueExecutor.pending).toHaveLength(1);
+      expect(deferredGatePort.pending).toHaveLength(2);
+      expect(deferredGatePort.pending[1]?.requirement).toBe(requirement);
+    },
+  );
+
+  it("keeps an exact endpoint Wait eligible for Play after Seek", async () => {
+    const { manualClock, session } = createHarness(100, [], createDeferredCueExecutor(), [
+      manualWait("endpoint", 100),
+    ]);
+
+    expectSeekOk(session.seek(100));
+    expect(session.getSnapshot()).toMatchObject({ phase: "paused", currentTimeMs: 100 });
+    expect(manualClock.activeSubscriptions).toBe(0);
+
+    session.play();
+    await Promise.resolve();
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "manual", waitId: waitId("endpoint") },
+      currentTimeMs: 100,
+    });
+  });
+
+  it("leaves an active Wait unchanged after an out-of-range Seek", async () => {
+    const { manualClock, session } = createHarness(200, [], createDeferredCueExecutor(), [
+      manualWait("active", 100),
+    ]);
+    session.play();
+    manualClock.emitAt(1_100);
+    await Promise.resolve();
+    const heldSnapshot = session.getSnapshot();
+
+    const result = session.seek(201);
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) throw new Error("Expected an out-of-range Seek to fail.");
+    expect(result.error).toEqual({
+      reason: "seek-out-of-range",
+      requestedTimeMs: 201,
+      durationMs: 200,
+    });
+    expect(session.getSnapshot()).toBe(heldSnapshot);
+  });
+
   it("keeps rejected Cue Executor work observable as an actor defect", async () => {
     vi.useFakeTimers();
     try {
@@ -1216,6 +1420,60 @@ describe("createPresentationPlaybackSession", () => {
       { runNumber: 2, cueId: "first", outcome: { kind: "succeeded" } },
       { runNumber: 2, cueId: "second", outcome: { kind: "succeeded" } },
     ]);
+  });
+
+  it("resets Wait passage and learner projection when Restart begins a new run", async () => {
+    const { deferredCueExecutor, deferredGatePort, manualClock, session } = createHarness(
+      300,
+      [cue("repeatable", 50)],
+      createDeferredCueExecutor(),
+      [learnerWait("learner", 100), manualWait("manual", 200)],
+      true,
+    );
+
+    session.play();
+    manualClock.emitAt(1_100);
+    const firstCue = deferredCueExecutor.pending[0];
+    if (!firstCue) throw new Error("Expected the first-run cue.");
+    await settleCue(firstCue);
+    const firstObservation = deferredGatePort.pending[0];
+    if (!firstObservation) throw new Error("Expected the first-run learner observation.");
+    await settleGate(firstObservation);
+    manualClock.emitAt(1_200);
+    await Promise.resolve();
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "manual", waitId: waitId("manual") },
+      outstandingLearnerWait: null,
+    });
+    expectAdvanceOk(session.advance());
+
+    session.restart();
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "awaiting-start",
+      currentTimeMs: 0,
+      runNumber: 2,
+      outstandingLearnerWait: { waitId: waitId("learner") },
+    });
+
+    session.play();
+    manualClock.emitAt(1_300);
+    const secondCue = deferredCueExecutor.pending[1];
+    if (!secondCue) throw new Error("Expected the second-run cue.");
+    await settleCue(secondCue);
+    const secondObservation = deferredGatePort.pending[1];
+    if (!secondObservation) throw new Error("Expected the second-run learner observation.");
+    await settleGate(secondObservation);
+    manualClock.emitAt(1_400);
+    await Promise.resolve();
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "manual", waitId: waitId("manual") },
+      currentTimeMs: 200,
+      runNumber: 2,
+    });
+    expect(deferredCueExecutor.pending).toHaveLength(2);
+    expect(deferredGatePort.pending).toHaveLength(2);
   });
 
   it.each([

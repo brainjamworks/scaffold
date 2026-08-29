@@ -59,6 +59,7 @@ interface PresentationPlaybackMachineContext {
   anchorClockTimeMs: number;
   anchorPresentationTimeMs: number;
   consumedCueIds: ReadonlySet<string>;
+  passedWaitIds: ReadonlySet<PresentationWaitId>;
   pendingWait: CompiledPresentationWait | null;
   outstandingLearnerWaitId: PresentationWaitId | null;
 }
@@ -350,7 +351,9 @@ type CompiledLearnerPresentationWait = Extract<
 function waitAtCurrentTime(
   context: PresentationPlaybackMachineContext,
 ): CompiledPresentationWait | undefined {
-  return context.waits.find((wait) => wait.atMs === context.currentTimeMs);
+  return context.waits.find(
+    (wait) => wait.atMs === context.currentTimeMs && !context.passedWaitIds.has(wait.id),
+  );
 }
 
 function crossedWait(
@@ -358,7 +361,10 @@ function crossedWait(
   projectedTimeMs: number,
 ): CompiledPresentationWait | undefined {
   return context.waits.find(
-    (wait) => wait.atMs > context.currentTimeMs && wait.atMs <= projectedTimeMs,
+    (wait) =>
+      wait.atMs > context.currentTimeMs &&
+      wait.atMs <= projectedTimeMs &&
+      !context.passedWaitIds.has(wait.id),
   );
 }
 
@@ -399,6 +405,26 @@ function nextOutstandingLearnerWaitId(
   );
 }
 
+function outstandingLearnerWaitIdAfterSeek(
+  context: PresentationPlaybackMachineContext,
+  timeMs: number,
+): PresentationWaitId | null {
+  const rearmedWait = context.waits.find(
+    (wait) => wait.kind === "learner-wait" && wait.atMs >= timeMs,
+  );
+  if (!rearmedWait) return context.outstandingLearnerWaitId;
+  if (!context.outstandingLearnerWaitId) return rearmedWait.id;
+
+  const currentIndex = context.waits.findIndex(
+    (wait) => wait.id === context.outstandingLearnerWaitId,
+  );
+  const rearmedIndex = context.waits.findIndex((wait) => wait.id === rearmedWait.id);
+  if (currentIndex === -1 || rearmedIndex === -1) {
+    throw new Error("Presentation learner Wait projection is absent from its Timeline.");
+  }
+  return rearmedIndex < currentIndex ? rearmedWait.id : context.outstandingLearnerWaitId;
+}
+
 const presentationPlaybackMachineSetup = setup({
   types: {
     context: {} as PresentationPlaybackMachineContext,
@@ -413,6 +439,8 @@ const presentationPlaybackMachineSetup = setup({
   guards: {
     atDuration: ({ context }) => context.currentTimeMs === context.durationMs,
     hasWaitAtCurrentTime: ({ context }) => waitAtCurrentTime(context) !== undefined,
+    seekAtWait: ({ context, event }) =>
+      context.waits.some((wait) => wait.atMs === seekTimeFrom(event)),
     seekAtDuration: ({ context, event }) => seekTimeFrom(event) === context.durationMs,
     seekAtStart: ({ event }) => seekTimeFrom(event) === 0,
     clockCrossedWait: ({ context, event }) =>
@@ -528,6 +556,15 @@ const presentationPlaybackMachineSetup = setup({
         return consumedCueIdsWith(context, cues);
       },
     }),
+    reconcileWaitPassageForSeek: assign(({ context, event }) => {
+      const timeMs = seekTimeFrom(event);
+      return {
+        passedWaitIds: new Set(
+          context.waits.filter((wait) => wait.atMs < timeMs).map((wait) => wait.id),
+        ),
+        outstandingLearnerWaitId: outstandingLearnerWaitIdAfterSeek(context, timeMs),
+      };
+    }),
     interruptForSeek: sendTo("cueWorker", ({ context }) => ({
       type: "interrupt-cues" as const,
       runNumber: context.runNumber,
@@ -549,11 +586,24 @@ const presentationPlaybackMachineSetup = setup({
       anchorClockTimeMs: 0,
       anchorPresentationTimeMs: 0,
       consumedCueIds: () => new Set<string>(),
+      passedWaitIds: () => new Set<PresentationWaitId>(),
       pendingWait: null,
+      outstandingLearnerWaitId: ({ context }) => firstOutstandingLearnerWaitId(context.waits),
+    }),
+    markPendingWaitPassed: assign({
+      passedWaitIds: ({ context }) => {
+        if (!context.pendingWait) {
+          throw new Error("Presentation cannot pass a Wait without a pending Wait.");
+        }
+        return new Set([...context.passedWaitIds, context.pendingWait.id]);
+      },
     }),
     clearPendingWait: assign({ pendingWait: null }),
     markLearnerWaitSatisfied: assign({
-      outstandingLearnerWaitId: ({ context }) => nextOutstandingLearnerWaitId(context),
+      outstandingLearnerWaitId: ({ context }) =>
+        context.outstandingLearnerWaitId === pendingLearnerWait(context).id
+          ? nextOutstandingLearnerWaitId(context)
+          : context.outstandingLearnerWaitId,
     }),
     throwWorkerDefect: ({ event }) => {
       if (event.type !== "cue-worker-defect") {
@@ -581,6 +631,7 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
     anchorClockTimeMs: 0,
     anchorPresentationTimeMs: 0,
     consumedCueIds: new Set<string>(),
+    passedWaitIds: new Set<PresentationWaitId>(),
     pendingWait: null,
     outstandingLearnerWaitId: firstOutstandingLearnerWaitId(input.timeline.waits),
   }),
@@ -618,17 +669,42 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
         ],
         seek: [
           {
+            guard: "seekAtWait",
+            target: "paused",
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applySeek",
+            ],
+          },
+          {
             guard: "seekAtDuration",
             target: "completed",
-            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applySeek",
+            ],
           },
           {
             guard: "seekAtStart",
-            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applySeek",
+            ],
           },
           {
             target: "paused",
-            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applySeek",
+            ],
           },
         ],
       },
@@ -660,14 +736,34 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
         pause: { target: "paused" },
         seek: [
           {
+            guard: "seekAtWait",
+            target: "paused",
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applySeek",
+            ],
+          },
+          {
             guard: "seekAtDuration",
             target: "completed",
-            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applySeek",
+            ],
           },
           {
             target: "playing",
             reenter: true,
-            actions: ["interruptForSeek", "consumeSeekCues", "applyPlayingSeek"],
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applyPlayingSeek",
+            ],
           },
         ],
       },
@@ -677,13 +773,33 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
         "cue-worker-drained": { guard: "drainedCurrentRun", target: "completed" },
         seek: [
           {
+            guard: "seekAtWait",
+            target: "paused",
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applySeek",
+            ],
+          },
+          {
             guard: "seekAtDuration",
             target: "completed",
-            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applySeek",
+            ],
           },
           {
             target: "playing",
-            actions: ["interruptForSeek", "consumeSeekCues", "applyPlayingSeek"],
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applyPlayingSeek",
+            ],
           },
         ],
       },
@@ -699,10 +815,14 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
     "held-manual": {
       on: {
         advance: [
-          { guard: "atDuration", target: "completed", actions: "clearPendingWait" },
+          {
+            guard: "atDuration",
+            target: "completed",
+            actions: ["markPendingWaitPassed", "clearPendingWait"],
+          },
           {
             target: "playing",
-            actions: ["clearPendingWait", "anchorPlayback"],
+            actions: ["markPendingWaitPassed", "clearPendingWait", "anchorPlayback"],
           },
         ],
       },
@@ -719,16 +839,21 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
           {
             guard: "autoAdvanceAtDuration",
             target: "completed",
-            actions: ["markLearnerWaitSatisfied", "clearPendingWait"],
+            actions: ["markLearnerWaitSatisfied", "markPendingWaitPassed", "clearPendingWait"],
           },
           {
             guard: "autoAdvanceEnabled",
             target: "playing",
-            actions: ["markLearnerWaitSatisfied", "clearPendingWait", "anchorPlaybackNow"],
+            actions: [
+              "markLearnerWaitSatisfied",
+              "markPendingWaitPassed",
+              "clearPendingWait",
+              "anchorPlaybackNow",
+            ],
           },
           {
             target: "held-learner-ready",
-            actions: "markLearnerWaitSatisfied",
+            actions: ["markLearnerWaitSatisfied", "markPendingWaitPassed"],
           },
         ],
       },
@@ -757,11 +882,32 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
         ],
         seek: [
           {
+            guard: "seekAtWait",
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applySeek",
+            ],
+          },
+          {
             guard: "seekAtDuration",
             target: "completed",
-            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applySeek",
+            ],
           },
-          { actions: ["interruptForSeek", "consumeSeekCues", "applySeek"] },
+          {
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applySeek",
+            ],
+          },
         ],
       },
     },
@@ -769,12 +915,32 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
       on: {
         seek: [
           {
+            guard: "seekAtWait",
+            target: "paused",
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applySeek",
+            ],
+          },
+          {
             guard: "seekAtDuration",
-            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applySeek",
+            ],
           },
           {
             target: "paused",
-            actions: ["interruptForSeek", "consumeSeekCues", "applySeek"],
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applySeek",
+            ],
           },
         ],
       },
