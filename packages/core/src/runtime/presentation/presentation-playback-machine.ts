@@ -1,4 +1,12 @@
-import { assign, createActor, enqueueActions, fromCallback, sendTo, setup } from "xstate";
+import {
+  assign,
+  createActor,
+  enqueueActions,
+  fromCallback,
+  fromPromise,
+  sendTo,
+  setup,
+} from "xstate";
 
 import type {
   CompiledInternalClockSurfaceTimeline,
@@ -23,10 +31,16 @@ type PresentationPlaybackMachinePhase =
   | "completed"
   | "stopped";
 
-interface PresentationPlaybackMachineManualHold {
-  readonly kind: "manual";
-  readonly waitId: PresentationWaitId;
-}
+type PresentationPlaybackMachineHold =
+  | {
+      readonly kind: "manual";
+      readonly waitId: PresentationWaitId;
+    }
+  | {
+      readonly kind: "learner";
+      readonly waitId: PresentationWaitId;
+      readonly status: "waiting" | "ready";
+    };
 
 type PresentationCueInterruptionReason = "seek" | "restart" | "stop";
 
@@ -46,6 +60,7 @@ interface PresentationPlaybackMachineContext {
   anchorPresentationTimeMs: number;
   consumedCueIds: ReadonlySet<string>;
   pendingWait: CompiledPresentationWait | null;
+  outstandingLearnerWaitId: PresentationWaitId | null;
 }
 
 type PresentationPlaybackMachineEvent =
@@ -79,6 +94,14 @@ interface PresentationClockActorInput {
   readonly durationMs: number;
 }
 
+interface PresentationGateActorInput {
+  readonly gatePort: PresentationGatePort;
+  readonly requirement: Extract<
+    CompiledPresentationWait,
+    { readonly kind: "learner-wait" }
+  >["requirement"];
+}
+
 interface QueuedPresentationCue {
   readonly cue: CompiledPresentationCue;
   readonly runNumber: number;
@@ -105,11 +128,12 @@ interface PresentationCueWorkerInput {
 
 interface PresentationPlaybackMachineSnapshot {
   readonly phase: PresentationPlaybackMachinePhase;
-  readonly hold?: PresentationPlaybackMachineManualHold;
+  readonly hold?: PresentationPlaybackMachineHold;
   readonly runNumber: number;
   readonly surfaceId: string;
   readonly currentTimeMs: number;
   readonly durationMs: number;
+  readonly outstandingLearnerWaitId: PresentationWaitId | null;
 }
 
 interface PresentationPlaybackMachine {
@@ -141,6 +165,10 @@ const monotonicClockActor = fromCallback<
     sendBack({ type: "clock-tick", projectedTimeMs });
   });
 });
+
+const presentationGateActor = fromPromise<void, PresentationGateActorInput>(({ input, signal }) =>
+  input.gatePort.waitUntilSatisfied(input.requirement, { signal }),
+);
 
 function freezeCueReport(
   item: QueuedPresentationCue,
@@ -314,25 +342,23 @@ type CompiledManualPresentationWait = Extract<
   CompiledPresentationWait,
   { readonly kind: "manual-wait" }
 >;
+type CompiledLearnerPresentationWait = Extract<
+  CompiledPresentationWait,
+  { readonly kind: "learner-wait" }
+>;
 
-function manualWaitAtCurrentTime(
+function waitAtCurrentTime(
   context: PresentationPlaybackMachineContext,
-): CompiledManualPresentationWait | undefined {
-  return context.waits.find(
-    (wait): wait is CompiledManualPresentationWait =>
-      wait.kind === "manual-wait" && wait.atMs === context.currentTimeMs,
-  );
+): CompiledPresentationWait | undefined {
+  return context.waits.find((wait) => wait.atMs === context.currentTimeMs);
 }
 
-function crossedManualWait(
+function crossedWait(
   context: PresentationPlaybackMachineContext,
   projectedTimeMs: number,
-): CompiledManualPresentationWait | undefined {
+): CompiledPresentationWait | undefined {
   return context.waits.find(
-    (wait): wait is CompiledManualPresentationWait =>
-      wait.kind === "manual-wait" &&
-      wait.atMs > context.currentTimeMs &&
-      wait.atMs <= projectedTimeMs,
+    (wait) => wait.atMs > context.currentTimeMs && wait.atMs <= projectedTimeMs,
   );
 }
 
@@ -345,6 +371,34 @@ function pendingManualWait(
   return context.pendingWait;
 }
 
+function pendingLearnerWait(
+  context: PresentationPlaybackMachineContext,
+): CompiledLearnerPresentationWait {
+  if (context.pendingWait?.kind !== "learner-wait") {
+    throw new Error("Presentation learner hold has no matching pending Wait.");
+  }
+  return context.pendingWait;
+}
+
+function firstOutstandingLearnerWaitId(
+  waits: readonly CompiledPresentationWait[],
+): PresentationWaitId | null {
+  return waits.find((wait) => wait.kind === "learner-wait")?.id ?? null;
+}
+
+function nextOutstandingLearnerWaitId(
+  context: PresentationPlaybackMachineContext,
+): PresentationWaitId | null {
+  const currentWait = pendingLearnerWait(context);
+  const currentIndex = context.waits.findIndex((wait) => wait.id === currentWait.id);
+  if (currentIndex === -1) {
+    throw new Error(`Presentation pending Wait "${currentWait.id}" is absent from its Timeline.`);
+  }
+  return (
+    context.waits.slice(currentIndex + 1).find((wait) => wait.kind === "learner-wait")?.id ?? null
+  );
+}
+
 const presentationPlaybackMachineSetup = setup({
   types: {
     context: {} as PresentationPlaybackMachineContext,
@@ -354,21 +408,37 @@ const presentationPlaybackMachineSetup = setup({
   actors: {
     monotonicClock: monotonicClockActor,
     cueWorker: presentationCueWorker,
+    gateObserver: presentationGateActor,
   },
   guards: {
     atDuration: ({ context }) => context.currentTimeMs === context.durationMs,
-    hasManualWaitAtCurrentTime: ({ context }) => manualWaitAtCurrentTime(context) !== undefined,
+    hasWaitAtCurrentTime: ({ context }) => waitAtCurrentTime(context) !== undefined,
     seekAtDuration: ({ context, event }) => seekTimeFrom(event) === context.durationMs,
     seekAtStart: ({ event }) => seekTimeFrom(event) === 0,
-    clockCrossedManualWait: ({ context, event }) =>
-      crossedManualWait(context, projectedTimeFrom(event)) !== undefined,
+    clockCrossedWait: ({ context, event }) =>
+      crossedWait(context, projectedTimeFrom(event)) !== undefined,
     clockReachedDuration: ({ context, event }) => projectedTimeFrom(event) === context.durationMs,
+    autoAdvanceEnabled: ({ context }) => context.autoAdvance,
+    autoAdvanceAtDuration: ({ context }) =>
+      context.autoAdvance && context.currentTimeMs === context.durationMs,
     drainedCurrentRun: ({ context, event }) =>
       event.type === "cue-worker-drained" && event.runNumber === context.runNumber,
+    drainedCurrentRunAtManualWait: ({ context, event }) =>
+      event.type === "cue-worker-drained" &&
+      event.runNumber === context.runNumber &&
+      context.pendingWait?.kind === "manual-wait",
+    drainedCurrentRunAtLearnerWait: ({ context, event }) =>
+      event.type === "cue-worker-drained" &&
+      event.runNumber === context.runNumber &&
+      context.pendingWait?.kind === "learner-wait",
   },
   actions: {
     anchorPlayback: assign({
       anchorClockTimeMs: ({ event }) => anchorClockTimeFrom(event),
+      anchorPresentationTimeMs: ({ context }) => context.currentTimeMs,
+    }),
+    anchorPlaybackNow: assign({
+      anchorClockTimeMs: ({ context }) => finiteClockReadingFrom(context.monotonicClock),
       anchorPresentationTimeMs: ({ context }) => context.currentTimeMs,
     }),
     applyClockTick: assign({
@@ -396,10 +466,10 @@ const presentationPlaybackMachineSetup = setup({
         surfaceId: context.surfaceId,
       });
     }),
-    settleAtCurrentManualWait: enqueueActions(({ context, enqueue }) => {
-      const wait = manualWaitAtCurrentTime(context);
+    settleAtCurrentWait: enqueueActions(({ context, enqueue }) => {
+      const wait = waitAtCurrentTime(context);
       if (!wait) {
-        throw new Error("Presentation could not select the current manual Wait.");
+        throw new Error("Presentation could not select the current Wait.");
       }
       const cues = unconsumedCuesThrough(context, wait.atMs);
       enqueue.assign({
@@ -413,10 +483,10 @@ const presentationPlaybackMachineSetup = setup({
         surfaceId: context.surfaceId,
       });
     }),
-    settleAtCrossedManualWait: enqueueActions(({ context, event, enqueue }) => {
-      const wait = crossedManualWait(context, projectedTimeFrom(event));
+    settleAtCrossedWait: enqueueActions(({ context, event, enqueue }) => {
+      const wait = crossedWait(context, projectedTimeFrom(event));
       if (!wait) {
-        throw new Error("Presentation could not select the crossed manual Wait.");
+        throw new Error("Presentation could not select the crossed Wait.");
       }
       const cues = unconsumedCuesThrough(context, wait.atMs);
       enqueue.assign({
@@ -482,6 +552,9 @@ const presentationPlaybackMachineSetup = setup({
       pendingWait: null,
     }),
     clearPendingWait: assign({ pendingWait: null }),
+    markLearnerWaitSatisfied: assign({
+      outstandingLearnerWaitId: ({ context }) => nextOutstandingLearnerWaitId(context),
+    }),
     throwWorkerDefect: ({ event }) => {
       if (event.type !== "cue-worker-defect") {
         throw new Error("Presentation cue defect action received an unexpected event.");
@@ -509,6 +582,7 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
     anchorPresentationTimeMs: 0,
     consumedCueIds: new Set<string>(),
     pendingWait: null,
+    outstandingLearnerWaitId: firstOutstandingLearnerWaitId(input.timeline.waits),
   }),
   invoke: {
     id: "cueWorker",
@@ -535,9 +609,9 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
       on: {
         play: [
           {
-            guard: "hasManualWaitAtCurrentTime",
+            guard: "hasWaitAtCurrentTime",
             target: "settling-wait-cues",
-            actions: "settleAtCurrentManualWait",
+            actions: "settleAtCurrentWait",
           },
           { guard: "atDuration", target: "completed" },
           { target: "playing", actions: ["enqueueCurrentCues", "anchorPlayback"] },
@@ -572,9 +646,9 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
       on: {
         "clock-tick": [
           {
-            guard: "clockCrossedManualWait",
+            guard: "clockCrossedWait",
             target: "settling-wait-cues",
-            actions: "settleAtCrossedManualWait",
+            actions: "settleAtCrossedWait",
           },
           {
             guard: "clockReachedDuration",
@@ -616,10 +690,50 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
     },
     "settling-wait-cues": {
       on: {
-        "cue-worker-drained": { guard: "drainedCurrentRun", target: "held-manual" },
+        "cue-worker-drained": [
+          { guard: "drainedCurrentRunAtManualWait", target: "held-manual" },
+          { guard: "drainedCurrentRunAtLearnerWait", target: "held-learner-waiting" },
+        ],
       },
     },
     "held-manual": {
+      on: {
+        advance: [
+          { guard: "atDuration", target: "completed", actions: "clearPendingWait" },
+          {
+            target: "playing",
+            actions: ["clearPendingWait", "anchorPlayback"],
+          },
+        ],
+      },
+    },
+    "held-learner-waiting": {
+      invoke: {
+        id: "learnerGate",
+        src: "gateObserver",
+        input: ({ context }) => ({
+          gatePort: context.gatePort,
+          requirement: pendingLearnerWait(context).requirement,
+        }),
+        onDone: [
+          {
+            guard: "autoAdvanceAtDuration",
+            target: "completed",
+            actions: ["markLearnerWaitSatisfied", "clearPendingWait"],
+          },
+          {
+            guard: "autoAdvanceEnabled",
+            target: "playing",
+            actions: ["markLearnerWaitSatisfied", "clearPendingWait", "anchorPlaybackNow"],
+          },
+          {
+            target: "held-learner-ready",
+            actions: "markLearnerWaitSatisfied",
+          },
+        ],
+      },
+    },
+    "held-learner-ready": {
       on: {
         advance: [
           { guard: "atDuration", target: "completed", actions: "clearPendingWait" },
@@ -634,9 +748,9 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
       on: {
         play: [
           {
-            guard: "hasManualWaitAtCurrentTime",
+            guard: "hasWaitAtCurrentTime",
             target: "settling-wait-cues",
-            actions: "settleAtCurrentManualWait",
+            actions: "settleAtCurrentWait",
           },
           { guard: "atDuration", target: "completed" },
           { target: "playing", actions: ["enqueueCurrentCues", "anchorPlayback"] },
@@ -681,6 +795,8 @@ function readMachinePhase(value: unknown): PresentationPlaybackMachinePhase {
     case "settling-wait-cues":
       return "playing";
     case "held-manual":
+    case "held-learner-waiting":
+    case "held-learner-ready":
       return "held";
     default:
       throw new Error(`Presentation actor entered impossible state "${String(value)}".`);
@@ -698,18 +814,30 @@ export function createPresentationPlaybackMachine(
     const phase = readMachinePhase(snapshot.value);
     return {
       phase,
-      ...(phase === "held"
-        ? {
-            hold: {
-              kind: "manual" as const,
-              waitId: pendingManualWait(snapshot.context).id,
-            },
-          }
-        : {}),
+      ...(snapshot.value === "held-manual"
+        ? { hold: { kind: "manual" as const, waitId: pendingManualWait(snapshot.context).id } }
+        : snapshot.value === "held-learner-waiting"
+          ? {
+              hold: {
+                kind: "learner" as const,
+                waitId: pendingLearnerWait(snapshot.context).id,
+                status: "waiting" as const,
+              },
+            }
+          : snapshot.value === "held-learner-ready"
+            ? {
+                hold: {
+                  kind: "learner" as const,
+                  waitId: pendingLearnerWait(snapshot.context).id,
+                  status: "ready" as const,
+                },
+              }
+            : {}),
       runNumber: snapshot.context.runNumber,
       surfaceId: snapshot.context.surfaceId,
       currentTimeMs: snapshot.context.currentTimeMs,
       durationMs: snapshot.context.durationMs,
+      outstandingLearnerWaitId: snapshot.context.outstandingLearnerWaitId,
     };
   };
 

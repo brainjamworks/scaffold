@@ -124,20 +124,36 @@ function manualWait(id: string, atMs: number): CompiledPresentationWait {
   return Object.freeze({ kind: "manual-wait", id: waitId(id), atMs });
 }
 
-function learnerWait(id: string, atMs: number): CompiledPresentationWait {
-  const requirement: CompiledLearnerRequirement = Object.freeze({
+function learnerWait(
+  id: string,
+  atMs: number,
+  requirement: CompiledLearnerRequirement = Object.freeze({
     kind: "event",
     ownerId: `owner-${id}` as EmbeddedNodeId,
     targetId: `target-${id}` as EmbeddedNodeId,
     type: `event-${id}`,
-  });
+  }),
+): CompiledPresentationWait {
   return Object.freeze({ kind: "learner-wait", id: waitId(id), atMs, requirement });
 }
 
-function createUnusedGatePort() {
-  const waitUntilSatisfied = vi.fn(async () => undefined);
+function createDeferredGatePort() {
+  interface PendingObservation {
+    readonly requirement: CompiledLearnerRequirement;
+    readonly signal: AbortSignal;
+    readonly resolve: () => void;
+    readonly reject: (reason?: unknown) => void;
+  }
+
+  const pending: PendingObservation[] = [];
+  const waitUntilSatisfied = vi.fn(
+    (requirement: CompiledLearnerRequirement, { signal }: { readonly signal: AbortSignal }) =>
+      new Promise<void>((resolve, reject) => {
+        pending.push({ requirement, signal, resolve, reject });
+      }),
+  );
   const gatePort: PresentationGatePort = Object.freeze({ waitUntilSatisfied });
-  return { gatePort, waitUntilSatisfied };
+  return { gatePort, pending, waitUntilSatisfied };
 }
 
 async function settleCue(
@@ -149,12 +165,19 @@ async function settleCue(
   await Promise.resolve();
 }
 
+async function settleGate(observation: { readonly resolve: () => void }): Promise<void> {
+  observation.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 function createHarness(
   durationMs = 1_000,
   cues: readonly CompiledPresentationCue[] = [],
   deferredCueExecutor = createDeferredCueExecutor(),
   waits: readonly CompiledPresentationWait[] = [],
   autoAdvance = false,
+  deferredGatePort = createDeferredGatePort(),
 ) {
   const timeline: CompiledInternalClockSurfaceTimeline = Object.freeze({
     surfaceId: "surface-1",
@@ -163,7 +186,7 @@ function createHarness(
     waits: Object.freeze([...waits]),
   });
   const manualClock = createManualClock();
-  const { gatePort, waitUntilSatisfied: gateWaitUntilSatisfied } = createUnusedGatePort();
+  const { gatePort, waitUntilSatisfied: gateWaitUntilSatisfied } = deferredGatePort;
   const session = createPresentationPlaybackSession({
     timeline,
     monotonicClock: manualClock.clock,
@@ -172,7 +195,15 @@ function createHarness(
     autoAdvance,
   });
 
-  return { deferredCueExecutor, gatePort, gateWaitUntilSatisfied, manualClock, session, timeline };
+  return {
+    deferredCueExecutor,
+    deferredGatePort,
+    gatePort,
+    gateWaitUntilSatisfied,
+    manualClock,
+    session,
+    timeline,
+  };
 }
 
 function expectSeekOk(result: PresentationSeekResult): void {
@@ -415,7 +446,7 @@ describe("createPresentationCueExecutor", () => {
       timeline,
       monotonicClock: createManualClock().clock,
       cueExecutor,
-      gatePort: createUnusedGatePort().gatePort,
+      gatePort: createDeferredGatePort().gatePort,
       autoAdvance: false,
     });
     const reports: PresentationCueReport[] = [];
@@ -583,6 +614,224 @@ describe("createPresentationPlaybackSession", () => {
     });
     expect(Object.isFrozen(learnerWaits.session.getSnapshot().outstandingLearnerWait)).toBe(true);
     expect(learnerWaits.gateWaitUntilSatisfied).not.toHaveBeenCalled();
+  });
+
+  it("passes an event requirement to the gate only after every due cue settles", async () => {
+    const requirement: CompiledLearnerRequirement = Object.freeze({
+      kind: "event",
+      ownerId: "owner-event-gate" as EmbeddedNodeId,
+      targetId: "target-event-gate" as EmbeddedNodeId,
+      type: "selected",
+    });
+    const { deferredCueExecutor, deferredGatePort, manualClock, session } = createHarness(
+      1_000,
+      [cue("prepare-gate", 100), cue("later", 200)],
+      createDeferredCueExecutor(),
+      [learnerWait("event-gate", 100, requirement)],
+    );
+
+    session.play();
+    manualClock.emitAt(1_250);
+    expect(session.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 100 });
+    expect(deferredGatePort.pending).toHaveLength(0);
+
+    const dueCue = deferredCueExecutor.pending[0];
+    if (!dueCue) throw new Error("Expected the due learner-Wait cue.");
+    await settleCue(dueCue);
+
+    expect(deferredGatePort.pending).toHaveLength(1);
+    expect(deferredGatePort.pending[0]?.requirement).toBe(requirement);
+    expect(deferredGatePort.pending[0]?.signal).toBeInstanceOf(AbortSignal);
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", waitId: waitId("event-gate"), status: "waiting" },
+      currentTimeMs: 100,
+      outstandingLearnerWait: { waitId: waitId("event-gate") },
+    });
+    expect(deferredCueExecutor.pending).toHaveLength(1);
+  });
+
+  it("moves a pending learner Wait to ready before manual advancement", async () => {
+    const { deferredGatePort, manualClock, session } = createHarness(
+      1_000,
+      [],
+      createDeferredCueExecutor(),
+      [learnerWait("current", 100), learnerWait("next", 300)],
+    );
+
+    session.play();
+    manualClock.emitAt(1_200);
+    await Promise.resolve();
+    const waitingSnapshot = session.getSnapshot();
+    expect(waitingSnapshot).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", waitId: waitId("current"), status: "waiting" },
+      currentTimeMs: 100,
+      outstandingLearnerWait: { waitId: waitId("current") },
+    });
+
+    session.play();
+    session.pause();
+    expect(session.getSnapshot()).toBe(waitingSnapshot);
+    const pendingAdvance = session.advance();
+    expect(pendingAdvance.isErr()).toBe(true);
+    if (pendingAdvance.isOk())
+      throw new Error("Expected the pending learner Wait to block advance.");
+    expect(pendingAdvance.error).toEqual({
+      reason: "learner-requirement-pending",
+      waitId: waitId("current"),
+    });
+    expect(Object.isFrozen(pendingAdvance.error)).toBe(true);
+
+    const observation = deferredGatePort.pending[0];
+    if (!observation) throw new Error("Expected the learner gate observation.");
+    await settleGate(observation);
+
+    const readySnapshot = session.getSnapshot();
+    expect(readySnapshot).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", waitId: waitId("current"), status: "ready" },
+      currentTimeMs: 100,
+      outstandingLearnerWait: { waitId: waitId("next") },
+    });
+    expect(Object.isFrozen(readySnapshot.hold)).toBe(true);
+    expect(Object.isFrozen(readySnapshot.outstandingLearnerWait)).toBe(true);
+    session.play();
+    session.pause();
+    expect(session.getSnapshot()).toBe(readySnapshot);
+
+    expectAdvanceOk(session.advance());
+    manualClock.emitAt(1_250);
+    expect(session.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 150 });
+  });
+
+  it("auto-advances inline after observing the exact state requirement", async () => {
+    const requirement: CompiledLearnerRequirement = Object.freeze({
+      kind: "state",
+      ownerId: "owner-state-gate" as EmbeddedNodeId,
+      targetId: "target-state-gate" as EmbeddedNodeId,
+      key: "completed",
+      equals: true,
+    });
+    const { deferredGatePort, manualClock, session } = createHarness(
+      1_000,
+      [],
+      createDeferredCueExecutor(),
+      [learnerWait("state-gate", 100, requirement), learnerWait("later-gate", 300)],
+      true,
+    );
+
+    session.play();
+    manualClock.emitAt(1_200);
+    await Promise.resolve();
+    const observation = deferredGatePort.pending[0];
+    if (!observation) throw new Error("Expected the state gate observation.");
+    expect(observation.requirement).toBe(requirement);
+
+    await settleGate(observation);
+
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "playing",
+      currentTimeMs: 100,
+      outstandingLearnerWait: { waitId: waitId("later-gate") },
+    });
+    expect(manualClock.activeSubscriptions).toBe(1);
+    manualClock.emitAt(1_250);
+    expect(session.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 150 });
+  });
+
+  it("auto-completes an endpoint learner Wait after clearing the outstanding fact", async () => {
+    const { deferredGatePort, manualClock, session } = createHarness(
+      100,
+      [],
+      createDeferredCueExecutor(),
+      [learnerWait("endpoint-gate", 100)],
+      true,
+    );
+
+    session.play();
+    manualClock.emitAt(1_100);
+    await Promise.resolve();
+    const observation = deferredGatePort.pending[0];
+    if (!observation) throw new Error("Expected the endpoint gate observation.");
+
+    await settleGate(observation);
+
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "completed",
+      currentTimeMs: 100,
+      outstandingLearnerWait: null,
+    });
+    expect(manualClock.activeSubscriptions).toBe(0);
+  });
+
+  it("keeps a rejected learner gate observable as an actor defect", async () => {
+    vi.useFakeTimers();
+    try {
+      const { deferredGatePort, manualClock, session } = createHarness(
+        1_000,
+        [],
+        createDeferredCueExecutor(),
+        [learnerWait("rejected-gate", 100)],
+      );
+      session.play();
+      manualClock.emitAt(1_100);
+      await Promise.resolve();
+      const observation = deferredGatePort.pending[0];
+      if (!observation) throw new Error("Expected the rejected gate observation.");
+      const defect = new Error("Presentation gate rejected.");
+
+      observation.reject(defect);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(() => vi.runOnlyPendingTimers()).toThrow(defect);
+      session.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps a synchronous learner gate throw observable as an actor defect", async () => {
+    vi.useFakeTimers();
+    try {
+      const defect = new Error("Presentation gate threw.");
+      const requirement: CompiledLearnerRequirement = Object.freeze({
+        kind: "event",
+        ownerId: "owner-throwing-gate" as EmbeddedNodeId,
+        targetId: "target-throwing-gate" as EmbeddedNodeId,
+        type: "activated",
+      });
+      const waitUntilSatisfied = vi.fn(
+        (_requirement: CompiledLearnerRequirement, _options: { readonly signal: AbortSignal }) => {
+          throw defect;
+        },
+      );
+      const session = createPresentationPlaybackSession({
+        timeline: Object.freeze({
+          surfaceId: "surface-1",
+          durationMs: 1_000,
+          cues: Object.freeze([]),
+          waits: Object.freeze([learnerWait("throwing-gate", 0, requirement)]),
+        }),
+        monotonicClock: createManualClock().clock,
+        cueExecutor: createDeferredCueExecutor().executor,
+        gatePort: Object.freeze({ waitUntilSatisfied }),
+        autoAdvance: false,
+      });
+
+      session.play();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(waitUntilSatisfied).toHaveBeenCalledTimes(1);
+      expect(waitUntilSatisfied.mock.calls[0]?.[0]).toBe(requirement);
+      expect(waitUntilSatisfied.mock.calls[0]?.[1].signal).toBeInstanceOf(AbortSignal);
+      expect(() => vi.runOnlyPendingTimers()).toThrow(defect);
+      session.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("holds at a time-zero manual Wait until advance releases continuous playback", async () => {

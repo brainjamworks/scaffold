@@ -105,6 +105,7 @@ interface PresentationPlaybackMachineProjection {
   readonly surfaceId: string;
   readonly currentTimeMs: number;
   readonly durationMs: number;
+  readonly outstandingLearnerWaitId: PresentationWaitId | null;
 }
 
 function holdsAreEqual(left: PresentationHold | undefined, right: PresentationHold | undefined) {
@@ -137,8 +138,11 @@ function freezeHold(hold: PresentationHold): PresentationHold {
 
 function freezeSnapshot(
   snapshot: PresentationPlaybackMachineProjection,
-  outstandingLearnerWait: PresentationOutstandingLearnerWait | null,
 ): PresentationPlaybackSnapshot {
+  const outstandingLearnerWait =
+    snapshot.outstandingLearnerWaitId === null
+      ? null
+      : Object.freeze({ waitId: snapshot.outstandingLearnerWaitId });
   const base = {
     phase: snapshot.phase,
     runNumber: snapshot.runNumber,
@@ -160,13 +164,6 @@ function freezeSnapshot(
   return Object.freeze({ ...base, phase: snapshot.phase });
 }
 
-function initialOutstandingLearnerWait(
-  timeline: CompiledInternalClockSurfaceTimeline,
-): PresentationOutstandingLearnerWait | null {
-  const wait = timeline.waits.find(({ kind }) => kind === "learner-wait");
-  return wait ? Object.freeze({ waitId: wait.id }) : null;
-}
-
 export function createPresentationPlaybackSession({
   timeline,
   monotonicClock = createAnimationFramePresentationMonotonicClock(),
@@ -176,7 +173,6 @@ export function createPresentationPlaybackSession({
 }: CreatePresentationPlaybackSessionInput): PresentationPlaybackSession {
   const listeners = new Set<() => void>();
   const cueReportListeners = new Set<(report: PresentationCueReport) => void>();
-  const outstandingLearnerWait = initialOutstandingLearnerWait(timeline);
   let disposed = false;
   const machine = createPresentationPlaybackMachine({
     timeline,
@@ -189,10 +185,10 @@ export function createPresentationPlaybackSession({
       for (const listener of [...cueReportListeners]) listener(report);
     },
   });
-  let snapshot = freezeSnapshot(machine.getSnapshot(), outstandingLearnerWait);
+  let snapshot = freezeSnapshot(machine.getSnapshot());
 
   const unsubscribeFromMachine = machine.subscribe((machineSnapshot) => {
-    const nextSnapshot = freezeSnapshot(machineSnapshot, outstandingLearnerWait);
+    const nextSnapshot = freezeSnapshot(machineSnapshot);
     if (snapshotsAreEqual(snapshot, nextSnapshot)) return;
 
     snapshot = nextSnapshot;
