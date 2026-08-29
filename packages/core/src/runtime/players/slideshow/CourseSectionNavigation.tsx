@@ -14,12 +14,16 @@ import type {
 export interface CourseSectionNavigationProps {
   readonly currentCourseSection: CurrentCourseSectionNavigation | null;
   readonly courseSectionItems: readonly CourseSectionNavigationItem[];
+  readonly disabled?: boolean;
+  readonly ariaDescribedBy?: string;
   readonly onSelectSurface: (surfaceId: SurfaceId) => void;
 }
 
 export function CourseSectionNavigation({
   currentCourseSection,
   courseSectionItems,
+  disabled = false,
+  ariaDescribedBy,
   onSelectSurface,
 }: CourseSectionNavigationProps) {
   if (courseSectionItems.length === 0) return null;
@@ -29,12 +33,13 @@ export function CourseSectionNavigation({
 
   return (
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
+      <DropdownMenu.Trigger asChild disabled={disabled}>
         <IconButton
           className="sc-slideshow-player__course-section-trigger"
           variant="ghost"
           size="md"
           aria-label={triggerLabel}
+          aria-describedby={ariaDescribedBy}
         >
           <ListBullets size={iconMd} weight="bold" aria-hidden />
         </IconButton>

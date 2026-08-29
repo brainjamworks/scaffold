@@ -4,7 +4,16 @@ import {
   CornersInIcon as CornersIn,
   CornersOutIcon as CornersOut,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+} from "react";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 
 import { IconButton } from "@/ui/components/IconButton/IconButton";
@@ -33,6 +42,9 @@ import {
 import type { SlideshowPlayerSizing } from "../player-types";
 import { CourseSectionNavigation } from "./CourseSectionNavigation";
 import { getSlideshowNavigationState, getSlideshowSurfaceStates } from "./slideshow-navigation";
+import { createRequestSurfaceChange } from "./slideshow-surface-change";
+import { createSurfaceExitEnvironment } from "./surface-exit-environment";
+import { SurfaceExitEnvironmentProvider } from "./SurfaceExitEnvironmentProvider";
 import "./SlideshowPlayer.css";
 
 interface EmbeddedStageStyle extends CSSProperties {
@@ -65,7 +77,52 @@ export function SlideshowPlayer({
   const stageRef = useRef<HTMLDivElement>(null);
   const [canvasElement, setCanvasElement] = useState<HTMLDivElement | null>(null);
   const [scaleState, setScaleState] = useState<SlideshowCanvasScaleState | null>(null);
-  const [activeSurfaceId, setActiveSurfaceId] = useState(structure.surfaceIds[0] ?? null);
+  const initialActiveSurfaceId = structure.surfaceIds[0] ?? null;
+  const [activeSurfaceId, setActiveSurfaceId] = useState(initialActiveSurfaceId);
+  const [surfaceExitEnvironmentOwner] = useState(() =>
+    createSurfaceExitEnvironment({
+      knownSurfaceIds: structure.surfaceIds,
+      activeSurfaceId: initialActiveSurfaceId,
+    }),
+  );
+  const surfaceExitEnvironment = surfaceExitEnvironmentOwner.environment;
+  const activeSurfaceIdRef = useRef(activeSurfaceId);
+  const commitSurfaceChange = useCallback(
+    (surfaceId: SurfaceId) => {
+      surfaceExitEnvironmentOwner.setActiveSurfaceId(surfaceId);
+      activeSurfaceIdRef.current = surfaceId;
+      setActiveSurfaceId(surfaceId);
+    },
+    [surfaceExitEnvironmentOwner],
+  );
+  const requestSurfaceChange = useMemo(
+    () =>
+      createRequestSurfaceChange({
+        environment: surfaceExitEnvironment,
+        getActiveSurfaceId: () => activeSurfaceIdRef.current,
+        isKnownSurfaceId: (surfaceId) => structure.surfaceById[surfaceId] !== undefined,
+        commitSurfaceChange,
+      }),
+    [commitSurfaceChange, structure.surfaceById, surfaceExitEnvironment],
+  );
+  const subscribeToSurfaceExit = useCallback(
+    (listener: () => void) => surfaceExitEnvironment.subscribe(listener),
+    [surfaceExitEnvironment],
+  );
+  const getSurfaceExitSnapshot = useCallback(
+    () => surfaceExitEnvironment.getSnapshot(),
+    [surfaceExitEnvironment],
+  );
+  const surfaceExitSnapshot = useSyncExternalStore(
+    subscribeToSurfaceExit,
+    getSurfaceExitSnapshot,
+    getSurfaceExitSnapshot,
+  );
+  const surfaceNavigationDescriptionId = useId();
+  const surfaceNavigationBlocked = surfaceExitSnapshot.status === "blocked";
+  const surfaceNavigationAriaDescribedBy = surfaceNavigationBlocked
+    ? surfaceNavigationDescriptionId
+    : undefined;
   const [fullscreenAvailable, setFullscreenAvailable] = useState(false);
   const [fullscreenPending, setFullscreenPending] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -97,6 +154,13 @@ export function SlideshowPlayer({
   useEffect(() => {
     onActiveSurfaceChange?.(navigation.activeSurfaceId);
   }, [navigation.activeSurfaceId, onActiveSurfaceChange]);
+
+  useEffect(
+    () => () => {
+      surfaceExitEnvironmentOwner.dispose();
+    },
+    [surfaceExitEnvironmentOwner],
+  );
 
   useEffect(() => {
     if (!viewportElement) {
@@ -258,12 +322,14 @@ export function SlideshowPlayer({
                     coordinateRoot={canvasElement}
                     coordinateSpace={coordinateSpace}
                   >
-                    <PreparedCourseDocumentRuntimeRenderer
-                      artifactId={artifactId ?? null}
-                      preparedDocument={preparedDocument}
-                      surfaceStates={surfaceStates}
-                      {...(onRendererReady ? { onReady: onRendererReady } : {})}
-                    />
+                    <SurfaceExitEnvironmentProvider environment={surfaceExitEnvironment}>
+                      <PreparedCourseDocumentRuntimeRenderer
+                        artifactId={artifactId ?? null}
+                        preparedDocument={preparedDocument}
+                        surfaceStates={surfaceStates}
+                        {...(onRendererReady ? { onReady: onRendererReady } : {})}
+                      />
+                    </SurfaceExitEnvironmentProvider>
                   </InteractionDragEnvironmentProvider>
                 </div>
                 <div
@@ -279,7 +345,13 @@ export function SlideshowPlayer({
                       <CourseSectionNavigation
                         currentCourseSection={navigation.currentCourseSection}
                         courseSectionItems={navigation.courseSectionItems}
-                        onSelectSurface={setActiveSurfaceId}
+                        disabled={surfaceNavigationBlocked}
+                        {...(surfaceNavigationAriaDescribedBy
+                          ? { ariaDescribedBy: surfaceNavigationAriaDescribedBy }
+                          : {})}
+                        onSelectSurface={(surfaceId) => {
+                          requestSurfaceChange(surfaceId);
+                        }}
                       />
                     </div>
                     <div
@@ -292,10 +364,11 @@ export function SlideshowPlayer({
                         variant="ghost"
                         size="md"
                         aria-label="Previous slide"
-                        disabled={!navigation.canGoPrevious}
+                        aria-describedby={surfaceNavigationAriaDescribedBy}
+                        disabled={!navigation.canGoPrevious || surfaceNavigationBlocked}
                         onClick={() => {
                           if (navigation.previousSurfaceId) {
-                            setActiveSurfaceId(navigation.previousSurfaceId);
+                            requestSurfaceChange(navigation.previousSurfaceId);
                           }
                         }}
                       >
@@ -316,10 +389,11 @@ export function SlideshowPlayer({
                         variant="ghost"
                         size="md"
                         aria-label="Next slide"
-                        disabled={!navigation.canGoNext}
+                        aria-describedby={surfaceNavigationAriaDescribedBy}
+                        disabled={!navigation.canGoNext || surfaceNavigationBlocked}
                         onClick={() => {
                           if (navigation.nextSurfaceId) {
-                            setActiveSurfaceId(navigation.nextSurfaceId);
+                            requestSurfaceChange(navigation.nextSurfaceId);
                           }
                         }}
                       >
@@ -350,6 +424,11 @@ export function SlideshowPlayer({
                         </IconButton>
                       ) : null}
                     </div>
+                    {surfaceNavigationBlocked ? (
+                      <span id={surfaceNavigationDescriptionId} className="sc-sr-only">
+                        Complete this quiz before moving to another slide.
+                      </span>
+                    ) : null}
                   </div>
                   {fullscreenError ? (
                     <span role="status" className="sc-sr-only">

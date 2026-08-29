@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 
+import { readFileSync } from "node:fs";
 import {
+  act,
   cleanup,
   render as renderTest,
   screen,
@@ -20,15 +22,42 @@ import {
 } from "@/composition/runtime/scaffold-runtime-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import type { ScaffoldProductAccess } from "@/host/contracts/product-access";
-import { projectCourseStructure } from "@/document/model/course-structure";
+import { projectCourseStructure, type SurfaceId } from "@/document/model/course-structure";
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import type { ScaffoldColorMode } from "@/theme/state/color-mode";
-import { checkRuntimeDocumentReadiness } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
+import {
+  checkRuntimeDocumentReadiness,
+  type PreparedCourseDocumentRuntimeRendererProps,
+} from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 
 import { SlideshowPlayer, type SlideshowPlayerProps } from "./SlideshowPlayer";
+import type {
+  SurfaceExitEnvironment,
+  SurfaceExitGuard,
+  SurfaceExitGuardSnapshot,
+} from "./surface-exit-environment";
+import type { SurfaceExitEnvironmentAvailability } from "./SurfaceExitEnvironmentProvider";
+
+const surfaceExitEnvironmentProbe = vi.hoisted(() => ({ availability: null as unknown }));
+
+vi.mock("../../renderer/CourseDocumentRuntimeRenderer", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../renderer/CourseDocumentRuntimeRenderer")>();
+  const { createElement } = await import("react");
+  const { useSurfaceExitEnvironmentAvailability } =
+    await import("./SurfaceExitEnvironmentProvider");
+
+  return {
+    ...actual,
+    PreparedCourseDocumentRuntimeRenderer(props: PreparedCourseDocumentRuntimeRendererProps) {
+      surfaceExitEnvironmentProbe.availability = useSurfaceExitEnvironmentAvailability();
+      return createElement(actual.PreparedCourseDocumentRuntimeRenderer, props);
+    },
+  };
+});
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
 const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
@@ -89,6 +118,7 @@ class ResizeObserverStub implements ResizeObserver {
 }
 
 beforeEach(() => {
+  surfaceExitEnvironmentProbe.availability = null;
   ResizeObserverStub.instances = [];
   ResizeObserverStub.initialSize = { width: 1024, height: 576 };
   vi.stubGlobal("ResizeObserver", ResizeObserverStub);
@@ -375,7 +405,92 @@ function normalizeRuntimeFixtureIds(content: JSONContent): void {
   }
 }
 
+function surfaceExitEnvironmentFromRenderer(): SurfaceExitEnvironment {
+  const availability =
+    surfaceExitEnvironmentProbe.availability as SurfaceExitEnvironmentAvailability;
+  if (availability.status !== "available") {
+    throw new Error("Slideshow renderer did not receive the Surface Exit Environment");
+  }
+  return availability.environment;
+}
+
+function controllableQuizExitGuard(surfaceId: SurfaceId) {
+  const ownerId = `quiz-${surfaceId}`;
+  const listeners = new Set<() => void>();
+  let attemptStatus: "not_started" | "in_progress" | null = null;
+  const guard: SurfaceExitGuard = {
+    ownerId,
+    surfaceId,
+    getSnapshot(): SurfaceExitGuardSnapshot {
+      if (attemptStatus === null) return { status: "allowed" };
+      return {
+        status: "blocked",
+        blocker: {
+          reason: "quiz-not-complete",
+          ownerId,
+          surfaceId,
+          attemptStatus,
+        },
+      };
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+
+  return {
+    guard,
+    setAttemptStatus(nextAttemptStatus: "not_started" | "in_progress" | null) {
+      attemptStatus = nextAttemptStatus;
+    },
+    publish() {
+      for (const listener of listeners) listener();
+    },
+  };
+}
+
 describe("SlideshowPlayer", () => {
+  it("provides one lifecycle Surface Exit Environment to the renderer and disposes it", async () => {
+    const { unmount } = render(
+      <TestSlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "Environment slide" },
+        ])}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(surfaceExitEnvironmentProbe.availability).toMatchObject({ status: "available" }),
+    );
+    const environment = surfaceExitEnvironmentFromRenderer();
+    expect(environment.getSnapshot()).toMatchObject({
+      status: "allowed",
+      surfaceId: "slide_000001",
+    });
+
+    unmount();
+
+    expect(() => environment.getSnapshot()).toThrow("Surface Exit Environment has been disposed");
+  });
+
+  it("keeps the active Surface setter behind one request commit callback", () => {
+    const source = readFileSync("src/runtime/players/slideshow/SlideshowPlayer.tsx", "utf8");
+    const setterReferences = source
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.includes("setActiveSurfaceId"));
+
+    expect(setterReferences).toEqual([
+      "const [activeSurfaceId, setActiveSurfaceId] = useState(initialActiveSurfaceId);",
+      "surfaceExitEnvironmentOwner.setActiveSurfaceId(surfaceId);",
+      "setActiveSurfaceId(surfaceId);",
+    ]);
+  });
+
   it.each(["light", "dark"] as const)(
     "passes the resolved %s course mode into slideshow content",
     async (mode) => {
@@ -935,6 +1050,158 @@ describe("SlideshowPlayer", () => {
     expect(screen.getByText("3 of 3")).toBeInTheDocument();
     expect(buttonByName("Next slide").disabled).toBe(true);
     expect(editor.getJSON()).toEqual(initialJSON);
+  });
+
+  it("rechecks an unpublished blocker before Next changes the Surface", async () => {
+    const user = userEvent.setup();
+    const readyEditors: TiptapEditor[] = [];
+    render(
+      <TestSlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "First guarded slide" },
+          { id: "slide_000002", text: "Second guarded slide" },
+        ])}
+        onRendererReady={(editor) => {
+          readyEditors.push(editor);
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(readyEditors).toHaveLength(1));
+    const editor = readyEditors[0]!;
+    const initialJSON = editor.getJSON();
+    const guard = controllableQuizExitGuard(EmbeddedNodeIdSchema.parse("slide_000001"));
+    surfaceExitEnvironmentFromRenderer().registerGuard(guard.guard);
+    guard.setAttemptStatus("in_progress");
+    expect(buttonByName("Next slide")).not.toBeDisabled();
+
+    await user.click(buttonByName("Next slide"));
+
+    expect(surfaceById("slide_000001")).toHaveAttribute("data-runtime-surface-visible", "true");
+    expect(screen.getByText("1 of 2")).toBeInTheDocument();
+    expect(editor.getJSON()).toEqual(initialJSON);
+  });
+
+  it("rechecks an unpublished blocker before Previous changes the Surface", async () => {
+    const user = userEvent.setup();
+    render(
+      <TestSlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "First guarded slide" },
+          { id: "slide_000002", text: "Second guarded slide" },
+        ])}
+      />,
+    );
+
+    await screen.findByTestId("course-document-runtime-renderer");
+    const guard = controllableQuizExitGuard(EmbeddedNodeIdSchema.parse("slide_000002"));
+    surfaceExitEnvironmentFromRenderer().registerGuard(guard.guard);
+    await user.click(buttonByName("Next slide"));
+    await waitFor(() =>
+      expect(surfaceById("slide_000002")).toHaveAttribute("data-runtime-surface-visible", "true"),
+    );
+    guard.setAttemptStatus("in_progress");
+    expect(buttonByName("Previous slide")).not.toBeDisabled();
+
+    await user.click(buttonByName("Previous slide"));
+
+    expect(surfaceById("slide_000002")).toHaveAttribute("data-runtime-surface-visible", "true");
+    expect(screen.getByText("2 of 2")).toBeInTheDocument();
+  });
+
+  it("rechecks an unpublished blocker before Course Section selection changes the Surface", async () => {
+    const user = userEvent.setup();
+    render(
+      <TestSlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={sectionedSlideshowDocumentContent([
+          {
+            id: "section00001",
+            title: "Introduction",
+            surfaces: [{ id: "slide_000001", text: "First guarded slide" }],
+          },
+          {
+            id: "section00002",
+            title: "Practice",
+            surfaces: [{ id: "slide_000002", text: "Second guarded slide" }],
+          },
+        ])}
+      />,
+    );
+
+    const guard = controllableQuizExitGuard(EmbeddedNodeIdSchema.parse("slide_000001"));
+    surfaceExitEnvironmentFromRenderer().registerGuard(guard.guard);
+    await user.click(
+      await screen.findByRole("button", { name: "Introduction, Course Section 1 of 2" }),
+    );
+    guard.setAttemptStatus("in_progress");
+
+    await user.click(
+      screen.getByRole("menuitemradio", { name: "Practice, Course Section 2 of 2" }),
+    );
+
+    expect(surfaceById("slide_000001")).toHaveAttribute("data-runtime-surface-visible", "true");
+    expect(screen.getByText("1 of 2")).toBeInTheDocument();
+  });
+
+  it("projects current blockers into Surface controls while keeping fullscreen available", async () => {
+    const user = userEvent.setup();
+    const { requestFullscreen } = installFullscreenHarness();
+    render(
+      <TestSlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "Blocked slide" },
+          { id: "slide_000002", text: "Available destination" },
+        ])}
+      />,
+    );
+
+    await screen.findByTestId("course-document-runtime-renderer");
+    const guard = controllableQuizExitGuard(EmbeddedNodeIdSchema.parse("slide_000001"));
+    act(() => {
+      guard.setAttemptStatus("not_started");
+      surfaceExitEnvironmentFromRenderer().registerGuard(guard.guard);
+    });
+
+    const courseSection = screen.getByRole("button", {
+      name: "Introduction, Course Section 1 of 1",
+    });
+    const previous = buttonByName("Previous slide");
+    const next = buttonByName("Next slide");
+    await waitFor(() => expect(next).toBeDisabled());
+    expect(courseSection).toBeDisabled();
+    expect(previous).toBeDisabled();
+    const explanation = screen.getByText("Complete this quiz before moving to another slide.");
+    expect(explanation).toHaveClass("sc-sr-only");
+    expect(explanation.id).not.toBe("");
+    for (const control of [courseSection, previous, next]) {
+      expect(control).toHaveAttribute("aria-describedby", explanation.id);
+    }
+    expect(screen.getByText("1 of 2")).toBeInTheDocument();
+
+    const enterFullscreen = await screen.findByRole("button", { name: "Enter fullscreen" });
+    expect(enterFullscreen).not.toBeDisabled();
+    expect(enterFullscreen).not.toHaveAttribute("aria-describedby");
+    await user.click(enterFullscreen);
+    expect(requestFullscreen).toHaveBeenCalledOnce();
+    expect(surfaceById("slide_000001")).toHaveAttribute("data-runtime-surface-visible", "true");
+
+    act(() => {
+      guard.setAttemptStatus(null);
+      guard.publish();
+    });
+
+    await waitFor(() => expect(next).not.toBeDisabled());
+    expect(courseSection).not.toBeDisabled();
+    expect(previous).toBeDisabled();
+    for (const control of [courseSection, previous, next]) {
+      expect(control).not.toHaveAttribute("aria-describedby");
+    }
+    expect(screen.queryByText("Complete this quiz before moving to another slide.")).toBeNull();
+    expect(screen.getByText("1 of 2")).toBeInTheDocument();
   });
 
   it("presents Course Section context and jumps to a selected section's first Surface", async () => {

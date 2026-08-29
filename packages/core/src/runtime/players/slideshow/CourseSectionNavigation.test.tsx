@@ -151,6 +151,34 @@ describe("CourseSectionNavigation", () => {
     expect(screen.queryByRole("button", { name: /Course Section/ })).toBeNull();
   });
 
+  it("disables the chooser and associates a generic description", async () => {
+    const user = userEvent.setup();
+    const onSelectSurface = vi.fn();
+    render(
+      <>
+        <CourseSectionNavigation
+          currentCourseSection={currentCourseSection}
+          courseSectionItems={courseSectionItems}
+          disabled
+          ariaDescribedBy="surface-navigation-blocked"
+          onSelectSurface={onSelectSurface}
+        />
+        <span id="surface-navigation-blocked">Surface navigation is unavailable.</span>
+      </>,
+    );
+
+    const trigger = screen.getByRole("button", {
+      name: "Practice, Course Section 2 of 3",
+    });
+    expect(trigger).toBeDisabled();
+    expect(trigger).toHaveAttribute("aria-describedby", "surface-navigation-blocked");
+
+    await user.click(trigger);
+
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(onSelectSurface).not.toHaveBeenCalled();
+  });
+
   it("keeps empty-only Course Sections inspectable without creating a jump target", async () => {
     const user = userEvent.setup();
     const onSelectSurface = vi.fn();
