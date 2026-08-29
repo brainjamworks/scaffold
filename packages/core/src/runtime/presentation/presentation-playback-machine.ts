@@ -614,6 +614,41 @@ const presentationPlaybackMachineSetup = setup({
   },
 });
 
+const fixedWaitStateSeekTransitions = [
+  {
+    guard: "seekAtWait",
+    target: "paused",
+    actions: [
+      "interruptForSeek",
+      "consumeSeekCues",
+      "reconcileWaitPassageForSeek",
+      "applySeek",
+      "clearPendingWait",
+    ],
+  },
+  {
+    guard: "seekAtDuration",
+    target: "completed",
+    actions: [
+      "interruptForSeek",
+      "consumeSeekCues",
+      "reconcileWaitPassageForSeek",
+      "applySeek",
+      "clearPendingWait",
+    ],
+  },
+  {
+    target: "paused",
+    actions: [
+      "interruptForSeek",
+      "consumeSeekCues",
+      "reconcileWaitPassageForSeek",
+      "applySeek",
+      "clearPendingWait",
+    ],
+  },
+] as const;
+
 const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachine({
   id: "presentation-playback",
   context: ({ input }) => ({
@@ -810,6 +845,7 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
           { guard: "drainedCurrentRunAtManualWait", target: "held-manual" },
           { guard: "drainedCurrentRunAtLearnerWait", target: "held-learner-waiting" },
         ],
+        seek: fixedWaitStateSeekTransitions,
       },
     },
     "held-manual": {
@@ -825,6 +861,7 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
             actions: ["markPendingWaitPassed", "clearPendingWait", "anchorPlayback"],
           },
         ],
+        seek: fixedWaitStateSeekTransitions,
       },
     },
     "held-learner-waiting": {
@@ -857,6 +894,9 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
           },
         ],
       },
+      on: {
+        seek: fixedWaitStateSeekTransitions,
+      },
     },
     "held-learner-ready": {
       on: {
@@ -867,6 +907,7 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
             actions: ["clearPendingWait", "anchorPlayback"],
           },
         ],
+        seek: fixedWaitStateSeekTransitions,
       },
     },
     paused: {

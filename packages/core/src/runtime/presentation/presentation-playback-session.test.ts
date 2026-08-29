@@ -705,6 +705,166 @@ describe("createPresentationPlaybackSession", () => {
     expect(session.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 150 });
   });
 
+  it("aborts the active learner observation when Seek leaves learner waiting", async () => {
+    const { deferredGatePort, manualClock, session } = createHarness(
+      400,
+      [],
+      createDeferredCueExecutor(),
+      [learnerWait("active", 100), learnerWait("later", 300)],
+    );
+    session.play();
+    manualClock.emitAt(1_100);
+    await Promise.resolve();
+    const observation = deferredGatePort.pending[0];
+    if (!observation) throw new Error("Expected the active learner observation.");
+    const abortListener = vi.fn();
+    observation.signal.addEventListener("abort", abortListener);
+
+    expectSeekOk(session.seek(50));
+
+    expect(observation.signal.aborted).toBe(true);
+    expect(abortListener).toHaveBeenCalledTimes(1);
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "paused",
+      currentTimeMs: 50,
+      outstandingLearnerWait: { waitId: waitId("active") },
+    });
+  });
+
+  it.each([
+    {
+      operation: "Restart",
+      leave: (session: PresentationPlaybackSession) => session.restart(),
+      expectedSnapshot: {
+        phase: "awaiting-start",
+        currentTimeMs: 0,
+        runNumber: 2,
+        outstandingLearnerWait: { waitId: waitId("active") },
+      },
+    },
+    {
+      operation: "Stop",
+      leave: (session: PresentationPlaybackSession) => session.stop(),
+      expectedSnapshot: {
+        phase: "stopped",
+        currentTimeMs: 100,
+        runNumber: 1,
+        outstandingLearnerWait: { waitId: waitId("active") },
+      },
+    },
+  ] as const)(
+    "$operation aborts learner waiting without accepting a late resolution",
+    async ({ leave, expectedSnapshot }) => {
+      const { deferredGatePort, manualClock, session } = createHarness(
+        400,
+        [],
+        createDeferredCueExecutor(),
+        [learnerWait("active", 100)],
+      );
+      session.play();
+      manualClock.emitAt(1_100);
+      await Promise.resolve();
+      const observation = deferredGatePort.pending[0];
+      if (!observation) throw new Error("Expected the active learner observation.");
+      const abortListener = vi.fn();
+      observation.signal.addEventListener("abort", abortListener);
+
+      leave(session);
+
+      expect(observation.signal.aborted).toBe(true);
+      expect(abortListener).toHaveBeenCalledTimes(1);
+      expect(session.getSnapshot()).toMatchObject(expectedSnapshot);
+      const snapshotAfterExit = session.getSnapshot();
+      await settleGate(observation);
+      expect(session.getSnapshot()).toBe(snapshotAfterExit);
+    },
+  );
+
+  it("lets only the current observation release a re-encountered learner Wait", async () => {
+    const { deferredGatePort, manualClock, session } = createHarness(
+      400,
+      [],
+      createDeferredCueExecutor(),
+      [learnerWait("reencountered", 100), learnerWait("later", 300)],
+    );
+    session.play();
+    manualClock.emitAt(1_100);
+    await Promise.resolve();
+    const oldObservation = deferredGatePort.pending[0];
+    if (!oldObservation) throw new Error("Expected the old learner observation.");
+
+    expectSeekOk(session.seek(50));
+    session.play();
+    manualClock.emitAt(1_150);
+    await Promise.resolve();
+    const currentObservation = deferredGatePort.pending[1];
+    if (!currentObservation) throw new Error("Expected the current learner observation.");
+    const currentWaitingSnapshot = session.getSnapshot();
+    expect(currentWaitingSnapshot).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", waitId: waitId("reencountered"), status: "waiting" },
+      outstandingLearnerWait: { waitId: waitId("reencountered") },
+    });
+
+    await settleGate(oldObservation);
+    expect(session.getSnapshot()).toBe(currentWaitingSnapshot);
+
+    await settleGate(currentObservation);
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", waitId: waitId("reencountered"), status: "ready" },
+      outstandingLearnerWait: { waitId: waitId("later") },
+    });
+  });
+
+  it("ignores an old gate rejection after Restart creates a new run observation", async () => {
+    vi.useFakeTimers();
+    try {
+      const { deferredGatePort, manualClock, session } = createHarness(
+        400,
+        [],
+        createDeferredCueExecutor(),
+        [learnerWait("repeatable", 100)],
+      );
+      session.play();
+      manualClock.emitAt(1_100);
+      await Promise.resolve();
+      const oldObservation = deferredGatePort.pending[0];
+      if (!oldObservation) throw new Error("Expected the old-run learner observation.");
+
+      session.restart();
+      session.play();
+      manualClock.emitAt(1_200);
+      await Promise.resolve();
+      const currentObservation = deferredGatePort.pending[1];
+      if (!currentObservation) throw new Error("Expected the current-run learner observation.");
+      const currentWaitingSnapshot = session.getSnapshot();
+      expect(currentWaitingSnapshot).toMatchObject({
+        phase: "held",
+        hold: { kind: "learner", waitId: waitId("repeatable"), status: "waiting" },
+        runNumber: 2,
+        outstandingLearnerWait: { waitId: waitId("repeatable") },
+      });
+
+      oldObservation.reject(new Error("Stale gate rejection."));
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(() => vi.runOnlyPendingTimers()).not.toThrow();
+      expect(session.getSnapshot()).toBe(currentWaitingSnapshot);
+
+      await settleGate(currentObservation);
+      expect(session.getSnapshot()).toMatchObject({
+        phase: "held",
+        hold: { kind: "learner", waitId: waitId("repeatable"), status: "ready" },
+        runNumber: 2,
+        outstandingLearnerWait: null,
+      });
+      session.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("auto-advances inline after observing the exact state requirement", async () => {
     const requirement: CompiledLearnerRequirement = Object.freeze({
       kind: "state",
@@ -954,6 +1114,36 @@ describe("createPresentationPlaybackSession", () => {
     expectAdvanceOk(session.advance());
     expect(session.getSnapshot()).toMatchObject({ phase: "completed", currentTimeMs: 100 });
   });
+
+  it.each(["manual", "learner-ready"] as const)(
+    "Seek leaves a fixed %s hold as paused projection",
+    async (holdKind) => {
+      const wait = holdKind === "manual" ? manualWait("active", 100) : learnerWait("active", 100);
+      const { deferredGatePort, manualClock, session } = createHarness(
+        400,
+        [],
+        createDeferredCueExecutor(),
+        [wait],
+      );
+      session.play();
+      manualClock.emitAt(1_100);
+      await Promise.resolve();
+      if (holdKind === "learner-ready") {
+        const observation = deferredGatePort.pending[0];
+        if (!observation) throw new Error("Expected the learner observation.");
+        await settleGate(observation);
+      }
+      expect(session.getSnapshot().phase).toBe("held");
+
+      expectSeekOk(session.seek(50));
+
+      expect(session.getSnapshot()).toMatchObject({
+        phase: "paused",
+        currentTimeMs: 50,
+        outstandingLearnerWait: holdKind === "manual" ? null : { waitId: waitId("active") },
+      });
+    },
+  );
 
   it("settles every due cue in compiled order before publishing a manual hold", async () => {
     const cues = [
@@ -1350,22 +1540,73 @@ describe("createPresentationPlaybackSession", () => {
     expect(session.getSnapshot()).toBe(heldSnapshot);
   });
 
-  it("keeps rejected Cue Executor work observable as an actor defect", async () => {
+  it("keeps rejected Cue Executor work at a Wait boundary observable as an actor defect", async () => {
     vi.useFakeTimers();
     try {
-      const { deferredCueExecutor, session } = createHarness(1_000, [cue("rejected", 0)]);
+      const { deferredCueExecutor, gateWaitUntilSatisfied, session } = createHarness(
+        1_000,
+        [cue("rejected", 0)],
+        createDeferredCueExecutor(),
+        [learnerWait("blocked", 0)],
+      );
       const reportListener = vi.fn();
       session.subscribeCueReports(reportListener);
       session.play();
       const execution = deferredCueExecutor.pending[0];
       if (!execution) throw new Error("Expected rejected cue work.");
       const defect = new Error("Cue Executor rejected.");
+      expect(session.getSnapshot()).toMatchObject({
+        phase: "playing",
+        currentTimeMs: 0,
+        outstandingLearnerWait: { waitId: waitId("blocked") },
+      });
+      expect(gateWaitUntilSatisfied).not.toHaveBeenCalled();
 
       execution.reject(defect);
       await Promise.resolve();
       await Promise.resolve();
 
       expect(reportListener).not.toHaveBeenCalled();
+      expect(gateWaitUntilSatisfied).not.toHaveBeenCalled();
+      expect(() => vi.runOnlyPendingTimers()).toThrow(defect);
+      session.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps a synchronous Cue Executor throw at a Wait boundary observable", async () => {
+    vi.useFakeTimers();
+    try {
+      const defect = new Error("Cue Executor threw.");
+      const execute = vi.fn(
+        (
+          _input: Parameters<PresentationCueExecutor["execute"]>[0],
+        ): Promise<PresentationCueExecutionOutcome> => {
+          throw defect;
+        },
+      );
+      const gate = createDeferredGatePort();
+      const session = createPresentationPlaybackSession({
+        timeline: Object.freeze({
+          surfaceId: "surface-1",
+          durationMs: 1_000,
+          cues: Object.freeze([cue("throwing", 0)]),
+          waits: Object.freeze([learnerWait("blocked", 0)]),
+        }),
+        monotonicClock: createManualClock().clock,
+        cueExecutor: Object.freeze({ execute }),
+        gatePort: gate.gatePort,
+        autoAdvance: false,
+      });
+
+      session.play();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(execute.mock.calls[0]?.[0].signal).toBeInstanceOf(AbortSignal);
+      expect(gate.waitUntilSatisfied).not.toHaveBeenCalled();
       expect(() => vi.runOnlyPendingTimers()).toThrow(defect);
       session.dispose();
     } finally {
@@ -1398,13 +1639,14 @@ describe("createPresentationPlaybackSession", () => {
       ["second", { kind: "session-interrupted", reason: "restart" }],
     ]);
 
-    await settleCue(oldFirst);
-    expect(reports).toHaveLength(2);
     session.play();
     manualClock.emitAt(1_500);
     expect(deferredCueExecutor.pending[1]?.command.type).toBe("command-first");
     const newFirst = deferredCueExecutor.pending[1];
     if (!newFirst) throw new Error("Expected first cue in the restarted run.");
+    await settleCue(oldFirst);
+    expect(reports).toHaveLength(2);
+    expect(deferredCueExecutor.pending).toHaveLength(2);
     await settleCue(newFirst);
     expect(deferredCueExecutor.pending[2]?.command.type).toBe("command-second");
     const newSecond = deferredCueExecutor.pending[2];
@@ -1514,6 +1756,137 @@ describe("createPresentationPlaybackSession", () => {
     },
   );
 
+  it.each([
+    {
+      operation: "Seek",
+      reason: "seek",
+      leave: (session: PresentationPlaybackSession) => expectSeekOk(session.seek(50)),
+      expectedSnapshot: {
+        phase: "paused",
+        currentTimeMs: 50,
+        runNumber: 1,
+        outstandingLearnerWait: { waitId: waitId("abandoned") },
+      },
+    },
+    {
+      operation: "Restart",
+      reason: "restart",
+      leave: (session: PresentationPlaybackSession) => session.restart(),
+      expectedSnapshot: {
+        phase: "awaiting-start",
+        currentTimeMs: 0,
+        runNumber: 2,
+        outstandingLearnerWait: { waitId: waitId("abandoned") },
+      },
+    },
+    {
+      operation: "Stop",
+      reason: "stop",
+      leave: (session: PresentationPlaybackSession) => session.stop(),
+      expectedSnapshot: {
+        phase: "stopped",
+        currentTimeMs: 100,
+        runNumber: 1,
+        outstandingLearnerWait: { waitId: waitId("abandoned") },
+      },
+    },
+  ] as const)(
+    "$operation interrupts cue settling before a Wait without activating it",
+    async ({ reason, leave, expectedSnapshot }) => {
+      const { deferredCueExecutor, deferredGatePort, manualClock, session } = createHarness(
+        400,
+        [cue("before", 50), cue("at-wait", 100), cue("later", 150)],
+        createDeferredCueExecutor(),
+        [learnerWait("abandoned", 100)],
+      );
+      const reports: PresentationCueReport[] = [];
+      session.subscribeCueReports((report) => reports.push(report));
+      session.play();
+      manualClock.emitAt(1_200);
+      const activeCue = deferredCueExecutor.pending[0];
+      if (!activeCue) throw new Error("Expected active cue work before the Wait.");
+      expect(deferredGatePort.pending).toHaveLength(0);
+
+      leave(session);
+
+      expect(activeCue.signal.aborted).toBe(true);
+      expect(reports).toEqual([
+        {
+          runNumber: 1,
+          surfaceId: "surface-1",
+          cueId: "before",
+          scheduledAtMs: 50,
+          outcome: { kind: "session-interrupted", reason },
+        },
+        {
+          runNumber: 1,
+          surfaceId: "surface-1",
+          cueId: "at-wait",
+          scheduledAtMs: 100,
+          outcome: { kind: "session-interrupted", reason },
+        },
+      ]);
+      expect(session.getSnapshot()).toMatchObject(expectedSnapshot);
+      expect(deferredGatePort.pending).toHaveLength(0);
+      expect(deferredCueExecutor.pending).toHaveLength(1);
+      const snapshotAfterExit = session.getSnapshot();
+
+      await settleCue(activeCue);
+      expect(reports).toHaveLength(2);
+      expect(deferredGatePort.pending).toHaveLength(0);
+      expect(deferredCueExecutor.pending).toHaveLength(1);
+      expect(session.getSnapshot()).toBe(snapshotAfterExit);
+    },
+  );
+
+  it("ignores an abandoned cue settlement after Seek activates a new Wait passage", async () => {
+    const { deferredCueExecutor, deferredGatePort, manualClock, session } = createHarness(
+      400,
+      [cue("old-passage", 50)],
+      createDeferredCueExecutor(),
+      [learnerWait("repeatable", 100)],
+    );
+    const reports: PresentationCueReport[] = [];
+    session.subscribeCueReports((report) => reports.push(report));
+    session.play();
+    manualClock.emitAt(1_100);
+    const oldCue = deferredCueExecutor.pending[0];
+    if (!oldCue) throw new Error("Expected the abandoned cue execution.");
+
+    expectSeekOk(session.seek(50));
+    session.play();
+    manualClock.emitAt(1_150);
+    await Promise.resolve();
+    const currentObservation = deferredGatePort.pending[0];
+    if (!currentObservation) throw new Error("Expected the new-passage learner observation.");
+    const currentWaitingSnapshot = session.getSnapshot();
+    expect(currentWaitingSnapshot).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", waitId: waitId("repeatable"), status: "waiting" },
+      outstandingLearnerWait: { waitId: waitId("repeatable") },
+    });
+    expect(reports).toEqual([
+      {
+        runNumber: 1,
+        surfaceId: "surface-1",
+        cueId: "old-passage",
+        scheduledAtMs: 50,
+        outcome: { kind: "session-interrupted", reason: "seek" },
+      },
+    ]);
+
+    await settleCue(oldCue);
+    expect(session.getSnapshot()).toBe(currentWaitingSnapshot);
+    expect(reports).toHaveLength(1);
+
+    await settleGate(currentObservation);
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", waitId: waitId("repeatable"), status: "ready" },
+      outstandingLearnerWait: null,
+    });
+  });
+
   it("Pause stops only the clock while cue work continues to drain", async () => {
     const { deferredCueExecutor, manualClock, session } = createHarness(500, [
       cue("first", 100),
@@ -1538,18 +1911,21 @@ describe("createPresentationPlaybackSession", () => {
   });
 
   it("Dispose aborts cue work and closes both streams without a disposal report", async () => {
-    const { deferredCueExecutor, manualClock, session } = createHarness(500, [
-      cue("first", 100),
-      cue("second", 200),
-    ]);
+    const { deferredCueExecutor, deferredGatePort, manualClock, session } = createHarness(
+      500,
+      [cue("first", 50), cue("second", 100)],
+      createDeferredCueExecutor(),
+      [learnerWait("abandoned", 100)],
+    );
     const snapshotListener = vi.fn();
     const reportListener = vi.fn();
     session.subscribe(snapshotListener);
     session.subscribeCueReports(reportListener);
     session.play();
-    manualClock.emitAt(1_250);
+    manualClock.emitAt(1_200);
     const active = deferredCueExecutor.pending[0];
     if (!active) throw new Error("Expected active cue work.");
+    expect(deferredGatePort.pending).toHaveLength(0);
     snapshotListener.mockClear();
 
     session.dispose();
@@ -1561,7 +1937,55 @@ describe("createPresentationPlaybackSession", () => {
     manualClock.emitAt(2_000);
     expect(snapshotListener).not.toHaveBeenCalled();
     expect(reportListener).not.toHaveBeenCalled();
+    expect(deferredGatePort.pending).toHaveLength(0);
   });
+
+  it.each(["resolve", "reject"] as const)(
+    "Dispose aborts learner waiting and ignores a late gate %s",
+    async (settlement) => {
+      vi.useFakeTimers();
+      try {
+        const { deferredGatePort, manualClock, session } = createHarness(
+          400,
+          [],
+          createDeferredCueExecutor(),
+          [learnerWait("disposed", 100)],
+        );
+        const snapshotListener = vi.fn();
+        const reportListener = vi.fn();
+        const unsubscribeSnapshot = session.subscribe(snapshotListener);
+        const unsubscribeReports = session.subscribeCueReports(reportListener);
+        session.play();
+        manualClock.emitAt(1_100);
+        await Promise.resolve();
+        const observation = deferredGatePort.pending[0];
+        if (!observation) throw new Error("Expected the disposed learner observation.");
+        const abortListener = vi.fn();
+        observation.signal.addEventListener("abort", abortListener);
+        snapshotListener.mockClear();
+
+        session.dispose();
+        session.dispose();
+
+        expect(observation.signal.aborted).toBe(true);
+        expect(abortListener).toHaveBeenCalledTimes(1);
+        if (settlement === "resolve") observation.resolve();
+        else observation.reject(new Error("Late disposed gate rejection."));
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(() => vi.runOnlyPendingTimers()).not.toThrow();
+        expect(snapshotListener).not.toHaveBeenCalled();
+        expect(reportListener).not.toHaveBeenCalled();
+        unsubscribeSnapshot();
+        unsubscribeSnapshot();
+        unsubscribeReports();
+        unsubscribeReports();
+        expectDisposedSessionDefects(session);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
 
   it("starts with one frozen Scaffold snapshot and no XState surface", () => {
     const { session } = createHarness();
