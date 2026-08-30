@@ -239,6 +239,12 @@ export function createSurfaceLearnerInteractionRuntime({
         return;
       }
       if (queued.matchingEventGate && activeGate === queued.matchingEventGate) {
+        const binding = requireGateBinding(queued.matchingEventGate.requirement.ownerId);
+        if (binding !== queued.matchingEventGate.binding) {
+          throw new Error(
+            `Presentation learner gate owner "${queued.matchingEventGate.requirement.ownerId}" has a stale Control Binding.`,
+          );
+        }
         satisfyGate(queued.matchingEventGate);
       } else if (activeGate?.kind === "state" && stateGateIsSatisfied(activeGate)) {
         satisfyGate(activeGate);

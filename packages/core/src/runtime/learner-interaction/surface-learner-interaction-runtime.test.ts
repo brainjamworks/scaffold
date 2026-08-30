@@ -524,11 +524,10 @@ it("surfaces a rejected turn defect and terminates before starting queued work",
 
 it("observes an exact post-registration event and settles its gate after report delivery", async () => {
   const ownerEvents = createTestEventSource();
+  const binding = { ownerId: OWNER_A_ID, eventSource: ownerEvents.eventSource };
   const runtime = createSurfaceLearnerInteractionRuntime({
     program: { surfaceId: SURFACE_ID, rulesByEvent: new Map() },
-    controlBindings: {
-      get: vi.fn(() => ({ ownerId: OWNER_A_ID, eventSource: ownerEvents.eventSource })),
-    },
+    controlBindings: { get: vi.fn(() => binding) },
     semanticTargets: { activate: vi.fn() },
     surfaceNavigation: {
       navigate: vi.fn(async () => Result.err({ reason: "cancelled" as const })),
@@ -1091,6 +1090,64 @@ it("rejects a gate when its static owner binding identity has become stale", () 
     ),
   ).toThrow(/stale Control Binding/);
   runtime.dispose();
+});
+
+it("rejects event-gate settlement when its binding becomes stale during the turn", async () => {
+  const selected = eventReference(OWNER_A_ID, TARGET_A_ID, "selected");
+  const ownerEvents = createTestEventSource();
+  const commandStarted = deferred<void>();
+  const commandCompletion = deferred<ControlCommandResult>();
+  const execute = vi.fn(async () => {
+    commandStarted.resolve();
+    return await commandCompletion.promise;
+  });
+  let currentBinding = {
+    ownerId: OWNER_A_ID,
+    eventSource: ownerEvents.eventSource,
+    commandExecutor: { execute },
+  };
+  const runtime = createSurfaceLearnerInteractionRuntime({
+    program: programWithBuckets([[selected, [commandRule("rule-selected", selected)]]]),
+    controlBindings: { get: vi.fn(() => currentBinding) },
+    semanticTargets: { activate: vi.fn() },
+    surfaceNavigation: {
+      navigate: vi.fn(async () => Result.err({ reason: "cancelled" as const })),
+    },
+    semanticInteractionOrigin: "learner-interaction-rule",
+  });
+  const reportListener = vi.fn();
+  runtime.subscribeReports(reportListener);
+  const gate = runtime.waitUntilSatisfied(
+    { kind: "event", ownerId: OWNER_A_ID, targetId: TARGET_A_ID, type: "selected" },
+    { signal: new AbortController().signal },
+  );
+  let gateSettled = false;
+  void gate.then(() => {
+    gateSettled = true;
+  });
+
+  const [turnCompletion] = ownerEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
+  await commandStarted.promise;
+  currentBinding = {
+    ownerId: OWNER_A_ID,
+    eventSource: createTestEventSource().eventSource,
+    commandExecutor: { execute },
+  };
+  const turnOutcome = Promise.resolve(turnCompletion).then(
+    () => ({ kind: "resolved" as const }),
+    (error: unknown) => ({ kind: "rejected" as const, error }),
+  );
+  commandCompletion.resolve(Result.ok());
+
+  const outcome = await turnOutcome;
+  runtime.dispose();
+  expect(outcome.kind).toBe("rejected");
+  if (outcome.kind === "rejected") {
+    expect(outcome.error).toBeInstanceOf(Error);
+    expect((outcome.error as Error).message).toMatch(/stale Control Binding/);
+  }
+  expect(reportListener).toHaveBeenCalledOnce();
+  expect(gateSettled).toBe(false);
 });
 
 it("does not re-read or settle a state gate after a rejected learner turn", async () => {
