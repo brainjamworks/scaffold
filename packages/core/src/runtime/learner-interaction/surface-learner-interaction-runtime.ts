@@ -1,12 +1,15 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 
 import type {
+  ControlBinding,
   ControlEvent,
   ControlBindingRegistry,
   EventSource,
 } from "@/document/control-binding/control-binding";
 import type { SemanticInteractionOrigin } from "@/document/semantic-target-interaction/semantic-target-interaction";
 import type { SemanticTargetInteractionCoordinator } from "@/document/semantic-target-interaction/semantic-target-interaction-coordinator";
+import type { CompiledLearnerRequirement } from "@/runtime/presentation/compiled-presentation-program";
+import type { PresentationGatePort } from "@/runtime/presentation/presentation-progression-gate";
 
 import type { CompiledSurfaceLearnerInteractionProgram } from "./compiled-learner-interaction-program";
 import type {
@@ -26,7 +29,7 @@ export interface CreateSurfaceLearnerInteractionRuntimeInput {
   >;
 }
 
-export interface SurfaceLearnerInteractionRuntime {
+export interface SurfaceLearnerInteractionRuntime extends PresentationGatePort {
   subscribeReports(listener: (report: LearnerInteractionTurnReport) => void): () => void;
   dispose(): void;
 }
@@ -47,19 +50,11 @@ export function createSurfaceLearnerInteractionRuntime({
   let draining = false;
   let nextTurnNumber = 1;
   let currentOperation: AbortController | undefined;
+  let activeGate: ActiveGate | undefined;
 
   try {
     for (const { ownerId, eventSource } of eventSources) {
-      unsubscribeOwners.push(
-        eventSource.subscribe((event) => {
-          if (phase !== "active") return;
-          queuedEvents.push({
-            ownerId,
-            event: { targetId: event.targetId, type: event.type },
-          });
-          return startDrain();
-        }),
-      );
+      unsubscribeOwners.push(eventSource.subscribe((event) => receiveEvent(ownerId, event)));
     }
   } catch (error) {
     unsubscribeAllOwners(unsubscribeOwners);
@@ -67,6 +62,81 @@ export function createSurfaceLearnerInteractionRuntime({
   }
 
   const runtime: SurfaceLearnerInteractionRuntime = {
+    waitUntilSatisfied(requirement, { signal }) {
+      if (phase !== "active") {
+        throw new Error("Cannot wait for learner satisfaction after runtime termination.");
+      }
+      if (activeGate) {
+        throw new Error("Cannot register a second learner requirement while one is active.");
+      }
+      if (signal.aborted) return new Promise<void>(() => undefined);
+      if (requirement.kind === "state") {
+        const binding = requireGateBinding(requirement.ownerId);
+        const stateReader = binding.stateReader;
+        if (!stateReader) {
+          throw new Error(
+            `Presentation learner gate owner "${requirement.ownerId}" has no State Reader.`,
+          );
+        }
+        if (
+          stateReader.read({ targetId: requirement.targetId, key: requirement.key }) ===
+          requirement.equals
+        ) {
+          return Promise.resolve();
+        }
+        const eventSource = binding.eventSource;
+        if (!eventSource) {
+          throw new Error(
+            `Presentation learner gate owner "${requirement.ownerId}" has no Event Source.`,
+          );
+        }
+        const dynamicUnsubscribe = subscribeGateOwner(requirement.ownerId, binding, eventSource);
+        let resolve!: () => void;
+        const promise = new Promise<void>((resolvePromise) => {
+          resolve = resolvePromise;
+        });
+        const gate: ActiveStateGate = {
+          kind: "state",
+          requirement,
+          binding,
+          signal,
+          resolve,
+          dynamicUnsubscribe,
+          onAbort: () => cancelGate(gate),
+        };
+        activeGate = gate;
+        signal.addEventListener("abort", gate.onAbort, { once: true });
+        if (signal.aborted) cancelGate(gate);
+        return promise;
+      }
+
+      const binding = requireGateBinding(requirement.ownerId);
+      const eventSource = binding.eventSource;
+      if (!eventSource) {
+        throw new Error(
+          `Presentation learner gate owner "${requirement.ownerId}" has no Event Source.`,
+        );
+      }
+      const dynamicUnsubscribe = subscribeGateOwner(requirement.ownerId, binding, eventSource);
+      let resolve!: () => void;
+      const promise = new Promise<void>((resolvePromise) => {
+        resolve = resolvePromise;
+      });
+      const gate: ActiveEventGate = {
+        kind: "event",
+        requirement,
+        binding,
+        signal,
+        resolve,
+        dynamicUnsubscribe,
+        onAbort: () => cancelGate(gate),
+      };
+      activeGate = gate;
+      signal.addEventListener("abort", gate.onAbort, { once: true });
+      if (signal.aborted) cancelGate(gate);
+      return promise;
+    },
+
     subscribeReports(listener) {
       if (phase !== "active") {
         throw new Error(
@@ -89,12 +159,33 @@ export function createSurfaceLearnerInteractionRuntime({
       phase = "disposed";
       queuedEvents.length = 0;
       reportListeners.clear();
+      cancelGate(activeGate);
       currentOperation?.abort(disposalReason);
       unsubscribeAllOwners(unsubscribeOwners);
     },
   };
 
   return Object.freeze(runtime);
+
+  function receiveEvent(ownerId: EmbeddedNodeId, event: ControlEvent): Promise<void> | undefined {
+    if (phase !== "active") return;
+    const queued: QueuedLearnerEvent = {
+      ownerId,
+      event: { targetId: event.targetId, type: event.type },
+    };
+    if (
+      activeGate?.kind === "event" &&
+      !activeGate.matchingEvent &&
+      activeGate.requirement.ownerId === ownerId &&
+      activeGate.requirement.targetId === event.targetId &&
+      activeGate.requirement.type === event.type
+    ) {
+      activeGate.matchingEvent = queued;
+      queued.matchingEventGate = activeGate;
+    }
+    queuedEvents.push(queued);
+    return startDrain();
+  }
 
   function startDrain(): Promise<void> | undefined {
     if (draining || phase !== "active") return;
@@ -147,6 +238,11 @@ export function createSurfaceLearnerInteractionRuntime({
         terminate("navigation-committed");
         return;
       }
+      if (queued.matchingEventGate && activeGate === queued.matchingEventGate) {
+        satisfyGate(queued.matchingEventGate);
+      } else if (activeGate?.kind === "state" && stateGateIsSatisfied(activeGate)) {
+        satisfyGate(activeGate);
+      }
     }
   }
 
@@ -155,7 +251,73 @@ export function createSurfaceLearnerInteractionRuntime({
     phase = nextPhase;
     queuedEvents.length = 0;
     reportListeners.clear();
+    cancelGate(activeGate);
     unsubscribeAllOwners(unsubscribeOwners);
+  }
+
+  function requireGateBinding(ownerId: EmbeddedNodeId): ControlBinding {
+    const binding = controlBindings.get(ownerId);
+    if (!binding) {
+      throw new Error(
+        `Presentation learner gate owner "${ownerId}" has no current Control Binding.`,
+      );
+    }
+    if (binding.ownerId !== ownerId) {
+      throw new Error(`Presentation learner gate owner "${ownerId}" has a stale Control Binding.`);
+    }
+    const staticOwner = eventSources.find(({ ownerId: candidateId }) => candidateId === ownerId);
+    if (staticOwner && staticOwner.binding !== binding) {
+      throw new Error(`Presentation learner gate owner "${ownerId}" has a stale Control Binding.`);
+    }
+    return binding;
+  }
+
+  function subscribeGateOwner(
+    ownerId: EmbeddedNodeId,
+    binding: ControlBinding,
+    eventSource: EventSource,
+  ): (() => void) | undefined {
+    const staticOwner = eventSources.find(({ ownerId: candidateId }) => candidateId === ownerId);
+    if (staticOwner) {
+      if (staticOwner.binding !== binding) {
+        throw new Error(
+          `Presentation learner gate owner "${ownerId}" has a stale Control Binding.`,
+        );
+      }
+      return undefined;
+    }
+    return eventSource.subscribe((event) => receiveEvent(ownerId, event));
+  }
+
+  function stateGateIsSatisfied(gate: ActiveStateGate): boolean {
+    const binding = requireGateBinding(gate.requirement.ownerId);
+    if (binding !== gate.binding) {
+      throw new Error(
+        `Presentation learner gate owner "${gate.requirement.ownerId}" has a stale Control Binding.`,
+      );
+    }
+    const stateReader = binding.stateReader;
+    if (!stateReader) {
+      throw new Error(
+        `Presentation learner gate owner "${gate.requirement.ownerId}" has no State Reader.`,
+      );
+    }
+    return (
+      stateReader.read({ targetId: gate.requirement.targetId, key: gate.requirement.key }) ===
+      gate.requirement.equals
+    );
+  }
+
+  function cancelGate(gate: ActiveGate | undefined): void {
+    if (!gate || activeGate !== gate) return;
+    activeGate = undefined;
+    gate.signal.removeEventListener("abort", gate.onAbort);
+    gate.dynamicUnsubscribe?.();
+  }
+
+  function satisfyGate(gate: ActiveGate): void {
+    cancelGate(gate);
+    gate.resolve();
   }
 }
 
@@ -164,10 +326,35 @@ type RuntimePhase = "active" | "disposed" | "navigation-committed" | "faulted";
 interface QueuedLearnerEvent {
   readonly ownerId: EmbeddedNodeId;
   readonly event: ControlEvent;
+  matchingEventGate?: ActiveEventGate;
 }
+
+interface ActiveEventGate {
+  readonly kind: "event";
+  readonly requirement: Extract<CompiledLearnerRequirement, { readonly kind: "event" }>;
+  readonly binding: ControlBinding;
+  readonly signal: AbortSignal;
+  readonly resolve: () => void;
+  readonly onAbort: () => void;
+  readonly dynamicUnsubscribe: (() => void) | undefined;
+  matchingEvent?: QueuedLearnerEvent;
+}
+
+interface ActiveStateGate {
+  readonly kind: "state";
+  readonly requirement: Extract<CompiledLearnerRequirement, { readonly kind: "state" }>;
+  readonly binding: ControlBinding;
+  readonly signal: AbortSignal;
+  readonly resolve: () => void;
+  readonly onAbort: () => void;
+  readonly dynamicUnsubscribe: (() => void) | undefined;
+}
+
+type ActiveGate = ActiveEventGate | ActiveStateGate;
 
 interface StaticOwnerEventSource {
   readonly ownerId: EmbeddedNodeId;
+  readonly binding: ControlBinding;
   readonly eventSource: EventSource;
 }
 
@@ -191,7 +378,7 @@ function requireStaticEventSources(
     if (!eventSource) {
       throw new Error(`Surface Learner Interaction owner "${ownerId}" has no Event Source.`);
     }
-    return { ownerId, eventSource };
+    return { ownerId, binding, eventSource };
   });
 }
 
