@@ -57,7 +57,7 @@ export function createSurfaceLearnerInteractionRuntime({
             ownerId,
             event: { targetId: event.targetId, type: event.type },
           });
-          startDrain();
+          return startDrain();
         }),
       );
     }
@@ -96,13 +96,13 @@ export function createSurfaceLearnerInteractionRuntime({
 
   return Object.freeze(runtime);
 
-  function startDrain(): void {
+  function startDrain(): Promise<void> | undefined {
     if (draining || phase !== "active") return;
     draining = true;
-    void drainQueuedEvents().then(
+    return drainQueuedEvents().then(
       () => {
         draining = false;
-        startDrain();
+        void startDrain();
       },
       (error: unknown) => {
         draining = false;

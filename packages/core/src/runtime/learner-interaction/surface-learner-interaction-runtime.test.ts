@@ -44,7 +44,9 @@ function createTestEventSource() {
   return {
     eventSource,
     emit(event: ControlEvent) {
-      for (const listener of [...listeners]) listener(event);
+      return [...listeners].map((listener) =>
+        (listener as (event: ControlEvent) => unknown)(event),
+      );
     },
     get listenerCount() {
       return listeners.size;
@@ -449,4 +451,49 @@ it("aborts active work and suppresses queued and stale reports on idempotent dis
   expect(execute).toHaveBeenCalledTimes(1);
   expect(listener).not.toHaveBeenCalled();
   expect(() => runtime.subscribeReports(listener)).toThrow(/after.*disposal/i);
+});
+
+it("surfaces a rejected turn defect and terminates before starting queued work", async () => {
+  const firstReference = eventReference(OWNER_A_ID, TARGET_A_ID, "first");
+  const secondReference = eventReference(OWNER_A_ID, TARGET_A_ID, "second");
+  const ownerEvents = createTestEventSource();
+  const firstExecution = deferred<ControlCommandResult>();
+  const sentinelDefect = new Error("sentinel command defect");
+  const execute = vi.fn(async (request: ControlCommandRequest) => {
+    if (request.type === "first") return await firstExecution.promise;
+    return Result.ok();
+  });
+  const runtime = createSurfaceLearnerInteractionRuntime({
+    program: programWithBuckets([
+      [firstReference, [commandRule("rule-first-defect", firstReference)]],
+      [secondReference, [commandRule("rule-second-after-defect", secondReference)]],
+    ]),
+    controlBindings: {
+      get: vi.fn(() => ({
+        ownerId: OWNER_A_ID,
+        eventSource: ownerEvents.eventSource,
+        commandExecutor: { execute },
+      })),
+    },
+    semanticTargets: { activate: vi.fn() },
+    surfaceNavigation: {
+      navigate: vi.fn(async () => Result.err({ reason: "cancelled" as const })),
+    },
+    semanticInteractionOrigin: "learner-interaction-rule",
+  });
+  const reportListener = vi.fn();
+  runtime.subscribeReports(reportListener);
+
+  const [turnCompletion] = ownerEvents.emit({ targetId: TARGET_A_ID, type: "first" });
+  await flushPromises();
+  ownerEvents.emit({ targetId: TARGET_A_ID, type: "second" });
+
+  firstExecution.reject(sentinelDefect);
+
+  await expect(turnCompletion).rejects.toBe(sentinelDefect);
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(reportListener).not.toHaveBeenCalled();
+  expect(ownerEvents.listenerCount).toBe(0);
+  expect(ownerEvents.unsubscriptionsCompleted).toBe(1);
+  expect(() => runtime.subscribeReports(vi.fn())).toThrow(/termination/i);
 });
