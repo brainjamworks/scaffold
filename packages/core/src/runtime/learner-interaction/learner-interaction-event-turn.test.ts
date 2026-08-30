@@ -643,6 +643,58 @@ it("awaits each command before starting the next one", async () => {
   expect(maximumActiveExecutions).toBe(1);
 });
 
+it("stops before dispatching another command when aborted during the current command", async () => {
+  const commandOwnerId = "owner-aborted" as EmbeddedNodeId;
+  const commandTargetId = "target-aborted" as EmbeddedNodeId;
+  const controller = new AbortController();
+  const firstExecution = deferred<ControlCommandResult>();
+  const execute = vi.fn(async (request: ControlCommandRequest) => {
+    if (request.type === "first") return await firstExecution.promise;
+    return Result.ok();
+  });
+  const rule = {
+    id: "rule-aborted",
+    when: EVENT_REFERENCE,
+    conditions: [],
+    commands: [
+      {
+        kind: "target-command",
+        ownerId: commandOwnerId,
+        targetId: commandTargetId,
+        type: "first",
+      },
+      {
+        kind: "target-command",
+        ownerId: commandOwnerId,
+        targetId: commandTargetId,
+        type: "must-not-run",
+      },
+    ],
+  } as const satisfies CompiledLearnerInteractionRule;
+
+  const turn = executeLearnerInteractionEventTurn({
+    turnNumber: 12,
+    ownerId: OWNER_ID,
+    event: { targetId: TARGET_ID, type: "selected" },
+    program: programWithRules([rule]),
+    controlBindings: {
+      get: vi.fn(() => ({ ownerId: commandOwnerId, commandExecutor: { execute } })),
+    },
+    semanticTargets: { activate: vi.fn() },
+    surfaceNavigation: { navigate: vi.fn(async () => Result.ok()) },
+    semanticInteractionOrigin: "learner-interaction-rule",
+    signal: controller.signal,
+  });
+  await flushPromises();
+
+  expect(execute).toHaveBeenCalledTimes(1);
+  controller.abort();
+  firstExecution.resolve(Result.err({ reason: "cancelled" }));
+
+  await expect(turn).rejects.toBe(controller.signal.reason);
+  expect(execute).toHaveBeenCalledTimes(1);
+});
+
 describe("programming defects", () => {
   it.each([
     {

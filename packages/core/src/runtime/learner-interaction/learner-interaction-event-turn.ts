@@ -135,6 +135,7 @@ export async function executeLearnerInteractionEventTurn({
   const commandExecutions: LearnerInteractionCommandExecution[] = [];
 
   for (let plannedIndex = 0; plannedIndex < plannedCommands.length; plannedIndex += 1) {
+    signal.throwIfAborted();
     const planned = plannedCommands[plannedIndex];
     if (!planned) throw new Error("Learner Interaction planned command is missing.");
     if (planned.command.kind === "target-command") {
@@ -151,6 +152,7 @@ export async function executeLearnerInteractionEventTurn({
         ...(Object.hasOwn(planned.command, "input") ? { input: planned.command.input } : {}),
         signal,
       });
+      signal.throwIfAborted();
       if (result.isErr()) {
         commandExecutions.push({
           address: planned.address,
@@ -166,6 +168,7 @@ export async function executeLearnerInteractionEventTurn({
         origin: semanticInteractionOrigin,
         signal,
       });
+      signal.throwIfAborted();
       if (result.requestedId !== planned.command.targetId) {
         throw new Error(
           `Learner Interaction semantic target identity does not match "${planned.command.targetId}".`,
@@ -181,6 +184,7 @@ export async function executeLearnerInteractionEventTurn({
       continue;
     }
     const result = await surfaceNavigation.navigate(planned.command.surfaceId, signal);
+    signal.throwIfAborted();
     if (result.isErr()) {
       commandExecutions.push({
         address: planned.address,
