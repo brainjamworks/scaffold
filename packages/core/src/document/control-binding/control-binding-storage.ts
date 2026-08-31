@@ -4,7 +4,10 @@ import type { ControlBindingRegistry } from "./control-binding";
 
 const CONTROL_BINDING_REGISTRY_STORAGE = "controlBindingRegistryStorage";
 
-export type ControlBindingRegistryPort = Pick<ControlBindingRegistry, "register" | "get">;
+export type ControlBindingRegistryPort = Pick<
+  ControlBindingRegistry,
+  "register" | "get" | "notifyWhenOwnersMounted"
+>;
 
 interface ControlBindingRegistryStorage {
   getRegistry(): ControlBindingRegistryPort;

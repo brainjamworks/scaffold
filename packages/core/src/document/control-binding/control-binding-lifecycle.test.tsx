@@ -6,13 +6,17 @@ import { Editor } from "@tiptap/core";
 import { EditorContent, NodeViewContent } from "@tiptap/react";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { createElement, useEffect } from "react";
-import { afterEach, describe, expect, expectTypeOf, it } from "vite-plus/test";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vite-plus/test";
 
 import {
   createScaffoldApplication,
   defineScaffoldExtensionPack,
   type LayoutCapability,
 } from "@/composition/application/create-scaffold-application";
+import {
+  createCourseDocumentAuthoringEnvironment,
+  getCourseDocumentAuthoringEnvironmentState,
+} from "@/composition/authoring/create-authoring-composition";
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import {
@@ -126,6 +130,57 @@ describe("Control Binding editor lifecycle", () => {
     expect(() => registry.register({ ownerId: OWNER_ID })).toThrow(
       "Cannot register a Control Binding after registry disposal.",
     );
+    expect(() => registry.notifyWhenOwnersMounted([], () => undefined)).toThrow(
+      "Cannot request Control Binding readiness after registry disposal.",
+    );
+  });
+
+  it("delegates exact-owner readiness through isolated authoring and runtime ports", () => {
+    const application = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "control-readiness-lifecycle",
+          layouts: [unmountProofLayoutCapability(new Set())],
+        }),
+      ],
+    });
+    const authoringEnvironment = createCourseDocumentAuthoringEnvironment({
+      composition: application.authoring,
+      editable: true,
+    });
+    const authoring = trackEditor(
+      new Editor({
+        editable: true,
+        extensions: getCourseDocumentAuthoringEnvironmentState(authoringEnvironment).extensions,
+        content: unmountProofDocument(),
+      }),
+    );
+    const runtime = trackEditor(
+      new Editor({
+        editable: false,
+        extensions: createCourseDocumentRuntimeExtensions({ composition: application.runtime }),
+        content: unmountProofDocument(),
+      }),
+    );
+    const ownerId = "layoutUmnt01" as EmbeddedNodeId;
+    const authoringRegistry = getControlBindingRegistryForEditor(authoring);
+    const runtimeRegistry = getControlBindingRegistryForEditor(runtime);
+    const authoringReady = vi.fn();
+    const runtimeReady = vi.fn();
+
+    authoringRegistry.notifyWhenOwnersMounted([ownerId], authoringReady);
+    runtimeRegistry.notifyWhenOwnersMounted([ownerId], runtimeReady);
+    runtimeRegistry.register(readinessProofBinding(ownerId));
+
+    expect(runtimeReady).toHaveBeenCalledOnce();
+    expect(authoringReady).not.toHaveBeenCalled();
+
+    authoringRegistry.register(readinessProofBinding(ownerId));
+
+    expect(authoringReady).toHaveBeenCalledOnce();
+    expect(runtimeReady).toHaveBeenCalledOnce();
+    expect(authoringRegistry).not.toHaveProperty("dispose");
+    expect(runtimeRegistry).not.toHaveProperty("dispose");
   });
 
   it("unregisters a mounted feature and closes subscriptions while its editor stays alive", async () => {
@@ -173,6 +228,15 @@ describe("Control Binding editor lifecycle", () => {
 function trackEditor(editor: Editor): Editor {
   editors.push(editor);
   return editor;
+}
+
+function readinessProofBinding(ownerId: EmbeddedNodeId) {
+  return {
+    ownerId,
+    eventSource: {
+      subscribe: () => () => undefined,
+    },
+  };
 }
 
 function unmountProofLayoutCapability(

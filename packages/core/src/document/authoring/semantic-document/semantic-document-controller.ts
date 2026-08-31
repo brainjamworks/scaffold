@@ -83,6 +83,8 @@ export class SemanticDocumentController {
     this.controlBindings = Object.freeze({
       register: (binding) => this.#controlBindingRegistry.register(binding),
       get: (ownerId) => this.#controlBindingRegistry.get(ownerId),
+      notifyWhenOwnersMounted: (ownerIds, listener) =>
+        this.#controlBindingRegistry.notifyWhenOwnersMounted(ownerIds, listener),
     });
     this.#interactionEnvironmentOwner = createSemanticTargetInteractionEnvironment({
       getSemantics: () => this.#snapshot.semantics,

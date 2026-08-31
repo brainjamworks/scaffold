@@ -152,6 +152,8 @@ class RuntimeSemanticDocumentController {
     this.controlBindings = Object.freeze({
       register: (binding) => this.#controlBindingRegistry.register(binding),
       get: (ownerId) => this.#controlBindingRegistry.get(ownerId),
+      notifyWhenOwnersMounted: (ownerIds, listener) =>
+        this.#controlBindingRegistry.notifyWhenOwnersMounted(ownerIds, listener),
     });
     this.#environmentOwner = createSemanticTargetInteractionEnvironment({
       getSemantics: () => this.#getSnapshot().semantics,
