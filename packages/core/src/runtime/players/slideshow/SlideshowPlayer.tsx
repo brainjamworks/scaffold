@@ -43,8 +43,10 @@ import type { SlideshowPlayerSizing } from "../player-types";
 import { CourseSectionNavigation } from "./CourseSectionNavigation";
 import { getSlideshowNavigationState, getSlideshowSurfaceStates } from "./slideshow-navigation";
 import { createRequestSurfaceChange } from "./slideshow-surface-change";
+import type { SlideshowSurfaceRuntimeProgramSource } from "./slideshow-surface-runtime-composition";
 import { createSurfaceExitEnvironment } from "./surface-exit-environment";
 import { SurfaceExitEnvironmentProvider } from "./SurfaceExitEnvironmentProvider";
+import { useSlideshowSurfaceRuntime } from "./use-slideshow-surface-runtime";
 import "./SlideshowPlayer.css";
 
 interface EmbeddedStageStyle extends CSSProperties {
@@ -60,6 +62,7 @@ export interface SlideshowPlayerProps {
   preparedDocument: PreparedRuntimeDocument;
   structure: ProjectedSlideshowCourseStructure;
   sizing?: SlideshowPlayerSizing;
+  surfaceRuntimeProgramSource?: SlideshowSurfaceRuntimeProgramSource;
   onRendererReady?: (editor: TiptapEditor) => void;
   onActiveSurfaceChange?: (surfaceId: SurfaceId | null) => void;
 }
@@ -69,6 +72,7 @@ export function SlideshowPlayer({
   preparedDocument,
   structure,
   sizing = "contained",
+  surfaceRuntimeProgramSource,
   onRendererReady,
   onActiveSurfaceChange,
 }: SlideshowPlayerProps) {
@@ -79,6 +83,7 @@ export function SlideshowPlayer({
   const [scaleState, setScaleState] = useState<SlideshowCanvasScaleState | null>(null);
   const initialActiveSurfaceId = structure.surfaceIds[0] ?? null;
   const [activeSurfaceId, setActiveSurfaceId] = useState(initialActiveSurfaceId);
+  const [runtimeEditor, setRuntimeEditor] = useState<TiptapEditor | null>(null);
   const [surfaceExitEnvironmentOwner] = useState(() =>
     createSurfaceExitEnvironment({
       knownSurfaceIds: structure.surfaceIds,
@@ -105,6 +110,21 @@ export function SlideshowPlayer({
       }),
     [commitSurfaceChange, structure.surfaceById, surfaceExitEnvironment],
   );
+  const surfaceRuntime = useSlideshowSurfaceRuntime({
+    activeSurfaceId,
+    editor: runtimeEditor,
+    ...(surfaceRuntimeProgramSource === undefined
+      ? {}
+      : { programSource: surfaceRuntimeProgramSource }),
+    requestSurfaceChange,
+  });
+  const handleRendererReady = useCallback(
+    (editor: TiptapEditor) => {
+      setRuntimeEditor(editor);
+      onRendererReady?.(editor);
+    },
+    [onRendererReady],
+  );
   const subscribeToSurfaceExit = useCallback(
     (listener: () => void) => surfaceExitEnvironment.subscribe(listener),
     [surfaceExitEnvironment],
@@ -128,6 +148,11 @@ export function SlideshowPlayer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenError, setFullscreenError] = useState<string | null>(null);
   const navigation = getSlideshowNavigationState(structure, activeSurfaceId);
+  const nextMode =
+    surfaceNavigationBlocked ||
+    (surfaceRuntime.nextMode === "navigate" && !navigation.canGoNext)
+      ? "disabled"
+      : surfaceRuntime.nextMode;
   const surfaceStates = getSlideshowSurfaceStates(structure, navigation);
   const viewSettings = readSurfaceViewSettings(initialContent);
   const courseDocument = initialContent.content?.[0];
@@ -327,7 +352,7 @@ export function SlideshowPlayer({
                         artifactId={artifactId ?? null}
                         preparedDocument={preparedDocument}
                         surfaceStates={surfaceStates}
-                        {...(onRendererReady ? { onReady: onRendererReady } : {})}
+                        onReady={handleRendererReady}
                       />
                     </SurfaceExitEnvironmentProvider>
                   </InteractionDragEnvironmentProvider>
@@ -390,10 +415,36 @@ export function SlideshowPlayer({
                         size="md"
                         aria-label="Next slide"
                         aria-describedby={surfaceNavigationAriaDescribedBy}
-                        disabled={!navigation.canGoNext || surfaceNavigationBlocked}
+                        disabled={nextMode === "disabled"}
                         onClick={() => {
-                          if (navigation.nextSurfaceId) {
-                            requestSurfaceChange(navigation.nextSurfaceId);
+                          switch (nextMode) {
+                            case "disabled":
+                              return;
+                            case "play": {
+                              const session = surfaceRuntime.presentationSession;
+                              if (!session) {
+                                throw new Error(
+                                  "Slideshow play mode requires a Presentation Session.",
+                                );
+                              }
+                              session.play();
+                              return;
+                            }
+                            case "advance": {
+                              const session = surfaceRuntime.presentationSession;
+                              if (!session) {
+                                throw new Error(
+                                  "Slideshow advance mode requires a Presentation Session.",
+                                );
+                              }
+                              const result = session.advance();
+                              if (result.isErr()) return;
+                              return;
+                            }
+                            case "navigate":
+                              if (navigation.nextSurfaceId) {
+                                requestSurfaceChange(navigation.nextSurfaceId);
+                              }
                           }
                         }}
                       >
