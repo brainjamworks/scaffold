@@ -193,7 +193,7 @@ export function createSurfaceLearnerInteractionRuntime({
     return drainQueuedEvents().then(
       () => {
         draining = false;
-        void startDrain();
+        if (queuedEvents.length > 0) void startDrain();
       },
       (error: unknown) => {
         draining = false;

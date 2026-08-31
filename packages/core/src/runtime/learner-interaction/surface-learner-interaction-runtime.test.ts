@@ -48,6 +48,9 @@ function createTestEventSource() {
         (listener as (event: ControlEvent) => unknown)(event),
       );
     },
+    emitVoid(event: ControlEvent) {
+      for (const listener of [...listeners]) listener(event);
+    },
     get listenerCount() {
       return listeners.size;
     },
@@ -309,6 +312,78 @@ it("drains committed events in FIFO order with monotonic turn numbers and one ac
   expect(ownerBEvents.subscriptionsStarted).toBe(1);
 
   runtime.dispose();
+});
+
+it("becomes idle after a void Event Source delivery so a later task can run", async () => {
+  const selected = eventReference(OWNER_A_ID, TARGET_A_ID, "selected");
+  const ownerEvents = createTestEventSource();
+  const runtime = createSurfaceLearnerInteractionRuntime({
+    program: programWithBuckets([[selected, [commandRule("rule-selected", selected)]]]),
+    controlBindings: {
+      get: vi.fn(() => ({
+        ownerId: OWNER_A_ID,
+        eventSource: ownerEvents.eventSource,
+        commandExecutor: { execute: vi.fn(async () => Result.ok()) },
+      })),
+    },
+    semanticTargets: { activate: vi.fn() },
+    surfaceNavigation: {
+      navigate: vi.fn(async () => Result.err({ reason: "cancelled" as const })),
+    },
+    semanticInteractionOrigin: "learner-interaction-rule",
+  });
+  const reportDelivered = deferred<void>();
+  const laterTask = deferred<void>();
+  runtime.subscribeReports(() => reportDelivered.resolve());
+
+  ownerEvents.emitVoid({ targetId: TARGET_A_ID, type: "selected" });
+  setTimeout(() => laterTask.resolve(), 0);
+
+  await reportDelivered.promise;
+  await laterTask.promise;
+  runtime.dispose();
+});
+
+it("restarts for an event queued while a completed drain is still marked active", async () => {
+  const firstReference = eventReference(OWNER_A_ID, TARGET_A_ID, "first");
+  const secondReference = eventReference(OWNER_A_ID, TARGET_A_ID, "second");
+  const ownerEvents = createTestEventSource();
+  const runtime = createSurfaceLearnerInteractionRuntime({
+    program: programWithBuckets([
+      [firstReference, [commandRule("rule-first", firstReference)]],
+      [secondReference, [commandRule("rule-second", secondReference)]],
+    ]),
+    controlBindings: {
+      get: vi.fn(() => ({
+        ownerId: OWNER_A_ID,
+        eventSource: ownerEvents.eventSource,
+        commandExecutor: { execute: vi.fn(async () => Result.ok()) },
+      })),
+    },
+    semanticTargets: { activate: vi.fn() },
+    surfaceNavigation: {
+      navigate: vi.fn(async () => Result.err({ reason: "cancelled" as const })),
+    },
+    semanticInteractionOrigin: "learner-interaction-rule",
+  });
+  const eventTypes: string[] = [];
+  const bothReportsDelivered = deferred<void>();
+  runtime.subscribeReports((report) => {
+    eventTypes.push(report.event.type);
+    if (report.event.type === "first") {
+      queueMicrotask(() =>
+        ownerEvents.emitVoid({ targetId: TARGET_A_ID, type: "second" }),
+      );
+      return;
+    }
+    runtime.dispose();
+    bothReportsDelivered.resolve();
+  });
+
+  ownerEvents.emitVoid({ targetId: TARGET_A_ID, type: "first" });
+  await bothReportsDelivered.promise;
+
+  expect(eventTypes).toEqual(["first", "second"]);
 });
 
 it("publishes reports only to current listeners and retains no history", async () => {
