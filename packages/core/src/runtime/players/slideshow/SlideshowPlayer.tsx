@@ -148,11 +148,14 @@ export function SlideshowPlayer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenError, setFullscreenError] = useState<string | null>(null);
   const navigation = getSlideshowNavigationState(structure, activeSurfaceId);
+  const nextRequestsSurfaceChange = surfaceRuntime.nextMode === "navigate";
   const nextMode =
-    surfaceNavigationBlocked ||
-    (surfaceRuntime.nextMode === "navigate" && !navigation.canGoNext)
+    nextRequestsSurfaceChange && (surfaceNavigationBlocked || !navigation.canGoNext)
       ? "disabled"
       : surfaceRuntime.nextMode;
+  const nextSurfaceNavigationAriaDescribedBy = nextRequestsSurfaceChange
+    ? surfaceNavigationAriaDescribedBy
+    : undefined;
   const surfaceStates = getSlideshowSurfaceStates(structure, navigation);
   const viewSettings = readSurfaceViewSettings(initialContent);
   const courseDocument = initialContent.content?.[0];
@@ -414,7 +417,7 @@ export function SlideshowPlayer({
                         variant="ghost"
                         size="md"
                         aria-label="Next slide"
-                        aria-describedby={surfaceNavigationAriaDescribedBy}
+                        aria-describedby={nextSurfaceNavigationAriaDescribedBy}
                         disabled={nextMode === "disabled"}
                         onClick={() => {
                           switch (nextMode) {

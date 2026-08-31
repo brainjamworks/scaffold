@@ -12,7 +12,7 @@ import {
   type ScaffoldRuntimeComposition,
 } from "@/composition/runtime/scaffold-runtime-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { projectCourseStructure } from "@/document/model/course-structure";
+import { projectCourseStructure, type SurfaceId } from "@/document/model/course-structure";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import type { ScaffoldProductAccess } from "@/host/contracts/product-access";
 import type { AssessmentPort } from "@/host/ports";
@@ -22,12 +22,14 @@ import {
   createAssessmentRuntimeTestRoot,
 } from "@/runtime/assessment/test-utils";
 import type { AssessmentStoreApi } from "@/runtime/assessment/types";
+import type { PresentationWaitId } from "@/runtime/presentation/compiled-presentation-program";
 import {
   checkRuntimeDocumentReadiness,
   type PreparedCourseDocumentRuntimeRendererProps,
 } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 
 import { SlideshowPlayer, type SlideshowPlayerProps } from "./SlideshowPlayer";
+import type { SlideshowSurfaceRuntimeProgramSource } from "./slideshow-surface-runtime-composition";
 import type { SurfaceExitEnvironment } from "./surface-exit-environment";
 import type { SurfaceExitEnvironmentAvailability } from "./SurfaceExitEnvironmentProvider";
 
@@ -108,6 +110,61 @@ afterEach(() => {
 });
 
 describe("Quiz Surface exit integration", () => {
+  it("allows Presentation play and advance before blocking the actual Surface departure", async () => {
+    const user = userEvent.setup();
+    const onActiveSurfaceChange = vi.fn();
+    const surfaceRuntimeProgramSource: SlideshowSurfaceRuntimeProgramSource = (surfaceId) =>
+      surfaceId === QUIZ_SURFACE_ID
+        ? {
+            presentation: {
+              autoAdvance: false,
+              timeline: {
+                surfaceId: QUIZ_SURFACE_ID as SurfaceId,
+                durationMs: 50,
+                cues: [],
+                waits: [
+                  {
+                    kind: "manual-wait",
+                    id: "quiz-presentation-wait" as PresentationWaitId,
+                    atMs: 50,
+                  },
+                ],
+              },
+            },
+          }
+        : undefined;
+
+    render(
+      createAssessmentRuntimeTestRoot({
+        children: (
+          <TestSlideshowPlayer
+            composition={runtimeComposition}
+            initialContent={initiallyActiveQuizSlideshowDocument()}
+            surfaceRuntimeProgramSource={surfaceRuntimeProgramSource}
+            onActiveSurfaceChange={onActiveSurfaceChange}
+          />
+        ),
+      }),
+    );
+
+    await waitFor(() => expect(surfaceExitEnvironment().getSnapshot().status).toBe("blocked"));
+    const next = buttonByName("Next slide");
+
+    await waitFor(() => expect(next).not.toBeDisabled());
+    expect(next).not.toHaveAttribute("aria-describedby");
+    await user.click(next);
+
+    await waitFor(() => expect(next).toBeDisabled());
+    await waitFor(() => expect(next).not.toBeDisabled());
+    expect(next).not.toHaveAttribute("aria-describedby");
+    await user.click(next);
+
+    await waitFor(() => expect(next).toBeDisabled());
+    expect(next).toHaveAttribute("aria-describedby");
+    expect(surfaceById(QUIZ_SURFACE_ID)).toHaveAttribute("data-runtime-surface-visible", "true");
+    expect(onActiveSurfaceChange).toHaveBeenLastCalledWith(QUIZ_SURFACE_ID);
+  });
+
   it("arms an initially active Quiz guard during the first controller render", async () => {
     render(
       createAssessmentRuntimeTestRoot({
