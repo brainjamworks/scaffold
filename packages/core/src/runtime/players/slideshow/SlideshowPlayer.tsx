@@ -83,7 +83,12 @@ export function SlideshowPlayer({
   const [scaleState, setScaleState] = useState<SlideshowCanvasScaleState | null>(null);
   const initialActiveSurfaceId = structure.surfaceIds[0] ?? null;
   const [activeSurfaceId, setActiveSurfaceId] = useState(initialActiveSurfaceId);
-  const [runtimeEditor, setRuntimeEditor] = useState<TiptapEditor | null>(null);
+  const [runtimeEditorOwner, setRuntimeEditorOwner] = useState<{
+    readonly preparedDocument: PreparedRuntimeDocument;
+    readonly editor: TiptapEditor;
+  } | null>(null);
+  const runtimeEditor =
+    runtimeEditorOwner?.preparedDocument === preparedDocument ? runtimeEditorOwner.editor : null;
   const [surfaceExitEnvironmentOwner] = useState(() =>
     createSurfaceExitEnvironment({
       knownSurfaceIds: structure.surfaceIds,
@@ -120,10 +125,10 @@ export function SlideshowPlayer({
   });
   const handleRendererReady = useCallback(
     (editor: TiptapEditor) => {
-      setRuntimeEditor(editor);
+      setRuntimeEditorOwner({ preparedDocument, editor });
       onRendererReady?.(editor);
     },
-    [onRendererReady],
+    [onRendererReady, preparedDocument],
   );
   const subscribeToSurfaceExit = useCallback(
     (listener: () => void) => surfaceExitEnvironment.subscribe(listener),

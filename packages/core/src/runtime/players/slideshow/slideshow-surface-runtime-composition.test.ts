@@ -20,6 +20,7 @@ import type {
   SurfaceChangeRefused,
   SurfaceChangeResult,
 } from "./slideshow-surface-change";
+import { createRequestSurfaceChange } from "./slideshow-surface-change";
 
 import {
   createSlideshowSurfaceRuntimeComposition,
@@ -290,10 +291,8 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     composition.dispose();
   });
 
-  it.each([
-    ["unknown Surface", new Error("unknown Slideshow Surface")],
-    ["lifecycle", new Error("active Surface lifecycle changed")],
-  ])("preserves a thrown $0 navigation defect", async (_name, defect) => {
+  it("preserves a thrown navigation lifecycle defect", async () => {
+    const defect = new Error("active Surface lifecycle changed");
     const events = createTestEventSource();
     const requestSurfaceChange = vi.fn((): SurfaceChangeResult => {
       throw defect;
@@ -301,6 +300,31 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     const composition = createLearnerOnlyComposition(events, requestSurfaceChange);
 
     await expect(events.emit({ targetId: TARGET_ID, type: "selected" })).rejects.toBe(defect);
+
+    expect(requestSurfaceChange).toHaveBeenCalledWith(OTHER_SURFACE_ID);
+    expect(events.listenerCount).toBe(0);
+    composition.dispose();
+  });
+
+  it("keeps an unknown learner-rule destination observable through requestSurfaceChange", async () => {
+    const events = createTestEventSource();
+    const requestSurfaceChange = vi.fn(
+      createRequestSurfaceChange({
+        environment: {
+          evaluateSnapshot() {
+            throw new Error("Unknown identity must fail before Surface Exit evaluation.");
+          },
+        },
+        getActiveSurfaceId: () => SURFACE_ID,
+        isKnownSurfaceId: (surfaceId) => surfaceId === SURFACE_ID,
+        commitSurfaceChange: vi.fn(),
+      }),
+    );
+    const composition = createLearnerOnlyComposition(events, requestSurfaceChange);
+
+    await expect(events.emit({ targetId: TARGET_ID, type: "selected" })).rejects.toThrow(
+      `Cannot request unknown Slideshow Surface "${OTHER_SURFACE_ID}".`,
+    );
 
     expect(requestSurfaceChange).toHaveBeenCalledWith(OTHER_SURFACE_ID);
     expect(events.listenerCount).toBe(0);
@@ -329,55 +353,61 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     expect(events.listenerCount).toBe(0);
   });
 
-  it("uses an empty learner program as the Presentation gate", async () => {
-    const events = createTestEventSource();
-    const binding = { ownerId: OWNER_ID, eventSource: events.eventSource };
-    const gateTimeline = Object.freeze<CompiledInternalClockSurfaceTimeline>({
-      surfaceId: SURFACE_ID,
-      durationMs: 100,
-      cues: Object.freeze([]),
-      waits: Object.freeze([
-        {
-          kind: "learner-wait",
-          id: "empty-program-wait" as PresentationWaitId,
-          atMs: 0,
-          requirement: {
-            kind: "event",
-            ownerId: OWNER_ID,
-            targetId: TARGET_ID,
-            type: "selected",
+  it.each([
+    {
+      autoAdvance: false,
+      expected: { phase: "held", hold: { kind: "learner", status: "ready" } },
+    },
+    { autoAdvance: true, expected: { phase: "completed" } },
+  ] as const)(
+    "uses an empty learner program as the Presentation gate with autoAdvance=$autoAdvance",
+    async ({ autoAdvance, expected }) => {
+      const events = createTestEventSource();
+      const binding = { ownerId: OWNER_ID, eventSource: events.eventSource };
+      const gateTimeline = Object.freeze<CompiledInternalClockSurfaceTimeline>({
+        surfaceId: SURFACE_ID,
+        durationMs: 0,
+        cues: Object.freeze([]),
+        waits: Object.freeze([
+          {
+            kind: "learner-wait",
+            id: "empty-program-wait" as PresentationWaitId,
+            atMs: 0,
+            requirement: {
+              kind: "event",
+              ownerId: OWNER_ID,
+              targetId: TARGET_ID,
+              type: "selected",
+            },
           },
-        },
-      ]),
-    });
-    const composition = createSlideshowSurfaceRuntimeComposition({
-      surfaceId: SURFACE_ID,
-      program: { presentation: { timeline: gateTimeline, autoAdvance: false } },
-      controlBindings: { get: () => binding },
-      semanticTargets: { activate: vi.fn() },
-      requestSurfaceChange: vi.fn(() => Result.ok()),
-    });
-    const session = composition.presentationSession;
-    if (!session) throw new Error("Expected a Presentation Session.");
-    expect(events.subscriptionsStarted).toBe(0);
+        ]),
+      });
+      const composition = createSlideshowSurfaceRuntimeComposition({
+        surfaceId: SURFACE_ID,
+        program: { presentation: { timeline: gateTimeline, autoAdvance } },
+        controlBindings: { get: () => binding },
+        semanticTargets: { activate: vi.fn() },
+        requestSurfaceChange: vi.fn(() => Result.ok()),
+      });
+      const session = composition.presentationSession;
+      if (!session) throw new Error("Expected a Presentation Session.");
+      expect(events.subscriptionsStarted).toBe(0);
 
-    session.play();
-    await flushPromises();
-    expect(events.subscriptionsStarted).toBe(1);
-    expect(session.getSnapshot()).toMatchObject({
-      phase: "held",
-      hold: { kind: "learner", status: "waiting" },
-    });
+      session.play();
+      await flushPromises();
+      expect(events.subscriptionsStarted).toBe(1);
+      expect(session.getSnapshot()).toMatchObject({
+        phase: "held",
+        hold: { kind: "learner", status: "waiting" },
+      });
 
-    await events.emit({ targetId: TARGET_ID, type: "selected" });
-    await flushPromises();
-    expect(session.getSnapshot()).toMatchObject({
-      phase: "held",
-      hold: { kind: "learner", status: "ready" },
-    });
-    composition.dispose();
-    expect(events.listenerCount).toBe(0);
-  });
+      await events.emit({ targetId: TARGET_ID, type: "selected" });
+      await flushPromises();
+      expect(session.getSnapshot()).toMatchObject(expected);
+      composition.dispose();
+      expect(events.listenerCount).toBe(0);
+    },
+  );
 
   it("disposes Presentation before learner subscriptions without stale reports", async () => {
     const disposalOrder: string[] = [];
@@ -520,7 +550,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
 
 function createLearnerOnlyComposition(
   events: ReturnType<typeof createTestEventSource>,
-  requestSurfaceChange: () => SurfaceChangeResult,
+  requestSurfaceChange: (surfaceId: SurfaceId) => SurfaceChangeResult,
 ) {
   const binding = { ownerId: OWNER_ID, eventSource: events.eventSource };
   return createSlideshowSurfaceRuntimeComposition({
