@@ -82,5 +82,7 @@ export interface ControlBinding {
 export interface ControlBindingRegistry {
   register(binding: ControlBinding): () => void;
   get(ownerId: EmbeddedNodeId): ControlBinding | undefined;
+  /** Calls once when every unique requested owner is mounted; cleanup cancels unresolved delivery. */
+  notifyWhenOwnersMounted(ownerIds: readonly EmbeddedNodeId[], listener: () => void): () => void;
   dispose(): void;
 }

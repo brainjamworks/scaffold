@@ -27,6 +27,7 @@ import { createControlBindingRegistry } from "./control-binding-registry";
 
 const OWNER_ID = "controlowner01" as EmbeddedNodeId;
 const OTHER_OWNER_ID = "controlowner02" as EmbeddedNodeId;
+const UNRELATED_OWNER_ID = "controlowner03" as EmbeddedNodeId;
 const CHILD_ID = "controlchild01" as EmbeddedNodeId;
 const FOREIGN_CHILD_ID = "controlchild02" as EmbeddedNodeId;
 
@@ -459,6 +460,118 @@ describe("ControlBindingRegistry", () => {
     await expect(executor.execute(commandRequest(OWNER_ID, "reset"))).rejects.toBe(defect);
   });
 
+  it("delivers readiness immediately for already-mounted exact owner sets", () => {
+    const registry = registryFor(FULL_CONTROL);
+    const emptySetListener = vi.fn();
+    const mountedSetListener = vi.fn();
+
+    registry.notifyWhenOwnersMounted([], emptySetListener);
+    registry.register(binding(OWNER_ID));
+    registry.notifyWhenOwnersMounted([OWNER_ID, OWNER_ID], mountedSetListener);
+
+    expect(emptySetListener).toHaveBeenCalledOnce();
+    expect(mountedSetListener).toHaveBeenCalledOnce();
+  });
+
+  it("delivers readiness once when every unique requested owner becomes mounted", () => {
+    const arrivalOrders = [
+      [OWNER_ID, OTHER_OWNER_ID],
+      [OTHER_OWNER_ID, OWNER_ID],
+    ] as const;
+
+    for (const arrivalOrder of arrivalOrders) {
+      const registry = registryFor(FULL_CONTROL);
+      const listener = vi.fn(() => {
+        expect(registry.get(OWNER_ID)).toBeDefined();
+        expect(registry.get(OTHER_OWNER_ID)).toBeDefined();
+      });
+
+      registry.notifyWhenOwnersMounted([OWNER_ID, OTHER_OWNER_ID, OWNER_ID], listener);
+      registry.register(binding(UNRELATED_OWNER_ID));
+      expect(listener).not.toHaveBeenCalled();
+      registry.register(binding(arrivalOrder[0]));
+      expect(listener).not.toHaveBeenCalled();
+      const unregisterCompletingOwner = registry.register(binding(arrivalOrder[1]));
+      expect(listener).toHaveBeenCalledOnce();
+
+      unregisterCompletingOwner();
+      registry.register(binding(arrivalOrder[1]));
+      expect(listener).toHaveBeenCalledOnce();
+    }
+  });
+
+  it("cancels readiness requests idempotently before or after delivery", () => {
+    const registry = registryFor(FULL_CONTROL);
+    const cancelledListener = vi.fn();
+    const deliveredListener = vi.fn();
+    const deferredListener = vi.fn();
+
+    const cancelPending = registry.notifyWhenOwnersMounted([OWNER_ID], cancelledListener);
+    cancelPending();
+    cancelPending();
+    registry.register(binding(OWNER_ID));
+    expect(cancelledListener).not.toHaveBeenCalled();
+
+    const cancelDelivered = registry.notifyWhenOwnersMounted([OWNER_ID], deliveredListener);
+    expect(deliveredListener).toHaveBeenCalledOnce();
+    cancelDelivered();
+    cancelDelivered();
+    expect(deliveredListener).toHaveBeenCalledOnce();
+
+    const cancelAfterDeferredDelivery = registry.notifyWhenOwnersMounted(
+      [OTHER_OWNER_ID],
+      deferredListener,
+    );
+    registry.register(binding(OTHER_OWNER_ID));
+    expect(deferredListener).toHaveBeenCalledOnce();
+    cancelAfterDeferredDelivery();
+    cancelAfterDeferredDelivery();
+    expect(deferredListener).toHaveBeenCalledOnce();
+  });
+
+  it("keeps readiness listener defects observable without blocking another ready request", () => {
+    const registry = registryFor(FULL_CONTROL);
+    const defect = new Error("broken readiness listener");
+    const otherListener = vi.fn();
+    registry.notifyWhenOwnersMounted([OWNER_ID], () => {
+      throw defect;
+    });
+    registry.notifyWhenOwnersMounted([OWNER_ID], otherListener);
+
+    expect(() => registry.register(binding(OWNER_ID))).toThrow(defect);
+
+    expect(registry.get(OWNER_ID)).toBeDefined();
+    expect(otherListener).toHaveBeenCalledOnce();
+  });
+
+  it("removes a ready request before invoking a reentrant listener", () => {
+    const registry = registryFor(FULL_CONTROL);
+    const listener = vi.fn(() => {
+      registry.register(binding(OTHER_OWNER_ID));
+    });
+    registry.notifyWhenOwnersMounted([OWNER_ID], listener);
+
+    registry.register(binding(OWNER_ID));
+
+    expect(listener).toHaveBeenCalledOnce();
+    expect(registry.get(OTHER_OWNER_ID)).toBeDefined();
+  });
+
+  it("cancels unresolved readiness requests during registry disposal", () => {
+    const registry = registryFor(FULL_CONTROL);
+    const listener = vi.fn();
+    const cancel = registry.notifyWhenOwnersMounted([OWNER_ID], listener);
+
+    registry.dispose();
+    cancel();
+    cancel();
+
+    expect(listener).not.toHaveBeenCalled();
+    expect(() => registry.notifyWhenOwnersMounted([], vi.fn())).toThrow(
+      "Cannot request Control Binding readiness after registry disposal.",
+    );
+  });
+
   it("uses ordinary mounted membership with exact duplicate and matching unregister rules", () => {
     const registry = registryFor(FULL_CONTROL);
     const first = binding(OWNER_ID);
@@ -556,16 +669,20 @@ describe("ControlBindingRegistry", () => {
 
 function registryFor(control: ControlDefinition) {
   function requireOwnerControlDefinition(ownerId: EmbeddedNodeId): ControlDefinition {
-    if (ownerId !== OWNER_ID) throw new Error(`Control owner "${ownerId}" is not public.`);
+    if (![OWNER_ID, OTHER_OWNER_ID, UNRELATED_OWNER_ID].includes(ownerId)) {
+      throw new Error(`Control owner "${ownerId}" is not public.`);
+    }
     return control;
   }
   function requireOwnedTargetCapabilities(
     ownerId: EmbeddedNodeId,
     targetId: EmbeddedNodeId,
   ): ControlCapabilitySetDefinition {
-    if (ownerId !== OWNER_ID) throw new Error(`Control owner "${ownerId}" is not public.`);
-    if (targetId === OWNER_ID && control.owner) return control.owner;
-    if (targetId === CHILD_ID && control.semanticChildren?.["section"]) {
+    if (![OWNER_ID, OTHER_OWNER_ID, UNRELATED_OWNER_ID].includes(ownerId)) {
+      throw new Error(`Control owner "${ownerId}" is not public.`);
+    }
+    if (targetId === ownerId && control.owner) return control.owner;
+    if (ownerId === OWNER_ID && targetId === CHILD_ID && control.semanticChildren?.["section"]) {
       return control.semanticChildren["section"];
     }
     throw new Error(`Control target "${targetId}" does not belong to owner "${ownerId}".`);

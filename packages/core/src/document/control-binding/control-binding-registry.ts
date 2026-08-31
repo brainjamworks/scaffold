@@ -31,12 +31,39 @@ interface MountedRegistration {
   active: boolean;
 }
 
+interface MountedOwnersRequest {
+  readonly ownerIds: ReadonlySet<EmbeddedNodeId>;
+  listener: (() => void) | undefined;
+}
+
 export function createControlBindingRegistry({
   requireOwnerControlDefinition,
   requireOwnedTargetCapabilities,
 }: CreateControlBindingRegistryInput): ControlBindingRegistry {
   const registrations = new Map<EmbeddedNodeId, MountedRegistration>();
+  const mountedOwnersRequests = new Set<MountedOwnersRequest>();
   let disposed = false;
+
+  function cancelMountedOwnersRequest(request: MountedOwnersRequest): void {
+    mountedOwnersRequests.delete(request);
+    request.listener = undefined;
+  }
+
+  function deliverReadyMountedOwnersRequests(): void {
+    let firstDefect: unknown;
+    for (const request of [...mountedOwnersRequests]) {
+      if (!mountedOwnersRequests.has(request)) continue;
+      if (![...request.ownerIds].every((ownerId) => registrations.has(ownerId))) continue;
+      const listener = request.listener;
+      cancelMountedOwnersRequest(request);
+      try {
+        listener?.();
+      } catch (error) {
+        firstDefect ??= error;
+      }
+    }
+    if (firstDefect !== undefined) throw firstDefect;
+  }
 
   const registry: ControlBindingRegistry = {
     register(binding) {
@@ -60,6 +87,7 @@ export function createControlBindingRegistry({
         requireOwnedTargetCapabilities,
       );
       registrations.set(binding.ownerId, registration);
+      deliverReadyMountedOwnersRequests();
 
       let registered = true;
       return () => {
@@ -76,9 +104,25 @@ export function createControlBindingRegistry({
       return registrations.get(ownerId)?.binding;
     },
 
+    notifyWhenOwnersMounted(ownerIds, listener) {
+      if (disposed) {
+        throw new Error("Cannot request Control Binding readiness after registry disposal.");
+      }
+      const requiredOwnerIds = new Set(ownerIds);
+      if ([...requiredOwnerIds].every((ownerId) => registrations.has(ownerId))) {
+        listener();
+        return () => undefined;
+      }
+
+      const request: MountedOwnersRequest = { ownerIds: requiredOwnerIds, listener };
+      mountedOwnersRequests.add(request);
+      return () => cancelMountedOwnersRequest(request);
+    },
+
     dispose() {
       if (disposed) return;
       disposed = true;
+      for (const request of [...mountedOwnersRequests]) cancelMountedOwnersRequest(request);
       const mounted = [...registrations.values()];
       registrations.clear();
 
