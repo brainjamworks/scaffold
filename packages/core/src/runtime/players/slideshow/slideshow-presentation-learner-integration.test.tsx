@@ -78,6 +78,7 @@ const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
 const FIRST_SURFACE_ID = "surfaceCtrl1" as SurfaceId;
 const SECOND_SURFACE_ID = "surfaceCtrl2" as SurfaceId;
 const TABS_OWNER_ID = "layoutCtrl01" as EmbeddedNodeId;
+const NEVER_MOUNTED_OWNER_ID = "missingOwn01" as EmbeddedNodeId;
 const OVERVIEW_SECTION_ID = "sectionCtl01" as EmbeddedNodeId;
 const PRACTICE_SECTION_ID = "sectionCtl02" as EmbeddedNodeId;
 
@@ -217,6 +218,48 @@ describe("Slideshow Presentation learner integration", () => {
       cueOwner,
     ]);
     expect(deriveRequiredControlBindingOwnerIds(program)).not.toContain(revealTarget);
+  });
+
+  it("rejects a mismatched Surface program before waiting for its owners", () => {
+    const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
+    const mismatchedProgram: SlideshowSurfaceRuntimeProgram = {
+      presentation: {
+        autoAdvance: false,
+        timeline: {
+          surfaceId: SECOND_SURFACE_ID,
+          durationMs: 100,
+          cues: [
+            {
+              id: "mismatched-owner-cue",
+              atMs: 0,
+              command: {
+                kind: "target-command",
+                ownerId: NEVER_MOUNTED_OWNER_ID,
+                targetId: OVERVIEW_SECTION_ID,
+                type: "select",
+              },
+            },
+          ],
+          waits: [],
+        },
+      },
+    };
+
+    expect(() =>
+      renderTest(
+        <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+          <SlideshowPlayer
+            preparedDocument={prepared.preparedDocument}
+            structure={prepared.structure}
+            surfaceRuntimeProgramSource={(surfaceId) =>
+              surfaceId === FIRST_SURFACE_ID ? mismatchedProgram : undefined
+            }
+          />
+        </CourseThemeProvider>,
+      ),
+    ).toThrow(
+      'Slideshow Presentation Timeline Surface "surfaceCtrl2" does not match active Surface "surfaceCtrl1".',
+    );
   });
 
   it.each([

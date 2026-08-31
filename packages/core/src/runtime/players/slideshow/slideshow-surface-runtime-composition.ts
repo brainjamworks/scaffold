@@ -51,7 +51,7 @@ export function createSlideshowSurfaceRuntimeComposition({
   semanticTargets,
   requestSurfaceChange,
 }: CreateSlideshowSurfaceRuntimeCompositionInput): SlideshowSurfaceRuntimeComposition {
-  assertProgramSurfaceIdentity(surfaceId, program);
+  assertSlideshowSurfaceRuntimeProgramIdentity(surfaceId, program);
   const learnerRuntime = createSurfaceLearnerInteractionRuntime({
     program: program.learnerInteractions ?? createEmptyLearnerProgram(surfaceId),
     controlBindings,
@@ -118,7 +118,7 @@ function unexpectedSurfaceChangeError(error: unknown): never {
   throw new Error(`Unexpected Slideshow Surface change error "${String(reason)}".`);
 }
 
-function assertProgramSurfaceIdentity(
+export function assertSlideshowSurfaceRuntimeProgramIdentity(
   surfaceId: SurfaceId,
   program: SlideshowSurfaceRuntimeProgram,
 ): void {

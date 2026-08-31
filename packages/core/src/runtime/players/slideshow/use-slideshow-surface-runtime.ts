@@ -18,6 +18,7 @@ import type {
 
 import type { RequestSurfaceChange } from "./slideshow-surface-change";
 import {
+  assertSlideshowSurfaceRuntimeProgramIdentity,
   createSlideshowSurfaceRuntimeComposition,
   type SlideshowSurfaceRuntimeComposition,
   type SlideshowSurfaceRuntimeProgram,
@@ -65,13 +66,14 @@ export function useSlideshowSurfaceRuntime({
   programSource,
   requestSurfaceChange,
 }: UseSlideshowSurfaceRuntimeInput): SlideshowSurfaceRuntimeState {
-  const program = useMemo(
-    () =>
-      activeSurfaceId === null || programSource === undefined
-        ? undefined
-        : programSource(activeSurfaceId),
-    [activeSurfaceId, programSource],
-  );
+  const program = useMemo(() => {
+    if (activeSurfaceId === null || programSource === undefined) return undefined;
+    const resolvedProgram = programSource(activeSurfaceId);
+    if (resolvedProgram) {
+      assertSlideshowSurfaceRuntimeProgramIdentity(activeSurfaceId, resolvedProgram);
+    }
+    return resolvedProgram;
+  }, [activeSurfaceId, programSource]);
   const [mountedRuntime, setMountedRuntime] = useState<MountedSurfaceRuntime | null>(null);
   const currentRuntime =
     mountedRuntime?.surfaceId === activeSurfaceId &&
