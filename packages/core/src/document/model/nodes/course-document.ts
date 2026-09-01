@@ -138,6 +138,15 @@ export const CourseDocumentNode = Node.create({
             ? {}
             : { "data-course-branching": JSON.stringify(attrs.branching) },
       },
+      presentation: {
+        default: null,
+        parseHTML: (element: HTMLElement) =>
+          parseJsonAttr(element.getAttribute("data-course-presentation")),
+        renderHTML: (attrs: { presentation?: unknown }) =>
+          attrs.presentation === null || attrs.presentation === undefined
+            ? {}
+            : { "data-course-presentation": JSON.stringify(attrs.presentation) },
+      },
     };
   },
 

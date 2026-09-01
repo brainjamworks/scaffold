@@ -55,6 +55,33 @@ describe("Scaffold format", () => {
       ],
     });
     expect(EmbeddedNodeIdSchema.safeParse(content.content?.[0]?.attrs?.["id"]).success).toBe(true);
+    expect(content.content?.[0]?.attrs?.["presentation"]).toBeUndefined();
+  });
+
+  it("round-trips optional Presentation JSON through artifact preparation", () => {
+    const artifact = createScaffoldArtifact({
+      id: "presentation-artifact",
+      title: "Presentation",
+      mode: "slideshow",
+      initialCourseSectionTitle: "Introduction",
+    });
+    const courseDocument = artifact.content.content?.[0];
+    if (!courseDocument?.attrs) throw new Error("Expected Course Document attributes.");
+    const surfaceId = courseDocument.content?.find((node) => node.type === "surface")?.attrs?.["id"];
+    if (typeof surfaceId !== "string") throw new Error("Expected a Surface ID.");
+    const presentation = {
+      schemaVersion: 1,
+      autoAdvance: false,
+      allowPrevious: true,
+      surfaces: [{ surfaceId, durationMs: 10_000, actions: [] }],
+    };
+    courseDocument.attrs = { ...courseDocument.attrs, presentation };
+
+    const prepared = prepareScaffoldArtifactForAuthoring(artifact);
+
+    expect(prepared.status).toBe("supported");
+    if (prepared.status !== "supported") return;
+    expect(prepared.artifact.content.content?.[0]?.attrs?.["presentation"]).toEqual(presentation);
   });
 
   it("creates an explicitly Scaffold Plus-required artifact without changing format version", () => {

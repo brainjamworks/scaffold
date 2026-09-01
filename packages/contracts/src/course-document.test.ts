@@ -146,6 +146,35 @@ describe("course document contracts", () => {
     ).toBe(false);
   });
 
+  it("keeps Presentation configuration optional and validates it when present", () => {
+    const ordinary = {
+      schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+      requiresScaffoldPlus: false,
+      mode: "slideshow",
+      surfaceSize: "16x9",
+      theme: persistedCourseTheme(),
+    } as const;
+
+    expect(CourseDocumentAttrsSchema.parse(ordinary)).not.toHaveProperty("presentation");
+    expect(
+      CourseDocumentAttrsSchema.parse({
+        ...ordinary,
+        presentation: {
+          schemaVersion: 1,
+          autoAdvance: false,
+          allowPrevious: true,
+          surfaces: [{ surfaceId: "surface00001", durationMs: 10_000, actions: [] }],
+        },
+      }).presentation,
+    ).toMatchObject({ schemaVersion: 1 });
+    expect(
+      CourseDocumentAttrsSchema.safeParse({
+        ...ordinary,
+        presentation: { schemaVersion: 1, surfaces: [] },
+      }).success,
+    ).toBe(false);
+  });
+
   it("accepts exact design and colour-system revisions with empty overrides", () => {
     expect(PersistedCourseThemeSchema.parse(persistedCourseTheme())).toEqual({
       schemaVersion: 1,

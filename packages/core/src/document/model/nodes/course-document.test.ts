@@ -337,6 +337,34 @@ describe("course document nodes", () => {
     nextEditor.destroy();
   });
 
+  it("round-trips optional Presentation JSON without creating it on ordinary documents", () => {
+    const ordinaryEditor = makeEditor();
+    const ordinaryCourse = ordinaryEditor.getJSON().content?.[0] as JSONContent | undefined;
+    expect(ordinaryCourse?.attrs?.["presentation"]).toBeNull();
+    expect(ordinaryEditor.getHTML()).not.toContain("data-course-presentation");
+
+    const content = courseDocumentContent();
+    const courseDocument = content.content![0]!;
+    const presentation = {
+      schemaVersion: 1,
+      autoAdvance: false,
+      allowPrevious: true,
+      surfaces: [{ surfaceId: "surface00001", durationMs: 10_000, actions: [] }],
+    };
+    courseDocument.attrs = { ...courseDocument.attrs, presentation };
+    const editor = makeEditor(content);
+    const html = editor.getHTML();
+    const reopenedEditor = makeEditor(html);
+    const reopenedCourse = reopenedEditor.getJSON().content?.[0] as JSONContent | undefined;
+
+    expect(html).toContain("data-course-presentation=");
+    expect(reopenedCourse?.attrs?.["presentation"]).toEqual(presentation);
+
+    ordinaryEditor.destroy();
+    editor.destroy();
+    reopenedEditor.destroy();
+  });
+
   it.each([undefined, "not-json", '{"schemaVersion":1,"preset":{}}'])(
     "uses the required default for an absent or invalid HTML theme attribute",
     (serializedTheme) => {

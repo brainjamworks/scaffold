@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "./embedded-id";
+import { PresentationConfigurationV1Schema } from "./presentation";
 
 export const SCAFFOLD_DOCUMENT_FORMAT_VERSION = 4;
 
@@ -114,6 +115,7 @@ export const CourseDocumentAttrsSchema = z
     overflowMode: OverflowModeSchema.default("grow"),
     theme: PersistedCourseThemeSchema,
     branching: z.unknown().optional(),
+    presentation: PresentationConfigurationV1Schema.optional(),
   })
   .refine(
     (attrs) =>
