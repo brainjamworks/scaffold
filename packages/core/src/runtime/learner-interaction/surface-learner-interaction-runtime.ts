@@ -9,7 +9,11 @@ import type {
 import type { SemanticInteractionOrigin } from "@/document/semantic-target-interaction/semantic-target-interaction";
 import type { SemanticTargetInteractionCoordinator } from "@/document/semantic-target-interaction/semantic-target-interaction-coordinator";
 import type { CompiledLearnerRequirement } from "@/runtime/presentation/compiled-presentation-program";
-import type { PresentationGatePort } from "@/runtime/presentation/presentation-progression-gate";
+import type {
+  PresentationGateObservationPort,
+  PresentationGateObservationSnapshot,
+  PresentationGatePort,
+} from "@/runtime/presentation/presentation-progression-gate";
 
 import type { CompiledSurfaceLearnerInteractionProgram } from "./compiled-learner-interaction-program";
 import type {
@@ -41,10 +45,16 @@ export interface SurfaceLearnerInteractionNavigationPort {
   ): ReturnType<LearnerInteractionSurfaceNavigationPort["navigate"]>;
 }
 
-export interface SurfaceLearnerInteractionRuntime extends PresentationGatePort {
+export interface SurfaceLearnerInteractionRuntime
+  extends PresentationGatePort,
+    PresentationGateObservationPort {
   subscribeReports(listener: (report: LearnerInteractionTurnReport) => void): () => void;
   dispose(): void;
 }
+
+const INACTIVE_GATE_OBSERVATION = Object.freeze({ status: "inactive" as const });
+const AWAITING_GATE_OBSERVATION = Object.freeze({ status: "awaiting-satisfaction" as const });
+const SATISFIED_GATE_OBSERVATION = Object.freeze({ status: "satisfaction-observed" as const });
 
 export function createSurfaceLearnerInteractionRuntime({
   program,
@@ -56,6 +66,7 @@ export function createSurfaceLearnerInteractionRuntime({
   const eventSources = requireStaticEventSources(program, controlBindings);
   const unsubscribeOwners: (() => void)[] = [];
   const reportListeners = new Set<(report: LearnerInteractionTurnReport) => void>();
+  const gateObservationListeners = new Set<() => void>();
   const queuedEvents: QueuedLearnerEvent[] = [];
   const disposalReason = new Error("Surface Learner Interaction runtime was disposed.");
   let phase: RuntimePhase = "active";
@@ -63,6 +74,7 @@ export function createSurfaceLearnerInteractionRuntime({
   let nextTurnNumber = 1;
   let currentOperation: AbortController | undefined;
   let activeGate: ActiveGate | undefined;
+  let gateObservation: PresentationGateObservationSnapshot = INACTIVE_GATE_OBSERVATION;
 
   try {
     for (const { ownerId, eventSource } of eventSources) {
@@ -118,6 +130,7 @@ export function createSurfaceLearnerInteractionRuntime({
         };
         activeGate = gate;
         signal.addEventListener("abort", gate.onAbort, { once: true });
+        publishGateObservation(AWAITING_GATE_OBSERVATION);
         if (signal.aborted) cancelGate(gate);
         return promise;
       }
@@ -145,8 +158,31 @@ export function createSurfaceLearnerInteractionRuntime({
       };
       activeGate = gate;
       signal.addEventListener("abort", gate.onAbort, { once: true });
+      publishGateObservation(AWAITING_GATE_OBSERVATION);
       if (signal.aborted) cancelGate(gate);
       return promise;
+    },
+
+    getGateObservationSnapshot() {
+      if (phase !== "active") {
+        throw new Error("Cannot read gate observation after Surface Learner Interaction termination.");
+      }
+      return gateObservation;
+    },
+
+    subscribeGateObservation(listener) {
+      if (phase !== "active") {
+        throw new Error(
+          "Cannot subscribe to gate observation after Surface Learner Interaction termination.",
+        );
+      }
+      gateObservationListeners.add(listener);
+      let subscribed = true;
+      return () => {
+        if (!subscribed) return;
+        subscribed = false;
+        gateObservationListeners.delete(listener);
+      };
     },
 
     subscribeReports(listener) {
@@ -171,6 +207,7 @@ export function createSurfaceLearnerInteractionRuntime({
       phase = "disposed";
       queuedEvents.length = 0;
       reportListeners.clear();
+      gateObservationListeners.clear();
       cancelGate(activeGate);
       currentOperation?.abort(disposalReason);
       unsubscribeAllOwners(unsubscribeOwners);
@@ -194,6 +231,9 @@ export function createSurfaceLearnerInteractionRuntime({
     ) {
       activeGate.matchingEvent = queued;
       queued.matchingEventGate = activeGate;
+      publishGateObservation(SATISFIED_GATE_OBSERVATION);
+    } else if (activeGate?.kind === "state" && stateGateIsSatisfied(activeGate)) {
+      publishGateObservation(SATISFIED_GATE_OBSERVATION);
     }
     queuedEvents.push(queued);
     return startDrain();
@@ -266,6 +306,8 @@ export function createSurfaceLearnerInteractionRuntime({
         satisfyGate(queued.matchingEventGate);
       } else if (activeGate?.kind === "state" && stateGateIsSatisfied(activeGate)) {
         satisfyGate(activeGate);
+      } else if (activeGate?.kind === "state") {
+        publishGateObservation(AWAITING_GATE_OBSERVATION);
       }
     }
   }
@@ -275,6 +317,7 @@ export function createSurfaceLearnerInteractionRuntime({
     phase = nextPhase;
     queuedEvents.length = 0;
     reportListeners.clear();
+    gateObservationListeners.clear();
     cancelGate(activeGate);
     unsubscribeAllOwners(unsubscribeOwners);
   }
@@ -355,11 +398,18 @@ export function createSurfaceLearnerInteractionRuntime({
     activeGate = undefined;
     gate.signal.removeEventListener("abort", gate.onAbort);
     gate.dynamicUnsubscribe?.();
+    publishGateObservation(INACTIVE_GATE_OBSERVATION);
   }
 
   function satisfyGate(gate: ActiveGate): void {
     cancelGate(gate);
     gate.resolve();
+  }
+
+  function publishGateObservation(next: PresentationGateObservationSnapshot): void {
+    if (gateObservation.status === next.status) return;
+    gateObservation = next;
+    for (const listener of [...gateObservationListeners]) listener();
   }
 }
 

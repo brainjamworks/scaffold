@@ -127,6 +127,179 @@ function programWithBuckets(
   };
 }
 
+it("publishes gate satisfaction observation before the matching event turn settles", async () => {
+  const selected = eventReference(OWNER_A_ID, TARGET_A_ID, "selected");
+  const ownerEvents = createTestEventSource();
+  const commandCompletion = deferred<ControlCommandResult>();
+  const binding = {
+    ownerId: OWNER_A_ID,
+    eventSource: ownerEvents.eventSource,
+    commandExecutor: { execute: vi.fn(() => commandCompletion.promise) },
+  };
+  const runtime = createSurfaceLearnerInteractionRuntime({
+    program: programWithBuckets([[selected, [commandRule("rule-observation", selected)]]]),
+    controlBindings: { get: vi.fn(() => binding) },
+    semanticTargets: { activate: vi.fn() },
+    surfaceNavigation: {
+      navigate: vi.fn(async () => Result.err({ reason: "cancelled" as const })),
+    },
+    semanticInteractionOrigin: "learner-interaction-rule",
+  });
+  const statuses: string[] = [];
+  runtime.subscribeGateObservation(() => {
+    statuses.push(runtime.getGateObservationSnapshot().status);
+  });
+
+  expect(runtime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
+  expect(Object.isFrozen(runtime.getGateObservationSnapshot())).toBe(true);
+
+  const gate = runtime.waitUntilSatisfied(
+    { kind: "event", ownerId: OWNER_A_ID, targetId: TARGET_A_ID, type: "selected" },
+    { signal: new AbortController().signal },
+  );
+  let gateSettled = false;
+  void gate.then(() => {
+    gateSettled = true;
+  });
+  expect(runtime.getGateObservationSnapshot()).toEqual({
+    status: "awaiting-satisfaction",
+  });
+
+  const [turnCompletion] = ownerEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
+
+  expect(runtime.getGateObservationSnapshot()).toEqual({
+    status: "satisfaction-observed",
+  });
+  expect(gateSettled).toBe(false);
+
+  commandCompletion.resolve(Result.ok());
+  await turnCompletion;
+  await gate;
+
+  expect(runtime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
+  expect(statuses).toEqual([
+    "awaiting-satisfaction",
+    "satisfaction-observed",
+    "inactive",
+  ]);
+  runtime.dispose();
+});
+
+it("reopens a state gate when its pre-turn satisfaction no longer holds after commands", async () => {
+  const selected = eventReference(OWNER_A_ID, TARGET_A_ID, "selected");
+  const ownerAEvents = createTestEventSource();
+  const ownerBEvents = createTestEventSource();
+  const commandCompletion = deferred<ControlCommandResult>();
+  let completion = "pending";
+  const ownerABinding = {
+    ownerId: OWNER_A_ID,
+    eventSource: ownerAEvents.eventSource,
+    commandExecutor: {
+      execute: vi.fn(() => {
+        completion = "pending";
+        return commandCompletion.promise;
+      }),
+    },
+  };
+  const ownerBBinding = {
+    ownerId: OWNER_B_ID,
+    eventSource: ownerBEvents.eventSource,
+    stateReader: { read: vi.fn(() => completion) },
+  };
+  const runtime = createSurfaceLearnerInteractionRuntime({
+    program: programWithBuckets([[selected, [commandRule("rule-state-observation", selected)]]]),
+    controlBindings: {
+      get: vi.fn((ownerId: EmbeddedNodeId) =>
+        ownerId === OWNER_A_ID ? ownerABinding : ownerBBinding,
+      ),
+    },
+    semanticTargets: { activate: vi.fn() },
+    surfaceNavigation: {
+      navigate: vi.fn(async () => Result.err({ reason: "cancelled" as const })),
+    },
+    semanticInteractionOrigin: "learner-interaction-rule",
+  });
+  const controller = new AbortController();
+  const gate = runtime.waitUntilSatisfied(
+    {
+      kind: "state",
+      ownerId: OWNER_B_ID,
+      targetId: TARGET_B_ID,
+      key: "completion",
+      equals: "complete",
+    },
+    { signal: controller.signal },
+  );
+  let gateSettled = false;
+  void gate.then(() => {
+    gateSettled = true;
+  });
+  completion = "complete";
+
+  const [turnCompletion] = ownerAEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
+
+  expect(runtime.getGateObservationSnapshot()).toEqual({
+    status: "satisfaction-observed",
+  });
+  expect(gateSettled).toBe(false);
+
+  commandCompletion.resolve(Result.ok());
+  await turnCompletion;
+  await flushPromises();
+
+  expect(runtime.getGateObservationSnapshot()).toEqual({
+    status: "awaiting-satisfaction",
+  });
+  expect(gateSettled).toBe(false);
+
+  controller.abort();
+  expect(runtime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
+  runtime.dispose();
+});
+
+it("publishes changed gate observations only and rejects observation after disposal", () => {
+  const ownerEvents = createTestEventSource();
+  const binding = { ownerId: OWNER_A_ID, eventSource: ownerEvents.eventSource };
+  const runtime = createSurfaceLearnerInteractionRuntime({
+    program: { surfaceId: SURFACE_ID, rulesByEvent: new Map() },
+    controlBindings: { get: vi.fn(() => binding) },
+    semanticTargets: { activate: vi.fn() },
+    surfaceNavigation: {
+      navigate: vi.fn(async () => Result.err({ reason: "cancelled" as const })),
+    },
+    semanticInteractionOrigin: "learner-interaction-rule",
+  });
+  const listener = vi.fn();
+  const unsubscribe = runtime.subscribeGateObservation(listener);
+  const firstController = new AbortController();
+  void runtime.waitUntilSatisfied(
+    { kind: "event", ownerId: OWNER_A_ID, targetId: TARGET_A_ID, type: "selected" },
+    { signal: firstController.signal },
+  );
+
+  expect(listener).toHaveBeenCalledOnce();
+  ownerEvents.emit({ targetId: TARGET_A_ID, type: "expanded" });
+  expect(listener).toHaveBeenCalledOnce();
+
+  firstController.abort();
+  expect(listener).toHaveBeenCalledTimes(2);
+  expect(runtime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
+
+  unsubscribe();
+  unsubscribe();
+  const secondController = new AbortController();
+  void runtime.waitUntilSatisfied(
+    { kind: "event", ownerId: OWNER_A_ID, targetId: TARGET_A_ID, type: "selected" },
+    { signal: secondController.signal },
+  );
+  expect(listener).toHaveBeenCalledTimes(2);
+  secondController.abort();
+
+  runtime.dispose();
+  expect(() => runtime.getGateObservationSnapshot()).toThrow(/termination/i);
+  expect(() => runtime.subscribeGateObservation(vi.fn())).toThrow(/termination/i);
+});
+
 it("subscribes once per unique static event owner and unsubscribes them on disposal", () => {
   const ownerASelected = eventReference(OWNER_A_ID, TARGET_A_ID, "selected");
   const ownerAExpanded = eventReference(OWNER_A_ID, TARGET_A_ID, "expanded");
@@ -769,6 +942,7 @@ it("satisfies a state gate from one immediate exact State Reader value", async (
     { signal: new AbortController().signal },
   );
 
+  expect(runtime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
   expect(read).toHaveBeenCalledOnce();
   expect(read).toHaveBeenCalledWith({ targetId: TARGET_A_ID, key: "completion" });
   expect(ownerEvents.subscriptionsStarted).toBe(0);
@@ -816,7 +990,7 @@ it("re-reads an initially false state gate after an empty-program learner turn",
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "changed" });
   await gate;
 
-  expect(read).toHaveBeenCalledTimes(2);
+  expect(read).toHaveBeenCalledTimes(3);
   expect(settlementOrder).toEqual(["report", "gate"]);
   expect(ownerEvents.listenerCount).toBe(0);
   expect(ownerEvents.unsubscriptionsCompleted).toBe(1);
@@ -969,7 +1143,7 @@ it("re-reads state after rule commands so their committed effects can satisfy th
   ownerAEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
   await gate;
 
-  expect(read).toHaveBeenCalledTimes(2);
+  expect(read).toHaveBeenCalledTimes(3);
   expect(ownerAEvents.listenerCount).toBe(1);
   expect(ownerBEvents.listenerCount).toBe(0);
   runtime.dispose();
@@ -1383,7 +1557,7 @@ it("does not re-read or settle a state gate after a rejected learner turn", asyn
   commandCompletion.reject(sentinelDefect);
   await expect(turnCompletion).rejects.toBe(sentinelDefect);
 
-  expect(read).toHaveBeenCalledOnce();
+  expect(read).toHaveBeenCalledTimes(2);
   expect(gateSettled).toBe(false);
   expect(reportListener).not.toHaveBeenCalled();
   expect(ownerAEvents.listenerCount).toBe(0);
