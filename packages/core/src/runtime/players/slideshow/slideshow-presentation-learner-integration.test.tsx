@@ -358,6 +358,27 @@ describe("Slideshow Presentation learner integration", () => {
       expectedContentInteraction: "enabled",
     },
     {
+      name: "learner waiting before gate registration",
+      snapshot: presentationSnapshot("held", {
+        kind: "learner",
+        waitId: "learner-before-gate" as PresentationWaitId,
+        status: "waiting",
+      }),
+      expectedAction: "disabled",
+      expectedContentInteraction: "inert",
+    },
+    {
+      name: "learner satisfaction observed while its turn settles",
+      snapshot: presentationSnapshot("held", {
+        kind: "learner",
+        waitId: "learner-observed" as PresentationWaitId,
+        status: "waiting",
+      }),
+      expectedAction: "disabled",
+      gateObservation: "satisfaction-observed",
+      expectedContentInteraction: "inert",
+    },
+    {
       name: "learner ready",
       snapshot: presentationSnapshot("held", {
         kind: "learner",
@@ -503,6 +524,69 @@ describe("Slideshow Presentation learner integration", () => {
     expect(canvas).toHaveAttribute("data-content-interaction", "inert");
     expect(contentOwner).toHaveAttribute("inert");
     expect(chromeOwner).not.toHaveAttribute("inert");
+  });
+
+  it("opens only for a fresh gate registration after backward Presentation passage", async () => {
+    const waitId = "reentered-wait" as PresentationWaitId;
+    const presentation = createControllablePresentationSession(
+      presentationSnapshot("held", { kind: "learner", waitId, status: "waiting" }),
+    );
+    const learner = createControllableLearnerRuntime("awaiting-satisfaction");
+    slideshowRuntimeTestProbe.createComposition = (input) =>
+      testComposition(
+        input as CreateSlideshowSurfaceRuntimeCompositionInput,
+        presentation.session,
+        learner.runtime,
+      );
+    const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
+    const { unmount } = renderTest(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          preparedDocument={prepared.preparedDocument}
+          structure={prepared.structure}
+          surfaceRuntimeProgramSource={(surfaceId) =>
+            surfaceId === FIRST_SURFACE_ID
+              ? configuredPresentationProgram(FIRST_SURFACE_ID)
+              : undefined
+          }
+        />
+      </CourseThemeProvider>,
+    );
+    const canvas = document.querySelector(".sc-slideshow-player__canvas");
+
+    await waitFor(() => expect(canvas).not.toHaveAttribute("inert"));
+    expect(learner.listenerCount).toBe(1);
+
+    act(() => learner.setSnapshot("satisfaction-observed"));
+    await waitFor(() => expect(canvas).toHaveAttribute("inert"));
+
+    act(() => {
+      learner.setSnapshot("inactive");
+      presentation.setSnapshot(presentationSnapshot("paused"));
+    });
+    expect(canvas).toHaveAttribute("inert");
+
+    act(() =>
+      presentation.setSnapshot(
+        presentationSnapshot("held", { kind: "learner", waitId, status: "waiting" }),
+      ),
+    );
+    expect(canvas).toHaveAttribute("inert");
+
+    act(() => learner.setSnapshot("awaiting-satisfaction"));
+    await waitFor(() => expect(canvas).not.toHaveAttribute("inert"));
+
+    act(() => {
+      learner.setSnapshot("inactive");
+      presentation.setSnapshot(presentationSnapshot("completed"));
+    });
+    await waitFor(() => expect(canvas).toHaveAttribute("inert"));
+
+    act(() => presentation.setSnapshot(presentationSnapshot("stopped")));
+    expect(canvas).toHaveAttribute("inert");
+
+    unmount();
+    expect(learner.listenerCount).toBe(0);
   });
 
   it("keeps configured Next pending until the exact owner readiness request completes", async () => {
@@ -716,6 +800,7 @@ describe("Slideshow Presentation learner integration", () => {
     );
 
     await waitFor(() => expect(lifecycle.events).toEqual([`create:${FIRST_SURFACE_ID}`]));
+    expect(lifecycle.learners[0]?.listenerCount).toBe(1);
     await user.click(screen.getByRole("button", { name: "Next slide" }));
 
     await waitFor(() =>
@@ -727,6 +812,8 @@ describe("Slideshow Presentation learner integration", () => {
     );
     expect(lifecycle.maximumActiveOwners).toBe(1);
     expect(lifecycle.activeOwners).toBe(1);
+    expect(lifecycle.learners[0]?.listenerCount).toBe(0);
+    expect(lifecycle.learners[1]?.listenerCount).toBe(1);
 
     unmount();
 
@@ -737,17 +824,22 @@ describe("Slideshow Presentation learner integration", () => {
       `dispose:${SECOND_SURFACE_ID}`,
     ]);
     expect(lifecycle.activeOwners).toBe(0);
+    expect(lifecycle.learners[1]?.listenerCount).toBe(0);
   });
 
   it("detaches outgoing Presentation snapshots before the incoming Surface is authoritative", async () => {
     const outgoingPresentation = createControllablePresentationSession(
       presentationSnapshot("completed"),
     );
+    const outgoingLearner = createControllableLearnerRuntime("inactive");
     slideshowRuntimeTestProbe.createComposition = (rawInput) => {
       const input = rawInput as CreateSlideshowSurfaceRuntimeCompositionInput;
       return testComposition(
         input,
         input.surfaceId === FIRST_SURFACE_ID ? outgoingPresentation.session : undefined,
+        input.surfaceId === FIRST_SURFACE_ID
+          ? outgoingLearner.runtime
+          : inactiveLearnerRuntime(),
       );
     };
     const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
@@ -767,12 +859,19 @@ describe("Slideshow Presentation learner integration", () => {
 
     const next = await screen.findByRole("button", { name: "Next slide" });
     await waitFor(() => expect(outgoingPresentation.listenerCount).toBe(2));
+    await waitFor(() => expect(outgoingLearner.listenerCount).toBe(1));
     const staleGuardListener = outgoingPresentation.capturedListeners[0];
+    const stalePresentationListener = outgoingPresentation.capturedListeners[1];
+    const staleGateListener = outgoingLearner.capturedListeners[0];
     if (!staleGuardListener) throw new Error("Expected the outgoing guard subscription.");
+    if (!stalePresentationListener || !staleGateListener) {
+      throw new Error("Expected outgoing Presentation and gate projection subscriptions.");
+    }
     await userEvent.click(next);
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 of 2"));
     await waitFor(() => expect(outgoingPresentation.listenerCount).toBe(0));
+    expect(outgoingLearner.listenerCount).toBe(0);
     expect(outgoingPresentation.dispose).toHaveBeenCalledOnce();
 
     act(() => outgoingPresentation.setSnapshot(presentationSnapshot("awaiting-start")));
@@ -783,12 +882,18 @@ describe("Slideshow Presentation learner integration", () => {
       presentationWaitingSnapshot(FIRST_SURFACE_ID, "stale-wait01" as PresentationWaitId),
     );
     act(() => staleGuardListener());
+    act(() => {
+      outgoingLearner.replaceSnapshot("satisfaction-observed");
+      stalePresentationListener();
+      staleGateListener();
+    });
 
     expect(surfaceExitEnvironment().getSnapshot()).toEqual({
       status: "allowed",
       surfaceId: SECOND_SURFACE_ID,
       blockers: [],
     });
+    expect(document.querySelector(".sc-slideshow-player__canvas")).not.toHaveAttribute("inert");
     expect(screen.getByRole("button", { name: "Previous slide" })).not.toBeDisabled();
   });
 
@@ -821,6 +926,7 @@ describe("Slideshow Presentation learner integration", () => {
     await waitFor(() => expect(onRendererReady).toHaveBeenCalledOnce());
     await waitFor(() => expect(lifecycle.events).toEqual([`create:${FIRST_SURFACE_ID}`]));
     await waitFor(() => expect(presentations[0]?.listenerCount).toBe(2));
+    expect(lifecycle.learners[0]?.listenerCount).toBe(1);
 
     rerender(
       <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
@@ -846,11 +952,14 @@ describe("Slideshow Presentation learner integration", () => {
     expect(presentations[0]?.listenerCount).toBe(0);
     expect(presentations[0]?.dispose).toHaveBeenCalledOnce();
     expect(presentations.at(-1)?.listenerCount).toBe(2);
+    expect(lifecycle.learners[0]?.listenerCount).toBe(0);
+    expect(lifecycle.learners.at(-1)?.listenerCount).toBe(1);
 
     unmount();
     expect(lifecycle.activeOwners).toBe(0);
     expect(presentations.at(-1)?.listenerCount).toBe(0);
     expect(presentations.at(-1)?.dispose).toHaveBeenCalledOnce();
+    expect(lifecycle.learners.at(-1)?.listenerCount).toBe(0);
   });
 
   it("ignores cancelled readiness from a replaced Editor", async () => {
@@ -936,6 +1045,7 @@ describe("Slideshow Presentation learner integration", () => {
     );
     await waitFor(() => expect(lifecycle.events).toEqual([`create:${FIRST_SURFACE_ID}`]));
     await waitFor(() => expect(presentations[0]?.listenerCount).toBe(2));
+    expect(lifecycle.learners[0]?.listenerCount).toBe(1);
     const reprojectedStructure = projectCourseStructure(prepared.preparedDocument.content);
     if (!reprojectedStructure || reprojectedStructure.mode !== "slideshow") {
       throw new Error("Expected a reprojected Slideshow structure.");
@@ -964,6 +1074,8 @@ describe("Slideshow Presentation learner integration", () => {
     expect(presentations[0]?.listenerCount).toBe(0);
     expect(presentations[0]?.dispose).toHaveBeenCalledOnce();
     expect(presentations.at(-1)?.listenerCount).toBe(2);
+    expect(lifecycle.learners[0]?.listenerCount).toBe(0);
+    expect(lifecycle.learners.at(-1)?.listenerCount).toBe(1);
 
     unmount();
 
@@ -971,6 +1083,7 @@ describe("Slideshow Presentation learner integration", () => {
     expect(lifecycle.disposals).toBe(lifecycle.creations);
     expect(presentations.at(-1)?.listenerCount).toBe(0);
     expect(presentations.at(-1)?.dispose).toHaveBeenCalledOnce();
+    expect(lifecycle.learners.at(-1)?.listenerCount).toBe(0);
   });
 
   it("blocks Previous and Course Section navigation until the active learner Wait passes", async () => {
@@ -1670,6 +1783,7 @@ function createCompositionLifecycleProbe(
   let maximumActiveOwners = 0;
   let creations = 0;
   let disposals = 0;
+  const learners: ReturnType<typeof createControllableLearnerRuntime>[] = [];
   const createComposition = (input: unknown): SlideshowSurfaceRuntimeComposition => {
     const { surfaceId } = input as CreateSlideshowSurfaceRuntimeCompositionInput;
     creations += 1;
@@ -1677,10 +1791,12 @@ function createCompositionLifecycleProbe(
     maximumActiveOwners = Math.max(maximumActiveOwners, activeOwners);
     events.push(`create:${surfaceId}`);
     const presentationSession = createPresentationSession(surfaceId);
+    const learner = createControllableLearnerRuntime("inactive");
+    learners.push(learner);
     let disposed = false;
     return Object.freeze({
       surfaceId,
-      learnerRuntime: inactiveLearnerRuntime(),
+      learnerRuntime: learner.runtime,
       ...(presentationSession ? { presentationSession } : {}),
       dispose() {
         if (disposed) return;
@@ -1694,6 +1810,7 @@ function createCompositionLifecycleProbe(
   };
   return {
     events,
+    learners,
     createComposition,
     get activeOwners() {
       return activeOwners;
@@ -1719,16 +1836,22 @@ function createControllableLearnerRuntime(
 ) {
   let snapshot = Object.freeze({ status: initialStatus }) as PresentationGateObservationSnapshot;
   const listeners = new Set<() => void>();
+  const capturedListeners: Array<() => void> = [];
   const runtime = Object.freeze({
     getGateObservationSnapshot: () => snapshot,
     subscribeGateObservation(listener: () => void) {
       listeners.add(listener);
+      capturedListeners.push(listener);
       return () => listeners.delete(listener);
     },
   }) as unknown as SlideshowSurfaceRuntimeComposition["learnerRuntime"];
 
   return {
     runtime,
+    capturedListeners,
+    replaceSnapshot(status: PresentationGateObservationSnapshot["status"]) {
+      snapshot = Object.freeze({ status }) as PresentationGateObservationSnapshot;
+    },
     setSnapshot(status: PresentationGateObservationSnapshot["status"]) {
       snapshot = Object.freeze({ status }) as PresentationGateObservationSnapshot;
       for (const listener of [...listeners]) listener();
