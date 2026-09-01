@@ -106,6 +106,7 @@
     "@tiptap/react": "^3.10.1",
     "@tiptap/starter-kit": "^3.10.1",
     "@tiptap/suggestion": "^3.17.1",
+    "animejs": "4.5.0",
     "aria-hidden": "^1.2.6",
     "better-result": "3.0.1",
     "class-variance-authority": "^0.7.1",
