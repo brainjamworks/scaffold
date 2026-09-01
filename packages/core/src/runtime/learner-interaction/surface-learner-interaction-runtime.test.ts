@@ -78,11 +78,6 @@ async function flushPromises(): Promise<void> {
   for (let index = 0; index < 8; index += 1) await Promise.resolve();
 }
 
-async function flushGateObservationBoundary(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  await flushPromises();
-}
-
 function eventReference(
   ownerId: EmbeddedNodeId,
   targetId: EmbeddedNodeId,
@@ -185,6 +180,45 @@ it("publishes gate satisfaction observation before the matching event turn settl
   expect(runtime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
   expect(statuses).toEqual(["awaiting-satisfaction", "satisfaction-observed", "inactive"]);
   runtime.dispose();
+});
+
+it("starts a satisfying event turn without scheduling a host timer", async () => {
+  const selected = eventReference(OWNER_A_ID, TARGET_A_ID, "selected");
+  const ownerEvents = createTestEventSource();
+  const execute = vi.fn(async () => Result.ok());
+  const binding = {
+    ownerId: OWNER_A_ID,
+    eventSource: ownerEvents.eventSource,
+    commandExecutor: { execute },
+  };
+  const runtime = createSurfaceLearnerInteractionRuntime({
+    program: programWithBuckets([[selected, [commandRule("rule-no-host-timer", selected)]]]),
+    controlBindings: { get: vi.fn(() => binding) },
+    semanticTargets: { activate: vi.fn() },
+    surfaceNavigation: {
+      navigate: vi.fn(async () => Result.err({ reason: "cancelled" as const })),
+    },
+    semanticInteractionOrigin: "learner-interaction-rule",
+  });
+  const gate = runtime.waitUntilSatisfied(
+    { kind: "event", ownerId: OWNER_A_ID, targetId: TARGET_A_ID, type: "selected" },
+    { signal: new AbortController().signal },
+  );
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+  let scheduledTimerCount = 0;
+
+  try {
+    const [turnCompletion] = ownerEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
+    await turnCompletion;
+    await gate;
+    scheduledTimerCount = setTimeoutSpy.mock.calls.length;
+  } finally {
+    setTimeoutSpy.mockRestore();
+    runtime.dispose();
+  }
+
+  expect(execute).toHaveBeenCalledOnce();
+  expect(scheduledTimerCount).toBe(0);
 });
 
 it("reopens a state gate when its pre-turn satisfaction no longer holds after commands", async () => {
@@ -702,7 +736,7 @@ it("delivers the successful navigation report before making the outgoing runtime
   });
 
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
-  await flushGateObservationBoundary();
+  await flushPromises();
   expect(navigate).toHaveBeenCalledTimes(1);
   expect(navigate).toHaveBeenCalledWith(SURFACE_ID, expect.any(AbortSignal), {
     satisfiesActiveLearnerRequirement: true,
@@ -857,7 +891,7 @@ it("aborts active work and suppresses queued and stale reports on idempotent dis
   });
 
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "first" });
-  await flushGateObservationBoundary();
+  await flushPromises();
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "second" });
   expect(execute).toHaveBeenCalledTimes(1);
 
@@ -915,7 +949,7 @@ it("surfaces a rejected turn defect and terminates before starting queued work",
   });
 
   const [turnCompletion] = ownerEvents.emit({ targetId: TARGET_A_ID, type: "first" });
-  await flushGateObservationBoundary();
+  await flushPromises();
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "second" });
 
   firstExecution.reject(sentinelDefect);
@@ -970,6 +1004,61 @@ it("publishes inactive before a turn fault disconnects gate observers", async ()
   await expect(turnCompletion).rejects.toBe(sentinelDefect);
   expect(statuses).toEqual(["awaiting-satisfaction", "inactive"]);
   expect(runtime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
+});
+
+it("preserves fault teardown invariants when a gate observer throws", async () => {
+  const failingReference = eventReference(OWNER_A_ID, TARGET_A_ID, "faulting-event");
+  const ownerEvents = createTestEventSource();
+  const turnDefect = new Error("learner turn defect");
+  const observerDefect = new Error("gate observer defect");
+  const binding = {
+    ownerId: OWNER_A_ID,
+    eventSource: ownerEvents.eventSource,
+    commandExecutor: {
+      execute: vi.fn(async () => {
+        throw turnDefect;
+      }),
+    },
+  };
+  const runtime = createSurfaceLearnerInteractionRuntime({
+    program: programWithBuckets([
+      [failingReference, [commandRule("rule-observer-fault", failingReference)]],
+    ]),
+    controlBindings: { get: vi.fn(() => binding) },
+    semanticTargets: { activate: vi.fn() },
+    surfaceNavigation: {
+      navigate: vi.fn(async () => Result.err({ reason: "cancelled" as const })),
+    },
+    semanticInteractionOrigin: "learner-interaction-rule",
+  });
+  runtime.subscribeGateObservation(() => {
+    if (runtime.getGateObservationSnapshot().status === "inactive") throw observerDefect;
+  });
+  void runtime.waitUntilSatisfied(
+    { kind: "event", ownerId: OWNER_A_ID, targetId: TARGET_A_ID, type: "required-event" },
+    { signal: new AbortController().signal },
+  );
+
+  const [turnCompletion] = ownerEvents.emit({
+    targetId: TARGET_A_ID,
+    type: "faulting-event",
+  });
+  expect(turnCompletion).toBeInstanceOf(Promise);
+  if (!(turnCompletion instanceof Promise)) {
+    throw new Error("Expected the emitted learner turn to return a completion promise.");
+  }
+  const rejection = await turnCompletion.then(
+    () => undefined,
+    (error: unknown) => error,
+  );
+
+  expect(rejection).toBeInstanceOf(AggregateError);
+  if (!(rejection instanceof AggregateError)) throw new Error("Expected aggregated defects.");
+  expect(rejection.errors).toEqual([turnDefect, observerDefect]);
+  expect(rejection.cause).toBe(turnDefect);
+  expect(runtime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
+  expect(ownerEvents.listenerCount).toBe(0);
+  expect(ownerEvents.unsubscriptionsCompleted).toBe(1);
 });
 
 it("observes an exact post-registration event and settles its gate after report delivery", async () => {
@@ -1180,7 +1269,7 @@ it("does not settle an event gate aborted after its match while the turn is pend
   });
 
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
-  await flushGateObservationBoundary();
+  await flushPromises();
   expect(execute).toHaveBeenCalledTimes(1);
   firstGateController.abort();
 

@@ -1,12 +1,7 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import type { Editor as TiptapEditor } from "@tiptap/core";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { flushSync } from "react-dom";
 
 import { getControlBindingRegistryForEditor } from "@/document/control-binding";
 import type { SurfaceId } from "@/document/model/course-structure";
@@ -176,7 +171,10 @@ export function useSlideshowSurfaceRuntime({
   const learnerRuntime = currentRuntime?.composition.learnerRuntime;
   const subscribeGateObservation = useCallback(
     (listener: () => void) =>
-      learnerRuntime?.subscribeGateObservation(listener) ?? (() => undefined),
+      learnerRuntime?.subscribeGateObservation(() => {
+        // Commit closing inertness before the learner runtime enters the responsible rule turn.
+        flushSync(listener);
+      }) ?? (() => undefined),
     [learnerRuntime],
   );
   const getGateObservationSnapshot = useCallback(

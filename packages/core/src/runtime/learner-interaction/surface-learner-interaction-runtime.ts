@@ -209,9 +209,23 @@ export function createSurfaceLearnerInteractionRuntime({
       queuedEvents.length = 0;
       reportListeners.clear();
       gateObservationListeners.clear();
-      cancelGate(activeGate);
-      currentOperation?.abort(disposalReason);
-      unsubscribeAllOwners(unsubscribeOwners);
+      const defects: unknown[] = [];
+      try {
+        cancelGate(activeGate);
+      } catch (error) {
+        appendDefects(defects, error);
+      }
+      try {
+        currentOperation?.abort(disposalReason);
+      } catch (error) {
+        appendDefects(defects, error);
+      }
+      try {
+        unsubscribeAllOwners(unsubscribeOwners);
+      } catch (error) {
+        appendDefects(defects, error);
+      }
+      throwCollectedDefects(defects, "Surface Learner Interaction disposal failed.");
     },
   };
 
@@ -232,10 +246,8 @@ export function createSurfaceLearnerInteractionRuntime({
     ) {
       activeGate.matchingEvent = queued;
       queued.matchingEventGate = activeGate;
-      queued.requiresGateObservationBoundary = true;
       publishGateObservation(SATISFIED_GATE_OBSERVATION);
     } else if (activeGate?.kind === "state" && stateGateIsSatisfied(activeGate)) {
-      queued.requiresGateObservationBoundary = true;
       publishGateObservation(SATISFIED_GATE_OBSERVATION);
     }
     queuedEvents.push(queued);
@@ -253,7 +265,17 @@ export function createSurfaceLearnerInteractionRuntime({
       (error: unknown) => {
         draining = false;
         if (phase === "disposed" && error === disposalReason) return;
-        terminate("faulted");
+        try {
+          terminate("faulted");
+        } catch (terminationDefect) {
+          const defects = [error];
+          appendDefects(defects, terminationDefect);
+          throw new AggregateError(
+            defects,
+            "Surface Learner Interaction turn and termination both failed.",
+            { cause: error },
+          );
+        }
         throw error;
       },
     );
@@ -263,10 +285,6 @@ export function createSurfaceLearnerInteractionRuntime({
     while (phase === "active") {
       const queued = queuedEvents.shift();
       if (!queued) return;
-      if (queued.requiresGateObservationBoundary) {
-        await waitForNextTask();
-        if (phase !== "active") return;
-      }
       const operation = new AbortController();
       currentOperation = operation;
       let report: LearnerInteractionTurnReport;
@@ -324,9 +342,19 @@ export function createSurfaceLearnerInteractionRuntime({
     phase = nextPhase;
     queuedEvents.length = 0;
     reportListeners.clear();
-    cancelGate(activeGate);
+    const defects: unknown[] = [];
+    try {
+      cancelGate(activeGate);
+    } catch (error) {
+      appendDefects(defects, error);
+    }
     gateObservationListeners.clear();
-    unsubscribeAllOwners(unsubscribeOwners);
+    try {
+      unsubscribeAllOwners(unsubscribeOwners);
+    } catch (error) {
+      appendDefects(defects, error);
+    }
+    throwCollectedDefects(defects, "Surface Learner Interaction termination failed.");
   }
 
   function requireGateBinding(ownerId: EmbeddedNodeId): ControlBinding {
@@ -404,8 +432,18 @@ export function createSurfaceLearnerInteractionRuntime({
     if (!gate || activeGate !== gate) return;
     activeGate = undefined;
     gate.signal.removeEventListener("abort", gate.onAbort);
-    gate.dynamicUnsubscribe?.();
-    publishGateObservation(INACTIVE_GATE_OBSERVATION);
+    const defects: unknown[] = [];
+    try {
+      gate.dynamicUnsubscribe?.();
+    } catch (error) {
+      appendDefects(defects, error);
+    }
+    try {
+      publishGateObservation(INACTIVE_GATE_OBSERVATION);
+    } catch (error) {
+      appendDefects(defects, error);
+    }
+    throwCollectedDefects(defects, "Presentation learner gate cancellation failed.");
   }
 
   function satisfyGate(gate: ActiveGate): void {
@@ -416,7 +454,15 @@ export function createSurfaceLearnerInteractionRuntime({
   function publishGateObservation(next: PresentationGateObservationSnapshot): void {
     if (gateObservation.status === next.status) return;
     gateObservation = next;
-    for (const listener of [...gateObservationListeners]) listener();
+    const defects: unknown[] = [];
+    for (const listener of [...gateObservationListeners]) {
+      try {
+        listener();
+      } catch (error) {
+        appendDefects(defects, error);
+      }
+    }
+    throwCollectedDefects(defects, "Presentation gate observation listeners failed.");
   }
 }
 
@@ -426,11 +472,6 @@ interface QueuedLearnerEvent {
   readonly ownerId: EmbeddedNodeId;
   readonly event: ControlEvent;
   matchingEventGate?: ActiveEventGate;
-  requiresGateObservationBoundary?: boolean;
-}
-
-function waitForNextTask(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 interface ActiveEventGate {
@@ -487,13 +528,27 @@ function requireStaticEventSources(
 }
 
 function unsubscribeAllOwners(unsubscribeOwners: (() => void)[]): void {
-  let firstDefect: unknown;
+  const defects: unknown[] = [];
   for (const unsubscribe of unsubscribeOwners.splice(0)) {
     try {
       unsubscribe();
     } catch (error) {
-      firstDefect ??= error;
+      appendDefects(defects, error);
     }
   }
-  if (firstDefect !== undefined) throw firstDefect;
+  throwCollectedDefects(defects, "Surface Learner Interaction owner cleanup failed.");
+}
+
+function appendDefects(defects: unknown[], error: unknown): void {
+  if (error instanceof AggregateError) {
+    defects.push(...error.errors);
+    return;
+  }
+  defects.push(error);
+}
+
+function throwCollectedDefects(defects: readonly unknown[], message: string): void {
+  if (defects.length === 0) return;
+  if (defects.length === 1) throw defects[0];
+  throw new AggregateError(defects, message, { cause: defects[0] });
 }
