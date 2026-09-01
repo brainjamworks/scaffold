@@ -6,6 +6,9 @@ import { sceneAt } from "./presentation-visual-scene";
 
 const SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
 const TARGET_ID = EmbeddedNodeIdSchema.parse("target000001");
+const SEQUENCE_ID = EmbeddedNodeIdSchema.parse("sequence0001");
+const SEQUENCE_A_ID = EmbeddedNodeIdSchema.parse("sequenceA001");
+const SEQUENCE_B_ID = EmbeddedNodeIdSchema.parse("sequenceB001");
 
 describe("sceneAt", () => {
   it.each([
@@ -53,6 +56,20 @@ describe("sceneAt", () => {
     expect(afterAgain).toEqual(after);
     expect(afterAgain).not.toBe(after);
   });
+
+  it.each([
+    { timeMs: 0, activeChildId: SEQUENCE_A_ID },
+    { timeMs: 1_000, activeChildId: SEQUENCE_B_ID },
+    { timeMs: 1_999, activeChildId: SEQUENCE_B_ID },
+    { timeMs: 2_000, activeChildId: SEQUENCE_A_ID },
+  ])(
+    "projects A → B → A Sequence ownership at a direct $timeMs ms seek",
+    ({ timeMs, activeChildId }) => {
+      expect(sceneAt(sequenceOwnershipProgram(), timeMs, "normal").sequenceStates).toEqual([
+        { boundaryId: SEQUENCE_ID, activeChildId },
+      ]);
+    },
+  );
 
   it("applies adjacent instant actions in stable segment order", () => {
     const program = revealProgram({
@@ -166,4 +183,52 @@ function instant(id: string, kind: "reveal" | "hide", atMs: number) {
     endMs: atMs,
     visual: { kind, transition: { kind: "instant" as const } },
   } as const;
+}
+
+function sequenceOwnershipProgram(): CompiledSurfacePresentationVisualProgram {
+  return {
+    surfaceId: SURFACE_ID,
+    durationMs: 3_000,
+    targetById: new Map([
+      [
+        SEQUENCE_A_ID,
+        {
+          targetId: SEQUENCE_A_ID,
+          initialVisibility: "visible",
+          sequence: { boundaryId: SEQUENCE_ID, directChildId: SEQUENCE_A_ID },
+        },
+      ],
+      [
+        SEQUENCE_B_ID,
+        {
+          targetId: SEQUENCE_B_ID,
+          initialVisibility: "withheld",
+          sequence: { boundaryId: SEQUENCE_ID, directChildId: SEQUENCE_B_ID },
+        },
+      ],
+    ]),
+    segments: [
+      {
+        id: EmbeddedDataIdSchema.parse("revealB00001"),
+        targetId: SEQUENCE_B_ID,
+        startMs: 1_000,
+        endMs: 1_000,
+        visual: { kind: "reveal", transition: { kind: "instant" } },
+      },
+      {
+        id: EmbeddedDataIdSchema.parse("revealA00001"),
+        targetId: SEQUENCE_A_ID,
+        startMs: 2_000,
+        endMs: 2_000,
+        visual: { kind: "reveal", transition: { kind: "instant" } },
+      },
+    ],
+    sequenceContainers: [
+      {
+        boundaryId: SEQUENCE_ID,
+        directChildIds: [SEQUENCE_A_ID, SEQUENCE_B_ID],
+        initialActiveChildId: SEQUENCE_A_ID,
+      },
+    ],
+  };
 }

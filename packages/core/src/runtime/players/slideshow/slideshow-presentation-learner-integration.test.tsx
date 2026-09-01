@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import type { EmbeddedNodeId } from "@scaffold/contracts";
+import { EmbeddedDataIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { Result } from "better-result";
 import {
@@ -28,6 +28,7 @@ import {
   type CompiledLearnerInteractionRule,
   type CompiledSurfaceLearnerInteractionProgram,
 } from "@/runtime/learner-interaction/compiled-learner-interaction-program";
+import type { CompiledSurfacePresentationVisualProgram } from "@/presentation/model";
 import type { PresentationWaitId } from "@/runtime/presentation/compiled-presentation-program";
 import type { PresentationGateObservationSnapshot } from "@/runtime/presentation/presentation-progression-gate";
 import type {
@@ -218,6 +219,7 @@ describe("Slideshow Presentation learner integration", () => {
         timeline: {
           surfaceId: FIRST_SURFACE_ID,
           durationMs: 100,
+          visualProgram: emptyVisualProgram(FIRST_SURFACE_ID, 100),
           waits: [
             {
               kind: "learner-wait",
@@ -240,7 +242,7 @@ describe("Slideshow Presentation learner integration", () => {
           ],
           cues: [
             {
-              id: "owner-cue",
+              id: EmbeddedDataIdSchema.parse("ownerCue0001"),
               atMs: 10,
               command: {
                 kind: "target-command",
@@ -250,7 +252,7 @@ describe("Slideshow Presentation learner integration", () => {
               },
             },
             {
-              id: "duplicate-cue",
+              id: EmbeddedDataIdSchema.parse("duplicateCue"),
               atMs: 30,
               command: {
                 kind: "target-command",
@@ -282,9 +284,10 @@ describe("Slideshow Presentation learner integration", () => {
         timeline: {
           surfaceId: SECOND_SURFACE_ID,
           durationMs: 100,
+          visualProgram: emptyVisualProgram(SECOND_SURFACE_ID, 100),
           cues: [
             {
-              id: "mismatched-owner-cue",
+              id: EmbeddedDataIdSchema.parse("mismatchCue1"),
               atMs: 0,
               command: {
                 kind: "target-command",
@@ -692,10 +695,11 @@ describe("Slideshow Presentation learner integration", () => {
         timeline: {
           surfaceId: FIRST_SURFACE_ID,
           durationMs: 100,
+          visualProgram: emptyVisualProgram(FIRST_SURFACE_ID, 100),
           waits: [],
           cues: [
             {
-              id: "pending-owner-cue",
+              id: EmbeddedDataIdSchema.parse("pendingCue01"),
               atMs: 0,
               command: {
                 kind: "target-command",
@@ -1682,9 +1686,10 @@ function createTabsLearnerWaitProgram(
       timeline: Object.freeze({
         surfaceId: FIRST_SURFACE_ID,
         durationMs,
+        visualProgram: emptyVisualProgram(FIRST_SURFACE_ID, durationMs),
         cues: Object.freeze([
           {
-            id: "select-overview-at-start",
+            id: EmbeddedDataIdSchema.parse("selectStart1"),
             atMs: 0,
             command: {
               kind: "target-command",
@@ -1748,9 +1753,10 @@ function createTabsStateWaitProgram(
       timeline: Object.freeze({
         surfaceId: FIRST_SURFACE_ID,
         durationMs: 0,
+        visualProgram: emptyVisualProgram(FIRST_SURFACE_ID, 0),
         cues: Object.freeze([
           Object.freeze({
-            id: "select-overview-for-state-wait",
+            id: EmbeddedDataIdSchema.parse("selectState1"),
             atMs: 0,
             command: Object.freeze({
               kind: "target-command" as const,
@@ -1813,9 +1819,10 @@ function createTabsLearnerNavigationProgram(
       timeline: Object.freeze({
         surfaceId: FIRST_SURFACE_ID,
         durationMs: 0,
+        visualProgram: emptyVisualProgram(FIRST_SURFACE_ID, 0),
         cues: Object.freeze([
           Object.freeze({
-            id: "select-overview-at-start",
+            id: EmbeddedDataIdSchema.parse("selectStart1"),
             atMs: 0,
             command: Object.freeze({
               kind: "target-command" as const,
@@ -1974,6 +1981,7 @@ function configuredPresentationProgram(surfaceId: SurfaceId): SlideshowSurfaceRu
       timeline: Object.freeze({
         surfaceId,
         durationMs: 100,
+        visualProgram: emptyVisualProgram(surfaceId, 100),
         cues: Object.freeze([]),
         waits: Object.freeze([]),
       }),
@@ -1991,10 +1999,11 @@ function presentationProgramWithOwner(
       timeline: Object.freeze({
         surfaceId,
         durationMs: 100,
+        visualProgram: emptyVisualProgram(surfaceId, 100),
         waits: Object.freeze([]),
         cues: Object.freeze([
           Object.freeze({
-            id: "owner-readiness-cue",
+            id: EmbeddedDataIdSchema.parse("ownerReady01"),
             atMs: 0,
             command: Object.freeze({
               kind: "target-command" as const,
@@ -2026,6 +2035,19 @@ function presentationSnapshot(
   }
   if (hold) throw new Error(`A ${phase} Presentation test snapshot cannot contain hold detail.`);
   return Object.freeze({ ...base, phase });
+}
+
+function emptyVisualProgram(
+  surfaceId: SurfaceId,
+  durationMs: number,
+): CompiledSurfacePresentationVisualProgram {
+  return Object.freeze({
+    surfaceId,
+    durationMs,
+    targetById: new Map(),
+    segments: Object.freeze([]),
+    sequenceContainers: Object.freeze([]),
+  });
 }
 
 function presentationWaitingSnapshot(

@@ -47,7 +47,7 @@ describe("VisualTargetResolver", () => {
     expect(resolver.resolve(TARGET_ID)).toMatchObject({ kind: "resolved", element: replacement });
   });
 
-  it("reuses only a connected in-Surface cache and clears idempotently", () => {
+  it("revalidates uniqueness on every resolution and clears idempotently", () => {
     const surfaceRoot = document.createElement("section");
     surfaceRoot.append(targetElement(TARGET_ID));
     document.body.append(surfaceRoot);
@@ -56,12 +56,12 @@ describe("VisualTargetResolver", () => {
 
     resolver.resolve(TARGET_ID);
     resolver.resolve(TARGET_ID);
-    expect(query).toHaveBeenCalledTimes(1);
+    expect(query).toHaveBeenCalledTimes(2);
 
     resolver.clear();
     resolver.clear();
     resolver.resolve(TARGET_ID);
-    expect(query).toHaveBeenCalledTimes(2);
+    expect(query).toHaveBeenCalledTimes(3);
   });
 
   it("ignores duplicate IDs mounted in another Surface", () => {
@@ -86,6 +86,18 @@ describe("VisualTargetResolver", () => {
     expect(() => createVisualTargetResolver(surfaceRoot).resolve(TARGET_ID)).toThrow(
       /duplicate.*anchor/i,
     );
+  });
+
+  it("throws when a duplicate anchor mounts after a successful resolution", () => {
+    const surfaceRoot = document.createElement("section");
+    surfaceRoot.append(targetElement(TARGET_ID));
+    document.body.append(surfaceRoot);
+    const resolver = createVisualTargetResolver(surfaceRoot);
+
+    expect(resolver.resolve(TARGET_ID)).toMatchObject({ kind: "resolved" });
+    surfaceRoot.append(targetElement(TARGET_ID));
+
+    expect(() => resolver.resolve(TARGET_ID)).toThrow(/duplicate.*anchor/i);
   });
 });
 

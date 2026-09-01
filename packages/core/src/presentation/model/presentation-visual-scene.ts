@@ -77,7 +77,7 @@ export function sceneAt(
     applySegment(state, segment, timeMs, motionMode);
   }
 
-  const activeChildByBoundaryId = projectSequenceOwnership(program, mutableByTargetId);
+  const activeChildByBoundaryId = projectSequenceOwnership(program, mutableByTargetId, timeMs);
   const targetStates = new Map<EmbeddedNodeId, PresentationTargetSceneState>();
   for (const target of program.targetById.values()) {
     const state = mutableByTargetId.get(target.targetId)!;
@@ -165,11 +165,13 @@ function applySegment(
 function projectSequenceOwnership(
   program: CompiledSurfacePresentationVisualProgram,
   states: ReadonlyMap<EmbeddedNodeId, MutableTargetState>,
+  timeMs: number,
 ): Map<EmbeddedNodeId, EmbeddedNodeId | null> {
   const activeByBoundaryId = new Map<EmbeddedNodeId, EmbeddedNodeId | null>();
   for (const container of program.sequenceContainers) {
     let activeChildId = container.initialActiveChildId;
     for (const segment of program.segments) {
+      if (timeMs < segment.startMs) continue;
       const target = program.targetById.get(segment.targetId)!;
       if (
         !target.sequence ||
