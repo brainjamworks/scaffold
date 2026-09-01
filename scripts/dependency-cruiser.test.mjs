@@ -1613,6 +1613,45 @@ test("reports named neutral owner and leaf-to-composition inversions", async (t)
   assert.match(output, /core-leaves-do-not-reach-lane-composition-roots/);
 });
 
+test("classifies the Presentation model as a neutral owner below authoring and runtime", async (t) => {
+  const fixtureRoot = await createFixture(t, {
+    "node_modules/react/package.json": JSON.stringify({
+      name: "react",
+      type: "module",
+      exports: "./index.js",
+    }),
+    "node_modules/react/index.js": "export interface ReactFixtureType { id: string }\n",
+    "packages/core/src/presentation/model/index.ts": "export interface VisualProgram { id: string }\n",
+    "packages/core/src/editor/presentation/consumer.ts": [
+      'import type { VisualProgram } from "../../presentation/model/index";',
+      "export type AuthoringVisualProgram = VisualProgram;",
+    ].join("\n"),
+    "packages/core/src/runtime/presentation/consumer.ts": [
+      'import type { VisualProgram } from "../../presentation/model/index";',
+      "export type RuntimeVisualProgram = VisualProgram;",
+    ].join("\n"),
+  });
+
+  const allowed = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+  assert.equal(allowed.status, 0, allowed.stderr || allowed.stdout);
+
+  await writeFile(
+    path.join(fixtureRoot, "packages/core/src/presentation/model/index.ts"),
+    [
+      'import type { ReactFixtureType } from "react";',
+      'import type { RuntimeVisualProgram } from "../../runtime/presentation/consumer";',
+      "export type VisualProgram = ReactFixtureType | RuntimeVisualProgram;",
+    ].join("\n"),
+    "utf8",
+  );
+
+  const rejected = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+  const output = `${rejected.stdout}\n${rejected.stderr}`;
+  assert.notEqual(rejected.status, 0, output);
+  assert.match(output, /classified-neutral-owners-do-not-import-react-or-css/);
+  assert.match(output, /presentation-model-does-not-reach-higher-owners/);
+});
+
 test("allows target adapters to consume the framework-neutral kernel and vanilla store", async (t) => {
   const fixtureRoot = await createFixture(t, {
     "node_modules/react/package.json": JSON.stringify({

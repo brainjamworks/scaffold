@@ -91,9 +91,11 @@ const blockConstructionOwnerPath =
   "^packages/core/src/editor/blocks/(?:block-definition|block-registry|built-in-block-definitions)\\.[^/]+$";
 const auditedNeutralSelectionPath =
   "^packages/core/src/editor/selection/(?:block-context|course-selection-projection|selection-facts|selection-transactions)\\.ts$";
+const presentationModelPath = "^packages/core/src/presentation/model/";
 const classifiedNeutralOwnerPath = [
   "^packages/core/src/document/model/",
   "^packages/core/src/composition/model/",
+  presentationModelPath,
   blockConstructionOwnerPath,
   "^packages/core/src/editor/arrangements/grid/model/",
   "^packages/core/src/editor/arrangements/layout/model/",
@@ -752,6 +754,19 @@ module.exports = {
       severity: "error",
       from: {
         path: "^packages/core/src/document/model/",
+      },
+      to: {
+        path: higherCoreOwnerPath,
+        reachable: true,
+      },
+    },
+    {
+      // Owner: the neutral Presentation compiler and scene seam. Authoring and runtime consume it;
+      // the model cannot reach either implementation lane.
+      name: "presentation-model-does-not-reach-higher-owners",
+      severity: "error",
+      from: {
+        path: presentationModelPath,
       },
       to: {
         path: higherCoreOwnerPath,
