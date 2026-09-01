@@ -10,6 +10,7 @@ import type {
 export interface PresentationMoveContribution {
   readonly segmentId: EmbeddedDataId;
   readonly progress: number;
+  readonly visual: Extract<CompiledVisualIntent, { readonly kind: "move" }>;
 }
 
 export type PresentationTargetPaintState =
@@ -131,12 +132,14 @@ function applySegment(
   const reduced = motionMode === "reduced-motion";
   const active = durationMs > 0 && timeMs < segment.endMs;
   const progress = active ? clampProgress((timeMs - segment.startMs) / durationMs) : 1;
-  const transitionPaint = (): PresentationTargetPaintState =>
+  const transitionPaint = (
+    visual: CompiledVisualIntent = segment.visual,
+  ): PresentationTargetPaintState =>
     Object.freeze({
       kind: "transition",
       segmentId: segment.id,
       progress,
-      visual: segment.visual,
+      visual,
     });
 
   state.outgoingTransition = false;
@@ -152,12 +155,22 @@ function applySegment(
       return;
     case "move":
       state.moveContributions.push(
-        Object.freeze({ segmentId: segment.id, progress: reduced ? 1 : progress }),
+        Object.freeze({
+          segmentId: segment.id,
+          progress: reduced ? 1 : progress,
+          visual: segment.visual,
+        }),
       );
       state.paint = active && !reduced ? transitionPaint() : settledPaint();
       return;
     case "emphasize":
-      state.paint = active && !reduced ? transitionPaint() : settledPaint();
+      state.paint = active
+        ? transitionPaint(
+            reduced && segment.visual.effect === "pulse"
+              ? Object.freeze({ ...segment.visual, effect: "outline" })
+              : segment.visual,
+          )
+        : settledPaint();
       return;
   }
 }
@@ -182,10 +195,7 @@ function projectSequenceOwnership(
       }
       if (segment.visual.kind === "reveal") activeChildId = target.sequence.directChildId;
     }
-    if (
-      activeChildId !== null &&
-      !container.directChildIds.includes(activeChildId)
-    ) {
+    if (activeChildId !== null && !container.directChildIds.includes(activeChildId)) {
       throw new Error(
         `Presentation Sequence "${container.boundaryId}" has an unknown active child.`,
       );
@@ -199,10 +209,12 @@ function assertProgram(program: CompiledSurfacePresentationVisualProgram): void 
   if (!Number.isSafeInteger(program.durationMs) || program.durationMs < 0) {
     throw new Error("Presentation visual program duration is invalid.");
   }
-  const timedEndByTargetId = new Map<EmbeddedNodeId, number>();
+  const timedSegmentByTargetId = new Map<EmbeddedNodeId, CompiledVisualSegment>();
   for (const segment of program.segments) {
     if (!program.targetById.has(segment.targetId)) {
-      throw new Error(`Presentation visual segment references unknown target "${segment.targetId}".`);
+      throw new Error(
+        `Presentation visual segment references unknown target "${segment.targetId}".`,
+      );
     }
     if (
       !Number.isSafeInteger(segment.startMs) ||
@@ -214,11 +226,13 @@ function assertProgram(program: CompiledSurfacePresentationVisualProgram): void 
       throw new Error(`Presentation visual segment "${segment.id}" has invalid time bounds.`);
     }
     if (segment.endMs === segment.startMs) continue;
-    const priorEnd = timedEndByTargetId.get(segment.targetId);
-    if (priorEnd !== undefined && segment.startMs < priorEnd) {
-      throw new Error(`Presentation visual segments overlap on target "${segment.targetId}".`);
+    const prior = timedSegmentByTargetId.get(segment.targetId);
+    if (prior && segment.startMs < prior.endMs) {
+      throw new Error(
+        `Presentation visual segments "${prior.id}" and "${segment.id}" overlap on target "${segment.targetId}".`,
+      );
     }
-    timedEndByTargetId.set(segment.targetId, segment.endMs);
+    timedSegmentByTargetId.set(segment.targetId, segment);
   }
 }
 

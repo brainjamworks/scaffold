@@ -1,6 +1,9 @@
+import { Result, type Result as ResultType } from "better-result";
 import type {
+  EmbeddedDataId,
   EmbeddedNodeId,
   PresentationConfigurationV1,
+  PresentationVisualCapabilityId,
   SurfacePresentationTimelineV1,
   TimelineActionV1,
   TimelineAnimateActionV1,
@@ -32,20 +35,73 @@ export interface CompilePresentationInput {
   readonly semanticSnapshot: SemanticDocumentSnapshot;
 }
 
+export type PresentationCompilationError =
+  | {
+      readonly reason: "surface-coverage-stale";
+      readonly configuredSurfaceIds: readonly EmbeddedNodeId[];
+      readonly currentSurfaceIds: readonly EmbeddedNodeId[];
+    }
+  | {
+      readonly reason: "surface-coverage-missing";
+      readonly surfaceId: EmbeddedNodeId;
+    }
+  | {
+      readonly reason: "navigation-destination-not-current";
+      readonly surfaceId: EmbeddedNodeId;
+      readonly actionId: EmbeddedDataId;
+      readonly destinationSurfaceId: EmbeddedNodeId;
+    }
+  | {
+      readonly reason: "target-not-current";
+      readonly surfaceId: EmbeddedNodeId;
+      readonly actionId: EmbeddedDataId;
+      readonly targetId: EmbeddedNodeId;
+    }
+  | {
+      readonly reason: "target-moved-to-another-surface";
+      readonly surfaceId: EmbeddedNodeId;
+      readonly currentSurfaceId: EmbeddedNodeId;
+      readonly actionId: EmbeddedDataId;
+      readonly targetId: EmbeddedNodeId;
+    }
+  | {
+      readonly reason: "visual-capability-unavailable";
+      readonly surfaceId: EmbeddedNodeId;
+      readonly actionId: EmbeddedDataId;
+      readonly targetId: EmbeddedNodeId;
+      readonly capability: PresentationVisualCapabilityId;
+    }
+  | {
+      readonly reason: "same-target-timed-overlap";
+      readonly surfaceId: EmbeddedNodeId;
+      readonly targetId: EmbeddedNodeId;
+      readonly earlierActionId: EmbeddedDataId;
+      readonly laterActionId: EmbeddedDataId;
+    };
+
+export type PresentationCompilationResult = ResultType<
+  CompiledPresentationPlaybackProgram | null,
+  PresentationCompilationError
+>;
+
 export function compilePresentation({
   configuration,
   courseStructure,
   semanticSnapshot,
-}: CompilePresentationInput): CompiledPresentationPlaybackProgram | null {
-  if (configuration === null || configuration === undefined) return null;
-  assertSurfaceCoverage(configuration, courseStructure, semanticSnapshot);
+}: CompilePresentationInput): PresentationCompilationResult {
+  if (configuration === null || configuration === undefined) return Result.ok(null);
+  const coverage = validateSurfaceCoverage(configuration, courseStructure, semanticSnapshot);
+  if (coverage.isErr()) return Result.err(coverage.error);
 
   const sourceBySurfaceId = new Map(
     configuration.surfaces.map((surface) => [surface.surfaceId, surface]),
   );
-  const surfaces = courseStructure.surfaceIds.map((surfaceId) =>
-    compileSurface(sourceBySurfaceId.get(surfaceId)!, semanticSnapshot),
-  );
+  const surfaces: CompiledSurfacePresentationTimeline[] = [];
+  for (const surfaceId of courseStructure.surfaceIds) {
+    const compiled = compileSurface(sourceBySurfaceId.get(surfaceId)!, semanticSnapshot);
+    if (compiled.isErr()) return Result.err(compiled.error);
+    surfaces.push(compiled.value);
+  }
   const program: CompiledPresentationPlaybackProgram = {
     schemaVersion: configuration.schemaVersion,
     autoAdvance: configuration.autoAdvance,
@@ -53,71 +109,75 @@ export function compilePresentation({
     surfaces: Object.freeze(surfaces),
     surfaceById: new Map(surfaces.map((surface) => [surface.surfaceId, surface])),
   };
-  return Object.freeze(program);
+  return Result.ok(Object.freeze(program));
 }
 
-function assertSurfaceCoverage(
+function validateSurfaceCoverage(
   configuration: PresentationConfigurationV1,
   courseStructure: ProjectedSlideshowCourseStructure,
   semanticSnapshot: SemanticDocumentSnapshot,
-): void {
-  if (configuration.surfaces.length !== courseStructure.surfaceIds.length) {
-    throw new Error("Presentation Surface coverage does not match the current Slideshow.");
+): ResultType<void, PresentationCompilationError> {
+  const configuredSurfaceIds = configuration.surfaces.map(({ surfaceId }) => surfaceId);
+  const currentSurfaceIds = [...courseStructure.surfaceIds];
+  const configuredIds = new Set(configuredSurfaceIds);
+  if (
+    configuredSurfaceIds.length !== currentSurfaceIds.length ||
+    currentSurfaceIds.some((surfaceId) => !configuredIds.has(surfaceId))
+  ) {
+    return Result.err(
+      Object.freeze({
+        reason: "surface-coverage-stale" as const,
+        configuredSurfaceIds: Object.freeze(configuredSurfaceIds),
+        currentSurfaceIds: Object.freeze(currentSurfaceIds),
+      }),
+    );
   }
-  const configuredIds = new Set(configuration.surfaces.map(({ surfaceId }) => surfaceId));
   for (const surfaceId of courseStructure.surfaceIds) {
-    if (!configuredIds.has(surfaceId)) {
-      throw new Error(`Presentation Surface coverage is missing "${surfaceId}".`);
-    }
     const item = semanticSnapshot.itemById.get(surfaceId);
     if (!item || item.kind !== "surface") {
-      throw new Error(`Presentation Surface "${surfaceId}" is not a current semantic Surface.`);
+      return Result.err(Object.freeze({ reason: "surface-coverage-missing" as const, surfaceId }));
     }
   }
+  return Result.ok();
 }
 
 function compileSurface(
   source: SurfacePresentationTimelineV1,
   snapshot: SemanticDocumentSnapshot,
-): CompiledSurfacePresentationTimeline {
+): ResultType<CompiledSurfacePresentationTimeline, PresentationCompilationError> {
   assertSafeTime(source.durationMs, `Surface "${source.surfaceId}" duration`);
   const scheduled = source.actions
     .map((action, sourceOrder) => ({ action, sourceOrder }))
     .filter(({ action }) => action.isEnabled);
 
-  const cues = scheduled
-    .filter(
-      (entry): entry is { action: Extract<TimelineActionV1, { kind: "trigger" }>; sourceOrder: number } =>
-        entry.action.kind === "trigger",
-    )
-    .map(({ action, sourceOrder }) => {
-      const command = compileCommand(action.command, source.surfaceId, snapshot);
-      return {
+  const cues: Array<{ readonly value: CompiledPresentationCue; readonly sourceOrder: number }> = [];
+  const waits: Array<{ readonly value: CompiledPresentationWait; readonly sourceOrder: number }> =
+    [];
+  for (const { action, sourceOrder } of scheduled) {
+    if (action.kind === "trigger") {
+      const command = compileCommand(action, source.surfaceId, snapshot);
+      if (command.isErr()) return Result.err(command.error);
+      cues.push({
         value: Object.freeze({
           id: action.id,
           atMs: action.atMs,
-          command,
-          seekBehavior: classifyCueSeekBehavior(command, snapshot),
+          command: command.value,
+          seekBehavior: classifyCueSeekBehavior(command.value, snapshot),
         }) satisfies CompiledPresentationCue,
         sourceOrder,
-      };
-    });
-  const waits = scheduled
-    .filter(
-      (entry): entry is {
-        action: Extract<TimelineActionV1, { kind: "manual-wait" | "learner-wait" }>;
-        sourceOrder: number;
-      } => entry.action.kind === "manual-wait" || entry.action.kind === "learner-wait",
-    )
-    .map(({ action, sourceOrder }) => ({
-      value: compileWait(action, source.surfaceId, snapshot),
-      sourceOrder,
-    }));
+      });
+    } else if (action.kind === "manual-wait" || action.kind === "learner-wait") {
+      const wait = compileWait(action, source.surfaceId, snapshot);
+      if (wait.isErr()) return Result.err(wait.error);
+      waits.push({ value: wait.value, sourceOrder });
+    }
+  }
   const animateEntries = scheduled.filter(
     (entry): entry is { action: TimelineAnimateActionV1; sourceOrder: number } =>
       entry.action.kind === "animate",
   );
   const visualProgram = compileVisualProgram(source, animateEntries, snapshot);
+  if (visualProgram.isErr()) return Result.err(visualProgram.error);
 
   const timeline: CompiledSurfacePresentationTimeline = {
     surfaceId: source.surfaceId,
@@ -126,28 +186,39 @@ function compileSurface(
     ...(source.transition ? { transition: source.transition } : {}),
     cues: sortScheduled(cues),
     waits: sortScheduled(waits),
-    visualProgram,
+    visualProgram: visualProgram.value,
   };
-  return Object.freeze(timeline);
+  return Result.ok(Object.freeze(timeline));
 }
 
 function compileCommand(
-  command: Extract<TimelineActionV1, { kind: "trigger" }>["command"],
+  action: Extract<TimelineActionV1, { kind: "trigger" }>,
   surfaceId: EmbeddedNodeId,
   snapshot: SemanticDocumentSnapshot,
-): CompiledPresentationCommand {
+): ResultType<CompiledPresentationCommand, PresentationCompilationError> {
+  const { command } = action;
   if (command.kind === "navigate-surface") {
     const destination = snapshot.itemById.get(command.surfaceId);
     if (!destination || destination.kind !== "surface") {
-      throw new Error(`Presentation navigation destination "${command.surfaceId}" is not current.`);
+      return Result.err(
+        Object.freeze({
+          reason: "navigation-destination-not-current" as const,
+          surfaceId,
+          actionId: action.id,
+          destinationSurfaceId: command.surfaceId,
+        }),
+      );
     }
-    return Object.freeze(command);
+    return Result.ok(Object.freeze(command));
   }
-  assertTargetOnSurface(snapshot, command.targetId, surfaceId);
-  return Object.freeze({
-    ...command,
-    ownerId: resolveOwnerId(snapshot, command.targetId),
-  });
+  const target = resolveTargetOnSurface(snapshot, command.targetId, surfaceId, action.id);
+  if (target.isErr()) return Result.err(target.error);
+  return Result.ok(
+    Object.freeze({
+      ...command,
+      ownerId: resolveOwnerId(snapshot, command.targetId),
+    }),
+  );
 }
 
 function classifyCueSeekBehavior(
@@ -166,49 +237,59 @@ function compileWait(
   action: Extract<TimelineActionV1, { kind: "manual-wait" | "learner-wait" }>,
   surfaceId: EmbeddedNodeId,
   snapshot: SemanticDocumentSnapshot,
-): CompiledPresentationWait {
+): ResultType<CompiledPresentationWait, PresentationCompilationError> {
   if (action.kind === "manual-wait") {
-    return Object.freeze({ kind: action.kind, id: action.id, atMs: action.atMs });
+    return Result.ok(Object.freeze({ kind: action.kind, id: action.id, atMs: action.atMs }));
   }
   const { requirement } = action;
-  assertTargetOnSurface(snapshot, requirement.targetId, surfaceId);
+  const target = resolveTargetOnSurface(snapshot, requirement.targetId, surfaceId, action.id);
+  if (target.isErr()) return Result.err(target.error);
   const compiledRequirement: CompiledLearnerRequirement = Object.freeze({
     ...requirement,
     ownerId: resolveOwnerId(snapshot, requirement.targetId),
   });
-  return Object.freeze({
-    kind: action.kind,
-    id: action.id,
-    atMs: action.atMs,
-    requirement: compiledRequirement,
-  });
+  return Result.ok(
+    Object.freeze({
+      kind: action.kind,
+      id: action.id,
+      atMs: action.atMs,
+      requirement: compiledRequirement,
+    }),
+  );
 }
 
 function compileVisualProgram(
   source: SurfacePresentationTimelineV1,
   entries: readonly { readonly action: TimelineAnimateActionV1; readonly sourceOrder: number }[],
   snapshot: SemanticDocumentSnapshot,
-): CompiledSurfacePresentationVisualProgram {
-  const scheduled = entries
-    .map(({ action, sourceOrder }) => {
-      const target = assertVisualTarget(action, source.surfaceId, snapshot);
-      const segment: CompiledVisualSegment = Object.freeze({
-        id: action.id,
-        targetId: action.targetId,
-        startMs: action.atMs,
-        endMs: action.atMs + visualDuration(action),
-        visual: action.visual,
-      });
-      return { value: segment, sourceOrder, target };
-    })
-    .sort(compareScheduled);
-  assertNoTimedOverlap(scheduled.map(({ value }) => value));
+): ResultType<CompiledSurfacePresentationVisualProgram, PresentationCompilationError> {
+  const scheduled: Array<{
+    readonly value: CompiledVisualSegment;
+    readonly sourceOrder: number;
+  }> = [];
+  for (const { action, sourceOrder } of entries) {
+    const target = resolveVisualTarget(action, source.surfaceId, snapshot);
+    if (target.isErr()) return Result.err(target.error);
+    const segment: CompiledVisualSegment = Object.freeze({
+      id: action.id,
+      targetId: action.targetId,
+      startMs: action.atMs,
+      endMs: action.atMs + visualDuration(action),
+      visual: action.visual,
+    });
+    scheduled.push({ value: segment, sourceOrder });
+  }
+  scheduled.sort(compareScheduled);
+  const overlap = validateNoTimedOverlap(
+    source.surfaceId,
+    scheduled.map(({ value }) => value),
+  );
+  if (overlap.isErr()) return Result.err(overlap.error);
 
   const actionTargetIds = new Set(scheduled.map(({ value }) => value.targetId));
   const targetById = new Map<EmbeddedNodeId, CompiledVisualTarget>();
   const sequenceByBoundaryId = new Map<EmbeddedNodeId, CompiledSequenceContainer>();
   for (const targetId of actionTargetIds) {
-    const target = snapshot.itemById.get(targetId)!;
     const firstVisibility = scheduled.find(
       ({ value }) =>
         value.targetId === targetId &&
@@ -241,44 +322,68 @@ function compileVisualProgram(
         }),
       );
     }
-    void target;
   }
 
-  return Object.freeze({
-    surfaceId: source.surfaceId,
-    durationMs: source.durationMs,
-    targetById,
-    segments: Object.freeze(scheduled.map(({ value }) => value)),
-    sequenceContainers: Object.freeze([...sequenceByBoundaryId.values()]),
-  });
+  return Result.ok(
+    Object.freeze({
+      surfaceId: source.surfaceId,
+      durationMs: source.durationMs,
+      targetById,
+      segments: Object.freeze(scheduled.map(({ value }) => value)),
+      sequenceContainers: Object.freeze([...sequenceByBoundaryId.values()]),
+    }),
+  );
 }
 
-function assertVisualTarget(
+function resolveVisualTarget(
   action: TimelineAnimateActionV1,
   surfaceId: EmbeddedNodeId,
   snapshot: SemanticDocumentSnapshot,
-): SemanticItem {
-  const target = assertTargetOnSurface(snapshot, action.targetId, surfaceId);
-  if (!target.presentation.actionIds.includes(action.visual.kind)) {
-    throw new Error(
-      `Presentation target "${action.targetId}" does not declare visual capability "${action.visual.kind}".`,
+): ResultType<SemanticItem, PresentationCompilationError> {
+  const target = resolveTargetOnSurface(snapshot, action.targetId, surfaceId, action.id);
+  if (target.isErr()) return Result.err(target.error);
+  if (!target.value.presentation.actionIds.includes(action.visual.kind)) {
+    return Result.err(
+      Object.freeze({
+        reason: "visual-capability-unavailable" as const,
+        surfaceId,
+        actionId: action.id,
+        targetId: action.targetId,
+        capability: action.visual.kind,
+      }),
     );
   }
-  return target;
+  return Result.ok(target.value);
 }
 
-function assertTargetOnSurface(
+function resolveTargetOnSurface(
   snapshot: SemanticDocumentSnapshot,
   targetId: EmbeddedNodeId,
   surfaceId: EmbeddedNodeId,
-): SemanticItem {
+  actionId: EmbeddedDataId,
+): ResultType<SemanticItem, PresentationCompilationError> {
   const target = snapshot.itemById.get(targetId);
-  if (!target) throw new Error(`Presentation target "${targetId}" is not current.`);
-  const location = snapshot.locationById.get(targetId);
-  if (!location || location.surfaceId !== surfaceId) {
-    throw new Error(`Presentation target "${targetId}" does not belong to Surface "${surfaceId}".`);
+  if (!target) {
+    return Result.err(
+      Object.freeze({ reason: "target-not-current" as const, surfaceId, actionId, targetId }),
+    );
   }
-  return target;
+  const location = snapshot.locationById.get(targetId);
+  if (!location) {
+    throw new Error(`Presentation target "${targetId}" has no semantic location.`);
+  }
+  if (location.surfaceId !== surfaceId) {
+    return Result.err(
+      Object.freeze({
+        reason: "target-moved-to-another-surface" as const,
+        surfaceId,
+        currentSurfaceId: location.surfaceId,
+        actionId,
+        targetId,
+      }),
+    );
+  }
+  return Result.ok(target);
 }
 
 function resolveOwnerId(
@@ -302,27 +407,48 @@ function visualDuration(action: TimelineAnimateActionV1): number {
   return action.visual.durationMs;
 }
 
-function assertNoTimedOverlap(segments: readonly CompiledVisualSegment[]): void {
-  const endByTargetId = new Map<EmbeddedNodeId, number>();
+function validateNoTimedOverlap(
+  surfaceId: EmbeddedNodeId,
+  segments: readonly CompiledVisualSegment[],
+): ResultType<void, PresentationCompilationError> {
+  const priorByTargetId = new Map<EmbeddedNodeId, CompiledVisualSegment>();
   for (const segment of segments) {
     if (segment.endMs === segment.startMs) continue;
-    const priorEnd = endByTargetId.get(segment.targetId);
-    if (priorEnd !== undefined && segment.startMs < priorEnd) {
-      throw new Error(`Timed Presentation actions overlap on target "${segment.targetId}".`);
+    const prior = priorByTargetId.get(segment.targetId);
+    if (prior && segment.startMs < prior.endMs) {
+      return Result.err(
+        Object.freeze({
+          reason: "same-target-timed-overlap" as const,
+          surfaceId,
+          targetId: segment.targetId,
+          earlierActionId: prior.id,
+          laterActionId: segment.id,
+        }),
+      );
     }
-    endByTargetId.set(segment.targetId, segment.endMs);
+    priorByTargetId.set(segment.targetId, segment);
   }
+  return Result.ok();
 }
 
 function sortScheduled<T>(
-  scheduled: readonly { readonly value: T & { readonly atMs: number }; readonly sourceOrder: number }[],
+  scheduled: readonly {
+    readonly value: T & { readonly atMs: number };
+    readonly sourceOrder: number;
+  }[],
 ): readonly T[] {
   return Object.freeze([...scheduled].sort(compareScheduled).map(({ value }) => value));
 }
 
 function compareScheduled(
-  left: { readonly value: { readonly atMs?: number; readonly startMs?: number }; readonly sourceOrder: number },
-  right: { readonly value: { readonly atMs?: number; readonly startMs?: number }; readonly sourceOrder: number },
+  left: {
+    readonly value: { readonly atMs?: number; readonly startMs?: number };
+    readonly sourceOrder: number;
+  },
+  right: {
+    readonly value: { readonly atMs?: number; readonly startMs?: number };
+    readonly sourceOrder: number;
+  },
 ): number {
   const leftTime = left.value.atMs ?? left.value.startMs!;
   const rightTime = right.value.atMs ?? right.value.startMs!;
