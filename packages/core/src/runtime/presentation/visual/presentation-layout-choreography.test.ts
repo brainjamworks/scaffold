@@ -24,6 +24,7 @@ import type {
   PresentationContentLayoutPort,
   PresentationContentLayoutResult,
 } from "./presentation-content-layout-port";
+import { getPresentationContentLayoutPortForEditor } from "./presentation-content-layout-port";
 import { createPresentationVisualStateRenderer } from "./presentation-visual-state-renderer";
 
 const SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
@@ -108,6 +109,16 @@ describe("Presentation content-layout choreography", () => {
 });
 
 describe("PresentationContentLayoutPort runtime adapter", () => {
+  it("publishes the runtime-owned port without exposing the composition root to Slideshow", () => {
+    const fixture = runtimePortFixture();
+
+    expect(getPresentationContentLayoutPortForEditor(fixture.editor)).toMatchObject({
+      apply: expect.any(Function),
+      clear: expect.any(Function),
+    });
+    fixture.editor.destroy();
+  });
+
   it("applies projection metadata without mutating the portable document", () => {
     const fixture = runtimePortFixture();
     const before = fixture.editor.getJSON();

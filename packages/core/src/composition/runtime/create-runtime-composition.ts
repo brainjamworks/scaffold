@@ -60,6 +60,7 @@ import type {
   PresentationContentLayoutPort,
   PresentationContentLayoutRequest,
 } from "@/runtime/presentation/visual/presentation-content-layout-port";
+import { createPresentationContentLayoutPortStorageExtension } from "@/runtime/presentation/visual/presentation-content-layout-port";
 import { StudentGuard } from "@/runtime/guards/student-guard";
 import {
   RuntimeSurfaceVisibility,
@@ -93,6 +94,9 @@ export function createCourseDocumentRuntimeExtensions({
     createScaffoldCapabilitiesStorageExtension(composition.capabilities),
     RuntimeSurfaceVisibility,
     createRuntimeSemanticDocumentExtension(composition.documentSemantics),
+    createPresentationContentLayoutPortStorageExtension({
+      getPort: createPresentationContentLayoutPortForEditor,
+    }),
     ContentLayoutProjectionExtension,
     SurfaceCategoriseQuestionNode,
     SurfaceSequencingQuestionNode,
