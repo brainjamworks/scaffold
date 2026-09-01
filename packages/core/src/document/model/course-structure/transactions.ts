@@ -1,3 +1,8 @@
+import {
+  EmbeddedNodeIdSchema,
+  PresentationConfigurationV1Schema,
+  type SurfacePresentationTimelineV1,
+} from "@scaffold/contracts";
 import { Fragment, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { EditorState, Transaction } from "@tiptap/pm/state";
 
@@ -81,6 +86,7 @@ export function applyCourseStructureCommandToTransaction({
     beforeChildren: children,
     candidate,
   });
+  reconcilePresentationSurfaceTimelines(tr);
 
   restoreLogicalSelection(
     tr,
@@ -89,6 +95,49 @@ export function applyCourseStructureCommandToTransaction({
       : logicalSelection,
   );
   return true;
+}
+
+function reconcilePresentationSurfaceTimelines(tr: Transaction): void {
+  const courseDocument = tr.doc.firstChild;
+  if (!courseDocument || courseDocument.type.name !== "courseDocument") {
+    throw new Error("The Course Document is missing after a Course Structure mutation.");
+  }
+  const value = courseDocument.attrs["presentation"];
+  if (value === null || value === undefined) return;
+
+  const courseDocumentId = EmbeddedNodeIdSchema.parse(courseDocument.attrs["id"]);
+  const configuration = PresentationConfigurationV1Schema.parse(value);
+  const timelineBySurfaceId = new Map(
+    configuration.surfaces.map((timeline) => [timeline.surfaceId, timeline]),
+  );
+  const seenIds = new Set([courseDocumentId]);
+  const surfaces: SurfacePresentationTimelineV1[] = [];
+  for (let index = 0; index < courseDocument.childCount; index += 1) {
+    const child = courseDocument.child(index);
+    if (!isCourseSurfaceRoot(child)) continue;
+    const surfaceId = EmbeddedNodeIdSchema.parse(child.attrs["id"]);
+    if (seenIds.has(surfaceId)) {
+      throw new Error(`Course Structure identity "${surfaceId}" is duplicated.`);
+    }
+    seenIds.add(surfaceId);
+    surfaces.push(
+      timelineBySurfaceId.get(surfaceId) ?? {
+        surfaceId,
+        durationMs: 0,
+        actions: [],
+      },
+    );
+  }
+  if (
+    configuration.surfaces.length === surfaces.length &&
+    configuration.surfaces.every(({ surfaceId }, index) => surfaceId === surfaces[index]?.surfaceId)
+  ) {
+    return;
+  }
+
+  const presentation = PresentationConfigurationV1Schema.parse({ ...configuration, surfaces });
+  tr.setNodeMarkup(0, undefined, { ...courseDocument.attrs, presentation });
+  tr.doc.check();
 }
 
 function buildCandidate(

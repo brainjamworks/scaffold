@@ -1,6 +1,11 @@
 // @vitest-environment happy-dom
 
-import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
+import {
+  EmbeddedDataIdSchema,
+  EmbeddedNodeIdSchema,
+  type PresentationConfigurationV1,
+  type SurfacePresentationTimelineV1,
+} from "@scaffold/contracts";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
@@ -43,6 +48,7 @@ const SECTION_1 = EmbeddedNodeIdSchema.parse("section00001");
 const SECTION_2 = EmbeddedNodeIdSchema.parse("section00002");
 const SECTION_3 = EmbeddedNodeIdSchema.parse("section00003");
 const BLOCK_1 = EmbeddedNodeIdSchema.parse("copyblock001");
+const ACTION_1 = EmbeddedDataIdSchema.parse("action000001");
 
 const editors: Editor[] = [];
 const EMPTY_BLOCK_CAPABILITIES: ResolvedBlockCapabilities = Object.freeze({
@@ -702,11 +708,240 @@ describe("Course Structure Tiptap commands", () => {
   });
 });
 
+describe("Course Structure Presentation lifecycle", () => {
+  it("adds an empty Timeline for an inserted Surface in the same transaction", () => {
+    const editor = makeEditor(
+      [
+        section(SECTION_1, "One"),
+        surface(SURFACE_1),
+        section(SECTION_2, "Two"),
+        surface(SURFACE_2),
+      ],
+      "slideshow",
+      [],
+      EMPTY_BLOCK_CAPABILITIES,
+      presentation([timeline(SURFACE_1, 1_000, true), timeline(SURFACE_2, 2_000)]),
+    );
+    const changedTransactions: Transaction[] = [];
+    editor.on("transaction", ({ transaction }) => {
+      if (transaction.docChanged) changedTransactions.push(transaction);
+    });
+
+    expect(
+      runCommand(editor, {
+        type: "surface.insert",
+        surface: editor.schema.nodeFromJSON(surface(SURFACE_3)),
+        destination: { beforeSurfaceId: SURFACE_2 },
+      }),
+    ).toBe(true);
+
+    expect(changedTransactions).toHaveLength(1);
+    expect(readPresentation(editor)?.surfaces).toEqual([
+      timeline(SURFACE_1, 1_000, true),
+      timeline(SURFACE_3, 0),
+      timeline(SURFACE_2, 2_000),
+    ]);
+  });
+
+  it("gives a duplicated Surface a new empty Timeline without copying actions", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "One"), surface(SURFACE_1), surface(SURFACE_2)],
+      "slideshow",
+      ["copysurf0001"],
+      EMPTY_BLOCK_CAPABILITIES,
+      presentation([timeline(SURFACE_1, 1_000, true), timeline(SURFACE_2, 2_000)]),
+    );
+
+    expect(runCommand(editor, { type: "surface.duplicate", surfaceId: SURFACE_1 })).toBe(true);
+
+    expect(readPresentation(editor)?.surfaces).toEqual([
+      timeline(SURFACE_1, 1_000, true),
+      timeline(EmbeddedNodeIdSchema.parse("copysurf0001"), 0),
+      timeline(SURFACE_2, 2_000),
+    ]);
+  });
+
+  it("drops only a deleted Surface Timeline", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "One"), surface(SURFACE_1), surface(SURFACE_2)],
+      "slideshow",
+      [],
+      EMPTY_BLOCK_CAPABILITIES,
+      presentation([timeline(SURFACE_1, 1_000, true), timeline(SURFACE_2, 2_000)]),
+    );
+
+    expect(runCommand(editor, { type: "surface.delete", surfaceId: SURFACE_1 })).toBe(true);
+
+    expect(readPresentation(editor)?.surfaces).toEqual([timeline(SURFACE_2, 2_000)]);
+  });
+
+  it("preserves Timeline values while reordering moved Surfaces", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "One"), surface(SURFACE_1), surface(SURFACE_2)],
+      "slideshow",
+      [],
+      EMPTY_BLOCK_CAPABILITIES,
+      presentation([timeline(SURFACE_1, 1_000, true), timeline(SURFACE_2, 2_000)]),
+    );
+
+    expect(
+      runCommand(editor, {
+        type: "surface.move",
+        surfaceId: SURFACE_2,
+        destination: { beforeSurfaceId: SURFACE_1 },
+      }),
+    ).toBe(true);
+
+    expect(readPresentation(editor)?.surfaces).toEqual([
+      timeline(SURFACE_2, 2_000),
+      timeline(SURFACE_1, 1_000, true),
+    ]);
+  });
+
+  it("adds empty Timelines for every Surface introduced by Course Section duplication", () => {
+    const editor = makeEditor(
+      [
+        section(SECTION_1, "One"),
+        surface(SURFACE_1),
+        surface(SURFACE_2),
+        section(SECTION_2, "Two"),
+        surface(SURFACE_3),
+      ],
+      "slideshow",
+      ["copysect0001", "copysurf0001", "copysurf0002"],
+      EMPTY_BLOCK_CAPABILITIES,
+      presentation([
+        timeline(SURFACE_1, 1_000, true),
+        timeline(SURFACE_2, 2_000),
+        timeline(SURFACE_3, 3_000),
+      ]),
+    );
+
+    expect(
+      runCommand(editor, {
+        type: "course-section.duplicate",
+        courseSectionId: SECTION_1,
+      }),
+    ).toBe(true);
+
+    expect(readPresentation(editor)?.surfaces).toEqual([
+      timeline(SURFACE_1, 1_000, true),
+      timeline(SURFACE_2, 2_000),
+      timeline(EmbeddedNodeIdSchema.parse("copysurf0001"), 0),
+      timeline(EmbeddedNodeIdSchema.parse("copysurf0002"), 0),
+      timeline(SURFACE_3, 3_000),
+    ]);
+  });
+
+  it("drops every Timeline removed by Course Section deletion", () => {
+    const editor = makeEditor(
+      [
+        section(SECTION_1, "One"),
+        surface(SURFACE_1),
+        surface(SURFACE_2),
+        section(SECTION_2, "Two"),
+        surface(SURFACE_3),
+      ],
+      "slideshow",
+      [],
+      EMPTY_BLOCK_CAPABILITIES,
+      presentation([
+        timeline(SURFACE_1, 1_000, true),
+        timeline(SURFACE_2, 2_000),
+        timeline(SURFACE_3, 3_000),
+      ]),
+    );
+
+    expect(
+      runCommand(editor, {
+        type: "course-section.delete",
+        courseSectionId: SECTION_1,
+        expectedSurfaceIds: [SURFACE_1, SURFACE_2],
+      }),
+    ).toBe(true);
+
+    expect(readPresentation(editor)?.surfaces).toEqual([timeline(SURFACE_3, 3_000)]);
+  });
+
+  it("leaves Presentation absent when a Surface is introduced", () => {
+    const editor = makeEditor([section(SECTION_1, "One"), surface(SURFACE_1)], "slideshow", []);
+
+    expect(
+      runCommand(editor, {
+        type: "surface.insert",
+        surface: editor.schema.nodeFromJSON(surface(SURFACE_2)),
+        destination: { afterSurfaceId: SURFACE_1 },
+      }),
+    ).toBe(true);
+
+    expect(readPresentation(editor)).toBeNull();
+  });
+
+  it("keeps malformed Presentation observable as a thrown invariant defect", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "One"), surface(SURFACE_1)],
+      "slideshow",
+      [],
+      EMPTY_BLOCK_CAPABILITIES,
+      { schemaVersion: 2 } as unknown as PresentationConfigurationV1,
+    );
+
+    expect(() =>
+      runCommand(editor, {
+        type: "surface.insert",
+        surface: editor.schema.nodeFromJSON(surface(SURFACE_2)),
+        destination: { afterSurfaceId: SURFACE_1 },
+      }),
+    ).toThrow();
+    expect(childIdentity(editor)).toEqual([SECTION_1, SURFACE_1]);
+  });
+
+  it("keeps malformed Course Document identity observable as a thrown invariant defect", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "One"), surface(SURFACE_1)],
+      "slideshow",
+      [],
+      EMPTY_BLOCK_CAPABILITIES,
+      presentation([timeline(SURFACE_1, 1_000)]),
+    );
+    editor.view.dispatch(editor.state.tr.setNodeAttribute(0, "id", "invalid"));
+
+    expect(() =>
+      runCommand(editor, {
+        type: "surface.insert",
+        surface: editor.schema.nodeFromJSON(surface(SURFACE_2)),
+        destination: { afterSurfaceId: SURFACE_1 },
+      }),
+    ).toThrow();
+    expect(childIdentity(editor)).toEqual([SECTION_1, SURFACE_1]);
+  });
+
+  it("keeps malformed Surface identity observable as a thrown invariant defect", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "One"), surface(SURFACE_1), surface("invalid")],
+      "slideshow",
+      [],
+      EMPTY_BLOCK_CAPABILITIES,
+      presentation([timeline(SURFACE_1, 1_000)]),
+    );
+
+    expect(() =>
+      runCommand(editor, {
+        type: "surface.insert",
+        surface: editor.schema.nodeFromJSON(surface(SURFACE_2)),
+        destination: { afterSurfaceId: SURFACE_1 },
+      }),
+    ).toThrow();
+    expect(childIdentity(editor)).toEqual([SECTION_1, SURFACE_1, "invalid"]);
+  });
+});
+
 function makeEditor(
   children: JSONContent[],
   mode: "page" | "slideshow",
   ids: string[],
   mountedBlocks: ResolvedBlockCapabilities = EMPTY_BLOCK_CAPABILITIES,
+  presentationConfiguration: PresentationConfigurationV1 | null = null,
 ): Editor {
   const remainingIds = [...ids];
   const capabilities = resolveScaffoldCapabilities({
@@ -739,7 +974,7 @@ function makeEditor(
         },
       }),
     ],
-    content: document(mode, children),
+    content: document(mode, children, presentationConfiguration),
   });
   editors.push(editor);
   return editor;
@@ -782,7 +1017,11 @@ function selectedSurfaceId(editor: Editor): string | null {
   return null;
 }
 
-function document(mode: "page" | "slideshow", content: JSONContent[]): JSONContent {
+function document(
+  mode: "page" | "slideshow",
+  content: JSONContent[],
+  presentationConfiguration: PresentationConfigurationV1 | null,
+): JSONContent {
   return {
     type: "doc",
     content: [
@@ -795,11 +1034,40 @@ function document(mode: "page" | "slideshow", content: JSONContent[]): JSONConte
           surfaceSize: mode === "slideshow" ? "16x9" : "fluid",
           overflowMode: "grow",
           theme: createDefaultPersistedCourseTheme(),
+          presentation: presentationConfiguration,
         },
         content,
       },
     ],
   };
+}
+
+function presentation(
+  surfaces: readonly SurfacePresentationTimelineV1[],
+): PresentationConfigurationV1 {
+  return {
+    schemaVersion: 1,
+    autoAdvance: false,
+    allowPrevious: true,
+    surfaces: [...surfaces],
+  };
+}
+
+function timeline(
+  surfaceId: SurfacePresentationTimelineV1["surfaceId"],
+  durationMs: number,
+  withAction = false,
+): SurfacePresentationTimelineV1 {
+  return {
+    surfaceId,
+    durationMs,
+    actions: withAction ? [{ kind: "manual-wait", id: ACTION_1, isEnabled: true, atMs: 500 }] : [],
+  };
+}
+
+function readPresentation(editor: Editor): PresentationConfigurationV1 | null {
+  const value = editor.getJSON().content?.[0]?.attrs?.["presentation"];
+  return (value ?? null) as PresentationConfigurationV1 | null;
 }
 
 function section(id: string, title: string): JSONContent {
