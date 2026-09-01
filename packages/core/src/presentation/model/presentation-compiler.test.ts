@@ -15,6 +15,7 @@ const SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
 const TARGET_ID = EmbeddedNodeIdSchema.parse("target000001");
 const SECOND_TARGET_ID = EmbeddedNodeIdSchema.parse("target000002");
 const OWNER_ID = EmbeddedNodeIdSchema.parse("owner0000001");
+const SECOND_OWNER_ID = EmbeddedNodeIdSchema.parse("owner0000002");
 const MISSING_TARGET_ID = EmbeddedNodeIdSchema.parse("gone00000001");
 
 describe("compilePresentation", () => {
@@ -94,6 +95,30 @@ describe("compilePresentation", () => {
     });
     expect(Object.isFrozen(program)).toBe(true);
     expect(Object.isFrozen(surface?.visualProgram.segments)).toBe(true);
+  });
+
+  it("detaches and freezes compiled visual intent from mutable portable source", () => {
+    const action = reveal("action000001", 1_000, 500);
+    const configuration = presentationConfiguration([action]);
+    const program = compileOk({
+      configuration,
+      courseStructure: courseStructure(),
+      semanticSnapshot: semanticSnapshot(),
+    });
+    const compiledVisual = program.surfaces[0]!.visualProgram.segments[0]!.visual;
+
+    expect(compiledVisual).not.toBe(action.visual);
+    expect(Object.isFrozen(compiledVisual)).toBe(true);
+    expect(compiledVisual.kind).toBe("reveal");
+    if (compiledVisual.kind !== "reveal" || compiledVisual.transition.kind === "instant") {
+      throw new Error("Expected a compiled timed Reveal.");
+    }
+    expect(compiledVisual.transition).not.toBe(action.visual.transition);
+    expect(Object.isFrozen(compiledVisual.transition)).toBe(true);
+    expect(Object.isFrozen(compiledVisual.transition.easing)).toBe(true);
+
+    Object.assign(action.visual.transition.easing, { preset: "ease-out" });
+    expect(compiledVisual.transition.easing).toEqual({ kind: "preset", preset: "linear" });
   });
 
   it("preserves source order for actions tied at the same time", () => {
@@ -301,35 +326,132 @@ describe("compilePresentation", () => {
     ).toBe("withheld");
   });
 
-  it.each([
-    PresentationContentLayout.Flow,
-    PresentationContentLayout.Sequence,
-  ] as const)("compiles resolved %s container/direct-child membership", (contentLayout) => {
-    const program = compileOk({
-      configuration: presentationConfiguration([reveal("action000001", 1_000, 500)]),
-      courseStructure: courseStructure(),
-      semanticSnapshot: semanticSnapshot({ contentLayout }),
-    });
-    const visualProgram = program.surfaces[0]!.visualProgram;
-    const target = visualProgram.targetById.get(TARGET_ID);
+  it.each([PresentationContentLayout.Flow, PresentationContentLayout.Sequence] as const)(
+    "compiles resolved %s container/direct-child membership",
+    (contentLayout) => {
+      const program = compileOk({
+        configuration: presentationConfiguration([reveal("action000001", 1_000, 500)]),
+        courseStructure: courseStructure(),
+        semanticSnapshot: semanticSnapshot({ contentLayout }),
+      });
+      const visualProgram = program.surfaces[0]!.visualProgram;
+      const target = visualProgram.targetById.get(TARGET_ID);
 
-    expect(target?.contentLayout).toEqual({
-      containerId: OWNER_ID,
-      contentLayout,
-      directChildId: TARGET_ID,
-      directChildIds: [TARGET_ID, SECOND_TARGET_ID],
+      expect(target?.contentLayout).toEqual({
+        containerId: OWNER_ID,
+        contentLayout,
+        directChildId: TARGET_ID,
+        directChildIds: [TARGET_ID, SECOND_TARGET_ID],
+      });
+      expect(visualProgram.sequenceContainers).toEqual(
+        contentLayout === PresentationContentLayout.Sequence
+          ? [
+              {
+                boundaryId: OWNER_ID,
+                directChildIds: [TARGET_ID, SECOND_TARGET_ID],
+                initialActiveChildId: TARGET_ID,
+              },
+            ]
+          : [],
+      );
+    },
+  );
+
+  it.each([PresentationContentLayout.Flow, PresentationContentLayout.Sequence] as const)(
+    "rejects overlapping timed Reveal/Hide actions within one %s boundary on a Surface",
+    (contentLayout) => {
+      const result = compilePresentation({
+        configuration: presentationConfiguration([
+          reveal("action000001", 1_000, 1_000),
+          hide("action000002", SECOND_TARGET_ID, 1_500, 1_000),
+        ]),
+        courseStructure: courseStructure(),
+        semanticSnapshot: semanticSnapshot({ contentLayout }),
+      });
+
+      expect(result.isErr()).toBe(true);
+      if (result.isOk()) throw new Error("Expected overlapping layout actions to be rejected.");
+      expect(result.error).toEqual({
+        reason: "surface-timed-layout-overlap",
+        surfaceId: SURFACE_ID,
+        earlierActionId: "action000001",
+        earlierTargetId: TARGET_ID,
+        laterActionId: "action000002",
+        laterTargetId: SECOND_TARGET_ID,
+      });
+      expect(Object.isFrozen(result.error)).toBe(true);
+    },
+  );
+
+  it("allows timed layout actions whose half-open intervals only touch", () => {
+    compileOk({
+      configuration: presentationConfiguration([
+        reveal("action000001", 1_000, 500),
+        hide("action000002", SECOND_TARGET_ID, 1_500, 500),
+      ]),
+      courseStructure: courseStructure(),
+      semanticSnapshot: semanticSnapshot({ contentLayout: PresentationContentLayout.Flow }),
     });
-    expect(visualProgram.sequenceContainers).toEqual(
-      contentLayout === PresentationContentLayout.Sequence
-        ? [
-            {
-              boundaryId: OWNER_ID,
-              directChildIds: [TARGET_ID, SECOND_TARGET_ID],
-              initialActiveChildId: TARGET_ID,
-            },
-          ]
-        : [],
-    );
+  });
+
+  it("rejects overlapping Flow transitions in separate containers on one Surface", () => {
+    const result = compilePresentation({
+      configuration: presentationConfiguration([
+        reveal("action000001", 1_000, 1_000),
+        hide("action000002", SECOND_TARGET_ID, 1_500, 1_000),
+      ]),
+      courseStructure: courseStructure(),
+      semanticSnapshot: semanticSnapshot({
+        contentLayout: PresentationContentLayout.Flow,
+        separateTargetContainers: true,
+      }),
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) throw new Error("Expected Surface layout overlap to be rejected.");
+    expect(result.error).toEqual({
+      reason: "surface-timed-layout-overlap",
+      surfaceId: SURFACE_ID,
+      earlierActionId: "action000001",
+      earlierTargetId: TARGET_ID,
+      laterActionId: "action000002",
+      laterTargetId: SECOND_TARGET_ID,
+    });
+  });
+
+  it("rejects overlapping Flow and Sequence transitions on one Surface", () => {
+    const result = compilePresentation({
+      configuration: presentationConfiguration([
+        reveal("action000001", 1_000, 1_000),
+        hide("action000002", SECOND_TARGET_ID, 1_500, 1_000),
+      ]),
+      courseStructure: courseStructure(),
+      semanticSnapshot: semanticSnapshot({
+        contentLayout: PresentationContentLayout.Flow,
+        secondContentLayout: PresentationContentLayout.Sequence,
+        separateTargetContainers: true,
+      }),
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) throw new Error("Expected Surface layout overlap to be rejected.");
+    expect(result.error).toMatchObject({
+      reason: "surface-timed-layout-overlap",
+      surfaceId: SURFACE_ID,
+      earlierActionId: "action000001",
+      laterActionId: "action000002",
+    });
+  });
+
+  it("allows overlapping non-layout visual actions within one content-layout boundary", () => {
+    compileOk({
+      configuration: presentationConfiguration([
+        emphasize("action000001", TARGET_ID, 1_000, 1_000),
+        emphasize("action000002", SECOND_TARGET_ID, 1_500, 1_000),
+      ]),
+      courseStructure: courseStructure(),
+      semanticSnapshot: semanticSnapshot({ contentLayout: PresentationContentLayout.Sequence }),
+    });
   });
 });
 
@@ -385,6 +507,22 @@ function instantReveal(id: string, atMs: number) {
     isEnabled: true,
     atMs,
     visual: { kind: "reveal" as const, transition: { kind: "instant" as const } },
+  };
+}
+
+function emphasize(id: string, targetId: typeof TARGET_ID, atMs: number, durationMs: number) {
+  return {
+    kind: "animate" as const,
+    id: EmbeddedDataIdSchema.parse(id),
+    targetId,
+    isEnabled: true,
+    atMs,
+    visual: {
+      kind: "emphasize" as const,
+      effect: "outline" as const,
+      durationMs,
+      easing: { kind: "preset" as const, preset: "linear" as const },
+    },
   };
 }
 
@@ -444,27 +582,42 @@ function semanticSnapshot(
     readonly targetSurfaceId?: ReturnType<typeof EmbeddedNodeIdSchema.parse>;
     readonly ownerlessTarget?: boolean;
     readonly contentLayout?: PresentationContentLayout;
+    readonly secondContentLayout?: PresentationContentLayout;
+    readonly separateTargetContainers?: boolean;
   } = {},
 ): SemanticDocumentSnapshot {
-  const surface = semanticItem(SURFACE_ID, "surface", [
-    semanticItem(OWNER_ID, "block", [
-      semanticItem(TARGET_ID, "published-child", []),
-      semanticItem(SECOND_TARGET_ID, "published-child", []),
-    ]),
-  ]);
-  const owner = Object.freeze({
-    ...surface.children[0]!,
-    presentationContainer:
-      options.contentLayout === undefined
-        ? null
-        : Object.freeze({ contentLayout: options.contentLayout }),
-  });
-  const surfaceWithOwner = Object.freeze({ ...surface, children: Object.freeze([owner]) });
-  const target = owner.children[0]!;
-  const secondTarget = owner.children[1]!;
+  const target = semanticItem(TARGET_ID, "published-child", []);
+  const secondTarget = semanticItem(SECOND_TARGET_ID, "published-child", []);
+  const sourceOwners = options.separateTargetContainers
+    ? [
+        semanticItem(OWNER_ID, "block", [target]),
+        semanticItem(SECOND_OWNER_ID, "block", [secondTarget]),
+      ]
+    : [semanticItem(OWNER_ID, "block", [target, secondTarget])];
+  const owners = sourceOwners.map((owner, index) =>
+    Object.freeze({
+      ...owner,
+      presentationContainer:
+        (index === 1
+          ? (options.secondContentLayout ?? options.contentLayout)
+          : options.contentLayout) === undefined
+          ? null
+          : Object.freeze({
+              contentLayout:
+                index === 1
+                  ? (options.secondContentLayout ?? options.contentLayout!)
+                  : options.contentLayout!,
+            }),
+    }),
+  );
+  const owner = owners[0]!;
+  const secondOwner = options.separateTargetContainers ? owners[1]! : owner;
+  const surfaceWithOwner = Object.freeze(
+    semanticItem(SURFACE_ID, "surface", Object.freeze(owners)),
+  );
   const itemById = new Map([
     [surfaceWithOwner.id, surfaceWithOwner],
-    [owner.id, owner],
+    ...owners.map((item) => [item.id, item] as const),
     [target.id, target],
     [secondTarget.id, secondTarget],
   ]);
@@ -474,14 +627,15 @@ function semanticSnapshot(
     roots: [surfaceWithOwner],
     itemById,
     parentById: new Map([
-      [surface.id, null],
-      [owner.id, surface.id],
+      [surfaceWithOwner.id, null],
+      ...owners.map((item) => [item.id, surfaceWithOwner.id] as const),
       [target.id, owner.id],
-      [secondTarget.id, owner.id],
+      [secondTarget.id, secondOwner.id],
     ]),
     locationById: new Map([
-      [surface.id, location(SURFACE_ID, [])],
+      [surfaceWithOwner.id, location(SURFACE_ID, [])],
       [owner.id, location(SURFACE_ID, [])],
+      ...(secondOwner === owner ? [] : ([[secondOwner.id, location(SURFACE_ID, [])]] as const)),
       [
         target.id,
         location(
@@ -494,7 +648,11 @@ function semanticSnapshot(
       [
         secondTarget.id,
         location(SURFACE_ID, [
-          { ownerId: OWNER_ID, childId: SECOND_TARGET_ID, ownerKind: "block" as const },
+          {
+            ownerId: secondOwner.id,
+            childId: SECOND_TARGET_ID,
+            ownerKind: "block" as const,
+          },
         ]),
       ],
     ]),

@@ -8,9 +8,13 @@ import type {
   PresentationPlaybackSnapshot,
 } from "@/runtime/presentation/presentation-playback-session";
 
-import type { PresentationVisualStateRenderer } from "./presentation-visual-state-renderer";
+import type {
+  PresentationVisualStateRenderer,
+  VisualSceneApplicationReport,
+} from "./presentation-visual-state-renderer";
 
 export interface PresentationVisualRuntime {
+  getLatestApplicationReport(): VisualSceneApplicationReport;
   dispose(): void;
 }
 
@@ -26,25 +30,31 @@ export function createPresentationVisualRuntime({
   readonly getMotionMode: () => PresentationMotionMode;
 }): PresentationVisualRuntime {
   let disposed = false;
+  let latestApplicationReport: VisualSceneApplicationReport;
 
-  function applySnapshot(snapshot: PresentationPlaybackSnapshot): void {
+  function renderSnapshot(snapshot: PresentationPlaybackSnapshot): VisualSceneApplicationReport {
     if (snapshot.surfaceId !== visualProgram.surfaceId) {
       throw new Error(
         `Presentation visual program Surface "${visualProgram.surfaceId}" does not match Session Surface "${snapshot.surfaceId}".`,
       );
     }
-    renderer.apply(sceneAt(visualProgram, snapshot.currentTimeMs, getMotionMode()));
+    return renderer.apply(sceneAt(visualProgram, snapshot.currentTimeMs, getMotionMode()));
   }
 
   try {
-    applySnapshot(session.getSnapshot());
+    latestApplicationReport = renderSnapshot(session.getSnapshot());
   } catch (error) {
     renderer.dispose();
     throw error;
   }
-  const unsubscribe = session.subscribe(() => applySnapshot(session.getSnapshot()));
+  const unsubscribe = session.subscribe(() => {
+    latestApplicationReport = renderSnapshot(session.getSnapshot());
+  });
 
   return Object.freeze({
+    getLatestApplicationReport(): VisualSceneApplicationReport {
+      return latestApplicationReport;
+    },
     dispose(): void {
       if (disposed) return;
       disposed = true;

@@ -5,10 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { projectCourseStructure, type SurfaceId } from "@/document/model/course-structure";
-import {
-  createEmbeddedDataId,
-  createEmbeddedNodeId,
-} from "@/document/model/identity/stable-ids";
+import { createEmbeddedDataId, createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { emptyCalloutData } from "@/editor/blocks/presentation/callout/content";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
@@ -28,21 +25,25 @@ const compositionProbe = vi.hoisted(() => ({
   current: null as SlideshowSurfaceRuntimeComposition | null,
 }));
 
-vi.mock("@/runtime/players/slideshow/slideshow-surface-runtime-composition", async (importOriginal) => {
-  const actual = await importOriginal<
-    typeof import("@/runtime/players/slideshow/slideshow-surface-runtime-composition")
-  >();
-  return {
-    ...actual,
-    createSlideshowSurfaceRuntimeComposition(
-      input: Parameters<typeof actual.createSlideshowSurfaceRuntimeComposition>[0],
-    ) {
-      const composition = actual.createSlideshowSurfaceRuntimeComposition(input);
-      compositionProbe.current = composition;
-      return composition;
-    },
-  };
-});
+vi.mock(
+  "@/runtime/players/slideshow/slideshow-surface-runtime-composition",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("@/runtime/players/slideshow/slideshow-surface-runtime-composition")
+      >();
+    return {
+      ...actual,
+      createSlideshowSurfaceRuntimeComposition(
+        input: Parameters<typeof actual.createSlideshowSurfaceRuntimeComposition>[0],
+      ) {
+        const composition = actual.createSlideshowSurfaceRuntimeComposition(input);
+        compositionProbe.current = composition;
+        return composition;
+      },
+    };
+  },
+);
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
 const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
@@ -95,11 +96,21 @@ describe("real Presentation content-layout choreography", () => {
 
     expect(first).toHaveAttribute("aria-hidden", "true");
     expect(first).toHaveAttribute("inert");
+    expect(secondOwner).toHaveAttribute("data-presentation-availability", "withheld");
+    await expectAppliedSeek(composition, 1_750);
     expect(secondOwner).toHaveAttribute("data-presentation-availability", "available");
     expect(secondOwner).toHaveAttribute("data-presentation-geometry", "shared-position");
     expect(second).not.toHaveAttribute("aria-hidden");
-    await expectAppliedSeek(composition, 1_500);
+    const forwardRevealTop = secondOwner.getBoundingClientRect().top;
+    await expectAppliedSeek(composition, 2_000);
     expect(secondOwner.getBoundingClientRect().top).toBeCloseTo(firstTop, 0);
+
+    await expectAppliedSeek(composition, 1_250);
+    expect(first).toHaveAttribute("aria-hidden", "true");
+    expect(secondOwner).toHaveAttribute("data-presentation-availability", "withheld");
+    await expectAppliedSeek(composition, 1_750);
+    expect(secondOwner).toHaveAttribute("data-presentation-availability", "available");
+    expect(secondOwner.getBoundingClientRect().top).toBeCloseTo(forwardRevealTop, 0);
 
     root?.unmount();
     root = null;
@@ -158,7 +169,7 @@ async function mountLayoutTracer(contentLayout: PresentationContentLayout) {
 
 function projectedOwner(label: string): HTMLElement {
   const owner = Array.from(
-    host?.querySelectorAll<HTMLElement>("[data-presentation-slot=\"shared\"]") ?? [],
+    host?.querySelectorAll<HTMLElement>('[data-presentation-slot="shared"]') ?? [],
   ).find((candidate) => candidate.textContent?.includes(label));
   if (!owner) throw new Error("Expected projected content-layout owner.");
   return owner;
@@ -275,8 +286,8 @@ function layoutTimeline({
               Object.freeze({
                 id: createEmbeddedDataId(),
                 targetId: secondId,
-                startMs: 1_000,
-                endMs: 1_500,
+                startMs: 1_500,
+                endMs: 2_000,
                 visual: Object.freeze({ kind: "reveal" as const, transition }),
               }),
             ]

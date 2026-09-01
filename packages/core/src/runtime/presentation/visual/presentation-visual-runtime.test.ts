@@ -1,4 +1,8 @@
-import type { EmbeddedNodeId } from "@scaffold/contracts";
+import {
+  EmbeddedDataIdSchema,
+  PresentationContentLayout,
+  type EmbeddedNodeId,
+} from "@scaffold/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import type {
@@ -76,6 +80,48 @@ describe("createPresentationVisualRuntime", () => {
     expect(renderer.dispose).toHaveBeenCalledOnce();
     expect(source.subscribe).not.toHaveBeenCalled();
   });
+
+  it("retains typed renderer outcomes for the owning Slideshow runtime", () => {
+    const source = createSnapshotSource(0);
+    const unavailableTarget = Object.freeze({
+      targetId: TARGET_ID,
+      reason: "target-unmounted" as const,
+    });
+    const contentLayoutError = Object.freeze({
+      reason: "content-layout-changed" as const,
+      surfaceId: SURFACE_ID,
+      containerId: TARGET_ID,
+      expectedContentLayout: PresentationContentLayout.Flow,
+      currentContentLayout: PresentationContentLayout.Sequence,
+    });
+    const renderer = rendererSpy([], (scene) =>
+      Object.freeze({
+        surfaceId: scene.surfaceId,
+        timeMs: scene.timeMs,
+        unavailableTargets: Object.freeze([unavailableTarget]),
+        contentLayoutError,
+      }),
+    );
+    const runtime = createPresentationVisualRuntime({
+      visualProgram: revealProgram(),
+      session: source.session,
+      renderer,
+      getMotionMode: () => "normal",
+    });
+
+    expect(runtime.getLatestApplicationReport()).toEqual({
+      surfaceId: SURFACE_ID,
+      timeMs: 0,
+      unavailableTargets: [unavailableTarget],
+      contentLayoutError,
+    });
+    source.publish(750);
+    expect(runtime.getLatestApplicationReport()).toMatchObject({
+      timeMs: 750,
+      unavailableTargets: [unavailableTarget],
+    });
+    runtime.dispose();
+  });
 });
 
 function createSnapshotSource(timeMs: number, surfaceId = SURFACE_ID) {
@@ -111,19 +157,23 @@ function createSnapshotSource(timeMs: number, surfaceId = SURFACE_ID) {
   };
 }
 
-function rendererSpy(applied: PresentationVisualScene[]): PresentationVisualStateRenderer {
+function rendererSpy(
+  applied: PresentationVisualScene[],
+  report: (scene: PresentationVisualScene) => VisualSceneApplicationReport = (scene) =>
+    Object.freeze({
+      surfaceId: scene.surfaceId,
+      timeMs: scene.timeMs,
+      unavailableTargets: Object.freeze([]),
+    }),
+) {
   return {
     apply: vi.fn((scene: PresentationVisualScene): VisualSceneApplicationReport => {
       applied.push(scene);
-      return Object.freeze({
-        surfaceId: scene.surfaceId,
-        timeMs: scene.timeMs,
-        unavailableTargets: Object.freeze([]),
-      });
+      return report(scene);
     }),
     clear: vi.fn(),
     dispose: vi.fn(),
-  };
+  } satisfies PresentationVisualStateRenderer;
 }
 
 function presentationSnapshot(
@@ -149,7 +199,7 @@ function revealProgram(): CompiledSurfacePresentationVisualProgram {
     ]),
     segments: Object.freeze([
       Object.freeze({
-        id: "reveal000001",
+        id: EmbeddedDataIdSchema.parse("reveal000001"),
         targetId: TARGET_ID,
         startMs: 500,
         endMs: 1_000,

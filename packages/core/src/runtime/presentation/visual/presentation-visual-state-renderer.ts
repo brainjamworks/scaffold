@@ -58,6 +58,7 @@ interface ElementBaseline {
   readonly pointerEvents: string;
   readonly opacity: string;
   readonly transform: string;
+  readonly authoredTransform: string;
   readonly clipPath: string;
   readonly outline: string;
   readonly outlineOffset: string;
@@ -70,11 +71,23 @@ interface ActiveHandle {
 }
 
 interface ActiveLayoutHandle {
-  readonly key: string;
+  readonly segmentId: EmbeddedDataId;
   readonly root: HTMLElement;
   readonly durationMs: number;
   readonly handle: PresentationLayoutAnimationHandle;
 }
+
+type ActiveLayoutTransition =
+  | {
+      readonly kind: "flow";
+      readonly state: PresentationFlowSceneState;
+      readonly transition: NonNullable<PresentationFlowSceneState["transition"]>;
+    }
+  | {
+      readonly kind: "sequence";
+      readonly state: PresentationSequenceSceneState;
+      readonly transition: NonNullable<PresentationSequenceSceneState["transition"]>;
+    };
 
 export function createPresentationVisualStateRenderer({
   resolver,
@@ -89,17 +102,15 @@ export function createPresentationVisualStateRenderer({
 }): PresentationVisualStateRenderer {
   const baselines = new Map<HTMLElement, ElementBaseline>();
   const activeByTargetId = new Map<EmbeddedNodeId, ActiveHandle>();
-  let surfaceId: EmbeddedNodeId | null = null;
   let activeLayout: ActiveLayoutHandle | null = null;
+  let surfaceId: EmbeddedNodeId | null = null;
   let contentLayoutApplied = false;
   let disposed = false;
 
   function clear(): void {
-    if (activeLayout) {
-      activeLayout.handle.cancel();
-      activeLayout.handle.dispose();
-      activeLayout = null;
-    }
+    cancelActiveLayout(activeLayout, (next) => {
+      activeLayout = next;
+    });
     if (contentLayoutApplied) {
       contentLayoutPort?.clear();
       contentLayoutApplied = false;
@@ -204,12 +215,9 @@ function applyContentLayout({
     throw new Error("Presentation content-layout state requires its runtime projection port.");
   }
 
-  const currentRequest = createContentLayoutRequest(scene, flowStates, scene.sequenceStates, false);
-  const transitions = [
-    ...flowStates.flatMap((state) => (state.transition ? [state.transition] : [])),
-    ...scene.sequenceStates.flatMap((state) => (state.transition ? [state.transition] : [])),
-  ];
-  if (transitions.length === 0) {
+  const currentRequest = createContentLayoutRequest(scene, flowStates, scene.sequenceStates);
+  const activeTransition = collectActiveLayoutTransition(flowStates, scene.sequenceStates);
+  if (!activeTransition) {
     settleActiveLayout(getActiveLayout(), setActiveLayout);
     const result = contentLayoutPort.apply(currentRequest);
     if (result.isErr()) return result.error;
@@ -217,17 +225,14 @@ function applyContentLayout({
     return undefined;
   }
 
-  const startMs = Math.min(...transitions.map(({ startMs }) => startMs));
-  const endMs = Math.max(...transitions.map(({ endMs }) => endMs));
-  const durationMs = endMs - startMs;
+  const { transition } = activeTransition;
+  const durationMs = transition.endMs - transition.startMs;
   if (!Number.isSafeInteger(durationMs) || durationMs <= 0) {
     throw new Error("Presentation Layout transition has invalid time bounds.");
   }
-  const segmentIds = transitions.flatMap(({ segmentIds }) => segmentIds);
-  const key = segmentIds.join("\u0000");
   const rootResolution = resolver.resolve(scene.surfaceId);
   if (rootResolution.kind === "unavailable") {
-    settleActiveLayout(getActiveLayout(), setActiveLayout);
+    cancelActiveLayout(getActiveLayout(), setActiveLayout);
     unavailableTargets.push(
       Object.freeze({ targetId: scene.surfaceId, reason: rootResolution.reason }),
     );
@@ -237,54 +242,93 @@ function applyContentLayout({
     return undefined;
   }
 
-  const localTimeMs = Math.min(durationMs, Math.max(0, scene.timeMs - startMs));
+  const localTimeMs = Math.min(durationMs, Math.max(0, scene.timeMs - transition.startMs));
   const active = getActiveLayout();
-  if (active?.key === key && active.root === rootResolution.element) {
+  if (
+    active?.segmentId === transition.segmentId &&
+    active.root === rootResolution.element &&
+    active.durationMs === durationMs
+  ) {
     active.handle.apply(localTimeMs);
     return undefined;
   }
   cancelActiveLayout(active, setActiveLayout);
 
-  const previousRequest = createContentLayoutRequest(scene, flowStates, scene.sequenceStates, true);
-  const previousResult = contentLayoutPort.apply(previousRequest);
+  const previousResult = contentLayoutPort.apply(
+    createContentLayoutRequest(
+      scene,
+      flowStates,
+      scene.sequenceStates,
+      activeTransition,
+      "previous",
+    ),
+  );
   if (previousResult.isErr()) return previousResult.error;
   markContentLayoutApplied();
 
-  let currentError: PresentationContentLayoutError | undefined;
+  let nextError: PresentationContentLayoutError | undefined;
   const handle = createLayoutAnimation({
     root: rootResolution.element,
     durationMs,
-    easing: resolveLayoutEasing(scene, segmentIds),
+    easing: resolveLayoutEasing(transition),
     applyLayout() {
-      const result = contentLayoutPort.apply(currentRequest);
+      const result = contentLayoutPort.apply(
+        createContentLayoutRequest(
+          scene,
+          flowStates,
+          scene.sequenceStates,
+          activeTransition,
+          "next",
+        ),
+      );
       if (result.isErr()) {
-        currentError = result.error;
+        nextError = result.error;
         return;
       }
       markContentLayoutApplied();
     },
   });
-  if (currentError) {
+  if (nextError) {
     handle.cancel();
     handle.dispose();
-    return currentError;
+    return nextError;
   }
-  const next = Object.freeze({
-    key,
-    root: rootResolution.element,
-    durationMs,
-    handle,
-  });
-  setActiveLayout(next);
+  setActiveLayout(
+    Object.freeze({
+      segmentId: transition.segmentId,
+      root: rootResolution.element,
+      durationMs,
+      handle,
+    }),
+  );
   handle.apply(localTimeMs);
   return undefined;
+}
+
+function collectActiveLayoutTransition(
+  flowStates: readonly PresentationFlowSceneState[],
+  sequenceStates: readonly PresentationSequenceSceneState[],
+): ActiveLayoutTransition | undefined {
+  const active = [
+    ...flowStates.flatMap((state) =>
+      state.transition ? [{ kind: "flow" as const, state, transition: state.transition }] : [],
+    ),
+    ...sequenceStates.flatMap((state) =>
+      state.transition ? [{ kind: "sequence" as const, state, transition: state.transition }] : [],
+    ),
+  ];
+  if (active.length > 1) {
+    throw new Error("Presentation Surface has overlapping active Layout transitions.");
+  }
+  return active[0];
 }
 
 function createContentLayoutRequest(
   scene: PresentationVisualScene,
   flowStates: readonly PresentationFlowSceneState[],
   sequenceStates: readonly PresentationSequenceSceneState[],
-  previous: boolean,
+  override?: ActiveLayoutTransition,
+  phase: "previous" | "next" = "next",
 ): PresentationContentLayoutRequest {
   return Object.freeze({
     surfaceId: scene.surfaceId,
@@ -295,10 +339,7 @@ function createContentLayoutRequest(
           contentLayout: PresentationContentLayout.Flow,
           directChildIds: state.directChildIds,
           activeChildId: null,
-          withheldChildIds:
-            previous && state.transition
-              ? state.transition.previousWithheldChildIds
-              : state.withheldChildIds,
+          withheldChildIds: resolveFlowWithheldChildIds(state, override, phase),
         }),
       ),
       ...sequenceStates.map((state) =>
@@ -306,10 +347,7 @@ function createContentLayoutRequest(
           containerId: state.boundaryId,
           contentLayout: PresentationContentLayout.Sequence,
           directChildIds: state.directChildIds,
-          activeChildId:
-            previous && state.transition
-              ? state.transition.previousActiveChildId
-              : state.activeChildId,
+          activeChildId: resolveSequenceActiveChildId(state, override, phase),
           withheldChildIds: Object.freeze([]),
         }),
       ),
@@ -317,23 +355,37 @@ function createContentLayoutRequest(
   });
 }
 
+function resolveFlowWithheldChildIds(
+  state: PresentationFlowSceneState,
+  override: ActiveLayoutTransition | undefined,
+  phase: "previous" | "next",
+): readonly EmbeddedNodeId[] {
+  if (override?.kind !== "flow" || override.state !== state) return state.withheldChildIds;
+  return phase === "previous"
+    ? override.transition.previousWithheldChildIds
+    : override.transition.nextWithheldChildIds;
+}
+
+function resolveSequenceActiveChildId(
+  state: PresentationSequenceSceneState,
+  override: ActiveLayoutTransition | undefined,
+  phase: "previous" | "next",
+): EmbeddedNodeId | null {
+  if (override?.kind !== "sequence" || override.state !== state) return state.activeChildId;
+  return phase === "previous"
+    ? override.transition.previousActiveChildId
+    : override.transition.nextActiveChildId;
+}
+
 function resolveLayoutEasing(
-  scene: PresentationVisualScene,
-  segmentIds: readonly EmbeddedDataId[],
+  transition:
+    | NonNullable<PresentationFlowSceneState["transition"]>
+    | NonNullable<PresentationSequenceSceneState["transition"]>,
 ): string {
-  for (const segmentId of segmentIds) {
-    for (const state of scene.targetStates.values()) {
-      if (state.paint.kind !== "transition" || state.paint.segmentId !== segmentId) continue;
-      const visual = state.paint.visual;
-      if (
-        (visual.kind === "reveal" || visual.kind === "hide") &&
-        visual.transition.kind !== "instant"
-      ) {
-        return resolvePresentationEasing(visual.transition.easing);
-      }
-    }
+  if (transition.visual.transition.kind === "instant") {
+    throw new Error("Presentation Layout transition cannot use an instant visibility recipe.");
   }
-  throw new Error("Presentation Layout transition has no active visibility recipe.");
+  return resolvePresentationEasing(transition.visual.transition.easing);
 }
 
 function cancelActiveLayout(
@@ -364,7 +416,8 @@ function applyAvailability(
   element.setAttribute(PRESENTATION_AVAILABILITY_ATTRIBUTE, state.availability);
   if (state.availability === "withheld") {
     const activeElement = element.ownerDocument.activeElement;
-    if (activeElement instanceof HTMLElement && element.contains(activeElement)) activeElement.blur();
+    if (activeElement instanceof HTMLElement && element.contains(activeElement))
+      activeElement.blur();
     element.setAttribute("aria-hidden", "true");
     element.setAttribute("inert", "");
     element.style.pointerEvents = "none";
@@ -416,6 +469,7 @@ function applyPaint({
       readonly paint: Extract<PresentationTargetSceneState["paint"], { kind: "transition" }>;
     },
     element,
+    baseline,
   );
   const current = activeByTargetId.get(state.targetId);
   const active =
@@ -434,12 +488,13 @@ function resolveAnimationInput(
     readonly paint: Extract<PresentationTargetSceneState["paint"], { kind: "transition" }>;
   },
   element: HTMLElement,
+  baseline: ElementBaseline,
 ): VisualAnimationInput {
   const { paint } = state;
   switch (paint.visual.kind) {
     case "reveal":
     case "hide":
-      return resolveVisibilityAnimationInput(paint.segmentId, paint.visual, element);
+      return resolveVisibilityAnimationInput(paint.segmentId, paint.visual, element, baseline);
     case "emphasize":
       if (paint.visual.effect !== "pulse") {
         throw new Error("Presentation outline emphasis must not create an animation handle.");
@@ -449,6 +504,7 @@ function resolveAnimationInput(
         element,
         durationMs: paint.visual.durationMs,
         easing: resolvePresentationEasing(paint.visual.easing),
+        ...(baseline.authoredTransform ? { baseTransform: baseline.authoredTransform } : {}),
         keyframes: freezeKeyframes(
           { offset: 0, transform: Object.freeze({ scale: 1 }) },
           { offset: 0.5, transform: Object.freeze({ scale: 1.06 }) },
@@ -456,7 +512,7 @@ function resolveAnimationInput(
         ),
       });
     case "move":
-      return resolveMoveAnimationInput(state, element);
+      return resolveMoveAnimationInput(state, element, baseline);
   }
 }
 
@@ -464,6 +520,7 @@ function resolveVisibilityAnimationInput(
   segmentId: EmbeddedDataId,
   visual: Extract<CompiledVisualIntent, { readonly kind: "reveal" | "hide" }>,
   element: HTMLElement,
+  baseline: ElementBaseline,
 ): VisualAnimationInput {
   const transition = visual.transition;
   if (transition.kind === "instant") {
@@ -480,17 +537,20 @@ function resolveVisibilityAnimationInput(
     element,
     durationMs: transition.durationMs,
     easing: resolvePresentationEasing(transition.easing),
-    keyframes: freezeKeyframes(
-      { ...keyframes[0], offset: 0 },
-      { ...keyframes[1], offset: 1 },
-    ),
+    ...(baseline.authoredTransform && keyframes.some(({ transform }) => transform !== undefined)
+      ? { baseTransform: baseline.authoredTransform }
+      : {}),
+    keyframes: freezeKeyframes({ ...keyframes[0], offset: 0 }, { ...keyframes[1], offset: 1 }),
   });
 }
 
 function visibilityKeyframes(
   kind: "fade" | "path-fade" | "slide" | "float" | "scale" | "wipe",
   direction: "up" | "right" | "down" | "left" | undefined,
-): readonly [Omit<VisualAnimationInput["keyframes"][number], "offset">, Omit<VisualAnimationInput["keyframes"][number], "offset">] {
+): readonly [
+  Omit<VisualAnimationInput["keyframes"][number], "offset">,
+  Omit<VisualAnimationInput["keyframes"][number], "offset">,
+] {
   const visible = Object.freeze({ opacity: 1 });
   switch (kind) {
     case "fade":
@@ -519,10 +579,7 @@ function visibilityKeyframes(
   }
 }
 
-function directionalTransform(
-  direction: "up" | "right" | "down" | "left",
-  distance: number,
-) {
+function directionalTransform(direction: "up" | "right" | "down" | "left", distance: number) {
   switch (direction) {
     case "up":
       return Object.freeze({ translateY: -distance });
@@ -553,6 +610,7 @@ function resolveMoveAnimationInput(
     readonly paint: Extract<PresentationTargetSceneState["paint"], { kind: "transition" }>;
   },
   element: HTMLElement,
+  baseline: ElementBaseline,
 ): VisualAnimationInput {
   const paint = state.paint;
   if (paint.visual.kind !== "move") throw new Error("Expected an active Move recipe.");
@@ -567,6 +625,7 @@ function resolveMoveAnimationInput(
     element,
     durationMs: paint.visual.durationMs,
     easing: resolvePresentationEasing(paint.visual.easing),
+    ...(baseline.authoredTransform ? { baseTransform: baseline.authoredTransform } : {}),
     keyframes: freezeKeyframes(
       {
         offset: 0,
@@ -626,7 +685,10 @@ function applySettledMove(
     return;
   }
   const offset = accumulatedMoveOffset(state.moveContributions);
-  element.style.transform = `translate(${offset.x}px, ${offset.y}px)`;
+  element.style.transform = composeTransforms(
+    baseline.authoredTransform,
+    `translate(${offset.x}px, ${offset.y}px)`,
+  );
 }
 
 function restoreTransientPaint(element: HTMLElement, baseline: ElementBaseline): void {
@@ -666,6 +728,7 @@ function rememberBaseline(
       pointerEvents: element.style.pointerEvents,
       opacity: element.style.opacity,
       transform: element.style.transform,
+      authoredTransform: resolveAuthoredTransform(element),
       clipPath: element.style.clipPath,
       outline: element.style.outline,
       outlineOffset: element.style.outlineOffset,
@@ -673,12 +736,17 @@ function rememberBaseline(
   );
 }
 
+function resolveAuthoredTransform(element: HTMLElement): string {
+  const transform = element.style.transform || getComputedStyle(element).transform;
+  return transform && transform !== "none" ? transform : "";
+}
+
+function composeTransforms(...transforms: readonly string[]): string {
+  return transforms.filter(Boolean).join(" ");
+}
+
 function restoreElement(element: HTMLElement, baseline: ElementBaseline): void {
-  restoreAttribute(
-    element,
-    PRESENTATION_AVAILABILITY_ATTRIBUTE,
-    baseline.presentationAvailability,
-  );
+  restoreAttribute(element, PRESENTATION_AVAILABILITY_ATTRIBUTE, baseline.presentationAvailability);
   restoreAttribute(element, "aria-hidden", baseline.ariaHidden);
   restoreAttribute(element, "inert", baseline.inert);
   element.style.pointerEvents = baseline.pointerEvents;

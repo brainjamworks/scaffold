@@ -8,7 +8,9 @@ import { createAnimeVisualAnimationDriver } from "./anime-visual-animation-drive
 describe("AnimeVisualAnimationDriver", () => {
   it("creates a callback-free paused animation from one element reference", () => {
     const animation = { seek: vi.fn(), cancel: vi.fn() };
-    const animate = vi.fn(() => animation);
+    const animate = vi.fn(
+      (_element: HTMLElement, _parameters: Readonly<Record<string, unknown>>) => animation,
+    );
     const element = document.createElement("div");
     const driver = createAnimeVisualAnimationDriver({ animate });
 
@@ -36,6 +38,35 @@ describe("AnimeVisualAnimationDriver", () => {
     });
     expect(animate.mock.calls[0]?.[1]).not.toHaveProperty("onComplete");
     expect(animate.mock.calls[0]?.[1]).not.toHaveProperty("targets");
+  });
+
+  it("composes Presentation transforms after the target's authored transform", () => {
+    const animate = vi.fn(
+      (_element: HTMLElement, _parameters: Readonly<Record<string, unknown>>) => ({
+        seek: vi.fn(),
+        cancel: vi.fn(),
+      }),
+    );
+    const driver = createAnimeVisualAnimationDriver({ animate });
+
+    driver.create({
+      segmentId: EmbeddedDataIdSchema.parse("segment00001"),
+      element: document.createElement("div"),
+      durationMs: 500,
+      easing: "linear",
+      baseTransform: "translate(-50%, -50%)",
+      keyframes: [
+        { offset: 0, transform: { scale: 1 } },
+        { offset: 1, transform: { scale: 1.06 } },
+      ],
+    });
+
+    expect(animate.mock.calls[0]?.[1]).toMatchObject({
+      keyframes: {
+        "0": { transform: "translate(-50%, -50%) scale(1)" },
+        "100": { transform: "translate(-50%, -50%) scale(1.06)" },
+      },
+    });
   });
 
   it("seeks absolutely with callbacks muted and cancels idempotently", () => {

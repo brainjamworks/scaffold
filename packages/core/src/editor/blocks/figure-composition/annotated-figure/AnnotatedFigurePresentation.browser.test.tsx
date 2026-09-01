@@ -137,6 +137,7 @@ describe("Annotated Figure presentation contract", () => {
     });
     const firstPin = requiredElement<HTMLElement>(surfaceRoot, `[data-pin="${firstId}"]`);
     const secondPin = requiredElement<HTMLElement>(surfaceRoot, `[data-pin="${secondId}"]`);
+    const authoredCenter = elementCenter(firstPin);
 
     expect(firstPin).toHaveAttribute("data-presentation-availability", "withheld");
     expect(secondPin).toHaveAttribute("data-presentation-availability", "available");
@@ -155,12 +156,24 @@ describe("Annotated Figure presentation contract", () => {
 
     seek(firstHarness.session, 1_350);
     expect(firstPin.style.transform).not.toBe("");
+    expectElementCenter(firstPin, authoredCenter);
     motionMode = "reduced-motion";
     seek(firstHarness.session, 1_400);
     expect(firstPin.style.transform).toBe("");
     expect(firstPin.style.outline).toContain("3px");
 
     motionMode = "normal";
+    seek(firstHarness.session, 1_750);
+    expectElementCenter(firstPin, {
+      x: authoredCenter.x + 15,
+      y: authoredCenter.y + 5,
+    });
+    seek(firstHarness.session, 1_900);
+    expectElementCenter(firstPin, {
+      x: authoredCenter.x + 30,
+      y: authoredCenter.y + 10,
+    });
+
     seek(firstHarness.session, 0);
     expect(firstPin).toHaveAttribute("data-presentation-availability", "withheld");
     expect(secondPin).toHaveAttribute("data-presentation-availability", "available");
@@ -183,9 +196,7 @@ describe("Annotated Figure presentation contract", () => {
         />
       </CourseThemeProvider>,
     );
-    await waitForCondition(
-      () => surfaceRoot.querySelectorAll("[data-annotation-id]").length === 2,
-    );
+    await waitForCondition(() => surfaceRoot.querySelectorAll("[data-annotation-id]").length === 2);
     motionMode = "reduced-motion";
     const captionHarness = createVisualHarness({
       surfaceId,
@@ -463,9 +474,37 @@ function annotationVisualProgram(
           easing: Object.freeze({ kind: "preset" as const, preset: "linear" as const }),
         }),
       }),
+      Object.freeze({
+        id: EmbeddedDataIdSchema.parse("move00000001"),
+        targetId: firstId,
+        startMs: 1_600,
+        endMs: 1_900,
+        visual: Object.freeze({
+          kind: "move" as const,
+          durationMs: 300,
+          easing: Object.freeze({ kind: "preset" as const, preset: "linear" as const }),
+          boundaryId: surfaceId,
+          pathData: "M 0 0 L 30 10",
+          orientToPath: false,
+        }),
+      }),
     ]),
     sequenceContainers: Object.freeze([]),
   });
+}
+
+function elementCenter(element: HTMLElement): { readonly x: number; readonly y: number } {
+  const bounds = element.getBoundingClientRect();
+  return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
+}
+
+function expectElementCenter(
+  element: HTMLElement,
+  expected: { readonly x: number; readonly y: number },
+): void {
+  const center = elementCenter(element);
+  expect(center.x).toBeCloseTo(expected.x, 1);
+  expect(center.y).toBeCloseTo(expected.y, 1);
 }
 
 function createVisualHarness({
@@ -516,10 +555,7 @@ function createVisualHarness({
   };
 }
 
-function seek(
-  session: ReturnType<typeof createPresentationPlaybackSession>,
-  timeMs: number,
-): void {
+function seek(session: ReturnType<typeof createPresentationPlaybackSession>, timeMs: number): void {
   const result = session.seek(timeMs);
   if (result.isErr()) throw new Error(`Expected seek, received ${result.error.reason}.`);
 }

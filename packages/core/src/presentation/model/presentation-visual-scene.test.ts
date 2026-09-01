@@ -1,6 +1,8 @@
 import {
   EmbeddedDataIdSchema,
   EmbeddedNodeIdSchema,
+  PresentationContentLayout,
+  type PresentationContentLayout as PresentationContentLayoutType,
   type VisibilityTransitionV1,
 } from "@scaffold/contracts";
 import { describe, expect, it } from "vite-plus/test";
@@ -167,6 +169,24 @@ describe("sceneAt", () => {
     expect(sceneAt(program, 750, "normal")).toEqual(sceneAt(program, 750, "normal"));
   });
 
+  it.each(["move", "emphasize"] as const)(
+    "keeps a target withheld when a later %s becomes active and settles",
+    (kind) => {
+      const program = hiddenEffectProgram(kind);
+
+      for (const timeMs of [1_250, 1_500]) {
+        const state = sceneAt(program, timeMs, "normal").targetStates.get(TARGET_ID);
+        expect(state).toMatchObject({ availability: "withheld", paint: { kind: "none" } });
+        expect(sceneAt(program, timeMs, "normal")).toEqual(sceneAt(program, timeMs, "normal"));
+      }
+      if (kind === "move") {
+        expect(
+          sceneAt(program, 1_500, "normal").targetStates.get(TARGET_ID)?.moveContributions,
+        ).toHaveLength(1);
+      }
+    },
+  );
+
   it("uses instant semantic results and a static outline substitute under reduced motion", () => {
     expect(
       sceneAt(
@@ -196,7 +216,7 @@ describe("sceneAt", () => {
     });
   });
 
-  it("models Sequence Replace as adjacent outgoing Hide and incoming Reveal", () => {
+  it("models Sequence Replace as consecutive outgoing Hide and incoming Reveal", () => {
     const program = sequenceReplaceProgram();
 
     expect(sceneAt(program, 999, "normal").targetStates.get(SEQUENCE_A_ID)).toMatchObject({
@@ -209,16 +229,16 @@ describe("sceneAt", () => {
       paint: { kind: "transition", visual: { kind: "hide" } },
     });
     expect(sceneAt(program, 1_000, "normal").targetStates.get(SEQUENCE_B_ID)).toMatchObject({
-      availability: "available",
-      layoutParticipation: "shared-position",
-      paint: { kind: "transition", visual: { kind: "reveal" } },
+      availability: "withheld",
+      layoutParticipation: "none",
+      paint: { kind: "none" },
     });
     expect(sceneAt(program, 1_500, "normal").targetStates.get(SEQUENCE_A_ID)).toMatchObject({
       availability: "withheld",
       layoutParticipation: "none",
       paint: { kind: "none" },
     });
-    expect(sceneAt(program, 1_500, "normal").sequenceStates).toEqual([
+    expect(sceneAt(program, 1_500, "normal").sequenceStates).toMatchObject([
       {
         boundaryId: SEQUENCE_ID,
         directChildIds: [SEQUENCE_A_ID, SEQUENCE_B_ID],
@@ -252,11 +272,13 @@ describe("sceneAt", () => {
         directChildIds: [TARGET_ID, FLOW_SECOND_ID],
         withheldChildIds: [TARGET_ID],
         transition: {
-          segmentIds: ["flowhide0001"],
+          segmentId: "flowhide0001",
           startMs: 1_000,
           endMs: 1_500,
           progress: 0.5,
+          visual: expect.objectContaining({ kind: "hide" }),
           previousWithheldChildIds: [],
+          nextWithheldChildIds: [TARGET_ID],
         },
       },
     ]);
@@ -268,6 +290,36 @@ describe("sceneAt", () => {
       },
     ]);
   });
+
+  it.each([PresentationContentLayout.Flow, PresentationContentLayout.Sequence] as const)(
+    "retains segment-local timing and easing for a %s change",
+    (contentLayout) => {
+      const scene = sceneAt(containerTransitionProgram(contentLayout), 1_250, "normal");
+      const transition =
+        contentLayout === PresentationContentLayout.Flow
+          ? scene.flowStates?.[0]?.transition
+          : scene.sequenceStates[0]?.transition;
+
+      expect(transition).toMatchObject({
+        segmentId: "hideA0000001",
+        startMs: 1_000,
+        endMs: 1_500,
+        progress: 0.5,
+        visual: { transition: { easing: { kind: "preset", preset: "linear" } } },
+      });
+      if (contentLayout === PresentationContentLayout.Flow) {
+        expect(transition).toMatchObject({
+          previousWithheldChildIds: [FLOW_SECOND_ID],
+          nextWithheldChildIds: [TARGET_ID, FLOW_SECOND_ID],
+        });
+      } else {
+        expect(transition).toMatchObject({
+          previousActiveChildId: TARGET_ID,
+          nextActiveChildId: TARGET_ID,
+        });
+      }
+    },
+  );
 
   it.each([
     { timeMs: 0, activeChildId: SEQUENCE_A_ID },
@@ -407,9 +459,9 @@ function timedTransition(
     durationMs: 500,
     easing: { kind: "preset" as const, preset: "linear" as const },
   };
-  return (direction
-    ? { ...timed, kind: kind as "slide" | "float" | "wipe", direction }
-    : timed) as VisibilityTransitionV1;
+  return (
+    direction ? { ...timed, kind: kind as "slide" | "float" | "wipe", direction } : timed
+  ) as VisibilityTransitionV1;
 }
 
 function visibilityProgram(
@@ -477,6 +529,41 @@ function moveProgram(): CompiledSurfacePresentationVisualProgram {
   });
 }
 
+function hiddenEffectProgram(kind: "move" | "emphasize"): CompiledSurfacePresentationVisualProgram {
+  const effect =
+    kind === "move"
+      ? {
+          id: EmbeddedDataIdSchema.parse("hiddenmove01"),
+          targetId: TARGET_ID,
+          startMs: 1_000,
+          endMs: 1_500,
+          visual: {
+            kind: "move" as const,
+            durationMs: 500,
+            easing: { kind: "preset" as const, preset: "linear" as const },
+            boundaryId: BOUNDARY_ID,
+            pathData: "M 0 0 L 40 20",
+            orientToPath: false,
+          },
+        }
+      : {
+          id: EmbeddedDataIdSchema.parse("hiddenemph01"),
+          targetId: TARGET_ID,
+          startMs: 1_000,
+          endMs: 1_500,
+          visual: {
+            kind: "emphasize" as const,
+            durationMs: 500,
+            easing: { kind: "preset" as const, preset: "linear" as const },
+            effect: "pulse" as const,
+          },
+        };
+  return revealProgram({
+    targetById: new Map([[TARGET_ID, { targetId: TARGET_ID, initialVisibility: "visible" }]]),
+    segments: [instant("hide00000001", "hide", 500), effect],
+  });
+}
+
 function sequenceReplaceProgram(): CompiledSurfacePresentationVisualProgram {
   const transition = timedTransition("fade");
   return {
@@ -492,8 +579,8 @@ function sequenceReplaceProgram(): CompiledSurfacePresentationVisualProgram {
       {
         id: EmbeddedDataIdSchema.parse("revealB00001"),
         targetId: SEQUENCE_B_ID,
-        startMs: 1_000,
-        endMs: 1_500,
+        startMs: 1_500,
+        endMs: 2_000,
         visual: { kind: "reveal", transition },
       },
     ],
@@ -529,6 +616,63 @@ function flowHideProgram(): CompiledSurfacePresentationVisualProgram {
       },
     ],
   });
+}
+
+function containerTransitionProgram(
+  contentLayout: PresentationContentLayoutType,
+): CompiledSurfacePresentationVisualProgram {
+  const directChildIds = [TARGET_ID, FLOW_SECOND_ID] as const;
+  return {
+    surfaceId: SURFACE_ID,
+    durationMs: 3_000,
+    targetById: new Map([
+      [
+        TARGET_ID,
+        {
+          targetId: TARGET_ID,
+          initialVisibility: "visible",
+          contentLayout: {
+            containerId: FLOW_ID,
+            contentLayout,
+            directChildId: TARGET_ID,
+            directChildIds,
+          },
+        },
+      ],
+      [
+        FLOW_SECOND_ID,
+        {
+          targetId: FLOW_SECOND_ID,
+          initialVisibility: "withheld",
+          contentLayout: {
+            containerId: FLOW_ID,
+            contentLayout,
+            directChildId: FLOW_SECOND_ID,
+            directChildIds,
+          },
+        },
+      ],
+    ]),
+    segments: [
+      {
+        id: EmbeddedDataIdSchema.parse("hideA0000001"),
+        targetId: TARGET_ID,
+        startMs: 1_000,
+        endMs: 1_500,
+        visual: { kind: "hide", transition: timedTransition("fade") },
+      },
+    ],
+    sequenceContainers:
+      contentLayout === PresentationContentLayout.Sequence
+        ? [
+            {
+              boundaryId: FLOW_ID,
+              directChildIds,
+              initialActiveChildId: TARGET_ID,
+            },
+          ]
+        : [],
+  };
 }
 
 function sequenceOwnershipProgram(): CompiledSurfacePresentationVisualProgram {

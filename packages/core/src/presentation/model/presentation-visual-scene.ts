@@ -37,11 +37,13 @@ export interface PresentationFlowSceneState {
   readonly directChildIds: readonly EmbeddedNodeId[];
   readonly withheldChildIds: readonly EmbeddedNodeId[];
   readonly transition?: {
-    readonly segmentIds: readonly EmbeddedDataId[];
+    readonly segmentId: EmbeddedDataId;
     readonly startMs: number;
     readonly endMs: number;
     readonly progress: number;
+    readonly visual: Extract<CompiledVisualIntent, { readonly kind: "reveal" | "hide" }>;
     readonly previousWithheldChildIds: readonly EmbeddedNodeId[];
+    readonly nextWithheldChildIds: readonly EmbeddedNodeId[];
   };
 }
 
@@ -50,11 +52,13 @@ export interface PresentationSequenceSceneState {
   readonly directChildIds: readonly EmbeddedNodeId[];
   readonly activeChildId: EmbeddedNodeId | null;
   readonly transition?: {
-    readonly segmentIds: readonly EmbeddedDataId[];
+    readonly segmentId: EmbeddedDataId;
     readonly startMs: number;
     readonly endMs: number;
     readonly progress: number;
+    readonly visual: Extract<CompiledVisualIntent, { readonly kind: "reveal" | "hide" }>;
     readonly previousActiveChildId: EmbeddedNodeId | null;
+    readonly nextActiveChildId: EmbeddedNodeId | null;
   };
 }
 
@@ -109,9 +113,7 @@ export function sceneAt(
       target.contentLayout.directChildId === target.targetId
         ? target.contentLayout
         : undefined;
-    const activeChildId = sequence
-      ? activeChildByBoundaryId.get(sequence.containerId)
-      : undefined;
+    const activeChildId = sequence ? activeChildByBoundaryId.get(sequence.containerId) : undefined;
     const layoutParticipation = state.outgoingTransition
       ? "transition-overlay"
       : state.availability === "withheld"
@@ -133,32 +135,24 @@ export function sceneAt(
     );
   }
 
+  const activeLayoutSegment = resolveActiveLayoutSegment(program, timeMs, motionMode);
   const sequenceStates = Object.freeze(
     program.sequenceContainers.map((container) => {
-      const activeSegments = activeLayoutSegments(
-        program,
-        timeMs,
-        motionMode,
-        container.boundaryId,
-      );
+      const transition =
+        activeLayoutSegment &&
+        program.targetById.get(activeLayoutSegment.targetId)?.contentLayout?.containerId ===
+          container.boundaryId
+          ? createSequenceTransition(program, container, activeLayoutSegment, timeMs)
+          : undefined;
       return Object.freeze({
         boundaryId: container.boundaryId,
         directChildIds: container.directChildIds,
         activeChildId: activeChildByBoundaryId.get(container.boundaryId) ?? null,
-        ...(activeSegments.length === 0
-          ? {}
-          : {
-              transition: createSequenceTransition(
-                program,
-                container,
-                activeSegments,
-                timeMs,
-              ),
-            }),
+        ...(transition ? { transition } : {}),
       });
     }),
   );
-  const flowStates = projectFlowStates(program, mutableByTargetId, timeMs, motionMode);
+  const flowStates = projectFlowStates(program, mutableByTargetId, timeMs, activeLayoutSegment);
   return Object.freeze({
     surfaceId: program.surfaceId,
     timeMs,
@@ -202,9 +196,17 @@ function applySegment(
           visual: segment.visual,
         }),
       );
+      if (state.availability === "withheld") {
+        state.paint = nonePaint();
+        return;
+      }
       state.paint = active && !reduced ? transitionPaint() : settledPaint();
       return;
     case "emphasize":
+      if (state.availability === "withheld") {
+        state.paint = nonePaint();
+        return;
+      }
       state.paint = active
         ? transitionPaint(
             reduced && segment.visual.effect === "pulse"
@@ -220,7 +222,7 @@ function projectFlowStates(
   program: CompiledSurfacePresentationVisualProgram,
   states: ReadonlyMap<EmbeddedNodeId, MutableTargetState>,
   timeMs: number,
-  motionMode: PresentationMotionMode,
+  activeLayoutSegment: CompiledVisualSegment | undefined,
 ): readonly PresentationFlowSceneState[] {
   const directChildrenByContainerId = new Map<EmbeddedNodeId, readonly EmbeddedNodeId[]>();
   for (const target of program.targetById.values()) {
@@ -247,33 +249,47 @@ function projectFlowStates(
           );
         }),
       );
-      const activeSegments = activeLayoutSegments(
-        program,
-        timeMs,
-        motionMode,
-        boundaryId,
-      );
-      if (activeSegments.length === 0) {
+      const membership = activeLayoutSegment
+        ? program.targetById.get(activeLayoutSegment.targetId)?.contentLayout
+        : undefined;
+      if (
+        !activeLayoutSegment ||
+        membership?.contentLayout !== "flow" ||
+        membership.containerId !== boundaryId ||
+        membership.directChildId !== activeLayoutSegment.targetId
+      ) {
         return Object.freeze({ boundaryId, directChildIds, withheldChildIds });
       }
 
-      const previous = new Set(withheldChildIds);
-      for (const segment of [...activeSegments].reverse()) {
-        if (segment.visual.kind === "reveal") previous.add(segment.targetId);
-        if (segment.visual.kind === "hide") previous.delete(segment.targetId);
-      }
-      const { startMs, endMs } = transitionBounds(activeSegments);
       return Object.freeze({
         boundaryId,
         directChildIds,
         withheldChildIds,
         transition: Object.freeze({
-          segmentIds: Object.freeze(activeSegments.map(({ id }) => id)),
-          startMs,
-          endMs,
-          progress: clampProgress((timeMs - startMs) / (endMs - startMs)),
-          previousWithheldChildIds: Object.freeze(
-            directChildIds.filter((childId) => previous.has(childId)),
+          segmentId: activeLayoutSegment.id,
+          startMs: activeLayoutSegment.startMs,
+          endMs: activeLayoutSegment.endMs,
+          progress: clampProgress(
+            (timeMs - activeLayoutSegment.startMs) /
+              (activeLayoutSegment.endMs - activeLayoutSegment.startMs),
+          ),
+          visual: activeLayoutSegment.visual as Extract<
+            CompiledVisualIntent,
+            { readonly kind: "reveal" | "hide" }
+          >,
+          previousWithheldChildIds: projectFlowWithheldAtSegment(
+            program,
+            boundaryId,
+            directChildIds,
+            activeLayoutSegment,
+            false,
+          ),
+          nextWithheldChildIds: projectFlowWithheldAtSegment(
+            program,
+            boundaryId,
+            directChildIds,
+            activeLayoutSegment,
+            true,
           ),
         }),
       });
@@ -312,14 +328,13 @@ function projectSequenceOwnership(
   return activeByBoundaryId;
 }
 
-function activeLayoutSegments(
+function resolveActiveLayoutSegment(
   program: CompiledSurfacePresentationVisualProgram,
   timeMs: number,
   motionMode: PresentationMotionMode,
-  containerId: EmbeddedNodeId,
-): readonly CompiledVisualSegment[] {
-  if (motionMode === "reduced-motion") return [];
-  return program.segments.filter((segment) => {
+): CompiledVisualSegment | undefined {
+  if (motionMode === "reduced-motion") return undefined;
+  return program.segments.find((segment) => {
     if (
       segment.endMs === segment.startMs ||
       timeMs < segment.startMs ||
@@ -329,38 +344,100 @@ function activeLayoutSegments(
       return false;
     }
     const target = program.targetById.get(segment.targetId)!;
-    return (
-      target.contentLayout?.containerId === containerId &&
-      target.contentLayout.directChildId === target.targetId
-    );
+    return Boolean(target.contentLayout && target.contentLayout.directChildId === target.targetId);
   });
 }
 
 function createSequenceTransition(
   program: CompiledSurfacePresentationVisualProgram,
   container: CompiledSequenceContainer,
-  segments: readonly CompiledVisualSegment[],
+  segment: CompiledVisualSegment,
   timeMs: number,
 ): NonNullable<PresentationSequenceSceneState["transition"]> {
-  const { startMs, endMs } = transitionBounds(segments);
   return Object.freeze({
-    segmentIds: Object.freeze(segments.map(({ id }) => id)),
-    startMs,
-    endMs,
-    progress: clampProgress((timeMs - startMs) / (endMs - startMs)),
-    previousActiveChildId:
-      projectSequenceOwnership(program, startMs, false).get(container.boundaryId) ?? null,
+    segmentId: segment.id,
+    startMs: segment.startMs,
+    endMs: segment.endMs,
+    progress: clampProgress((timeMs - segment.startMs) / (segment.endMs - segment.startMs)),
+    visual: segment.visual as Extract<CompiledVisualIntent, { readonly kind: "reveal" | "hide" }>,
+    previousActiveChildId: projectSequenceOwnershipAtSegment(program, container, segment, false),
+    nextActiveChildId: projectSequenceOwnershipAtSegment(program, container, segment, true),
   });
 }
 
-function transitionBounds(segments: readonly CompiledVisualSegment[]): {
-  readonly startMs: number;
-  readonly endMs: number;
-} {
-  return {
-    startMs: Math.min(...segments.map(({ startMs }) => startMs)),
-    endMs: Math.max(...segments.map(({ endMs }) => endMs)),
-  };
+function projectFlowWithheldAtSegment(
+  program: CompiledSurfacePresentationVisualProgram,
+  boundaryId: EmbeddedNodeId,
+  directChildIds: readonly EmbeddedNodeId[],
+  selectedSegment: CompiledVisualSegment,
+  includeSelected: boolean,
+): readonly EmbeddedNodeId[] {
+  const withheld = new Set(
+    directChildIds.filter(
+      (childId) => program.targetById.get(childId)?.initialVisibility === "withheld",
+    ),
+  );
+  for (const segment of program.segments) {
+    if (segment === selectedSegment) {
+      if (includeSelected) applyFlowVisibility(segment, boundaryId, program, withheld);
+      break;
+    }
+    applyFlowVisibility(segment, boundaryId, program, withheld);
+  }
+  return Object.freeze(directChildIds.filter((childId) => withheld.has(childId)));
+}
+
+function applyFlowVisibility(
+  segment: CompiledVisualSegment,
+  boundaryId: EmbeddedNodeId,
+  program: CompiledSurfacePresentationVisualProgram,
+  withheld: Set<EmbeddedNodeId>,
+): void {
+  const target = program.targetById.get(segment.targetId)!;
+  if (
+    target.contentLayout?.contentLayout !== "flow" ||
+    target.contentLayout.containerId !== boundaryId ||
+    target.contentLayout.directChildId !== target.targetId
+  ) {
+    return;
+  }
+  if (segment.visual.kind === "reveal") withheld.delete(segment.targetId);
+  if (segment.visual.kind === "hide") withheld.add(segment.targetId);
+}
+
+function projectSequenceOwnershipAtSegment(
+  program: CompiledSurfacePresentationVisualProgram,
+  container: CompiledSequenceContainer,
+  selectedSegment: CompiledVisualSegment,
+  includeSelected: boolean,
+): EmbeddedNodeId | null {
+  let activeChildId = container.initialActiveChildId;
+  for (const segment of program.segments) {
+    if (segment === selectedSegment) {
+      if (includeSelected) {
+        activeChildId = applySequenceOwnership(segment, container, program, activeChildId);
+      }
+      break;
+    }
+    activeChildId = applySequenceOwnership(segment, container, program, activeChildId);
+  }
+  return activeChildId;
+}
+
+function applySequenceOwnership(
+  segment: CompiledVisualSegment,
+  container: CompiledSequenceContainer,
+  program: CompiledSurfacePresentationVisualProgram,
+  activeChildId: EmbeddedNodeId | null,
+): EmbeddedNodeId | null {
+  const target = program.targetById.get(segment.targetId)!;
+  const membership = target.contentLayout;
+  return membership?.contentLayout === "sequence" &&
+    membership.containerId === container.boundaryId &&
+    membership.directChildId === target.targetId &&
+    segment.visual.kind === "reveal"
+    ? membership.directChildId
+    : activeChildId;
 }
 
 function assertProgram(program: CompiledSurfacePresentationVisualProgram): void {
@@ -368,6 +445,7 @@ function assertProgram(program: CompiledSurfacePresentationVisualProgram): void 
     throw new Error("Presentation visual program duration is invalid.");
   }
   const timedSegmentByTargetId = new Map<EmbeddedNodeId, CompiledVisualSegment>();
+  let priorLayoutSegment: CompiledVisualSegment | undefined;
   for (const target of program.targetById.values()) {
     const membership = target.contentLayout;
     if (membership && !membership.directChildIds.includes(membership.directChildId)) {
@@ -399,6 +477,18 @@ function assertProgram(program: CompiledSurfacePresentationVisualProgram): void 
       );
     }
     timedSegmentByTargetId.set(segment.targetId, segment);
+    const target = program.targetById.get(segment.targetId)!;
+    if (
+      (segment.visual.kind === "reveal" || segment.visual.kind === "hide") &&
+      target.contentLayout?.directChildId === target.targetId
+    ) {
+      if (priorLayoutSegment && segment.startMs < priorLayoutSegment.endMs) {
+        throw new Error(
+          `Presentation visual segments "${priorLayoutSegment.id}" and "${segment.id}" overlap as Surface Layout transitions.`,
+        );
+      }
+      priorLayoutSegment = segment;
+    }
   }
 }
 

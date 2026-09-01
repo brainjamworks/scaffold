@@ -68,7 +68,7 @@ export function createAnimeVisualAnimationDriver({
         keyframes: Object.fromEntries(
           input.keyframes.map((keyframe) => [
             String(keyframe.offset * 100),
-            toAnimeKeyframe(keyframe),
+            toAnimeKeyframe(keyframe, input.baseTransform),
           ]),
         ),
       });
@@ -116,11 +116,22 @@ export function createAnimePresentationLayoutAnimation(
     layout.revert();
     throw error;
   }
-  const timeline = layout.animate({
-    autoplay: false,
-    duration: input.durationMs,
-    ease: input.easing,
-  });
+  return createPresentationLayoutAnimationHandle(
+    input,
+    layout,
+    layout.animate({
+      autoplay: false,
+      duration: input.durationMs,
+      ease: input.easing,
+    }),
+  );
+}
+
+function createPresentationLayoutAnimationHandle(
+  input: PresentationLayoutAnimationInput,
+  layout: AnimeLayout,
+  timeline: AnimeLayoutTimeline,
+): PresentationLayoutAnimationHandle {
   let cancelled = false;
   let finished = false;
   let disposed = false;
@@ -128,11 +139,7 @@ export function createAnimePresentationLayoutAnimation(
   return Object.freeze({
     apply(localTimeMs: number): void {
       assertLayoutHandleActive(disposed, "apply");
-      if (
-        !Number.isFinite(localTimeMs) ||
-        localTimeMs < 0 ||
-        localTimeMs > input.durationMs
-      ) {
+      if (!Number.isFinite(localTimeMs) || localTimeMs < 0 || localTimeMs > input.durationMs) {
         throw new Error("Presentation Layout animation received an invalid seek time.");
       }
       timeline.seek(localTimeMs, true);
@@ -192,14 +199,23 @@ function assertAnimationInput(input: VisualAnimationInput): void {
   }
 }
 
-function toAnimeKeyframe(keyframe: VisualKeyframe): Readonly<Record<string, unknown>> {
+function toAnimeKeyframe(
+  keyframe: VisualKeyframe,
+  baseTransform: string | undefined,
+): Readonly<Record<string, unknown>> {
   return Object.freeze({
     ...(keyframe.opacity === undefined ? {} : { opacity: keyframe.opacity }),
     ...(keyframe.transform === undefined
       ? {}
-      : { transform: resolveTransform(keyframe.transform) }),
+      : { transform: composeTransforms(baseTransform, resolveTransform(keyframe.transform)) }),
     ...(keyframe.clip === undefined ? {} : { clipPath: `inset(${keyframe.clip.inset})` }),
   });
+}
+
+function composeTransforms(...transforms: readonly (string | undefined)[]): string {
+  return transforms
+    .filter((transform): transform is string => Boolean(transform && transform !== "none"))
+    .join(" ");
 }
 
 function resolveTransform(transform: NonNullable<VisualKeyframe["transform"]>): string {

@@ -67,6 +67,7 @@ export function GalleryCarousel({
   return (
     <div className="sc-course-gallery__carousel">
       <div
+        key={activeItem?.key ?? "empty"}
         className="sc-course-gallery__stage"
         {...presentationVisualTargetAttributes(activeItem?.key)}
       >

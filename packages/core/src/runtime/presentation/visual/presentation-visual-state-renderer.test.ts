@@ -3,16 +3,10 @@
 import { EmbeddedDataIdSchema, EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type {
-  PresentationTargetSceneState,
-  PresentationVisualScene,
-} from "@/presentation/model";
+import type { PresentationTargetSceneState, PresentationVisualScene } from "@/presentation/model";
 
 import { createPresentationVisualStateRenderer } from "./presentation-visual-state-renderer";
-import type {
-  VisualAnimationDriver,
-  VisualAnimationHandle,
-} from "./visual-animation-driver";
+import type { VisualAnimationDriver, VisualAnimationHandle } from "./visual-animation-driver";
 import type { VisualTargetResolver } from "./visual-target-resolver";
 
 const SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
@@ -38,11 +32,7 @@ describe("PresentationVisualStateRenderer", () => {
       driver,
     });
 
-    const report = renderer.apply(
-      scene(
-        transitionState(0.5),
-      ),
-    );
+    const report = renderer.apply(scene(transitionState(0.5)));
 
     expect(report).toEqual({ surfaceId: SURFACE_ID, timeMs: 750, unavailableTargets: [] });
     expect(element).toHaveAttribute("data-presentation-availability", "available");
@@ -118,6 +108,28 @@ describe("PresentationVisualStateRenderer", () => {
     expect(element.style.opacity).toBe("1");
   });
 
+  it("preserves an authored transform through active effects and settled Move", () => {
+    const element = document.createElement("div");
+    element.style.transform = "translate(-50%, -50%)";
+    document.body.append(element);
+    const { driver } = recordingDriver();
+    const renderer = createPresentationVisualStateRenderer({
+      resolver: resolver(new Map([[TARGET_ID, element]])),
+      driver,
+    });
+
+    renderer.apply(scene(pulseState()));
+    expect(driver.create).toHaveBeenCalledWith(
+      expect.objectContaining({ baseTransform: "translate(-50%, -50%)" }),
+    );
+
+    renderer.apply(scene(settledMoveState()));
+    expect(element.style.transform).toBe("translate(-50%, -50%) translate(40px, 20px)");
+
+    renderer.dispose();
+    expect(element.style.transform).toBe("translate(-50%, -50%)");
+  });
+
   it("cancels stale handles and restores only Presentation-owned state on cleanup", () => {
     const element = document.createElement("div");
     element.setAttribute("aria-hidden", "false");
@@ -125,7 +137,8 @@ describe("PresentationVisualStateRenderer", () => {
     element.style.opacity = "0.8";
     document.body.append(element);
     const { driver, handles } = recordingDriver();
-    const targetResolver = resolver(new Map([[TARGET_ID, element]]));
+    const clearResolver = vi.fn();
+    const targetResolver = resolver(new Map([[TARGET_ID, element]]), clearResolver);
     const renderer = createPresentationVisualStateRenderer({ resolver: targetResolver, driver });
 
     renderer.apply(scene(transitionState(0.25)));
@@ -139,7 +152,7 @@ describe("PresentationVisualStateRenderer", () => {
     renderer.dispose();
     renderer.dispose();
     expect(handles[1]?.cancel).toHaveBeenCalledOnce();
-    expect(targetResolver.clear).toHaveBeenCalledOnce();
+    expect(clearResolver).toHaveBeenCalledOnce();
     expect(element).not.toHaveAttribute("data-presentation-availability");
     expect(element).toHaveAttribute("aria-hidden", "false");
     expect(element).not.toHaveAttribute("inert");
@@ -150,7 +163,10 @@ describe("PresentationVisualStateRenderer", () => {
 
 function scene(
   state: PresentationTargetSceneState,
-  additional = new Map<ReturnType<typeof EmbeddedNodeIdSchema.parse>, PresentationTargetSceneState>(),
+  additional = new Map<
+    ReturnType<typeof EmbeddedNodeIdSchema.parse>,
+    PresentationTargetSceneState
+  >(),
 ): PresentationVisualScene {
   return {
     surfaceId: SURFACE_ID,
@@ -192,6 +208,44 @@ function withheldState(): PresentationTargetSceneState {
   };
 }
 
+function pulseState(): PresentationTargetSceneState {
+  return {
+    targetId: TARGET_ID,
+    availability: "available",
+    layoutParticipation: "normal",
+    moveContributions: [],
+    paint: {
+      kind: "transition",
+      segmentId: SEGMENT_ID,
+      progress: 0.5,
+      visual: {
+        kind: "emphasize",
+        durationMs: 500,
+        easing: { kind: "preset", preset: "linear" },
+        effect: "pulse",
+      },
+    },
+  };
+}
+
+function settledMoveState(): PresentationTargetSceneState {
+  const visual = {
+    kind: "move" as const,
+    durationMs: 500,
+    easing: { kind: "preset" as const, preset: "linear" as const },
+    boundaryId: SURFACE_ID,
+    pathData: "M 0 0 L 40 20",
+    orientToPath: false,
+  };
+  return {
+    targetId: TARGET_ID,
+    availability: "available",
+    layoutParticipation: "normal",
+    moveContributions: [{ segmentId: SEGMENT_ID, progress: 1, visual }],
+    paint: { kind: "settled" },
+  };
+}
+
 function settledState(
   targetId: ReturnType<typeof EmbeddedNodeIdSchema.parse>,
 ): PresentationTargetSceneState {
@@ -204,7 +258,10 @@ function settledState(
   };
 }
 
-function resolver(elements: ReadonlyMap<string, HTMLElement>): VisualTargetResolver {
+function resolver(
+  elements: ReadonlyMap<string, HTMLElement>,
+  clear = vi.fn(),
+): VisualTargetResolver {
   return {
     resolve(targetId) {
       const element = elements.get(targetId);
@@ -212,13 +269,15 @@ function resolver(elements: ReadonlyMap<string, HTMLElement>): VisualTargetResol
         ? { kind: "resolved", targetId, element }
         : { kind: "unavailable", targetId, reason: "target-unmounted" };
     },
-    clear: vi.fn(),
+    clear,
   };
 }
 
 function recordingDriver(order: string[] = []): {
   readonly driver: VisualAnimationDriver & { readonly create: ReturnType<typeof vi.fn> };
-  readonly handles: Array<VisualAnimationHandle & { seek: ReturnType<typeof vi.fn>; cancel: ReturnType<typeof vi.fn> }>;
+  readonly handles: Array<
+    VisualAnimationHandle & { seek: ReturnType<typeof vi.fn>; cancel: ReturnType<typeof vi.fn> }
+  >;
 } {
   const handles: Array<
     VisualAnimationHandle & { seek: ReturnType<typeof vi.fn>; cancel: ReturnType<typeof vi.fn> }

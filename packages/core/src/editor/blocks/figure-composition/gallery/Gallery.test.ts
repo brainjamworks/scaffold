@@ -839,6 +839,49 @@ it("keeps carousel missing, loading, and error image states semantic", () => {
   expect(screen.getByRole("alert").textContent).toBe("Image unavailable");
 });
 
+it("remounts the Carousel stage when marker identity changes", () => {
+  const first: GalleryResolvedItem = {
+    key: "galleryimg01",
+    alt: "First",
+    caption: EmptyScaffoldRichTextDocument,
+    url: "https://example.com/first.jpg",
+    loading: false,
+    error: null,
+  };
+  const second: GalleryResolvedItem = {
+    ...first,
+    key: "galleryimg02",
+    alt: "Second",
+    url: "https://example.com/second.jpg",
+  };
+  const props = {
+    items: [first, second],
+    onSelect: () => undefined,
+    onOpenLightbox: () => undefined,
+  } as const;
+  const { container, rerender } = render(
+    createElement(GalleryCarousel, { ...props, activeIndex: 0, activeItem: first }),
+  );
+  const firstStage = container.querySelector<HTMLElement>(".sc-course-gallery__stage")!;
+  firstStage.style.opacity = "0";
+  firstStage.style.transform = "translateX(20px)";
+  firstStage.setAttribute("aria-hidden", "true");
+  firstStage.setAttribute("inert", "");
+
+  rerender(createElement(GalleryCarousel, { ...props, activeIndex: 1, activeItem: second }));
+
+  const secondStage = container.querySelector<HTMLElement>(".sc-course-gallery__stage")!;
+  expect(secondStage).not.toBe(firstStage);
+  expect(secondStage).toHaveAttribute("data-presentation-target-id", second.key);
+  expect(secondStage.style.opacity).toBe("");
+  expect(secondStage.style.transform).toBe("");
+  expect(secondStage).not.toHaveAttribute("aria-hidden");
+  expect(secondStage).not.toHaveAttribute("inert");
+  expect(container.querySelector(`[data-presentation-target-id="${first.key}"]`)).toHaveClass(
+    "sc-course-gallery__thumb-item",
+  );
+});
+
 it("keeps unresolved grid images passive and semantic", () => {
   const missingItem: GalleryResolvedItem = {
     key: "missing",

@@ -2,7 +2,11 @@
 
 import { Result } from "better-result";
 import { Editor, type JSONContent } from "@tiptap/core";
-import { EmbeddedDataIdSchema, EmbeddedNodeIdSchema, PresentationContentLayout } from "@scaffold/contracts";
+import {
+  EmbeddedDataIdSchema,
+  EmbeddedNodeIdSchema,
+  PresentationContentLayout,
+} from "@scaffold/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import {
@@ -34,11 +38,11 @@ const SECOND_TARGET_ID = EmbeddedNodeIdSchema.parse("target000002");
 const SEGMENT_ID = EmbeddedDataIdSchema.parse("segment00001");
 
 describe("Presentation content-layout choreography", () => {
-  it("batches the previous and next Flow projection around one measured Layout", () => {
+  it("projects the previous and next Flow state around one Surface Layout handle", () => {
     const order: string[] = [];
     const port = recordingPort(order);
     const layout = recordingLayoutFactory(order);
-    const renderer = createRenderer(port, layout.factory);
+    const { renderer, flow } = createRenderer(port, layout.factory);
 
     const report = renderer.apply(flowScene(0.5));
 
@@ -55,6 +59,11 @@ describe("Presentation content-layout choreography", () => {
     ]);
     expect(port.apply.mock.calls[1]?.[0].containers[0]?.withheldChildIds).toEqual([TARGET_ID]);
     expect(layout.create).toHaveBeenCalledOnce();
+    expect(layout.create.mock.calls[0]?.[0].root).toBe(flow.parentElement);
+    expect(layout.create.mock.calls[0]?.[0]).toMatchObject({
+      durationMs: 500,
+      easing: "linear",
+    });
     expect(layout.spies[0]!.apply).toHaveBeenCalledWith(250);
     expect(order).toEqual(["port:previous", "layout:create", "port:current", "layout:apply"]);
   });
@@ -62,7 +71,7 @@ describe("Presentation content-layout choreography", () => {
   it("seeks the same Layout handle backwards and replaces it on interruption", () => {
     const port = recordingPort();
     const layout = recordingLayoutFactory();
-    const renderer = createRenderer(port, layout.factory);
+    const { renderer } = createRenderer(port, layout.factory);
 
     renderer.apply(flowScene(0.75));
     renderer.apply(flowScene(0.25));
@@ -81,7 +90,7 @@ describe("Presentation content-layout choreography", () => {
   it("applies reduced-motion layout immediately and disposes projection ownership", () => {
     const port = recordingPort();
     const layout = recordingLayoutFactory();
-    const renderer = createRenderer(port, layout.factory);
+    const { renderer } = createRenderer(port, layout.factory);
 
     renderer.apply(flowScene(null));
     expect(port.apply).toHaveBeenCalledOnce();
@@ -102,7 +111,7 @@ describe("Presentation content-layout choreography", () => {
       currentContentLayout: PresentationContentLayout.Sequence,
     });
     port.apply.mockReturnValue(Result.err(error));
-    const renderer = createRenderer(port, recordingLayoutFactory().factory);
+    const { renderer } = createRenderer(port, recordingLayoutFactory().factory);
 
     expect(renderer.apply(flowScene(null))).toMatchObject({ contentLayoutError: error });
   });
@@ -255,13 +264,22 @@ function createRenderer(
   createLayoutAnimation: PresentationLayoutAnimationFactory,
 ) {
   const surface = document.createElement("section");
+  const flow = document.createElement("div");
+  const flowContentRoot = document.createElement("div");
+  flowContentRoot.setAttribute("data-content-layout-root", "");
   const target = document.createElement("div");
-  document.body.append(surface, target);
+  const secondTarget = document.createElement("div");
+  flowContentRoot.append(target, secondTarget);
+  flow.append(flowContentRoot);
+  surface.append(flow);
+  document.body.append(surface);
   const elements = new Map([
     [SURFACE_ID, surface],
+    [FLOW_ID, flow],
     [TARGET_ID, target],
+    [SECOND_TARGET_ID, secondTarget],
   ]);
-  return createPresentationVisualStateRenderer({
+  const renderer = createPresentationVisualStateRenderer({
     contentLayoutPort,
     createLayoutAnimation,
     resolver: {
@@ -277,12 +295,10 @@ function createRenderer(
       create: vi.fn(() => ({ seek: vi.fn(), cancel: vi.fn() })),
     },
   });
+  return { renderer, surface, flow };
 }
 
-function flowScene(
-  progress: number | null,
-  segmentId = SEGMENT_ID,
-): PresentationVisualScene {
+function flowScene(progress: number | null, segmentId = SEGMENT_ID): PresentationVisualScene {
   return {
     surfaceId: SURFACE_ID,
     timeMs: progress === null ? 1_500 : 1_000 + Math.round(progress * 500),
@@ -322,11 +338,20 @@ function flowScene(
           ? {}
           : {
               transition: {
-                segmentIds: [segmentId],
+                segmentId,
                 startMs: 1_000,
                 endMs: 1_500,
                 progress,
+                visual: {
+                  kind: "hide",
+                  transition: {
+                    kind: "fade",
+                    durationMs: 500,
+                    easing: { kind: "preset", preset: "linear" },
+                  },
+                },
                 previousWithheldChildIds: [],
+                nextWithheldChildIds: [TARGET_ID],
               },
             }),
       },
@@ -336,14 +361,18 @@ function flowScene(
 }
 
 function recordingPort(order: string[] = []) {
-  const apply = vi.fn((request: Parameters<PresentationContentLayoutPort["apply"]>[0]): PresentationContentLayoutResult => {
-    order.push(
-      (request.containers[0]?.withheldChildIds ?? []).length === 0
-        ? "port:previous"
-        : "port:current",
-    );
-    return Result.ok();
-  });
+  const apply = vi.fn(
+    (
+      request: Parameters<PresentationContentLayoutPort["apply"]>[0],
+    ): PresentationContentLayoutResult => {
+      order.push(
+        (request.containers[0]?.withheldChildIds ?? []).length === 0
+          ? "port:previous"
+          : "port:current",
+      );
+      return Result.ok();
+    },
+  );
   return {
     apply,
     clear: vi.fn(),
@@ -351,9 +380,8 @@ function recordingPort(order: string[] = []) {
 }
 
 function recordingLayoutFactory(order: string[] = []) {
-  const spies: Array<
-    Record<"apply" | "cancel" | "finish" | "dispose", ReturnType<typeof vi.fn>>
-  > = [];
+  const spies: Array<Record<"apply" | "cancel" | "finish" | "dispose", ReturnType<typeof vi.fn>>> =
+    [];
   const create = vi.fn((input: Parameters<PresentationLayoutAnimationFactory>[0]) => {
     order.push("layout:create");
     input.applyLayout();
@@ -362,9 +390,9 @@ function recordingLayoutFactory(order: string[] = []) {
       cancel: vi.fn(),
       finish: vi.fn(),
       dispose: vi.fn(),
-    };
+    } satisfies PresentationLayoutAnimationHandle;
     spies.push(handle);
-    return handle satisfies PresentationLayoutAnimationHandle;
+    return handle;
   });
   return { factory: create as PresentationLayoutAnimationFactory, create, spies };
 }

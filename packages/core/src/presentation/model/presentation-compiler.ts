@@ -77,6 +77,14 @@ export type PresentationCompilationError =
       readonly targetId: EmbeddedNodeId;
       readonly earlierActionId: EmbeddedDataId;
       readonly laterActionId: EmbeddedDataId;
+    }
+  | {
+      readonly reason: "surface-timed-layout-overlap";
+      readonly surfaceId: EmbeddedNodeId;
+      readonly earlierActionId: EmbeddedDataId;
+      readonly earlierTargetId: EmbeddedNodeId;
+      readonly laterActionId: EmbeddedDataId;
+      readonly laterTargetId: EmbeddedNodeId;
     };
 
 export type PresentationCompilationResult = ResultType<
@@ -220,9 +228,7 @@ function compileCommand(
     type: command.type,
     ...(command.input === undefined ? {} : { input: command.input }),
   };
-  return Result.ok(
-    Object.freeze(compiledCommand),
-  );
+  return Result.ok(Object.freeze(compiledCommand));
 }
 
 function classifyCueSeekBehavior(
@@ -279,7 +285,7 @@ function compileVisualProgram(
       targetId: action.targetId,
       startMs: action.atMs,
       endMs: action.atMs + visualDuration(action),
-      visual: action.visual,
+      visual: compileVisualIntent(action.visual),
     });
     scheduled.push({ value: segment, sourceOrder });
   }
@@ -337,6 +343,12 @@ function compileVisualProgram(
       );
     }
   }
+  const layoutOverlap = validateNoTimedSurfaceLayoutOverlap(
+    source.surfaceId,
+    scheduled.map(({ value }) => value),
+    targetById,
+  );
+  if (layoutOverlap.isErr()) return Result.err(layoutOverlap.error);
 
   return Result.ok(
     Object.freeze({
@@ -347,6 +359,22 @@ function compileVisualProgram(
       sequenceContainers: Object.freeze([...sequenceByBoundaryId.values()]),
     }),
   );
+}
+
+function compileVisualIntent(
+  visual: TimelineAnimateActionV1["visual"],
+): CompiledVisualSegment["visual"] {
+  if (visual.kind === "reveal" || visual.kind === "hide") {
+    const transition =
+      visual.transition.kind === "instant"
+        ? Object.freeze({ ...visual.transition })
+        : Object.freeze({
+            ...visual.transition,
+            easing: Object.freeze({ ...visual.transition.easing }),
+          });
+    return Object.freeze({ ...visual, transition });
+  }
+  return Object.freeze({ ...visual, easing: Object.freeze({ ...visual.easing }) });
 }
 
 function resolveVisualTarget(
@@ -444,6 +472,38 @@ function validateNoTimedOverlap(
       );
     }
     priorByTargetId.set(segment.targetId, segment);
+  }
+  return Result.ok();
+}
+
+function validateNoTimedSurfaceLayoutOverlap(
+  surfaceId: EmbeddedNodeId,
+  segments: readonly CompiledVisualSegment[],
+  targetById: ReadonlyMap<EmbeddedNodeId, CompiledVisualTarget>,
+): ResultType<void, PresentationCompilationError> {
+  let prior: CompiledVisualSegment | undefined;
+  for (const segment of segments) {
+    if (
+      segment.endMs === segment.startMs ||
+      (segment.visual.kind !== "reveal" && segment.visual.kind !== "hide")
+    ) {
+      continue;
+    }
+    const membership = targetById.get(segment.targetId)?.contentLayout;
+    if (!membership || membership.directChildId !== segment.targetId) continue;
+    if (prior && segment.startMs < prior.endMs) {
+      return Result.err(
+        Object.freeze({
+          reason: "surface-timed-layout-overlap" as const,
+          surfaceId,
+          earlierActionId: prior.id,
+          earlierTargetId: prior.targetId,
+          laterActionId: segment.id,
+          laterTargetId: segment.targetId,
+        }),
+      );
+    }
+    prior = segment;
   }
   return Result.ok();
 }

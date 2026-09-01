@@ -25,6 +25,7 @@ export interface VisualAnimationInput {
   readonly element: HTMLElement;
   readonly durationMs: number;
   readonly easing: ResolvedPresentationEasing;
+  readonly baseTransform?: string;
   readonly keyframes: readonly [VisualKeyframe, ...VisualKeyframe[]];
 }
 
