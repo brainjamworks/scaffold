@@ -25,6 +25,7 @@ import type {
   SemanticChildProjector,
   SemanticPresentationDefinition,
 } from "./definition";
+import { PRESENTATION_VISUAL_ACTION_IDS } from "./definition";
 import {
   evaluateOwnerDescription,
   resolveOwnerPublication,
@@ -76,6 +77,9 @@ const projectStandardRichTextChildren: SemanticChildProjector = ({ helpers }) =>
   helpers.projectStandardRichText();
 const standardRichTextDocumentSemantics: DocumentSemanticsDefinition = Object.freeze({
   projectChildren: projectStandardRichTextChildren,
+});
+const visualPresentationDefinition: SemanticPresentationDefinition = Object.freeze({
+  actionIds: PRESENTATION_VISUAL_ACTION_IDS,
 });
 
 export function projectCoreStructuralItems({
@@ -242,7 +246,9 @@ function projectPublishedChildren(input: {
             humanize(resolved.node.type.name),
           summary: readNonEmptyString(resolved.candidate.summary),
           presentation: {
-            actionIds: resolved.candidate.presentation?.actionIds ?? [],
+            actionIds:
+              resolved.candidate.presentation?.actionIds ??
+              (isRichText ? PRESENTATION_VISUAL_ACTION_IDS : []),
             ...(resolved.candidate.presentation?.reconstructableCommandTypes
               ? {
                   reconstructableCommandTypes:
@@ -332,7 +338,9 @@ function classifyNode(
         nodeType,
         definition?.id ?? null,
         definition?.title ?? "Surface",
-        definition?.documentSemantics?.presentation,
+        definition
+          ? (definition.documentSemantics?.presentation ?? visualPresentationDefinition)
+          : undefined,
         null,
       ),
       projectedSurface.courseSectionId,
@@ -354,7 +362,9 @@ function classifyNode(
         nodeType,
         definition?.id ?? null,
         definition?.title ?? "Layout",
-        definition?.documentSemantics?.presentation,
+        definition
+          ? (definition.documentSemantics?.presentation ?? visualPresentationDefinition)
+          : undefined,
         null,
       ),
       context.parentId,
@@ -375,7 +385,9 @@ function classifyNode(
         nodeType,
         definition?.id ?? null,
         authoredLabel ?? definition?.section?.label ?? "Section",
-        definition?.section?.documentSemantics?.presentation,
+        definition
+          ? (definition.section?.documentSemantics?.presentation ?? visualPresentationDefinition)
+          : undefined,
         projectPresentationContainer(node, courseStructure.mode),
       ),
       context.parentId,
@@ -436,7 +448,8 @@ function classifyNode(
   const block = definitions.blocks.get(nodeType);
   if (!block) return null;
   const id = requireNodeId(node);
-  const documentSemantics = block.isAssessment
+  const excludesPresentation = block.isAssessment || block.nodeType === "quiz";
+  const documentSemantics = excludesPresentation
     ? block.documentSemantics?.describe
       ? Object.freeze({ describe: block.documentSemantics.describe })
       : undefined
@@ -448,7 +461,9 @@ function classifyNode(
       nodeType,
       block.nodeType,
       block.title,
-      block.isAssessment ? undefined : block.documentSemantics?.presentation,
+      excludesPresentation
+        ? undefined
+        : (block.documentSemantics?.presentation ?? visualPresentationDefinition),
       null,
     ),
     context.parentId,

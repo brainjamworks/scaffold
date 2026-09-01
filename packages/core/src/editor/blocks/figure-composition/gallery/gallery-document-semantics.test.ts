@@ -103,7 +103,10 @@ describe("Gallery document semantics", () => {
         nodeType: GALLERY_ITEM_NODE,
         label: `Gallery item ${index + 1}`,
         summary: null,
-        presentation: { actionIds: [], disabledReason: null },
+        presentation: {
+          actionIds: ["reveal", "hide", "move", "emphasize"],
+          disabledReason: null,
+        },
       });
       expect(snapshot.parentById.get(itemId)).toBe(galleryId);
       const current = requireNodeById(doc, itemId);

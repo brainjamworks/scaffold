@@ -108,7 +108,10 @@ describe("Annotated Figure document semantics", () => {
         id: annotationId,
         kind: "published-child",
         nodeType: ANNOTATED_FIGURE_ANNOTATION_NODE,
-        presentation: { actionIds: [], disabledReason: null },
+        presentation: {
+          actionIds: ["reveal", "hide", "move", "emphasize"],
+          disabledReason: null,
+        },
       });
       expect(snapshot.parentById.get(annotationId)).toBe(figureId);
       const location = snapshot.locationById.get(annotationId);
@@ -201,7 +204,12 @@ describe("Annotated Figure document semantics", () => {
         authoringAnchorId: figureId,
         activationPath: [{ ownerId: figureId, childId: annotationId, ownerKind: "block" }],
       });
-      expect(edited.itemById.get(annotationId)?.presentation.actionIds).toEqual([]);
+      expect(edited.itemById.get(annotationId)?.presentation.actionIds).toEqual([
+        "reveal",
+        "hide",
+        "move",
+        "emphasize",
+      ]);
       expect(edited.locationById.get(annotationId)).not.toEqual(
         initial.locationById.get(annotationId),
       );

@@ -5,10 +5,12 @@ import type {
   PublishedSemanticChild,
   SemanticChildProjectionInput,
 } from "@/document/model/semantic-document";
+import { PRESENTATION_VISUAL_ACTION_IDS } from "@/document/model/semantic-document/definition";
 import { SECTION_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
 
 /** Explicit opt-in publication for Layout variants whose Sections can be hidden. */
 export const hiddenLayoutSectionDocumentSemantics: DocumentSemanticsDefinition = Object.freeze({
+  presentation: Object.freeze({ actionIds: PRESENTATION_VISUAL_ACTION_IDS }),
   projectChildren: ({ owner, ownerId }: SemanticChildProjectionInput) => {
     const sections: PublishedSemanticChild[] = [];
     let offset = 0;
@@ -19,6 +21,7 @@ export const hiddenLayoutSectionDocumentSemantics: DocumentSemanticsDefinition =
           sections.push(
             Object.freeze({
               relativePos: offset,
+              presentation: Object.freeze({ actionIds: PRESENTATION_VISUAL_ACTION_IDS }),
               activation: Object.freeze([
                 Object.freeze({
                   ownerId,

@@ -26,11 +26,16 @@ interface LayoutPublicationClassification {
   readonly hiddenSectionActivation: true;
 }
 
-interface SurfacePublicationClassification {
-  readonly kind: "surface-owned-content";
-  readonly ownedContent: "direct-rich-text" | "title" | "title-and-subtitle";
-  readonly privateImplementation: "all-image-and-background-slots";
-}
+type SurfacePublicationClassification =
+  | {
+      readonly kind: "surface-owned-content";
+      readonly ownedContent: "direct-rich-text" | "title" | "title-and-subtitle";
+      readonly privateImplementation: "all-image-and-background-slots";
+    }
+  | {
+      readonly kind: "assessment-surface";
+      readonly contentRootNodeType: string;
+    };
 
 const BLOCK_PUBLICATION = {
   code_block: { kind: "root-only" },
@@ -98,7 +103,18 @@ const SURFACE_PUBLICATION = {
   "slide-image-cover": surface("title-and-subtitle"),
   "slide-image-band": surface("title-and-subtitle"),
   "slide-module-cover": surface("title-and-subtitle"),
+  "slide-categorise-question": assessmentSurface("surface_categorise_question"),
+  "slide-dropdown-question": assessmentSurface("surface_dropdown_question"),
+  "slide-fill-blanks-question": assessmentSurface("surface_fill_blanks_question"),
+  "slide-image-hotspot-question": assessmentSurface("surface_image_hotspot_question"),
+  "slide-matching-question": assessmentSurface("surface_matching_question"),
+  "slide-multiple-choice-question": assessmentSurface("surface_multiple_choice_question"),
+  "slide-multiselect-question": assessmentSurface("surface_multiselect_question"),
+  "slide-quiz": assessmentSurface("surface_quiz"),
+  "slide-sequencing-question": assessmentSurface("surface_sequencing_question"),
 } as const satisfies Readonly<Record<string, SurfacePublicationClassification>>;
+
+const VISUAL_ACTION_IDS = ["reveal", "hide", "move", "emphasize"] as const;
 
 describe("built-in semantic publication coverage", () => {
   it("classifies every exact mounted Block, Layout and Surface definition", () => {
@@ -181,6 +197,7 @@ describe("built-in semantic publication coverage", () => {
 
   it("projects every mounted Block root exactly once when present", () => {
     for (const [definitionIndex, definition] of builtInBlockDefinitions.entries()) {
+      const classification = requireBlockClassification(definition.nodeType);
       const inserted = definition.insert?.content();
       if (!inserted || inserted.type !== definition.nodeType) {
         throw new Error(`Missing mounted insertion content for ${definition.nodeType}.`);
@@ -201,6 +218,11 @@ describe("built-in semantic publication coverage", () => {
         nodeType: definition.nodeType,
         definitionId: definition.nodeType,
       });
+      expect(snapshot.itemById.get(ownerId)?.presentation.actionIds).toEqual(
+        classification.kind === "assessment-root-only" || definition.nodeType === "code_block"
+          ? []
+          : VISUAL_ACTION_IDS,
+      );
       expect(
         [...snapshot.itemById.values()].filter(
           ({ id, nodeType }) => id === ownerId && nodeType === definition.nodeType,
@@ -236,13 +258,16 @@ describe("built-in semantic publication coverage", () => {
       ).toEqual([
         {
           relativePos: 0,
+          presentation: { actionIds: VISUAL_ACTION_IDS },
           activation: [{ ownerId, childId: firstId, ownerKind: "layout" }],
         },
         {
           relativePos: owner.child(0).nodeSize,
+          presentation: { actionIds: VISUAL_ACTION_IDS },
           activation: [{ ownerId, childId: secondId, ownerKind: "layout" }],
         },
       ]);
+      expect(definition.documentSemantics.presentation?.actionIds).toEqual(VISUAL_ACTION_IDS);
     }
   });
 
@@ -278,7 +303,8 @@ describe("built-in semantic publication coverage", () => {
         id: definition.id,
         directlyPublishedNodeTypes: [...new Set(directlyPublishedNodeTypes)],
         standardRichTextRoots: [...new Set(standardRichTextRoots)],
-      }).toEqual(expectedSurfaceBehavior(definition.id, classification.ownedContent));
+      }).toEqual(expectedSurfaceBehavior(definition.id, classification));
+      expect(definition.documentSemantics.presentation?.actionIds).toEqual(VISUAL_ACTION_IDS);
     }
   });
 });
@@ -314,8 +340,16 @@ function withPersistedIds(source: JSONContent, rootId: string): JSONContent {
 
 function expectedSurfaceBehavior(
   id: string,
-  ownedContent: SurfacePublicationClassification["ownedContent"],
+  classification: SurfacePublicationClassification,
 ) {
+  if (classification.kind === "assessment-surface") {
+    return {
+      id,
+      directlyPublishedNodeTypes: [],
+      standardRichTextRoots: [classification.contentRootNodeType],
+    };
+  }
+  const { ownedContent } = classification;
   if (ownedContent === "direct-rich-text") {
     return { id, directlyPublishedNodeTypes: [], standardRichTextRoots: [null] };
   }
@@ -327,6 +361,10 @@ function expectedSurfaceBehavior(
     };
   }
   return { id, directlyPublishedNodeTypes: ["slide_title"], standardRichTextRoots: [] };
+}
+
+function assessmentSurface(contentRootNodeType: string): SurfacePublicationClassification {
+  return { kind: "assessment-surface", contentRootNodeType };
 }
 
 function surface(

@@ -16,6 +16,7 @@ export const CODE_BLOCK_ID = "code-block";
 export const codeBlockDefinition = defineBlock({
   nodeType: CODE_BLOCK_NODE,
   title: "Code block",
+  documentSemantics: { presentation: { actionIds: [] } },
   configuration: defineConfiguration({
     attr: "data",
     schema: CodeBlockDataSchema,

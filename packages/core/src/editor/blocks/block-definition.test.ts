@@ -1,5 +1,7 @@
 import { ArticleIcon } from "@phosphor-icons/react";
 import { describe, expect, it, vi } from "vite-plus/test";
+
+import { codeBlockDefinition } from "./code/code-block/code-block-definition";
 import { z } from "zod";
 
 import { defineConfiguration } from "@/editor/configuration/definition";
@@ -21,6 +23,9 @@ const insertDefinition = {
 };
 
 describe("defineBlock", () => {
+  it("keeps Code Block outside the visual presentation catalogue", () => {
+    expect(codeBlockDefinition.documentSemantics?.presentation?.actionIds).toEqual([]);
+  });
   it("normalizes deterministic definition data without collecting the block", () => {
     const schema = z.object({ emphasis: z.boolean() });
     const configuration = defineConfiguration({

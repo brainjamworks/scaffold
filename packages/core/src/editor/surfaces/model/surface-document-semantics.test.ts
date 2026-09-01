@@ -83,6 +83,18 @@ describe("built-in Surface document semantics", () => {
 
     const snapshot = project(documentNode("page", surface));
 
+    expect(snapshot.itemById.get(surface.attrs["id"])?.presentation.actionIds).toEqual([
+      "reveal",
+      "hide",
+      "move",
+      "emphasize",
+    ]);
+    expect(snapshot.itemById.get(directParagraphId)?.presentation.actionIds).toEqual([
+      "reveal",
+      "hide",
+      "move",
+      "emphasize",
+    ]);
     expect(snapshot.itemById.get(directParagraphId)?.label).toBe("Direct page prose");
     expect(snapshot.parentById.get(directParagraphId)).toBe(surface.attrs["id"]);
     expect(snapshot.itemById.get(regionParagraphId)?.label).toBe("Region prose");

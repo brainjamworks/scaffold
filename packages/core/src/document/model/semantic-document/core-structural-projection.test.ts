@@ -170,6 +170,18 @@ describe("Core structural semantic projection", () => {
     expect(snapshot.locationById.get(IDS.block1)?.from).toBeGreaterThan(
       snapshot.locationById.get(IDS.region)?.from ?? 0,
     );
+    expect(snapshot.itemById.get(IDS.surface1)?.presentation.actionIds).toEqual([
+      "reveal",
+      "hide",
+      "move",
+      "emphasize",
+    ]);
+    expect(snapshot.itemById.get(IDS.block1)?.presentation.actionIds).toEqual([
+      "reveal",
+      "hide",
+      "move",
+      "emphasize",
+    ]);
   });
 
   it("projects Course Section-owned slideshow roots and nested Layout Sections in document order", () => {
@@ -203,6 +215,21 @@ describe("Core structural semantic projection", () => {
     ]);
     expect(snapshot.itemById.get(IDS.layout)?.definitionId).toBe("tabs");
     expect(snapshot.itemById.get(IDS.layoutSection2)?.definitionId).toBe("tabs");
+    for (const targetId of [
+      IDS.surface1,
+      IDS.layout,
+      IDS.layoutSection1,
+      IDS.layoutSection2,
+      IDS.block1,
+      IDS.block2,
+    ]) {
+      expect(snapshot.itemById.get(targetId)?.presentation.actionIds).toEqual([
+        "reveal",
+        "hide",
+        "move",
+        "emphasize",
+      ]);
+    }
   });
 
   it("preserves reconstructable metadata for owners, Layout Sections and published children", () => {
@@ -226,7 +253,7 @@ describe("Core structural semantic projection", () => {
             ...definition,
             documentSemantics: {
               presentation: {
-                actionIds: ["open"],
+                actionIds: ["reveal"],
                 reconstructableCommandTypes: ["open"],
               },
               projectChildren: () => [
@@ -234,7 +261,7 @@ describe("Core structural semantic projection", () => {
                   relativePos: 0,
                   semanticRole: "published-child" as const,
                   presentation: {
-                    actionIds: ["reveal"],
+                    actionIds: ["hide"],
                     reconstructableCommandTypes: ["reveal", "reveal", "highlight", "reveal"],
                   },
                 },
@@ -251,7 +278,7 @@ describe("Core structural semantic projection", () => {
             ...definition,
             documentSemantics: {
               presentation: {
-                actionIds: ["activate"],
+                actionIds: ["move"],
                 reconstructableCommandTypes: ["activate"],
               },
             },
@@ -260,7 +287,7 @@ describe("Core structural semantic projection", () => {
               label: definition.section?.label ?? "Panel",
               documentSemantics: {
                 presentation: {
-                  actionIds: ["select"],
+                  actionIds: ["emphasize"],
                   reconstructableCommandTypes: ["select"],
                 },
               },
@@ -276,7 +303,7 @@ describe("Core structural semantic projection", () => {
                 ...definition,
                 documentSemantics: {
                   presentation: {
-                    actionIds: ["focus"],
+                    actionIds: ["reveal"],
                     reconstructableCommandTypes: ["focus"],
                   },
                 },

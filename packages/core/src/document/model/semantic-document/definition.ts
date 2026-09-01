@@ -1,6 +1,13 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
-import type { EmbeddedNodeId } from "@scaffold/contracts";
+import type { EmbeddedNodeId, PresentationVisualCapabilityId } from "@scaffold/contracts";
+
+export const PRESENTATION_VISUAL_ACTION_IDS = Object.freeze([
+  "reveal",
+  "hide",
+  "move",
+  "emphasize",
+] as const satisfies readonly PresentationVisualCapabilityId[]);
 
 /** Pure projection helpers supplied by Core while evaluating one owning definition. */
 export interface SemanticProjectionHelpers {
@@ -49,7 +56,7 @@ export type SemanticItemDescriber = (
 ) => SemanticItemDescription;
 
 export interface SemanticPresentationDefinition {
-  readonly actionIds: readonly string[];
+  readonly actionIds: readonly PresentationVisualCapabilityId[];
   readonly reconstructableCommandTypes?: readonly string[];
   readonly disabledReason?: string;
 }

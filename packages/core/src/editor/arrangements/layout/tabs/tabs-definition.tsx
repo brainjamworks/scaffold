@@ -6,6 +6,7 @@ import {
 import { z } from "zod";
 
 import { defineConfiguration } from "@/editor/configuration/definition";
+import { PRESENTATION_VISUAL_ACTION_IDS } from "@/document/model/semantic-document/definition";
 
 import type { LayoutDefinition } from "../model/layout-definition";
 import { hiddenLayoutSectionDocumentSemantics } from "../shared/model/layout-semantic-publication";
@@ -79,7 +80,7 @@ export const tabsLayoutDefinition = {
     addLabel: "Add tab",
     documentSemantics: {
       presentation: {
-        actionIds: ["select"],
+        actionIds: PRESENTATION_VISUAL_ACTION_IDS,
         // Selection names the complete target state, so seek can replay it after baseline restore.
         reconstructableCommandTypes: ["select"],
       },

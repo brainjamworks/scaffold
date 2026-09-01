@@ -25,7 +25,7 @@ const SEMANTIC_ITEM_KEYS = [
 ] as const;
 
 const BLOCK_MEMBER_INTERACTION_BY_OWNER_TYPE = new Map<string, "activation" | "anchor-only">([
-  ["annotated_figure", "anchor-only"],
+  ["annotated_figure", "activation"],
   ["flashcard", "activation"],
   ["gallery", "activation"],
   ["checklist", "anchor-only"],
@@ -38,6 +38,8 @@ const BLOCK_MEMBER_INTERACTION_BY_OWNER_TYPE = new Map<string, "activation" | "a
   ["roadmap", "activation"],
   ["timeline", "activation"],
 ]);
+const VISUAL_MEMBER_OWNER_TYPES = new Set(["annotated_figure", "gallery"]);
+const VISUAL_ACTION_IDS = ["reveal", "hide", "move", "emphasize"] as const;
 
 describe("semantic presentation address book", () => {
   it("publishes the complete twelve-family hierarchy with exact persisted addresses", () => {
@@ -116,7 +118,12 @@ describe("semantic presentation address book", () => {
           definitionId: family.ownerNodeType,
           label: `${family.labelPrefix} ${ordinal + 1}`,
           summary: null,
-          presentation: { actionIds: [], disabledReason: null },
+          presentation: {
+            actionIds: VISUAL_MEMBER_OWNER_TYPES.has(family.ownerNodeType)
+              ? VISUAL_ACTION_IDS
+              : [],
+            disabledReason: null,
+          },
           presentationContainer: null,
           children: [],
         });
@@ -166,7 +173,7 @@ describe("semantic presentation address book", () => {
     }
   });
 
-  it("does not grant published members Presentation or learner behavior", () => {
+  it("grants visual actions only to mounted presentation-member families", () => {
     const snapshot = projectSemanticLifecycleDocument(
       createCompleteSemanticLifecycleDocument(),
       17,
@@ -187,7 +194,12 @@ describe("semantic presentation address book", () => {
     for (const family of APPROVED_SEMANTIC_MEMBER_FAMILY_CASES) {
       for (const memberId of [family.memberIds.first, family.memberIds.second]) {
         const item = requireItem(snapshot, memberId);
-        expect(item.presentation).toEqual({ actionIds: [], disabledReason: null });
+        expect(item.presentation).toEqual({
+          actionIds: VISUAL_MEMBER_OWNER_TYPES.has(family.ownerNodeType)
+            ? VISUAL_ACTION_IDS
+            : [],
+          disabledReason: null,
+        });
         for (const field of forbiddenFields) expect(item).not.toHaveProperty(field);
       }
     }

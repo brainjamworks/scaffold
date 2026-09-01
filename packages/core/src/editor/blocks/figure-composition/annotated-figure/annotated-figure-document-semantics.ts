@@ -4,6 +4,7 @@ import type {
   SemanticChildProjector,
   SemanticItemDescriber,
 } from "@/document/model/semantic-document";
+import { PRESENTATION_VISUAL_ACTION_IDS } from "@/document/model/semantic-document/definition";
 import { normalizeSemanticLabel } from "@/document/model/semantic-document/semantic-labels";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
@@ -27,6 +28,7 @@ const projectAnnotatedFigureChildren: SemanticChildProjector = ({ owner, ownerId
       Object.freeze({
         relativePos: annotation.relativePos,
         semanticRole: "published-child" as const,
+        presentation: Object.freeze({ actionIds: PRESENTATION_VISUAL_ACTION_IDS }),
         label: normalizeSemanticLabel(labelSource, `Annotation ${annotation.number}`),
         authoringAnchorId: ownerId,
         activation: Object.freeze([

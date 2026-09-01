@@ -9,7 +9,7 @@ export function normalizeDocumentSemanticsDefinition(
   const presentation = definition.presentation
     ? Object.freeze({
         ...definition.presentation,
-        actionIds: Object.freeze([...definition.presentation.actionIds]),
+        actionIds: Object.freeze([...new Set(definition.presentation.actionIds)]),
         ...(definition.presentation.reconstructableCommandTypes
           ? {
               reconstructableCommandTypes: Object.freeze([

@@ -1,6 +1,7 @@
 import type {
   EmbeddedNodeId,
   PresentationContentLayout,
+  PresentationVisualCapabilityId,
 } from "@scaffold/contracts";
 
 import type { SemanticLocation } from "./semantic-location";
@@ -19,7 +20,7 @@ export type SemanticItemKind =
   | "published-child";
 
 export interface SemanticPresentationCapability {
-  readonly actionIds: readonly string[];
+  readonly actionIds: readonly PresentationVisualCapabilityId[];
   readonly reconstructableCommandTypes?: readonly string[];
   readonly disabledReason: string | null;
 }

@@ -264,7 +264,7 @@ function freezePresentation(
   presentation: SemanticPresentationCapability,
 ): SemanticPresentationCapability {
   return Object.freeze({
-    actionIds: Object.freeze([...presentation.actionIds]),
+    actionIds: Object.freeze([...new Set(presentation.actionIds)]),
     ...(presentation.reconstructableCommandTypes
       ? {
           reconstructableCommandTypes: Object.freeze([

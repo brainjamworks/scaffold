@@ -4,6 +4,7 @@ import type {
   SemanticChildProjectionInput,
 } from "@/document/model/semantic-document";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { PRESENTATION_VISUAL_ACTION_IDS } from "@/document/model/semantic-document/definition";
 import {
   normalizeSemanticLabel,
   richTextTypeFallback,
@@ -27,6 +28,7 @@ export function createSurfaceDocumentSemantics({
   const contentRootTypes = new Set(contentRootNodeTypes);
 
   return Object.freeze({
+    presentation: Object.freeze({ actionIds: PRESENTATION_VISUAL_ACTION_IDS }),
     projectChildren: ({ owner, helpers }: SemanticChildProjectionInput) => {
       const candidates = new Map<number, PublishedSemanticChild>();
       const directChildren: Array<{

@@ -44,12 +44,24 @@ describe("hidden Layout Section semantic publication", () => {
       expect(children).toEqual([
         {
           relativePos: 0,
+          presentation: {
+            actionIds: ["reveal", "hide", "move", "emphasize"],
+          },
           activation: [{ ownerId, childId: firstId, ownerKind: "layout" }],
         },
         {
           relativePos: owner.child(0).nodeSize,
+          presentation: {
+            actionIds: ["reveal", "hide", "move", "emphasize"],
+          },
           activation: [{ ownerId, childId: secondId, ownerKind: "layout" }],
         },
+      ]);
+      expect(definition.documentSemantics.presentation?.actionIds).toEqual([
+        "reveal",
+        "hide",
+        "move",
+        "emphasize",
       ]);
       expect(Object.isFrozen(children)).toBe(true);
       expect(children.every(({ activation }) => activation?.length === 1)).toBe(true);
