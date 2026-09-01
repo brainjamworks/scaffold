@@ -3,6 +3,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { CSSProperties, ReactNode } from "react";
 
 import type { BlockFrameDefinition } from "@/editor/blocks/block-definition";
+import { presentationVisualTargetAttributes } from "@/runtime/presentation/visual/presentation-visual-target-attributes";
 
 import { normalizeBlockFrame, resolveBlockFrameViewStyle } from "../model/block-frame";
 import { boundedPlacementAttributes, type BoundedPlacement } from "../model/bounded-placement";
@@ -41,6 +42,7 @@ export function BlockRuntimeFrame({
     <NodeViewWrapper
       data-node={nodeType}
       data-id={String(node.attrs["id"] ?? "")}
+      {...presentationVisualTargetAttributes(node.attrs["id"])}
       {...boundedPlacementAttributes(boundedPlacement)}
       {...runtimeFrameAttributes(frameKind)}
       {...(normalizedFrame ? { [FRAME_ATTR]: JSON.stringify(normalizedFrame) } : {})}

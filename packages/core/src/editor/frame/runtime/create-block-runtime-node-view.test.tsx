@@ -158,6 +158,7 @@ describe("createBlockRuntimeNodeView", () => {
 
         expect(frame).not.toBeNull();
         expect(frame?.getAttribute("data-id")).toBe("runtime-frame-1");
+        expect(frame?.getAttribute("data-presentation-target-id")).toBe("runtime-frame-1");
         expect(frame?.getAttribute("data-bounded-placement")).toBeNull();
         expect(frame?.classList.contains("test-block-runtime-eager-frame")).toBe(true);
         expect(frame?.textContent).toContain("Eager runtime block");
