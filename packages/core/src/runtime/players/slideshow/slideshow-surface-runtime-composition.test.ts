@@ -36,7 +36,10 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     const surfaceRoot = document.createElement("section");
     const target = document.createElement("div");
     target.setAttribute("data-presentation-target-id", TARGET_ID);
-    surfaceRoot.append(target);
+    const surfaceAnchor = document.createElement("div");
+    surfaceAnchor.setAttribute("data-presentation-target-id", SURFACE_ID);
+    surfaceAnchor.append(target);
+    surfaceRoot.append(surfaceAnchor);
     document.body.append(surfaceRoot);
     const visualTimeline = Object.freeze({
       surfaceId: SURFACE_ID,
@@ -61,7 +64,16 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
         targetById: new Map([
           [
             TARGET_ID,
-            Object.freeze({ targetId: TARGET_ID, initialVisibility: "withheld" as const }),
+            Object.freeze({
+              targetId: TARGET_ID,
+              initialVisibility: "withheld" as const,
+              contentLayout: Object.freeze({
+                containerId: SURFACE_ID,
+                contentLayout: "flow" as const,
+                directChildId: TARGET_ID,
+                directChildIds: Object.freeze([TARGET_ID]),
+              }),
+            }),
           ],
         ]),
         segments: Object.freeze([
@@ -84,6 +96,10 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
       }),
     }) satisfies CompiledSurfacePresentationTimeline;
 
+    const contentLayoutPort = {
+      apply: vi.fn(() => Result.ok()),
+      clear: vi.fn(),
+    };
     const composition = createSlideshowSurfaceRuntimeComposition({
       surfaceId: SURFACE_ID,
       surfaceRoot,
@@ -111,10 +127,12 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
         },
       },
       requestSurfaceChange: vi.fn(() => Result.ok()),
+      contentLayoutPort,
     });
     composition.presentationControls?.subscribe(() => order.push("session"));
 
     expect(composition.presentationVisualRuntime).toBeDefined();
+    expect(contentLayoutPort.apply).toHaveBeenCalledOnce();
     expect(target).toHaveAttribute("data-presentation-availability", "withheld");
     expect(target).toHaveAttribute("aria-hidden", "true");
     expect(target).toHaveAttribute("inert");
@@ -130,6 +148,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     expect(target.style.opacity).toBe("1");
 
     composition.dispose();
+    expect(contentLayoutPort.clear).toHaveBeenCalledOnce();
     expect(target).not.toHaveAttribute("data-presentation-availability");
     expect(target.style.opacity).toBe("");
     surfaceRoot.remove();

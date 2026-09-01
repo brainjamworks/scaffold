@@ -1,6 +1,7 @@
 import {
   EmbeddedDataIdSchema,
   EmbeddedNodeIdSchema,
+  PresentationContentLayout,
   type PresentationConfigurationV1,
 } from "@scaffold/contracts";
 import { describe, expect, it } from "vite-plus/test";
@@ -8,7 +9,7 @@ import { describe, expect, it } from "vite-plus/test";
 import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
 import type { SemanticDocumentSnapshot, SemanticItem } from "@/document/model/semantic-document";
 
-import { compilePresentation } from "./presentation-compiler";
+import { compilePresentation, type CompilePresentationInput } from "./presentation-compiler";
 
 const SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
 const TARGET_ID = EmbeddedNodeIdSchema.parse("target000001");
@@ -255,7 +256,7 @@ describe("compilePresentation", () => {
       },
     ],
   ] as const)("returns immutable typed data when %s", (_name, input, expected) => {
-    const result = compilePresentation(input);
+    const result = compilePresentation(input as CompilePresentationInput);
 
     expect(result.isErr()).toBe(true);
     if (result.isOk()) throw new Error(`Expected ${expected.reason}.`);
@@ -298,6 +299,37 @@ describe("compilePresentation", () => {
     expect(
       program.surfaces[0]?.visualProgram.targetById.get(SECOND_TARGET_ID)?.initialVisibility,
     ).toBe("withheld");
+  });
+
+  it.each([
+    PresentationContentLayout.Flow,
+    PresentationContentLayout.Sequence,
+  ] as const)("compiles resolved %s container/direct-child membership", (contentLayout) => {
+    const program = compileOk({
+      configuration: presentationConfiguration([reveal("action000001", 1_000, 500)]),
+      courseStructure: courseStructure(),
+      semanticSnapshot: semanticSnapshot({ contentLayout }),
+    });
+    const visualProgram = program.surfaces[0]!.visualProgram;
+    const target = visualProgram.targetById.get(TARGET_ID);
+
+    expect(target?.contentLayout).toEqual({
+      containerId: OWNER_ID,
+      contentLayout,
+      directChildId: TARGET_ID,
+      directChildIds: [TARGET_ID, SECOND_TARGET_ID],
+    });
+    expect(visualProgram.sequenceContainers).toEqual(
+      contentLayout === PresentationContentLayout.Sequence
+        ? [
+            {
+              boundaryId: OWNER_ID,
+              directChildIds: [TARGET_ID, SECOND_TARGET_ID],
+              initialActiveChildId: TARGET_ID,
+            },
+          ]
+        : [],
+    );
   });
 });
 
@@ -411,6 +443,7 @@ function semanticSnapshot(
   options: {
     readonly targetSurfaceId?: ReturnType<typeof EmbeddedNodeIdSchema.parse>;
     readonly ownerlessTarget?: boolean;
+    readonly contentLayout?: PresentationContentLayout;
   } = {},
 ): SemanticDocumentSnapshot {
   const surface = semanticItem(SURFACE_ID, "surface", [
@@ -419,11 +452,18 @@ function semanticSnapshot(
       semanticItem(SECOND_TARGET_ID, "published-child", []),
     ]),
   ]);
-  const owner = surface.children[0]!;
+  const owner = Object.freeze({
+    ...surface.children[0]!,
+    presentationContainer:
+      options.contentLayout === undefined
+        ? null
+        : Object.freeze({ contentLayout: options.contentLayout }),
+  });
+  const surfaceWithOwner = Object.freeze({ ...surface, children: Object.freeze([owner]) });
   const target = owner.children[0]!;
   const secondTarget = owner.children[1]!;
   const itemById = new Map([
-    [surface.id, surface],
+    [surfaceWithOwner.id, surfaceWithOwner],
     [owner.id, owner],
     [target.id, target],
     [secondTarget.id, secondTarget],
@@ -431,7 +471,7 @@ function semanticSnapshot(
   return {
     revision: 1,
     mode: "slideshow",
-    roots: [surface],
+    roots: [surfaceWithOwner],
     itemById,
     parentById: new Map([
       [surface.id, null],

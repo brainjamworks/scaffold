@@ -5,6 +5,7 @@ export interface ContentLayoutProjectionInput {
   readonly contentLayout: PresentationContentLayout;
   readonly directChildIds: readonly EmbeddedNodeId[];
   readonly activeChildId: EmbeddedNodeId | null;
+  readonly withheldChildIds?: readonly EmbeddedNodeId[];
 }
 
 export interface DirectChildContentLayoutState {
@@ -34,6 +35,16 @@ export type ContentLayoutProjectionIssue =
       readonly kind: "active-child-not-direct";
       readonly containerId: EmbeddedNodeId;
       readonly activeChildId: EmbeddedNodeId;
+    }
+  | {
+      readonly kind: "duplicate-withheld-child-id";
+      readonly containerId: EmbeddedNodeId;
+      readonly childId: EmbeddedNodeId;
+    }
+  | {
+      readonly kind: "withheld-child-not-direct";
+      readonly containerId: EmbeddedNodeId;
+      readonly childId: EmbeddedNodeId;
     };
 
 export type ContentLayoutProjectionOutcome =
@@ -75,9 +86,34 @@ export function projectContentLayout(
     });
   }
 
+  const withheldChildIds = input.withheldChildIds ?? [];
+  const duplicateWithheldChildId = findDuplicateChildId(withheldChildIds);
+  if (duplicateWithheldChildId !== null) {
+    return unavailable(input.containerId, {
+      kind: "duplicate-withheld-child-id",
+      containerId: input.containerId,
+      childId: duplicateWithheldChildId,
+    });
+  }
+  const withheldChildNotDirect = withheldChildIds.find(
+    (childId) => !input.directChildIds.includes(childId),
+  );
+  if (withheldChildNotDirect !== undefined) {
+    return unavailable(input.containerId, {
+      kind: "withheld-child-not-direct",
+      containerId: input.containerId,
+      childId: withheldChildNotDirect,
+    });
+  }
+
   switch (input.contentLayout) {
     case PresentationContentLayout.Flow: {
-      const childStates = Object.freeze(input.directChildIds.map(createNormalState));
+      const withheld = new Set(withheldChildIds);
+      const childStates = Object.freeze(
+        input.directChildIds.map((childId) =>
+          withheld.has(childId) ? createFlowWithheldState(childId) : createNormalState(childId),
+        ),
+      );
       return Object.freeze({
         kind: "flow" as const,
         containerId: input.containerId,
@@ -151,6 +187,17 @@ export function projectContentLayout(
   }
 }
 
+function unavailable(
+  containerId: EmbeddedNodeId,
+  issue: ContentLayoutProjectionIssue,
+): ContentLayoutProjectionOutcome {
+  return Object.freeze({
+    kind: "projection-unavailable" as const,
+    containerId,
+    issue: Object.freeze(issue),
+  });
+}
+
 function assertNeverContentLayout(value: never): never {
   void value;
   throw new Error("Unsupported content layout");
@@ -182,6 +229,16 @@ function createAvailableState(childId: EmbeddedNodeId): DirectChildContentLayout
     layoutParticipation: "shared-position" as const,
     interaction: "enabled" as const,
     accessibility: "exposed" as const,
+  });
+}
+
+function createFlowWithheldState(childId: EmbeddedNodeId): DirectChildContentLayoutState {
+  return Object.freeze({
+    childId,
+    availability: "withheld" as const,
+    layoutParticipation: "normal" as const,
+    interaction: "inert" as const,
+    accessibility: "hidden" as const,
   });
 }
 

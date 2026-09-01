@@ -26,6 +26,7 @@ import {
   type PresentationSurfaceRepositioner,
 } from "@/runtime/presentation/presentation-surface-repositioner";
 import { createAnimeVisualAnimationDriver } from "@/runtime/presentation/visual/anime-visual-animation-driver";
+import type { PresentationContentLayoutPort } from "@/runtime/presentation/visual/presentation-content-layout-port";
 import {
   createPresentationVisualRuntime,
   type PresentationVisualRuntime,
@@ -58,6 +59,7 @@ export interface CreateSlideshowSurfaceRuntimeCompositionInput {
   readonly requestSurfaceChange: RequestSurfaceChange;
   readonly surfaceRoot?: HTMLElement;
   readonly getPresentationMotionMode?: () => PresentationMotionMode;
+  readonly contentLayoutPort?: PresentationContentLayoutPort;
 }
 
 export type SlideshowPresentationSeekResult = ResultType<
@@ -97,6 +99,7 @@ export function createSlideshowSurfaceRuntimeComposition({
   requestSurfaceChange,
   surfaceRoot,
   getPresentationMotionMode,
+  contentLayoutPort,
 }: CreateSlideshowSurfaceRuntimeCompositionInput): SlideshowSurfaceRuntimeComposition {
   assertSlideshowSurfaceRuntimeProgramIdentity(surfaceId, program);
   const learnerRuntime = createSurfaceLearnerInteractionRuntime({
@@ -155,6 +158,7 @@ export function createSlideshowSurfaceRuntimeComposition({
         renderer: createPresentationVisualStateRenderer({
           resolver: createVisualTargetResolver(surfaceRoot),
           driver: createAnimeVisualAnimationDriver(),
+          ...(contentLayoutPort ? { contentLayoutPort } : {}),
         }),
         getMotionMode:
           getPresentationMotionMode ?? (() => resolvePresentationMotionMode(surfaceRoot)),

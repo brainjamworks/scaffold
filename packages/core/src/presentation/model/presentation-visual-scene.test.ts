@@ -10,6 +10,8 @@ import { sceneAt } from "./presentation-visual-scene";
 
 const SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
 const TARGET_ID = EmbeddedNodeIdSchema.parse("target000001");
+const FLOW_ID = EmbeddedNodeIdSchema.parse("flow00000001");
+const FLOW_SECOND_ID = EmbeddedNodeIdSchema.parse("flowchild002");
 const SEQUENCE_ID = EmbeddedNodeIdSchema.parse("sequence0001");
 const SEQUENCE_A_ID = EmbeddedNodeIdSchema.parse("sequenceA001");
 const SEQUENCE_B_ID = EmbeddedNodeIdSchema.parse("sequenceB001");
@@ -217,10 +219,53 @@ describe("sceneAt", () => {
       paint: { kind: "none" },
     });
     expect(sceneAt(program, 1_500, "normal").sequenceStates).toEqual([
-      { boundaryId: SEQUENCE_ID, activeChildId: SEQUENCE_B_ID },
+      {
+        boundaryId: SEQUENCE_ID,
+        directChildIds: [SEQUENCE_A_ID, SEQUENCE_B_ID],
+        activeChildId: SEQUENCE_B_ID,
+      },
     ]);
     expect(sceneAt(program, 999, "normal").sequenceStates).toEqual([
-      { boundaryId: SEQUENCE_ID, activeChildId: SEQUENCE_A_ID },
+      {
+        boundaryId: SEQUENCE_ID,
+        directChildIds: [SEQUENCE_A_ID, SEQUENCE_B_ID],
+        activeChildId: SEQUENCE_A_ID,
+      },
+    ]);
+  });
+
+  it("projects absolute Flow availability with its previous settled layout during a transition", () => {
+    const before = sceneAt(flowHideProgram(), 999, "normal");
+    const middle = sceneAt(flowHideProgram(), 1_250, "normal");
+    const after = sceneAt(flowHideProgram(), 1_500, "normal");
+
+    expect(before.flowStates).toEqual([
+      {
+        boundaryId: FLOW_ID,
+        directChildIds: [TARGET_ID, FLOW_SECOND_ID],
+        withheldChildIds: [],
+      },
+    ]);
+    expect(middle.flowStates).toEqual([
+      {
+        boundaryId: FLOW_ID,
+        directChildIds: [TARGET_ID, FLOW_SECOND_ID],
+        withheldChildIds: [TARGET_ID],
+        transition: {
+          segmentIds: ["flowhide0001"],
+          startMs: 1_000,
+          endMs: 1_500,
+          progress: 0.5,
+          previousWithheldChildIds: [],
+        },
+      },
+    ]);
+    expect(after.flowStates).toEqual([
+      {
+        boundaryId: FLOW_ID,
+        directChildIds: [TARGET_ID, FLOW_SECOND_ID],
+        withheldChildIds: [TARGET_ID],
+      },
     ]);
   });
 
@@ -233,7 +278,11 @@ describe("sceneAt", () => {
     "projects A → B → A Sequence ownership at a direct $timeMs ms seek",
     ({ timeMs, activeChildId }) => {
       expect(sceneAt(sequenceOwnershipProgram(), timeMs, "normal").sequenceStates).toEqual([
-        { boundaryId: SEQUENCE_ID, activeChildId },
+        {
+          boundaryId: SEQUENCE_ID,
+          directChildIds: [SEQUENCE_A_ID, SEQUENCE_B_ID],
+          activeChildId,
+        },
       ]);
     },
   );
@@ -358,7 +407,9 @@ function timedTransition(
     durationMs: 500,
     easing: { kind: "preset" as const, preset: "linear" as const },
   };
-  return direction ? { ...timed, kind: kind as "slide" | "float" | "wipe", direction } : timed;
+  return (direction
+    ? { ...timed, kind: kind as "slide" | "float" | "wipe", direction }
+    : timed) as VisibilityTransitionV1;
 }
 
 function visibilityProgram(
@@ -449,6 +500,37 @@ function sequenceReplaceProgram(): CompiledSurfacePresentationVisualProgram {
   };
 }
 
+function flowHideProgram(): CompiledSurfacePresentationVisualProgram {
+  const transition = timedTransition("fade");
+  return revealProgram({
+    durationMs: 2_000,
+    targetById: new Map([
+      [
+        TARGET_ID,
+        {
+          targetId: TARGET_ID,
+          initialVisibility: "visible",
+          contentLayout: {
+            containerId: FLOW_ID,
+            contentLayout: "flow",
+            directChildId: TARGET_ID,
+            directChildIds: [TARGET_ID, FLOW_SECOND_ID],
+          },
+        },
+      ],
+    ]),
+    segments: [
+      {
+        id: EmbeddedDataIdSchema.parse("flowhide0001"),
+        targetId: TARGET_ID,
+        startMs: 1_000,
+        endMs: 1_500,
+        visual: { kind: "hide", transition },
+      },
+    ],
+  });
+}
+
 function sequenceOwnershipProgram(): CompiledSurfacePresentationVisualProgram {
   return {
     surfaceId: SURFACE_ID,
@@ -459,7 +541,12 @@ function sequenceOwnershipProgram(): CompiledSurfacePresentationVisualProgram {
         {
           targetId: SEQUENCE_A_ID,
           initialVisibility: "visible",
-          sequence: { boundaryId: SEQUENCE_ID, directChildId: SEQUENCE_A_ID },
+          contentLayout: {
+            containerId: SEQUENCE_ID,
+            contentLayout: "sequence",
+            directChildId: SEQUENCE_A_ID,
+            directChildIds: [SEQUENCE_A_ID, SEQUENCE_B_ID],
+          },
         },
       ],
       [
@@ -467,7 +554,12 @@ function sequenceOwnershipProgram(): CompiledSurfacePresentationVisualProgram {
         {
           targetId: SEQUENCE_B_ID,
           initialVisibility: "withheld",
-          sequence: { boundaryId: SEQUENCE_ID, directChildId: SEQUENCE_B_ID },
+          contentLayout: {
+            containerId: SEQUENCE_ID,
+            contentLayout: "sequence",
+            directChildId: SEQUENCE_B_ID,
+            directChildIds: [SEQUENCE_A_ID, SEQUENCE_B_ID],
+          },
         },
       ],
     ]),

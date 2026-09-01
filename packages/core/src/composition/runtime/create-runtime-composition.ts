@@ -1,5 +1,6 @@
 import { Extension, type Editor, type Extensions } from "@tiptap/core";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state";
+import { Result } from "better-result";
 
 import { CellRuntimeNode, GridRuntimeNode } from "@/editor/arrangements/grid/runtime/grid-nodes";
 import { createLayoutRuntimeNodes } from "@/editor/arrangements/layout/runtime/layout-nodes";
@@ -48,7 +49,17 @@ import { SurfaceImageHotspotQuestionNode } from "@/editor/surfaces/model/assessm
 import { SurfaceMultipleChoiceQuestionNode } from "@/editor/surfaces/model/assessment/surface-multiple-choice-question-node";
 import { SurfaceMultiselectQuestionNode } from "@/editor/surfaces/model/assessment/surface-multiselect-question-node";
 import { SurfaceSequencingQuestionNode } from "@/editor/surfaces/model/assessment/surface-sequencing-question-node";
-import { ContentLayoutProjectionExtension } from "@/editor/content-layout/prosemirror/content-layout-projection-extension";
+import {
+  ContentLayoutProjectionExtension,
+  clearContentLayoutProjectionMeta,
+  readContentLayoutProjectionDiagnostics,
+  setContentLayoutProjectionBatchMeta,
+} from "@/editor/content-layout/prosemirror/content-layout-projection-extension";
+import type {
+  PresentationContentLayoutError,
+  PresentationContentLayoutPort,
+  PresentationContentLayoutRequest,
+} from "@/runtime/presentation/visual/presentation-content-layout-port";
 import { StudentGuard } from "@/runtime/guards/student-guard";
 import {
   RuntimeSurfaceVisibility,
@@ -183,6 +194,8 @@ class RuntimeSemanticDocumentController {
     return this.#controlCapabilityCatalogue;
   };
 
+  readonly getSnapshotSource = (): RuntimeSemanticDocumentSnapshotSource => this.#getSnapshot();
+
   applyTransaction(transaction: Transaction, state: EditorState): void {
     if (!transaction.docChanged) return;
     this.#state = state;
@@ -255,6 +268,117 @@ function requireRuntimeSemanticDocumentController(
     throw new Error("Runtime Semantic Document extension is not installed for this editor");
   }
   return controller;
+}
+
+export function createPresentationContentLayoutPortForEditor(
+  editor: Editor,
+): PresentationContentLayoutPort {
+  const controller = requireRuntimeSemanticDocumentController(editor);
+  return Object.freeze({
+    apply(request: PresentationContentLayoutRequest) {
+      const source = controller.getSnapshotSource();
+      const refusal = validatePresentationContentLayoutRequest(request, source);
+      if (refusal) return Result.err(refusal);
+
+      const priorDoc = editor.state.doc;
+      const transaction = setContentLayoutProjectionBatchMeta(editor.state.tr, {
+        snapshot: source.semantics,
+        containers: request.containers,
+      });
+      if (transaction.docChanged) {
+        throw new Error("Presentation content-layout projection attempted to mutate the document.");
+      }
+      editor.view.dispatch(transaction);
+      if (editor.state.doc !== priorDoc) {
+        throw new Error("Presentation content-layout projection mutated the document.");
+      }
+      const diagnostics = readContentLayoutProjectionDiagnostics(editor.state);
+      const unexpected = diagnostics.find(({ kind }) => kind !== "projection-unavailable");
+      if (unexpected) {
+        throw new Error(
+          `Presentation content-layout projection invariant failed: ${diagnosticLabel(unexpected)}.`,
+        );
+      }
+      const projectionUnavailable = diagnostics.find(
+        (diagnostic) => diagnostic.kind === "projection-unavailable",
+      );
+      if (projectionUnavailable?.kind === "projection-unavailable") {
+        return Result.err(
+          Object.freeze({
+            reason: "projection-refused" as const,
+            surfaceId: request.surfaceId,
+            containerId: projectionUnavailable.containerId,
+            issue: projectionUnavailable.issue,
+          }),
+        );
+      }
+      return Result.ok();
+    },
+    clear() {
+      const priorDoc = editor.state.doc;
+      const transaction = clearContentLayoutProjectionMeta(editor.state.tr);
+      if (transaction.docChanged) {
+        throw new Error("Clearing Presentation content-layout projection attempted to mutate the document.");
+      }
+      editor.view.dispatch(transaction);
+      if (editor.state.doc !== priorDoc) {
+        throw new Error("Clearing Presentation content-layout projection mutated the document.");
+      }
+    },
+  });
+}
+
+function validatePresentationContentLayoutRequest(
+  request: PresentationContentLayoutRequest,
+  source: RuntimeSemanticDocumentSnapshotSource,
+): PresentationContentLayoutError | null {
+  if (!source.courseStructure.surfaceIds.includes(request.surfaceId)) {
+    return Object.freeze({
+      reason: "surface-not-current" as const,
+      surfaceId: request.surfaceId,
+      currentSurfaceIds: Object.freeze([...source.courseStructure.surfaceIds]),
+    });
+  }
+  for (const input of request.containers) {
+    const item = source.semantics.itemById.get(input.containerId);
+    const location = source.semantics.locationById.get(input.containerId);
+    if (!item?.presentationContainer || location?.surfaceId !== request.surfaceId) {
+      return Object.freeze({
+        reason: "container-not-current" as const,
+        surfaceId: request.surfaceId,
+        containerId: input.containerId,
+        currentSurfaceId: location?.surfaceId ?? null,
+      });
+    }
+    if (item.presentationContainer.contentLayout !== input.contentLayout) {
+      return Object.freeze({
+        reason: "content-layout-changed" as const,
+        surfaceId: request.surfaceId,
+        containerId: input.containerId,
+        expectedContentLayout: input.contentLayout,
+        currentContentLayout: item.presentationContainer.contentLayout,
+      });
+    }
+    const currentDirectChildIds = item.children.map(({ id }) => id);
+    if (!sameIds(input.directChildIds, currentDirectChildIds)) {
+      return Object.freeze({
+        reason: "direct-children-changed" as const,
+        surfaceId: request.surfaceId,
+        containerId: input.containerId,
+        expectedDirectChildIds: Object.freeze([...input.directChildIds]),
+        currentDirectChildIds: Object.freeze(currentDirectChildIds),
+      });
+    }
+  }
+  return null;
+}
+
+function sameIds(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
+function diagnosticLabel(diagnostic: { readonly kind: string; readonly reason?: string }): string {
+  return diagnostic.reason ? `${diagnostic.kind}/${diagnostic.reason}` : diagnostic.kind;
 }
 
 function projectRuntimeSemanticSnapshot(

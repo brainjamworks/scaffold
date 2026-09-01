@@ -213,11 +213,15 @@ function compileCommand(
   }
   const target = resolveTargetOnSurface(snapshot, command.targetId, surfaceId, action.id);
   if (target.isErr()) return Result.err(target.error);
+  const compiledCommand: CompiledPresentationCommand = {
+    kind: "target-command",
+    ownerId: resolveOwnerId(snapshot, command.targetId),
+    targetId: command.targetId,
+    type: command.type,
+    ...(command.input === undefined ? {} : { input: command.input }),
+  };
   return Result.ok(
-    Object.freeze({
-      ...command,
-      ownerId: resolveOwnerId(snapshot, command.targetId),
-    }),
+    Object.freeze(compiledCommand),
   );
 }
 
@@ -296,27 +300,37 @@ function compileVisualProgram(
         (value.visual.kind === "reveal" || value.visual.kind === "hide"),
     );
     const container = resolveSemanticPresentationContainer(snapshot, targetId);
-    const sequence = container?.contentLayout === "sequence" ? container : null;
+    const containerItem = container ? snapshot.itemById.get(container.boundaryId) : undefined;
+    if (container && !containerItem) {
+      throw new Error(`Presentation container "${container.boundaryId}" is not current.`);
+    }
+    const directChildIds = container
+      ? Object.freeze(containerItem!.children.map(({ id }) => id))
+      : null;
     const compiledTarget: CompiledVisualTarget = Object.freeze({
       targetId,
       initialVisibility: firstVisibility?.value.visual.kind === "reveal" ? "withheld" : "visible",
-      ...(sequence
+      ...(container && directChildIds
         ? {
-            sequence: Object.freeze({
-              boundaryId: sequence.boundaryId,
-              directChildId: sequence.directChildId,
+            contentLayout: Object.freeze({
+              containerId: container.boundaryId,
+              contentLayout: container.contentLayout,
+              directChildId: container.directChildId,
+              directChildIds,
             }),
           }
         : {}),
     });
     targetById.set(targetId, compiledTarget);
-    if (sequence && !sequenceByBoundaryId.has(sequence.boundaryId)) {
-      const boundary = snapshot.itemById.get(sequence.boundaryId)!;
-      const directChildIds = Object.freeze(boundary.children.map(({ id }) => id));
+    if (
+      container?.contentLayout === "sequence" &&
+      directChildIds &&
+      !sequenceByBoundaryId.has(container.boundaryId)
+    ) {
       sequenceByBoundaryId.set(
-        sequence.boundaryId,
+        container.boundaryId,
         Object.freeze({
-          boundaryId: sequence.boundaryId,
+          boundaryId: container.boundaryId,
           directChildIds,
           initialActiveChildId: directChildIds[0] ?? null,
         }),
@@ -371,6 +385,9 @@ function resolveTargetOnSurface(
   const location = snapshot.locationById.get(targetId);
   if (!location) {
     throw new Error(`Presentation target "${targetId}" has no semantic location.`);
+  }
+  if (location.surfaceId === null) {
+    throw new Error(`Presentation target "${targetId}" has no Surface ownership.`);
   }
   if (location.surfaceId !== surfaceId) {
     return Result.err(

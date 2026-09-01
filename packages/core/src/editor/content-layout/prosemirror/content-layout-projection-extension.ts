@@ -382,6 +382,25 @@ function buildProjectionState(
     const outcome = projectContentLayout(input);
     switch (outcome.kind) {
       case "flow":
+        for (const [index, state] of outcome.childStates.entries()) {
+          if (state.availability !== "withheld") continue;
+          const location = validation.locations[index];
+          if (!location || location.id !== state.childId) {
+            throw new Error("Validated projection child has no validated location.");
+          }
+          decorations.push(
+            Decoration.node(
+              location.from,
+              location.to,
+              flowWithheldDomAttributes(),
+              Object.freeze({
+                containerId: input.containerId,
+                state,
+              } satisfies ContentLayoutProjectionDecorationSpec),
+            ),
+          );
+        }
+        break;
       case "empty-sequence":
         break;
       case "projected-sequence":
@@ -772,6 +791,7 @@ function normalizeContentLayoutProjectionBatch(
         contentLayout: input.contentLayout,
         directChildIds: Object.freeze([...input.directChildIds]),
         activeChildId: input.activeChildId,
+        withheldChildIds: Object.freeze([...(input.withheldChildIds ?? [])]),
       }),
     ),
   );
@@ -796,8 +816,23 @@ function isContentLayoutProjectionInput(value: unknown): value is ContentLayoutP
     isContentLayout(value["contentLayout"]) &&
     Array.isArray(value["directChildIds"]) &&
     value["directChildIds"].every(isEmbeddedNodeId) &&
-    (value["activeChildId"] === null || isEmbeddedNodeId(value["activeChildId"]))
+    (value["activeChildId"] === null || isEmbeddedNodeId(value["activeChildId"])) &&
+    (value["withheldChildIds"] === undefined ||
+      (Array.isArray(value["withheldChildIds"]) &&
+        value["withheldChildIds"].every(isEmbeddedNodeId)))
   );
+}
+
+function flowWithheldDomAttributes(): Readonly<Record<string, string>> {
+  return Object.freeze({
+    "data-content-layout-availability": "withheld",
+    "data-content-layout-geometry": "normal",
+    "data-content-layout-interaction": "inert",
+    "data-content-layout-accessibility": "hidden",
+    "aria-hidden": "true",
+    inert: "",
+    hidden: "",
+  });
 }
 
 function isSemanticDocumentSnapshot(value: unknown): value is SemanticDocumentSnapshot {

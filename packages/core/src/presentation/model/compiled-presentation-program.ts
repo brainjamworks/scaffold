@@ -2,6 +2,7 @@ import type {
   EmbeddedDataId,
   EmbeddedNodeId,
   PresentationConfigurationV1,
+  PresentationContentLayout,
   PresentationVisualIntentV1,
   SurfacePresentationNarrationV1,
   SurfaceTransitionV1,
@@ -62,9 +63,11 @@ export type CompiledPresentationWait =
 export interface CompiledVisualTarget {
   readonly targetId: EmbeddedNodeId;
   readonly initialVisibility: "visible" | "withheld";
-  readonly sequence?: {
-    readonly boundaryId: EmbeddedNodeId;
+  readonly contentLayout?: {
+    readonly containerId: EmbeddedNodeId;
+    readonly contentLayout: PresentationContentLayout;
     readonly directChildId: EmbeddedNodeId;
+    readonly directChildIds: readonly EmbeddedNodeId[];
   };
 }
 

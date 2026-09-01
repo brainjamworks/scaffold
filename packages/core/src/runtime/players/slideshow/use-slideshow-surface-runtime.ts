@@ -9,6 +9,7 @@ import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/sem
 import type { PresentationGateObservationSnapshot } from "@/runtime/presentation/presentation-progression-gate";
 import type { PresentationPlaybackSnapshot } from "@/runtime/presentation/presentation-playback-session";
 import type { PresentationFeatureViewBaselinePort } from "@/runtime/presentation/presentation-surface-repositioner";
+import { createPresentationContentLayoutPortForEditor } from "@/composition/runtime/create-runtime-composition";
 
 import type { RequestSurfaceChange } from "./slideshow-surface-change";
 import {
@@ -118,6 +119,7 @@ export function useSlideshowSurfaceRuntime({
           semanticTargets,
           featureViewBaseline,
           requestSurfaceChange,
+          contentLayoutPort: createPresentationContentLayoutPortForEditor(editor),
           ...(activeSurfaceRoot === null ? {} : { surfaceRoot: activeSurfaceRoot }),
         });
         composition = nextComposition;
