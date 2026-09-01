@@ -1040,6 +1040,29 @@ describe("createPresentationPlaybackSession", () => {
     expect(Object.isFrozen(duplicateAdvance.error)).toBe(true);
   });
 
+  it("keeps time-zero reconstruction awaiting start while Play retains its consume cue", async () => {
+    const { deferredCueExecutor, session } = createHarness(
+      1_000,
+      [cue("state-zero", 0, "reconstruct-state"), cue("consume-zero", 0)],
+      createDeferredCueExecutor(),
+      [manualWait("zero", 0)],
+    );
+
+    expectSeekOk(session.seek(0));
+    expect(session.getSnapshot()).toMatchObject({ phase: "awaiting-start", currentTimeMs: 0 });
+
+    session.play();
+    expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
+      "command-consume-zero",
+    ]);
+    await settleCue(deferredCueExecutor.pending[0]!);
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "manual", waitId: waitId("zero") },
+      currentTimeMs: 0,
+    });
+  });
+
   it("clamps an inline manual Wait and re-anchors playback after advance", async () => {
     const { manualClock, session } = createHarness(1_000, [], createDeferredCueExecutor(), [
       manualWait("inline", 100),
@@ -1363,12 +1386,11 @@ describe("createPresentationPlaybackSession", () => {
     expect(session.getSnapshot()).toMatchObject({ phase: "completed", currentTimeMs: 100 });
   });
 
-  it("consumes every forward-Seek cue without execution and never rearms it on backward Seek", () => {
+  it("rearms only future reconstructable cues after backward Seek", async () => {
     const { deferredCueExecutor, manualClock, session } = createHarness(500, [
       cue("zero", 0),
       cue("early", 100, "reconstruct-state"),
       cue("middle", 200),
-      cue("later", 300),
     ]);
 
     expectSeekOk(session.seek(200));
@@ -1376,9 +1398,15 @@ describe("createPresentationPlaybackSession", () => {
     expect(deferredCueExecutor.pending).toHaveLength(0);
 
     session.play();
+    manualClock.emitAt(1_100);
+    expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
+      "command-early",
+    ]);
+    await settleCue(deferredCueExecutor.pending[0]!);
+
     manualClock.emitAt(1_250);
     expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
-      "command-later",
+      "command-early",
     ]);
   });
 

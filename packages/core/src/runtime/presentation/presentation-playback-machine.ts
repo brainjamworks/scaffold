@@ -339,6 +339,22 @@ function consumedCueIdsWith(
   return new Set([...context.consumedCueIds, ...cues.map((cue) => cue.id)]);
 }
 
+function consumedCueIdsAfterSeek(
+  context: PresentationPlaybackMachineContext,
+  timeMs: number,
+): ReadonlySet<string> {
+  const movedForward = timeMs > context.currentTimeMs;
+  return new Set(
+    context.cues
+      .filter((cue) =>
+        cue.seekBehavior === "reconstruct-state"
+          ? cue.atMs <= timeMs
+          : context.consumedCueIds.has(cue.id) || (movedForward && cue.atMs <= timeMs),
+      )
+      .map((cue) => cue.id),
+  );
+}
+
 type CompiledManualPresentationWait = Extract<
   CompiledPresentationWait,
   { readonly kind: "manual-wait" }
@@ -551,10 +567,8 @@ const presentationPlaybackMachineSetup = setup({
       });
     }),
     consumeSeekCues: assign({
-      consumedCueIds: ({ context, event }) => {
-        const cues = unconsumedCuesThrough(context, seekTimeFrom(event));
-        return consumedCueIdsWith(context, cues);
-      },
+      consumedCueIds: ({ context, event }) =>
+        consumedCueIdsAfterSeek(context, seekTimeFrom(event)),
     }),
     reconcileWaitPassageForSeek: assign(({ context, event }) => {
       const timeMs = seekTimeFrom(event);
@@ -704,6 +718,15 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
         ],
         seek: [
           {
+            guard: "seekAtStart",
+            actions: [
+              "interruptForSeek",
+              "consumeSeekCues",
+              "reconcileWaitPassageForSeek",
+              "applySeek",
+            ],
+          },
+          {
             guard: "seekAtWait",
             target: "paused",
             actions: [
@@ -716,15 +739,6 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
           {
             guard: "seekAtDuration",
             target: "completed",
-            actions: [
-              "interruptForSeek",
-              "consumeSeekCues",
-              "reconcileWaitPassageForSeek",
-              "applySeek",
-            ],
-          },
-          {
-            guard: "seekAtStart",
             actions: [
               "interruptForSeek",
               "consumeSeekCues",

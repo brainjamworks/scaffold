@@ -268,7 +268,7 @@ function freezePresentation(
     ...(presentation.reconstructableCommandTypes
       ? {
           reconstructableCommandTypes: Object.freeze([
-            ...presentation.reconstructableCommandTypes,
+            ...new Set(presentation.reconstructableCommandTypes),
           ]),
         }
       : {}),

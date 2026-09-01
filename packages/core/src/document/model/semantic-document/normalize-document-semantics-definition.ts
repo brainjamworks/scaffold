@@ -13,7 +13,7 @@ export function normalizeDocumentSemanticsDefinition(
         ...(definition.presentation.reconstructableCommandTypes
           ? {
               reconstructableCommandTypes: Object.freeze([
-                ...new Set(definition.presentation.reconstructableCommandTypes),
+                ...definition.presentation.reconstructableCommandTypes,
               ]),
             }
           : {}),

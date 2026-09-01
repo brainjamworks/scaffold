@@ -38,7 +38,9 @@ describe("semantic document definition contracts", () => {
     expect(normalized).toMatchObject({ describe, projectChildren });
     expect(normalized?.presentation?.actionIds).toEqual(actionIds);
     expect(normalized?.presentation?.actionIds).not.toBe(actionIds);
-    expect(normalized?.presentation?.reconstructableCommandTypes).toEqual(["select", "expand"]);
+    expect(normalized?.presentation?.reconstructableCommandTypes).toEqual(
+      reconstructableCommandTypes,
+    );
     expect(normalized?.presentation?.reconstructableCommandTypes).not.toBe(
       reconstructableCommandTypes,
     );

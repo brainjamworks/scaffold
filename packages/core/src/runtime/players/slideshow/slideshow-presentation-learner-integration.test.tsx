@@ -1148,6 +1148,7 @@ describe("Slideshow Presentation learner integration", () => {
     );
 
     await waitFor(() => expect(lifecycle.events.length).toBeGreaterThanOrEqual(3));
+    await waitFor(() => expect(presentations.at(-1)?.listenerCount).toBe(2));
     expect(lifecycle.events.slice(0, 3)).toEqual([
       `create:${FIRST_SURFACE_ID}`,
       `dispose:${FIRST_SURFACE_ID}`,
@@ -1549,7 +1550,12 @@ describe("Slideshow Presentation learner integration", () => {
     expect(learnerRuntime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
     expect(session.getSnapshot()).toMatchObject({ phase: "completed", currentTimeMs: 100 });
 
-    act(() => session.restart());
+    await act(async () => {
+      const result = await session.restart();
+      if (result.isErr()) {
+        throw new Error(`Expected Restart to succeed, received ${result.error.reason}.`);
+      }
+    });
 
     expect(canvas).toHaveAttribute("inert");
     expect(learnerRuntime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
@@ -2226,7 +2232,16 @@ function presentationControlsFrom(session: PresentationPlaybackSession) {
     play: () => session.play(),
     pause: () => session.pause(),
     advance: () => session.advance(),
-    restart: () => session.restart(),
+    restart: async () => {
+      session.restart();
+      return Result.ok(
+        Object.freeze({
+          kind: "applied" as const,
+          timeMs: 0,
+          cueReports: Object.freeze([]),
+        }),
+      );
+    },
     stop: () => session.stop(),
   });
 }

@@ -90,7 +90,11 @@ describe("Slideshow Presentation visual playback", () => {
     expect(target).toHaveAttribute("data-presentation-availability", "withheld");
     expect(target.style.opacity).toBe("0");
 
-    session.restart();
+    const restart = await session.restart();
+    if (restart.isErr()) {
+      throw new Error(`Expected Restart to succeed, received ${restart.error.reason}.`);
+    }
+    expect(restart.value).toMatchObject({ kind: "applied", timeMs: 0 });
     expect(session.getSnapshot()).toMatchObject({ phase: "awaiting-start", currentTimeMs: 0 });
 
     const activeSurfaceRoot = requiredElement<HTMLElement>(

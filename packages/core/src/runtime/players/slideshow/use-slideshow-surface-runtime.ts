@@ -83,6 +83,7 @@ export function useSlideshowSurfaceRuntime({
     return resolvedProgram;
   }, [activeSurfaceId, programSource]);
   const [mountedRuntime, setMountedRuntime] = useState<MountedSurfaceRuntime | null>(null);
+  const [runtimeDefect, setRuntimeDefect] = useState<{ readonly error: unknown } | null>(null);
   const currentRuntime =
     mountedRuntime?.surfaceId === activeSurfaceId &&
     mountedRuntime.editor === editor &&
@@ -119,25 +120,47 @@ export function useSlideshowSurfaceRuntime({
           requestSurfaceChange,
           ...(activeSurfaceRoot === null ? {} : { surfaceRoot: activeSurfaceRoot }),
         });
-        let nextUnregisterPresentationGuard: (() => void) | undefined;
-        try {
+        composition = nextComposition;
+        void (async () => {
+          const initialReposition = await nextComposition.seek?.(0);
+          if (!active || composition !== nextComposition) return;
+          if (initialReposition) {
+            if (initialReposition.isErr()) {
+              throw new Error("Time-zero Slideshow reconstruction was unexpectedly refused.");
+            }
+            if (initialReposition.value.kind === "superseded") {
+              throw new Error("Active time-zero Slideshow reconstruction was superseded.");
+            }
+          }
+
           if (nextComposition.presentationSurfaceExitGuard) {
-            nextUnregisterPresentationGuard = surfaceExitEnvironment.registerGuard(
+            unregisterPresentationGuard = surfaceExitEnvironment.registerGuard(
               nextComposition.presentationSurfaceExitGuard,
             );
           }
-        } catch (error) {
-          nextComposition.dispose();
-          throw error;
-        }
-        composition = nextComposition;
-        unregisterPresentationGuard = nextUnregisterPresentationGuard;
-        setMountedRuntime({
-          surfaceId: activeSurfaceId,
-          editor,
-          program,
-          surfaceRoot: activeSurfaceRoot,
-          composition: nextComposition,
+          setMountedRuntime({
+            surfaceId: activeSurfaceId,
+            editor,
+            program,
+            surfaceRoot: activeSurfaceRoot,
+            composition: nextComposition,
+          });
+        })().catch((error: unknown) => {
+          if (!active || composition !== nextComposition) return;
+          composition = undefined;
+          let firstDefect: unknown = error;
+          try {
+            unregisterPresentationGuard?.();
+          } catch (unregisterError) {
+            firstDefect ??= unregisterError;
+          }
+          unregisterPresentationGuard = undefined;
+          try {
+            nextComposition.dispose();
+          } catch (disposeError) {
+            firstDefect ??= disposeError;
+          }
+          setRuntimeDefect(Object.freeze({ error: firstDefect }));
         });
       },
     );
@@ -210,6 +233,7 @@ export function useSlideshowSurfaceRuntime({
     getGateObservationSnapshot,
   );
 
+  if (runtimeDefect) throw runtimeDefect.error;
   if (program === undefined) {
     return { status: "unconfigured", nextMode: "navigate", contentInteraction: "enabled" };
   }

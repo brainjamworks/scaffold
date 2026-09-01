@@ -60,6 +60,11 @@ export interface CreateSlideshowSurfaceRuntimeCompositionInput {
   readonly getPresentationMotionMode?: () => PresentationMotionMode;
 }
 
+export type SlideshowPresentationSeekResult = ResultType<
+  PresentationRepositionReport,
+  PresentationSeekError
+>;
+
 export type SlideshowPresentationControls = Pick<
   PresentationPlaybackSession,
   | "getSnapshot"
@@ -68,14 +73,10 @@ export type SlideshowPresentationControls = Pick<
   | "play"
   | "pause"
   | "advance"
-  | "restart"
   | "stop"
->;
-
-export type SlideshowPresentationSeekResult = ResultType<
-  PresentationRepositionReport,
-  PresentationSeekError
->;
+> & {
+  restart(): Promise<SlideshowPresentationSeekResult>;
+};
 
 export interface SlideshowSurfaceRuntimeComposition {
   readonly surfaceId: SurfaceId;
@@ -137,7 +138,6 @@ export function createSlideshowSurfaceRuntimeComposition({
         gatePort: learnerRuntime,
         autoAdvance: program.presentation.autoAdvance,
       });
-      presentationControls = createSlideshowPresentationControls(presentationSession);
       presentationSurfaceExitGuard = createPresentationWaitSurfaceExitGuard({
         surfaceId,
         session: presentationSession,
@@ -163,6 +163,11 @@ export function createSlideshowSurfaceRuntimeComposition({
   } catch (error) {
     let firstDefect: unknown = error;
     try {
+      presentationRepositioner?.dispose();
+    } catch (disposeError) {
+      firstDefect ??= disposeError;
+    }
+    try {
       presentationSession?.dispose();
     } catch (disposeError) {
       firstDefect ??= disposeError;
@@ -175,6 +180,62 @@ export function createSlideshowSurfaceRuntimeComposition({
     throw firstDefect;
   }
   let disposed = false;
+  let presentationOperationGeneration = 0;
+  let seekPresentation: SlideshowSurfaceRuntimeComposition["seek"];
+
+  if (presentationSession && presentationRepositioner) {
+    const session = presentationSession;
+    const repositioner = presentationRepositioner;
+
+    seekPresentation = async (timeMs): Promise<SlideshowPresentationSeekResult> => {
+      assertCompositionNotDisposed(disposed, "seek");
+      assertPresentationSeekTime(timeMs);
+      const snapshot = session.getSnapshot();
+      if (timeMs < 0 || timeMs > snapshot.durationMs) {
+        return Result.err(
+          Object.freeze({
+            reason: "seek-out-of-range" as const,
+            requestedTimeMs: timeMs,
+            durationMs: snapshot.durationMs,
+          }),
+        );
+      }
+
+      const generation = ++presentationOperationGeneration;
+      session.pause();
+      const report = await repositioner.reposition(timeMs);
+      if (disposed || generation !== presentationOperationGeneration) {
+        return Result.ok(asSupersededReport(report));
+      }
+      if (report.kind === "applied") {
+        const sessionResult = session.seek(timeMs);
+        if (sessionResult.isErr()) {
+          throw new Error("Validated Slideshow seek was refused by its Presentation Session.");
+        }
+      }
+      return Result.ok(report);
+    };
+
+    const restartPresentation = async (): Promise<SlideshowPresentationSeekResult> => {
+      assertCompositionNotDisposed(disposed, "restart");
+      const generation = ++presentationOperationGeneration;
+      if (session.getSnapshot().phase !== "stopped") session.pause();
+      const report = await repositioner.reposition(0);
+      if (disposed || generation !== presentationOperationGeneration) {
+        return Result.ok(asSupersededReport(report));
+      }
+      if (report.kind === "applied") {
+        session.restart();
+        const sessionResult = session.seek(0);
+        if (sessionResult.isErr()) {
+          throw new Error("Validated Slideshow restart was refused by its Presentation Session.");
+        }
+      }
+      return Result.ok(report);
+    };
+
+    presentationControls = createSlideshowPresentationControls(session, restartPresentation);
+  }
 
   return Object.freeze({
     surfaceId,
@@ -182,41 +243,21 @@ export function createSlideshowSurfaceRuntimeComposition({
     ...(presentationControls ? { presentationControls } : {}),
     ...(presentationSurfaceExitGuard ? { presentationSurfaceExitGuard } : {}),
     ...(presentationVisualRuntime ? { presentationVisualRuntime } : {}),
-    ...(presentationSession && presentationRepositioner
-      ? {
-          async seek(timeMs: number): Promise<SlideshowPresentationSeekResult> {
-            assertPresentationSeekTime(timeMs);
-            const snapshot = presentationSession.getSnapshot();
-            if (timeMs < 0 || timeMs > snapshot.durationMs) {
-              return Result.err(
-                Object.freeze({
-                  reason: "seek-out-of-range" as const,
-                  requestedTimeMs: timeMs,
-                  durationMs: snapshot.durationMs,
-                }),
-              );
-            }
-
-            presentationSession.pause();
-            const report = await presentationRepositioner.reposition(timeMs);
-            if (report.kind === "applied") {
-              const sessionResult = presentationSession.seek(timeMs);
-              if (sessionResult.isErr()) {
-                throw new Error("Validated Slideshow seek was refused by its Presentation Session.");
-              }
-            }
-            return Result.ok(report);
-          },
-        }
-      : {}),
+    ...(seekPresentation ? { seek: seekPresentation } : {}),
     dispose() {
       if (disposed) return;
       disposed = true;
+      presentationOperationGeneration += 1;
       let firstDefect: unknown;
+      try {
+        presentationRepositioner?.dispose();
+      } catch (error) {
+        firstDefect = error;
+      }
       try {
         presentationSession?.dispose();
       } catch (error) {
-        firstDefect = error;
+        firstDefect ??= error;
       }
       try {
         presentationVisualRuntime?.dispose();
@@ -235,6 +276,7 @@ export function createSlideshowSurfaceRuntimeComposition({
 
 function createSlideshowPresentationControls(
   session: PresentationPlaybackSession,
+  restart: () => Promise<SlideshowPresentationSeekResult>,
 ): SlideshowPresentationControls {
   return Object.freeze({
     getSnapshot: () => session.getSnapshot(),
@@ -245,8 +287,23 @@ function createSlideshowPresentationControls(
     play: () => session.play(),
     pause: () => session.pause(),
     advance: () => session.advance(),
-    restart: () => session.restart(),
+    restart,
     stop: () => session.stop(),
+  });
+}
+
+function assertCompositionNotDisposed(disposed: boolean, operation: string): void {
+  if (disposed) throw new Error(`Cannot ${operation} a disposed Slideshow Surface runtime.`);
+}
+
+function asSupersededReport(
+  report: PresentationRepositionReport,
+): PresentationRepositionReport {
+  if (report.kind === "superseded") return report;
+  return Object.freeze({
+    kind: "superseded",
+    timeMs: report.timeMs,
+    cueReports: report.cueReports,
   });
 }
 

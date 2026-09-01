@@ -235,7 +235,7 @@ describe("Core structural semantic projection", () => {
                   semanticRole: "published-child" as const,
                   presentation: {
                     actionIds: ["reveal"],
-                    reconstructableCommandTypes: ["reveal"],
+                    reconstructableCommandTypes: ["reveal", "reveal", "highlight", "reveal"],
                   },
                 },
               ],
@@ -302,7 +302,7 @@ describe("Core structural semantic projection", () => {
     ]);
     expect(
       snapshot.itemById.get(IDS.privateParagraph)?.presentation.reconstructableCommandTypes,
-    ).toEqual(["reveal"]);
+    ).toEqual(["reveal", "highlight"]);
   });
 
   it("publishes direct Cell prose while preserving nested structural ownership and opacity", () => {

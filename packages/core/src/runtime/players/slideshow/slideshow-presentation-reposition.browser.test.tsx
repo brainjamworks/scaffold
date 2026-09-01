@@ -97,19 +97,82 @@ describe("Slideshow Presentation feature reconstruction", () => {
     expect(target.style.opacity).toBe("");
     expect(target.isConnected).toBe(false);
   });
+
+  it("reconstructs the time-zero Tabs view on initial entry, Restart and Surface return", async () => {
+    const fixture = await mountTracer({ selectDetailsAtZero: true });
+    const target = await mountedTarget(fixture.revealTargetId);
+    const overview = requiredTab("Overview");
+    const details = requiredTab("Details");
+    const firstComposition = requiredPresentationComposition();
+
+    await expectScene({
+      selected: details,
+      unselected: overview,
+      target,
+      availability: "withheld",
+      opacity: "0",
+    });
+
+    overview.click();
+    await expectTabSelection(overview, details);
+    const restart = await firstComposition.presentationControls.restart();
+    if (restart.isErr()) {
+      throw new Error(`Expected Restart to succeed, received ${restart.error.reason}.`);
+    }
+    expect(restart.value).toMatchObject({ kind: "applied", timeMs: 0 });
+    await expectScene({
+      selected: details,
+      unselected: overview,
+      target,
+      availability: "withheld",
+      opacity: "0",
+    });
+
+    await expectAppliedSeek(firstComposition, 2_000);
+    overview.click();
+    await expectTabSelection(overview, details);
+    await waitForCondition(() => buttonByName("Next slide").disabled === false);
+    buttonByName("Next slide").click();
+    await waitForCondition(() => host?.textContent?.includes("2 of 2"));
+
+    await waitForCondition(() => buttonByName("Previous slide").disabled === false);
+    buttonByName("Previous slide").click();
+    await waitForCondition(
+      () =>
+        host?.textContent?.includes("1 of 2") &&
+        compositionProbe.current !== firstComposition &&
+        compositionProbe.current?.presentationControls &&
+        requiredTabOrNull("Details"),
+    );
+
+    const returnedTarget = await mountedTarget(fixture.revealTargetId);
+    await expectScene({
+      selected: requiredTab("Details"),
+      unselected: requiredTab("Overview"),
+      target: returnedTarget,
+      availability: "withheld",
+      opacity: "0",
+    });
+  });
 });
 
 interface RepositionFixture {
   readonly surfaceId: SurfaceId;
+  readonly otherSurfaceId: SurfaceId;
   readonly tabsOwnerId: EmbeddedNodeId;
   readonly overviewSectionId: EmbeddedNodeId;
   readonly detailsSectionId: EmbeddedNodeId;
   readonly revealTargetId: EmbeddedNodeId;
 }
 
-async function mountTracer(): Promise<RepositionFixture> {
+async function mountTracer({
+  selectDetailsAtZero = false,
+}: {
+  readonly selectDetailsAtZero?: boolean;
+} = {}): Promise<RepositionFixture> {
   const fixture = Object.freeze({
     surfaceId: createEmbeddedNodeId() as SurfaceId,
+    otherSurfaceId: createEmbeddedNodeId() as SurfaceId,
     tabsOwnerId: createEmbeddedNodeId(),
     overviewSectionId: createEmbeddedNodeId(),
     detailsSectionId: createEmbeddedNodeId(),
@@ -140,7 +203,7 @@ async function mountTracer(): Promise<RepositionFixture> {
           surfaceId === fixture.surfaceId
             ? {
                 presentation: {
-                  timeline: repositionTimeline(fixture),
+                  timeline: repositionTimeline(fixture, selectDetailsAtZero),
                   autoAdvance: false,
                 },
               }
@@ -190,7 +253,11 @@ function repositionDocument(fixture: RepositionFixture): JSONContent {
     },
   ];
   assignMissingIds(surface);
-  courseDocument.content = [courseSection, surface];
+  const otherSurface = slideContentSurfaceDefinition.createSurface({
+    surfaceId: fixture.otherSurfaceId,
+  });
+  assignMissingIds(otherSurface);
+  courseDocument.content = [courseSection, surface, otherSurface];
   return content;
 }
 
@@ -244,11 +311,27 @@ function assignMissingIds(rootNode: JSONContent): void {
 
 function repositionTimeline(
   fixture: RepositionFixture,
+  selectDetailsAtZero = false,
 ): CompiledSurfacePresentationTimeline {
   return Object.freeze({
     surfaceId: fixture.surfaceId,
     durationMs: 2_000,
     cues: Object.freeze([
+      ...(selectDetailsAtZero
+        ? [
+            Object.freeze({
+              id: createEmbeddedDataId(),
+              atMs: 0,
+              command: Object.freeze({
+                kind: "target-command" as const,
+                ownerId: fixture.tabsOwnerId,
+                targetId: fixture.detailsSectionId,
+                type: "select",
+              }),
+              seekBehavior: "reconstruct-state" as const,
+            }),
+          ]
+        : []),
       Object.freeze({
         id: createEmbeddedDataId(),
         atMs: 400,
@@ -343,6 +426,17 @@ async function expectScene({
   expect(target.style.opacity).toBe(opacity);
 }
 
+async function expectTabSelection(
+  selected: HTMLButtonElement,
+  unselected: HTMLButtonElement,
+): Promise<void> {
+  await waitForCondition(
+    () =>
+      selected.getAttribute("aria-selected") === "true" &&
+      unselected.getAttribute("aria-selected") === "false",
+  );
+}
+
 function requiredTab(name: string): HTMLButtonElement {
   const tab = requiredTabOrNull(name);
   if (!tab) throw new Error(`Expected the ${name} Tab.`);
@@ -355,6 +449,12 @@ function requiredTabOrNull(name: string): HTMLButtonElement | null {
       (tab) => tab.textContent?.trim() === name,
     ) ?? null
   );
+}
+
+function buttonByName(name: string): HTMLButtonElement {
+  const button = host?.querySelector<HTMLButtonElement>(`button[aria-label="${name}"]`);
+  if (!button) throw new Error(`Expected the ${name} button.`);
+  return button;
 }
 
 async function mountedTarget(targetId: EmbeddedNodeId): Promise<HTMLElement> {

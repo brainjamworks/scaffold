@@ -166,7 +166,13 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
 
   it("lets only the latest asynchronous seek move the Session", async () => {
     const pendingCommand = deferred<ControlCommandResult>();
-    const featureViewBaseline = { replaceForOwners: vi.fn() };
+    let featureState = "initial";
+    let commandSignal: AbortSignal | undefined;
+    const featureViewBaseline = {
+      replaceForOwners: vi.fn(() => {
+        featureState = "baseline";
+      }),
+    };
     const reconstructableTimeline = Object.freeze({
       ...timeline(SURFACE_ID),
       cues: Object.freeze([
@@ -189,7 +195,15 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
       controlBindings: {
         get: () => ({
           ownerId: OWNER_ID,
-          commandExecutor: { execute: vi.fn(() => pendingCommand.promise) },
+          commandExecutor: {
+            execute: vi.fn(({ signal }: ControlCommandRequest) => {
+              commandSignal = signal;
+              return pendingCommand.promise.then((result) => {
+                if (!signal.aborted) featureState = "selected";
+                return result;
+              });
+            }),
+          },
         }),
       },
       semanticTargets: {
@@ -203,14 +217,147 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     });
 
     const first = composition.seek?.(100);
+    await flushPromises();
     const second = await composition.seek?.(0);
+    expect(commandSignal?.aborted).toBe(true);
     pendingCommand.resolve(Result.ok());
 
     expect(second?.isOk()).toBe(true);
     await expect(first).resolves.toMatchObject({ value: { kind: "superseded", timeMs: 100 } });
     expect(composition.presentationControls?.getSnapshot()).toMatchObject({ currentTimeMs: 0 });
+    expect(featureState).toBe("baseline");
     expect(featureViewBaseline.replaceForOwners).toHaveBeenCalledTimes(2);
     composition.dispose();
+  });
+
+  it("reconstructs time zero before Restart publishes its single Session update", async () => {
+    let featureState = "initial";
+    const reconstructableTimeline = Object.freeze({
+      ...timeline(SURFACE_ID),
+      cues: Object.freeze([
+        Object.freeze({
+          id: EmbeddedDataIdSchema.parse("restartcue01"),
+          atMs: 100,
+          command: Object.freeze({
+            kind: "target-command" as const,
+            ownerId: OWNER_ID,
+            targetId: TARGET_ID,
+            type: "select",
+          }),
+          seekBehavior: "reconstruct-state" as const,
+        }),
+      ]),
+    });
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: { presentation: { timeline: reconstructableTimeline, autoAdvance: false } },
+      controlBindings: {
+        get: () => ({
+          ownerId: OWNER_ID,
+          commandExecutor: {
+            execute: vi.fn(async () => {
+              featureState = "selected";
+              return Result.ok();
+            }),
+          },
+        }),
+      },
+      semanticTargets: {
+        activate: vi.fn(async (requestedId: EmbeddedNodeId) => ({
+          kind: "reached" as const,
+          requestedId,
+        })),
+      },
+      featureViewBaseline: {
+        replaceForOwners: vi.fn(() => {
+          featureState = "baseline";
+        }),
+      },
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+    });
+    const controls = composition.presentationControls;
+    if (!controls || !composition.seek) throw new Error("Expected Presentation controls.");
+
+    await composition.seek(100);
+    expect(featureState).toBe("selected");
+    const sessionUpdates = vi.fn();
+    controls.subscribe(sessionUpdates);
+
+    const restart = await controls.restart();
+
+    expect(restart).toMatchObject({ value: { kind: "applied", timeMs: 0 } });
+    expect(featureState).toBe("baseline");
+    expect(controls.getSnapshot()).toMatchObject({ phase: "awaiting-start", currentTimeMs: 0 });
+    expect(sessionUpdates).toHaveBeenCalledOnce();
+    composition.dispose();
+  });
+
+  it("aborts reconstruction on disposal without moving the disposed Session", async () => {
+    const pendingCommand = deferred<ControlCommandResult>();
+    let featureState = "initial";
+    let commandSignal: AbortSignal | undefined;
+    const reconstructableTimeline = Object.freeze({
+      ...timeline(SURFACE_ID),
+      cues: Object.freeze([
+        Object.freeze({
+          id: EmbeddedDataIdSchema.parse("disposecue01"),
+          atMs: 100,
+          command: Object.freeze({
+            kind: "target-command" as const,
+            ownerId: OWNER_ID,
+            targetId: TARGET_ID,
+            type: "select",
+          }),
+          seekBehavior: "reconstruct-state" as const,
+        }),
+      ]),
+    });
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: { presentation: { timeline: reconstructableTimeline, autoAdvance: false } },
+      controlBindings: {
+        get: () => ({
+          ownerId: OWNER_ID,
+          commandExecutor: {
+            execute: vi.fn(({ signal }: ControlCommandRequest) => {
+              commandSignal = signal;
+              return pendingCommand.promise.then((result) => {
+                if (!signal.aborted) featureState = "selected";
+                return result;
+              });
+            }),
+          },
+        }),
+      },
+      semanticTargets: {
+        activate: vi.fn(async (requestedId: EmbeddedNodeId) => ({
+          kind: "reached" as const,
+          requestedId,
+        })),
+      },
+      featureViewBaseline: {
+        replaceForOwners: vi.fn(() => {
+          featureState = "baseline";
+        }),
+      },
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+    });
+    const sessionUpdates = vi.fn();
+    composition.presentationControls?.subscribe(sessionUpdates);
+
+    const pendingSeek = composition.seek?.(100);
+    await flushPromises();
+    expect(commandSignal).toBeInstanceOf(AbortSignal);
+    sessionUpdates.mockClear();
+    composition.dispose();
+
+    expect(commandSignal?.aborted).toBe(true);
+    pendingCommand.resolve(Result.ok());
+    await expect(pendingSeek).resolves.toMatchObject({
+      value: { kind: "superseded", timeMs: 100 },
+    });
+    expect(featureState).toBe("baseline");
+    expect(sessionUpdates).not.toHaveBeenCalled();
   });
 
   it("constructs an awaiting-start Presentation over one empty learner runtime", () => {

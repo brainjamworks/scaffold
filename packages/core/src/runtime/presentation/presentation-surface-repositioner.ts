@@ -33,6 +33,7 @@ export type PresentationRepositionReport =
 
 export interface PresentationSurfaceRepositioner {
   reposition(timeMs: number): Promise<PresentationRepositionReport>;
+  dispose(): void;
 }
 
 export function createPresentationSurfaceRepositioner({
@@ -51,27 +52,51 @@ export function createPresentationSurfaceRepositioner({
     ...new Set(reconstructableCues.map(({ command }) => command.ownerId)),
   ]);
   let requestGeneration = 0;
+  let activeController: AbortController | undefined;
+  let disposed = false;
 
   return Object.freeze({
     async reposition(timeMs: number): Promise<PresentationRepositionReport> {
+      if (disposed) throw new Error("Disposed presentation repositioner cannot reposition.");
       assertRepositionTime(timeMs, timeline.durationMs);
+      activeController?.abort();
       const generation = ++requestGeneration;
       const cueReports: PresentationRepositionCueReport[] = [];
-      const signal = new AbortController().signal;
+      const controller = new AbortController();
+      activeController = controller;
+      const isSuperseded = (): boolean =>
+        disposed || generation !== requestGeneration || controller.signal.aborted;
 
-      featureViewBaseline.replaceForOwners(reconstructableOwnerIds);
-      for (const cue of reconstructableCues) {
-        if (generation !== requestGeneration) {
-          return freezeReport("superseded", timeMs, cueReports);
+      try {
+        featureViewBaseline.replaceForOwners(reconstructableOwnerIds);
+        for (const cue of reconstructableCues) {
+          if (isSuperseded()) return freezeReport("superseded", timeMs, cueReports);
+          if (cue.atMs > timeMs) break;
+
+          let outcome: PresentationCueExecutionOutcome;
+          try {
+            outcome = await cueExecutor.execute({
+              command: cue.command,
+              signal: controller.signal,
+            });
+          } catch (error) {
+            if (isSuperseded()) return freezeReport("superseded", timeMs, cueReports);
+            throw error;
+          }
+          if (isSuperseded()) return freezeReport("superseded", timeMs, cueReports);
+          cueReports.push(freezeCueReport(cue, outcome));
         }
-        if (cue.atMs > timeMs) break;
-        const outcome = await cueExecutor.execute({ command: cue.command, signal });
-        cueReports.push(freezeCueReport(cue, outcome));
-        if (generation !== requestGeneration) {
-          return freezeReport("superseded", timeMs, cueReports);
-        }
+        return freezeReport("applied", timeMs, cueReports);
+      } finally {
+        if (activeController === controller) activeController = undefined;
       }
-      return freezeReport("applied", timeMs, cueReports);
+    },
+    dispose(): void {
+      if (disposed) return;
+      disposed = true;
+      requestGeneration += 1;
+      activeController?.abort();
+      activeController = undefined;
     },
   });
 }

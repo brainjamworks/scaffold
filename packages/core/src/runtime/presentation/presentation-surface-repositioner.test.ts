@@ -74,9 +74,8 @@ describe("createPresentationSurfaceRepositioner", () => {
         error: { reason: "playback-not-allowed" },
       },
     ];
-    const cueExecutor: PresentationCueExecutor = {
-      execute: vi.fn(async () => outcomes.shift()!),
-    };
+    const execute = vi.fn(async () => outcomes.shift()!);
+    const cueExecutor: PresentationCueExecutor = { execute };
     const repositioner = createPresentationSurfaceRepositioner({
       timeline: timeline([
         cue("action000001", 100, OWNER_A, TARGET_A, "first", "reconstruct-state"),
@@ -100,20 +99,28 @@ describe("createPresentationSurfaceRepositioner", () => {
         error: { reason: "playback-not-allowed" },
       },
     ]);
-    expect(cueExecutor.execute).toHaveBeenCalledTimes(3);
+    expect(execute).toHaveBeenCalledTimes(3);
   });
 
-  it("marks an older asynchronous request superseded without a queue", async () => {
+  it("aborts an older asynchronous request before applying the newer baseline", async () => {
+    let featureState = "initial";
     let finishFirst: ((outcome: PresentationCueExecutionOutcome) => void) | undefined;
+    let firstSignal: AbortSignal | undefined;
     const cueExecutor: PresentationCueExecutor = {
       execute: vi.fn(
-        () =>
+        ({ command, signal }) =>
           new Promise<PresentationCueExecutionOutcome>((resolve) => {
-            finishFirst = resolve;
+            firstSignal = signal;
+            finishFirst = (outcome) => {
+              if (!signal.aborted) featureState = command.type;
+              resolve(outcome);
+            };
           }),
       ),
     };
-    const replaceForOwners = vi.fn();
+    const replaceForOwners = vi.fn(() => {
+      featureState = "baseline";
+    });
     const repositioner = createPresentationSurfaceRepositioner({
       timeline: timeline([
         cue("action000001", 100, OWNER_A, TARGET_A, "select-a", "reconstruct-state"),
@@ -124,11 +131,50 @@ describe("createPresentationSurfaceRepositioner", () => {
 
     const first = repositioner.reposition(100);
     const second = await repositioner.reposition(0);
+
+    expect(firstSignal?.aborted).toBe(true);
     finishFirst?.({ kind: "succeeded" });
 
     await expect(first).resolves.toMatchObject({ kind: "superseded", timeMs: 100 });
     expect(second).toMatchObject({ kind: "applied", timeMs: 0, cueReports: [] });
+    expect(featureState).toBe("baseline");
     expect(replaceForOwners).toHaveBeenCalledTimes(2);
+  });
+
+  it("aborts in-flight reconstruction when disposed and prevents a stale commit", async () => {
+    let featureState = "initial";
+    let finishExecution: ((outcome: PresentationCueExecutionOutcome) => void) | undefined;
+    let executionSignal: AbortSignal | undefined;
+    const repositioner = createPresentationSurfaceRepositioner({
+      timeline: timeline([
+        cue("action000001", 100, OWNER_A, TARGET_A, "select-a", "reconstruct-state"),
+      ]),
+      featureViewBaseline: {
+        replaceForOwners: vi.fn(() => {
+          featureState = "baseline";
+        }),
+      },
+      cueExecutor: {
+        execute: vi.fn(
+          ({ command, signal }) =>
+            new Promise<PresentationCueExecutionOutcome>((resolve) => {
+              executionSignal = signal;
+              finishExecution = (outcome) => {
+                if (!signal.aborted) featureState = command.type;
+                resolve(outcome);
+              };
+            }),
+        ),
+      },
+    });
+
+    const pending = repositioner.reposition(100);
+    repositioner.dispose();
+
+    expect(executionSignal?.aborted).toBe(true);
+    finishExecution?.({ kind: "succeeded" });
+    await expect(pending).resolves.toMatchObject({ kind: "superseded", timeMs: 100 });
+    expect(featureState).toBe("baseline");
   });
 
   it("leaves programming defects observable", async () => {
@@ -167,7 +213,7 @@ function cue(
   return Object.freeze({
     id: EmbeddedDataIdSchema.parse(id),
     atMs,
-    command: { kind: "target-command", ownerId, targetId, type },
+    command: { kind: "target-command" as const, ownerId, targetId, type },
     seekBehavior,
   });
 }
