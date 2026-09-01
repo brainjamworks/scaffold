@@ -77,6 +77,13 @@ export const tabsLayoutDefinition = {
   section: {
     label: "Tab",
     addLabel: "Add tab",
+    documentSemantics: {
+      presentation: {
+        actionIds: ["select"],
+        // Selection names the complete target state, so seek can replay it after baseline restore.
+        reconstructableCommandTypes: ["select"],
+      },
+    },
     create: ({ index }) => createTabSection(index, `Tab ${index + 1}`),
     configuration: defineConfiguration({
       attr: "options",
