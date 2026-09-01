@@ -23,9 +23,14 @@ import { normalizeDocumentSemanticsDefinition } from "./normalize-document-seman
 describe("semantic document definition contracts", () => {
   it("owns one immutable semantic-definition shell without changing callbacks", () => {
     const actionIds = ["reveal", "highlight"];
+    const reconstructableCommandTypes = ["select", "select", "expand"];
     const describe = () => ({ label: "Owned" });
     const projectChildren = () => [];
-    const input = { describe, presentation: { actionIds }, projectChildren };
+    const input = {
+      describe,
+      presentation: { actionIds, reconstructableCommandTypes },
+      projectChildren,
+    };
 
     const normalized = normalizeDocumentSemanticsDefinition(input);
 
@@ -33,9 +38,22 @@ describe("semantic document definition contracts", () => {
     expect(normalized).toMatchObject({ describe, projectChildren });
     expect(normalized?.presentation?.actionIds).toEqual(actionIds);
     expect(normalized?.presentation?.actionIds).not.toBe(actionIds);
+    expect(normalized?.presentation?.reconstructableCommandTypes).toEqual(["select", "expand"]);
+    expect(normalized?.presentation?.reconstructableCommandTypes).not.toBe(
+      reconstructableCommandTypes,
+    );
     expect(Object.isFrozen(normalized)).toBe(true);
     expect(Object.isFrozen(normalized?.presentation)).toBe(true);
     expect(Object.isFrozen(normalized?.presentation?.actionIds)).toBe(true);
+    expect(Object.isFrozen(normalized?.presentation?.reconstructableCommandTypes)).toBe(true);
+  });
+
+  it("preserves omission of reconstructable command metadata", () => {
+    const normalized = normalizeDocumentSemanticsDefinition({
+      presentation: { actionIds: ["reveal"] },
+    });
+
+    expect(normalized?.presentation).not.toHaveProperty("reconstructableCommandTypes");
   });
 
   it("keeps description and child projection owner-bounded and owner-relative", () => {

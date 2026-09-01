@@ -265,6 +265,13 @@ function freezePresentation(
 ): SemanticPresentationCapability {
   return Object.freeze({
     actionIds: Object.freeze([...presentation.actionIds]),
+    ...(presentation.reconstructableCommandTypes
+      ? {
+          reconstructableCommandTypes: Object.freeze([
+            ...presentation.reconstructableCommandTypes,
+          ]),
+        }
+      : {}),
     disabledReason: presentation.disabledReason,
   });
 }

@@ -50,6 +50,7 @@ export type SemanticItemDescriber = (
 
 export interface SemanticPresentationDefinition {
   readonly actionIds: readonly string[];
+  readonly reconstructableCommandTypes?: readonly string[];
   readonly disabledReason?: string;
 }
 

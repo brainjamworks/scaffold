@@ -10,6 +10,13 @@ export function normalizeDocumentSemanticsDefinition(
     ? Object.freeze({
         ...definition.presentation,
         actionIds: Object.freeze([...definition.presentation.actionIds]),
+        ...(definition.presentation.reconstructableCommandTypes
+          ? {
+              reconstructableCommandTypes: Object.freeze([
+                ...new Set(definition.presentation.reconstructableCommandTypes),
+              ]),
+            }
+          : {}),
       })
     : undefined;
 

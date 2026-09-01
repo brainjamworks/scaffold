@@ -243,6 +243,12 @@ function projectPublishedChildren(input: {
           summary: readNonEmptyString(resolved.candidate.summary),
           presentation: {
             actionIds: resolved.candidate.presentation?.actionIds ?? [],
+            ...(resolved.candidate.presentation?.reconstructableCommandTypes
+              ? {
+                  reconstructableCommandTypes:
+                    resolved.candidate.presentation.reconstructableCommandTypes,
+                }
+              : {}),
             disabledReason: resolved.candidate.presentation?.disabledReason ?? null,
           },
           presentationContainer: null,
@@ -500,6 +506,9 @@ function item(
     summary: null,
     presentation: {
       actionIds: presentation?.actionIds ?? [],
+      ...(presentation?.reconstructableCommandTypes
+        ? { reconstructableCommandTypes: presentation.reconstructableCommandTypes }
+        : {}),
       disabledReason: presentation?.disabledReason ?? null,
     },
     presentationContainer,

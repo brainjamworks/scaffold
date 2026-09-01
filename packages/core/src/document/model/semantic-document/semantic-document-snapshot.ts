@@ -20,6 +20,7 @@ export type SemanticItemKind =
 
 export interface SemanticPresentationCapability {
   readonly actionIds: readonly string[];
+  readonly reconstructableCommandTypes?: readonly string[];
   readonly disabledReason: string | null;
 }
 

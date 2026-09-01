@@ -205,6 +205,106 @@ describe("Core structural semantic projection", () => {
     expect(snapshot.itemById.get(IDS.layoutSection2)?.definitionId).toBe("tabs");
   });
 
+  it("preserves reconstructable metadata for owners, Layout Sections and published children", () => {
+    const doc = documentNode("slideshow", [
+      node("courseSection", IDS.courseSection, { title: "Introduction" }),
+      node("surface", IDS.surface1, { variant: "slide-content" }, [
+        node("layout", IDS.layout, { variant: "tabs" }, [
+          node("section", IDS.layoutSection1, {}, [
+            node("host_block", IDS.block1, {}, [node("paragraph", IDS.privateParagraph)]),
+          ]),
+        ]),
+      ]),
+    ]);
+    const base = createDefinitions();
+    const definitionsWithPresentation = Object.freeze({
+      blocks: Object.freeze({
+        get(nodeType: string) {
+          const definition = base.blocks.get(nodeType);
+          if (!definition || nodeType !== "host_block") return definition;
+          return {
+            ...definition,
+            documentSemantics: {
+              presentation: {
+                actionIds: ["open"],
+                reconstructableCommandTypes: ["open"],
+              },
+              projectChildren: () => [
+                {
+                  relativePos: 0,
+                  semanticRole: "published-child" as const,
+                  presentation: {
+                    actionIds: ["reveal"],
+                    reconstructableCommandTypes: ["reveal"],
+                  },
+                },
+              ],
+            },
+          };
+        },
+      }),
+      layouts: Object.freeze({
+        get(variant: string) {
+          const definition = base.layouts.get(variant);
+          if (!definition) return undefined;
+          return {
+            ...definition,
+            documentSemantics: {
+              presentation: {
+                actionIds: ["activate"],
+                reconstructableCommandTypes: ["activate"],
+              },
+            },
+            section: {
+              ...definition.section,
+              label: definition.section?.label ?? "Panel",
+              documentSemantics: {
+                presentation: {
+                  actionIds: ["select"],
+                  reconstructableCommandTypes: ["select"],
+                },
+              },
+            },
+          };
+        },
+      }),
+      surfaces: Object.freeze({
+        get(variant: string) {
+          const definition = base.surfaces.get(variant);
+          return definition
+            ? {
+                ...definition,
+                documentSemantics: {
+                  presentation: {
+                    actionIds: ["focus"],
+                    reconstructableCommandTypes: ["focus"],
+                  },
+                },
+              }
+            : undefined;
+        },
+      }),
+    }) satisfies SemanticDefinitionLookup;
+
+    const snapshot = project(doc, 18, definitionsWithPresentation);
+
+    expect(snapshot.itemById.get(IDS.surface1)?.presentation.reconstructableCommandTypes).toEqual([
+      "focus",
+    ]);
+    expect(snapshot.itemById.get(IDS.layout)?.presentation.reconstructableCommandTypes).toEqual([
+      "activate",
+    ]);
+    expect(
+      snapshot.itemById.get(IDS.layoutSection1)?.presentation.reconstructableCommandTypes,
+    ).toEqual(["select"]);
+    expect(snapshot.itemById.get(IDS.block1)?.presentation.reconstructableCommandTypes).toEqual([
+      "open",
+    ]);
+    expect(
+      snapshot.itemById.get(IDS.privateParagraph)?.presentation.reconstructableCommandTypes,
+    ).toEqual(["reveal"]);
+  });
+
   it("publishes direct Cell prose while preserving nested structural ownership and opacity", () => {
     const doc = documentNode("slideshow", [
       node("courseSection", IDS.courseSection, { title: "Practice" }),

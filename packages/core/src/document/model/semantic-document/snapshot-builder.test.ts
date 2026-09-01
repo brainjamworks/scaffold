@@ -128,6 +128,7 @@ describe("semantic snapshot builder", () => {
 
   it("deeply freezes items, locations, diagnostics, arrays and read-only indexes", () => {
     const builder = createSemanticSnapshotBuilder({ revision: 3, mode: "slideshow" });
+    const reconstructableCommandTypes = ["select"];
     const diagnostic = {
       code: "definition-callback-failed",
       ownerId: ROOT_ID,
@@ -137,7 +138,14 @@ describe("semantic snapshot builder", () => {
     } satisfies SemanticProjectionDiagnostic;
 
     builder.addItem({
-      item: item(ROOT_ID, "surface", "surface", "Slide", null),
+      item: {
+        ...item(ROOT_ID, "surface", "surface", "Slide", null),
+        presentation: {
+          actionIds: [],
+          disabledReason: null,
+          reconstructableCommandTypes,
+        },
+      },
       parentId: null,
       location: {
         ...location(ROOT_ID, "surface", 1, 20, { kind: "near", pos: 1 }, ROOT_ID),
@@ -153,6 +161,11 @@ describe("semantic snapshot builder", () => {
     expect(Object.isFrozen(snapshot.roots[0])).toBe(true);
     expect(Object.isFrozen(snapshot.roots[0]?.presentation)).toBe(true);
     expect(Object.isFrozen(snapshot.roots[0]?.presentation.actionIds)).toBe(true);
+    expect(snapshot.roots[0]?.presentation.reconstructableCommandTypes).toEqual(["select"]);
+    expect(snapshot.roots[0]?.presentation.reconstructableCommandTypes).not.toBe(
+      reconstructableCommandTypes,
+    );
+    expect(Object.isFrozen(snapshot.roots[0]?.presentation.reconstructableCommandTypes)).toBe(true);
     expect(Object.isFrozen(snapshot.locationById.get(ROOT_ID))).toBe(true);
     expect(Object.isFrozen(snapshot.locationById.get(ROOT_ID)?.activationPath)).toBe(true);
     expect(Object.isFrozen(snapshot.diagnostics)).toBe(true);
