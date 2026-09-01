@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { EditorShell } from "./EditorShell";
 
@@ -20,6 +20,106 @@ function setScrollMetrics(
 }
 
 describe("EditorShell", () => {
+  it("places an optional bottom workspace below the Surface viewport in the Stage column", () => {
+    const { container } = render(
+      <EditorShell
+        dock={<aside>Agent</aside>}
+        leftNavigatorDock={<aside>Document Outline</aside>}
+        stage={<main>Stage</main>}
+        bottomWorkspace={<section>Timeline workspace</section>}
+      />,
+    );
+
+    const stageColumn = container.querySelector(".sc-editor-stage-column");
+    const stage = container.querySelector(".sc-editor-stage");
+    const workspace = container.querySelector(".sc-editor-bottom-workspace");
+    const workspaceScroll = screen.getByRole("region", { name: "Bottom workspace" });
+    const docks = container.querySelectorAll(".sc-editor-dock-slot");
+
+    expect(stageColumn?.firstElementChild).toBe(stage);
+    expect(stageColumn?.lastElementChild).toBe(workspace);
+    expect(workspaceScroll).toHaveTextContent("Timeline workspace");
+    expect(container.querySelectorAll(".sc-editor-bottom-workspace-scroll")).toHaveLength(1);
+    expect(docks[0]?.nextElementSibling).toBe(stageColumn);
+    expect(stageColumn?.nextElementSibling).toBe(docks[1]);
+  });
+
+  it("keeps the bottom workspace absent when no slot content is provided", () => {
+    const { container } = render(<EditorShell stage={<main>Stage</main>} />);
+
+    expect(container.querySelector(".sc-editor-bottom-workspace")).toBeNull();
+  });
+
+  it("resizes and collapses the bottom workspace from the keyboard", () => {
+    const { container } = render(
+      <EditorShell
+        stage={<button type="button">Stage focus target</button>}
+        bottomWorkspace={<section>Timeline workspace</section>}
+      />,
+    );
+    const handle = screen.getByRole("separator", { name: "Resize bottom workspace" });
+    const workspace = container.querySelector<HTMLElement>(".sc-editor-bottom-workspace");
+    const workspaceScroll = screen.getByRole("region", { name: "Bottom workspace" });
+
+    expect(handle).toHaveAttribute("aria-orientation", "horizontal");
+    expect(handle).toHaveAttribute("aria-valuemin", "0");
+    expect(handle).toHaveAttribute("aria-valuemax", "480");
+    expect(handle).toHaveAttribute("aria-valuenow", "240");
+    expect(handle).toHaveAttribute("aria-valuetext", "240 pixels, expanded");
+
+    fireEvent.keyDown(handle, { key: "ArrowUp" });
+    expect(handle).toHaveAttribute("aria-valuenow", "256");
+    fireEvent.keyDown(handle, { key: "ArrowDown" });
+    expect(handle).toHaveAttribute("aria-valuenow", "240");
+
+    fireEvent.keyDown(handle, { key: "Home" });
+    expect(workspace).toHaveAttribute("data-state", "collapsed");
+    expect(handle).toHaveAttribute("aria-valuenow", "0");
+    expect(handle).toHaveAttribute("aria-valuetext", "Collapsed");
+    expect(workspaceScroll).toHaveAttribute("hidden");
+
+    fireEvent.keyDown(handle, { key: "Enter" });
+    expect(workspace).toHaveAttribute("data-state", "expanded");
+    expect(handle).toHaveAttribute("aria-valuenow", "240");
+    expect(workspaceScroll).not.toHaveAttribute("hidden");
+
+    fireEvent.keyDown(handle, { key: "End" });
+    expect(handle).toHaveAttribute("aria-valuenow", "480");
+  });
+
+  it("clamps pointer resizing without moving ordinary Stage focus", () => {
+    const { container } = render(
+      <EditorShell
+        stage={<button type="button">Stage focus target</button>}
+        bottomWorkspace={<section>Timeline workspace</section>}
+      />,
+    );
+    const stageFocusTarget = screen.getByRole("button", { name: "Stage focus target" });
+    const handle = screen.getByRole("separator", {
+      name: "Resize bottom workspace",
+    }) as HTMLButtonElement;
+    const workspace = container.querySelector<HTMLElement>(".sc-editor-bottom-workspace");
+    const releasePointerCapture = vi.fn();
+    handle.setPointerCapture = vi.fn();
+    handle.releasePointerCapture = releasePointerCapture;
+    stageFocusTarget.focus();
+
+    fireEvent.pointerDown(handle, { button: 0, clientY: 400, pointerId: 7 });
+    fireEvent.pointerMove(handle, { clientY: 350, pointerId: 7 });
+
+    expect(document.activeElement).toBe(stageFocusTarget);
+    expect(handle).toHaveAttribute("aria-valuenow", "290");
+    expect(workspace?.style.getPropertyValue("--sc-editor-bottom-workspace-height")).toBe("290px");
+
+    fireEvent.pointerMove(handle, { clientY: -1000, pointerId: 7 });
+    expect(handle).toHaveAttribute("aria-valuenow", "480");
+    fireEvent.pointerMove(handle, { clientY: 2000, pointerId: 7 });
+    expect(handle).toHaveAttribute("aria-valuenow", "160");
+
+    fireEvent.pointerUp(handle, { pointerId: 7 });
+    expect(releasePointerCapture).toHaveBeenCalledWith(7);
+  });
+
   it("places a wide navigator dock on the left while preserving the wide right dock", () => {
     const { container } = render(
       <EditorShell

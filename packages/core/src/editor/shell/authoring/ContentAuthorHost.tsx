@@ -39,6 +39,8 @@ export interface ContentAuthorHostProps {
   onAgentClose?: () => void;
   /** Scroll container model used by the editor shell. */
   scrollModel?: EditorShellScrollModel;
+  /** Optional neutral workspace rendered below the central Surface viewport. */
+  bottomWorkspace?: ReactNode;
   /** Wide left navigator rendered only for a ready, editable authoring editor. */
   authoringNavigatorDock?: (editor: TiptapEditor) => ReactNode;
   /**
@@ -66,6 +68,7 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
   agentOpen = true,
   onAgentClose,
   scrollModel = "page",
+  bottomWorkspace,
   authoringNavigatorDock,
   leftRail,
   rightRail,
@@ -121,6 +124,7 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
         data-testid="content-author-workspace"
         stageRef={setStageElement}
         scrollModel={scrollModel}
+        bottomWorkspace={bottomWorkspace}
         reserveLeftRail={editable && leftRail !== undefined}
         reserveRightRail={editable && rightRail !== undefined}
         leftNavigatorDock={

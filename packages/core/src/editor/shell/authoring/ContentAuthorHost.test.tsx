@@ -22,6 +22,23 @@ afterEach(() => {
 });
 
 describe("ContentAuthorHost", () => {
+  it("threads a neutral bottom workspace into the central Stage column", () => {
+    const content = createScaffoldDocumentContent({ mode: "page" });
+
+    render(
+      <ContentAuthorHost
+        composition={coreAuthoringComposition}
+        agentIntegration={ScaffoldUnavailableAgentIntegration}
+        content={content}
+        bottomWorkspace={<section>Timeline shell content</section>}
+      />,
+    );
+
+    const workspace = screen.getByRole("region", { name: "Bottom workspace" });
+    expect(workspace).toHaveTextContent("Timeline shell content");
+    expect(workspace.closest(".sc-editor-stage-column")).not.toBeNull();
+  });
+
   it("mounts the editor with the unavailable Agent integration", async () => {
     const content = createScaffoldDocumentContent({ mode: "page" });
     const onEditorReady = vi.fn();

@@ -1,4 +1,14 @@
-import type { HTMLAttributes, ReactNode, Ref } from "react";
+import {
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type HTMLAttributes,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+  type Ref,
+} from "react";
 
 import { cn } from "@/lib/cn";
 
@@ -7,11 +17,153 @@ import "./editor-shell.css";
 
 export type EditorShellScrollModel = "page" | "contained";
 
+const BOTTOM_WORKSPACE_COLLAPSED_HEIGHT_PX = 28;
+const BOTTOM_WORKSPACE_MIN_HEIGHT_PX = 160;
+const BOTTOM_WORKSPACE_DEFAULT_HEIGHT_PX = 240;
+const BOTTOM_WORKSPACE_MAX_HEIGHT_PX = 480;
+const BOTTOM_WORKSPACE_KEYBOARD_STEP_PX = 16;
+
+function clampBottomWorkspaceHeight(heightPx: number): number {
+  return Math.min(
+    BOTTOM_WORKSPACE_MAX_HEIGHT_PX,
+    Math.max(BOTTOM_WORKSPACE_MIN_HEIGHT_PX, heightPx),
+  );
+}
+
+interface BottomWorkspaceResizeSession {
+  readonly pointerId: number;
+  readonly startClientY: number;
+  readonly startHeightPx: number;
+  readonly startCollapsed: boolean;
+}
+
+function EditorBottomWorkspace({ children }: { readonly children: ReactNode }) {
+  const contentId = useId();
+  const resizeSessionRef = useRef<BottomWorkspaceResizeSession | null>(null);
+  const [heightPx, setHeightPx] = useState(BOTTOM_WORKSPACE_DEFAULT_HEIGHT_PX);
+  const [collapsed, setCollapsed] = useState(false);
+  const renderedHeightPx = collapsed ? BOTTOM_WORKSPACE_COLLAPSED_HEIGHT_PX : heightPx;
+
+  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    switch (event.key) {
+      case "ArrowUp":
+        setHeightPx((current) =>
+          clampBottomWorkspaceHeight(
+            collapsed
+              ? BOTTOM_WORKSPACE_MIN_HEIGHT_PX
+              : current + BOTTOM_WORKSPACE_KEYBOARD_STEP_PX,
+          ),
+        );
+        setCollapsed(false);
+        break;
+      case "ArrowDown":
+        if (!collapsed) {
+          setHeightPx((current) =>
+            clampBottomWorkspaceHeight(current - BOTTOM_WORKSPACE_KEYBOARD_STEP_PX),
+          );
+        }
+        break;
+      case "Home":
+        setCollapsed(true);
+        break;
+      case "End":
+        setHeightPx(BOTTOM_WORKSPACE_MAX_HEIGHT_PX);
+        setCollapsed(false);
+        break;
+      case "Enter":
+      case " ":
+        setCollapsed((current) => !current);
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function handlePointerDown(event: PointerEvent<HTMLButtonElement>) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    resizeSessionRef.current = {
+      pointerId: event.pointerId,
+      startClientY: event.clientY,
+      startHeightPx: heightPx,
+      startCollapsed: collapsed,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handlePointerMove(event: PointerEvent<HTMLButtonElement>) {
+    const session = resizeSessionRef.current;
+    if (!session || session.pointerId !== event.pointerId) return;
+    const nextHeightPx = session.startHeightPx + session.startClientY - event.clientY;
+    setHeightPx(clampBottomWorkspaceHeight(Math.round(nextHeightPx)));
+    setCollapsed(false);
+  }
+
+  function handlePointerUp(event: PointerEvent<HTMLButtonElement>) {
+    const session = resizeSessionRef.current;
+    if (!session || session.pointerId !== event.pointerId) return;
+    resizeSessionRef.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
+  function handlePointerCancel(event: PointerEvent<HTMLButtonElement>) {
+    const session = resizeSessionRef.current;
+    if (!session || session.pointerId !== event.pointerId) return;
+    resizeSessionRef.current = null;
+    setHeightPx(session.startHeightPx);
+    setCollapsed(session.startCollapsed);
+  }
+
+  return (
+    <section
+      className="sc-editor-bottom-workspace"
+      data-state={collapsed ? "collapsed" : "expanded"}
+      style={
+        {
+          "--sc-editor-bottom-workspace-height": `${renderedHeightPx}px`,
+        } as CSSProperties
+      }
+    >
+      <button
+        type="button"
+        className="sc-editor-bottom-workspace-resize-handle"
+        role="separator"
+        aria-label="Resize bottom workspace"
+        aria-controls={contentId}
+        aria-orientation="horizontal"
+        aria-valuemin={0}
+        aria-valuemax={BOTTOM_WORKSPACE_MAX_HEIGHT_PX}
+        aria-valuenow={collapsed ? 0 : heightPx}
+        aria-valuetext={collapsed ? "Collapsed" : `${heightPx} pixels, expanded`}
+        onKeyDown={handleKeyDown}
+        onPointerCancel={handlePointerCancel}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+      />
+      <div
+        id={contentId}
+        className="sc-editor-bottom-workspace-scroll"
+        role="region"
+        aria-label="Bottom workspace"
+        hidden={collapsed}
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
 export interface EditorShellProps extends Omit<HTMLAttributes<HTMLDivElement>, "children"> {
   /** Primary work surface — the document editor or any future stage mode. */
   stage: ReactNode;
   /** Optional ref for overlay geometry that must use the unscaled editor stage. */
   stageRef?: Ref<HTMLDivElement>;
+  /** Optional shell-local workspace below the Surface viewport. */
+  bottomWorkspace?: ReactNode;
   /**
    * Optional vertical left-rail tool surface (rich-text formatting pill,
    * etc.). Vertically centered in the viewport.
@@ -59,6 +211,7 @@ export interface EditorShellProps extends Omit<HTMLAttributes<HTMLDivElement>, "
 export function EditorShell({
   stage,
   stageRef,
+  bottomWorkspace,
   leftRail,
   reserveLeftRail = false,
   rightRail,
@@ -85,8 +238,11 @@ export function EditorShell({
           ) : null}
         </div>
       ) : null}
-      <div ref={stageRef} className="sc-editor-stage">
-        {stage}
+      <div className="sc-editor-stage-column">
+        <div ref={stageRef} className="sc-editor-stage">
+          {stage}
+        </div>
+        {bottomWorkspace ? <EditorBottomWorkspace>{bottomWorkspace}</EditorBottomWorkspace> : null}
       </div>
       {rightRail || reserveRightRail ? (
         <div className="sc-editor-rail-slot" data-side="right">
