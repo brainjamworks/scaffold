@@ -48,6 +48,7 @@ export type SlideshowSurfaceRuntimeState =
 
 interface UseSlideshowSurfaceRuntimeInput {
   readonly activeSurfaceId: SurfaceId | null;
+  readonly activeSurfaceRoot: HTMLElement | null;
   readonly editor: TiptapEditor | null;
   readonly programSource?: SlideshowSurfaceRuntimeProgramSource;
   readonly requestSurfaceChange: RequestSurfaceChange;
@@ -58,6 +59,7 @@ interface MountedSurfaceRuntime {
   readonly surfaceId: SurfaceId;
   readonly editor: TiptapEditor;
   readonly program: SlideshowSurfaceRuntimeProgram;
+  readonly surfaceRoot: HTMLElement | null;
   readonly composition: SlideshowSurfaceRuntimeComposition;
 }
 
@@ -66,6 +68,7 @@ const NO_GATE_OBSERVATION = Object.freeze({ status: "inactive" as const });
 
 export function useSlideshowSurfaceRuntime({
   activeSurfaceId,
+  activeSurfaceRoot,
   editor,
   programSource,
   requestSurfaceChange,
@@ -83,12 +86,20 @@ export function useSlideshowSurfaceRuntime({
   const currentRuntime =
     mountedRuntime?.surfaceId === activeSurfaceId &&
     mountedRuntime.editor === editor &&
-    mountedRuntime.program === program
+    mountedRuntime.program === program &&
+    mountedRuntime.surfaceRoot === activeSurfaceRoot
       ? mountedRuntime
       : null;
 
   useEffect(() => {
-    if (activeSurfaceId === null || editor === null || program === undefined) return;
+    if (
+      activeSurfaceId === null ||
+      editor === null ||
+      program === undefined ||
+      (program.presentation !== undefined && activeSurfaceRoot === null)
+    ) {
+      return;
+    }
 
     const controlBindings = getControlBindingRegistryForEditor(editor);
     const semanticTargets = getSemanticTargetInteractionEnvironmentForEditor(editor).coordinator;
@@ -105,6 +116,7 @@ export function useSlideshowSurfaceRuntime({
           controlBindings,
           semanticTargets,
           requestSurfaceChange,
+          ...(activeSurfaceRoot === null ? {} : { surfaceRoot: activeSurfaceRoot }),
         });
         let nextUnregisterPresentationGuard: (() => void) | undefined;
         try {
@@ -126,6 +138,7 @@ export function useSlideshowSurfaceRuntime({
           surfaceId: activeSurfaceId,
           editor,
           program,
+          surfaceRoot: activeSurfaceRoot,
           composition: nextComposition,
         });
       },
@@ -156,7 +169,14 @@ export function useSlideshowSurfaceRuntime({
         if (firstDefect !== undefined) throw firstDefect;
       }
     };
-  }, [activeSurfaceId, editor, program, requestSurfaceChange, surfaceExitEnvironment]);
+  }, [
+    activeSurfaceId,
+    activeSurfaceRoot,
+    editor,
+    program,
+    requestSurfaceChange,
+    surfaceExitEnvironment,
+  ]);
 
   const presentationSession = currentRuntime?.composition.presentationSession;
   const subscribe = useCallback(
@@ -234,7 +254,7 @@ export function deriveRequiredControlBindingOwnerIds(
       if (wait.kind === "learner-wait") ownerIds.add(wait.requirement.ownerId);
     }
     for (const cue of program.presentation.timeline.cues) {
-      ownerIds.add(cue.command.ownerId);
+      if (cue.command.kind === "target-command") ownerIds.add(cue.command.ownerId);
     }
   }
 

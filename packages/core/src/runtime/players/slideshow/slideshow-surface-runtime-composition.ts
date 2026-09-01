@@ -3,23 +3,34 @@ import { Result } from "better-result";
 import type { ControlBindingRegistry } from "@/document/control-binding/control-binding";
 import type { SurfaceId } from "@/document/model/course-structure";
 import type { SemanticTargetInteractionCoordinator } from "@/document/semantic-target-interaction/semantic-target-interaction-coordinator";
+import type {
+  CompiledSurfacePresentationTimeline,
+  PresentationMotionMode,
+} from "@/presentation/model";
 import type { CompiledSurfaceLearnerInteractionProgram } from "@/runtime/learner-interaction/compiled-learner-interaction-program";
 import {
   createSurfaceLearnerInteractionRuntime,
   type SurfaceLearnerInteractionRuntime,
 } from "@/runtime/learner-interaction/surface-learner-interaction-runtime";
-import type { CompiledInternalClockSurfaceTimeline } from "@/runtime/presentation/compiled-presentation-program";
+import { projectInternalClockSurfaceTimeline } from "@/runtime/presentation/compiled-presentation-program";
 import { createPresentationCueExecutor } from "@/runtime/presentation/presentation-cue-executor";
 import {
   createPresentationPlaybackSession,
   type PresentationPlaybackSession,
 } from "@/runtime/presentation/presentation-playback-session";
+import { createAnimeVisualAnimationDriver } from "@/runtime/presentation/visual/anime-visual-animation-driver";
+import {
+  createPresentationVisualRuntime,
+  type PresentationVisualRuntime,
+} from "@/runtime/presentation/visual/presentation-visual-runtime";
+import { createPresentationVisualStateRenderer } from "@/runtime/presentation/visual/presentation-visual-state-renderer";
+import { createVisualTargetResolver } from "@/runtime/presentation/visual/visual-target-resolver";
 
 import type { RequestSurfaceChange } from "./slideshow-surface-change";
 
 export interface SlideshowSurfaceRuntimeProgram {
   readonly presentation?: {
-    readonly timeline: CompiledInternalClockSurfaceTimeline;
+    readonly timeline: CompiledSurfacePresentationTimeline;
     readonly autoAdvance: boolean;
   };
   readonly learnerInteractions?: CompiledSurfaceLearnerInteractionProgram;
@@ -35,12 +46,15 @@ export interface CreateSlideshowSurfaceRuntimeCompositionInput {
   readonly controlBindings: Pick<ControlBindingRegistry, "get">;
   readonly semanticTargets: SemanticTargetInteractionCoordinator;
   readonly requestSurfaceChange: RequestSurfaceChange;
+  readonly surfaceRoot?: HTMLElement;
+  readonly getPresentationMotionMode?: () => PresentationMotionMode;
 }
 
 export interface SlideshowSurfaceRuntimeComposition {
   readonly surfaceId: SurfaceId;
   readonly learnerRuntime: SurfaceLearnerInteractionRuntime;
   readonly presentationSession?: PresentationPlaybackSession;
+  readonly presentationVisualRuntime?: PresentationVisualRuntime;
   dispose(): void;
 }
 
@@ -50,6 +64,8 @@ export function createSlideshowSurfaceRuntimeComposition({
   controlBindings,
   semanticTargets,
   requestSurfaceChange,
+  surfaceRoot,
+  getPresentationMotionMode,
 }: CreateSlideshowSurfaceRuntimeCompositionInput): SlideshowSurfaceRuntimeComposition {
   assertSlideshowSurfaceRuntimeProgramIdentity(surfaceId, program);
   const learnerRuntime = createSurfaceLearnerInteractionRuntime({
@@ -73,10 +89,11 @@ export function createSlideshowSurfaceRuntimeComposition({
     semanticInteractionOrigin: "learner-interaction-rule",
   });
   let presentationSession: PresentationPlaybackSession | undefined;
+  let presentationVisualRuntime: PresentationVisualRuntime | undefined;
   try {
     presentationSession = program.presentation
       ? createPresentationPlaybackSession({
-          timeline: program.presentation.timeline,
+          timeline: projectInternalClockSurfaceTimeline(program.presentation.timeline),
           cueExecutor: createPresentationCueExecutor({
             semanticTargets,
             controlBindings,
@@ -86,9 +103,31 @@ export function createSlideshowSurfaceRuntimeComposition({
           autoAdvance: program.presentation.autoAdvance,
         })
       : undefined;
+    if (program.presentation && presentationSession && surfaceRoot) {
+      presentationVisualRuntime = createPresentationVisualRuntime({
+        visualProgram: program.presentation.timeline.visualProgram,
+        session: presentationSession,
+        renderer: createPresentationVisualStateRenderer({
+          resolver: createVisualTargetResolver(surfaceRoot),
+          driver: createAnimeVisualAnimationDriver(),
+        }),
+        getMotionMode:
+          getPresentationMotionMode ?? (() => resolvePresentationMotionMode(surfaceRoot)),
+      });
+    }
   } catch (error) {
-    learnerRuntime.dispose();
-    throw error;
+    let firstDefect: unknown = error;
+    try {
+      presentationSession?.dispose();
+    } catch (disposeError) {
+      firstDefect ??= disposeError;
+    }
+    try {
+      learnerRuntime.dispose();
+    } catch (disposeError) {
+      firstDefect ??= disposeError;
+    }
+    throw firstDefect;
   }
   let disposed = false;
 
@@ -96,6 +135,7 @@ export function createSlideshowSurfaceRuntimeComposition({
     surfaceId,
     learnerRuntime,
     ...(presentationSession ? { presentationSession } : {}),
+    ...(presentationVisualRuntime ? { presentationVisualRuntime } : {}),
     dispose() {
       if (disposed) return;
       disposed = true;
@@ -104,6 +144,11 @@ export function createSlideshowSurfaceRuntimeComposition({
         presentationSession?.dispose();
       } catch (error) {
         firstDefect = error;
+      }
+      try {
+        presentationVisualRuntime?.dispose();
+      } catch (error) {
+        firstDefect ??= error;
       }
       try {
         learnerRuntime.dispose();
@@ -115,6 +160,13 @@ export function createSlideshowSurfaceRuntimeComposition({
   });
 }
 
+function resolvePresentationMotionMode(surfaceRoot: HTMLElement): PresentationMotionMode {
+  return surfaceRoot.ownerDocument.defaultView?.matchMedia?.("(prefers-reduced-motion: reduce)")
+    .matches
+    ? "reduced-motion"
+    : "normal";
+}
+
 function unexpectedSurfaceChangeError(error: unknown): never {
   const reason = (error as { readonly reason?: unknown }).reason;
   throw new Error(`Unexpected Slideshow Surface change error "${String(reason)}".`);
@@ -124,10 +176,7 @@ export function assertSlideshowSurfaceRuntimeProgramIdentity(
   surfaceId: SurfaceId,
   program: SlideshowSurfaceRuntimeProgram,
 ): void {
-  if (
-    program.learnerInteractions &&
-    program.learnerInteractions.surfaceId !== surfaceId
-  ) {
+  if (program.learnerInteractions && program.learnerInteractions.surfaceId !== surfaceId) {
     throw new Error(
       `Slideshow learner program Surface "${program.learnerInteractions.surfaceId}" does not match active Surface "${surfaceId}".`,
     );
@@ -139,8 +188,6 @@ export function assertSlideshowSurfaceRuntimeProgramIdentity(
   }
 }
 
-function createEmptyLearnerProgram(
-  surfaceId: SurfaceId,
-): CompiledSurfaceLearnerInteractionProgram {
+function createEmptyLearnerProgram(surfaceId: SurfaceId): CompiledSurfaceLearnerInteractionProgram {
   return Object.freeze({ surfaceId, rulesByEvent: new Map() });
 }

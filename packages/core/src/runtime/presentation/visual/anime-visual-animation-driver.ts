@@ -29,7 +29,12 @@ export function createAnimeVisualAnimationDriver({
         autoplay: false,
         duration: input.durationMs,
         ease: input.easing,
-        keyframes: input.keyframes.map(toAnimeKeyframe),
+        keyframes: Object.fromEntries(
+          input.keyframes.map((keyframe) => [
+            String(keyframe.offset * 100),
+            toAnimeKeyframe(keyframe),
+          ]),
+        ),
       });
       let cancelled = false;
 
@@ -38,11 +43,7 @@ export function createAnimeVisualAnimationDriver({
           if (cancelled) {
             throw new Error(`Presentation animation "${input.segmentId}" has been cancelled.`);
           }
-          if (
-            !Number.isFinite(localTimeMs) ||
-            localTimeMs < 0 ||
-            localTimeMs > input.durationMs
-          ) {
+          if (!Number.isFinite(localTimeMs) || localTimeMs < 0 || localTimeMs > input.durationMs) {
             throw new Error(
               `Presentation animation "${input.segmentId}" received an invalid seek time.`,
             );
@@ -75,7 +76,7 @@ function assertAnimationInput(input: VisualAnimationInput): void {
       !Number.isFinite(keyframe.offset) ||
       keyframe.offset < 0 ||
       keyframe.offset > 1 ||
-      keyframe.offset < priorOffset ||
+      (index > 0 && keyframe.offset <= priorOffset) ||
       (index === 0 && keyframe.offset !== 0) ||
       (index === input.keyframes.length - 1 && keyframe.offset !== 1)
     ) {

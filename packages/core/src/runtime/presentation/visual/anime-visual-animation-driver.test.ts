@@ -29,10 +29,10 @@ describe("AnimeVisualAnimationDriver", () => {
       autoplay: false,
       duration: 500,
       ease: "linear",
-      keyframes: [
-        { opacity: 0 },
-        { opacity: 1 },
-      ],
+      keyframes: {
+        "0": { opacity: 0 },
+        "100": { opacity: 1 },
+      },
     });
     expect(animate.mock.calls[0]?.[1]).not.toHaveProperty("onComplete");
     expect(animate.mock.calls[0]?.[1]).not.toHaveProperty("targets");

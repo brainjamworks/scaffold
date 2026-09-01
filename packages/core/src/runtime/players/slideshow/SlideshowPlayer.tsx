@@ -163,8 +163,16 @@ export function SlideshowPlayer({
       }),
     [commitSurfaceChange, structure.surfaceById, surfaceExitEnvironment],
   );
+  const activeSurfaceRoot = useMemo(
+    () =>
+      runtimeEditor && canvasElement && activeSurfaceId
+        ? resolveActiveSurfaceRoot(canvasElement, activeSurfaceId)
+        : null,
+    [activeSurfaceId, canvasElement, runtimeEditor],
+  );
   const surfaceRuntime = useSlideshowSurfaceRuntime({
     activeSurfaceId,
+    activeSurfaceRoot,
     editor: runtimeEditor,
     ...(surfaceRuntimeProgramSource === undefined
       ? {}
@@ -598,4 +606,17 @@ export function SlideshowPlayer({
       </div>
     </div>
   );
+}
+
+function resolveActiveSurfaceRoot(
+  canvasElement: HTMLElement,
+  activeSurfaceId: SurfaceId,
+): HTMLElement | null {
+  const matches = canvasElement.querySelectorAll<HTMLElement>(
+    `[data-node="surface"][data-id="${CSS.escape(activeSurfaceId)}"]`,
+  );
+  if (matches.length > 1) {
+    throw new Error(`Slideshow rendered duplicate active Surface roots for "${activeSurfaceId}".`);
+  }
+  return matches[0] ?? null;
 }

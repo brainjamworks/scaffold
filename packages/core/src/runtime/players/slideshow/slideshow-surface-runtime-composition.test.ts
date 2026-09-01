@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { Result } from "better-result";
 import { describe, expect, it, vi } from "vite-plus/test";
 import type { EmbeddedNodeId } from "@scaffold/contracts";
@@ -10,16 +12,14 @@ import type {
   EventSource,
 } from "@/document/control-binding/control-binding";
 import type { SurfaceId } from "@/document/model/course-structure";
+import type { CompiledSurfacePresentationTimeline } from "@/presentation/model";
 import type { CompiledSurfaceLearnerInteractionProgram } from "@/runtime/learner-interaction/compiled-learner-interaction-program";
 import { createLearnerInteractionEventKey } from "@/runtime/learner-interaction/compiled-learner-interaction-program";
 import type {
   CompiledInternalClockSurfaceTimeline,
   PresentationWaitId,
 } from "@/runtime/presentation/compiled-presentation-program";
-import type {
-  SurfaceChangeRefused,
-  SurfaceChangeResult,
-} from "./slideshow-surface-change";
+import type { SurfaceChangeRefused, SurfaceChangeResult } from "./slideshow-surface-change";
 import { createRequestSurfaceChange } from "./slideshow-surface-change";
 
 import {
@@ -34,6 +34,73 @@ const OWNER_ID = "controlown001" as EmbeddedNodeId;
 const TARGET_ID = "controltgt001" as EmbeddedNodeId;
 
 describe("createSlideshowSurfaceRuntimeComposition", () => {
+  it("owns the visual runtime beside the Session and restores target state on disposal", () => {
+    const surfaceRoot = document.createElement("section");
+    const target = document.createElement("div");
+    target.setAttribute("data-presentation-target-id", TARGET_ID);
+    surfaceRoot.append(target);
+    document.body.append(surfaceRoot);
+    const visualTimeline = Object.freeze({
+      surfaceId: SURFACE_ID,
+      durationMs: 1_000,
+      cues: Object.freeze([]),
+      waits: Object.freeze([]),
+      visualProgram: Object.freeze({
+        surfaceId: SURFACE_ID,
+        durationMs: 1_000,
+        targetById: new Map([
+          [
+            TARGET_ID,
+            Object.freeze({ targetId: TARGET_ID, initialVisibility: "withheld" as const }),
+          ],
+        ]),
+        segments: Object.freeze([
+          Object.freeze({
+            id: "reveal000001",
+            targetId: TARGET_ID,
+            startMs: 500,
+            endMs: 1_000,
+            visual: Object.freeze({
+              kind: "reveal" as const,
+              transition: Object.freeze({
+                kind: "fade" as const,
+                durationMs: 500,
+                easing: Object.freeze({ kind: "preset" as const, preset: "linear" as const }),
+              }),
+            }),
+          }),
+        ]),
+        sequenceContainers: Object.freeze([]),
+      }),
+    }) satisfies CompiledSurfacePresentationTimeline;
+
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      surfaceRoot,
+      program: { presentation: { timeline: visualTimeline, autoAdvance: false } },
+      controlBindings: { get: vi.fn() },
+      semanticTargets: { activate: vi.fn() },
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+    });
+
+    expect(composition.presentationVisualRuntime).toBeDefined();
+    expect(target).toHaveAttribute("data-presentation-availability", "withheld");
+    expect(target).toHaveAttribute("aria-hidden", "true");
+    expect(target).toHaveAttribute("inert");
+
+    const seek = composition.presentationSession?.seek(1_000);
+    expect(seek?.isOk()).toBe(true);
+    expect(target).toHaveAttribute("data-presentation-availability", "available");
+    expect(target).not.toHaveAttribute("aria-hidden");
+    expect(target).not.toHaveAttribute("inert");
+    expect(target.style.opacity).toBe("1");
+
+    composition.dispose();
+    expect(target).not.toHaveAttribute("data-presentation-availability");
+    expect(target.style.opacity).toBe("");
+    surfaceRoot.remove();
+  });
+
   it("constructs an awaiting-start Presentation over one empty learner runtime", () => {
     const timeline: CompiledInternalClockSurfaceTimeline = Object.freeze({
       surfaceId: SURFACE_ID,
@@ -519,9 +586,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
           },
         },
       ],
-      waits: [
-        { kind: "manual-wait", id: "manual-wait" as PresentationWaitId, atMs: 0 },
-      ],
+      waits: [{ kind: "manual-wait", id: "manual-wait" as PresentationWaitId, atMs: 0 }],
     });
     const composition = createSlideshowSurfaceRuntimeComposition({
       surfaceId: SURFACE_ID,
