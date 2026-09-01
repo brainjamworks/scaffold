@@ -9,6 +9,8 @@ import type {
 
 export type PresentationMotionMode = "normal" | "reduced-motion";
 
+export type PresentationCueSeekBehavior = "reconstruct-state" | "consume";
+
 export type CompiledPresentationCommand =
   | {
       readonly kind: "target-command";
@@ -26,6 +28,7 @@ export interface CompiledPresentationCue {
   readonly id: EmbeddedDataId;
   readonly atMs: number;
   readonly command: CompiledPresentationCommand;
+  readonly seekBehavior: PresentationCueSeekBehavior;
 }
 
 export type CompiledLearnerRequirement =

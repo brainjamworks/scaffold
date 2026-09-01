@@ -16,6 +16,7 @@ import { compilePresentation } from "./presentation-compiler";
 const SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
 const TARGET_ID = EmbeddedNodeIdSchema.parse("target000001");
 const OWNER_ID = EmbeddedNodeIdSchema.parse("owner0000001");
+const MISSING_TARGET_ID = EmbeddedNodeIdSchema.parse("gone00000001");
 
 describe("compilePresentation", () => {
   it("returns ordinary unconfigured state when Presentation is absent", () => {
@@ -78,6 +79,10 @@ describe("compilePresentation", () => {
       targetId: TARGET_ID,
       type: "select-tab",
     });
+    expect(surface?.cues.map(({ seekBehavior }) => seekBehavior)).toEqual([
+      "reconstruct-state",
+      "consume",
+    ]);
     expect(surface?.waits.map((wait) => wait.id)).toEqual(["action000002", "action000004"]);
     expect(surface?.waits[1]).toMatchObject({
       requirement: { kind: "event", ownerId: OWNER_ID, targetId: TARGET_ID, type: "selected" },
@@ -109,6 +114,46 @@ describe("compilePresentation", () => {
       "action000001",
       "action000002",
     ]);
+  });
+
+  it("classifies tied Trigger cues from semantic target metadata in source order", () => {
+    const configuration = presentationConfiguration([
+      trigger("action000003", 500, TARGET_ID, "select-tab"),
+      trigger("action000001", 500, TARGET_ID, "play-audio"),
+      {
+        kind: "trigger",
+        id: EmbeddedDataIdSchema.parse("action000002"),
+        isEnabled: true,
+        atMs: 500,
+        command: { kind: "navigate-surface", surfaceId: SURFACE_ID },
+      },
+    ]);
+
+    const program = compilePresentation({
+      configuration,
+      courseStructure: courseStructure(),
+      semanticSnapshot: semanticSnapshot(),
+    });
+
+    expect(
+      program?.surfaces[0]?.cues.map(({ id, seekBehavior }) => ({ id, seekBehavior })),
+    ).toEqual([
+      { id: "action000003", seekBehavior: "reconstruct-state" },
+      { id: "action000001", seekBehavior: "consume" },
+      { id: "action000002", seekBehavior: "consume" },
+    ]);
+  });
+
+  it("throws when a Trigger target is absent instead of inferring runtime policy", () => {
+    expect(() =>
+      compilePresentation({
+        configuration: presentationConfiguration([
+          trigger("action000001", 500, MISSING_TARGET_ID, "select-tab"),
+        ]),
+        courseStructure: courseStructure(),
+        semanticSnapshot: semanticSnapshot(),
+      }),
+    ).toThrow(/target "gone00000001" is not current/);
   });
 
   it("throws when configured Surface coverage or target identity is invalid", () => {
@@ -171,6 +216,21 @@ function instantReveal(id: string, atMs: number) {
     isEnabled: true,
     atMs,
     visual: { kind: "reveal" as const, transition: { kind: "instant" as const } },
+  };
+}
+
+function trigger(
+  id: string,
+  atMs: number,
+  targetId: ReturnType<typeof EmbeddedNodeIdSchema.parse>,
+  type: string,
+) {
+  return {
+    kind: "trigger" as const,
+    id: EmbeddedDataIdSchema.parse(id),
+    isEnabled: true,
+    atMs,
+    command: { kind: "target-command" as const, targetId, type },
   };
 }
 
@@ -259,6 +319,7 @@ function semanticItem(
     summary: null,
     presentation: {
       actionIds: id === TARGET_ID ? ["reveal"] : [],
+      ...(id === TARGET_ID ? { reconstructableCommandTypes: ["select-tab"] } : {}),
       disabledReason: null,
     },
     presentationContainer: null,

@@ -90,14 +90,18 @@ function compileSurface(
       (entry): entry is { action: Extract<TimelineActionV1, { kind: "trigger" }>; sourceOrder: number } =>
         entry.action.kind === "trigger",
     )
-    .map(({ action, sourceOrder }) => ({
-      value: Object.freeze({
-        id: action.id,
-        atMs: action.atMs,
-        command: compileCommand(action.command, source.surfaceId, snapshot),
-      }) satisfies CompiledPresentationCue,
-      sourceOrder,
-    }));
+    .map(({ action, sourceOrder }) => {
+      const command = compileCommand(action.command, source.surfaceId, snapshot);
+      return {
+        value: Object.freeze({
+          id: action.id,
+          atMs: action.atMs,
+          command,
+          seekBehavior: classifyCueSeekBehavior(command, snapshot),
+        }) satisfies CompiledPresentationCue,
+        sourceOrder,
+      };
+    });
   const waits = scheduled
     .filter(
       (entry): entry is {
@@ -144,6 +148,18 @@ function compileCommand(
     ...command,
     ownerId: resolveOwnerId(snapshot, command.targetId),
   });
+}
+
+function classifyCueSeekBehavior(
+  command: CompiledPresentationCommand,
+  snapshot: SemanticDocumentSnapshot,
+): CompiledPresentationCue["seekBehavior"] {
+  if (command.kind === "navigate-surface") return "consume";
+  const target = snapshot.itemById.get(command.targetId);
+  if (!target) throw new Error(`Presentation target "${command.targetId}" is not current.`);
+  return target.presentation.reconstructableCommandTypes?.includes(command.type)
+    ? "reconstruct-state"
+    : "consume";
 }
 
 function compileWait(

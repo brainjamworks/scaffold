@@ -19,6 +19,7 @@ export interface CompiledPresentationCue {
   readonly id: NeutralCompiledPresentationCue["id"];
   readonly atMs: number;
   readonly command: PresentationTargetCommand;
+  readonly seekBehavior: NeutralCompiledPresentationCue["seekBehavior"];
 }
 
 export interface CompiledInternalClockSurfaceTimeline {
