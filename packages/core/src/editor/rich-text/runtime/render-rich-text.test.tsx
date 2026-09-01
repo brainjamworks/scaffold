@@ -51,6 +51,66 @@ describe("renderRuntimeRichTextNode", () => {
     expect(screen.getByRole("list")).toBeInTheDocument();
   });
 
+  it("marks each published rich-text target exactly once", () => {
+    const { container } = render(
+      <div>
+        {renderRuntimeRichTextNode({
+          type: "doc",
+          attrs: { id: "document0001" },
+          content: [
+            richTextNode("heading", "heading0001", "Heading"),
+            richTextNode("paragraph", "paragraph01", "Paragraph"),
+            {
+              type: "bulletList",
+              attrs: { id: "bulletlist01" },
+              content: [
+                {
+                  type: "listItem",
+                  attrs: { id: "listitem001" },
+                  content: [richTextNode("paragraph", "leadingpara1", "List item")],
+                },
+              ],
+            },
+            {
+              type: "orderedList",
+              attrs: { id: "orderedlist1" },
+              content: [],
+            },
+            {
+              type: "blockquote",
+              attrs: { id: "blockquote1" },
+              content: [richTextNode("paragraph", "quotepara01", "Quotation")],
+            },
+            richTextNode("codeBlock", "codeblock001", "const ready = true;"),
+            {
+              type: "private-rich-text-node",
+              attrs: { id: "private00001" },
+              content: [{ type: "text", text: "Private" }],
+            },
+          ],
+        })}
+      </div>,
+    );
+
+    for (const targetId of [
+      "heading0001",
+      "paragraph01",
+      "bulletlist01",
+      "listitem001",
+      "orderedlist1",
+      "blockquote1",
+      "quotepara01",
+      "codeblock001",
+    ]) {
+      expect(
+        container.querySelectorAll(`[data-presentation-target-id="${targetId}"]`),
+      ).toHaveLength(1);
+    }
+    expect(container.querySelector('[data-presentation-target-id="leadingpara1"]')).toBeNull();
+    expect(container.querySelector('[data-presentation-target-id="document0001"]')).toBeNull();
+    expect(container.querySelector('[data-presentation-target-id="private00001"]')).toBeNull();
+  });
+
   it("preserves every caption text mark and hard break", () => {
     render(
       <div>
@@ -212,5 +272,13 @@ function paragraphLink(text: string, href: string) {
   return {
     type: "paragraph",
     content: [{ type: "text", text, marks: [{ type: "link", attrs: { href } }] }],
+  };
+}
+
+function richTextNode(type: string, id: string, text: string) {
+  return {
+    type,
+    attrs: { id },
+    content: [{ type: "text", text }],
   };
 }

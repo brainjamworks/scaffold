@@ -10,6 +10,7 @@ import {
 import { KATEX_OPTIONS } from "@/editor/rich-text/math/model/katex-options";
 import { sanitizeRenderedStaticRichTextHtml } from "@/editor/rich-text/static/sanitize-html";
 import { normalizeVocabularyText } from "@/editor/rich-text/vocabulary-term/model/VocabularyTermNode";
+import { presentationVisualTargetAttributes } from "@/runtime/presentation/visual/presentation-visual-target-attributes";
 import { IconRenderer } from "@/ui/icons/IconRenderer";
 
 import "@/editor/rich-text/inline-icon/view/inline-icon.css";
@@ -18,8 +19,17 @@ import "katex/dist/katex.min.css";
 import "./render-rich-text.css";
 
 export function renderRuntimeRichTextNode(node: JSONContent, key = "root"): ReactNode {
+  return renderRuntimeRichTextNodeWithContext(node, key);
+}
+
+function renderRuntimeRichTextNodeWithContext(
+  node: JSONContent,
+  key: string,
+  parentType?: string,
+  childIndex?: number,
+): ReactNode {
   const children = (node.content ?? []).map((child, index) =>
-    renderRuntimeRichTextNode(child, `${key}:${index}`),
+    renderRuntimeRichTextNodeWithContext(child, `${key}:${index}`, node.type, index),
   );
 
   if (typeof node.text === "string") {
@@ -30,19 +40,56 @@ export function renderRuntimeRichTextNode(node: JSONContent, key = "root"): Reac
     case "doc":
       return children;
     case "paragraph":
-      return <p key={key}>{children}</p>;
+      return (
+        <p
+          key={key}
+          {...(parentType === "listItem" && childIndex === 0
+            ? {}
+            : presentationVisualTargetAttributes(node.attrs?.["id"]))}
+        >
+          {children}
+        </p>
+      );
     case "heading":
       return (
-        <p key={key} className="sc-runtime-rich-text-heading">
+        <p
+          key={key}
+          className="sc-runtime-rich-text-heading"
+          {...presentationVisualTargetAttributes(node.attrs?.["id"])}
+        >
           {children}
         </p>
       );
     case "bulletList":
-      return <ul key={key}>{children}</ul>;
+      return (
+        <ul key={key} {...presentationVisualTargetAttributes(node.attrs?.["id"])}>
+          {children}
+        </ul>
+      );
     case "orderedList":
-      return <ol key={key}>{children}</ol>;
+      return (
+        <ol key={key} {...presentationVisualTargetAttributes(node.attrs?.["id"])}>
+          {children}
+        </ol>
+      );
     case "listItem":
-      return <li key={key}>{children}</li>;
+      return (
+        <li key={key} {...presentationVisualTargetAttributes(node.attrs?.["id"])}>
+          {children}
+        </li>
+      );
+    case "blockquote":
+      return (
+        <blockquote key={key} {...presentationVisualTargetAttributes(node.attrs?.["id"])}>
+          {children}
+        </blockquote>
+      );
+    case "codeBlock":
+      return (
+        <pre key={key} {...presentationVisualTargetAttributes(node.attrs?.["id"])}>
+          <code>{children}</code>
+        </pre>
+      );
     case "hardBreak":
       return <br key={key} />;
     case "inlineMath":

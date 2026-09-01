@@ -8,6 +8,7 @@ import {
   type BoundedPlacement,
 } from "@/editor/frame/model/bounded-placement";
 import { cn } from "@/lib/cn";
+import { presentationVisualTargetAttributes } from "@/runtime/presentation/visual/presentation-visual-target-attributes";
 import { VerticalContentPositionSchema } from "@/schemas/course-document";
 
 interface LayoutRuntimeFrameProps {
@@ -45,6 +46,7 @@ export function LayoutRuntimeFrame({
       data-id={id ?? (node.attrs["id"] || undefined)}
       data-empty={isEmpty ? "true" : undefined}
       data-layout-kind={variant === "layout" ? undefined : variant}
+      {...presentationVisualTargetAttributes(id ?? node.attrs["id"])}
       {...boundedPlacementAttributes(boundedPlacement)}
       {...runtimeFrameAttributes("layout")}
       className={cn("sc-layout-frame", "sc-layout-frame--runtime", className)}
@@ -70,6 +72,7 @@ export function SectionRuntimeFrame({
       data-empty={isEmpty ? "true" : undefined}
       data-layout-kind={variant === "section" ? undefined : variant}
       data-vertical-content-position={readVerticalPosition(node.attrs["verticalPosition"])}
+      {...presentationVisualTargetAttributes(id ?? node.attrs["id"])}
       {...runtimeFrameAttributes("section")}
       className={cn(
         "sc-layout-section",

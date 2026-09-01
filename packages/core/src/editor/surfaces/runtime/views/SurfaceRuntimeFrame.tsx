@@ -9,6 +9,7 @@ import {
   surfaceRegionDataAttrs,
 } from "@/editor/surfaces/model/surface-settings";
 import type { RegisteredSurfaceVariantDefinition } from "@/editor/surfaces/model/surface-variant-definition";
+import { presentationVisualTargetAttributes } from "@/runtime/presentation/visual/presentation-visual-target-attributes";
 
 import {
   surfaceBackgroundDataAttrs,
@@ -43,6 +44,7 @@ export function SurfaceRuntimeFrame({
       className={["sc-surface-runtime-node__content", className].filter(Boolean).join(" ")}
       style={surfaceBackgroundStyle(readSurfaceBackground(node.attrs["settings"]))}
       {...attributes}
+      {...presentationVisualTargetAttributes(node.attrs["id"])}
     >
       {children}
       <NodeViewContent data-surface-content="" />
