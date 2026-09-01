@@ -16,6 +16,11 @@ import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import type { ControlCommandRequest } from "@/document/control-binding/control-binding";
+import {
+  getControlBindingRegistryForEditor as getStoredControlBindingRegistryForEditor,
+  type ControlBindingRegistryPort,
+} from "@/document/control-binding/control-binding-storage";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { projectCourseStructure, type SurfaceId } from "@/document/model/course-structure";
 import {
@@ -51,6 +56,8 @@ import { deriveRequiredControlBindingOwnerIds } from "./use-slideshow-surface-ru
 const slideshowRuntimeTestProbe = vi.hoisted(() => ({
   createComposition: undefined as ((input: unknown) => unknown) | undefined,
   getControlBindings: undefined as ((editor: unknown) => unknown) | undefined,
+  onCompositionCreated: undefined as ((composition: unknown) => void) | undefined,
+  renderContentPortal: false,
 }));
 const surfaceExitTestProbe = vi.hoisted(() => ({
   environment: undefined as unknown,
@@ -59,9 +66,20 @@ const surfaceExitTestProbe = vi.hoisted(() => ({
 vi.mock("../../renderer/CourseDocumentRuntimeRenderer", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("../../renderer/CourseDocumentRuntimeRenderer")>();
-  const { createElement } = await import("react");
+  const { createElement, Fragment } = await import("react");
+  const { createPortal } = await import("react-dom");
+  const { useOverlayBoundary } = await import("@/ui/overlays/portal-host-context");
   const { useSurfaceExitEnvironmentAvailability } =
     await import("./SurfaceExitEnvironmentProvider");
+
+  function ContentPortalProbe() {
+    const boundary = useOverlayBoundary();
+    if (!slideshowRuntimeTestProbe.renderContentPortal || boundary.status !== "ready") return null;
+    return createPortal(
+      createElement("button", { type: "button" }, "Content portal control"),
+      boundary.environment.host,
+    );
+  }
 
   return {
     ...actual,
@@ -69,21 +87,26 @@ vi.mock("../../renderer/CourseDocumentRuntimeRenderer", async (importOriginal) =
       const availability = useSurfaceExitEnvironmentAvailability();
       surfaceExitTestProbe.environment =
         availability.status === "available" ? availability.environment : undefined;
-      return createElement(actual.PreparedCourseDocumentRuntimeRenderer, props);
+      return createElement(
+        Fragment,
+        null,
+        createElement(actual.PreparedCourseDocumentRuntimeRenderer, props),
+        createElement(ContentPortalProbe),
+      );
     },
   };
 });
 
 vi.mock("./slideshow-surface-runtime-composition", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("./slideshow-surface-runtime-composition")>();
+  const actual = await importOriginal<typeof import("./slideshow-surface-runtime-composition")>();
   return {
     ...actual,
-    createSlideshowSurfaceRuntimeComposition(
-      input: CreateSlideshowSurfaceRuntimeCompositionInput,
-    ) {
-      return slideshowRuntimeTestProbe.createComposition?.(input) ??
+    createSlideshowSurfaceRuntimeComposition(input: CreateSlideshowSurfaceRuntimeCompositionInput) {
+      const composition =
+        slideshowRuntimeTestProbe.createComposition?.(input) ??
         actual.createSlideshowSurfaceRuntimeComposition(input);
+      slideshowRuntimeTestProbe.onCompositionCreated?.(composition);
+      return composition;
     },
   };
 });
@@ -93,8 +116,10 @@ vi.mock("@/document/control-binding", async (importOriginal) => {
   return {
     ...actual,
     getControlBindingRegistryForEditor(editor: TiptapEditor) {
-      return slideshowRuntimeTestProbe.getControlBindings?.(editor) ??
-        actual.getControlBindingRegistryForEditor(editor);
+      return (
+        slideshowRuntimeTestProbe.getControlBindings?.(editor) ??
+        actual.getControlBindingRegistryForEditor(editor)
+      );
     },
   };
 });
@@ -130,6 +155,8 @@ class ResizeObserverStub implements ResizeObserver {
 beforeEach(() => {
   slideshowRuntimeTestProbe.createComposition = undefined;
   slideshowRuntimeTestProbe.getControlBindings = undefined;
+  slideshowRuntimeTestProbe.onCompositionCreated = undefined;
+  slideshowRuntimeTestProbe.renderContentPortal = false;
   surfaceExitTestProbe.environment = undefined;
   vi.stubGlobal("ResizeObserver", ResizeObserverStub);
 });
@@ -294,10 +321,7 @@ describe("Slideshow Presentation learner integration", () => {
       Object.freeze({ ...presentationSnapshot("completed"), surfaceId: SECOND_SURFACE_ID }),
     );
     slideshowRuntimeTestProbe.createComposition = (input) =>
-      testComposition(
-        input as CreateSlideshowSurfaceRuntimeCompositionInput,
-        presentation.session,
-      );
+      testComposition(input as CreateSlideshowSurfaceRuntimeCompositionInput, presentation.session);
     const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
 
     renderTest(
@@ -526,6 +550,66 @@ describe("Slideshow Presentation learner integration", () => {
     expect(chromeOwner).not.toHaveAttribute("inert");
   });
 
+  it("evacuates focus from a closing content portal without moving chrome focus", async () => {
+    const presentation = createControllablePresentationSession(
+      presentationSnapshot("held", {
+        kind: "learner",
+        waitId: "portal-focus-wait" as PresentationWaitId,
+        status: "waiting",
+      }),
+    );
+    const learner = createControllableLearnerRuntime("awaiting-satisfaction");
+    slideshowRuntimeTestProbe.renderContentPortal = true;
+    slideshowRuntimeTestProbe.createComposition = (input) =>
+      testComposition(
+        input as CreateSlideshowSurfaceRuntimeCompositionInput,
+        presentation.session,
+        learner.runtime,
+      );
+    const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
+
+    renderTest(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          preparedDocument={prepared.preparedDocument}
+          structure={prepared.structure}
+          surfaceRuntimeProgramSource={(surfaceId) =>
+            surfaceId === FIRST_SURFACE_ID
+              ? configuredPresentationProgram(FIRST_SURFACE_ID)
+              : undefined
+          }
+        />
+      </CourseThemeProvider>,
+    );
+
+    const portalControl = await screen.findByRole("button", { name: "Content portal control" });
+    const canvas = document.querySelector(".sc-slideshow-player__canvas");
+    await waitFor(() => expect(canvas).not.toHaveAttribute("inert"));
+    portalControl.focus();
+    expect(document.activeElement).toBe(portalControl);
+
+    act(() => learner.setSnapshot("satisfaction-observed"));
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByTestId("slideshow-controls")),
+    );
+    expect(portalControl.closest('[data-slideshow-overlay-owner="content"]')).toHaveAttribute(
+      "inert",
+    );
+
+    act(() => learner.setSnapshot("awaiting-satisfaction"));
+    const chromeControl = screen.getByRole("button", {
+      name: "Introduction, Course Section 1 of 1",
+    });
+    chromeControl.focus();
+    expect(document.activeElement).toBe(chromeControl);
+
+    act(() => learner.setSnapshot("satisfaction-observed"));
+
+    await waitFor(() => expect(canvas).toHaveAttribute("inert"));
+    expect(document.activeElement).toBe(chromeControl);
+  });
+
   it("opens only for a fresh gate registration after backward Presentation passage", async () => {
     const waitId = "reentered-wait" as PresentationWaitId;
     const presentation = createControllablePresentationSession(
@@ -661,10 +745,7 @@ describe("Slideshow Presentation learner integration", () => {
       Result.err({ reason: "not-at-checkpoint", phase: "held" }),
     );
     slideshowRuntimeTestProbe.createComposition = (input) =>
-      testComposition(
-        input as CreateSlideshowSurfaceRuntimeCompositionInput,
-        presentation.session,
-      );
+      testComposition(input as CreateSlideshowSurfaceRuntimeCompositionInput, presentation.session);
     const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
 
     renderTest(
@@ -673,9 +754,7 @@ describe("Slideshow Presentation learner integration", () => {
           preparedDocument={prepared.preparedDocument}
           structure={prepared.structure}
           surfaceRuntimeProgramSource={(surfaceId) =>
-            surfaceId === FIRST_SURFACE_ID
-              ? configuredPresentationProgram(surfaceId)
-              : undefined
+            surfaceId === FIRST_SURFACE_ID ? configuredPresentationProgram(surfaceId) : undefined
           }
         />
       </CourseThemeProvider>,
@@ -837,9 +916,7 @@ describe("Slideshow Presentation learner integration", () => {
       return testComposition(
         input,
         input.surfaceId === FIRST_SURFACE_ID ? outgoingPresentation.session : undefined,
-        input.surfaceId === FIRST_SURFACE_ID
-          ? outgoingLearner.runtime
-          : inactiveLearnerRuntime(),
+        input.surfaceId === FIRST_SURFACE_ID ? outgoingLearner.runtime : inactiveLearnerRuntime(),
       );
     };
     const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
@@ -900,9 +977,7 @@ describe("Slideshow Presentation learner integration", () => {
   it("replaces the Surface owner when the renderer creates a new Editor", async () => {
     const presentations: ReturnType<typeof createControllablePresentationSession>[] = [];
     const lifecycle = createCompositionLifecycleProbe(() => {
-      const presentation = createControllablePresentationSession(
-        presentationSnapshot("completed"),
-      );
+      const presentation = createControllablePresentationSession(presentationSnapshot("completed"));
       presentations.push(presentation);
       return presentation.session;
     });
@@ -970,11 +1045,13 @@ describe("Slideshow Presentation learner integration", () => {
     slideshowRuntimeTestProbe.getControlBindings = () => ({
       get: vi.fn(),
       register: vi.fn(),
-      notifyWhenOwnersMounted: vi.fn((_ownerIds: readonly EmbeddedNodeId[], listener: () => void) => {
-        const cancel = vi.fn();
-        readinessRequests.push({ listener, cancel });
-        return cancel;
-      }),
+      notifyWhenOwnersMounted: vi.fn(
+        (_ownerIds: readonly EmbeddedNodeId[], listener: () => void) => {
+          const cancel = vi.fn();
+          readinessRequests.push({ listener, cancel });
+          return cancel;
+        },
+      ),
     });
     const createComposition = vi.fn((input: unknown) =>
       testComposition(input as CreateSlideshowSurfaceRuntimeCompositionInput),
@@ -1021,9 +1098,7 @@ describe("Slideshow Presentation learner integration", () => {
   it("retains one active Surface owner across a Strict Mode-style effect reconnect", async () => {
     const presentations: ReturnType<typeof createControllablePresentationSession>[] = [];
     const lifecycle = createCompositionLifecycleProbe(() => {
-      const presentation = createControllablePresentationSession(
-        presentationSnapshot("completed"),
-      );
+      const presentation = createControllablePresentationSession(presentationSnapshot("completed"));
       presentations.push(presentation);
       return presentation.session;
     });
@@ -1254,7 +1329,9 @@ describe("Slideshow Presentation learner integration", () => {
 
     await waitFor(() => expect(next).not.toBeDisabled());
     expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
-    expect(screen.getByText("Complete this quiz before moving to another slide.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Complete this quiz before moving to another slide."),
+    ).toBeInTheDocument();
     expect(surfaceExitEnvironment().getSnapshot()).toMatchObject({
       status: "blocked",
       surfaceId: FIRST_SURFACE_ID,
@@ -1267,6 +1344,41 @@ describe("Slideshow Presentation learner integration", () => {
   it("holds a time-zero Presentation for one committed Tabs learner turn before navigation", async () => {
     const user = userEvent.setup();
     const readyEditors: TiptapEditor[] = [];
+    const commandEntered = deferred<void>();
+    const commandCompletion = deferred<void>();
+    let deferNextCommand = false;
+    let canvas: Element | null = null;
+    let canvasWasInertAtCommandEntry = false;
+    slideshowRuntimeTestProbe.getControlBindings = (editor) => {
+      const registry = getStoredControlBindingRegistryForEditor(editor as TiptapEditor);
+      let wrappedTabsBinding: ReturnType<typeof registry.get>;
+      const wrappedRegistry: ControlBindingRegistryPort = {
+        register: (binding) => registry.register(binding),
+        notifyWhenOwnersMounted: (ownerIds, listener) =>
+          registry.notifyWhenOwnersMounted(ownerIds, listener),
+        get(ownerId) {
+          const binding = registry.get(ownerId);
+          if (ownerId !== TABS_OWNER_ID || !binding?.commandExecutor) return binding;
+          if (wrappedTabsBinding) return wrappedTabsBinding;
+          const commandExecutor = binding.commandExecutor;
+          wrappedTabsBinding = Object.freeze({
+            ...binding,
+            commandExecutor: Object.freeze({
+              async execute(request: ControlCommandRequest) {
+                if (!deferNextCommand) return commandExecutor.execute(request);
+                deferNextCommand = false;
+                canvasWasInertAtCommandEntry = canvas?.hasAttribute("inert") ?? false;
+                commandEntered.resolve();
+                await commandCompletion.promise;
+                return commandExecutor.execute(request);
+              },
+            }),
+          });
+          return wrappedTabsBinding;
+        },
+      };
+      return wrappedRegistry;
+    };
     const program = createTabsLearnerWaitProgram();
     const surfaceRuntimeProgramSource: SlideshowSurfaceRuntimeProgramSource = vi.fn((surfaceId) =>
       surfaceId === FIRST_SURFACE_ID ? program : undefined,
@@ -1288,7 +1400,7 @@ describe("Slideshow Presentation learner integration", () => {
     await waitFor(() => expect(readyEditors).toHaveLength(1));
     const next = screen.getByRole("button", { name: "Next slide" });
     await waitFor(() => expect(next).not.toBeDisabled());
-    const canvas = document.querySelector(".sc-slideshow-player__canvas");
+    canvas = document.querySelector(".sc-slideshow-player__canvas");
     expect(canvas).toHaveAttribute("inert");
     expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
 
@@ -1297,40 +1409,25 @@ describe("Slideshow Presentation learner integration", () => {
     await waitFor(() => expect(next).toBeDisabled());
     expect(canvas).not.toHaveAttribute("inert");
     expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
-    expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
 
     const overview = screen.getByRole("tab", { name: "Overview" });
     const practice = screen.getByRole("tab", { name: "Practice" });
-    const selectionsWhenNextBecameReady: Array<{
-      readonly overview: string | null;
-      readonly practice: string | null;
-    }> = [];
-    const removeNextAttribute = next.removeAttribute.bind(next);
-    next.removeAttribute = (name) => {
-      if (name === "disabled") {
-        selectionsWhenNextBecameReady.push({
-          overview: overview.getAttribute("aria-selected"),
-          practice: practice.getAttribute("aria-selected"),
-        });
-      }
-      removeNextAttribute(name);
-    };
+    deferNextCommand = true;
+    const practiceClick = user.click(practice);
+    await commandEntered.promise;
 
-    await user.click(practice);
+    expect(canvasWasInertAtCommandEntry).toBe(true);
+    expect(canvas).toHaveAttribute("inert");
+    expect(next).toBeDisabled();
+    commandCompletion.resolve();
+    await practiceClick;
 
     await waitFor(() => {
       expect(overview).toHaveAttribute("aria-selected", "true");
       expect(next).not.toBeDisabled();
       expect(canvas).toHaveAttribute("inert");
       expect(document.activeElement).toBe(screen.getByTestId("slideshow-controls"));
-    });
-    Reflect.deleteProperty(next, "removeAttribute");
-    expect(selectionsWhenNextBecameReady).toContainEqual({
-      overview: "true",
-      practice: "false",
     });
 
     await user.tab();
@@ -1352,9 +1449,179 @@ describe("Slideshow Presentation learner integration", () => {
     expect(surfaceRuntimeProgramSource).toHaveBeenCalledWith(FIRST_SURFACE_ID);
     expect(surfaceRuntimeProgramSource).toHaveBeenCalledWith(SECOND_SURFACE_ID);
   });
+
+  it("continues an auto-advancing learner Wait from inert mounted content", async () => {
+    const user = userEvent.setup();
+    const program = createTabsLearnerWaitProgram(true);
+    const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
+
+    renderTest(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          preparedDocument={prepared.preparedDocument}
+          structure={prepared.structure}
+          surfaceRuntimeProgramSource={(surfaceId) =>
+            surfaceId === FIRST_SURFACE_ID ? program : undefined
+          }
+        />
+      </CourseThemeProvider>,
+    );
+
+    const next = await screen.findByRole("button", { name: "Next slide" });
+    const canvas = document.querySelector(".sc-slideshow-player__canvas");
+    await waitFor(() => expect(next).not.toBeDisabled());
+    expect(canvas).toHaveAttribute("inert");
+
+    await user.click(next);
+
+    await waitFor(() => {
+      expect(next).toBeDisabled();
+      expect(canvas).not.toHaveAttribute("inert");
+    });
+
+    await user.click(screen.getByRole("tab", { name: "Practice" }));
+
+    await waitFor(() => {
+      expect(canvas).toHaveAttribute("inert");
+      expect(next).not.toBeDisabled();
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
+
+    await user.click(next);
+
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 of 2"));
+  });
+
+  it("keeps real Seek Restart and Stop lifecycle passage inert until a fresh gate opens", async () => {
+    const user = userEvent.setup();
+    const program = createTabsLearnerWaitProgram(false, 100);
+    const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
+    let composition: SlideshowSurfaceRuntimeComposition | undefined;
+    slideshowRuntimeTestProbe.onCompositionCreated = (candidate) => {
+      composition = candidate as SlideshowSurfaceRuntimeComposition;
+    };
+
+    renderTest(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          preparedDocument={prepared.preparedDocument}
+          structure={prepared.structure}
+          surfaceRuntimeProgramSource={(surfaceId) =>
+            surfaceId === FIRST_SURFACE_ID ? program : undefined
+          }
+        />
+      </CourseThemeProvider>,
+    );
+
+    const next = await screen.findByRole("button", { name: "Next slide" });
+    const canvas = document.querySelector(".sc-slideshow-player__canvas");
+    await waitFor(() => expect(composition?.presentationSession).toBeDefined());
+    const session = composition?.presentationSession;
+    const learnerRuntime = composition?.learnerRuntime;
+    if (!session || !learnerRuntime) throw new Error("Expected a mounted real Surface runtime.");
+
+    await user.click(next);
+    await waitFor(() => expect(canvas).not.toHaveAttribute("inert"));
+    expect(learnerRuntime.getGateObservationSnapshot()).toEqual({
+      status: "awaiting-satisfaction",
+    });
+
+    act(() => {
+      const result = session.seek(100);
+      if (result.isErr())
+        throw new Error(`Expected Seek to succeed, received ${result.error.reason}.`);
+    });
+
+    await waitFor(() => expect(canvas).toHaveAttribute("inert"));
+    expect(learnerRuntime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
+    expect(session.getSnapshot()).toMatchObject({ phase: "completed", currentTimeMs: 100 });
+
+    act(() => session.restart());
+
+    expect(canvas).toHaveAttribute("inert");
+    expect(learnerRuntime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
+    expect(session.getSnapshot()).toMatchObject({ phase: "awaiting-start", currentTimeMs: 0 });
+
+    await user.click(next);
+
+    await waitFor(() => expect(canvas).not.toHaveAttribute("inert"));
+    expect(learnerRuntime.getGateObservationSnapshot()).toEqual({
+      status: "awaiting-satisfaction",
+    });
+
+    act(() => session.stop());
+
+    await waitFor(() => expect(canvas).toHaveAttribute("inert"));
+    expect(learnerRuntime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
+    expect(session.getSnapshot()).toMatchObject({ phase: "stopped" });
+  });
+
+  it("reopens or completes a mounted state Wait from its authoritative post-turn value", async () => {
+    const user = userEvent.setup();
+    const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
+    const { unmount } = renderTest(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          preparedDocument={prepared.preparedDocument}
+          structure={prepared.structure}
+          surfaceRuntimeProgramSource={(surfaceId) =>
+            surfaceId === FIRST_SURFACE_ID ? createTabsStateWaitProgram(true) : undefined
+          }
+        />
+      </CourseThemeProvider>,
+    );
+
+    const firstNext = await screen.findByRole("button", { name: "Next slide" });
+    const firstCanvas = document.querySelector(".sc-slideshow-player__canvas");
+    await user.click(firstNext);
+    await waitFor(() => expect(firstCanvas).not.toHaveAttribute("inert"));
+
+    await user.click(screen.getByRole("tab", { name: "Practice" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      expect(firstCanvas).not.toHaveAttribute("inert");
+      expect(firstNext).toBeDisabled();
+    });
+    unmount();
+
+    renderTest(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          preparedDocument={prepared.preparedDocument}
+          structure={prepared.structure}
+          surfaceRuntimeProgramSource={(surfaceId) =>
+            surfaceId === FIRST_SURFACE_ID ? createTabsStateWaitProgram(false) : undefined
+          }
+        />
+      </CourseThemeProvider>,
+    );
+
+    const secondNext = await screen.findByRole("button", { name: "Next slide" });
+    const secondCanvas = document.querySelector(".sc-slideshow-player__canvas");
+    await user.click(secondNext);
+    await waitFor(() => expect(secondCanvas).not.toHaveAttribute("inert"));
+
+    await user.click(screen.getByRole("tab", { name: "Practice" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Practice" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      expect(secondCanvas).toHaveAttribute("inert");
+      expect(secondNext).not.toBeDisabled();
+    });
+  });
 });
 
-function createTabsLearnerWaitProgram(): SlideshowSurfaceRuntimeProgram {
+function createTabsLearnerWaitProgram(
+  autoAdvance = false,
+  durationMs = 0,
+): SlideshowSurfaceRuntimeProgram {
   const practiceSelected = {
     ownerId: TABS_OWNER_ID,
     targetId: PRACTICE_SECTION_ID,
@@ -1411,10 +1678,10 @@ function createTabsLearnerWaitProgram(): SlideshowSurfaceRuntimeProgram {
   return Object.freeze({
     learnerInteractions,
     presentation: Object.freeze({
-      autoAdvance: false,
+      autoAdvance,
       timeline: Object.freeze({
         surfaceId: FIRST_SURFACE_ID,
-        durationMs: 0,
+        durationMs,
         cues: Object.freeze([
           {
             id: "select-overview-at-start",
@@ -1435,6 +1702,78 @@ function createTabsLearnerWaitProgram(): SlideshowSurfaceRuntimeProgram {
             requirement: { kind: "event", ...practiceSelected },
           },
         ] as const),
+      }),
+    }),
+  });
+}
+
+function createTabsStateWaitProgram(
+  revertPracticeSelection: boolean,
+): SlideshowSurfaceRuntimeProgram {
+  const practiceSelected = {
+    ownerId: TABS_OWNER_ID,
+    targetId: PRACTICE_SECTION_ID,
+    type: "selected",
+  } as const;
+  const revertPracticeRule: CompiledLearnerInteractionRule = Object.freeze({
+    id: "revert-practice-selection",
+    when: practiceSelected,
+    conditions: Object.freeze([]),
+    commands: Object.freeze([
+      Object.freeze({
+        kind: "target-command" as const,
+        ownerId: TABS_OWNER_ID,
+        targetId: OVERVIEW_SECTION_ID,
+        type: "select",
+      }),
+    ] as const),
+  });
+  const learnerInteractions: CompiledSurfaceLearnerInteractionProgram | undefined =
+    revertPracticeSelection
+      ? Object.freeze({
+          surfaceId: FIRST_SURFACE_ID,
+          rulesByEvent: new Map([
+            [
+              createLearnerInteractionEventKey(practiceSelected),
+              Object.freeze([revertPracticeRule]),
+            ],
+          ]),
+        })
+      : undefined;
+
+  return Object.freeze({
+    ...(learnerInteractions ? { learnerInteractions } : {}),
+    presentation: Object.freeze({
+      autoAdvance: false,
+      timeline: Object.freeze({
+        surfaceId: FIRST_SURFACE_ID,
+        durationMs: 0,
+        cues: Object.freeze([
+          Object.freeze({
+            id: "select-overview-for-state-wait",
+            atMs: 0,
+            command: Object.freeze({
+              kind: "target-command" as const,
+              ownerId: TABS_OWNER_ID,
+              targetId: OVERVIEW_SECTION_ID,
+              type: "select",
+            }),
+          }),
+        ]),
+        waits: Object.freeze([
+          Object.freeze({
+            kind: "learner-wait" as const,
+            id: "stateWait001" as PresentationWaitId,
+            atMs: 0,
+            requirement: Object.freeze({
+              kind: "state" as const,
+              ownerId: TABS_OWNER_ID,
+              targetId: PRACTICE_SECTION_ID,
+              key: "selected",
+              equals: true,
+            }),
+          }),
+        ]),
       }),
     }),
   });
@@ -1505,11 +1844,7 @@ function createTabsLearnerNavigationProgram(
 }
 
 function prepareSlideshowDocument(content: JSONContent) {
-  const readiness = checkRuntimeDocumentReadiness(
-    content,
-    runtimeComposition,
-    coreProductAccess,
-  );
+  const readiness = checkRuntimeDocumentReadiness(content, runtimeComposition, coreProductAccess);
   if (readiness.status !== "supported") {
     throw new Error(`Expected a prepared Slideshow fixture, received ${readiness.status}.`);
   }
@@ -1860,4 +2195,12 @@ function createControllableLearnerRuntime(
       return listeners.size;
     },
   };
+}
+
+function deferred<Value>() {
+  let resolve!: (value: Value | PromiseLike<Value>) => void;
+  const promise = new Promise<Value>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
 }

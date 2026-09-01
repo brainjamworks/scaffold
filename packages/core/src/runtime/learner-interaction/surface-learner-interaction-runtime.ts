@@ -46,8 +46,7 @@ export interface SurfaceLearnerInteractionNavigationPort {
 }
 
 export interface SurfaceLearnerInteractionRuntime
-  extends PresentationGatePort,
-    PresentationGateObservationPort {
+  extends PresentationGatePort, PresentationGateObservationPort {
   subscribeReports(listener: (report: LearnerInteractionTurnReport) => void): () => void;
   dispose(): void;
 }
@@ -164,8 +163,10 @@ export function createSurfaceLearnerInteractionRuntime({
     },
 
     getGateObservationSnapshot() {
-      if (phase !== "active") {
-        throw new Error("Cannot read gate observation after Surface Learner Interaction termination.");
+      if (phase === "disposed") {
+        throw new Error(
+          "Cannot read gate observation after Surface Learner Interaction termination.",
+        );
       }
       return gateObservation;
     },
@@ -231,8 +232,10 @@ export function createSurfaceLearnerInteractionRuntime({
     ) {
       activeGate.matchingEvent = queued;
       queued.matchingEventGate = activeGate;
+      queued.requiresGateObservationBoundary = true;
       publishGateObservation(SATISFIED_GATE_OBSERVATION);
     } else if (activeGate?.kind === "state" && stateGateIsSatisfied(activeGate)) {
+      queued.requiresGateObservationBoundary = true;
       publishGateObservation(SATISFIED_GATE_OBSERVATION);
     }
     queuedEvents.push(queued);
@@ -260,6 +263,10 @@ export function createSurfaceLearnerInteractionRuntime({
     while (phase === "active") {
       const queued = queuedEvents.shift();
       if (!queued) return;
+      if (queued.requiresGateObservationBoundary) {
+        await waitForNextTask();
+        if (phase !== "active") return;
+      }
       const operation = new AbortController();
       currentOperation = operation;
       let report: LearnerInteractionTurnReport;
@@ -317,8 +324,8 @@ export function createSurfaceLearnerInteractionRuntime({
     phase = nextPhase;
     queuedEvents.length = 0;
     reportListeners.clear();
-    gateObservationListeners.clear();
     cancelGate(activeGate);
+    gateObservationListeners.clear();
     unsubscribeAllOwners(unsubscribeOwners);
   }
 
@@ -419,6 +426,11 @@ interface QueuedLearnerEvent {
   readonly ownerId: EmbeddedNodeId;
   readonly event: ControlEvent;
   matchingEventGate?: ActiveEventGate;
+  requiresGateObservationBoundary?: boolean;
+}
+
+function waitForNextTask(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 interface ActiveEventGate {

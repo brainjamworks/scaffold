@@ -9,6 +9,7 @@ import type {
   ControlEventListener,
   EventSource,
 } from "@/document/control-binding/control-binding";
+import type { PresentationGateObservationSnapshot } from "@/runtime/presentation/presentation-progression-gate";
 
 import type {
   CompiledControlEventReference,
@@ -75,6 +76,11 @@ function deferred<Value>() {
 
 async function flushPromises(): Promise<void> {
   for (let index = 0; index < 8; index += 1) await Promise.resolve();
+}
+
+async function flushGateObservationBoundary(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await flushPromises();
 }
 
 function eventReference(
@@ -177,11 +183,7 @@ it("publishes gate satisfaction observation before the matching event turn settl
   await gate;
 
   expect(runtime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
-  expect(statuses).toEqual([
-    "awaiting-satisfaction",
-    "satisfaction-observed",
-    "inactive",
-  ]);
+  expect(statuses).toEqual(["awaiting-satisfaction", "satisfaction-observed", "inactive"]);
   runtime.dispose();
 });
 
@@ -318,11 +320,7 @@ it("keeps state satisfaction observed while a turn settles when the post-turn st
   await gate;
 
   expect(runtime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
-  expect(statuses).toEqual([
-    "awaiting-satisfaction",
-    "satisfaction-observed",
-    "inactive",
-  ]);
+  expect(statuses).toEqual(["awaiting-satisfaction", "satisfaction-observed", "inactive"]);
   runtime.dispose();
 });
 
@@ -613,9 +611,7 @@ it("restarts for an event queued while a completed drain is still marked active"
   runtime.subscribeReports((report) => {
     eventTypes.push(report.event.type);
     if (report.event.type === "first") {
-      queueMicrotask(() =>
-        ownerEvents.emitVoid({ targetId: TARGET_A_ID, type: "second" }),
-      );
+      queueMicrotask(() => ownerEvents.emitVoid({ targetId: TARGET_A_ID, type: "second" }));
       return;
     }
     runtime.dispose();
@@ -706,13 +702,11 @@ it("delivers the successful navigation report before making the outgoing runtime
   });
 
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
-  await flushPromises();
+  await flushGateObservationBoundary();
   expect(navigate).toHaveBeenCalledTimes(1);
-  expect(navigate).toHaveBeenCalledWith(
-    SURFACE_ID,
-    expect.any(AbortSignal),
-    { satisfiesActiveLearnerRequirement: true },
-  );
+  expect(navigate).toHaveBeenCalledWith(SURFACE_ID, expect.any(AbortSignal), {
+    satisfiesActiveLearnerRequirement: true,
+  });
 
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
   navigation.resolve(Result.ok());
@@ -755,11 +749,9 @@ it("marks navigation from an unrelated event turn as not satisfying the active r
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
   await flushPromises();
 
-  expect(navigate).toHaveBeenCalledWith(
-    SURFACE_ID,
-    expect.any(AbortSignal),
-    { satisfiesActiveLearnerRequirement: false },
-  );
+  expect(navigate).toHaveBeenCalledWith(SURFACE_ID, expect.any(AbortSignal), {
+    satisfiesActiveLearnerRequirement: false,
+  });
   gateAbort.abort();
   runtime.dispose();
 });
@@ -821,11 +813,9 @@ it("marks navigation after authoritative state equality as satisfying the active
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
   await gate;
 
-  expect(navigate).toHaveBeenCalledWith(
-    SURFACE_ID,
-    expect.any(AbortSignal),
-    { satisfiesActiveLearnerRequirement: true },
-  );
+  expect(navigate).toHaveBeenCalledWith(SURFACE_ID, expect.any(AbortSignal), {
+    satisfiesActiveLearnerRequirement: true,
+  });
   runtime.dispose();
 });
 
@@ -867,7 +857,7 @@ it("aborts active work and suppresses queued and stale reports on idempotent dis
   });
 
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "first" });
-  await flushPromises();
+  await flushGateObservationBoundary();
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "second" });
   expect(execute).toHaveBeenCalledTimes(1);
 
@@ -925,7 +915,7 @@ it("surfaces a rejected turn defect and terminates before starting queued work",
   });
 
   const [turnCompletion] = ownerEvents.emit({ targetId: TARGET_A_ID, type: "first" });
-  await flushPromises();
+  await flushGateObservationBoundary();
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "second" });
 
   firstExecution.reject(sentinelDefect);
@@ -937,6 +927,49 @@ it("surfaces a rejected turn defect and terminates before starting queued work",
   expect(ownerEvents.listenerCount).toBe(0);
   expect(ownerEvents.unsubscriptionsCompleted).toBe(1);
   expect(() => runtime.subscribeReports(vi.fn())).toThrow(/termination/i);
+});
+
+it("publishes inactive before a turn fault disconnects gate observers", async () => {
+  const failingReference = eventReference(OWNER_A_ID, TARGET_A_ID, "faulting-event");
+  const ownerEvents = createTestEventSource();
+  const sentinelDefect = new Error("unrelated learner turn defect");
+  const binding = {
+    ownerId: OWNER_A_ID,
+    eventSource: ownerEvents.eventSource,
+    commandExecutor: {
+      execute: vi.fn(async () => {
+        throw sentinelDefect;
+      }),
+    },
+  };
+  const runtime = createSurfaceLearnerInteractionRuntime({
+    program: programWithBuckets([
+      [failingReference, [commandRule("rule-unrelated-fault", failingReference)]],
+    ]),
+    controlBindings: { get: vi.fn(() => binding) },
+    semanticTargets: { activate: vi.fn() },
+    surfaceNavigation: {
+      navigate: vi.fn(async () => Result.err({ reason: "cancelled" as const })),
+    },
+    semanticInteractionOrigin: "learner-interaction-rule",
+  });
+  const statuses: PresentationGateObservationSnapshot["status"][] = [];
+  runtime.subscribeGateObservation(() => {
+    statuses.push(runtime.getGateObservationSnapshot().status);
+  });
+  void runtime.waitUntilSatisfied(
+    { kind: "event", ownerId: OWNER_A_ID, targetId: TARGET_A_ID, type: "required-event" },
+    { signal: new AbortController().signal },
+  );
+
+  const [turnCompletion] = ownerEvents.emit({
+    targetId: TARGET_A_ID,
+    type: "faulting-event",
+  });
+
+  await expect(turnCompletion).rejects.toBe(sentinelDefect);
+  expect(statuses).toEqual(["awaiting-satisfaction", "inactive"]);
+  expect(runtime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
 });
 
 it("observes an exact post-registration event and settles its gate after report delivery", async () => {
@@ -1147,7 +1180,7 @@ it("does not settle an event gate aborted after its match while the turn is pend
   });
 
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
-  await flushPromises();
+  await flushGateObservationBoundary();
   expect(execute).toHaveBeenCalledTimes(1);
   firstGateController.abort();
 
