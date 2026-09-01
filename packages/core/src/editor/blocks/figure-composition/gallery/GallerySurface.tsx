@@ -8,6 +8,7 @@ import {
   mediaMissingMessage,
 } from "@/editor/media/accessibility/media-accessibility";
 import { renderRuntimeRichTextNode } from "@/editor/rich-text/runtime/render-rich-text";
+import { presentationVisualTargetAttributes } from "@/runtime/presentation/visual/presentation-visual-target-attributes";
 import {
   isScaffoldRichTextDocumentEmpty,
   type ScaffoldRichTextDocument,
@@ -65,7 +66,10 @@ export function GalleryCarousel({
 
   return (
     <div className="sc-course-gallery__carousel">
-      <div className="sc-course-gallery__stage">
+      <div
+        className="sc-course-gallery__stage"
+        {...presentationVisualTargetAttributes(activeItem?.key)}
+      >
         {activeItem?.url ? (
           <button
             type="button"
@@ -96,7 +100,13 @@ export function GalleryCarousel({
       {showThumbs ? (
         <div className="sc-course-gallery__thumbs" role="group" aria-label="Gallery images">
           {items.map((item, index) => (
-            <div key={item.key} className="sc-course-gallery__thumb-item">
+            <div
+              key={item.key}
+              className="sc-course-gallery__thumb-item"
+              {...(item.key === activeItem?.key
+                ? {}
+                : presentationVisualTargetAttributes(item.key))}
+            >
               <button
                 type="button"
                 aria-current={index === activeIndex ? "true" : undefined}
@@ -152,7 +162,12 @@ export function GalleryGrid({
         {items.map((item, index) => {
           const reference = lowerAlphaReference(index);
           return (
-            <figure key={item.key} className="sc-course-gallery__tile" role="listitem">
+            <figure
+              key={item.key}
+              className="sc-course-gallery__tile"
+              role="listitem"
+              {...presentationVisualTargetAttributes(item.key)}
+            >
               {item.url ? (
                 <button
                   type="button"

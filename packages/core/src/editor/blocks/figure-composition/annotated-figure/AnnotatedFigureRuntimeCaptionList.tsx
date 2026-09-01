@@ -6,11 +6,13 @@ import {
 } from "@/editor/bounded-containers/view/bounded-scroll";
 import { renderRuntimeRichTextNode } from "@/editor/rich-text/runtime/render-rich-text";
 import { cn } from "@/lib/cn";
+import { presentationVisualTargetAttributes } from "@/runtime/presentation/visual/presentation-visual-target-attributes";
 
 import type { AnnotatedFigureAnnotationProjection } from "./annotated-figure-document-model";
 
 export interface AnnotatedFigureRuntimeCaptionListProps {
   annotations: readonly AnnotatedFigureAnnotationProjection[];
+  markAnnotationTargets?: boolean;
   presentation?: "compact" | "expanded";
   visuallyHidden?: boolean;
 }
@@ -18,6 +20,7 @@ export interface AnnotatedFigureRuntimeCaptionListProps {
 /** Static learner projection of the persisted ordered annotation paragraphs. */
 export function AnnotatedFigureRuntimeCaptionList({
   annotations,
+  markAnnotationTargets = false,
   presentation = "compact",
   visuallyHidden = false,
 }: AnnotatedFigureRuntimeCaptionListProps) {
@@ -43,6 +46,7 @@ export function AnnotatedFigureRuntimeCaptionList({
           key={annotation.id}
           className="sc-course-annotated-figure__annotation"
           data-annotation-id={annotation.id}
+          {...(markAnnotationTargets ? presentationVisualTargetAttributes(annotation.id) : {})}
         >
           <span className="sc-course-annotated-figure__annotation-number" aria-hidden="true">
             {annotation.number}

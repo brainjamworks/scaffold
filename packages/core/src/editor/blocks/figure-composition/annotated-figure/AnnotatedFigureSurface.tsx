@@ -21,6 +21,7 @@ import {
   mediaMissingMessage,
 } from "@/editor/media/accessibility/media-accessibility";
 import { resolveMediaFitSize, type MediaFitSize } from "@/editor/media/model/media-fit-size";
+import { presentationVisualTargetAttributes } from "@/runtime/presentation/visual/presentation-visual-target-attributes";
 
 interface AnnotatedFigureNaturalSize {
   height: number;
@@ -48,6 +49,7 @@ export function AnnotatedFigureSurface({
   onPinPointerMove,
   onPinPointerUp,
   onStageClick,
+  markAnnotationTargets = false,
   pinActivationLabel,
   presentation = "compact",
   renderPinActivator,
@@ -67,6 +69,7 @@ export function AnnotatedFigureSurface({
   onPinPointerMove?: (pinId: string, event: ReactPointerEvent<HTMLButtonElement>) => void;
   onPinPointerUp?: (pinId: string, event: ReactPointerEvent<HTMLButtonElement>) => void;
   onStageClick?: (event: ReactMouseEvent<HTMLDivElement>) => void;
+  markAnnotationTargets?: boolean;
   pinActivationLabel?: (
     annotation: Pick<AnnotatedFigureAnnotationProjection, "id" | "number" | "x" | "y">,
   ) => string;
@@ -189,6 +192,7 @@ export function AnnotatedFigureSurface({
               key={annotation.id}
               annotation={annotation}
               isDragging={draggingPinId === annotation.id}
+              markPresentationTarget={markAnnotationTargets}
               {...(pinActivationLabel ? { activationLabel: pinActivationLabel(annotation) } : {})}
               {...(renderPinActivator ? { renderActivator: renderPinActivator } : {})}
               {...(onActivatePin ? { onActivate: () => onActivatePin(annotation.id) } : {})}
@@ -264,11 +268,13 @@ function AnnotatedFigurePinMarker({
   onPointerMove,
   onPointerUp,
   onKeyDown,
+  markPresentationTarget,
   renderActivator,
 }: {
   annotation: Pick<AnnotatedFigureAnnotationProjection, "id" | "number" | "x" | "y">;
   activationLabel?: string;
   isDragging: boolean;
+  markPresentationTarget: boolean;
   onActivate?: () => void;
   onPointerCancel?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
@@ -311,6 +317,7 @@ function AnnotatedFigurePinMarker({
     <div
       data-pin={annotation.id}
       data-dragging={isDragging ? "true" : "false"}
+      {...(markPresentationTarget ? presentationVisualTargetAttributes(annotation.id) : {})}
       style={{ left: `${annotation.x}%`, top: `${annotation.y}%` }}
       className="sc-course-annotated-figure__pin"
     >

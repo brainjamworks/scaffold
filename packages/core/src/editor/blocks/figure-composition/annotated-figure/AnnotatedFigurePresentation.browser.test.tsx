@@ -1,4 +1,5 @@
 import { createRoot, type Root } from "react-dom/client";
+import { Schema } from "@tiptap/pm/model";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
@@ -8,6 +9,8 @@ import "@/theme/course/designs/pocket-atlas/v1/theme.css";
 import "@/styles/globals.css";
 
 import "./AnnotatedFigure.css";
+import type { AnnotatedFigureAnnotationProjection } from "./annotated-figure-document-model";
+import { AnnotatedFigureRuntimeCaptionList } from "./AnnotatedFigureRuntimeCaptionList";
 import { AnnotatedFigureSurface } from "./AnnotatedFigureSurface";
 
 const mountedRoots: Root[] = [];
@@ -18,6 +21,61 @@ afterEach(() => {
 });
 
 describe("Annotated Figure presentation contract", () => {
+  it("uses each published annotation ID on its exact pin and caption anchors", async () => {
+    const host = document.createElement("div");
+    host.className = "sc-course-annotated-figure";
+    document.body.append(host);
+    const annotations = [
+      annotationProjection("annotation01", 1),
+      annotationProjection("annotation02", 2),
+    ];
+
+    const root = createRoot(host);
+    mountedRoots.push(root);
+    root.render(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <AnnotatedFigureSurface
+          data={{
+            type: "annotated_figure",
+            source: { mode: "managed", mediaId: "annotated-figure-markers" },
+            alt: "Annotated marker diagram",
+            captionDisplay: "popover",
+          }}
+          annotations={annotations}
+          fileUrl={twoToOneImageUrl()}
+          markAnnotationTargets
+          onActivatePin={() => undefined}
+        />
+      </CourseThemeProvider>,
+    );
+
+    await waitForCondition(() => host.querySelectorAll("[data-pin]").length === annotations.length);
+    for (const annotation of annotations) {
+      const pin = requiredElement<HTMLElement>(host, `[data-pin="${annotation.id}"]`);
+      expect(pin).toHaveAttribute("data-presentation-target-id", annotation.id);
+      expect(pin.querySelector(`[data-presentation-target-id="${annotation.id}"]`)).toBeNull();
+    }
+
+    root.render(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <AnnotatedFigureRuntimeCaptionList
+          annotations={annotations}
+          markAnnotationTargets
+          presentation="expanded"
+        />
+      </CourseThemeProvider>,
+    );
+
+    await waitForCondition(
+      () => host.querySelectorAll("[data-annotation-id]").length === annotations.length,
+    );
+    for (const annotation of annotations) {
+      const caption = requiredElement<HTMLElement>(host, `[data-annotation-id="${annotation.id}"]`);
+      expect(caption).toHaveAttribute("data-presentation-target-id", annotation.id);
+      expect(caption.querySelector(`[data-presentation-target-id="${annotation.id}"]`)).toBeNull();
+    }
+  });
+
   it("keeps the empty media stage usable without a Course recipe", async () => {
     const host = document.createElement("div");
     host.className = "sc-course-annotated-figure";
@@ -195,4 +253,32 @@ async function waitForCondition(condition: () => unknown): Promise<void> {
 
 function twoToOneImageUrl(): string {
   return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200'%3E%3Crect width='400' height='200' fill='%2300A689'/%3E%3C/svg%3E";
+}
+
+const annotationSchema = new Schema({
+  nodes: {
+    doc: { content: "paragraph+" },
+    paragraph: { attrs: { id: { default: null } }, content: "text*" },
+    text: { inline: true },
+  },
+});
+
+function annotationProjection(id: string, number: number): AnnotatedFigureAnnotationProjection {
+  const captionNode = annotationSchema.node(
+    "paragraph",
+    { id: `${id}-caption` },
+    annotationSchema.text(`Annotation ${number}`),
+  );
+  return {
+    id,
+    relativePos: number,
+    index: number - 1,
+    number,
+    title: `Annotation ${number}`,
+    x: number * 25,
+    y: 50,
+    node: captionNode,
+    pos: number,
+    captionNode,
+  };
 }

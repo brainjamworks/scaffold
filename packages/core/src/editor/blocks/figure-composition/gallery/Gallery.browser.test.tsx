@@ -13,9 +13,13 @@ import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocument
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import { EmptyScaffoldRichTextDocument } from "@/schemas/rich-text";
 import "@/theme/course/designs/pocket-atlas/v1/theme.css";
 import "@/runtime/players/slideshow/SlideshowPlayer.css";
 import "@/styles/globals.css";
+
+import type { GalleryResolvedItem } from "./GalleryModel";
+import { GalleryCarousel, GalleryGrid } from "./GallerySurface";
 
 type BoundedOwner = "cell" | "region" | "section";
 type RendererKind = "authoring" | "runtime";
@@ -45,6 +49,54 @@ afterEach(() => {
 });
 
 describe("Gallery container geometry", () => {
+  it.each(["grid", "carousel"] as const)(
+    "uses every published item ID on one exact %s visual anchor",
+    async (layout) => {
+      const itemCount = layout === "carousel" ? 8 : 9;
+      const items = resolvedGalleryItems(itemCount);
+      const host = document.createElement("div");
+      document.body.append(host);
+      const root = createRoot(host);
+      try {
+        root.render(
+          layout === "grid" ? (
+            <GalleryGrid items={items} onTileClick={() => undefined} />
+          ) : (
+            <GalleryCarousel
+              items={items}
+              activeIndex={0}
+              activeItem={items[0] ?? null}
+              onOpenLightbox={() => undefined}
+              onSelect={() => undefined}
+            />
+          ),
+        );
+        await waitForCondition(
+          () => host.querySelectorAll("[data-presentation-target-id]").length === itemCount,
+        );
+
+        for (let index = 0; index < itemCount; index += 1) {
+          const itemId = `galitem${String(index + 1).padStart(5, "0")}`;
+          const anchors = host.querySelectorAll<HTMLElement>(
+            `[data-presentation-target-id="${itemId}"]`,
+          );
+          expect(anchors).toHaveLength(1);
+          expect(
+            anchors[0]?.matches(
+              layout === "grid"
+                ? ".sc-course-gallery__tile"
+                : ".sc-course-gallery__stage, .sc-course-gallery__thumb-item",
+            ),
+          ).toBe(true);
+          expect(anchors[0]?.querySelector("[data-presentation-target-id]")).toBeNull();
+        }
+      } finally {
+        root.unmount();
+        host.remove();
+      }
+    },
+  );
+
   it("allows adapter-layer overrides without losing shell geometry", () => {
     const adapterStyles = document.createElement("style");
     adapterStyles.textContent = `
@@ -533,6 +585,17 @@ function galleryNode(layout: "carousel" | "grid", itemCount: number): JSONConten
       },
     })),
   };
+}
+
+function resolvedGalleryItems(itemCount: number): GalleryResolvedItem[] {
+  return Array.from({ length: itemCount }, (_, index) => ({
+    key: `galitem${String(index + 1).padStart(5, "0")}`,
+    alt: `Gallery image ${index + 1}`,
+    caption: EmptyScaffoldRichTextDocument,
+    url: `https://example.com/gallery-${index + 1}.jpg`,
+    loading: false,
+    error: null,
+  }));
 }
 
 function richText(text: string): JSONContent {

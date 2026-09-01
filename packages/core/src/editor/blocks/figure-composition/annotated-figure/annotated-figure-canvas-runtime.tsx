@@ -82,6 +82,8 @@ function AnnotatedFigureRuntimeComposition({
   const openAnnotation = annotations.find((annotation) => annotation.id === openAnnotationId);
   const liveOpenAnnotation =
     active && data.captionDisplay === "popover" ? openAnnotation : undefined;
+  const markCaptionTargets = presentation === "expanded" && data.captionDisplay === "list";
+  const markPinTargets = !markCaptionTargets;
   const openRuntimeAnnotation = (annotationId: string) => {
     if (controller.getOpenAnnotationId() === annotationId) return;
     onOpenAnnotation?.(annotationId);
@@ -160,6 +162,7 @@ function AnnotatedFigureRuntimeComposition({
         errorMessage={errorMessage}
         expandAction={expandAction}
         fileUrl={fileUrl}
+        markAnnotationTargets={markPinTargets}
         presentation={presentation === "expanded" ? "lightbox" : "compact"}
         stageRef={stageRef}
         {...(data.captionDisplay === "popover"
@@ -174,6 +177,7 @@ function AnnotatedFigureRuntimeComposition({
       {presentation === "expanded" ? (
         <AnnotatedFigureRuntimeCaptionList
           annotations={annotations}
+          markAnnotationTargets={markCaptionTargets}
           presentation="expanded"
           visuallyHidden={data.captionDisplay === "popover"}
         />
