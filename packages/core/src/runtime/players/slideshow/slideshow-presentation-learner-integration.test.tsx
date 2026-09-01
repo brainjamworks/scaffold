@@ -30,7 +30,10 @@ import type {
   PresentationPlaybackSession,
   PresentationPlaybackSnapshot,
 } from "@/runtime/presentation/presentation-playback-session";
-import { checkRuntimeDocumentReadiness } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
+import {
+  checkRuntimeDocumentReadiness,
+  type PreparedCourseDocumentRuntimeRendererProps,
+} from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
@@ -41,12 +44,34 @@ import type {
   SlideshowSurfaceRuntimeProgram,
   SlideshowSurfaceRuntimeProgramSource,
 } from "./slideshow-surface-runtime-composition";
+import type { SurfaceExitEnvironment } from "./surface-exit-environment";
 import { deriveRequiredControlBindingOwnerIds } from "./use-slideshow-surface-runtime";
 
 const slideshowRuntimeTestProbe = vi.hoisted(() => ({
   createComposition: undefined as ((input: unknown) => unknown) | undefined,
   getControlBindings: undefined as ((editor: unknown) => unknown) | undefined,
 }));
+const surfaceExitTestProbe = vi.hoisted(() => ({
+  environment: undefined as unknown,
+}));
+
+vi.mock("../../renderer/CourseDocumentRuntimeRenderer", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../renderer/CourseDocumentRuntimeRenderer")>();
+  const { createElement } = await import("react");
+  const { useSurfaceExitEnvironmentAvailability } =
+    await import("./SurfaceExitEnvironmentProvider");
+
+  return {
+    ...actual,
+    PreparedCourseDocumentRuntimeRenderer(props: PreparedCourseDocumentRuntimeRendererProps) {
+      const availability = useSurfaceExitEnvironmentAvailability();
+      surfaceExitTestProbe.environment =
+        availability.status === "available" ? availability.environment : undefined;
+      return createElement(actual.PreparedCourseDocumentRuntimeRenderer, props);
+    },
+  };
+});
 
 vi.mock("./slideshow-surface-runtime-composition", async (importOriginal) => {
   const actual =
@@ -104,6 +129,7 @@ class ResizeObserverStub implements ResizeObserver {
 beforeEach(() => {
   slideshowRuntimeTestProbe.createComposition = undefined;
   slideshowRuntimeTestProbe.getControlBindings = undefined;
+  surfaceExitTestProbe.environment = undefined;
   vi.stubGlobal("ResizeObserver", ResizeObserverStub);
 });
 
@@ -260,6 +286,35 @@ describe("Slideshow Presentation learner integration", () => {
     ).toThrow(
       'Slideshow Presentation Timeline Surface "surfaceCtrl2" does not match active Surface "surfaceCtrl1".',
     );
+  });
+
+  it("disposes a new composition when its Presentation guard rejects Session identity", async () => {
+    const presentation = createControllablePresentationSession(
+      Object.freeze({ ...presentationSnapshot("completed"), surfaceId: SECOND_SURFACE_ID }),
+    );
+    slideshowRuntimeTestProbe.createComposition = (input) =>
+      testComposition(
+        input as CreateSlideshowSurfaceRuntimeCompositionInput,
+        presentation.session,
+      );
+    const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
+
+    renderTest(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          preparedDocument={prepared.preparedDocument}
+          structure={prepared.structure}
+          surfaceRuntimeProgramSource={(surfaceId) =>
+            surfaceId === FIRST_SURFACE_ID
+              ? configuredPresentationProgram(FIRST_SURFACE_ID)
+              : undefined
+          }
+        />
+      </CourseThemeProvider>,
+    );
+
+    await waitFor(() => expect(presentation.dispose).toHaveBeenCalledOnce());
+    expect(presentation.listenerCount).toBe(0);
   });
 
   it.each([
@@ -629,6 +684,8 @@ describe("Slideshow Presentation learner integration", () => {
 
     const next = await screen.findByRole("button", { name: "Next slide" });
     await waitFor(() => expect(outgoingPresentation.listenerCount).toBe(2));
+    const staleGuardListener = outgoingPresentation.capturedListeners[0];
+    if (!staleGuardListener) throw new Error("Expected the outgoing guard subscription.");
     await userEvent.click(next);
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 of 2"));
@@ -638,14 +695,33 @@ describe("Slideshow Presentation learner integration", () => {
     act(() => outgoingPresentation.setSnapshot(presentationSnapshot("awaiting-start")));
 
     expect(screen.getByRole("status")).toHaveTextContent("2 of 2");
+
+    outgoingPresentation.replaceSnapshot(
+      presentationWaitingSnapshot(FIRST_SURFACE_ID, "stale-wait01" as PresentationWaitId),
+    );
+    act(() => staleGuardListener());
+
+    expect(surfaceExitEnvironment().getSnapshot()).toEqual({
+      status: "allowed",
+      surfaceId: SECOND_SURFACE_ID,
+      blockers: [],
+    });
+    expect(screen.getByRole("button", { name: "Previous slide" })).not.toBeDisabled();
   });
 
   it("replaces the Surface owner when the renderer creates a new Editor", async () => {
-    const lifecycle = createCompositionLifecycleProbe();
+    const presentations: ReturnType<typeof createControllablePresentationSession>[] = [];
+    const lifecycle = createCompositionLifecycleProbe(() => {
+      const presentation = createControllablePresentationSession(
+        presentationSnapshot("completed"),
+      );
+      presentations.push(presentation);
+      return presentation.session;
+    });
     slideshowRuntimeTestProbe.createComposition = lifecycle.createComposition;
     const firstPrepared = prepareSlideshowDocument(tabsSlideshowDocument());
     const secondPrepared = prepareSlideshowDocument(tabsSlideshowDocument());
-    const program = Object.freeze({}) satisfies SlideshowSurfaceRuntimeProgram;
+    const program = configuredPresentationProgram(FIRST_SURFACE_ID);
     const onRendererReady = vi.fn();
     const source: SlideshowSurfaceRuntimeProgramSource = (surfaceId) =>
       surfaceId === FIRST_SURFACE_ID ? program : undefined;
@@ -661,6 +737,7 @@ describe("Slideshow Presentation learner integration", () => {
     );
     await waitFor(() => expect(onRendererReady).toHaveBeenCalledOnce());
     await waitFor(() => expect(lifecycle.events).toEqual([`create:${FIRST_SURFACE_ID}`]));
+    await waitFor(() => expect(presentations[0]?.listenerCount).toBe(2));
 
     rerender(
       <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
@@ -683,9 +760,14 @@ describe("Slideshow Presentation learner integration", () => {
       ]),
     );
     expect(lifecycle.maximumActiveOwners).toBe(1);
+    expect(presentations[0]?.listenerCount).toBe(0);
+    expect(presentations[0]?.dispose).toHaveBeenCalledOnce();
+    expect(presentations.at(-1)?.listenerCount).toBe(2);
 
     unmount();
     expect(lifecycle.activeOwners).toBe(0);
+    expect(presentations.at(-1)?.listenerCount).toBe(0);
+    expect(presentations.at(-1)?.dispose).toHaveBeenCalledOnce();
   });
 
   it("ignores cancelled readiness from a replaced Editor", async () => {
@@ -745,10 +827,17 @@ describe("Slideshow Presentation learner integration", () => {
   });
 
   it("retains one active Surface owner across a Strict Mode-style effect reconnect", async () => {
-    const lifecycle = createCompositionLifecycleProbe();
+    const presentations: ReturnType<typeof createControllablePresentationSession>[] = [];
+    const lifecycle = createCompositionLifecycleProbe(() => {
+      const presentation = createControllablePresentationSession(
+        presentationSnapshot("completed"),
+      );
+      presentations.push(presentation);
+      return presentation.session;
+    });
     slideshowRuntimeTestProbe.createComposition = lifecycle.createComposition;
     const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
-    const program = Object.freeze({}) satisfies SlideshowSurfaceRuntimeProgram;
+    const program = configuredPresentationProgram(FIRST_SURFACE_ID);
     const source: SlideshowSurfaceRuntimeProgramSource = (surfaceId) =>
       surfaceId === FIRST_SURFACE_ID ? program : undefined;
     const { rerender, unmount } = renderTest(
@@ -763,6 +852,7 @@ describe("Slideshow Presentation learner integration", () => {
       </StrictMode>,
     );
     await waitFor(() => expect(lifecycle.events).toEqual([`create:${FIRST_SURFACE_ID}`]));
+    await waitFor(() => expect(presentations[0]?.listenerCount).toBe(2));
     const reprojectedStructure = projectCourseStructure(prepared.preparedDocument.content);
     if (!reprojectedStructure || reprojectedStructure.mode !== "slideshow") {
       throw new Error("Expected a reprojected Slideshow structure.");
@@ -788,11 +878,16 @@ describe("Slideshow Presentation learner integration", () => {
     ]);
     expect(lifecycle.maximumActiveOwners).toBe(1);
     expect(lifecycle.activeOwners).toBe(1);
+    expect(presentations[0]?.listenerCount).toBe(0);
+    expect(presentations[0]?.dispose).toHaveBeenCalledOnce();
+    expect(presentations.at(-1)?.listenerCount).toBe(2);
 
     unmount();
 
     expect(lifecycle.activeOwners).toBe(0);
     expect(lifecycle.disposals).toBe(lifecycle.creations);
+    expect(presentations.at(-1)?.listenerCount).toBe(0);
+    expect(presentations.at(-1)?.dispose).toHaveBeenCalledOnce();
   });
 
   it("blocks Previous and Course Section navigation until the active learner Wait passes", async () => {
@@ -841,6 +936,136 @@ describe("Slideshow Presentation learner integration", () => {
     await user.click(previous);
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("1 of 2"));
+  });
+
+  it("lets the satisfying authored Tabs branch replace the outgoing Presentation", async () => {
+    const user = userEvent.setup();
+    const onActiveSurfaceChange = vi.fn();
+    const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
+    renderTest(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          preparedDocument={prepared.preparedDocument}
+          structure={prepared.structure}
+          surfaceRuntimeProgramSource={(surfaceId) =>
+            surfaceId === FIRST_SURFACE_ID
+              ? createTabsLearnerNavigationProgram("selected")
+              : undefined
+          }
+          onActiveSurfaceChange={onActiveSurfaceChange}
+        />
+      </CourseThemeProvider>,
+    );
+
+    const next = await screen.findByRole("button", { name: "Next slide" });
+    await waitFor(() => expect(next).not.toBeDisabled());
+    await user.click(next);
+    await waitFor(() =>
+      expect(
+        screen.getByText("Complete the required interaction before moving to another slide."),
+      ).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Practice" }));
+
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 of 2"));
+    expect(onActiveSurfaceChange).toHaveBeenLastCalledWith(SECOND_SURFACE_ID);
+    expect(surfaceExitEnvironment().getSnapshot()).toEqual({
+      status: "allowed",
+      surfaceId: SECOND_SURFACE_ID,
+      blockers: [],
+    });
+    expect(
+      screen.queryByText("Complete the required interaction before moving to another slide."),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "Previous slide" })).not.toBeDisabled();
+  });
+
+  it("keeps unrelated authored navigation blocked by the active learner Wait", async () => {
+    const user = userEvent.setup();
+    const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
+    renderTest(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          preparedDocument={prepared.preparedDocument}
+          structure={prepared.structure}
+          surfaceRuntimeProgramSource={(surfaceId) =>
+            surfaceId === FIRST_SURFACE_ID
+              ? createTabsLearnerNavigationProgram("expanded")
+              : undefined
+          }
+        />
+      </CourseThemeProvider>,
+    );
+
+    const next = await screen.findByRole("button", { name: "Next slide" });
+    await waitFor(() => expect(next).not.toBeDisabled());
+    await user.click(next);
+    await waitFor(() => expect(next).toBeDisabled());
+
+    await user.click(screen.getByRole("tab", { name: "Practice" }));
+
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("1 of 2"));
+    expect(next).toBeDisabled();
+    expect(
+      screen.getByText("Complete the required interaction before moving to another slide."),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps an independent blocker authoritative after a satisfying authored branch", async () => {
+    const user = userEvent.setup();
+    const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
+    renderTest(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          preparedDocument={prepared.preparedDocument}
+          structure={prepared.structure}
+          surfaceRuntimeProgramSource={(surfaceId) =>
+            surfaceId === FIRST_SURFACE_ID
+              ? createTabsLearnerNavigationProgram("selected")
+              : undefined
+          }
+        />
+      </CourseThemeProvider>,
+    );
+    await waitFor(() => expect(surfaceExitTestProbe.environment).toBeDefined());
+    const unregisterIndependentBlocker = surfaceExitEnvironment().registerGuard({
+      ownerId: "quiz-test",
+      surfaceId: FIRST_SURFACE_ID,
+      getSnapshot: () => ({
+        status: "blocked",
+        blocker: {
+          reason: "quiz-not-complete",
+          ownerId: "quiz-test",
+          surfaceId: FIRST_SURFACE_ID,
+          attemptStatus: "in_progress",
+        },
+      }),
+      subscribe: () => () => undefined,
+    });
+
+    const next = await screen.findByRole("button", { name: "Next slide" });
+    await waitFor(() => expect(next).not.toBeDisabled());
+    await user.click(next);
+    await waitFor(() =>
+      expect(
+        screen.getByText("Complete the required interactions before moving to another slide."),
+      ).toBeInTheDocument(),
+    );
+    expect(next).toBeDisabled();
+
+    await user.click(screen.getByRole("tab", { name: "Practice" }));
+
+    await waitFor(() => expect(next).not.toBeDisabled());
+    expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
+    expect(screen.getByText("Complete this quiz before moving to another slide.")).toBeInTheDocument();
+    expect(surfaceExitEnvironment().getSnapshot()).toMatchObject({
+      status: "blocked",
+      surfaceId: FIRST_SURFACE_ID,
+      blockers: [{ reason: "quiz-not-complete", ownerId: "quiz-test" }],
+    });
+
+    unregisterIndependentBlocker();
   });
 
   it("holds a time-zero Presentation for one committed Tabs learner turn before navigation", async () => {
@@ -1002,6 +1227,70 @@ function createTabsLearnerWaitProgram(): SlideshowSurfaceRuntimeProgram {
             requirement: { kind: "event", ...practiceSelected },
           },
         ] as const),
+      }),
+    }),
+  });
+}
+
+function createTabsLearnerNavigationProgram(
+  learnerWaitEventType: string,
+): SlideshowSurfaceRuntimeProgram {
+  const practiceSelected = {
+    ownerId: TABS_OWNER_ID,
+    targetId: PRACTICE_SECTION_ID,
+    type: "selected",
+  } as const;
+  const learnerInteractions: CompiledSurfaceLearnerInteractionProgram = Object.freeze({
+    surfaceId: FIRST_SURFACE_ID,
+    rulesByEvent: new Map([
+      [
+        createLearnerInteractionEventKey(practiceSelected),
+        Object.freeze([
+          Object.freeze({
+            id: "practice-navigation-rule",
+            when: practiceSelected,
+            conditions: Object.freeze([]),
+            commands: Object.freeze([
+              { kind: "navigate-surface" as const, surfaceId: SECOND_SURFACE_ID },
+            ] as const),
+          }),
+        ]),
+      ],
+    ]),
+  });
+
+  return Object.freeze({
+    learnerInteractions,
+    presentation: Object.freeze({
+      autoAdvance: false,
+      timeline: Object.freeze({
+        surfaceId: FIRST_SURFACE_ID,
+        durationMs: 0,
+        cues: Object.freeze([
+          Object.freeze({
+            id: "select-overview-at-start",
+            atMs: 0,
+            command: Object.freeze({
+              kind: "target-command" as const,
+              ownerId: TABS_OWNER_ID,
+              targetId: OVERVIEW_SECTION_ID,
+              type: "select",
+            }),
+          }),
+        ]),
+        waits: Object.freeze([
+          Object.freeze({
+            kind: "learner-wait" as const,
+            id: "branchWait01" as PresentationWaitId,
+            atMs: 0,
+            requirement: Object.freeze({
+              kind: "event" as const,
+              ownerId: TABS_OWNER_ID,
+              targetId: PRACTICE_SECTION_ID,
+              type: learnerWaitEventType,
+            }),
+          }),
+        ]),
       }),
     }),
   });
@@ -1196,9 +1485,25 @@ function presentationSnapshot(
   return Object.freeze({ ...base, phase });
 }
 
+function presentationWaitingSnapshot(
+  surfaceId: SurfaceId,
+  waitId: PresentationWaitId,
+): PresentationPlaybackSnapshot {
+  return Object.freeze({
+    phase: "held",
+    runNumber: 1,
+    surfaceId,
+    currentTimeMs: 0,
+    durationMs: 100,
+    hold: Object.freeze({ kind: "learner", waitId, status: "waiting" }),
+    outstandingLearnerWait: Object.freeze({ waitId }),
+  });
+}
+
 function createControllablePresentationSession(initialSnapshot: PresentationPlaybackSnapshot) {
   let snapshot = initialSnapshot;
   const listeners = new Set<() => void>();
+  const capturedListeners: Array<() => void> = [];
   const play = vi.fn();
   const advance = vi.fn<PresentationPlaybackSession["advance"]>(() => Result.ok());
   const dispose = vi.fn();
@@ -1206,6 +1511,7 @@ function createControllablePresentationSession(initialSnapshot: PresentationPlay
     getSnapshot: () => snapshot,
     subscribe(listener) {
       listeners.add(listener);
+      capturedListeners.push(listener);
       return () => listeners.delete(listener);
     },
     subscribeCueReports: () => () => undefined,
@@ -1222,6 +1528,10 @@ function createControllablePresentationSession(initialSnapshot: PresentationPlay
     play,
     advance,
     dispose,
+    capturedListeners,
+    replaceSnapshot(nextSnapshot: PresentationPlaybackSnapshot) {
+      snapshot = nextSnapshot;
+    },
     setSnapshot(nextSnapshot: PresentationPlaybackSnapshot) {
       snapshot = nextSnapshot;
       for (const listener of [...listeners]) listener();
@@ -1230,6 +1540,14 @@ function createControllablePresentationSession(initialSnapshot: PresentationPlay
       return listeners.size;
     },
   };
+}
+
+function surfaceExitEnvironment(): SurfaceExitEnvironment {
+  const environment = surfaceExitTestProbe.environment as SurfaceExitEnvironment | undefined;
+  if (!environment) {
+    throw new Error("Slideshow renderer did not receive the Surface Exit Environment.");
+  }
+  return environment;
 }
 
 function testComposition(
@@ -1248,7 +1566,11 @@ function testComposition(
   });
 }
 
-function createCompositionLifecycleProbe() {
+function createCompositionLifecycleProbe(
+  createPresentationSession: (
+    surfaceId: SurfaceId,
+  ) => PresentationPlaybackSession | undefined = () => undefined,
+) {
   const events: string[] = [];
   let activeOwners = 0;
   let maximumActiveOwners = 0;
@@ -1260,15 +1582,18 @@ function createCompositionLifecycleProbe() {
     activeOwners += 1;
     maximumActiveOwners = Math.max(maximumActiveOwners, activeOwners);
     events.push(`create:${surfaceId}`);
+    const presentationSession = createPresentationSession(surfaceId);
     let disposed = false;
     return Object.freeze({
       surfaceId,
       learnerRuntime: Object.freeze(
         {},
       ) as unknown as SlideshowSurfaceRuntimeComposition["learnerRuntime"],
+      ...(presentationSession ? { presentationSession } : {}),
       dispose() {
         if (disposed) return;
         disposed = true;
+        presentationSession?.dispose();
         disposals += 1;
         activeOwners -= 1;
         events.push(`dispose:${surfaceId}`);

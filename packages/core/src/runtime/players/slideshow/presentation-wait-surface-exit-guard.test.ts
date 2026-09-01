@@ -52,6 +52,18 @@ describe("Presentation Wait Surface Exit Guard", () => {
     source.replace(snapshot(SURFACE_ONE, null));
 
     expect(guard.getSnapshot()).toEqual({ status: "allowed" });
+
+    source.replace(snapshot(SURFACE_ONE, FIRST_WAIT));
+
+    expect(guard.getSnapshot()).toEqual({
+      status: "blocked",
+      blocker: {
+        reason: "presentation-learner-wait",
+        ownerId: guard.ownerId,
+        surfaceId: SURFACE_ONE,
+        waitId: FIRST_WAIT,
+      },
+    });
     expect(guard.ownerId).toBe(
       createPresentationWaitSurfaceExitGuard({
         surfaceId: SURFACE_ONE,
