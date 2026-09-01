@@ -8,7 +8,10 @@ import { emptyCalloutData } from "@/editor/blocks/presentation/callout/content";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { projectCourseStructure, type SurfaceId } from "@/document/model/course-structure";
-import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import {
+  createEmbeddedDataId,
+  createEmbeddedNodeId,
+} from "@/document/model/identity/stable-ids";
 import type { CompiledSurfacePresentationTimeline } from "@/presentation/model";
 import { checkRuntimeDocumentReadiness } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
@@ -62,7 +65,8 @@ describe("Slideshow Presentation visual playback", () => {
     const mounted = await mountTracer({ sizing: "contained", width: 1_024 });
     const target = await mountedTarget(mounted.targetId);
     const canvas = requiredElement<HTMLElement>(host!, ".sc-slideshow-player__canvas");
-    const session = requiredSession();
+    const composition = requiredPresentationComposition();
+    const session = composition.presentationControls;
 
     expect(target).toHaveAttribute("data-presentation-availability", "withheld");
     expect(target).toHaveAttribute("aria-hidden", "true");
@@ -76,13 +80,13 @@ describe("Slideshow Presentation visual playback", () => {
     session.pause();
     expect(session.getSnapshot().phase).toBe("paused");
 
-    expect(session.seek(1_500).isOk()).toBe(true);
+    await expectAppliedSeek(composition, 1_500);
     expect(target).toHaveAttribute("data-presentation-availability", "available");
     expect(Number.parseFloat(target.style.opacity)).toBeCloseTo(0.5, 2);
 
-    expect(session.seek(2_000).isOk()).toBe(true);
+    await expectAppliedSeek(composition, 2_000);
     expect(target.style.opacity).toBe("1");
-    expect(session.seek(0).isOk()).toBe(true);
+    await expectAppliedSeek(composition, 0);
     expect(target).toHaveAttribute("data-presentation-availability", "withheld");
     expect(target.style.opacity).toBe("0");
 
@@ -105,16 +109,16 @@ describe("Slideshow Presentation visual playback", () => {
     await waitForCondition(
       () => host?.querySelector(`[data-presentation-target-id="${mounted.targetId}"]`) === null,
     );
-    expect(session.seek(2_000).isOk()).toBe(true);
+    await expectAppliedSeek(composition, 2_000);
 
     targetParent.append(replacement);
     const remounted = await mountedTarget(mounted.targetId);
     expect(
       requiredElement<HTMLElement>(host!, `[data-node="surface"][data-id="${mounted.surfaceId}"]`),
     ).toBe(activeSurfaceRoot);
-    expect(session.seek(0).isOk()).toBe(true);
+    await expectAppliedSeek(composition, 0);
     expect(remounted).toHaveAttribute("data-presentation-availability", "withheld");
-    expect(session.seek(2_000).isOk()).toBe(true);
+    await expectAppliedSeek(composition, 2_000);
     expect(remounted).toHaveAttribute("data-presentation-availability", "available");
     expect(remounted.style.opacity).toBe("1");
     expect(canvas).toHaveAttribute("data-content-interaction", "inert");
@@ -132,10 +136,10 @@ describe("Slideshow Presentation visual playback", () => {
     restoreMatchMedia = installReducedMotionPreference();
     const mounted = await mountTracer({ sizing: "embedded", width: 512 });
     const target = await mountedTarget(mounted.targetId);
-    const session = requiredSession();
+    const composition = requiredPresentationComposition();
 
     expect(target).toHaveAttribute("data-presentation-availability", "withheld");
-    expect(session.seek(1_500).isOk()).toBe(true);
+    await expectAppliedSeek(composition, 1_500);
     expect(target).toHaveAttribute("data-presentation-availability", "available");
     expect(target.style.opacity).toBe("1");
     expect(target).not.toHaveAttribute("aria-hidden");
@@ -256,7 +260,7 @@ function revealTimeline(
       ]),
       segments: Object.freeze([
         Object.freeze({
-          id: "reveal000001",
+          id: createEmbeddedDataId(),
           targetId,
           startMs: 1_000,
           endMs: 2_000,
@@ -275,10 +279,26 @@ function revealTimeline(
   });
 }
 
-function requiredSession() {
-  const session = compositionProbe.current?.presentationSession;
-  if (!session) throw new Error("Expected the production Presentation Session.");
-  return session;
+type MountedPresentationComposition = SlideshowSurfaceRuntimeComposition &
+  Required<Pick<SlideshowSurfaceRuntimeComposition, "presentationControls" | "seek">>;
+
+function requiredPresentationComposition(): MountedPresentationComposition {
+  const composition = compositionProbe.current;
+  if (!composition?.presentationControls || !composition.seek) {
+    throw new Error("Expected the production Presentation composition.");
+  }
+  return composition as MountedPresentationComposition;
+}
+
+async function expectAppliedSeek(
+  composition: ReturnType<typeof requiredPresentationComposition>,
+  timeMs: number,
+): Promise<void> {
+  const result = await composition.seek(timeMs);
+  if (result.isErr()) {
+    throw new Error(`Expected Seek to succeed, received ${result.error.reason}.`);
+  }
+  expect(result.value).toMatchObject({ kind: "applied", timeMs });
 }
 
 async function mountedTarget(targetId: EmbeddedNodeId): Promise<HTMLElement> {
