@@ -12,8 +12,15 @@ export interface SurfaceChangeRefused {
   readonly blockers: BlockedSurfaceExitSnapshot["blockers"];
 }
 
+export interface SatisfiedLearnerRuleBranchSurfaceChange {
+  readonly kind: "satisfied-learner-rule-branch";
+}
+
 export type SurfaceChangeResult = ResultType<void, SurfaceChangeRefused>;
-export type RequestSurfaceChange = (targetSurfaceId: SurfaceId) => SurfaceChangeResult;
+export type RequestSurfaceChange = (
+  targetSurfaceId: SurfaceId,
+  context?: SatisfiedLearnerRuleBranchSurfaceChange,
+) => SurfaceChangeResult;
 
 export interface CreateRequestSurfaceChangeInput {
   readonly environment: Pick<SurfaceExitEnvironment, "evaluateSnapshot">;
@@ -28,7 +35,7 @@ export function createRequestSurfaceChange({
   isKnownSurfaceId,
   commitSurfaceChange,
 }: CreateRequestSurfaceChangeInput): RequestSurfaceChange {
-  return (targetSurfaceId) => {
+  return (targetSurfaceId, context) => {
     if (!isKnownSurfaceId(targetSurfaceId)) {
       throw new Error(`Cannot request unknown Slideshow Surface "${targetSurfaceId}".`);
     }
@@ -47,11 +54,22 @@ export function createRequestSurfaceChange({
     }
 
     if (snapshot.status === "blocked") {
+      const blockers =
+        context?.kind === "satisfied-learner-rule-branch"
+          ? snapshot.blockers.filter((blocker) => blocker.reason !== "presentation-learner-wait")
+          : snapshot.blockers;
+      if (blockers.length === 0) {
+        commitSurfaceChange(targetSurfaceId);
+        return successfulSurfaceChange();
+      }
       const refusal: SurfaceChangeRefused = Object.freeze({
         reason: "surface-exit-blocked",
         activeSurfaceId,
         targetSurfaceId,
-        blockers: snapshot.blockers,
+        blockers:
+          blockers === snapshot.blockers
+            ? snapshot.blockers
+            : (Object.freeze(blockers) as BlockedSurfaceExitSnapshot["blockers"]),
       });
       const result: SurfaceChangeResult = Result.err(refusal);
       return Object.freeze(result);

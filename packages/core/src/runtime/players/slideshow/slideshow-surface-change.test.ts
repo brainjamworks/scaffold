@@ -1,6 +1,7 @@
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 
+import type { PresentationWaitId } from "@/runtime/presentation/compiled-presentation-program";
 import {
   createSurfaceExitEnvironment,
   type SurfaceExitBlocker,
@@ -38,7 +39,7 @@ describe("requestSurfaceChange", () => {
   it("returns every blocker in a frozen typed refusal without committing or mutating diagnostics", () => {
     const snapshot = blockedSnapshot(SURFACE_ONE, [
       quizBlocker("quiz-one", "not_started"),
-      quizBlocker("quiz-two", "in_progress"),
+      presentationBlocker("presentation-one", "learner-wait"),
     ]);
     const evaluateSnapshot = vi.fn(() => snapshot);
     const commitSurfaceChange = vi.fn();
@@ -65,6 +66,59 @@ describe("requestSurfaceChange", () => {
     expect(Object.isFrozen(result.error.blockers)).toBe(true);
     expect(commitSurfaceChange).not.toHaveBeenCalled();
     expect(evaluateSnapshot()).toBe(snapshot);
+  });
+
+  it("allows a satisfying learner-rule branch through a Presentation-only blocker", () => {
+    const snapshot = blockedSnapshot(SURFACE_ONE, [
+      presentationBlocker("presentation-one", "learner-wait"),
+    ]);
+    const commitSurfaceChange = vi.fn();
+    const requestSurfaceChange = createRequestSurfaceChange({
+      environment: { evaluateSnapshot: () => snapshot },
+      getActiveSurfaceId: () => SURFACE_ONE,
+      isKnownSurfaceId: isKnownSurfaceId,
+      commitSurfaceChange,
+    });
+
+    const result = requestSurfaceChange(SURFACE_TWO, {
+      kind: "satisfied-learner-rule-branch",
+    });
+
+    expect(result.status).toBe("ok");
+    expect(commitSurfaceChange).toHaveBeenCalledOnce();
+    expect(commitSurfaceChange).toHaveBeenCalledWith(SURFACE_TWO);
+    expect(snapshot.blockers).toEqual([
+      presentationBlocker("presentation-one", "learner-wait"),
+    ]);
+  });
+
+  it("retains independent blockers when a satisfying learner-rule branch is refused", () => {
+    const snapshot = blockedSnapshot(SURFACE_ONE, [
+      presentationBlocker("presentation-one", "learner-wait"),
+      quizBlocker("quiz-one", "in_progress"),
+    ]);
+    const commitSurfaceChange = vi.fn();
+    const requestSurfaceChange = createRequestSurfaceChange({
+      environment: { evaluateSnapshot: () => snapshot },
+      getActiveSurfaceId: () => SURFACE_ONE,
+      isKnownSurfaceId: isKnownSurfaceId,
+      commitSurfaceChange,
+    });
+
+    const result = requestSurfaceChange(SURFACE_TWO, {
+      kind: "satisfied-learner-rule-branch",
+    });
+
+    expect(result.status).toBe("error");
+    if (result.status !== "error") throw new Error("expected an independent blocker refusal");
+    expect(result.error.blockers).toEqual([quizBlocker("quiz-one", "in_progress")]);
+    expect(Object.isFrozen(result.error.blockers)).toBe(true);
+    expect(commitSurfaceChange).not.toHaveBeenCalled();
+    expect(snapshot.blockers).toEqual([
+      presentationBlocker("presentation-one", "learner-wait"),
+      quizBlocker("quiz-one", "in_progress"),
+    ]);
+    expect(Object.isFrozen(snapshot.blockers)).toBe(true);
   });
 
   it("re-evaluates a live guard at request time and never auto-commits when it clears", () => {
@@ -222,6 +276,15 @@ function quizBlocker(
     ownerId,
     surfaceId: SURFACE_ONE,
     attemptStatus,
+  });
+}
+
+function presentationBlocker(ownerId: string, waitId: string): SurfaceExitBlocker {
+  return Object.freeze({
+    reason: "presentation-learner-wait",
+    ownerId,
+    surfaceId: SURFACE_ONE,
+    waitId: waitId as PresentationWaitId,
   });
 }
 

@@ -1,4 +1,7 @@
+import { EmbeddedDataIdSchema } from "@scaffold/contracts";
+
 import type { SurfaceId } from "@/document/model/course-structure";
+import type { PresentationWaitId } from "@/runtime/presentation/compiled-presentation-program";
 
 export interface QuizNotCompleteSurfaceExitBlocker {
   readonly reason: "quiz-not-complete";
@@ -7,7 +10,16 @@ export interface QuizNotCompleteSurfaceExitBlocker {
   readonly attemptStatus: "not_started" | "in_progress";
 }
 
-export type SurfaceExitBlocker = QuizNotCompleteSurfaceExitBlocker;
+export interface PresentationLearnerWaitSurfaceExitBlocker {
+  readonly reason: "presentation-learner-wait";
+  readonly ownerId: string;
+  readonly surfaceId: SurfaceId;
+  readonly waitId: PresentationWaitId;
+}
+
+export type SurfaceExitBlocker =
+  | QuizNotCompleteSurfaceExitBlocker
+  | PresentationLearnerWaitSurfaceExitBlocker;
 
 export type SurfaceExitGuardSnapshot =
   | Readonly<{ status: "allowed" }>
@@ -253,9 +265,6 @@ function validateAndFreezeBlocker(
   guard: SurfaceExitGuard,
   blocker: SurfaceExitBlocker,
 ): SurfaceExitBlocker {
-  if (blocker.reason !== "quiz-not-complete") {
-    throw new Error(`Surface Exit Guard "${guard.ownerId}" returned an invalid blocker`);
-  }
   if (blocker.ownerId !== guard.ownerId) {
     throw new Error(
       `Surface Exit Guard "${guard.ownerId}" returned a blocker for owner "${blocker.ownerId}"`,
@@ -264,8 +273,20 @@ function validateAndFreezeBlocker(
   if (blocker.surfaceId !== guard.surfaceId) {
     throw new Error(`Surface Exit Guard "${guard.ownerId}" returned a blocker for another Surface`);
   }
-  if (blocker.attemptStatus !== "not_started" && blocker.attemptStatus !== "in_progress") {
-    throw new Error(`Surface Exit Guard "${guard.ownerId}" returned an invalid blocker`);
+
+  switch (blocker.reason) {
+    case "quiz-not-complete":
+      if (blocker.attemptStatus !== "not_started" && blocker.attemptStatus !== "in_progress") {
+        throw invalidBlocker(guard);
+      }
+      break;
+    case "presentation-learner-wait":
+      if (!EmbeddedDataIdSchema.safeParse(blocker.waitId).success) {
+        throw invalidBlocker(guard);
+      }
+      break;
+    default:
+      throw invalidBlocker(guard);
   }
   return Object.freeze({ ...blocker });
 }
@@ -276,12 +297,29 @@ function sameSnapshot(left: SurfaceExitSnapshot, right: SurfaceExitSnapshot): bo
 
   return left.blockers.every((blocker, index) => {
     const candidate = right.blockers[index];
-    return (
-      candidate !== undefined &&
-      blocker.reason === candidate.reason &&
-      blocker.ownerId === candidate.ownerId &&
-      blocker.surfaceId === candidate.surfaceId &&
-      blocker.attemptStatus === candidate.attemptStatus
-    );
+    if (
+      candidate === undefined ||
+      blocker.reason !== candidate.reason ||
+      blocker.ownerId !== candidate.ownerId ||
+      blocker.surfaceId !== candidate.surfaceId
+    ) {
+      return false;
+    }
+
+    switch (blocker.reason) {
+      case "quiz-not-complete":
+        return (
+          candidate.reason === "quiz-not-complete" &&
+          blocker.attemptStatus === candidate.attemptStatus
+        );
+      case "presentation-learner-wait":
+        return (
+          candidate.reason === "presentation-learner-wait" && blocker.waitId === candidate.waitId
+        );
+    }
   });
+}
+
+function invalidBlocker(guard: SurfaceExitGuard): Error {
+  return new Error(`Surface Exit Guard "${guard.ownerId}" returned an invalid blocker`);
 }

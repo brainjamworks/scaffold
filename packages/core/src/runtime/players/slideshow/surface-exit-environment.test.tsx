@@ -5,6 +5,7 @@ import { renderHook } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
+import type { PresentationWaitId } from "@/runtime/presentation/compiled-presentation-program";
 import {
   createSurfaceExitEnvironment,
   type SurfaceExitBlocker,
@@ -64,9 +65,9 @@ describe("Surface Exit Environment", () => {
       snapshot: { status: "allowed" },
     });
     const third = createGuard({
-      ownerId: "quiz-three",
+      ownerId: "presentation-three",
       surfaceId: SURFACE_ONE,
-      snapshot: blocked("quiz-three", SURFACE_ONE, "in_progress"),
+      snapshot: presentationBlocked("presentation-three", SURFACE_ONE, "learner-wait"),
     });
 
     owner.environment.registerGuard(first.guard);
@@ -80,7 +81,7 @@ describe("Surface Exit Environment", () => {
       surfaceId: SURFACE_ONE,
       blockers: [
         quizBlocker("quiz-one", SURFACE_ONE, "not_started"),
-        quizBlocker("quiz-three", SURFACE_ONE, "in_progress"),
+        presentationBlocker("presentation-three", SURFACE_ONE, "learner-wait"),
       ],
     });
     expect(Object.isFrozen(aggregate)).toBe(true);
@@ -97,9 +98,50 @@ describe("Surface Exit Environment", () => {
     expect(owner.environment.getSnapshot()).toEqual({
       status: "blocked",
       surfaceId: SURFACE_ONE,
-      blockers: [quizBlocker("quiz-three", SURFACE_ONE, "in_progress")],
+      blockers: [presentationBlocker("presentation-three", SURFACE_ONE, "learner-wait")],
     });
     expect(environmentListener).toHaveBeenCalledTimes(1);
+  });
+
+  it("aggregates and freezes a Presentation learner Wait blocker", () => {
+    const owner = createOwner();
+    const guard = createGuard({
+      ownerId: "presentation-one",
+      surfaceId: SURFACE_ONE,
+      snapshot: presentationBlocked("presentation-one", SURFACE_ONE, "learner-wait"),
+    });
+
+    owner.environment.registerGuard(guard.guard);
+
+    const snapshot = owner.environment.getSnapshot();
+    expect(snapshot).toEqual({
+      status: "blocked",
+      surfaceId: SURFACE_ONE,
+      blockers: [presentationBlocker("presentation-one", SURFACE_ONE, "learner-wait")],
+    });
+    expect(Object.isFrozen(snapshot.blockers[0])).toBe(true);
+  });
+
+  it("publishes a changed Presentation Wait identity without replacing its guard", () => {
+    const owner = createOwner();
+    const listener = vi.fn();
+    owner.environment.subscribe(listener);
+    const guard = createGuard({
+      ownerId: "presentation-one",
+      surfaceId: SURFACE_ONE,
+      snapshot: presentationBlocked("presentation-one", SURFACE_ONE, "learner-wait"),
+    });
+    owner.environment.registerGuard(guard.guard);
+    listener.mockClear();
+
+    guard.publish(presentationBlocked("presentation-one", SURFACE_ONE, "second-wait1"));
+
+    expect(owner.environment.getSnapshot()).toEqual({
+      status: "blocked",
+      surfaceId: SURFACE_ONE,
+      blockers: [presentationBlocker("presentation-one", SURFACE_ONE, "second-wait1")],
+    });
+    expect(listener).toHaveBeenCalledOnce();
   });
 
   it("freshly evaluates active guards when their authority changes before notification", () => {
@@ -271,6 +313,63 @@ describe("Surface Exit Environment", () => {
     ).toThrowError('Surface Exit Guard "quiz-one" returned a blocker for another Surface');
   });
 
+  it("throws for invalid reason-specific blocker facts", () => {
+    const invalidQuizStatus = {
+      status: "blocked",
+      blocker: {
+        reason: "quiz-not-complete",
+        ownerId: "quiz-one",
+        surfaceId: SURFACE_ONE,
+        attemptStatus: "complete",
+      },
+    } as unknown as SurfaceExitGuardSnapshot;
+    const invalidWaitId = {
+      status: "blocked",
+      blocker: {
+        reason: "presentation-learner-wait",
+        ownerId: "presentation-one",
+        surfaceId: SURFACE_ONE,
+        waitId: "invalid",
+      },
+    } as unknown as SurfaceExitGuardSnapshot;
+    const invalidReason = {
+      status: "blocked",
+      blocker: {
+        reason: "unknown",
+        ownerId: "unknown-one",
+        surfaceId: SURFACE_ONE,
+      },
+    } as unknown as SurfaceExitGuardSnapshot;
+
+    expect(() =>
+      createOwner().environment.registerGuard(
+        createGuard({
+          ownerId: "quiz-one",
+          surfaceId: SURFACE_ONE,
+          snapshot: invalidQuizStatus,
+        }).guard,
+      ),
+    ).toThrowError('Surface Exit Guard "quiz-one" returned an invalid blocker');
+    expect(() =>
+      createOwner().environment.registerGuard(
+        createGuard({
+          ownerId: "presentation-one",
+          surfaceId: SURFACE_ONE,
+          snapshot: invalidWaitId,
+        }).guard,
+      ),
+    ).toThrowError('Surface Exit Guard "presentation-one" returned an invalid blocker');
+    expect(() =>
+      createOwner().environment.registerGuard(
+        createGuard({
+          ownerId: "unknown-one",
+          surfaceId: SURFACE_ONE,
+          snapshot: invalidReason,
+        }).guard,
+      ),
+    ).toThrowError('Surface Exit Guard "unknown-one" returned an invalid blocker');
+  });
+
   it("keeps guard read and subscription defects observable", () => {
     const readDefect = new Error("guard read defect");
     const subscribeDefect = new Error("guard subscribe defect");
@@ -371,6 +470,27 @@ function blocked(
   attemptStatus: "not_started" | "in_progress",
 ): SurfaceExitGuardSnapshot {
   return { status: "blocked", blocker: quizBlocker(ownerId, surfaceId, attemptStatus) };
+}
+
+function presentationBlocker(
+  ownerId: string,
+  surfaceId: typeof SURFACE_ONE,
+  waitId: string,
+): SurfaceExitBlocker {
+  return {
+    reason: "presentation-learner-wait",
+    ownerId,
+    surfaceId,
+    waitId: waitId as PresentationWaitId,
+  };
+}
+
+function presentationBlocked(
+  ownerId: string,
+  surfaceId: typeof SURFACE_ONE,
+  waitId: string,
+): SurfaceExitGuardSnapshot {
+  return { status: "blocked", blocker: presentationBlocker(ownerId, surfaceId, waitId) };
 }
 
 function createGuard({
