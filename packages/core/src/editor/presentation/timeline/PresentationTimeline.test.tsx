@@ -21,6 +21,7 @@ const SURFACE_ID = nodeId("surface");
 const TARGET_A_ID = nodeId("target-a");
 const TARGET_B_ID = nodeId("target-b");
 const ACTION_A_ID = dataId("action-a");
+const ACTION_B_ID = dataId("action-b");
 
 describe("PresentationTimeline", () => {
   it("renders a fixed target gutter, ruler, action layer, and only one expanded target", () => {
@@ -168,6 +169,43 @@ describe("PresentationTimeline", () => {
 
     controller.destroy();
   });
+
+  it("derives distinct alignment and overlap feedback only while a draft exists", async () => {
+    const semanticSelection = new FakeSemanticSelection(TARGET_A_ID);
+    const controller = createController(semanticSelection);
+    const currentProjection = projectionWithSecondAction();
+    const { container } = render(
+      <PresentationTimeline controller={controller} projection={currentProjection} />,
+    );
+    await controller.selectAction(ACTION_A_ID, TARGET_A_ID);
+
+    controller.setEditDraft({ kind: "move-action", actionId: ACTION_A_ID, atMs: 2_925 });
+    await waitFor(() =>
+      expect(container.querySelectorAll(".sc-presentation-timeline-alignment-guide")).toHaveLength(
+        1,
+      ),
+    );
+    expect(container.querySelectorAll(".sc-presentation-timeline-overlap-indicator")).toHaveLength(
+      0,
+    );
+
+    controller.setEditDraft({ kind: "move-action", actionId: ACTION_A_ID, atMs: 3_500 });
+    await waitFor(() =>
+      expect(
+        container.querySelectorAll(".sc-presentation-timeline-overlap-indicator"),
+      ).toHaveLength(1),
+    );
+    expect(container.querySelectorAll(".sc-presentation-timeline-alignment-guide")).toHaveLength(0);
+
+    controller.clearEditDraft();
+    await waitFor(() =>
+      expect(
+        container.querySelectorAll(".sc-presentation-timeline-overlap-indicator"),
+      ).toHaveLength(0),
+    );
+    expect(container.querySelectorAll(".sc-presentation-timeline-alignment-guide")).toHaveLength(0);
+    controller.destroy();
+  });
 });
 
 function createController(semanticSelection: PresentationTimelineSemanticSelection) {
@@ -185,6 +223,7 @@ function projection(durationMs = 10_000): PresentationTimelineProjection {
     durationMs,
     narration: null,
     transition: null,
+    orderedActionIds: [ACTION_A_ID],
     diagnostics: [],
     rows: [
       {
@@ -218,6 +257,36 @@ function projection(durationMs = 10_000): PresentationTimelineProjection {
         actions: [],
       },
     ],
+  };
+}
+
+function projectionWithSecondAction(): PresentationTimelineProjection {
+  const base = projection();
+  return {
+    ...base,
+    orderedActionIds: [ACTION_A_ID, ACTION_B_ID],
+    rows: base.rows.map((row) =>
+      row.targetId === TARGET_B_ID
+        ? {
+            ...row,
+            actions: [
+              {
+                kind: "animate",
+                id: ACTION_B_ID,
+                targetId: TARGET_B_ID,
+                isEnabled: true,
+                atMs: 4_000,
+                visual: {
+                  kind: "emphasize",
+                  durationMs: 1_000,
+                  easing: { kind: "preset", preset: "linear" },
+                  effect: "outline",
+                },
+              },
+            ],
+          }
+        : row,
+    ),
   };
 }
 

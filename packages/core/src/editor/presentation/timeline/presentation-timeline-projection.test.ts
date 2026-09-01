@@ -72,6 +72,14 @@ describe("projectPresentationTimeline", () => {
     });
     expect(projection.narration).toBe(configuration.surfaces[0]?.narration);
     expect(projection.transition).toBe(configuration.surfaces[0]?.transition);
+    expect(projection.orderedActionIds).toEqual([
+      wait.id,
+      ownerAction.id,
+      navigation.id,
+      memberAction.id,
+      surfaceAction.id,
+    ]);
+    expect(Object.isFrozen(projection.orderedActionIds)).toBe(true);
     expect(
       projection.rows.map(({ targetId, parentTargetId, depth }) => ({
         targetId,
@@ -208,6 +216,7 @@ describe("projectPresentationTimeline", () => {
       durationMs: null,
       narration: null,
       transition: null,
+      orderedActionIds: [],
       rows: [],
       diagnostics: [{ reason: "surface-not-found", surfaceId: IDS.missing }],
     });

@@ -1,4 +1,10 @@
-import type { EmbeddedDataId, EmbeddedNodeId, TimelineActionV1 } from "@scaffold/contracts";
+import type {
+  EmbeddedDataId,
+  EmbeddedNodeId,
+  PresentationConfigurationV1,
+  TimelineActionV1,
+} from "@scaffold/contracts";
+import { Editor, type JSONContent } from "@tiptap/core";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vite-plus/test";
@@ -7,7 +13,11 @@ import type {
   SemanticNavigationOptions,
   SemanticNavigationResult,
 } from "@/document/authoring/semantic-document";
+import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { EditorShell } from "@/editor/shell/chrome/EditorShell";
+import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 
 import {
   PresentationTimelineController,
@@ -18,6 +28,7 @@ import { PresentationTimeline } from "./PresentationTimeline";
 
 const SURFACE_ID = nodeId("surface");
 const SELECTED_TARGET_ID = nodeId("target000001");
+const SECTION_ID = nodeId("section");
 
 describe("PresentationTimeline browser layout", () => {
   it.each([
@@ -144,9 +155,207 @@ describe("PresentationTimeline browser layout", () => {
       mounted.destroy();
     }
   });
+
+  it("keeps pointer movement transient and commits once on pointer end", async () => {
+    const mounted = mountTimeline(1_200, 120_000, true);
+
+    try {
+      await nextLayout();
+      const action = requiredElement<HTMLButtonElement>(
+        mounted.host,
+        '.sc-presentation-timeline-action[aria-label^="Emphasize"]',
+      );
+      action.click();
+      await nextLayout();
+      expect(mounted.controller.getSnapshot().selectedActionId).not.toBeNull();
+      let presentationWrites = 0;
+      mounted.editor!.on("transaction", ({ transaction }) => {
+        const currentActions = presentationActionsFromDoc(transaction.doc.toJSON());
+        if (currentActions[0]?.atMs !== 60_000) presentationWrites += 1;
+      });
+      const bounds = action.getBoundingClientRect();
+      const pointerId = 7;
+      action.setPointerCapture = () => undefined;
+      action.releasePointerCapture = () => undefined;
+
+      action.dispatchEvent(
+        new PointerEvent("pointerdown", {
+          bubbles: true,
+          button: 0,
+          clientX: bounds.left + bounds.width / 2,
+          pointerId,
+        }),
+      );
+      action.dispatchEvent(
+        new PointerEvent("pointermove", {
+          bubbles: true,
+          clientX: bounds.left + bounds.width / 2 + 100,
+          pointerId,
+        }),
+      );
+
+      expect(mounted.controller.getSnapshot().editDraft).toMatchObject({
+        kind: "move-action",
+        atMs: 70_000,
+      });
+      await nextLayout();
+      expect(
+        mounted.host.querySelectorAll(".sc-presentation-timeline-alignment-guide"),
+      ).toHaveLength(0);
+      expect(
+        mounted.host.querySelectorAll(".sc-presentation-timeline-overlap-indicator"),
+      ).toHaveLength(0);
+      expect(presentationActions(mounted.editor!)[0]?.atMs).toBe(60_000);
+
+      action.dispatchEvent(
+        new PointerEvent("pointerup", {
+          bubbles: true,
+          clientX: bounds.left + bounds.width / 2 + 100,
+          pointerId,
+        }),
+      );
+      expect(mounted.controller.getSnapshot().editDraft).toBeNull();
+      expect(presentationActions(mounted.editor!)[0]?.atMs).toBe(70_000);
+      expect(presentationWrites).toBe(1);
+    } finally {
+      mounted.destroy();
+    }
+  });
+
+  it("cancels a resize draft, then commits one resize on pointer end", async () => {
+    const mounted = mountTimeline(1_200, 120_000, true);
+
+    try {
+      await nextLayout();
+      const action = requiredElement<HTMLButtonElement>(
+        mounted.host,
+        '.sc-presentation-timeline-action[aria-label^="Emphasize"]',
+      );
+      action.click();
+      await nextLayout();
+      action.setPointerCapture = () => undefined;
+      action.releasePointerCapture = () => undefined;
+      const bounds = action.getBoundingClientRect();
+      const resize = (type: "pointerdown" | "pointermove" | "pointerup" | "pointercancel") =>
+        action.dispatchEvent(
+          new PointerEvent(type, {
+            bubbles: true,
+            ...(type === "pointerdown" ? { button: 0 } : {}),
+            clientX: bounds.right + (type === "pointerdown" ? -1 : 10),
+            pointerId: 9,
+          }),
+        );
+
+      resize("pointerdown");
+      resize("pointermove");
+      expect(mounted.controller.getSnapshot().editDraft).toMatchObject({
+        kind: "resize-action",
+        durationMs: 2_100,
+      });
+      resize("pointercancel");
+      expect(mounted.controller.getSnapshot().editDraft).toBeNull();
+      expect(actionDuration(presentationActions(mounted.editor!)[0]!)).toBe(1_000);
+
+      resize("pointerdown");
+      resize("pointermove");
+      resize("pointerup");
+      expect(actionDuration(presentationActions(mounted.editor!)[0]!)).toBe(2_100);
+    } finally {
+      mounted.destroy();
+    }
+  });
+
+  it("offers keyboard start and duration nudges", async () => {
+    const mounted = mountTimeline(1_200, 120_000, true);
+
+    try {
+      await nextLayout();
+      const action = requiredElement<HTMLButtonElement>(
+        mounted.host,
+        '.sc-presentation-timeline-action[aria-label^="Emphasize"]',
+      );
+      action.click();
+      await nextLayout();
+
+      action.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight" }));
+      expect(presentationActions(mounted.editor!)[0]?.atMs).toBe(60_100);
+      action.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight", altKey: true }),
+      );
+      expect(actionDuration(presentationActions(mounted.editor!)[0]!)).toBe(1_100);
+    } finally {
+      mounted.destroy();
+    }
+  });
+
+  it("shows transient alignment and overlap feedback and clears it on cancel and end", async () => {
+    const mounted = mountTimeline(1_200, 120_000, true, true);
+
+    try {
+      await nextLayout();
+      const action = requiredElement<HTMLButtonElement>(
+        mounted.host,
+        '.sc-presentation-timeline-action[aria-label^="Emphasize"]',
+      );
+      action.click();
+      await nextLayout();
+      action.setPointerCapture = () => undefined;
+      action.releasePointerCapture = () => undefined;
+      const bounds = action.getBoundingClientRect();
+      const pointer = (
+        type: "pointerdown" | "pointermove" | "pointerup" | "pointercancel",
+        deltaPx: number,
+      ) =>
+        action.dispatchEvent(
+          new PointerEvent(type, {
+            bubbles: true,
+            ...(type === "pointerdown" ? { button: 0 } : {}),
+            clientX: bounds.left + bounds.width / 2 + deltaPx,
+            pointerId: 11,
+          }),
+        );
+
+      pointer("pointerdown", 0);
+      pointer("pointermove", 100);
+      await nextLayout();
+      expect(
+        mounted.host.querySelectorAll(".sc-presentation-timeline-alignment-guide"),
+      ).toHaveLength(1);
+      expect(
+        mounted.host.querySelectorAll(".sc-presentation-timeline-overlap-indicator"),
+      ).toHaveLength(0);
+      pointer("pointercancel", 100);
+      await nextLayout();
+      expect(
+        mounted.host.querySelectorAll(".sc-presentation-timeline-alignment-guide"),
+      ).toHaveLength(0);
+
+      pointer("pointerdown", 0);
+      pointer("pointermove", 110);
+      await nextLayout();
+      expect(
+        mounted.host.querySelectorAll(".sc-presentation-timeline-overlap-indicator"),
+      ).toHaveLength(1);
+      pointer("pointerup", 110);
+      await nextLayout();
+      expect(
+        mounted.host.querySelectorAll(".sc-presentation-timeline-alignment-guide"),
+      ).toHaveLength(0);
+      expect(
+        mounted.host.querySelectorAll(".sc-presentation-timeline-overlap-indicator"),
+      ).toHaveLength(0);
+    } finally {
+      mounted.destroy();
+    }
+  });
 });
 
-function mountTimeline(hostWidth: number, durationMs: number) {
+function mountTimeline(
+  hostWidth: number,
+  durationMs: number,
+  authoring = false,
+  withFeedbackAction = false,
+) {
   const host = document.createElement("div");
   host.style.width = `${hostWidth}px`;
   host.style.height = "640px";
@@ -157,6 +366,7 @@ function mountTimeline(hostWidth: number, durationMs: number) {
     initialViewport: { durationMs, viewportWidthPx: 500 },
     zoomBounds: { minPixelsPerSecond: 10, maxPixelsPerSecond: 200 },
   });
+  const editor = authoring ? createAuthoringEditor(durationMs, withFeedbackAction) : null;
   const root = createRoot(host);
 
   flushSync(() => {
@@ -167,7 +377,11 @@ function mountTimeline(hostWidth: number, durationMs: number) {
         dock={<aside style={{ width: 160 }}>Agent</aside>}
         stage={<main>Stage</main>}
         bottomWorkspace={
-          <PresentationTimeline controller={controller} projection={projection(durationMs, 14)} />
+          <PresentationTimeline
+            controller={controller}
+            projection={projection(durationMs, 14, withFeedbackAction)}
+            {...(editor ? { editor } : {})}
+          />
         }
       />,
     );
@@ -177,15 +391,100 @@ function mountTimeline(hostWidth: number, durationMs: number) {
     host,
     controller,
     semanticSelection,
+    editor,
     destroy() {
       flushSync(() => root.unmount());
       controller.destroy();
+      editor?.destroy();
       host.remove();
     },
   };
 }
 
-function projection(durationMs: number, targetCount: number): PresentationTimelineProjection {
+function createAuthoringEditor(durationMs: number, withFeedbackAction: boolean): Editor {
+  const composition = createCoreScaffoldAuthoringComposition();
+  return new Editor({
+    editable: true,
+    extensions: createCourseDocumentAuthoringExtensions({ editable: true, composition }),
+    content: authoringDocument(durationMs, withFeedbackAction),
+  });
+}
+
+function authoringDocument(durationMs: number, withFeedbackAction: boolean): JSONContent {
+  const surface = slideContentSurfaceDefinition.createSurface({ surfaceId: SURFACE_ID });
+  const region = surface.content?.[1];
+  if (!region) throw new Error("Expected the slide content main Region.");
+  region.content = [{ type: "paragraph", attrs: { id: SELECTED_TARGET_ID } }];
+  assignMissingNodeIds(surface);
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: {
+          mode: "slideshow",
+          surfaceSize: "16x9",
+          overflowMode: "fit",
+          presentation: {
+            schemaVersion: 1,
+            autoAdvance: false,
+            allowPrevious: true,
+            surfaces: [
+              {
+                surfaceId: SURFACE_ID,
+                durationMs,
+                actions: [
+                  animateAction(durationMs),
+                  ...(withFeedbackAction ? [feedbackAction()] : []),
+                ],
+              },
+            ],
+          } satisfies PresentationConfigurationV1,
+        },
+        content: [
+          { type: "courseSection", attrs: { id: SECTION_ID, title: "Presentation" } },
+          surface,
+        ],
+      },
+    ],
+  };
+}
+
+function assignMissingNodeIds(root: JSONContent): void {
+  const stack = [root];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node.type !== "doc" && node.type !== "text") {
+      node.attrs = { ...node.attrs, id: node.attrs?.["id"] ?? createEmbeddedNodeId() };
+    }
+    stack.push(...(node.content ?? []));
+  }
+}
+
+function presentationActions(editor: Editor): readonly TimelineActionV1[] {
+  return presentationActionsFromDoc(editor.getJSON());
+}
+
+function presentationActionsFromDoc(document: JSONContent): readonly TimelineActionV1[] {
+  const presentation = document.content?.[0]?.attrs?.["presentation"] as
+    | PresentationConfigurationV1
+    | undefined;
+  return presentation?.surfaces[0]?.actions ?? [];
+}
+
+function actionDuration(action: TimelineActionV1): number {
+  if (action.kind !== "animate") return 0;
+  if (action.visual.kind === "reveal" || action.visual.kind === "hide") {
+    return action.visual.transition.kind === "instant" ? 0 : action.visual.transition.durationMs;
+  }
+  return action.visual.durationMs;
+}
+
+function projection(
+  durationMs: number,
+  targetCount: number,
+  withFeedbackAction = false,
+): PresentationTimelineProjection {
   const midpointAction = animateAction(durationMs);
   return {
     surfaceId: SURFACE_ID,
@@ -193,12 +492,18 @@ function projection(durationMs: number, targetCount: number): PresentationTimeli
     durationMs,
     narration: null,
     transition: null,
+    orderedActionIds: [midpointAction.id, ...(withFeedbackAction ? [feedbackAction().id] : [])],
     diagnostics: [],
     rows: [
       row(SURFACE_ID, "Surface", 0, []),
       ...Array.from({ length: targetCount }, (_, index) => {
         const id = nodeId(`target${String(index + 1).padStart(6, "0")}`);
-        return row(id, `Target ${index + 1}`, 1, index === 0 ? [midpointAction] : []);
+        return row(
+          id,
+          `Target ${index + 1}`,
+          1,
+          index === 0 ? [midpointAction, ...(withFeedbackAction ? [feedbackAction()] : [])] : [],
+        );
       }),
     ],
   };
@@ -238,6 +543,22 @@ function animateAction(durationMs: number): TimelineActionV1 {
       durationMs: Math.max(1, Math.min(1_000, durationMs / 4)),
       easing: { kind: "preset", preset: "ease-out" },
       effect: "outline",
+    },
+  };
+}
+
+function feedbackAction(): TimelineActionV1 {
+  return {
+    kind: "animate",
+    id: dataId("feedback"),
+    targetId: SELECTED_TARGET_ID,
+    isEnabled: true,
+    atMs: 71_000,
+    visual: {
+      kind: "emphasize",
+      durationMs: 1_000,
+      easing: { kind: "preset", preset: "linear" },
+      effect: "pulse",
     },
   };
 }

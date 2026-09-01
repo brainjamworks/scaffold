@@ -17,6 +17,7 @@ import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates
 
 import {
   createPresentationAction,
+  createPresentationActions,
   removePresentationAction,
   setPresentationActionEnabled,
   setPresentationSurfaceDuration,
@@ -111,6 +112,70 @@ describe("presentation authoring commands", () => {
     expect(actions(editor).map(({ id }) => id)).toEqual([earlier.value, later.value, tied.value]);
     expect(new Set(actions(editor).map(({ id }) => id)).size).toBe(3);
     expect(actions(editor).every(({ id }) => /^[0-9A-Z_a-z-]{12}$/.test(id))).toBe(true);
+  });
+
+  it("creates adjacent Replace actions in one transaction without a Replace kind", () => {
+    const editor = createEditor();
+    setPresentationSurfaceDuration({
+      editor,
+      surfaceId: IDS.firstSurface,
+      durationMs: 5_000,
+    });
+    let changedTransactions = 0;
+    editor.on("transaction", ({ transaction }) => {
+      if (transaction.docChanged) changedTransactions += 1;
+    });
+
+    const result = createPresentationActions({
+      editor,
+      surfaceId: IDS.firstSurface,
+      actions: [
+        timedVisibility("hide", IDS.firstParagraph, 1_000, 500),
+        timedVisibility("reveal", IDS.secondParagraph, 1_500, 500),
+      ],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(changedTransactions).toBe(1);
+    expect(actions(editor)).toMatchObject([
+      { kind: "animate", targetId: IDS.firstParagraph, atMs: 1_000, visual: { kind: "hide" } },
+      {
+        kind: "animate",
+        targetId: IDS.secondParagraph,
+        atMs: 1_500,
+        visual: { kind: "reveal" },
+      },
+    ]);
+    expect(actions(editor).some((action) => action.kind === ("replace" as never))).toBe(false);
+  });
+
+  it("checks every action in an atomic creation before writing", () => {
+    const editor = createEditor();
+    const missingTarget = EmbeddedNodeIdSchema.parse("missing00001");
+    setPresentationSurfaceDuration({
+      editor,
+      surfaceId: IDS.firstSurface,
+      durationMs: 5_000,
+    });
+    let changedTransactions = 0;
+    editor.on("transaction", ({ transaction }) => {
+      if (transaction.docChanged) changedTransactions += 1;
+    });
+
+    const result = createPresentationActions({
+      editor,
+      surfaceId: IDS.firstSurface,
+      actions: [
+        { ...instantReveal(IDS.firstParagraph, 500), isEnabled: false },
+        { ...instantReveal(missingTarget, 1_000), isEnabled: false },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      error: { reason: "target-not-current", targetId: missingTarget },
+    });
+    expect(changedTransactions).toBe(0);
+    expect(actions(editor)).toEqual([]);
   });
 
   it("updates, enables, and removes an action without changing its identity", () => {
@@ -609,6 +674,28 @@ function timedReveal(
     atMs,
     visual: {
       kind: "reveal",
+      transition: {
+        kind: "fade",
+        durationMs,
+        easing: { kind: "preset", preset: "ease-in-out" },
+      },
+    },
+  };
+}
+
+function timedVisibility(
+  kind: "reveal" | "hide",
+  targetId: typeof IDS.firstParagraph,
+  atMs: number,
+  durationMs: number,
+): Omit<TimelineAnimateActionV1, "id"> {
+  return {
+    kind: "animate",
+    targetId,
+    isEnabled: true,
+    atMs,
+    visual: {
+      kind,
       transition: {
         kind: "fade",
         durationMs,

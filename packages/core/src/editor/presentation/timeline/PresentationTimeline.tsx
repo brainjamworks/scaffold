@@ -1,8 +1,10 @@
 import type { EmbeddedDataId, TimelineActionV1 } from "@scaffold/contracts";
 import { MinusIcon as Minus, PlusIcon as Plus } from "@phosphor-icons/react";
+import type { Editor } from "@tiptap/core";
 import {
   useEffect,
   useRef,
+  useState,
   useSyncExternalStore,
   type CSSProperties,
   type KeyboardEvent,
@@ -14,7 +16,16 @@ import {
 import { Button } from "@/ui/components/Button/Button";
 import { IconButton } from "@/ui/components/IconButton/IconButton";
 import { iconXs } from "@/ui/tokens/icon-sizes";
+import {
+  updatePresentationAction,
+  type NewPresentationTimelineAction,
+  type PresentationAuthoringCommandError,
+} from "@/editor/presentation/model";
 
+import {
+  PresentationActionEditor,
+  presentPresentationAuthoringCommandError,
+} from "./PresentationActionEditor";
 import type { PresentationTimelineController } from "./presentation-timeline-controller";
 import type {
   PresentationTimelineProjection,
@@ -26,15 +37,20 @@ export interface PresentationTimelineProps {
   readonly controller: PresentationTimelineController;
   readonly projection: PresentationTimelineProjection;
   readonly ariaLabel?: string;
+  readonly editor?: Editor;
 }
 
 export function PresentationTimeline({
   controller,
   projection,
   ariaLabel = "Presentation timeline",
+  editor,
 }: PresentationTimelineProps) {
   const timeViewportRef = useRef<HTMLDivElement>(null);
   const playheadPointerIdRef = useRef<number | null>(null);
+  const [authoringError, setAuthoringError] = useState<PresentationAuthoringCommandError | null>(
+    null,
+  );
   const snapshot = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
@@ -46,6 +62,15 @@ export function PresentationTimeline({
     "--sc-presentation-timeline-content-width": `${contentWidthPx}px`,
   } as CSSProperties;
   const rulerTicks = createRulerTicks(durationMs, snapshot.pixelsPerSecond);
+  const draftAction = snapshot.editDraft
+    ? projection.rows
+        .flatMap(({ actions }) => actions)
+        .find(({ id }) => id === snapshot.editDraft?.actionId)
+    : null;
+  const draftFeedback =
+    snapshot.editDraft && draftAction
+      ? deriveDraftFeedback(snapshot.editDraft, draftAction, projection, snapshot.pixelsPerSecond)
+      : null;
 
   useEffect(() => {
     const viewport = timeViewportRef.current;
@@ -248,6 +273,30 @@ export function PresentationTimeline({
               className="sc-presentation-timeline-lane-playhead"
               style={{ left: timeToPixels(snapshot.playheadDraftMs, snapshot.pixelsPerSecond) }}
             />
+            {draftFeedback ? (
+              <>
+                {draftFeedback.alignmentMs === null ? null : (
+                  <span
+                    aria-hidden="true"
+                    className="sc-presentation-timeline-alignment-guide"
+                    style={{
+                      left: timeToPixels(draftFeedback.alignmentMs, snapshot.pixelsPerSecond),
+                    }}
+                  />
+                )}
+                {draftFeedback.overlaps.map(({ actionId, startMs, endMs }) => (
+                  <span
+                    key={actionId}
+                    aria-hidden="true"
+                    className="sc-presentation-timeline-overlap-indicator"
+                    style={{
+                      left: timeToPixels(startMs, snapshot.pixelsPerSecond),
+                      width: timeToPixels(endMs - startMs, snapshot.pixelsPerSecond),
+                    }}
+                  />
+                ))}
+              </>
+            ) : null}
             {projection.rows.map((row) => (
               <TimelineActionLane
                 key={row.targetId}
@@ -255,12 +304,26 @@ export function PresentationTimeline({
                 expanded={snapshot.selectedTargetId === row.targetId}
                 pixelsPerSecond={snapshot.pixelsPerSecond}
                 selectedActionId={snapshot.selectedActionId}
+                editDraft={snapshot.editDraft}
+                controller={controller}
+                durationMs={durationMs}
+                surfaceId={projection.surfaceId}
+                editor={editor}
                 onSelectAction={(actionId) => void controller.selectAction(actionId, row.targetId)}
+                onCommandError={setAuthoringError}
               />
             ))}
           </div>
         </div>
       </div>
+      {editor && snapshot.selectedTargetId ? (
+        <PresentationActionEditor editor={editor} controller={controller} projection={projection} />
+      ) : null}
+      {authoringError ? (
+        <p className="sc-presentation-timeline-authoring-error" role="alert">
+          {presentPresentationAuthoringCommandError(authoringError)}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -304,14 +367,133 @@ function TimelineActionLane({
   expanded,
   pixelsPerSecond,
   selectedActionId,
+  editDraft,
+  controller,
+  durationMs,
+  surfaceId,
+  editor,
   onSelectAction,
+  onCommandError,
 }: {
   readonly row: PresentationTimelineRow;
   readonly expanded: boolean;
   readonly pixelsPerSecond: number;
   readonly selectedActionId: EmbeddedDataId | null;
+  readonly editDraft: ReturnType<PresentationTimelineController["getSnapshot"]>["editDraft"];
+  readonly controller: PresentationTimelineController;
+  readonly durationMs: number;
+  readonly surfaceId: PresentationTimelineProjection["surfaceId"];
+  readonly editor: Editor | undefined;
   readonly onSelectAction: (actionId: TimelineActionV1["id"]) => void;
+  readonly onCommandError: (error: PresentationAuthoringCommandError | null) => void;
 }) {
+  const gestureRef = useRef<{
+    readonly pointerId: number;
+    readonly startX: number;
+    readonly action: TimelineActionV1;
+    readonly mode: "move" | "resize";
+  } | null>(null);
+
+  function beginTemporalEdit(action: TimelineActionV1, event: PointerEvent<HTMLButtonElement>) {
+    if (!editor || event.button !== 0 || selectedActionId !== action.id) return;
+    event.preventDefault();
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const mode =
+      durationOfAction(action) > 0 && event.clientX >= bounds.right - 4 ? "resize" : "move";
+    gestureRef.current = { pointerId: event.pointerId, startX: event.clientX, action, mode };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    controller.setEditDraft(
+      mode === "resize"
+        ? {
+            kind: "resize-action",
+            actionId: action.id,
+            atMs: action.atMs,
+            durationMs: durationOfAction(action),
+          }
+        : { kind: "move-action", actionId: action.id, atMs: action.atMs },
+    );
+  }
+
+  function updateTemporalDraft(event: PointerEvent<HTMLButtonElement>) {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    const deltaMs = Math.round(((event.clientX - gesture.startX) / pixelsPerSecond) * 1_000);
+    const actionDurationMs = durationOfAction(gesture.action);
+    if (gesture.mode === "move") {
+      controller.setEditDraft({
+        kind: "move-action",
+        actionId: gesture.action.id,
+        atMs: clamp(gesture.action.atMs + deltaMs, 0, durationMs - actionDurationMs),
+      });
+    } else {
+      controller.setEditDraft({
+        kind: "resize-action",
+        actionId: gesture.action.id,
+        atMs: gesture.action.atMs,
+        durationMs: clamp(actionDurationMs + deltaMs, 1, durationMs - gesture.action.atMs),
+      });
+    }
+  }
+
+  function finishTemporalEdit(event: PointerEvent<HTMLButtonElement>) {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId || !editor) return;
+    gestureRef.current = null;
+    const draft = controller.getSnapshot().editDraft;
+    controller.clearEditDraft();
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    if (!draft || draft.actionId !== gesture.action.id) return;
+    const result = updatePresentationAction({
+      editor,
+      surfaceId,
+      actionId: gesture.action.id,
+      action: temporalAction(gesture.action, draft),
+    });
+    onCommandError(result.isErr() ? result.error : null);
+  }
+
+  function cancelTemporalEdit(): void {
+    gestureRef.current = null;
+    controller.clearEditDraft();
+  }
+
+  function nudgeTemporalEdit(
+    action: TimelineActionV1,
+    event: KeyboardEvent<HTMLButtonElement>,
+  ): void {
+    if (
+      !editor ||
+      selectedActionId !== action.id ||
+      (event.key !== "ArrowLeft" && event.key !== "ArrowRight")
+    ) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const deltaMs = (event.shiftKey ? 1_000 : 100) * (event.key === "ArrowLeft" ? -1 : 1);
+    const actionDurationMs = durationOfAction(action);
+    const draft =
+      event.altKey && actionDurationMs > 0
+        ? {
+            kind: "resize-action" as const,
+            actionId: action.id,
+            atMs: action.atMs,
+            durationMs: clamp(actionDurationMs + deltaMs, 1, durationMs - action.atMs),
+          }
+        : {
+            kind: "move-action" as const,
+            actionId: action.id,
+            atMs: clamp(action.atMs + deltaMs, 0, durationMs - actionDurationMs),
+          };
+    const result = updatePresentationAction({
+      editor,
+      surfaceId,
+      actionId: action.id,
+      action: temporalAction(action, draft),
+    });
+    onCommandError(result.isErr() ? result.error : null);
+  }
+
   return (
     <div
       className="sc-presentation-timeline-action-lane"
@@ -319,7 +501,10 @@ function TimelineActionLane({
       aria-label={`${row.label} actions`}
     >
       {row.actions.map((action) => {
-        const actionDurationMs = durationOfAction(action);
+        const draft = editDraft?.actionId === action.id ? editDraft : null;
+        const atMs = draft?.atMs ?? action.atMs;
+        const actionDurationMs =
+          draft?.kind === "resize-action" ? draft.durationMs : durationOfAction(action);
         const label = labelForAction(action);
         return (
           <button
@@ -329,11 +514,18 @@ function TimelineActionLane({
             data-action-kind={action.kind}
             data-enabled={action.isEnabled}
             data-point={actionDurationMs === 0}
+            data-draft={draft !== null}
             aria-label={`${label} at ${formatTime(action.atMs)} on ${row.label}`}
+            aria-keyshortcuts="ArrowLeft ArrowRight Alt+ArrowLeft Alt+ArrowRight"
             aria-pressed={selectedActionId === action.id}
             onClick={() => onSelectAction(action.id)}
+            onKeyDown={(event) => nudgeTemporalEdit(action, event)}
+            onPointerCancel={cancelTemporalEdit}
+            onPointerDown={(event) => beginTemporalEdit(action, event)}
+            onPointerMove={updateTemporalDraft}
+            onPointerUp={finishTemporalEdit}
             style={{
-              left: timeToPixels(action.atMs, pixelsPerSecond),
+              left: timeToPixels(atMs, pixelsPerSecond),
               width: Math.max(6, timeToPixels(actionDurationMs, pixelsPerSecond)),
             }}
           >
@@ -355,6 +547,76 @@ function durationOfAction(action: TimelineActionV1): number {
     return action.visual.transition.kind === "instant" ? 0 : action.visual.transition.durationMs;
   }
   return action.visual.durationMs;
+}
+
+function temporalAction(
+  action: TimelineActionV1,
+  draft: NonNullable<ReturnType<PresentationTimelineController["getSnapshot"]>["editDraft"]>,
+): NewPresentationTimelineAction {
+  let updated: TimelineActionV1 = { ...action, atMs: draft.atMs };
+  if (draft.kind === "resize-action") {
+    if (action.kind !== "animate") {
+      throw new Error(`Presentation action "${action.id}" cannot be resized.`);
+    }
+    const visual = action.visual;
+    updated = {
+      ...action,
+      atMs: draft.atMs,
+      visual:
+        visual.kind === "reveal" || visual.kind === "hide"
+          ? {
+              ...visual,
+              transition:
+                visual.transition.kind === "instant"
+                  ? visual.transition
+                  : { ...visual.transition, durationMs: draft.durationMs },
+            }
+          : { ...visual, durationMs: draft.durationMs },
+    };
+  }
+  const { id: _id, ...withoutId } = updated;
+  return withoutId;
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function deriveDraftFeedback(
+  draft: NonNullable<ReturnType<PresentationTimelineController["getSnapshot"]>["editDraft"]>,
+  draftAction: TimelineActionV1,
+  projection: PresentationTimelineProjection,
+  pixelsPerSecond: number,
+) {
+  const draftDurationMs =
+    draft.kind === "resize-action" ? draft.durationMs : durationOfAction(draftAction);
+  const draftEndMs = draft.atMs + draftDurationMs;
+  const otherActions = projection.rows
+    .flatMap(({ actions }) => actions)
+    .filter((action) => action.id !== draft.actionId && action.isEnabled);
+  const boundaries = otherActions.flatMap((action) => {
+    const durationMs = durationOfAction(action);
+    return durationMs > 0 ? [action.atMs, action.atMs + durationMs] : [action.atMs];
+  });
+  const draftEdges = draftDurationMs > 0 ? [draft.atMs, draftEndMs] : [draft.atMs];
+  const toleranceMs = (4 / pixelsPerSecond) * 1_000;
+  const alignmentMs = boundaries
+    .map((boundaryMs) => ({
+      boundaryMs,
+      distanceMs: Math.min(...draftEdges.map((edgeMs) => Math.abs(edgeMs - boundaryMs))),
+    }))
+    .filter(({ distanceMs }) => distanceMs <= toleranceMs)
+    .sort((left, right) => left.distanceMs - right.distanceMs)[0]?.boundaryMs;
+  const overlaps =
+    draftAction.isEnabled && draftDurationMs > 0
+      ? otherActions.flatMap((action) => {
+          const actionEndMs = action.atMs + durationOfAction(action);
+          const startMs = Math.max(draft.atMs, action.atMs);
+          const endMs = Math.min(draftEndMs, actionEndMs);
+          return endMs > startMs ? [{ actionId: action.id, startMs, endMs }] : [];
+        })
+      : [];
+  return { alignmentMs: alignmentMs ?? null, overlaps };
 }
 
 function labelForAction(action: TimelineActionV1): string {

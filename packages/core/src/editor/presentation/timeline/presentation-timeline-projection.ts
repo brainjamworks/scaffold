@@ -74,6 +74,7 @@ export interface PresentationTimelineProjection {
   readonly durationMs: number | null;
   readonly narration: SurfacePresentationNarrationV1 | null;
   readonly transition: SurfaceTransitionV1 | null;
+  readonly orderedActionIds: readonly EmbeddedDataId[];
   readonly rows: readonly PresentationTimelineRow[];
   readonly diagnostics: readonly PresentationTimelineProjectionDiagnostic[];
 }
@@ -98,6 +99,7 @@ export function projectPresentationTimeline(
       durationMs: null,
       narration: null,
       transition: null,
+      orderedActionIds: [],
       rows: [],
       diagnostics: [Object.freeze({ reason: "surface-not-found", surfaceId })],
     });
@@ -194,6 +196,7 @@ export function projectPresentationTimeline(
     durationMs: timeline?.durationMs ?? null,
     narration: timeline?.narration ?? null,
     transition: timeline?.transition ?? null,
+    orderedActionIds: timeline?.actions.map(({ id }) => id) ?? [],
     rows,
     diagnostics,
   });
@@ -353,6 +356,7 @@ function freezeProjection(
 ): PresentationTimelineProjection {
   return Object.freeze({
     ...projection,
+    orderedActionIds: Object.freeze([...projection.orderedActionIds]),
     rows: Object.freeze([...projection.rows]),
     diagnostics: Object.freeze([...projection.diagnostics]),
   });

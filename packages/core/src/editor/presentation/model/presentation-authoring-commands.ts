@@ -123,30 +123,52 @@ export function createPresentationAction({
   readonly surfaceId: EmbeddedNodeId;
   readonly action: NewPresentationTimelineAction;
 }): PresentationAuthoringCommandResult<EmbeddedDataId> {
+  const created = createPresentationActions({ editor, surfaceId, actions: [action] });
+  return created.isErr() ? Result.err(created.error) : Result.ok(created.value[0]!);
+}
+
+export function createPresentationActions({
+  editor,
+  surfaceId,
+  actions,
+}: {
+  readonly editor: Editor;
+  readonly surfaceId: EmbeddedNodeId;
+  readonly actions: readonly [NewPresentationTimelineAction, ...NewPresentationTimelineAction[]];
+}): PresentationAuthoringCommandResult<readonly EmbeddedDataId[]> {
   const prepared = prepareSurfaceMutation(editor, surfaceId);
   if (prepared.isErr()) return Result.err(prepared.error);
-  const id = createUnusedActionId(prepared.value.configuration);
-  const parsed = TimelineActionV1Schema.safeParse({ ...action, id });
-  if (!parsed.success) {
-    return Result.err(
-      Object.freeze({
-        reason: "invalid-new-action",
-        surfaceId,
-        actionId: id,
-        issues: freezeInputIssues(parsed.error.issues),
-      }),
-    );
+
+  const ids: EmbeddedDataId[] = [];
+  const created: TimelineActionV1[] = [];
+  let timeline = prepared.value.timeline;
+  for (const action of actions) {
+    const id = createUnusedActionId(prepared.value.configuration, ids);
+    const parsed = TimelineActionV1Schema.safeParse({ ...action, id });
+    if (!parsed.success) {
+      return Result.err(
+        Object.freeze({
+          reason: "invalid-new-action",
+          surfaceId,
+          actionId: id,
+          issues: freezeInputIssues(parsed.error.issues),
+        }),
+      );
+    }
+    const schedule = validateActionSchedule(timeline, parsed.data);
+    if (schedule.isErr()) return Result.err(schedule.error);
+    ids.push(id);
+    created.push(parsed.data);
+    timeline = { ...timeline, actions: [...timeline.actions, parsed.data] };
   }
-  const created = parsed.data;
-  const schedule = validateActionSchedule(prepared.value.timeline, created);
-  if (schedule.isErr()) return Result.err(schedule.error);
+
   const next = replaceTimeline(
     prepared.value.configuration,
     prepared.value.timeline,
-    stableTimeOrder([...prepared.value.timeline.actions, created]),
+    stableTimeOrder([...prepared.value.timeline.actions, ...created]),
   );
-  const written = validateAndDispatch(editor, next, prepared.value.courseStructure, id);
-  return written.isErr() ? Result.err(written.error) : Result.ok(id);
+  const written = validateAndDispatch(editor, next, prepared.value.courseStructure, ids);
+  return written.isErr() ? Result.err(written.error) : Result.ok(Object.freeze(ids));
 }
 
 export function updatePresentationAction({
@@ -183,7 +205,7 @@ export function updatePresentationAction({
       stableTimeOrder(actions),
     ),
     prepared.value.courseStructure,
-    actionId,
+    [actionId],
   );
 }
 
@@ -430,9 +452,12 @@ function createEmptyTimeline(surfaceId: EmbeddedNodeId): SurfacePresentationTime
   return { surfaceId, durationMs: 0, actions: [] };
 }
 
-function createUnusedActionId(configuration: PresentationConfigurationV1): EmbeddedDataId {
+function createUnusedActionId(
+  configuration: PresentationConfigurationV1,
+  reserved: readonly EmbeddedDataId[] = [],
+): EmbeddedDataId {
   const used = new Set(
-    configuration.surfaces.flatMap(({ actions }) => actions.map(({ id }) => id)),
+    configuration.surfaces.flatMap(({ actions }) => actions.map(({ id }) => id)).concat(reserved),
   );
   let id = createEmbeddedDataId();
   while (used.has(id)) id = createEmbeddedDataId();
@@ -521,24 +546,27 @@ function validateAndDispatch(
   editor: Editor,
   candidate: PresentationConfigurationV1,
   courseStructure: ProjectedSlideshowCourseStructure,
-  validateActionId?: EmbeddedDataId,
+  validateActionIds?: readonly EmbeddedDataId[],
 ): PresentationAuthoringCommandResult {
   const configuration = PresentationConfigurationV1Schema.parse(candidate);
   const semanticSnapshot = getSemanticDocumentControllerForEditor(editor).getSnapshot().semantics;
-  const compiled = compilePresentation({
-    configuration: validateActionId
-      ? configurationWithEnabledAction(configuration, validateActionId)
-      : configuration,
-    courseStructure,
-    semanticSnapshot,
-  });
-  if (compiled.isErr()) {
-    if (compiled.error.reason === "surface-coverage-missing") {
-      throw new Error(
-        `Semantic Address Book has no current Surface "${compiled.error.surfaceId}".`,
-      );
+  const configurations = validateActionIds?.length
+    ? validateActionIds.map((actionId) => configurationWithEnabledAction(configuration, actionId))
+    : [configuration];
+  for (const configurationToCompile of configurations) {
+    const compiled = compilePresentation({
+      configuration: configurationToCompile,
+      courseStructure,
+      semanticSnapshot,
+    });
+    if (compiled.isErr()) {
+      if (compiled.error.reason === "surface-coverage-missing") {
+        throw new Error(
+          `Semantic Address Book has no current Surface "${compiled.error.surfaceId}".`,
+        );
+      }
+      return Result.err(compiled.error);
     }
-    return Result.err(compiled.error);
   }
   dispatchPresentation(editor, configuration);
   return Result.ok();
