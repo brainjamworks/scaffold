@@ -181,6 +181,46 @@ export function getLayoutInteractionStoreState(editor: Editor): LayoutInteractio
   return layoutInteractionStoreForEditor(editor).getState();
 }
 
+export function replaceLayoutFeatureViewStateForOwners(
+  editor: Editor,
+  ownerIds: readonly string[],
+): void {
+  const owners = new Set(ownerIds);
+  layoutInteractionStoreForEditor(editor).setState((state) => {
+    const activePageByLayoutId = withoutOwnerEntries(state.activePageByLayoutId, owners);
+    const activeTabByLayoutId = withoutOwnerEntries(state.activeTabByLayoutId, owners);
+    const lastSectionChangeByLayoutId = withoutOwnerEntries(
+      state.lastSectionChangeByLayoutId,
+      owners,
+    );
+    const openAccordionSectionsByLayoutId = withoutOwnerEntries(
+      state.openAccordionSectionsByLayoutId,
+      owners,
+    );
+    const pendingProgrammaticAccordionOpenIdsByLayoutId = withoutOwnerEntries(
+      state.pendingProgrammaticAccordionOpenIdsByLayoutId,
+      owners,
+    );
+    if (
+      activePageByLayoutId === state.activePageByLayoutId &&
+      activeTabByLayoutId === state.activeTabByLayoutId &&
+      lastSectionChangeByLayoutId === state.lastSectionChangeByLayoutId &&
+      openAccordionSectionsByLayoutId === state.openAccordionSectionsByLayoutId &&
+      pendingProgrammaticAccordionOpenIdsByLayoutId ===
+        state.pendingProgrammaticAccordionOpenIdsByLayoutId
+    ) {
+      return state;
+    }
+    return {
+      activePageByLayoutId,
+      activeTabByLayoutId,
+      lastSectionChangeByLayoutId,
+      openAccordionSectionsByLayoutId,
+      pendingProgrammaticAccordionOpenIdsByLayoutId,
+    };
+  });
+}
+
 export function subscribeToLayoutInteractionStore(
   editor: Editor,
   listener: (
@@ -196,4 +236,17 @@ export function useLayoutInteractionStore<Selected>(
   selector: (state: LayoutInteractionStoreState) => Selected,
 ): Selected {
   return useStore(layoutInteractionStoreForEditor(editor), selector);
+}
+
+function withoutOwnerEntries<Value>(
+  entries: Record<string, Value>,
+  ownerIds: ReadonlySet<string>,
+): Record<string, Value> {
+  let next = entries;
+  for (const ownerId of ownerIds) {
+    if (!Object.hasOwn(next, ownerId)) continue;
+    if (next === entries) next = { ...entries };
+    delete next[ownerId];
+  }
+  return next;
 }
