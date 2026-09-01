@@ -628,7 +628,7 @@ describe("Slideshow Presentation learner integration", () => {
     );
 
     const next = await screen.findByRole("button", { name: "Next slide" });
-    await waitFor(() => expect(outgoingPresentation.listenerCount).toBe(1));
+    await waitFor(() => expect(outgoingPresentation.listenerCount).toBe(2));
     await userEvent.click(next);
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 of 2"));
@@ -795,12 +795,11 @@ describe("Slideshow Presentation learner integration", () => {
     expect(lifecycle.disposals).toBe(lifecycle.creations);
   });
 
-  it("leaves outstanding-Wait policy off Previous and Course Section navigation", async () => {
+  it("blocks Previous and Course Section navigation until the active learner Wait passes", async () => {
     const user = userEvent.setup();
     const prepared = prepareSlideshowDocument(sectionedTabsSlideshowDocument());
     const programs = new Map<SurfaceId, SlideshowSurfaceRuntimeProgram>([
       [FIRST_SURFACE_ID, createTabsLearnerWaitProgram()],
-      [SECOND_SURFACE_ID, manualWaitProgram(SECOND_SURFACE_ID)],
     ]);
     renderTest(
       <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
@@ -815,24 +814,31 @@ describe("Slideshow Presentation learner integration", () => {
     const next = await screen.findByRole("button", { name: "Next slide" });
     await waitFor(() => expect(next).not.toBeDisabled());
     await user.click(next);
-    await waitFor(() => expect(next).toBeDisabled());
-    expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
-
-    await user.click(
-      screen.getByRole("button", { name: "Introduction, Course Section 1 of 2" }),
-    );
-    await user.click(
-      screen.getByRole("menuitemradio", { name: "Practice, Course Section 2 of 2" }),
-    );
-
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 of 2"));
     await waitFor(() => expect(next).not.toBeDisabled());
     await user.click(next);
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Previous slide" })).not.toBeDisabled(),
-    );
+    await waitFor(() => expect(next).toBeDisabled());
+    expect(screen.getByRole("status")).toHaveTextContent("2 of 2");
 
-    await user.click(screen.getByRole("button", { name: "Previous slide" }));
+    const courseSectionButton = screen.getByRole("button", {
+      name: "Practice, Course Section 2 of 2",
+    });
+    const previous = screen.getByRole("button", { name: "Previous slide" });
+    expect(courseSectionButton).toBeDisabled();
+    expect(previous).toBeDisabled();
+    expect(
+      screen.getByText("Complete the required interaction before moving to another slide."),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Practice" }));
+
+    await waitFor(() => expect(courseSectionButton).not.toBeDisabled());
+    expect(previous).not.toBeDisabled();
+    expect(
+      screen.queryByText("Complete the required interaction before moving to another slide."),
+    ).toBeNull();
+
+    await user.click(previous);
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("1 of 2"));
   });
@@ -991,7 +997,7 @@ function createTabsLearnerWaitProgram(): SlideshowSurfaceRuntimeProgram {
         waits: Object.freeze([
           {
             kind: "learner-wait",
-            id: "practice-selected-wait" as PresentationWaitId,
+            id: "practicWait1" as PresentationWaitId,
             atMs: 0,
             requirement: { kind: "event", ...practiceSelected },
           },
@@ -1057,12 +1063,14 @@ function sectionedTabsSlideshowDocument(): JSONContent {
   const content = tabsSlideshowDocument();
   const courseDocument = content.content?.[0];
   const secondSurface = courseDocument?.content?.pop();
-  if (!courseDocument || !secondSurface) {
-    throw new Error("Sectioned Slideshow fixture is missing its second Surface.");
+  const tabsSurface = courseDocument?.content?.pop();
+  if (!courseDocument || !secondSurface || !tabsSurface) {
+    throw new Error("Sectioned Slideshow fixture is missing its Surfaces.");
   }
   courseDocument.content?.push(
-    { type: "courseSection", attrs: { id: "courseSect02", title: "Practice" } },
     secondSurface,
+    { type: "courseSection", attrs: { id: "courseSect02", title: "Practice" } },
+    tabsSurface,
   );
   return content;
 }
@@ -1136,26 +1144,6 @@ function configuredPresentationProgram(surfaceId: SurfaceId): SlideshowSurfaceRu
         durationMs: 100,
         cues: Object.freeze([]),
         waits: Object.freeze([]),
-      }),
-    }),
-  });
-}
-
-function manualWaitProgram(surfaceId: SurfaceId): SlideshowSurfaceRuntimeProgram {
-  return Object.freeze({
-    presentation: Object.freeze({
-      autoAdvance: false,
-      timeline: Object.freeze({
-        surfaceId,
-        durationMs: 100,
-        cues: Object.freeze([]),
-        waits: Object.freeze([
-          Object.freeze({
-            kind: "manual-wait" as const,
-            id: "manual-navigation-policy" as PresentationWaitId,
-            atMs: 0,
-          }),
-        ]),
       }),
     }),
   });

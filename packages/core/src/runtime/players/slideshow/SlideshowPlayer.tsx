@@ -45,6 +45,7 @@ import { getSlideshowNavigationState, getSlideshowSurfaceStates } from "./slides
 import { createRequestSurfaceChange } from "./slideshow-surface-change";
 import type { SlideshowSurfaceRuntimeProgramSource } from "./slideshow-surface-runtime-composition";
 import { createSurfaceExitEnvironment } from "./surface-exit-environment";
+import { getSurfaceExitGuidance } from "./surface-exit-guidance";
 import { SurfaceExitEnvironmentProvider } from "./SurfaceExitEnvironmentProvider";
 import { useSlideshowSurfaceRuntime } from "./use-slideshow-surface-runtime";
 import "./SlideshowPlayer.css";
@@ -122,6 +123,7 @@ export function SlideshowPlayer({
       ? {}
       : { programSource: surfaceRuntimeProgramSource }),
     requestSurfaceChange,
+    surfaceExitEnvironment,
   });
   const handleRendererReady = useCallback(
     (editor: TiptapEditor) => {
@@ -145,6 +147,9 @@ export function SlideshowPlayer({
   );
   const surfaceNavigationDescriptionId = useId();
   const surfaceNavigationBlocked = surfaceExitSnapshot.status === "blocked";
+  const surfaceNavigationGuidance = surfaceNavigationBlocked
+    ? getSurfaceExitGuidance(surfaceExitSnapshot.blockers)
+    : null;
   const surfaceNavigationAriaDescribedBy = surfaceNavigationBlocked
     ? surfaceNavigationDescriptionId
     : undefined;
@@ -485,7 +490,7 @@ export function SlideshowPlayer({
                     </div>
                     {surfaceNavigationBlocked ? (
                       <span id={surfaceNavigationDescriptionId} className="sc-sr-only">
-                        Complete this quiz before moving to another slide.
+                        {surfaceNavigationGuidance}
                       </span>
                     ) : null}
                   </div>

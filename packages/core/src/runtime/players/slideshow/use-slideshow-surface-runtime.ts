@@ -16,6 +16,7 @@ import type {
   PresentationPlaybackSnapshot,
 } from "@/runtime/presentation/presentation-playback-session";
 
+import { createPresentationWaitSurfaceExitGuard } from "./presentation-wait-surface-exit-guard";
 import type { RequestSurfaceChange } from "./slideshow-surface-change";
 import {
   assertSlideshowSurfaceRuntimeProgramIdentity,
@@ -24,6 +25,7 @@ import {
   type SlideshowSurfaceRuntimeProgram,
   type SlideshowSurfaceRuntimeProgramSource,
 } from "./slideshow-surface-runtime-composition";
+import type { SurfaceExitEnvironment } from "./surface-exit-environment";
 
 export type SlideshowNextMode = "play" | "advance" | "navigate" | "disabled";
 
@@ -49,6 +51,7 @@ interface UseSlideshowSurfaceRuntimeInput {
   readonly editor: TiptapEditor | null;
   readonly programSource?: SlideshowSurfaceRuntimeProgramSource;
   readonly requestSurfaceChange: RequestSurfaceChange;
+  readonly surfaceExitEnvironment: SurfaceExitEnvironment;
 }
 
 interface MountedSurfaceRuntime {
@@ -65,6 +68,7 @@ export function useSlideshowSurfaceRuntime({
   editor,
   programSource,
   requestSurfaceChange,
+  surfaceExitEnvironment,
 }: UseSlideshowSurfaceRuntimeInput): SlideshowSurfaceRuntimeState {
   const program = useMemo(() => {
     if (activeSurfaceId === null || programSource === undefined) return undefined;
@@ -89,18 +93,40 @@ export function useSlideshowSurfaceRuntime({
     const semanticTargets = getSemanticTargetInteractionEnvironmentForEditor(editor).coordinator;
     let active = true;
     let composition: SlideshowSurfaceRuntimeComposition | undefined;
+    let unregisterPresentationGuard: (() => void) | undefined;
     const cancelReadiness = controlBindings.notifyWhenOwnersMounted(
       deriveRequiredControlBindingOwnerIds(program),
       () => {
         if (!active) return;
-        composition = createSlideshowSurfaceRuntimeComposition({
+        const nextComposition = createSlideshowSurfaceRuntimeComposition({
           surfaceId: activeSurfaceId,
           program,
           controlBindings,
           semanticTargets,
           requestSurfaceChange,
         });
-        setMountedRuntime({ surfaceId: activeSurfaceId, editor, program, composition });
+        let nextUnregisterPresentationGuard: (() => void) | undefined;
+        try {
+          if (nextComposition.presentationSession) {
+            nextUnregisterPresentationGuard = surfaceExitEnvironment.registerGuard(
+              createPresentationWaitSurfaceExitGuard({
+                surfaceId: activeSurfaceId,
+                session: nextComposition.presentationSession,
+              }),
+            );
+          }
+        } catch (error) {
+          nextComposition.dispose();
+          throw error;
+        }
+        composition = nextComposition;
+        unregisterPresentationGuard = nextUnregisterPresentationGuard;
+        setMountedRuntime({
+          surfaceId: activeSurfaceId,
+          editor,
+          program,
+          composition: nextComposition,
+        });
       },
     );
 
@@ -109,14 +135,27 @@ export function useSlideshowSurfaceRuntime({
       cancelReadiness();
       const outgoingComposition = composition;
       composition = undefined;
+      const unregisterOutgoingPresentationGuard = unregisterPresentationGuard;
+      unregisterPresentationGuard = undefined;
       if (outgoingComposition) {
         setMountedRuntime((candidate) =>
           candidate?.composition === outgoingComposition ? null : candidate,
         );
-        outgoingComposition.dispose();
+        let firstDefect: unknown;
+        try {
+          unregisterOutgoingPresentationGuard?.();
+        } catch (error) {
+          firstDefect = error;
+        }
+        try {
+          outgoingComposition.dispose();
+        } catch (error) {
+          firstDefect ??= error;
+        }
+        if (firstDefect !== undefined) throw firstDefect;
       }
     };
-  }, [activeSurfaceId, editor, program, requestSurfaceChange]);
+  }, [activeSurfaceId, editor, program, requestSurfaceChange, surfaceExitEnvironment]);
 
   const presentationSession = currentRuntime?.composition.presentationSession;
   const subscribe = useCallback(
