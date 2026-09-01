@@ -172,8 +172,12 @@ export function useSlideshowSurfaceRuntime({
   const subscribeGateObservation = useCallback(
     (listener: () => void) =>
       learnerRuntime?.subscribeGateObservation(() => {
-        // Commit closing inertness before the learner runtime enters the responsible rule turn.
-        flushSync(listener);
+        if (learnerRuntime.getGateObservationSnapshot().status === "satisfaction-observed") {
+          // Commit closing inertness before the learner runtime enters the responsible rule turn.
+          flushSync(listener);
+          return;
+        }
+        listener();
       }) ?? (() => undefined),
     [learnerRuntime],
   );
