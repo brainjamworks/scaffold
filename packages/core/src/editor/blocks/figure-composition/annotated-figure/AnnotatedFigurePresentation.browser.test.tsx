@@ -1,7 +1,21 @@
 import { createRoot, type Root } from "react-dom/client";
 import { Schema } from "@tiptap/pm/model";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import {
+  EmbeddedDataIdSchema,
+  EmbeddedNodeIdSchema,
+  type EmbeddedNodeId,
+} from "@scaffold/contracts";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import type {
+  CompiledSurfacePresentationVisualProgram,
+  CompiledVisualTarget,
+} from "@/presentation/model";
+import { createPresentationPlaybackSession } from "@/runtime/presentation/presentation-playback-session";
+import { createAnimeVisualAnimationDriver } from "@/runtime/presentation/visual/anime-visual-animation-driver";
+import { createPresentationVisualRuntime } from "@/runtime/presentation/visual/presentation-visual-runtime";
+import { createPresentationVisualStateRenderer } from "@/runtime/presentation/visual/presentation-visual-state-renderer";
+import { createVisualTargetResolver } from "@/runtime/presentation/visual/visual-target-resolver";
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
@@ -74,6 +88,127 @@ describe("Annotated Figure presentation contract", () => {
       expect(caption).toHaveAttribute("data-presentation-target-id", annotation.id);
       expect(caption.querySelector(`[data-presentation-target-id="${annotation.id}"]`)).toBeNull();
     }
+  });
+
+  it("plays, seeks and tears down real annotation choreography without learner interaction", async () => {
+    const surfaceId = EmbeddedNodeIdSchema.parse("surface00001");
+    const firstId = EmbeddedNodeIdSchema.parse("annotation01");
+    const secondId = EmbeddedNodeIdSchema.parse("annotation02");
+    const annotations = [annotationProjection(firstId, 1), annotationProjection(secondId, 2)];
+    const host = document.createElement("div");
+    const outsideFocus = document.createElement("button");
+    outsideFocus.textContent = "Outside focus";
+    const surfaceRoot = document.createElement("div");
+    surfaceRoot.setAttribute("data-presentation-target-id", surfaceId);
+    surfaceRoot.className = "sc-course-annotated-figure";
+    host.append(outsideFocus, surfaceRoot);
+    document.body.append(host);
+    outsideFocus.focus();
+    const activation = vi.fn();
+    const clicks = vi.fn();
+    surfaceRoot.addEventListener("click", clicks);
+
+    const root = createRoot(surfaceRoot);
+    mountedRoots.push(root);
+    root.render(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <AnnotatedFigureSurface
+          data={{
+            type: "annotated_figure",
+            source: { mode: "managed", mediaId: "annotated-figure-choreography" },
+            alt: "Choreographed annotations",
+            captionDisplay: "popover",
+          }}
+          annotations={annotations}
+          fileUrl={twoToOneImageUrl()}
+          markAnnotationTargets
+          onActivatePin={activation}
+        />
+      </CourseThemeProvider>,
+    );
+    await waitForCondition(() => surfaceRoot.querySelectorAll("[data-pin]").length === 2);
+
+    let motionMode: "normal" | "reduced-motion" = "normal";
+    const firstHarness = createVisualHarness({
+      surfaceId,
+      surfaceRoot,
+      visualProgram: annotationVisualProgram(surfaceId, firstId, secondId),
+      getMotionMode: () => motionMode,
+    });
+    const firstPin = requiredElement<HTMLElement>(surfaceRoot, `[data-pin="${firstId}"]`);
+    const secondPin = requiredElement<HTMLElement>(surfaceRoot, `[data-pin="${secondId}"]`);
+
+    expect(firstPin).toHaveAttribute("data-presentation-availability", "withheld");
+    expect(secondPin).toHaveAttribute("data-presentation-availability", "available");
+    firstHarness.session.play();
+    expect(firstHarness.session.getSnapshot().phase).toBe("playing");
+    firstHarness.session.pause();
+    expect(firstHarness.session.getSnapshot().phase).toBe("paused");
+
+    seek(firstHarness.session, 750);
+    expect(firstPin).toHaveAttribute("data-presentation-availability", "available");
+    expect(Number.parseFloat(firstPin.style.opacity)).toBeCloseTo(0.5, 1);
+    expect(secondPin).toHaveAttribute("data-presentation-availability", "withheld");
+    expect(secondPin).toHaveAttribute("aria-hidden", "true");
+    expect(secondPin).toHaveAttribute("inert");
+    expect(Number.parseFloat(secondPin.style.opacity)).toBeCloseTo(0.5, 1);
+
+    seek(firstHarness.session, 1_350);
+    expect(firstPin.style.transform).not.toBe("");
+    motionMode = "reduced-motion";
+    seek(firstHarness.session, 1_400);
+    expect(firstPin.style.transform).toBe("");
+    expect(firstPin.style.outline).toContain("3px");
+
+    motionMode = "normal";
+    seek(firstHarness.session, 0);
+    expect(firstPin).toHaveAttribute("data-presentation-availability", "withheld");
+    expect(secondPin).toHaveAttribute("data-presentation-availability", "available");
+    expect(document.activeElement).toBe(outsideFocus);
+    expect(activation).not.toHaveBeenCalled();
+    expect(clicks).not.toHaveBeenCalled();
+
+    firstHarness.dispose();
+    expect(firstPin).toHaveAttribute("data-presentation-target-id", firstId);
+    expect(firstPin).not.toHaveAttribute("data-presentation-availability");
+    expect(firstPin.style.opacity).toBe("");
+    expect(firstPin.style.outline).toBe("");
+
+    root.render(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <AnnotatedFigureRuntimeCaptionList
+          annotations={annotations}
+          markAnnotationTargets
+          presentation="expanded"
+        />
+      </CourseThemeProvider>,
+    );
+    await waitForCondition(
+      () => surfaceRoot.querySelectorAll("[data-annotation-id]").length === 2,
+    );
+    motionMode = "reduced-motion";
+    const captionHarness = createVisualHarness({
+      surfaceId,
+      surfaceRoot,
+      visualProgram: annotationVisualProgram(surfaceId, firstId, secondId),
+      getMotionMode: () => motionMode,
+    });
+    const firstCaption = requiredElement<HTMLElement>(
+      surfaceRoot,
+      `[data-annotation-id="${firstId}"]`,
+    );
+
+    seek(captionHarness.session, 1_400);
+    expect(firstCaption).toHaveAttribute("data-presentation-target-id", firstId);
+    expect(firstCaption).toHaveAttribute("data-presentation-availability", "available");
+    expect(firstCaption.style.outline).toContain("3px");
+    expect(activation).not.toHaveBeenCalled();
+    expect(clicks).not.toHaveBeenCalled();
+
+    captionHarness.dispose();
+    expect(firstCaption).toHaveAttribute("data-presentation-target-id", firstId);
+    expect(firstCaption).not.toHaveAttribute("data-presentation-availability");
+    expect(firstCaption.style.outline).toBe("");
   });
 
   it("keeps the empty media stage usable without a Course recipe", async () => {
@@ -281,4 +416,110 @@ function annotationProjection(id: string, number: number): AnnotatedFigureAnnota
     pos: number,
     captionNode,
   };
+}
+
+function annotationVisualProgram(
+  surfaceId: EmbeddedNodeId,
+  firstId: EmbeddedNodeId,
+  secondId: EmbeddedNodeId,
+): CompiledSurfacePresentationVisualProgram {
+  const transition = Object.freeze({
+    kind: "fade" as const,
+    durationMs: 500,
+    easing: Object.freeze({ kind: "preset" as const, preset: "linear" as const }),
+  });
+  const targets: Array<readonly [EmbeddedNodeId, CompiledVisualTarget]> = [
+    [firstId, Object.freeze({ targetId: firstId, initialVisibility: "withheld" as const })],
+    [secondId, Object.freeze({ targetId: secondId, initialVisibility: "visible" as const })],
+  ];
+  return Object.freeze({
+    surfaceId,
+    durationMs: 2_000,
+    targetById: new Map(targets),
+    segments: Object.freeze([
+      Object.freeze({
+        id: EmbeddedDataIdSchema.parse("reveal000001"),
+        targetId: firstId,
+        startMs: 500,
+        endMs: 1_000,
+        visual: Object.freeze({ kind: "reveal" as const, transition }),
+      }),
+      Object.freeze({
+        id: EmbeddedDataIdSchema.parse("hide00000001"),
+        targetId: secondId,
+        startMs: 500,
+        endMs: 1_000,
+        visual: Object.freeze({ kind: "hide" as const, transition }),
+      }),
+      Object.freeze({
+        id: EmbeddedDataIdSchema.parse("emphasize001"),
+        targetId: firstId,
+        startMs: 1_100,
+        endMs: 1_600,
+        visual: Object.freeze({
+          kind: "emphasize" as const,
+          effect: "pulse" as const,
+          durationMs: 500,
+          easing: Object.freeze({ kind: "preset" as const, preset: "linear" as const }),
+        }),
+      }),
+    ]),
+    sequenceContainers: Object.freeze([]),
+  });
+}
+
+function createVisualHarness({
+  surfaceId,
+  surfaceRoot,
+  visualProgram,
+  getMotionMode,
+}: {
+  readonly surfaceId: EmbeddedNodeId;
+  readonly surfaceRoot: HTMLElement;
+  readonly visualProgram: CompiledSurfacePresentationVisualProgram;
+  readonly getMotionMode: () => "normal" | "reduced-motion";
+}) {
+  const session = createPresentationPlaybackSession({
+    timeline: Object.freeze({
+      surfaceId,
+      durationMs: visualProgram.durationMs,
+      cues: Object.freeze([]),
+      waits: Object.freeze([]),
+    }),
+    monotonicClock: {
+      nowMs: () => 0,
+      subscribe: () => () => undefined,
+    },
+    cueExecutor: {
+      execute: async () => Object.freeze({ kind: "succeeded" as const }),
+    },
+    gatePort: {
+      waitUntilSatisfied: async () => undefined,
+    },
+    autoAdvance: false,
+  });
+  const visualRuntime = createPresentationVisualRuntime({
+    visualProgram,
+    session,
+    renderer: createPresentationVisualStateRenderer({
+      resolver: createVisualTargetResolver(surfaceRoot),
+      driver: createAnimeVisualAnimationDriver(),
+    }),
+    getMotionMode,
+  });
+  return {
+    session,
+    dispose() {
+      visualRuntime.dispose();
+      session.dispose();
+    },
+  };
+}
+
+function seek(
+  session: ReturnType<typeof createPresentationPlaybackSession>,
+  timeMs: number,
+): void {
+  const result = session.seek(timeMs);
+  if (result.isErr()) throw new Error(`Expected seek, received ${result.error.reason}.`);
 }
