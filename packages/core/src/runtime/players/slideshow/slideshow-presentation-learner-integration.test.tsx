@@ -487,12 +487,22 @@ describe("Slideshow Presentation learner integration", () => {
       expect(candidate).toHaveAttribute("data-content-interaction", "enabled");
       return candidate;
     });
+    const contentOwner = document.querySelector<HTMLElement>(
+      '[data-slideshow-overlay-owner="content"]',
+    );
+    const chromeOwner = document.querySelector<HTMLElement>(
+      '[data-slideshow-overlay-owner="chrome"]',
+    );
     expect(canvas).not.toHaveAttribute("inert");
+    expect(contentOwner).not.toHaveAttribute("inert");
+    expect(chromeOwner).not.toHaveAttribute("inert");
 
     act(() => learner.setSnapshot("satisfaction-observed"));
 
     await waitFor(() => expect(canvas).toHaveAttribute("inert"));
     expect(canvas).toHaveAttribute("data-content-interaction", "inert");
+    expect(contentOwner).toHaveAttribute("inert");
+    expect(chromeOwner).not.toHaveAttribute("inert");
   });
 
   it("keeps configured Next pending until the exact owner readiness request completes", async () => {
@@ -1202,12 +1212,20 @@ describe("Slideshow Presentation learner integration", () => {
       expect(overview).toHaveAttribute("aria-selected", "true");
       expect(next).not.toBeDisabled();
       expect(canvas).toHaveAttribute("inert");
+      expect(document.activeElement).toBe(screen.getByTestId("slideshow-controls"));
     });
     Reflect.deleteProperty(next, "removeAttribute");
     expect(selectionsWhenNextBecameReady).toContainEqual({
       overview: "true",
       practice: "false",
     });
+
+    await user.tab();
+
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Introduction, Course Section 1 of 1" }),
+    );
+    expect(canvas?.contains(document.activeElement)).toBe(false);
 
     await user.click(next);
 

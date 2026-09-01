@@ -592,11 +592,27 @@ describe("SlideshowPlayer", () => {
             artifactId="artifact-fullscreen-popover"
             initialContent={slideshowDocumentContentWithRuntimeHint()}
             sizing="embedded"
+            surfaceRuntimeProgramSource={(surfaceId) =>
+              Object.freeze({
+                presentation: Object.freeze({
+                  autoAdvance: false,
+                  timeline: Object.freeze({
+                    surfaceId,
+                    durationMs: 0,
+                    cues: Object.freeze([]),
+                    waits: Object.freeze([]),
+                  }),
+                }),
+              })
+            }
           />
         </AssessmentRuntimeProvider>
       </ScaffoldArtifactIdentityProvider>,
     );
 
+    await waitFor(() =>
+      expect(document.body.querySelector(".sc-slideshow-player__canvas")).toHaveAttribute("inert"),
+    );
     await user.click(await screen.findByRole("button", { name: "Enter fullscreen" }));
     await user.click(await screen.findByRole("button", { name: "Show a hint" }));
 
@@ -609,9 +625,18 @@ describe("SlideshowPlayer", () => {
     const hintPopover = document.body.querySelector(".sc-course-assessment-hint-popover--runtime");
 
     expect(viewport?.contains(hintPopover)).toBe(true);
+    const contentOwner = hintPopover?.closest<HTMLElement>(
+      '[data-slideshow-overlay-owner="content"]',
+    );
+    const chromeOwner = document.body.querySelector<HTMLElement>(
+      '[data-slideshow-overlay-owner="chrome"]',
+    );
+    expect(contentOwner).toHaveAttribute("inert");
+    expect(chromeOwner).not.toBeNull();
+    expect(chromeOwner).not.toHaveAttribute("inert");
   });
 
-  it("uses the viewport owner document and retargets one host across fullscreen", async () => {
+  it("uses the viewport owner document and retargets distinct content and chrome hosts", async () => {
     const frame = document.createElement("iframe");
     frame.dataset.testSlideshowOwnerDocument = "";
     document.body.append(frame);
@@ -646,38 +671,60 @@ describe("SlideshowPlayer", () => {
     );
 
     await waitFor(() => {
-      expect(ownerDocument.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(1);
+      expect(ownerDocument.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(2);
     });
     const viewport = ownerDocument.querySelector<HTMLElement>(".sc-slideshow-player__viewport");
     const canvas = ownerDocument.querySelector<HTMLElement>(".sc-slideshow-player__canvas");
     if (viewport === null || canvas === null) throw new Error("Expected Slideshow viewport/canvas");
-    const normalHost = ownerDocument.querySelector<HTMLElement>("[data-scaffold-overlay-host]");
-    if (normalHost === null) throw new Error("Expected normal Slideshow overlay host");
+    const normalContentOwner = slideshowOverlayOwner(ownerDocument, "content");
+    const normalChromeOwner = slideshowOverlayOwner(ownerDocument, "chrome");
+    const normalContentHost = normalContentOwner.querySelector<HTMLElement>(
+      "[data-scaffold-overlay-host]",
+    );
+    const normalChromeHost = normalChromeOwner.querySelector<HTMLElement>(
+      "[data-scaffold-overlay-host]",
+    );
+    if (normalContentHost === null || normalChromeHost === null) {
+      throw new Error("Expected normal Slideshow content and chrome hosts");
+    }
 
-    expect(normalHost.parentElement).toBe(ownerDocument.body);
-    expect(canvas.contains(normalHost)).toBe(false);
-    expect(normalHost.ownerDocument).toBe(ownerDocument);
+    expect(normalContentOwner.parentElement).toBe(ownerDocument.body);
+    expect(normalChromeOwner.parentElement).toBe(ownerDocument.body);
+    expect(canvas.contains(normalContentHost)).toBe(false);
+    expect(normalContentHost.ownerDocument).toBe(ownerDocument);
+    expect(normalChromeHost.ownerDocument).toBe(ownerDocument);
+    expect(normalContentOwner.dataset.slideshowOverlayInstance).toBe(
+      normalChromeOwner.dataset.slideshowOverlayInstance,
+    );
 
     await user.click(buttonByNameIn(ownerDocument, "Show a hint"));
     await waitFor(() => {
       expect(
-        normalHost.querySelector(".sc-course-assessment-hint-popover--runtime"),
+        normalContentHost.querySelector(".sc-course-assessment-hint-popover--runtime"),
       ).not.toBeNull();
     });
     await user.click(buttonByNameIn(ownerDocument, "Enter fullscreen"));
 
     await waitFor(() => {
-      expect(ownerDocument.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(1);
-      expect(viewport.querySelector("[data-scaffold-overlay-host]")).not.toBeNull();
+      expect(ownerDocument.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(2);
+      expect(viewport.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(2);
     });
-    const fullscreenHost = viewport.querySelector<HTMLElement>("[data-scaffold-overlay-host]");
-    if (fullscreenHost === null) throw new Error("Expected fullscreen Slideshow overlay host");
+    const fullscreenContentOwner = slideshowOverlayOwner(viewport, "content");
+    const fullscreenChromeOwner = slideshowOverlayOwner(viewport, "chrome");
+    const fullscreenContentHost = fullscreenContentOwner.querySelector<HTMLElement>(
+      "[data-scaffold-overlay-host]",
+    );
+    if (fullscreenContentHost === null) {
+      throw new Error("Expected fullscreen Slideshow content host");
+    }
 
     expect(requestFullscreen).toHaveBeenCalledOnce();
     expect(requestFullscreen.mock.instances[0]).toBe(viewport);
-    expect(normalHost.isConnected).toBe(false);
-    expect(fullscreenHost).not.toBe(normalHost);
-    expect(canvas.contains(fullscreenHost)).toBe(false);
+    expect(normalContentOwner.isConnected).toBe(false);
+    expect(normalChromeOwner.isConnected).toBe(false);
+    expect(fullscreenContentOwner).not.toBe(normalContentOwner);
+    expect(fullscreenChromeOwner).not.toBe(normalChromeOwner);
+    expect(canvas.contains(fullscreenContentHost)).toBe(false);
     const popoverAfterEntry = ownerDocument.querySelector(
       ".sc-course-assessment-hint-popover--runtime",
     );
@@ -685,24 +732,30 @@ describe("SlideshowPlayer", () => {
       await user.click(runtimeHintTriggerIn(ownerDocument));
       await waitFor(() => {
         expect(
-          fullscreenHost.querySelector(".sc-course-assessment-hint-popover--runtime"),
+          fullscreenContentHost.querySelector(".sc-course-assessment-hint-popover--runtime"),
         ).not.toBeNull();
       });
     } else {
-      expect(fullscreenHost.contains(popoverAfterEntry)).toBe(true);
+      expect(fullscreenContentHost.contains(popoverAfterEntry)).toBe(true);
     }
 
     await user.click(buttonByNameIn(ownerDocument, "Exit fullscreen"));
     await waitFor(() => {
-      expect(ownerDocument.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(1);
+      expect(ownerDocument.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(2);
       expect(viewport.querySelector("[data-scaffold-overlay-host]")).toBeNull();
     });
-    const restoredHost = ownerDocument.querySelector<HTMLElement>("[data-scaffold-overlay-host]");
-    if (restoredHost === null) throw new Error("Expected restored Slideshow overlay host");
+    const restoredContentOwner = slideshowOverlayOwner(ownerDocument, "content");
+    const restoredChromeOwner = slideshowOverlayOwner(ownerDocument, "chrome");
+    const restoredContentHost = restoredContentOwner.querySelector<HTMLElement>(
+      "[data-scaffold-overlay-host]",
+    );
+    if (restoredContentHost === null) throw new Error("Expected restored Slideshow content host");
 
     expect(exitFullscreen).toHaveBeenCalledOnce();
-    expect(fullscreenHost.isConnected).toBe(false);
-    expect(restoredHost.parentElement).toBe(ownerDocument.body);
+    expect(fullscreenContentOwner.isConnected).toBe(false);
+    expect(fullscreenChromeOwner.isConnected).toBe(false);
+    expect(restoredContentOwner.parentElement).toBe(ownerDocument.body);
+    expect(restoredChromeOwner.parentElement).toBe(ownerDocument.body);
     const popoverAfterExit = ownerDocument.querySelector(
       ".sc-course-assessment-hint-popover--runtime",
     );
@@ -710,11 +763,11 @@ describe("SlideshowPlayer", () => {
       await user.click(runtimeHintTriggerIn(ownerDocument));
       await waitFor(() => {
         expect(
-          restoredHost.querySelector(".sc-course-assessment-hint-popover--runtime"),
+          restoredContentHost.querySelector(".sc-course-assessment-hint-popover--runtime"),
         ).not.toBeNull();
       });
     } else {
-      expect(restoredHost.contains(popoverAfterExit)).toBe(true);
+      expect(restoredContentHost.contains(popoverAfterExit)).toBe(true);
     }
     expect(ownerAddEventListener.mock.calls.some(([type]) => type === "fullscreenchange")).toBe(
       true,
@@ -725,7 +778,8 @@ describe("SlideshowPlayer", () => {
 
     unmount();
 
-    expect(restoredHost.isConnected).toBe(false);
+    expect(restoredContentOwner.isConnected).toBe(false);
+    expect(restoredChromeOwner.isConnected).toBe(false);
     expect(ownerDocument.querySelector("[data-scaffold-overlay-host]")).toBeNull();
     expect(ownerRemoveEventListener.mock.calls.some(([type]) => type === "fullscreenchange")).toBe(
       true,
@@ -1326,7 +1380,10 @@ describe("SlideshowPlayer", () => {
     expect(menu).toHaveAccessibleName("Introduction, Course Section 1 of 2");
     expect(menu.closest("[aria-hidden='true']")).toBeNull();
     expect(viewport?.contains(menu)).toBe(true);
-    expect(menu.closest("[data-scaffold-overlay-host]")).not.toBeNull();
+    const chromeOwner = menu.closest<HTMLElement>('[data-slideshow-overlay-owner="chrome"]');
+    expect(chromeOwner).not.toBeNull();
+    expect(chromeOwner).not.toHaveAttribute("inert");
+    expect(menu.closest('[data-slideshow-overlay-owner="content"]')).toBeNull();
   });
 
   it("omits authoring and expanded slideshow product controls", async () => {
@@ -1375,4 +1432,15 @@ function runtimeHintTriggerIn(root: ParentNode): HTMLButtonElement {
   );
   if (button === undefined) throw new Error("Expected runtime hint trigger");
   return button as HTMLButtonElement;
+}
+
+function slideshowOverlayOwner(
+  root: ParentNode,
+  owner: "content" | "chrome",
+): HTMLElement {
+  const element = root.querySelector<HTMLElement>(
+    `[data-slideshow-overlay-owner="${owner}"]`,
+  );
+  if (element === null) throw new Error(`Expected Slideshow ${owner} overlay owner`);
+  return element;
 }

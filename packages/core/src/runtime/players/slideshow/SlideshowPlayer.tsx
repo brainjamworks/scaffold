@@ -5,14 +5,18 @@ import {
   CornersOutIcon as CornersOut,
 } from "@phosphor-icons/react";
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   useSyncExternalStore,
   type CSSProperties,
+  type ReactNode,
 } from "react";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 
@@ -56,6 +60,49 @@ interface EmbeddedStageStyle extends CSSProperties {
 
 interface ScaledCanvasStyle extends CSSProperties {
   "--sc-slideshow-canvas-inverse-scale": number;
+}
+
+interface SlideshowOverlayOwnership {
+  readonly instanceId: string;
+  readonly contentInteraction: "enabled" | "inert";
+}
+
+const SlideshowOverlayOwnershipContext = createContext<SlideshowOverlayOwnership | null>(null);
+
+function SlideshowContentOverlayHostBoundary({ children }: Readonly<{ children: ReactNode }>) {
+  const ownership = useSlideshowOverlayOwnership();
+  return (
+    <CourseThemePortalBoundary>
+      <div
+        data-slideshow-overlay-owner="content"
+        data-slideshow-overlay-instance={ownership.instanceId}
+        data-content-interaction={ownership.contentInteraction}
+        inert={ownership.contentInteraction === "inert"}
+      >
+        {children}
+      </div>
+    </CourseThemePortalBoundary>
+  );
+}
+
+function SlideshowChromeOverlayHostBoundary({ children }: Readonly<{ children: ReactNode }>) {
+  const ownership = useSlideshowOverlayOwnership();
+  return (
+    <CourseThemePortalBoundary>
+      <div
+        data-slideshow-overlay-owner="chrome"
+        data-slideshow-overlay-instance={ownership.instanceId}
+      >
+        {children}
+      </div>
+    </CourseThemePortalBoundary>
+  );
+}
+
+function useSlideshowOverlayOwnership(): SlideshowOverlayOwnership {
+  const ownership = useContext(SlideshowOverlayOwnershipContext);
+  if (!ownership) throw new Error("Slideshow overlay host rendered without its owner context.");
+  return ownership;
 }
 
 export interface SlideshowPlayerProps {
@@ -125,6 +172,17 @@ export function SlideshowPlayer({
     requestSurfaceChange,
     surfaceExitEnvironment,
   });
+  const slideshowOverlayInstanceId = useId();
+  const slideshowOverlayOwnership = useMemo(
+    () =>
+      Object.freeze({
+        instanceId: slideshowOverlayInstanceId,
+        contentInteraction: surfaceRuntime.contentInteraction,
+      }),
+    [slideshowOverlayInstanceId, surfaceRuntime.contentInteraction],
+  );
+  const controlsRef = useRef<HTMLDivElement>(null);
+  const previousContentInteraction = useRef(surfaceRuntime.contentInteraction);
   const handleRendererReady = useCallback(
     (editor: TiptapEditor) => {
       setRuntimeEditorOwner({ preparedDocument, editor });
@@ -199,6 +257,24 @@ export function SlideshowPlayer({
     },
     [surfaceExitEnvironmentOwner],
   );
+
+  useLayoutEffect(() => {
+    const previous = previousContentInteraction.current;
+    previousContentInteraction.current = surfaceRuntime.contentInteraction;
+    if (previous !== "enabled" || surfaceRuntime.contentInteraction !== "inert") return;
+
+    const activeElement = canvasElement?.ownerDocument.activeElement;
+    if (!canvasElement || !activeElement) return;
+    const contentOverlayOwner = activeElement.closest<HTMLElement>(
+      '[data-slideshow-overlay-owner="content"]',
+    );
+    const focusBelongsToContent =
+      canvasElement.contains(activeElement) ||
+      contentOverlayOwner?.dataset.slideshowOverlayInstance === slideshowOverlayInstanceId;
+    if (!focusBelongsToContent) return;
+
+    controlsRef.current?.focus({ preventScroll: true });
+  }, [canvasElement, slideshowOverlayInstanceId, surfaceRuntime.contentInteraction]);
 
   useEffect(() => {
     if (!viewportElement) {
@@ -337,50 +413,62 @@ export function SlideshowPlayer({
             }
           >
             {metrics && scaleState ? (
-              <OverlayBoundary
-                collisionBoundary={overlayCollisionBoundary}
-                container={overlayContainer}
-                hostBoundary={CourseThemePortalBoundary}
-                kind="viewport"
-              >
-                <div
-                  ref={setCanvasElement}
-                  className="sc-slideshow-player__canvas"
-                  data-content-interaction={surfaceRuntime.contentInteraction}
-                  inert={surfaceRuntime.contentInteraction === "inert"}
-                  style={
-                    {
-                      "--sc-slideshow-canvas-inverse-scale": 1 / scaleState.scale,
-                      width: metrics.intrinsicWidth,
-                      height: metrics.intrinsicHeight,
-                      transform: `scale(${scaleState.scale})`,
-                      transformOrigin: "top left",
-                    } as ScaledCanvasStyle
-                  }
+              <SlideshowOverlayOwnershipContext value={slideshowOverlayOwnership}>
+                <OverlayBoundary
+                  collisionBoundary={overlayCollisionBoundary}
+                  container={overlayContainer}
+                  hostBoundary={SlideshowChromeOverlayHostBoundary}
+                  kind="viewport"
                 >
-                  <InteractionDragEnvironmentProvider
-                    coordinateRoot={canvasElement}
-                    coordinateSpace={coordinateSpace}
+                  <OverlayBoundary
+                    collisionBoundary={overlayCollisionBoundary}
+                    container={overlayContainer}
+                    hostBoundary={SlideshowContentOverlayHostBoundary}
+                    kind="viewport"
                   >
-                    <SurfaceExitEnvironmentProvider environment={surfaceExitEnvironment}>
-                      <PreparedCourseDocumentRuntimeRenderer
-                        artifactId={artifactId ?? null}
-                        preparedDocument={preparedDocument}
-                        surfaceStates={surfaceStates}
-                        onReady={handleRendererReady}
-                      />
-                    </SurfaceExitEnvironmentProvider>
-                  </InteractionDragEnvironmentProvider>
-                </div>
-                <div
-                  className="sc-slideshow-player__chrome"
-                  data-fullscreen-available={fullscreenAvailable}
-                >
+                    <div
+                      ref={setCanvasElement}
+                      className="sc-slideshow-player__canvas"
+                      data-content-interaction={surfaceRuntime.contentInteraction}
+                      inert={surfaceRuntime.contentInteraction === "inert"}
+                      style={
+                        {
+                          "--sc-slideshow-canvas-inverse-scale": 1 / scaleState.scale,
+                          width: metrics.intrinsicWidth,
+                          height: metrics.intrinsicHeight,
+                          transform: `scale(${scaleState.scale})`,
+                          transformOrigin: "top left",
+                        } as ScaledCanvasStyle
+                      }
+                    >
+                      <InteractionDragEnvironmentProvider
+                        coordinateRoot={canvasElement}
+                        coordinateSpace={coordinateSpace}
+                      >
+                        <SurfaceExitEnvironmentProvider environment={surfaceExitEnvironment}>
+                          <PreparedCourseDocumentRuntimeRenderer
+                            artifactId={artifactId ?? null}
+                            preparedDocument={preparedDocument}
+                            surfaceStates={surfaceStates}
+                            onReady={handleRendererReady}
+                          />
+                        </SurfaceExitEnvironmentProvider>
+                      </InteractionDragEnvironmentProvider>
+                    </div>
+                  </OverlayBoundary>
                   <div
-                    data-testid="slideshow-controls"
-                    className="sc-slideshow-player__controls"
+                    className="sc-slideshow-player__chrome"
                     data-fullscreen-available={fullscreenAvailable}
                   >
+                    <div
+                      ref={controlsRef}
+                      data-testid="slideshow-controls"
+                      className="sc-slideshow-player__controls"
+                      data-fullscreen-available={fullscreenAvailable}
+                      role="group"
+                      aria-label="Slideshow controls"
+                      tabIndex={-1}
+                    >
                     <div className="sc-slideshow-player__section-navigation">
                       <CourseSectionNavigation
                         currentCourseSection={navigation.currentCourseSection}
@@ -501,8 +589,9 @@ export function SlideshowPlayer({
                       {fullscreenError}
                     </span>
                   ) : null}
-                </div>
-              </OverlayBoundary>
+                  </div>
+                </OverlayBoundary>
+              </SlideshowOverlayOwnershipContext>
             ) : null}
           </div>
         ) : null}
