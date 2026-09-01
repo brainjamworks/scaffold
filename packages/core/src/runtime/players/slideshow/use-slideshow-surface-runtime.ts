@@ -7,17 +7,15 @@ import { getControlBindingRegistryForEditor } from "@/document/control-binding";
 import type { SurfaceId } from "@/document/model/course-structure";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import type { PresentationGateObservationSnapshot } from "@/runtime/presentation/presentation-progression-gate";
-import type {
-  PresentationPlaybackSession,
-  PresentationPlaybackSnapshot,
-} from "@/runtime/presentation/presentation-playback-session";
+import type { PresentationPlaybackSnapshot } from "@/runtime/presentation/presentation-playback-session";
+import type { PresentationFeatureViewBaselinePort } from "@/runtime/presentation/presentation-surface-repositioner";
 
-import { createPresentationWaitSurfaceExitGuard } from "./presentation-wait-surface-exit-guard";
 import type { RequestSurfaceChange } from "./slideshow-surface-change";
 import {
   assertSlideshowSurfaceRuntimeProgramIdentity,
   createSlideshowSurfaceRuntimeComposition,
   type SlideshowSurfaceRuntimeComposition,
+  type SlideshowPresentationControls,
   type SlideshowSurfaceRuntimeProgram,
   type SlideshowSurfaceRuntimeProgramSource,
 } from "./slideshow-surface-runtime-composition";
@@ -31,25 +29,26 @@ export type SlideshowSurfaceRuntimeState =
       readonly status: "unconfigured";
       readonly nextMode: "navigate";
       readonly contentInteraction: "enabled";
-      readonly presentationSession?: never;
+      readonly presentationControls?: never;
     }
   | {
       readonly status: "pending";
       readonly nextMode: "disabled";
       readonly contentInteraction: SlideshowContentInteraction;
-      readonly presentationSession?: never;
+      readonly presentationControls?: never;
     }
   | {
       readonly status: "ready";
       readonly nextMode: SlideshowNextMode;
       readonly contentInteraction: SlideshowContentInteraction;
-      readonly presentationSession?: PresentationPlaybackSession;
+      readonly presentationControls?: SlideshowPresentationControls;
     };
 
 interface UseSlideshowSurfaceRuntimeInput {
   readonly activeSurfaceId: SurfaceId | null;
   readonly activeSurfaceRoot: HTMLElement | null;
   readonly editor: TiptapEditor | null;
+  readonly featureViewBaseline: PresentationFeatureViewBaselinePort;
   readonly programSource?: SlideshowSurfaceRuntimeProgramSource;
   readonly requestSurfaceChange: RequestSurfaceChange;
   readonly surfaceExitEnvironment: SurfaceExitEnvironment;
@@ -70,6 +69,7 @@ export function useSlideshowSurfaceRuntime({
   activeSurfaceId,
   activeSurfaceRoot,
   editor,
+  featureViewBaseline,
   programSource,
   requestSurfaceChange,
   surfaceExitEnvironment,
@@ -115,17 +115,15 @@ export function useSlideshowSurfaceRuntime({
           program,
           controlBindings,
           semanticTargets,
+          featureViewBaseline,
           requestSurfaceChange,
           ...(activeSurfaceRoot === null ? {} : { surfaceRoot: activeSurfaceRoot }),
         });
         let nextUnregisterPresentationGuard: (() => void) | undefined;
         try {
-          if (nextComposition.presentationSession) {
+          if (nextComposition.presentationSurfaceExitGuard) {
             nextUnregisterPresentationGuard = surfaceExitEnvironment.registerGuard(
-              createPresentationWaitSurfaceExitGuard({
-                surfaceId: activeSurfaceId,
-                session: nextComposition.presentationSession,
-              }),
+              nextComposition.presentationSurfaceExitGuard,
             );
           }
         } catch (error) {
@@ -173,19 +171,20 @@ export function useSlideshowSurfaceRuntime({
     activeSurfaceId,
     activeSurfaceRoot,
     editor,
+    featureViewBaseline,
     program,
     requestSurfaceChange,
     surfaceExitEnvironment,
   ]);
 
-  const presentationSession = currentRuntime?.composition.presentationSession;
+  const presentationControls = currentRuntime?.composition.presentationControls;
   const subscribe = useCallback(
-    (listener: () => void) => presentationSession?.subscribe(listener) ?? (() => undefined),
-    [presentationSession],
+    (listener: () => void) => presentationControls?.subscribe(listener) ?? (() => undefined),
+    [presentationControls],
   );
   const getSnapshot = useCallback(
-    () => presentationSession?.getSnapshot() ?? NO_PRESENTATION_SNAPSHOT,
-    [presentationSession],
+    () => presentationControls?.getSnapshot() ?? NO_PRESENTATION_SNAPSHOT,
+    [presentationControls],
   );
   const presentationSnapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const learnerRuntime = currentRuntime?.composition.learnerRuntime;
@@ -229,7 +228,7 @@ export function useSlideshowSurfaceRuntime({
       gateObservation,
       program.presentation !== undefined,
     ),
-    ...(presentationSession ? { presentationSession } : {}),
+    ...(presentationControls ? { presentationControls } : {}),
   };
 }
 

@@ -103,10 +103,15 @@ function createDeferredCueExecutor() {
   return { executor, pending };
 }
 
-function cue(id: string, atMs: number): CompiledPresentationCue {
+function cue(
+  id: string,
+  atMs: number,
+  seekBehavior: CompiledPresentationCue["seekBehavior"] = "consume",
+): CompiledPresentationCue {
   return Object.freeze({
-    id,
+    id: id as EmbeddedDataId,
     atMs,
+    seekBehavior,
     command: Object.freeze({
       kind: "target-command",
       ownerId: `owner-${id}` as EmbeddedNodeId,
@@ -1358,10 +1363,10 @@ describe("createPresentationPlaybackSession", () => {
     expect(session.getSnapshot()).toMatchObject({ phase: "completed", currentTimeMs: 100 });
   });
 
-  it("consumes forward-Seek cues without execution and never rearms them on backward Seek", () => {
+  it("consumes every forward-Seek cue without execution and never rearms it on backward Seek", () => {
     const { deferredCueExecutor, manualClock, session } = createHarness(500, [
       cue("zero", 0),
-      cue("early", 100),
+      cue("early", 100, "reconstruct-state"),
       cue("middle", 200),
       cue("later", 300),
     ]);

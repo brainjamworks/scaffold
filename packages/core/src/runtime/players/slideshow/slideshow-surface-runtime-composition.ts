@@ -1,4 +1,4 @@
-import { Result } from "better-result";
+import { Result, type Result as ResultType } from "better-result";
 
 import type { ControlBindingRegistry } from "@/document/control-binding/control-binding";
 import type { SurfaceId } from "@/document/model/course-structure";
@@ -17,7 +17,14 @@ import { createPresentationCueExecutor } from "@/runtime/presentation/presentati
 import {
   createPresentationPlaybackSession,
   type PresentationPlaybackSession,
+  type PresentationSeekError,
 } from "@/runtime/presentation/presentation-playback-session";
+import {
+  createPresentationSurfaceRepositioner,
+  type PresentationFeatureViewBaselinePort,
+  type PresentationRepositionReport,
+  type PresentationSurfaceRepositioner,
+} from "@/runtime/presentation/presentation-surface-repositioner";
 import { createAnimeVisualAnimationDriver } from "@/runtime/presentation/visual/anime-visual-animation-driver";
 import {
   createPresentationVisualRuntime,
@@ -27,6 +34,8 @@ import { createPresentationVisualStateRenderer } from "@/runtime/presentation/vi
 import { createVisualTargetResolver } from "@/runtime/presentation/visual/visual-target-resolver";
 
 import type { RequestSurfaceChange } from "./slideshow-surface-change";
+import { createPresentationWaitSurfaceExitGuard } from "./presentation-wait-surface-exit-guard";
+import type { SurfaceExitGuard } from "./surface-exit-environment";
 
 export interface SlideshowSurfaceRuntimeProgram {
   readonly presentation?: {
@@ -45,16 +54,36 @@ export interface CreateSlideshowSurfaceRuntimeCompositionInput {
   readonly program: SlideshowSurfaceRuntimeProgram;
   readonly controlBindings: Pick<ControlBindingRegistry, "get">;
   readonly semanticTargets: SemanticTargetInteractionCoordinator;
+  readonly featureViewBaseline: PresentationFeatureViewBaselinePort;
   readonly requestSurfaceChange: RequestSurfaceChange;
   readonly surfaceRoot?: HTMLElement;
   readonly getPresentationMotionMode?: () => PresentationMotionMode;
 }
 
+export type SlideshowPresentationControls = Pick<
+  PresentationPlaybackSession,
+  | "getSnapshot"
+  | "subscribe"
+  | "subscribeCueReports"
+  | "play"
+  | "pause"
+  | "advance"
+  | "restart"
+  | "stop"
+>;
+
+export type SlideshowPresentationSeekResult = ResultType<
+  PresentationRepositionReport,
+  PresentationSeekError
+>;
+
 export interface SlideshowSurfaceRuntimeComposition {
   readonly surfaceId: SurfaceId;
   readonly learnerRuntime: SurfaceLearnerInteractionRuntime;
-  readonly presentationSession?: PresentationPlaybackSession;
+  readonly presentationControls?: SlideshowPresentationControls;
+  readonly presentationSurfaceExitGuard?: SurfaceExitGuard;
   readonly presentationVisualRuntime?: PresentationVisualRuntime;
+  seek?(timeMs: number): Promise<SlideshowPresentationSeekResult>;
   dispose(): void;
 }
 
@@ -63,6 +92,7 @@ export function createSlideshowSurfaceRuntimeComposition({
   program,
   controlBindings,
   semanticTargets,
+  featureViewBaseline,
   requestSurfaceChange,
   surfaceRoot,
   getPresentationMotionMode,
@@ -89,20 +119,35 @@ export function createSlideshowSurfaceRuntimeComposition({
     semanticInteractionOrigin: "learner-interaction-rule",
   });
   let presentationSession: PresentationPlaybackSession | undefined;
+  let presentationControls: SlideshowPresentationControls | undefined;
+  let presentationSurfaceExitGuard: SurfaceExitGuard | undefined;
+  let presentationRepositioner: PresentationSurfaceRepositioner | undefined;
   let presentationVisualRuntime: PresentationVisualRuntime | undefined;
   try {
-    presentationSession = program.presentation
-      ? createPresentationPlaybackSession({
-          timeline: projectInternalClockSurfaceTimeline(program.presentation.timeline),
-          cueExecutor: createPresentationCueExecutor({
-            semanticTargets,
-            controlBindings,
-            origin: "configured-presentation",
-          }),
-          gatePort: learnerRuntime,
-          autoAdvance: program.presentation.autoAdvance,
-        })
-      : undefined;
+    if (program.presentation) {
+      const timeline = projectInternalClockSurfaceTimeline(program.presentation.timeline);
+      const cueExecutor = createPresentationCueExecutor({
+        semanticTargets,
+        controlBindings,
+        origin: "configured-presentation",
+      });
+      presentationSession = createPresentationPlaybackSession({
+        timeline,
+        cueExecutor,
+        gatePort: learnerRuntime,
+        autoAdvance: program.presentation.autoAdvance,
+      });
+      presentationControls = createSlideshowPresentationControls(presentationSession);
+      presentationSurfaceExitGuard = createPresentationWaitSurfaceExitGuard({
+        surfaceId,
+        session: presentationSession,
+      });
+      presentationRepositioner = createPresentationSurfaceRepositioner({
+        timeline,
+        featureViewBaseline,
+        cueExecutor,
+      });
+    }
     if (program.presentation && presentationSession && surfaceRoot) {
       presentationVisualRuntime = createPresentationVisualRuntime({
         visualProgram: program.presentation.timeline.visualProgram,
@@ -134,8 +179,36 @@ export function createSlideshowSurfaceRuntimeComposition({
   return Object.freeze({
     surfaceId,
     learnerRuntime,
-    ...(presentationSession ? { presentationSession } : {}),
+    ...(presentationControls ? { presentationControls } : {}),
+    ...(presentationSurfaceExitGuard ? { presentationSurfaceExitGuard } : {}),
     ...(presentationVisualRuntime ? { presentationVisualRuntime } : {}),
+    ...(presentationSession && presentationRepositioner
+      ? {
+          async seek(timeMs: number): Promise<SlideshowPresentationSeekResult> {
+            assertPresentationSeekTime(timeMs);
+            const snapshot = presentationSession.getSnapshot();
+            if (timeMs < 0 || timeMs > snapshot.durationMs) {
+              return Result.err(
+                Object.freeze({
+                  reason: "seek-out-of-range" as const,
+                  requestedTimeMs: timeMs,
+                  durationMs: snapshot.durationMs,
+                }),
+              );
+            }
+
+            presentationSession.pause();
+            const report = await presentationRepositioner.reposition(timeMs);
+            if (report.kind === "applied") {
+              const sessionResult = presentationSession.seek(timeMs);
+              if (sessionResult.isErr()) {
+                throw new Error("Validated Slideshow seek was refused by its Presentation Session.");
+              }
+            }
+            return Result.ok(report);
+          },
+        }
+      : {}),
     dispose() {
       if (disposed) return;
       disposed = true;
@@ -158,6 +231,29 @@ export function createSlideshowSurfaceRuntimeComposition({
       if (firstDefect !== undefined) throw firstDefect;
     },
   });
+}
+
+function createSlideshowPresentationControls(
+  session: PresentationPlaybackSession,
+): SlideshowPresentationControls {
+  return Object.freeze({
+    getSnapshot: () => session.getSnapshot(),
+    subscribe: (listener: () => void) => session.subscribe(listener),
+    subscribeCueReports: (
+      listener: Parameters<PresentationPlaybackSession["subscribeCueReports"]>[0],
+    ) => session.subscribeCueReports(listener),
+    play: () => session.play(),
+    pause: () => session.pause(),
+    advance: () => session.advance(),
+    restart: () => session.restart(),
+    stop: () => session.stop(),
+  });
+}
+
+function assertPresentationSeekTime(timeMs: number): void {
+  if (!Number.isSafeInteger(timeMs)) {
+    throw new Error("Presentation Seek time must be an integer number of milliseconds.");
+  }
 }
 
 function resolvePresentationMotionMode(surfaceRoot: HTMLElement): PresentationMotionMode {

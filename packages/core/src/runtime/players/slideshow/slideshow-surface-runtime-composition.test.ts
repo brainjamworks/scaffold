@@ -2,7 +2,7 @@
 
 import { Result } from "better-result";
 import { describe, expect, it, vi } from "vite-plus/test";
-import type { EmbeddedNodeId } from "@scaffold/contracts";
+import { EmbeddedDataIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 
 import type {
   ControlCommandRequest,
@@ -15,10 +15,7 @@ import type { SurfaceId } from "@/document/model/course-structure";
 import type { CompiledSurfacePresentationTimeline } from "@/presentation/model";
 import type { CompiledSurfaceLearnerInteractionProgram } from "@/runtime/learner-interaction/compiled-learner-interaction-program";
 import { createLearnerInteractionEventKey } from "@/runtime/learner-interaction/compiled-learner-interaction-program";
-import type {
-  CompiledInternalClockSurfaceTimeline,
-  PresentationWaitId,
-} from "@/runtime/presentation/compiled-presentation-program";
+import type { PresentationWaitId } from "@/runtime/presentation/compiled-presentation-program";
 import type { SurfaceChangeRefused, SurfaceChangeResult } from "./slideshow-surface-change";
 import { createRequestSurfaceChange } from "./slideshow-surface-change";
 
@@ -34,7 +31,8 @@ const OWNER_ID = "controlown001" as EmbeddedNodeId;
 const TARGET_ID = "controltgt001" as EmbeddedNodeId;
 
 describe("createSlideshowSurfaceRuntimeComposition", () => {
-  it("owns the visual runtime beside the Session and restores target state on disposal", () => {
+  it("reconstructs feature view before the private Session publishes the visual scene", async () => {
+    const order: string[] = [];
     const surfaceRoot = document.createElement("section");
     const target = document.createElement("div");
     target.setAttribute("data-presentation-target-id", TARGET_ID);
@@ -43,7 +41,19 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     const visualTimeline = Object.freeze({
       surfaceId: SURFACE_ID,
       durationMs: 1_000,
-      cues: Object.freeze([]),
+      cues: Object.freeze([
+        Object.freeze({
+          id: EmbeddedDataIdSchema.parse("select000001"),
+          atMs: 500,
+          command: Object.freeze({
+            kind: "target-command" as const,
+            ownerId: OWNER_ID,
+            targetId: TARGET_ID,
+            type: "select",
+          }),
+          seekBehavior: "reconstruct-state" as const,
+        }),
+      ]),
       waits: Object.freeze([]),
       visualProgram: Object.freeze({
         surfaceId: SURFACE_ID,
@@ -56,7 +66,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
         ]),
         segments: Object.freeze([
           Object.freeze({
-            id: "reveal000001",
+            id: EmbeddedDataIdSchema.parse("reveal000001"),
             targetId: TARGET_ID,
             startMs: 500,
             endMs: 1_000,
@@ -78,18 +88,42 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
       surfaceId: SURFACE_ID,
       surfaceRoot,
       program: { presentation: { timeline: visualTimeline, autoAdvance: false } },
-      controlBindings: { get: vi.fn() },
-      semanticTargets: { activate: vi.fn() },
+      controlBindings: {
+        get: vi.fn(() => ({
+          ownerId: OWNER_ID,
+          commandExecutor: {
+            execute: vi.fn(async () => {
+              order.push("execute");
+              return Result.ok();
+            }),
+          },
+        })),
+      },
+      semanticTargets: {
+        activate: vi.fn(async (requestedId: EmbeddedNodeId) => {
+          order.push("activate");
+          return { kind: "reached" as const, requestedId };
+        }),
+      },
+      featureViewBaseline: {
+        replaceForOwners(ownerIds) {
+          order.push(`baseline:${ownerIds.join(",")}`);
+        },
+      },
       requestSurfaceChange: vi.fn(() => Result.ok()),
     });
+    composition.presentationControls?.subscribe(() => order.push("session"));
 
     expect(composition.presentationVisualRuntime).toBeDefined();
     expect(target).toHaveAttribute("data-presentation-availability", "withheld");
     expect(target).toHaveAttribute("aria-hidden", "true");
     expect(target).toHaveAttribute("inert");
 
-    const seek = composition.presentationSession?.seek(1_000);
+    expect(composition).not.toHaveProperty("presentationSession");
+    expect(composition.presentationControls).not.toHaveProperty("seek");
+    const seek = await composition.seek?.(1_000);
     expect(seek?.isOk()).toBe(true);
+    expect(order).toEqual([`baseline:${OWNER_ID}`, "activate", "execute", "session"]);
     expect(target).toHaveAttribute("data-presentation-availability", "available");
     expect(target).not.toHaveAttribute("aria-hidden");
     expect(target).not.toHaveAttribute("inert");
@@ -101,13 +135,86 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     surfaceRoot.remove();
   });
 
-  it("constructs an awaiting-start Presentation over one empty learner runtime", () => {
-    const timeline: CompiledInternalClockSurfaceTimeline = Object.freeze({
+  it("returns a typed range refusal without pausing or reconstructing", async () => {
+    const featureViewBaseline = { replaceForOwners: vi.fn() };
+    const composition = createSlideshowSurfaceRuntimeComposition({
       surfaceId: SURFACE_ID,
-      durationMs: 1_000,
-      cues: Object.freeze([]),
-      waits: Object.freeze([]),
+      program: { presentation: { timeline: timeline(SURFACE_ID), autoAdvance: false } },
+      controlBindings: { get: vi.fn() },
+      semanticTargets: { activate: vi.fn() },
+      featureViewBaseline,
+      requestSurfaceChange: vi.fn(() => Result.ok()),
     });
+
+    const result = await composition.seek?.(1_001);
+
+    expect(result?.isErr()).toBe(true);
+    if (!result || result.isOk()) throw new Error("Expected the range refusal.");
+    expect(result.error).toEqual({
+      reason: "seek-out-of-range",
+      requestedTimeMs: 1_001,
+      durationMs: 1_000,
+    });
+    expect(Object.isFrozen(result.error)).toBe(true);
+    expect(featureViewBaseline.replaceForOwners).not.toHaveBeenCalled();
+    expect(composition.presentationControls?.getSnapshot()).toMatchObject({
+      phase: "awaiting-start",
+      currentTimeMs: 0,
+    });
+    composition.dispose();
+  });
+
+  it("lets only the latest asynchronous seek move the Session", async () => {
+    const pendingCommand = deferred<ControlCommandResult>();
+    const featureViewBaseline = { replaceForOwners: vi.fn() };
+    const reconstructableTimeline = Object.freeze({
+      ...timeline(SURFACE_ID),
+      cues: Object.freeze([
+        Object.freeze({
+          id: EmbeddedDataIdSchema.parse("latestcue001"),
+          atMs: 100,
+          command: Object.freeze({
+            kind: "target-command" as const,
+            ownerId: OWNER_ID,
+            targetId: TARGET_ID,
+            type: "select",
+          }),
+          seekBehavior: "reconstruct-state" as const,
+        }),
+      ]),
+    });
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: { presentation: { timeline: reconstructableTimeline, autoAdvance: false } },
+      controlBindings: {
+        get: () => ({
+          ownerId: OWNER_ID,
+          commandExecutor: { execute: vi.fn(() => pendingCommand.promise) },
+        }),
+      },
+      semanticTargets: {
+        activate: vi.fn(async (requestedId: EmbeddedNodeId) => ({
+          kind: "reached" as const,
+          requestedId,
+        })),
+      },
+      featureViewBaseline,
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+    });
+
+    const first = composition.seek?.(100);
+    const second = await composition.seek?.(0);
+    pendingCommand.resolve(Result.ok());
+
+    expect(second?.isOk()).toBe(true);
+    await expect(first).resolves.toMatchObject({ value: { kind: "superseded", timeMs: 100 } });
+    expect(composition.presentationControls?.getSnapshot()).toMatchObject({ currentTimeMs: 0 });
+    expect(featureViewBaseline.replaceForOwners).toHaveBeenCalledTimes(2);
+    composition.dispose();
+  });
+
+  it("constructs an awaiting-start Presentation over one empty learner runtime", () => {
+    const timeline = emptyPresentationTimeline(SURFACE_ID, 1_000);
     const program: SlideshowSurfaceRuntimeProgram = Object.freeze({
       presentation: Object.freeze({ timeline, autoAdvance: false }),
     });
@@ -125,13 +232,14 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
       program: selectedProgram,
       controlBindings: { get: getControlBinding },
       semanticTargets: { activate: activateSemanticTarget },
+      featureViewBaseline: emptyFeatureViewBaseline(),
       requestSurfaceChange,
     });
 
     expect(Object.isFrozen(composition)).toBe(true);
     expect(composition.surfaceId).toBe(SURFACE_ID);
     expect(Object.isFrozen(composition.learnerRuntime)).toBe(true);
-    expect(composition.presentationSession?.getSnapshot()).toMatchObject({
+    expect(composition.presentationControls?.getSnapshot()).toMatchObject({
       surfaceId: SURFACE_ID,
       phase: "awaiting-start",
       currentTimeMs: 0,
@@ -171,9 +279,10 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     expect(() =>
       createSlideshowSurfaceRuntimeComposition({
         surfaceId: SURFACE_ID,
-        program,
+        program: program as SlideshowSurfaceRuntimeProgram,
         controlBindings: { get },
         semanticTargets: { activate: vi.fn() },
+        featureViewBaseline: emptyFeatureViewBaseline(),
         requestSurfaceChange: vi.fn(() => Result.ok()),
       }),
     ).toThrow(expected);
@@ -220,12 +329,13 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
         ],
       ]),
     });
-    const presentationTimeline = Object.freeze<CompiledInternalClockSurfaceTimeline>({
+    const presentationTimeline = Object.freeze<CompiledSurfacePresentationTimeline>({
       surfaceId: SURFACE_ID,
       durationMs: 100,
+      visualProgram: emptyVisualProgram(SURFACE_ID, 100),
       cues: [
         {
-          id: "presentation-cue",
+          id: EmbeddedDataIdSchema.parse("action000001"),
           atMs: 0,
           command: {
             kind: "target-command",
@@ -233,6 +343,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
             targetId: TARGET_ID,
             type: "presentation-command",
           },
+          seekBehavior: "consume",
         },
       ],
       waits: [
@@ -268,11 +379,12 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
         get: () => binding,
       },
       semanticTargets: { activate },
+      featureViewBaseline: emptyFeatureViewBaseline(),
       requestSurfaceChange,
     });
     const report = vi.fn();
     composition.learnerRuntime.subscribeReports(report);
-    const session = composition.presentationSession;
+    const session = composition.presentationControls;
     if (!session) throw new Error("Expected a Presentation Session.");
 
     expect(session.getSnapshot().phase).toBe("awaiting-start");
@@ -329,6 +441,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
           timeline: {
             surfaceId: SURFACE_ID,
             durationMs: 100,
+            visualProgram: emptyVisualProgram(SURFACE_ID, 100),
             cues: [],
             waits: [
               {
@@ -344,11 +457,12 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
       },
       controlBindings: { get: () => binding },
       semanticTargets: { activate: vi.fn() },
+      featureViewBaseline: emptyFeatureViewBaseline(),
       requestSurfaceChange,
     });
     const report = vi.fn();
     composition.learnerRuntime.subscribeReports(report);
-    const session = composition.presentationSession;
+    const session = composition.presentationControls;
     if (!session) throw new Error("Expected a Presentation Session.");
     session.play();
     await flushPromises();
@@ -390,6 +504,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
         },
         controlBindings: { get: () => binding },
         semanticTargets: { activate: vi.fn() },
+        featureViewBaseline: emptyFeatureViewBaseline(),
         requestSurfaceChange: vi.fn(() => Result.ok()),
       }),
     ).toThrow(constructionDefect);
@@ -421,7 +536,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     await events.emit({ targetId: TARGET_ID, type: "selected" });
     await flushPromises();
 
-    expect(composition.presentationSession).toBeUndefined();
+    expect(composition.presentationControls).toBeUndefined();
     expect(requestSurfaceChange).toHaveBeenCalledWith(OTHER_SURFACE_ID);
     expect(report).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -511,9 +626,10 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     async ({ autoAdvance, expected }) => {
       const events = createTestEventSource();
       const binding = { ownerId: OWNER_ID, eventSource: events.eventSource };
-      const gateTimeline = Object.freeze<CompiledInternalClockSurfaceTimeline>({
+      const gateTimeline = Object.freeze<CompiledSurfacePresentationTimeline>({
         surfaceId: SURFACE_ID,
         durationMs: 0,
+        visualProgram: emptyVisualProgram(SURFACE_ID, 0),
         cues: Object.freeze([]),
         waits: Object.freeze([
           {
@@ -534,9 +650,10 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
         program: { presentation: { timeline: gateTimeline, autoAdvance } },
         controlBindings: { get: () => binding },
         semanticTargets: { activate: vi.fn() },
+        featureViewBaseline: emptyFeatureViewBaseline(),
         requestSurfaceChange: vi.fn(() => Result.ok()),
       });
-      const session = composition.presentationSession;
+      const session = composition.presentationControls;
       if (!session) throw new Error("Expected a Presentation Session.");
       expect(events.subscriptionsStarted).toBe(0);
 
@@ -571,12 +688,13 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
       eventSource: events.eventSource,
       commandExecutor: { execute },
     };
-    const disposalTimeline = Object.freeze<CompiledInternalClockSurfaceTimeline>({
+    const disposalTimeline = Object.freeze<CompiledSurfacePresentationTimeline>({
       surfaceId: SURFACE_ID,
       durationMs: 100,
+      visualProgram: emptyVisualProgram(SURFACE_ID, 100),
       cues: [
         {
-          id: "pending-cue",
+          id: EmbeddedDataIdSchema.parse("action000002"),
           atMs: 0,
           command: {
             kind: "target-command",
@@ -584,6 +702,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
             targetId: TARGET_ID,
             type: "pending-command",
           },
+          seekBehavior: "consume",
         },
       ],
       waits: [{ kind: "manual-wait", id: "manual-wait" as PresentationWaitId, atMs: 0 }],
@@ -601,12 +720,13 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
           requestedId,
         })),
       },
+      featureViewBaseline: emptyFeatureViewBaseline(),
       requestSurfaceChange: vi.fn(() => Result.ok()),
     });
     const learnerReport = vi.fn();
     const cueReport = vi.fn();
     composition.learnerRuntime.subscribeReports(learnerReport);
-    const session = composition.presentationSession;
+    const session = composition.presentationControls;
     if (!session) throw new Error("Expected a Presentation Session.");
     session.subscribeCueReports(cueReport);
     session.play();
@@ -674,6 +794,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
       program: { learnerInteractions: interactions },
       controlBindings: { get: () => binding },
       semanticTargets: { activate: vi.fn() },
+      featureViewBaseline: emptyFeatureViewBaseline(),
       requestSurfaceChange,
     });
     composition.learnerRuntime.subscribeReports(report);
@@ -703,17 +824,43 @@ function createLearnerOnlyComposition(
     program: { learnerInteractions: learnerProgram(SURFACE_ID) },
     controlBindings: { get: () => binding },
     semanticTargets: { activate: vi.fn() },
+    featureViewBaseline: emptyFeatureViewBaseline(),
     requestSurfaceChange,
   });
 }
 
-function timeline(surfaceId: SurfaceId): CompiledInternalClockSurfaceTimeline {
+function timeline(surfaceId: SurfaceId): CompiledSurfacePresentationTimeline {
+  return emptyPresentationTimeline(surfaceId, 1_000);
+}
+
+function emptyPresentationTimeline(
+  surfaceId: SurfaceId,
+  durationMs: number,
+): CompiledSurfacePresentationTimeline {
   return Object.freeze({
     surfaceId,
-    durationMs: 1_000,
+    durationMs,
     cues: Object.freeze([]),
     waits: Object.freeze([]),
+    visualProgram: emptyVisualProgram(surfaceId, durationMs),
   });
+}
+
+function emptyVisualProgram(
+  surfaceId: SurfaceId,
+  durationMs: number,
+): CompiledSurfacePresentationTimeline["visualProgram"] {
+  return Object.freeze({
+    surfaceId,
+    durationMs,
+    targetById: new Map(),
+    segments: Object.freeze([]),
+    sequenceContainers: Object.freeze([]),
+  });
+}
+
+function emptyFeatureViewBaseline() {
+  return { replaceForOwners: vi.fn() };
 }
 
 function learnerProgram(surfaceId: SurfaceId): CompiledSurfaceLearnerInteractionProgram {

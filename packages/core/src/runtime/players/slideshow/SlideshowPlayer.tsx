@@ -26,6 +26,7 @@ import type {
   SurfaceId,
 } from "@/document/model/course-structure";
 import { createScaledCanvasCoordinateSpace } from "@/editor/interactions/drag/dom/dom-coordinate-space";
+import { replaceLayoutFeatureViewStateForOwners } from "@/editor/arrangements/layout/shared/model/layout-interaction-store";
 import { InteractionDragEnvironmentProvider } from "@/editor/interactions/drag/react/interaction-drag-environment";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { readSurfaceViewSettings } from "@/document/model/surface-view-settings";
@@ -137,6 +138,18 @@ export function SlideshowPlayer({
   } | null>(null);
   const runtimeEditor =
     runtimeEditorOwner?.preparedDocument === preparedDocument ? runtimeEditorOwner.editor : null;
+  const featureViewBaseline = useMemo(
+    () =>
+      Object.freeze({
+        replaceForOwners(ownerIds: readonly string[]) {
+          if (!runtimeEditor) {
+            throw new Error("Cannot replace Slideshow feature view without its runtime Editor.");
+          }
+          replaceLayoutFeatureViewStateForOwners(runtimeEditor, ownerIds);
+        },
+      }),
+    [runtimeEditor],
+  );
   const [surfaceExitEnvironmentOwner] = useState(() =>
     createSurfaceExitEnvironment({
       knownSurfaceIds: structure.surfaceIds,
@@ -174,6 +187,7 @@ export function SlideshowPlayer({
     activeSurfaceId,
     activeSurfaceRoot,
     editor: runtimeEditor,
+    featureViewBaseline,
     ...(surfaceRuntimeProgramSource === undefined
       ? {}
       : { programSource: surfaceRuntimeProgramSource }),
@@ -532,7 +546,7 @@ export function SlideshowPlayer({
                             case "disabled":
                               return;
                             case "play": {
-                              const session = surfaceRuntime.presentationSession;
+                              const session = surfaceRuntime.presentationControls;
                               if (!session) {
                                 throw new Error(
                                   "Slideshow play mode requires a Presentation Session.",
@@ -542,7 +556,7 @@ export function SlideshowPlayer({
                               return;
                             }
                             case "advance": {
-                              const session = surfaceRuntime.presentationSession;
+                              const session = surfaceRuntime.presentationControls;
                               if (!session) {
                                 throw new Error(
                                   "Slideshow advance mode requires a Presentation Session.",

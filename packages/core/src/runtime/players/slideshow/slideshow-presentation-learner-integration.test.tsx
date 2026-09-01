@@ -45,6 +45,7 @@ import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { SlideshowPlayer } from "./SlideshowPlayer";
+import { createPresentationWaitSurfaceExitGuard } from "./presentation-wait-surface-exit-guard";
 import type {
   CreateSlideshowSurfaceRuntimeCompositionInput,
   SlideshowSurfaceRuntimeComposition,
@@ -250,6 +251,7 @@ describe("Slideshow Presentation learner integration", () => {
                 targetId: "cueTarget001" as EmbeddedNodeId,
                 type: "select",
               },
+              seekBehavior: "consume",
             },
             {
               id: EmbeddedDataIdSchema.parse("duplicateCue"),
@@ -260,6 +262,7 @@ describe("Slideshow Presentation learner integration", () => {
                 targetId: "commandTgt01" as EmbeddedNodeId,
                 type: "select",
               },
+              seekBehavior: "consume",
             },
           ],
         },
@@ -295,6 +298,7 @@ describe("Slideshow Presentation learner integration", () => {
                 targetId: OVERVIEW_SECTION_ID,
                 type: "select",
               },
+              seekBehavior: "consume",
             },
           ],
           waits: [],
@@ -707,6 +711,7 @@ describe("Slideshow Presentation learner integration", () => {
                 targetId: OVERVIEW_SECTION_ID,
                 type: "select",
               },
+              seekBehavior: "reconstruct-state",
             },
           ],
         },
@@ -1519,10 +1524,14 @@ describe("Slideshow Presentation learner integration", () => {
 
     const next = await screen.findByRole("button", { name: "Next slide" });
     const canvas = document.querySelector(".sc-slideshow-player__canvas");
-    await waitFor(() => expect(composition?.presentationSession).toBeDefined());
-    const session = composition?.presentationSession;
-    const learnerRuntime = composition?.learnerRuntime;
-    if (!session || !learnerRuntime) throw new Error("Expected a mounted real Surface runtime.");
+    await waitFor(() => expect(composition?.presentationControls).toBeDefined());
+    const activeComposition = composition;
+    const session = activeComposition?.presentationControls;
+    const learnerRuntime = activeComposition?.learnerRuntime;
+    if (!session || !learnerRuntime || !activeComposition?.seek) {
+      throw new Error("Expected a mounted real Surface runtime.");
+    }
+    const seek = (timeMs: number) => activeComposition.seek!(timeMs);
 
     await user.click(next);
     await waitFor(() => expect(canvas).not.toHaveAttribute("inert"));
@@ -1530,8 +1539,8 @@ describe("Slideshow Presentation learner integration", () => {
       status: "awaiting-satisfaction",
     });
 
-    act(() => {
-      const result = session.seek(100);
+    await act(async () => {
+      const result = await seek(100);
       if (result.isErr())
         throw new Error(`Expected Seek to succeed, received ${result.error.reason}.`);
     });
@@ -1697,6 +1706,7 @@ function createTabsLearnerWaitProgram(
               targetId: OVERVIEW_SECTION_ID,
               type: "select",
             },
+            seekBehavior: "reconstruct-state" as const,
           },
         ] as const),
         waits: Object.freeze([
@@ -1764,6 +1774,7 @@ function createTabsStateWaitProgram(
               targetId: OVERVIEW_SECTION_ID,
               type: "select",
             }),
+            seekBehavior: "reconstruct-state" as const,
           }),
         ]),
         waits: Object.freeze([
@@ -1830,6 +1841,7 @@ function createTabsLearnerNavigationProgram(
               targetId: OVERVIEW_SECTION_ID,
               type: "select",
             }),
+            seekBehavior: "reconstruct-state" as const,
           }),
         ]),
         waits: Object.freeze([
@@ -2011,6 +2023,7 @@ function presentationProgramWithOwner(
               targetId: OVERVIEW_SECTION_ID,
               type: "select",
             }),
+            seekBehavior: "reconstruct-state" as const,
           }),
         ]),
       }),
@@ -2120,10 +2133,21 @@ function testComposition(
   presentationSession?: PresentationPlaybackSession,
   learnerRuntime: SlideshowSurfaceRuntimeComposition["learnerRuntime"] = inactiveLearnerRuntime(),
 ): SlideshowSurfaceRuntimeComposition {
+  const presentationControls = presentationSession
+    ? presentationControlsFrom(presentationSession)
+    : undefined;
   return Object.freeze({
     surfaceId: input.surfaceId,
     learnerRuntime,
-    ...(presentationSession ? { presentationSession } : {}),
+    ...(presentationSession && presentationControls
+      ? {
+          presentationControls,
+          presentationSurfaceExitGuard: createPresentationWaitSurfaceExitGuard({
+            surfaceId: input.surfaceId,
+            session: presentationSession,
+          }),
+        }
+      : {}),
     dispose() {
       presentationSession?.dispose();
     },
@@ -2154,7 +2178,15 @@ function createCompositionLifecycleProbe(
     return Object.freeze({
       surfaceId,
       learnerRuntime: learner.runtime,
-      ...(presentationSession ? { presentationSession } : {}),
+      ...(presentationSession
+        ? {
+            presentationControls: presentationControlsFrom(presentationSession),
+            presentationSurfaceExitGuard: createPresentationWaitSurfaceExitGuard({
+              surfaceId,
+              session: presentationSession,
+            }),
+          }
+        : {}),
       dispose() {
         if (disposed) return;
         disposed = true;
@@ -2182,6 +2214,21 @@ function createCompositionLifecycleProbe(
       return disposals;
     },
   };
+}
+
+function presentationControlsFrom(session: PresentationPlaybackSession) {
+  return Object.freeze({
+    getSnapshot: () => session.getSnapshot(),
+    subscribe: (listener: () => void) => session.subscribe(listener),
+    subscribeCueReports: (
+      listener: Parameters<PresentationPlaybackSession["subscribeCueReports"]>[0],
+    ) => session.subscribeCueReports(listener),
+    play: () => session.play(),
+    pause: () => session.pause(),
+    advance: () => session.advance(),
+    restart: () => session.restart(),
+    stop: () => session.stop(),
+  });
 }
 
 function inactiveLearnerRuntime(): SlideshowSurfaceRuntimeComposition["learnerRuntime"] {
