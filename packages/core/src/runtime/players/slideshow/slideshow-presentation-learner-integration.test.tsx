@@ -24,6 +24,7 @@ import {
   type CompiledSurfaceLearnerInteractionProgram,
 } from "@/runtime/learner-interaction/compiled-learner-interaction-program";
 import type { PresentationWaitId } from "@/runtime/presentation/compiled-presentation-program";
+import type { PresentationGateObservationSnapshot } from "@/runtime/presentation/presentation-progression-gate";
 import type {
   PresentationHold,
   PresentationPlaybackPhase,
@@ -322,16 +323,19 @@ describe("Slideshow Presentation learner integration", () => {
       name: "awaiting start",
       snapshot: presentationSnapshot("awaiting-start"),
       expectedAction: "play",
+      expectedContentInteraction: "inert",
     },
     {
       name: "playing",
       snapshot: presentationSnapshot("playing"),
       expectedAction: "disabled",
+      expectedContentInteraction: "inert",
     },
     {
       name: "paused",
       snapshot: presentationSnapshot("paused"),
       expectedAction: "disabled",
+      expectedContentInteraction: "inert",
     },
     {
       name: "manual hold",
@@ -340,6 +344,7 @@ describe("Slideshow Presentation learner integration", () => {
         waitId: "manual-hold" as PresentationWaitId,
       }),
       expectedAction: "advance",
+      expectedContentInteraction: "inert",
     },
     {
       name: "learner waiting",
@@ -349,6 +354,8 @@ describe("Slideshow Presentation learner integration", () => {
         status: "waiting",
       }),
       expectedAction: "disabled",
+      gateObservation: "awaiting-satisfaction",
+      expectedContentInteraction: "enabled",
     },
     {
       name: "learner ready",
@@ -358,23 +365,30 @@ describe("Slideshow Presentation learner integration", () => {
         status: "ready",
       }),
       expectedAction: "advance",
+      expectedContentInteraction: "inert",
     },
     {
       name: "completed",
       snapshot: presentationSnapshot("completed"),
       expectedAction: "navigate",
+      expectedContentInteraction: "inert",
     },
     {
       name: "stopped",
       snapshot: presentationSnapshot("stopped"),
       expectedAction: "disabled",
+      expectedContentInteraction: "inert",
     },
   ] as const)("routes Next from $name without bypassing the derived mode", async (testCase) => {
     const presentation = createControllablePresentationSession(testCase.snapshot);
+    const learner = createControllableLearnerRuntime(
+      "gateObservation" in testCase ? testCase.gateObservation : "inactive",
+    );
     slideshowRuntimeTestProbe.createComposition = (input) =>
       testComposition(
         input as CreateSlideshowSurfaceRuntimeCompositionInput,
         presentation.session,
+        learner.runtime,
       );
     const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
     const surfaceRuntimeProgramSource: SlideshowSurfaceRuntimeProgramSource = (surfaceId) =>
@@ -391,6 +405,18 @@ describe("Slideshow Presentation learner integration", () => {
     );
 
     const next = await screen.findByRole("button", { name: "Next slide" });
+    const canvas = document.querySelector(".sc-slideshow-player__canvas");
+    await waitFor(() =>
+      expect(canvas).toHaveAttribute(
+        "data-content-interaction",
+        testCase.expectedContentInteraction,
+      ),
+    );
+    if (testCase.expectedContentInteraction === "inert") {
+      expect(canvas).toHaveAttribute("inert");
+    } else {
+      expect(canvas).not.toHaveAttribute("inert");
+    }
     if (testCase.expectedAction === "disabled") {
       await waitFor(() => expect(next).toBeDisabled());
     } else {
@@ -423,6 +449,50 @@ describe("Slideshow Presentation learner integration", () => {
         expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
         break;
     }
+  });
+
+  it("closes mounted content when the active learner gate observes satisfaction", async () => {
+    const presentation = createControllablePresentationSession(
+      presentationSnapshot("held", {
+        kind: "learner",
+        waitId: "observed-wait" as PresentationWaitId,
+        status: "waiting",
+      }),
+    );
+    const learner = createControllableLearnerRuntime("awaiting-satisfaction");
+    slideshowRuntimeTestProbe.createComposition = (input) =>
+      testComposition(
+        input as CreateSlideshowSurfaceRuntimeCompositionInput,
+        presentation.session,
+        learner.runtime,
+      );
+    const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
+
+    renderTest(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          preparedDocument={prepared.preparedDocument}
+          structure={prepared.structure}
+          surfaceRuntimeProgramSource={(surfaceId) =>
+            surfaceId === FIRST_SURFACE_ID
+              ? configuredPresentationProgram(FIRST_SURFACE_ID)
+              : undefined
+          }
+        />
+      </CourseThemeProvider>,
+    );
+
+    const canvas = await waitFor(() => {
+      const candidate = document.querySelector(".sc-slideshow-player__canvas");
+      expect(candidate).toHaveAttribute("data-content-interaction", "enabled");
+      return candidate;
+    });
+    expect(canvas).not.toHaveAttribute("inert");
+
+    act(() => learner.setSnapshot("satisfaction-observed"));
+
+    await waitFor(() => expect(canvas).toHaveAttribute("inert"));
+    expect(canvas).toHaveAttribute("data-content-interaction", "inert");
   });
 
   it("keeps configured Next pending until the exact owner readiness request completes", async () => {
@@ -476,6 +546,7 @@ describe("Slideshow Presentation learner integration", () => {
     await waitFor(() => expect(notifyWhenOwnersMounted).toHaveBeenCalledOnce());
     expect(notifyWhenOwnersMounted.mock.calls[0]?.[0]).toEqual([TABS_OWNER_ID]);
     expect(next).toBeDisabled();
+    expect(document.querySelector(".sc-slideshow-player__canvas")).toHaveAttribute("inert");
 
     fireEvent.click(next);
 
@@ -547,6 +618,7 @@ describe("Slideshow Presentation learner integration", () => {
 
     const next = await screen.findByRole("button", { name: "Next slide" });
     await waitFor(() => expect(next).not.toBeDisabled());
+    expect(document.querySelector(".sc-slideshow-player__canvas")).not.toHaveAttribute("inert");
     await user.click(screen.getByRole("tab", { name: "Practice" }));
     await waitFor(() =>
       expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
@@ -580,6 +652,7 @@ describe("Slideshow Presentation learner integration", () => {
 
     const next = await screen.findByRole("button", { name: "Next slide" });
     await waitFor(() => expect(next).not.toBeDisabled());
+    expect(document.querySelector(".sc-slideshow-player__canvas")).not.toHaveAttribute("inert");
     await userEvent.click(next);
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 of 2"));
@@ -1092,11 +1165,14 @@ describe("Slideshow Presentation learner integration", () => {
     await waitFor(() => expect(readyEditors).toHaveLength(1));
     const next = screen.getByRole("button", { name: "Next slide" });
     await waitFor(() => expect(next).not.toBeDisabled());
+    const canvas = document.querySelector(".sc-slideshow-player__canvas");
+    expect(canvas).toHaveAttribute("inert");
     expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
 
     await user.click(next);
 
     await waitFor(() => expect(next).toBeDisabled());
+    expect(canvas).not.toHaveAttribute("inert");
     expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
     expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
       "aria-selected",
@@ -1125,6 +1201,7 @@ describe("Slideshow Presentation learner integration", () => {
     await waitFor(() => {
       expect(overview).toHaveAttribute("aria-selected", "true");
       expect(next).not.toBeDisabled();
+      expect(canvas).toHaveAttribute("inert");
     });
     Reflect.deleteProperty(next, "removeAttribute");
     expect(selectionsWhenNextBecameReady).toContainEqual({
@@ -1553,12 +1630,11 @@ function surfaceExitEnvironment(): SurfaceExitEnvironment {
 function testComposition(
   input: CreateSlideshowSurfaceRuntimeCompositionInput,
   presentationSession?: PresentationPlaybackSession,
+  learnerRuntime: SlideshowSurfaceRuntimeComposition["learnerRuntime"] = inactiveLearnerRuntime(),
 ): SlideshowSurfaceRuntimeComposition {
   return Object.freeze({
     surfaceId: input.surfaceId,
-    learnerRuntime: Object.freeze(
-      {},
-    ) as unknown as SlideshowSurfaceRuntimeComposition["learnerRuntime"],
+    learnerRuntime,
     ...(presentationSession ? { presentationSession } : {}),
     dispose() {
       presentationSession?.dispose();
@@ -1586,9 +1662,7 @@ function createCompositionLifecycleProbe(
     let disposed = false;
     return Object.freeze({
       surfaceId,
-      learnerRuntime: Object.freeze(
-        {},
-      ) as unknown as SlideshowSurfaceRuntimeComposition["learnerRuntime"],
+      learnerRuntime: inactiveLearnerRuntime(),
       ...(presentationSession ? { presentationSession } : {}),
       dispose() {
         if (disposed) return;
@@ -1614,6 +1688,35 @@ function createCompositionLifecycleProbe(
     },
     get disposals() {
       return disposals;
+    },
+  };
+}
+
+function inactiveLearnerRuntime(): SlideshowSurfaceRuntimeComposition["learnerRuntime"] {
+  return createControllableLearnerRuntime("inactive").runtime;
+}
+
+function createControllableLearnerRuntime(
+  initialStatus: PresentationGateObservationSnapshot["status"],
+) {
+  let snapshot = Object.freeze({ status: initialStatus }) as PresentationGateObservationSnapshot;
+  const listeners = new Set<() => void>();
+  const runtime = Object.freeze({
+    getGateObservationSnapshot: () => snapshot,
+    subscribeGateObservation(listener: () => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  }) as unknown as SlideshowSurfaceRuntimeComposition["learnerRuntime"];
+
+  return {
+    runtime,
+    setSnapshot(status: PresentationGateObservationSnapshot["status"]) {
+      snapshot = Object.freeze({ status }) as PresentationGateObservationSnapshot;
+      for (const listener of [...listeners]) listener();
+    },
+    get listenerCount() {
+      return listeners.size;
     },
   };
 }

@@ -346,6 +346,8 @@ export function SlideshowPlayer({
                 <div
                   ref={setCanvasElement}
                   className="sc-slideshow-player__canvas"
+                  data-content-interaction={surfaceRuntime.contentInteraction}
+                  inert={surfaceRuntime.contentInteraction === "inert"}
                   style={
                     {
                       "--sc-slideshow-canvas-inverse-scale": 1 / scaleState.scale,

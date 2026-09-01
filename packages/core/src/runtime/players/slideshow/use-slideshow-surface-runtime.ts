@@ -11,6 +11,7 @@ import {
 import { getControlBindingRegistryForEditor } from "@/document/control-binding";
 import type { SurfaceId } from "@/document/model/course-structure";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
+import type { PresentationGateObservationSnapshot } from "@/runtime/presentation/presentation-progression-gate";
 import type {
   PresentationPlaybackSession,
   PresentationPlaybackSnapshot,
@@ -28,21 +29,25 @@ import {
 import type { SurfaceExitEnvironment } from "./surface-exit-environment";
 
 export type SlideshowNextMode = "play" | "advance" | "navigate" | "disabled";
+export type SlideshowContentInteraction = "enabled" | "inert";
 
 export type SlideshowSurfaceRuntimeState =
   | {
       readonly status: "unconfigured";
       readonly nextMode: "navigate";
+      readonly contentInteraction: "enabled";
       readonly presentationSession?: never;
     }
   | {
       readonly status: "pending";
       readonly nextMode: "disabled";
+      readonly contentInteraction: SlideshowContentInteraction;
       readonly presentationSession?: never;
     }
   | {
       readonly status: "ready";
       readonly nextMode: SlideshowNextMode;
+      readonly contentInteraction: SlideshowContentInteraction;
       readonly presentationSession?: PresentationPlaybackSession;
     };
 
@@ -62,6 +67,7 @@ interface MountedSurfaceRuntime {
 }
 
 const NO_PRESENTATION_SNAPSHOT = null;
+const NO_GATE_OBSERVATION = Object.freeze({ status: "inactive" as const });
 
 export function useSlideshowSurfaceRuntime({
   activeSurfaceId,
@@ -167,16 +173,40 @@ export function useSlideshowSurfaceRuntime({
     [presentationSession],
   );
   const presentationSnapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const learnerRuntime = currentRuntime?.composition.learnerRuntime;
+  const subscribeGateObservation = useCallback(
+    (listener: () => void) =>
+      learnerRuntime?.subscribeGateObservation(listener) ?? (() => undefined),
+    [learnerRuntime],
+  );
+  const getGateObservationSnapshot = useCallback(
+    () => learnerRuntime?.getGateObservationSnapshot() ?? NO_GATE_OBSERVATION,
+    [learnerRuntime],
+  );
+  const gateObservation = useSyncExternalStore(
+    subscribeGateObservation,
+    getGateObservationSnapshot,
+    getGateObservationSnapshot,
+  );
 
   if (program === undefined) {
-    return { status: "unconfigured", nextMode: "navigate" };
+    return { status: "unconfigured", nextMode: "navigate", contentInteraction: "enabled" };
   }
   if (!currentRuntime) {
-    return { status: "pending", nextMode: "disabled" };
+    return {
+      status: "pending",
+      nextMode: "disabled",
+      contentInteraction: program.presentation ? "inert" : "enabled",
+    };
   }
   return {
     status: "ready",
     nextMode: derivePresentationNextMode(presentationSnapshot),
+    contentInteraction: deriveContentInteraction(
+      presentationSnapshot,
+      gateObservation,
+      program.presentation !== undefined,
+    ),
     ...(presentationSession ? { presentationSession } : {}),
   };
 }
@@ -226,4 +256,19 @@ function derivePresentationNextMode(
     case "stopped":
       return "disabled";
   }
+}
+
+function deriveContentInteraction(
+  presentationSnapshot: PresentationPlaybackSnapshot | null,
+  gateObservation: PresentationGateObservationSnapshot,
+  hasConfiguredPresentation: boolean,
+): SlideshowContentInteraction {
+  if (!hasConfiguredPresentation) return "enabled";
+
+  return presentationSnapshot?.phase === "held" &&
+    presentationSnapshot.hold.kind === "learner" &&
+    presentationSnapshot.hold.status === "waiting" &&
+    gateObservation.status === "awaiting-satisfaction"
+    ? "enabled"
+    : "inert";
 }
