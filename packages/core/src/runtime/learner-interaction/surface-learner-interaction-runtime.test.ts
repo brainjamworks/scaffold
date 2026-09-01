@@ -466,6 +466,11 @@ it("delivers the successful navigation report before making the outgoing runtime
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
   await flushPromises();
   expect(navigate).toHaveBeenCalledTimes(1);
+  expect(navigate).toHaveBeenCalledWith(
+    SURFACE_ID,
+    expect.any(AbortSignal),
+    { satisfiesActiveLearnerRequirement: true },
+  );
 
   ownerEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
   navigation.resolve(Result.ok());
@@ -485,6 +490,101 @@ it("delivers the successful navigation report before making the outgoing runtime
 
   runtime.dispose();
   expect(ownerEvents.unsubscriptionsCompleted).toBe(1);
+});
+
+it("marks navigation from an unrelated event turn as not satisfying the active requirement", async () => {
+  const reference = eventReference(OWNER_A_ID, TARGET_A_ID, "selected");
+  const ownerEvents = createTestEventSource();
+  const navigate = vi.fn(async () => Result.err({ reason: "cancelled" as const }));
+  const binding = { ownerId: OWNER_A_ID, eventSource: ownerEvents.eventSource };
+  const runtime = createSurfaceLearnerInteractionRuntime({
+    program: programWithBuckets([[reference, [rule("rule-navigate", reference)]]]),
+    controlBindings: { get: vi.fn(() => binding) },
+    semanticTargets: { activate: vi.fn() },
+    surfaceNavigation: { navigate },
+    semanticInteractionOrigin: "learner-interaction-rule",
+  });
+  const gateAbort = new AbortController();
+  void runtime.waitUntilSatisfied(
+    { kind: "event", ownerId: OWNER_A_ID, targetId: TARGET_B_ID, type: "expanded" },
+    { signal: gateAbort.signal },
+  );
+
+  ownerEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
+  await flushPromises();
+
+  expect(navigate).toHaveBeenCalledWith(
+    SURFACE_ID,
+    expect.any(AbortSignal),
+    { satisfiesActiveLearnerRequirement: false },
+  );
+  gateAbort.abort();
+  runtime.dispose();
+});
+
+it("marks navigation after authoritative state equality as satisfying the active requirement", async () => {
+  const reference = eventReference(OWNER_A_ID, TARGET_A_ID, "selected");
+  const ownerEvents = createTestEventSource();
+  let completion = "pending";
+  const navigate = vi.fn(async () => Result.err({ reason: "cancelled" as const }));
+  const binding = {
+    ownerId: OWNER_A_ID,
+    eventSource: ownerEvents.eventSource,
+    stateReader: { read: vi.fn(() => completion) },
+    commandExecutor: {
+      execute: vi.fn(async () => {
+        completion = "complete";
+        return Result.ok();
+      }),
+    },
+  };
+  const runtime = createSurfaceLearnerInteractionRuntime({
+    program: programWithBuckets([
+      [
+        reference,
+        [
+          {
+            id: "rule-complete-and-navigate",
+            when: reference,
+            conditions: [],
+            commands: [
+              {
+                kind: "target-command",
+                ownerId: OWNER_A_ID,
+                targetId: TARGET_A_ID,
+                type: "complete",
+              },
+              { kind: "navigate-surface", surfaceId: SURFACE_ID },
+            ],
+          },
+        ],
+      ],
+    ]),
+    controlBindings: { get: vi.fn(() => binding) },
+    semanticTargets: { activate: vi.fn() },
+    surfaceNavigation: { navigate },
+    semanticInteractionOrigin: "learner-interaction-rule",
+  });
+  const gate = runtime.waitUntilSatisfied(
+    {
+      kind: "state",
+      ownerId: OWNER_A_ID,
+      targetId: TARGET_A_ID,
+      key: "completion",
+      equals: "complete",
+    },
+    { signal: new AbortController().signal },
+  );
+
+  ownerEvents.emit({ targetId: TARGET_A_ID, type: "selected" });
+  await gate;
+
+  expect(navigate).toHaveBeenCalledWith(
+    SURFACE_ID,
+    expect.any(AbortSignal),
+    { satisfiesActiveLearnerRequirement: true },
+  );
+  runtime.dispose();
 });
 
 it("aborts active work and suppresses queued and stale reports on idempotent disposal", async () => {

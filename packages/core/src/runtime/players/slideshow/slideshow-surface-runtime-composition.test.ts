@@ -146,6 +146,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
                   targetId: TARGET_ID,
                   type: "rule-command",
                 },
+                { kind: "navigate-surface", surfaceId: OTHER_SURFACE_ID },
               ],
             },
           ],
@@ -176,6 +177,20 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
         },
       ],
     });
+    const refusal: SurfaceChangeRefused = Object.freeze({
+      reason: "surface-exit-blocked",
+      activeSurfaceId: SURFACE_ID,
+      targetSurfaceId: OTHER_SURFACE_ID,
+      blockers: Object.freeze([
+        Object.freeze({
+          reason: "quiz-not-complete" as const,
+          ownerId: "quiz-one",
+          surfaceId: SURFACE_ID,
+          attemptStatus: "in_progress" as const,
+        }),
+      ] as const),
+    });
+    const requestSurfaceChange = vi.fn((): SurfaceChangeResult => Result.err(refusal));
     const composition = createSlideshowSurfaceRuntimeComposition({
       surfaceId: SURFACE_ID,
       program: {
@@ -186,7 +201,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
         get: () => binding,
       },
       semanticTargets: { activate },
-      requestSurfaceChange: vi.fn(() => Result.ok()),
+      requestSurfaceChange,
     });
     const report = vi.fn();
     composition.learnerRuntime.subscribeReports(report);
@@ -215,10 +230,75 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
       "presentation-command",
       "rule-command",
     ]);
+    expect(requestSurfaceChange).toHaveBeenCalledWith(OTHER_SURFACE_ID, {
+      kind: "satisfied-learner-rule-branch",
+    });
+    expect(report).toHaveBeenCalledWith(
+      expect.objectContaining({
+        commandExecutions: expect.arrayContaining([
+          expect.objectContaining({ outcome: { kind: "navigation-cancelled" } }),
+        ]),
+        end: "completed",
+      }),
+    );
     expect(events.listenerCount).toBe(1);
     expect(session.getSnapshot()).toMatchObject({
       phase: "held",
       hold: { kind: "learner", status: "ready" },
+    });
+    composition.dispose();
+  });
+
+  it("terminates a successful satisfying learner branch without releasing its outgoing gate", async () => {
+    const events = createTestEventSource();
+    const binding = { ownerId: OWNER_ID, eventSource: events.eventSource };
+    const when = { ownerId: OWNER_ID, targetId: TARGET_ID, type: "selected" } as const;
+    const requestSurfaceChange = vi.fn(() => Result.ok());
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: {
+        learnerInteractions: learnerProgram(SURFACE_ID),
+        presentation: {
+          timeline: {
+            surfaceId: SURFACE_ID,
+            durationMs: 100,
+            cues: [],
+            waits: [
+              {
+                kind: "learner-wait",
+                id: "branch-wait1" as PresentationWaitId,
+                atMs: 0,
+                requirement: { kind: "event", ...when },
+              },
+            ],
+          },
+          autoAdvance: false,
+        },
+      },
+      controlBindings: { get: () => binding },
+      semanticTargets: { activate: vi.fn() },
+      requestSurfaceChange,
+    });
+    const report = vi.fn();
+    composition.learnerRuntime.subscribeReports(report);
+    const session = composition.presentationSession;
+    if (!session) throw new Error("Expected a Presentation Session.");
+    session.play();
+    await flushPromises();
+
+    await events.emit({ targetId: TARGET_ID, type: "selected" });
+    await flushPromises();
+
+    expect(requestSurfaceChange).toHaveBeenCalledWith(OTHER_SURFACE_ID, {
+      kind: "satisfied-learner-rule-branch",
+    });
+    expect(report).toHaveBeenCalledWith(
+      expect.objectContaining({ end: "surface-navigation-committed" }),
+    );
+    expect(events.listenerCount).toBe(0);
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", status: "waiting" },
     });
     composition.dispose();
   });

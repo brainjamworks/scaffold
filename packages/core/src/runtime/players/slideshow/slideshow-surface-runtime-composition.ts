@@ -57,9 +57,11 @@ export function createSlideshowSurfaceRuntimeComposition({
     controlBindings,
     semanticTargets,
     surfaceNavigation: {
-      async navigate(targetSurfaceId, signal) {
+      async navigate(targetSurfaceId, signal, context) {
         signal.throwIfAborted();
-        const result = requestSurfaceChange(targetSurfaceId);
+        const result = context.satisfiesActiveLearnerRequirement
+          ? requestSurfaceChange(targetSurfaceId, { kind: "satisfied-learner-rule-branch" })
+          : requestSurfaceChange(targetSurfaceId);
         if (result.isOk()) return Result.ok();
         switch (result.error.reason) {
           case "surface-exit-blocked":

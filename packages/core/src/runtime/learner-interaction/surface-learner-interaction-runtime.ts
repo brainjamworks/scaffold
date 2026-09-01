@@ -22,11 +22,23 @@ export interface CreateSurfaceLearnerInteractionRuntimeInput {
   readonly program: CompiledSurfaceLearnerInteractionProgram;
   readonly controlBindings: Pick<ControlBindingRegistry, "get">;
   readonly semanticTargets: SemanticTargetInteractionCoordinator;
-  readonly surfaceNavigation: LearnerInteractionSurfaceNavigationPort;
+  readonly surfaceNavigation: SurfaceLearnerInteractionNavigationPort;
   readonly semanticInteractionOrigin: Extract<
     SemanticInteractionOrigin,
     "author-preview" | "learner-interaction-rule"
   >;
+}
+
+export interface SurfaceLearnerInteractionNavigationContext {
+  readonly satisfiesActiveLearnerRequirement: boolean;
+}
+
+export interface SurfaceLearnerInteractionNavigationPort {
+  navigate(
+    surfaceId: EmbeddedNodeId,
+    signal: AbortSignal,
+    context: SurfaceLearnerInteractionNavigationContext,
+  ): ReturnType<LearnerInteractionSurfaceNavigationPort["navigate"]>;
 }
 
 export interface SurfaceLearnerInteractionRuntime extends PresentationGatePort {
@@ -219,7 +231,18 @@ export function createSurfaceLearnerInteractionRuntime({
           program,
           controlBindings,
           semanticTargets,
-          surfaceNavigation,
+          surfaceNavigation: {
+            navigate(targetSurfaceId, signal) {
+              return surfaceNavigation.navigate(
+                targetSurfaceId,
+                signal,
+                Object.freeze({
+                  satisfiesActiveLearnerRequirement:
+                    currentTurnSatisfiesActiveLearnerRequirement(queued),
+                }),
+              );
+            },
+          },
           semanticInteractionOrigin,
           signal: operation.signal,
         });
@@ -239,12 +262,7 @@ export function createSurfaceLearnerInteractionRuntime({
         return;
       }
       if (queued.matchingEventGate && activeGate === queued.matchingEventGate) {
-        const binding = requireGateBinding(queued.matchingEventGate.requirement.ownerId);
-        if (binding !== queued.matchingEventGate.binding) {
-          throw new Error(
-            `Presentation learner gate owner "${queued.matchingEventGate.requirement.ownerId}" has a stale Control Binding.`,
-          );
-        }
+        assertCurrentEventGateBinding(queued.matchingEventGate);
         satisfyGate(queued.matchingEventGate);
       } else if (activeGate?.kind === "state" && stateGateIsSatisfied(activeGate)) {
         satisfyGate(activeGate);
@@ -312,6 +330,24 @@ export function createSurfaceLearnerInteractionRuntime({
       stateReader.read({ targetId: gate.requirement.targetId, key: gate.requirement.key }) ===
       gate.requirement.equals
     );
+  }
+
+  function currentTurnSatisfiesActiveLearnerRequirement(queued: QueuedLearnerEvent): boolean {
+    const gate = activeGate;
+    if (!gate) return false;
+    if (gate.kind === "state") return stateGateIsSatisfied(gate);
+    if (queued.matchingEventGate !== gate) return false;
+    assertCurrentEventGateBinding(gate);
+    return true;
+  }
+
+  function assertCurrentEventGateBinding(gate: ActiveEventGate): void {
+    const binding = requireGateBinding(gate.requirement.ownerId);
+    if (binding !== gate.binding) {
+      throw new Error(
+        `Presentation learner gate owner "${gate.requirement.ownerId}" has a stale Control Binding.`,
+      );
+    }
   }
 
   function cancelGate(gate: ActiveGate | undefined): void {
