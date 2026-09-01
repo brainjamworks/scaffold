@@ -4,7 +4,10 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
-import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import {
+  builtInSurfaceVariantDefinitions,
+  builtInSurfaceVariantRegistry,
+} from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 
 import {
   APPROVED_SEMANTIC_MEMBER_FAMILY_CASES,
@@ -304,7 +307,12 @@ describe("built-in semantic publication coverage", () => {
         directlyPublishedNodeTypes: [...new Set(directlyPublishedNodeTypes)],
         standardRichTextRoots: [...new Set(standardRichTextRoots)],
       }).toEqual(expectedSurfaceBehavior(definition.id, classification));
-      expect(definition.documentSemantics.presentation?.actionIds).toEqual(VISUAL_ACTION_IDS);
+      expect(
+        builtInSurfaceVariantRegistry.get(definition.id)?.documentSemantics?.presentation
+          ?.actionIds,
+      ).toEqual(
+        classification.kind === "assessment-surface" ? [] : VISUAL_ACTION_IDS,
+      );
     }
   });
 });
@@ -368,7 +376,10 @@ function assessmentSurface(contentRootNodeType: string): SurfacePublicationClass
 }
 
 function surface(
-  ownedContent: SurfacePublicationClassification["ownedContent"],
+  ownedContent: Extract<
+    SurfacePublicationClassification,
+    { readonly kind: "surface-owned-content" }
+  >["ownedContent"],
 ): SurfacePublicationClassification {
   return {
     kind: "surface-owned-content",

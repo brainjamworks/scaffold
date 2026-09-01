@@ -167,7 +167,14 @@ function createImmutableSurfaceDefinition(
   input: SurfaceVariantDefinition,
 ): RegisteredSurfaceVariantDefinition {
   const definition = normalizeSurfaceDefinition(input);
-  const documentSemantics = normalizeDocumentSemanticsDefinition(definition.documentSemantics);
+  const documentSemantics = normalizeDocumentSemanticsDefinition(
+    definition.assessmentTargets
+      ? {
+          ...definition.documentSemantics,
+          presentation: { actionIds: [] },
+        }
+      : definition.documentSemantics,
+  );
   return Object.freeze({
     ...definition,
     modes: Object.freeze([...definition.modes]),
