@@ -7,7 +7,9 @@ import type {
 import type { PresentationCueExecutor, PresentationCueReport } from "./presentation-cue-executor";
 import {
   createAnimationFramePresentationMonotonicClock,
-  type PresentationMonotonicClockPort,
+  createReplaceablePresentationPlaybackClock,
+  type PresentationNarrationClockSource,
+  type PresentationPlaybackClockSource,
 } from "./presentation-monotonic-clock";
 import { createPresentationPlaybackMachine } from "./presentation-playback-machine";
 import type { PresentationGatePort } from "./presentation-progression-gate";
@@ -88,9 +90,14 @@ export interface PresentationPlaybackSession {
   dispose(): void;
 }
 
+export interface PresentationPlaybackSessionWithReplaceableClock extends PresentationPlaybackSession {
+  useNarrationClock(source: PresentationNarrationClockSource): void;
+  useInternalClock(): void;
+}
+
 export interface CreatePresentationPlaybackSessionInput {
   readonly timeline: CompiledInternalClockSurfaceTimeline;
-  readonly monotonicClock?: PresentationMonotonicClockPort;
+  readonly monotonicClock?: PresentationPlaybackClockSource;
   readonly cueExecutor: PresentationCueExecutor;
   readonly gatePort: PresentationGatePort;
   readonly autoAdvance: boolean;
@@ -170,13 +177,15 @@ export function createPresentationPlaybackSession({
   cueExecutor,
   gatePort,
   autoAdvance,
-}: CreatePresentationPlaybackSessionInput): PresentationPlaybackSession {
+}: CreatePresentationPlaybackSessionInput): PresentationPlaybackSessionWithReplaceableClock {
   const listeners = new Set<() => void>();
   const cueReportListeners = new Set<(report: PresentationCueReport) => void>();
   let disposed = false;
+  const playbackClock = createReplaceablePresentationPlaybackClock(monotonicClock);
+  let activeClockSource: PresentationPlaybackClockSource = monotonicClock;
   const machine = createPresentationPlaybackMachine({
     timeline,
-    monotonicClock,
+    clockSource: playbackClock,
     cueExecutor,
     gatePort,
     autoAdvance,
@@ -298,6 +307,23 @@ export function createPresentationPlaybackSession({
     stop() {
       assertNotDisposed("stop");
       machine.stop();
+    },
+    useNarrationClock(source: PresentationNarrationClockSource) {
+      assertNotDisposed("replace the clock of");
+      assertNotStopped("replace the clock of");
+      if (source.surfaceId !== snapshot.surfaceId) {
+        throw new Error("Presentation narration clock belongs to a different Surface.");
+      }
+      if (activeClockSource === source) return;
+      playbackClock.replaceSource(source);
+      activeClockSource = source;
+    },
+    useInternalClock() {
+      assertNotDisposed("replace the clock of");
+      assertNotStopped("replace the clock of");
+      if (activeClockSource === monotonicClock) return;
+      playbackClock.replaceSource(monotonicClock);
+      activeClockSource = monotonicClock;
     },
     dispose() {
       if (disposed) return;

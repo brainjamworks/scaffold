@@ -20,7 +20,7 @@ import type {
   PresentationCueOutcome,
   PresentationCueReport,
 } from "./presentation-cue-executor";
-import type { PresentationMonotonicClockPort } from "./presentation-monotonic-clock";
+import type { PresentationPlaybackClockSource } from "./presentation-monotonic-clock";
 import type { PresentationGatePort } from "./presentation-progression-gate";
 
 type PresentationPlaybackMachinePhase =
@@ -47,7 +47,7 @@ type PresentationCueInterruptionReason = "seek" | "restart" | "stop";
 interface PresentationPlaybackMachineContext {
   readonly surfaceId: string;
   readonly durationMs: number;
-  readonly monotonicClock: PresentationMonotonicClockPort;
+  readonly clockSource: PresentationPlaybackClockSource;
   readonly cueExecutor: PresentationCueExecutor;
   readonly gatePort: PresentationGatePort;
   readonly autoAdvance: boolean;
@@ -81,7 +81,7 @@ type PresentationPlaybackMachineEvent =
 
 interface PresentationPlaybackMachineInput {
   readonly timeline: CompiledInternalClockSurfaceTimeline;
-  readonly monotonicClock: PresentationMonotonicClockPort;
+  readonly clockSource: PresentationPlaybackClockSource;
   readonly cueExecutor: PresentationCueExecutor;
   readonly gatePort: PresentationGatePort;
   readonly autoAdvance: boolean;
@@ -89,7 +89,7 @@ interface PresentationPlaybackMachineInput {
 }
 
 interface PresentationClockActorInput {
-  readonly monotonicClock: PresentationMonotonicClockPort;
+  readonly clockSource: PresentationPlaybackClockSource;
   readonly anchorClockTimeMs: number;
   readonly anchorPresentationTimeMs: number;
   readonly durationMs: number;
@@ -149,18 +149,18 @@ interface PresentationPlaybackMachine {
   dispose(): void;
 }
 
-const monotonicClockActor = fromCallback<
+const playbackClockActor = fromCallback<
   PresentationPlaybackMachineEvent,
   PresentationClockActorInput
 >(({ input, sendBack }) => {
   let confirmedTimeMs = input.anchorPresentationTimeMs;
-  return input.monotonicClock.subscribe(() => {
+  return input.clockSource.subscribe(() => {
     const projectedTimeMs = projectedClockTime({
       anchorClockTimeMs: input.anchorClockTimeMs,
       anchorPresentationTimeMs: input.anchorPresentationTimeMs,
       confirmedTimeMs,
       durationMs: input.durationMs,
-      nowMs: input.monotonicClock.nowMs(),
+      nowMs: input.clockSource.nowMs(),
     });
     confirmedTimeMs = projectedTimeMs;
     sendBack({ type: "clock-tick", projectedTimeMs });
@@ -294,10 +294,10 @@ function projectedTimeFrom(event: PresentationPlaybackMachineEvent): number {
   return event.projectedTimeMs;
 }
 
-function finiteClockReadingFrom(clock: PresentationMonotonicClockPort): number {
+function finiteClockReadingFrom(clock: PresentationPlaybackClockSource): number {
   const nowMs = clock.nowMs();
   if (!Number.isFinite(nowMs)) {
-    throw new Error("Presentation monotonic clock returned a non-finite reading.");
+    throw new Error("Presentation playback clock returned a non-finite reading.");
   }
   return nowMs;
 }
@@ -448,7 +448,7 @@ const presentationPlaybackMachineSetup = setup({
     input: {} as PresentationPlaybackMachineInput,
   },
   actors: {
-    monotonicClock: monotonicClockActor,
+    playbackClock: playbackClockActor,
     cueWorker: presentationCueWorker,
     gateObserver: presentationGateActor,
   },
@@ -482,7 +482,7 @@ const presentationPlaybackMachineSetup = setup({
       anchorPresentationTimeMs: ({ context }) => context.currentTimeMs,
     }),
     anchorPlaybackNow: assign({
-      anchorClockTimeMs: ({ context }) => finiteClockReadingFrom(context.monotonicClock),
+      anchorClockTimeMs: ({ context }) => finiteClockReadingFrom(context.clockSource),
       anchorPresentationTimeMs: ({ context }) => context.currentTimeMs,
     }),
     applyClockTick: assign({
@@ -567,8 +567,7 @@ const presentationPlaybackMachineSetup = setup({
       });
     }),
     consumeSeekCues: assign({
-      consumedCueIds: ({ context, event }) =>
-        consumedCueIdsAfterSeek(context, seekTimeFrom(event)),
+      consumedCueIds: ({ context, event }) => consumedCueIdsAfterSeek(context, seekTimeFrom(event)),
     }),
     reconcileWaitPassageForSeek: assign(({ context, event }) => {
       const timeMs = seekTimeFrom(event);
@@ -668,7 +667,7 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
   context: ({ input }) => ({
     surfaceId: input.timeline.surfaceId,
     durationMs: input.timeline.durationMs,
-    monotonicClock: input.monotonicClock,
+    clockSource: input.clockSource,
     cueExecutor: input.cueExecutor,
     gatePort: input.gatePort,
     autoAdvance: input.autoAdvance,
@@ -760,9 +759,9 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
     },
     playing: {
       invoke: {
-        src: "monotonicClock",
+        src: "playbackClock",
         input: ({ context }) => ({
-          monotonicClock: context.monotonicClock,
+          clockSource: context.clockSource,
           anchorClockTimeMs: context.anchorClockTimeMs,
           anchorPresentationTimeMs: context.anchorPresentationTimeMs,
           durationMs: context.durationMs,
@@ -1083,7 +1082,7 @@ export function createPresentationPlaybackMachine(
         snapshot.context.currentTimeMs < snapshot.context.durationMs;
       actor.send({
         type: "play",
-        anchorClockTimeMs: needsAnchor ? finiteClockReadingFrom(input.monotonicClock) : 0,
+        anchorClockTimeMs: needsAnchor ? finiteClockReadingFrom(input.clockSource) : 0,
       });
     },
     pause: () => actor.send({ type: "pause" }),
@@ -1094,7 +1093,7 @@ export function createPresentationPlaybackMachine(
         phase === "held" && snapshot.context.currentTimeMs < snapshot.context.durationMs;
       actor.send({
         type: "advance",
-        anchorClockTimeMs: needsAnchor ? finiteClockReadingFrom(input.monotonicClock) : 0,
+        anchorClockTimeMs: needsAnchor ? finiteClockReadingFrom(input.clockSource) : 0,
       });
     },
     seek: (timeMs: number) => {
@@ -1104,7 +1103,7 @@ export function createPresentationPlaybackMachine(
       actor.send({
         type: "seek",
         timeMs,
-        anchorClockTimeMs: needsAnchor ? finiteClockReadingFrom(input.monotonicClock) : 0,
+        anchorClockTimeMs: needsAnchor ? finiteClockReadingFrom(input.clockSource) : 0,
       });
     },
     restart: () => actor.send({ type: "restart" }),
