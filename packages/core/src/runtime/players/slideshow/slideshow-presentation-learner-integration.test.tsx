@@ -357,19 +357,22 @@ describe("Slideshow Presentation learner integration", () => {
     {
       name: "awaiting start",
       snapshot: presentationSnapshot("awaiting-start"),
-      expectedAction: "play",
+      expectedNextEnabled: false,
+      expectedContinue: false,
       expectedContentInteraction: "inert",
     },
     {
       name: "playing",
       snapshot: presentationSnapshot("playing"),
-      expectedAction: "disabled",
+      expectedNextEnabled: false,
+      expectedContinue: false,
       expectedContentInteraction: "inert",
     },
     {
       name: "paused",
       snapshot: presentationSnapshot("paused"),
-      expectedAction: "disabled",
+      expectedNextEnabled: false,
+      expectedContinue: false,
       expectedContentInteraction: "inert",
     },
     {
@@ -378,7 +381,8 @@ describe("Slideshow Presentation learner integration", () => {
         kind: "manual",
         waitId: "manual-hold" as PresentationWaitId,
       }),
-      expectedAction: "advance",
+      expectedNextEnabled: false,
+      expectedContinue: true,
       expectedContentInteraction: "inert",
     },
     {
@@ -388,7 +392,8 @@ describe("Slideshow Presentation learner integration", () => {
         waitId: "learner-waiting" as PresentationWaitId,
         status: "waiting",
       }),
-      expectedAction: "disabled",
+      expectedNextEnabled: false,
+      expectedContinue: false,
       gateObservation: "awaiting-satisfaction",
       expectedContentInteraction: "enabled",
     },
@@ -399,7 +404,8 @@ describe("Slideshow Presentation learner integration", () => {
         waitId: "learner-before-gate" as PresentationWaitId,
         status: "waiting",
       }),
-      expectedAction: "disabled",
+      expectedNextEnabled: false,
+      expectedContinue: false,
       expectedContentInteraction: "inert",
     },
     {
@@ -409,7 +415,8 @@ describe("Slideshow Presentation learner integration", () => {
         waitId: "learner-observed" as PresentationWaitId,
         status: "waiting",
       }),
-      expectedAction: "disabled",
+      expectedNextEnabled: false,
+      expectedContinue: false,
       gateObservation: "satisfaction-observed",
       expectedContentInteraction: "inert",
     },
@@ -420,22 +427,25 @@ describe("Slideshow Presentation learner integration", () => {
         waitId: "learner-ready" as PresentationWaitId,
         status: "ready",
       }),
-      expectedAction: "advance",
+      expectedNextEnabled: false,
+      expectedContinue: true,
       expectedContentInteraction: "inert",
     },
     {
       name: "completed",
       snapshot: presentationSnapshot("completed"),
-      expectedAction: "navigate",
+      expectedNextEnabled: true,
+      expectedContinue: false,
       expectedContentInteraction: "inert",
     },
     {
       name: "stopped",
       snapshot: presentationSnapshot("stopped"),
-      expectedAction: "disabled",
+      expectedNextEnabled: false,
+      expectedContinue: false,
       expectedContentInteraction: "inert",
     },
-  ] as const)("routes Next from $name without bypassing the derived mode", async (testCase) => {
+  ] as const)("keeps each control single-purpose from $name", async (testCase) => {
     const presentation = createControllablePresentationSession(testCase.snapshot);
     const learner = createControllableLearnerRuntime(
       "gateObservation" in testCase ? testCase.gateObservation : "inactive",
@@ -473,38 +483,117 @@ describe("Slideshow Presentation learner integration", () => {
     } else {
       expect(canvas).not.toHaveAttribute("inert");
     }
-    if (testCase.expectedAction === "disabled") {
-      await waitFor(() => expect(next).toBeDisabled());
-    } else {
+    if (testCase.expectedNextEnabled) {
       await waitFor(() => expect(next).not.toBeDisabled());
+    } else {
+      await waitFor(() => expect(next).toBeDisabled());
+    }
+    const continueControl = testCase.expectedContinue
+      ? await screen.findByRole("button", { name: "Continue presentation" })
+      : screen.queryByRole("button", { name: "Continue presentation" });
+    expect(continueControl !== null).toBe(testCase.expectedContinue);
+    const transportControl = await screen.findByRole("button", {
+      name: testCase.snapshot.phase === "playing" ? "Pause presentation" : "Play presentation",
+    });
+    if (
+      testCase.snapshot.phase === "held" ||
+      testCase.snapshot.phase === "completed" ||
+      testCase.snapshot.phase === "stopped"
+    ) {
+      expect(transportControl).toBeDisabled();
+    } else {
+      expect(transportControl).not.toBeDisabled();
     }
     expect(presentation.play).not.toHaveBeenCalled();
     expect(presentation.advance).not.toHaveBeenCalled();
 
     fireEvent.click(next);
 
-    switch (testCase.expectedAction) {
-      case "play":
-        expect(presentation.play).toHaveBeenCalledOnce();
-        expect(presentation.advance).not.toHaveBeenCalled();
-        expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
-        break;
-      case "advance":
-        expect(presentation.advance).toHaveBeenCalledOnce();
-        expect(presentation.play).not.toHaveBeenCalled();
-        expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
-        break;
-      case "navigate":
-        expect(presentation.play).not.toHaveBeenCalled();
-        expect(presentation.advance).not.toHaveBeenCalled();
-        await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 of 2"));
-        break;
-      case "disabled":
-        expect(presentation.play).not.toHaveBeenCalled();
-        expect(presentation.advance).not.toHaveBeenCalled();
-        expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
-        break;
+    expect(presentation.play).not.toHaveBeenCalled();
+    expect(presentation.advance).not.toHaveBeenCalled();
+    if (testCase.expectedNextEnabled) {
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 of 2"));
+    } else {
+      expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
     }
+
+    if (continueControl) {
+      fireEvent.click(continueControl);
+      expect(presentation.advance).toHaveBeenCalledOnce();
+    }
+  });
+
+  it("auto-starts each configured Surface and requests the next Surface after completion", async () => {
+    const presentations = new Map<
+      SurfaceId,
+      ReturnType<typeof createControllablePresentationSession>
+    >();
+    slideshowRuntimeTestProbe.createComposition = (rawInput) => {
+      const input = rawInput as CreateSlideshowSurfaceRuntimeCompositionInput;
+      const presentation = createControllablePresentationSession(
+        Object.freeze({ ...presentationSnapshot("awaiting-start"), surfaceId: input.surfaceId }),
+      );
+      presentations.set(input.surfaceId, presentation);
+      return testComposition(input, presentation.session);
+    };
+    const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
+
+    renderTest(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          preparedDocument={prepared.preparedDocument}
+          structure={prepared.structure}
+          surfaceRuntimeProgramSource={(surfaceId) =>
+            configuredPresentationProgram(surfaceId, true)
+          }
+        />
+      </CourseThemeProvider>,
+    );
+
+    await waitFor(() => expect(presentations.get(FIRST_SURFACE_ID)?.play).toHaveBeenCalledOnce());
+    expect(screen.getByRole("button", { name: "Next slide" })).toBeDisabled();
+
+    act(() => {
+      presentations
+        .get(FIRST_SURFACE_ID)
+        ?.setSnapshot(
+          Object.freeze({ ...presentationSnapshot("completed"), surfaceId: FIRST_SURFACE_ID }),
+        );
+    });
+
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 of 2"));
+    await waitFor(() => expect(presentations.get(SECOND_SURFACE_ID)?.play).toHaveBeenCalledOnce());
+  });
+
+  it("keeps an auto-advancing manual Wait behind explicit Continue", async () => {
+    const presentation = createControllablePresentationSession(
+      presentationSnapshot("held", {
+        kind: "manual",
+        waitId: "auto-manual-hold" as PresentationWaitId,
+      }),
+    );
+    slideshowRuntimeTestProbe.createComposition = (input) =>
+      testComposition(input as CreateSlideshowSurfaceRuntimeCompositionInput, presentation.session);
+    const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
+
+    renderTest(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          preparedDocument={prepared.preparedDocument}
+          structure={prepared.structure}
+          surfaceRuntimeProgramSource={(surfaceId) =>
+            surfaceId === FIRST_SURFACE_ID
+              ? configuredPresentationProgram(surfaceId, true)
+              : undefined
+          }
+        />
+      </CourseThemeProvider>,
+    );
+
+    expect(await screen.findByRole("button", { name: "Continue presentation" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Next slide" })).toBeDisabled();
+    expect(presentation.play).not.toHaveBeenCalled();
+    expect(presentation.advance).not.toHaveBeenCalled();
   });
 
   it("closes mounted content when the active learner gate observes satisfaction", async () => {
@@ -774,13 +863,16 @@ describe("Slideshow Presentation learner integration", () => {
     );
 
     const next = await screen.findByRole("button", { name: "Next slide" });
-    await waitFor(() => expect(next).not.toBeDisabled());
+    const continueControl = await screen.findByRole("button", {
+      name: "Continue presentation",
+    });
+    expect(next).toBeDisabled();
 
-    await userEvent.click(next);
+    await userEvent.click(continueControl);
 
     expect(presentation.advance).toHaveBeenCalledOnce();
     expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
-    expect(next).not.toBeDisabled();
+    expect(next).toBeDisabled();
   });
 
   it("runs learner-only Tabs rules while Next remains ordinary navigation", async () => {
@@ -948,7 +1040,7 @@ describe("Slideshow Presentation learner integration", () => {
     );
 
     const next = await screen.findByRole("button", { name: "Next slide" });
-    await waitFor(() => expect(outgoingPresentation.listenerCount).toBe(2));
+    await waitFor(() => expect(outgoingPresentation.listenerCount).toBe(3));
     await waitFor(() => expect(outgoingLearner.listenerCount).toBe(1));
     const staleGuardListener = outgoingPresentation.capturedListeners[0];
     const stalePresentationListener = outgoingPresentation.capturedListeners[1];
@@ -1013,7 +1105,7 @@ describe("Slideshow Presentation learner integration", () => {
     );
     await waitFor(() => expect(onRendererReady).toHaveBeenCalledOnce());
     await waitFor(() => expect(lifecycle.events).toEqual([`create:${FIRST_SURFACE_ID}`]));
-    await waitFor(() => expect(presentations[0]?.listenerCount).toBe(2));
+    await waitFor(() => expect(presentations[0]?.listenerCount).toBe(3));
     expect(lifecycle.learners[0]?.listenerCount).toBe(1);
 
     rerender(
@@ -1039,7 +1131,7 @@ describe("Slideshow Presentation learner integration", () => {
     expect(lifecycle.maximumActiveOwners).toBe(1);
     expect(presentations[0]?.listenerCount).toBe(0);
     expect(presentations[0]?.dispose).toHaveBeenCalledOnce();
-    expect(presentations.at(-1)?.listenerCount).toBe(2);
+    expect(presentations.at(-1)?.listenerCount).toBe(3);
     expect(lifecycle.learners[0]?.listenerCount).toBe(0);
     expect(lifecycle.learners.at(-1)?.listenerCount).toBe(1);
 
@@ -1132,7 +1224,7 @@ describe("Slideshow Presentation learner integration", () => {
       </StrictMode>,
     );
     await waitFor(() => expect(lifecycle.events).toEqual([`create:${FIRST_SURFACE_ID}`]));
-    await waitFor(() => expect(presentations[0]?.listenerCount).toBe(2));
+    await waitFor(() => expect(presentations[0]?.listenerCount).toBe(3));
     expect(lifecycle.learners[0]?.listenerCount).toBe(1);
     const reprojectedStructure = projectCourseStructure(prepared.preparedDocument.content);
     if (!reprojectedStructure || reprojectedStructure.mode !== "slideshow") {
@@ -1152,7 +1244,7 @@ describe("Slideshow Presentation learner integration", () => {
     );
 
     await waitFor(() => expect(lifecycle.events.length).toBeGreaterThanOrEqual(3));
-    await waitFor(() => expect(presentations.at(-1)?.listenerCount).toBe(2));
+    await waitFor(() => expect(presentations.at(-1)?.listenerCount).toBe(3));
     expect(lifecycle.events.slice(0, 3)).toEqual([
       `create:${FIRST_SURFACE_ID}`,
       `dispose:${FIRST_SURFACE_ID}`,
@@ -1162,7 +1254,7 @@ describe("Slideshow Presentation learner integration", () => {
     expect(lifecycle.activeOwners).toBe(1);
     expect(presentations[0]?.listenerCount).toBe(0);
     expect(presentations[0]?.dispose).toHaveBeenCalledOnce();
-    expect(presentations.at(-1)?.listenerCount).toBe(2);
+    expect(presentations.at(-1)?.listenerCount).toBe(3);
     expect(lifecycle.learners[0]?.listenerCount).toBe(0);
     expect(lifecycle.learners.at(-1)?.listenerCount).toBe(1);
 
@@ -1195,8 +1287,7 @@ describe("Slideshow Presentation learner integration", () => {
     await waitFor(() => expect(next).not.toBeDisabled());
     await user.click(next);
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 of 2"));
-    await waitFor(() => expect(next).not.toBeDisabled());
-    await user.click(next);
+    await user.click(await screen.findByRole("button", { name: "Play presentation" }));
     await waitFor(() => expect(next).toBeDisabled());
     expect(screen.getByRole("status")).toHaveTextContent("2 of 2");
 
@@ -1243,8 +1334,8 @@ describe("Slideshow Presentation learner integration", () => {
     );
 
     const next = await screen.findByRole("button", { name: "Next slide" });
-    await waitFor(() => expect(next).not.toBeDisabled());
-    await user.click(next);
+    expect(next).toBeDisabled();
+    await user.click(await screen.findByRole("button", { name: "Play presentation" }));
     await waitFor(() =>
       expect(
         screen.getByText("Complete the required interaction before moving to another slide."),
@@ -1284,8 +1375,8 @@ describe("Slideshow Presentation learner integration", () => {
     );
 
     const next = await screen.findByRole("button", { name: "Next slide" });
-    await waitFor(() => expect(next).not.toBeDisabled());
-    await user.click(next);
+    expect(next).toBeDisabled();
+    await user.click(await screen.findByRole("button", { name: "Play presentation" }));
     await waitFor(() => expect(next).toBeDisabled());
 
     await user.click(screen.getByRole("tab", { name: "Practice" }));
@@ -1330,8 +1421,8 @@ describe("Slideshow Presentation learner integration", () => {
     });
 
     const next = await screen.findByRole("button", { name: "Next slide" });
-    await waitFor(() => expect(next).not.toBeDisabled());
-    await user.click(next);
+    expect(next).toBeDisabled();
+    await user.click(await screen.findByRole("button", { name: "Play presentation" }));
     await waitFor(() =>
       expect(
         screen.getByText("Complete the required interactions before moving to another slide."),
@@ -1341,7 +1432,12 @@ describe("Slideshow Presentation learner integration", () => {
 
     await user.click(screen.getByRole("tab", { name: "Practice" }));
 
-    await waitFor(() => expect(next).not.toBeDisabled());
+    const continueControl = await screen.findByRole("button", {
+      name: "Continue presentation",
+    });
+    expect(next).toBeDisabled();
+    await user.click(continueControl);
+    expect(next).toBeDisabled();
     expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
     expect(
       screen.getByText("Complete this quiz before moving to another slide."),
@@ -1413,12 +1509,13 @@ describe("Slideshow Presentation learner integration", () => {
 
     await waitFor(() => expect(readyEditors).toHaveLength(1));
     const next = screen.getByRole("button", { name: "Next slide" });
-    await waitFor(() => expect(next).not.toBeDisabled());
+    const play = await screen.findByRole("button", { name: "Play presentation" });
+    expect(next).toBeDisabled();
     canvas = document.querySelector(".sc-slideshow-player__canvas");
     expect(canvas).toHaveAttribute("inert");
     expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
 
-    await user.click(next);
+    await user.click(play);
 
     await waitFor(() => expect(next).toBeDisabled());
     expect(canvas).not.toHaveAttribute("inert");
@@ -1439,10 +1536,11 @@ describe("Slideshow Presentation learner integration", () => {
 
     await waitFor(() => {
       expect(overview).toHaveAttribute("aria-selected", "true");
-      expect(next).not.toBeDisabled();
+      expect(next).toBeDisabled();
       expect(canvas).toHaveAttribute("inert");
       expect(document.activeElement).toBe(screen.getByTestId("slideshow-controls"));
     });
+    const continueControl = screen.getByRole("button", { name: "Continue presentation" });
 
     await user.tab();
 
@@ -1451,7 +1549,7 @@ describe("Slideshow Presentation learner integration", () => {
     );
     expect(canvas?.contains(document.activeElement)).toBe(false);
 
-    await user.click(next);
+    await user.click(continueControl);
 
     expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
     await waitFor(() => expect(next).not.toBeDisabled());
@@ -1483,10 +1581,8 @@ describe("Slideshow Presentation learner integration", () => {
 
     const next = await screen.findByRole("button", { name: "Next slide" });
     const canvas = document.querySelector(".sc-slideshow-player__canvas");
-    await waitFor(() => expect(next).not.toBeDisabled());
+    expect(next).toBeDisabled();
     expect(canvas).toHaveAttribute("inert");
-
-    await user.click(next);
 
     await waitFor(() => {
       expect(next).toBeDisabled();
@@ -1496,14 +1592,9 @@ describe("Slideshow Presentation learner integration", () => {
     await user.click(screen.getByRole("tab", { name: "Practice" }));
 
     await waitFor(() => {
-      expect(canvas).toHaveAttribute("inert");
-      expect(next).not.toBeDisabled();
+      expect(screen.getByRole("status")).toHaveTextContent("2 of 2");
     });
-    expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
-
-    await user.click(next);
-
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 of 2"));
+    expect(canvas).not.toHaveAttribute("inert");
   });
 
   it("keeps real Seek Restart and Stop lifecycle passage inert until a fresh gate opens", async () => {
@@ -1527,7 +1618,7 @@ describe("Slideshow Presentation learner integration", () => {
       </CourseThemeProvider>,
     );
 
-    const next = await screen.findByRole("button", { name: "Next slide" });
+    const play = await screen.findByRole("button", { name: "Play presentation" });
     const canvas = document.querySelector(".sc-slideshow-player__canvas");
     await waitFor(() => expect(composition?.presentationControls).toBeDefined());
     const activeComposition = composition;
@@ -1538,7 +1629,7 @@ describe("Slideshow Presentation learner integration", () => {
     }
     const seek = (timeMs: number) => activeComposition.seek!(timeMs);
 
-    await user.click(next);
+    await user.click(play);
     await waitFor(() => expect(canvas).not.toHaveAttribute("inert"));
     expect(learnerRuntime.getGateObservationSnapshot()).toEqual({
       status: "awaiting-satisfaction",
@@ -1565,7 +1656,7 @@ describe("Slideshow Presentation learner integration", () => {
     expect(learnerRuntime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
     expect(session.getSnapshot()).toMatchObject({ phase: "awaiting-start", currentTimeMs: 0 });
 
-    await user.click(next);
+    await user.click(screen.getByRole("button", { name: "Play presentation" }));
 
     await waitFor(() => expect(canvas).not.toHaveAttribute("inert"));
     expect(learnerRuntime.getGateObservationSnapshot()).toEqual({
@@ -1596,7 +1687,7 @@ describe("Slideshow Presentation learner integration", () => {
 
     const firstNext = await screen.findByRole("button", { name: "Next slide" });
     const firstCanvas = document.querySelector(".sc-slideshow-player__canvas");
-    await user.click(firstNext);
+    await user.click(await screen.findByRole("button", { name: "Play presentation" }));
     await waitFor(() => expect(firstCanvas).not.toHaveAttribute("inert"));
 
     await user.click(screen.getByRole("tab", { name: "Practice" }));
@@ -1625,7 +1716,7 @@ describe("Slideshow Presentation learner integration", () => {
 
     const secondNext = await screen.findByRole("button", { name: "Next slide" });
     const secondCanvas = document.querySelector(".sc-slideshow-player__canvas");
-    await user.click(secondNext);
+    await user.click(await screen.findByRole("button", { name: "Play presentation" }));
     await waitFor(() => expect(secondCanvas).not.toHaveAttribute("inert"));
 
     await user.click(screen.getByRole("tab", { name: "Practice" }));
@@ -1636,8 +1727,10 @@ describe("Slideshow Presentation learner integration", () => {
         "true",
       );
       expect(secondCanvas).toHaveAttribute("inert");
-      expect(secondNext).not.toBeDisabled();
+      expect(secondNext).toBeDisabled();
     });
+    await user.click(screen.getByRole("button", { name: "Continue presentation" }));
+    await waitFor(() => expect(secondNext).not.toBeDisabled());
   });
 });
 
@@ -1996,10 +2089,13 @@ function slideContentSettings() {
   } as const;
 }
 
-function configuredPresentationProgram(surfaceId: SurfaceId): SlideshowSurfaceRuntimeProgram {
+function configuredPresentationProgram(
+  surfaceId: SurfaceId,
+  autoAdvance = false,
+): SlideshowSurfaceRuntimeProgram {
   return Object.freeze({
     presentation: Object.freeze({
-      autoAdvance: false,
+      autoAdvance,
       timeline: Object.freeze({
         surfaceId,
         durationMs: 100,
@@ -2229,6 +2325,7 @@ function createCompositionLifecycleProbe(
 function presentationControlsFrom(session: PresentationPlaybackSession) {
   return Object.freeze({
     getSnapshot: () => session.getSnapshot(),
+    getNarrationSnapshot: () => null,
     subscribe: (listener: () => void) => session.subscribe(listener),
     subscribeCueReports: (
       listener: Parameters<PresentationPlaybackSession["subscribeCueReports"]>[0],
@@ -2236,6 +2333,7 @@ function presentationControlsFrom(session: PresentationPlaybackSession) {
     play: () => session.play(),
     pause: () => session.pause(),
     advance: () => session.advance(),
+    continueWithoutNarration: () => undefined,
     restart: async () => {
       session.restart();
       return Result.ok(

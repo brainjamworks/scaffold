@@ -198,8 +198,10 @@ export function SlideshowPlayer({
         : null,
     [activeSurfaceId, canvasElement, runtimeEditor],
   );
+  const navigation = getSlideshowNavigationState(structure, activeSurfaceId);
   const surfaceRuntime = useSlideshowSurfaceRuntime({
     activeSurfaceId,
+    nextSurfaceId: navigation.nextSurfaceId,
     activeSurfaceRoot,
     editor: runtimeEditor,
     featureViewBaseline,
@@ -298,7 +300,6 @@ export function SlideshowPlayer({
   const [fullscreenPending, setFullscreenPending] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenError, setFullscreenError] = useState<string | null>(null);
-  const navigation = getSlideshowNavigationState(structure, activeSurfaceId);
   const nextRequestsSurfaceChange = surfaceRuntime.nextMode === "navigate";
   const nextMode =
     nextRequestsSurfaceChange && (surfaceNavigationBlocked || !navigation.canGoNext)
@@ -309,6 +310,13 @@ export function SlideshowPlayer({
     : undefined;
   const presentationControls = surfaceRuntime.presentationControls;
   const presentationSnapshot = presentationControls?.getSnapshot();
+  const canContinuePresentation =
+    presentationSnapshot?.phase === "held" &&
+    (presentationSnapshot.hold.kind === "manual" || presentationSnapshot.hold.status === "ready");
+  const presentationTransportDisabled =
+    presentationSnapshot?.phase === "held" ||
+    presentationSnapshot?.phase === "completed" ||
+    presentationSnapshot?.phase === "stopped";
   const narrationSnapshot = surfaceRuntime.narration;
   const narrationFailure = narrationSnapshot?.error ?? null;
   const canRetryNarration = narrationFailure?.reason === "playback-not-allowed";
@@ -557,21 +565,38 @@ export function SlideshowPlayer({
                       role="group"
                       aria-label="Presentation playback"
                     >
-                      <button
-                        type="button"
-                        className="sc-slideshow-player__presentation-button"
-                        onClick={() => {
-                          if (presentationSnapshot.phase === "playing") {
-                            presentationControls.pause();
-                            return;
-                          }
-                          void presentationControls.play();
-                        }}
-                      >
-                        {presentationSnapshot.phase === "playing"
-                          ? "Pause presentation"
-                          : "Play presentation"}
-                      </button>
+                      <span className="sc-slideshow-player__presentation-actions">
+                        <button
+                          type="button"
+                          className="sc-slideshow-player__presentation-button"
+                          disabled={presentationTransportDisabled}
+                          onClick={() => {
+                            if (presentationSnapshot.phase === "playing") {
+                              presentationControls.pause();
+                              return;
+                            }
+                            if (
+                              presentationSnapshot.phase === "awaiting-start" ||
+                              presentationSnapshot.phase === "paused"
+                            ) {
+                              void presentationControls.play();
+                            }
+                          }}
+                        >
+                          {presentationSnapshot.phase === "playing"
+                            ? "Pause presentation"
+                            : "Play presentation"}
+                        </button>
+                        {canContinuePresentation ? (
+                          <button
+                            type="button"
+                            className="sc-slideshow-player__presentation-button"
+                            onClick={() => void presentationControls.advance()}
+                          >
+                            Continue presentation
+                          </button>
+                        ) : null}
+                      </span>
                       <input
                         className="sc-slideshow-player__presentation-progress"
                         type="range"
@@ -684,33 +709,8 @@ export function SlideshowPlayer({
                         aria-describedby={nextSurfaceNavigationAriaDescribedBy}
                         disabled={nextMode === "disabled"}
                         onClick={() => {
-                          switch (nextMode) {
-                            case "disabled":
-                              return;
-                            case "play": {
-                              const session = surfaceRuntime.presentationControls;
-                              if (!session) {
-                                throw new Error(
-                                  "Slideshow play mode requires a Presentation Session.",
-                                );
-                              }
-                              void session.play();
-                              return;
-                            }
-                            case "advance": {
-                              const session = surfaceRuntime.presentationControls;
-                              if (!session) {
-                                throw new Error(
-                                  "Slideshow advance mode requires a Presentation Session.",
-                                );
-                              }
-                              void session.advance();
-                              return;
-                            }
-                            case "navigate":
-                              if (navigation.nextSurfaceId) {
-                                requestSurfaceChange(navigation.nextSurfaceId);
-                              }
+                          if (nextMode === "navigate" && navigation.nextSurfaceId) {
+                            requestSurfaceChange(navigation.nextSurfaceId);
                           }
                         }}
                       >

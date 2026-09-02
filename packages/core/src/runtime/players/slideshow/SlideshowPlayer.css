@@ -125,6 +125,16 @@
     cursor: pointer;
   }
 
+  .sc-slideshow-player__presentation-actions {
+    display: flex;
+    gap: 0.375rem;
+  }
+
+  .sc-slideshow-player__presentation-button:disabled {
+    cursor: default;
+    opacity: 0.55;
+  }
+
   .sc-slideshow-player__presentation-button:hover {
     background: var(--color-muted);
   }

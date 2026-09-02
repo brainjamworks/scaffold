@@ -1073,6 +1073,38 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     },
   );
 
+  it("keeps an auto-advancing manual Wait behind explicit advance", async () => {
+    const manualTimeline = Object.freeze<CompiledSurfacePresentationTimeline>({
+      surfaceId: SURFACE_ID,
+      durationMs: 0,
+      visualProgram: emptyVisualProgram(SURFACE_ID, 0),
+      cues: Object.freeze([]),
+      waits: Object.freeze([
+        { kind: "manual-wait", id: "manual-auto-wait" as PresentationWaitId, atMs: 0 },
+      ]),
+    });
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: { presentation: { timeline: manualTimeline, autoAdvance: true } },
+      controlBindings: { get: () => undefined },
+      semanticTargets: { activate: vi.fn() },
+      featureViewBaseline: emptyFeatureViewBaseline(),
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+    });
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected a Presentation Session.");
+
+    expect((await controls.play()).isOk()).toBe(true);
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "manual", waitId: "manual-auto-wait" },
+    });
+
+    expect((await controls.advance()).isOk()).toBe(true);
+    expect(controls.getSnapshot()).toMatchObject({ phase: "completed" });
+    composition.dispose();
+  });
+
   it("disposes Presentation before learner subscriptions without stale reports", async () => {
     const disposalOrder: string[] = [];
     const events = createTestEventSource(() => disposalOrder.push("learner"));

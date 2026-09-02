@@ -25,7 +25,7 @@ import {
 } from "./slideshow-surface-runtime-composition";
 import type { SurfaceExitEnvironment } from "./surface-exit-environment";
 
-export type SlideshowNextMode = "play" | "advance" | "navigate" | "disabled";
+export type SlideshowNextMode = "navigate" | "disabled";
 export type SlideshowContentInteraction = "enabled" | "inert";
 
 export type SlideshowSurfaceRuntimeState =
@@ -56,6 +56,7 @@ export type SlideshowSurfaceRuntimeState =
 
 interface UseSlideshowSurfaceRuntimeInput {
   readonly activeSurfaceId: SurfaceId | null;
+  readonly nextSurfaceId: SurfaceId | null;
   readonly activeSurfaceRoot: HTMLElement | null;
   readonly editor: TiptapEditor | null;
   readonly featureViewBaseline: PresentationFeatureViewBaselinePort;
@@ -78,6 +79,7 @@ const NO_GATE_OBSERVATION = Object.freeze({ status: "inactive" as const });
 
 export function useSlideshowSurfaceRuntime({
   activeSurfaceId,
+  nextSurfaceId,
   activeSurfaceRoot,
   editor,
   featureViewBaseline,
@@ -263,6 +265,25 @@ export function useSlideshowSurfaceRuntime({
     getGateObservationSnapshot,
   );
 
+  useEffect(() => {
+    if (!program?.presentation?.autoAdvance || !presentationControls || !presentationSnapshot) {
+      return;
+    }
+    if (presentationSnapshot.phase === "awaiting-start") {
+      void presentationControls.play();
+      return;
+    }
+    if (presentationSnapshot.phase === "completed" && nextSurfaceId !== null) {
+      void requestSurfaceChange(nextSurfaceId);
+    }
+  }, [
+    nextSurfaceId,
+    presentationControls,
+    presentationSnapshot,
+    program?.presentation?.autoAdvance,
+    requestSurfaceChange,
+  ]);
+
   if (runtimeDefect) throw runtimeDefect.error;
   if (program === undefined) {
     return { status: "unconfigured", nextMode: "navigate", contentInteraction: "enabled" };
@@ -319,20 +340,7 @@ export function deriveRequiredControlBindingOwnerIds(
 function derivePresentationNextMode(
   snapshot: PresentationPlaybackSnapshot | null,
 ): SlideshowNextMode {
-  if (snapshot === null || snapshot.phase === "completed") return "navigate";
-
-  switch (snapshot.phase) {
-    case "awaiting-start":
-      return "play";
-    case "held":
-      return snapshot.hold.kind === "manual" || snapshot.hold.status === "ready"
-        ? "advance"
-        : "disabled";
-    case "playing":
-    case "paused":
-    case "stopped":
-      return "disabled";
-  }
+  return snapshot === null || snapshot.phase === "completed" ? "navigate" : "disabled";
 }
 
 function deriveContentInteraction(
