@@ -7,7 +7,10 @@ import { getControlCapabilityCatalogueForEditor } from "@/document/control-bindi
 import type { SurfaceId } from "@/document/model/course-structure";
 import type { ScaffoldLearnerPublication } from "@/host/contracts";
 import type { ScaffoldProductAccess } from "@/host/contracts/product-access";
-import { compileLearnerInteractions } from "@/learner-interaction/model";
+import {
+  compileLearnerInteractions,
+  type LearnerInteractionPreviewReportsPort,
+} from "@/learner-interaction/model";
 import type {
   CompiledPresentationPlaybackProgram,
   PresentationPreviewPlaybackPort,
@@ -61,6 +64,18 @@ export interface PresentationRuntimePreview {
   readonly onPortChange: (port: PresentationPreviewPlaybackPort | null) => void;
 }
 
+/** @internal One author-only runtime mount with independent typed consumer connectors. */
+export interface AuthorPreviewRuntimeMount {
+  readonly initialSurfaceId: SurfaceId;
+  readonly programSource: SlideshowSurfaceRuntimeProgramSource;
+  readonly onPresentationPlaybackPortChange?: (
+    port: PresentationPreviewPlaybackPort | null,
+  ) => void;
+  readonly onLearnerInteractionReportsPortChange?: (
+    port: LearnerInteractionPreviewReportsPort | null,
+  ) => void;
+}
+
 export function ContentRuntimeHost({ ...props }: ContentRuntimeHostProps) {
   return <ContentRuntimeHostWithSurfaceExitPolicy {...props} surfaceExitPolicy="enforce" />;
 }
@@ -78,8 +93,10 @@ export function ContentRuntimeHostWithSurfaceExitPolicy({
   slideshowSizing,
   onEditorReady,
   surfaceExitPolicy,
+  authorPreviewRuntimeMount,
   presentationPreview,
 }: ContentRuntimeHostProps & {
+  readonly authorPreviewRuntimeMount?: AuthorPreviewRuntimeMount;
   readonly presentationPreview?: PresentationRuntimePreview;
   readonly surfaceExitPolicy: SurfaceExitPolicy;
 }) {
@@ -150,6 +167,7 @@ export function ContentRuntimeHostWithSurfaceExitPolicy({
                     playerSelection={playerSelection}
                     runtimeArtifactId={runtimeArtifactId}
                     surfaceExitPolicy={surfaceExitPolicy}
+                    {...(authorPreviewRuntimeMount ? { authorPreviewRuntimeMount } : {})}
                     {...(presentationPreview ? { presentationPreview } : {})}
                     {...(onEditorReady ? { onEditorReady } : {})}
                     {...(slideshowSizing ? { slideshowSizing } : {})}
@@ -171,6 +189,7 @@ interface HydratedRuntimePlayerProps {
   readonly runtimeArtifactId: string | null;
   readonly slideshowSizing?: SlideshowPlayerSizing;
   readonly surfaceExitPolicy: SurfaceExitPolicy;
+  readonly authorPreviewRuntimeMount?: AuthorPreviewRuntimeMount;
   readonly presentationPreview?: PresentationRuntimePreview;
 }
 
@@ -181,6 +200,7 @@ function HydratedRuntimePlayer({
   runtimeArtifactId,
   slideshowSizing,
   surfaceExitPolicy,
+  authorPreviewRuntimeMount,
   presentationPreview,
 }: HydratedRuntimePlayerProps) {
   const learningEventReporter = useLearningEventReporter();
@@ -244,33 +264,38 @@ function HydratedRuntimePlayer({
       rendererReadyRef.current = true;
       recordSurfaceExperienced(activeSurfaceIdRef.current);
       if (playerSelection.player === "slideshow") {
-        const semanticSource = getRuntimeSemanticDocumentSourceForEditor(editor);
-        if (semanticSource.courseStructure.kind !== "slideshow") {
-          throw new Error("Slideshow runtime semantic source has Page Course Structure.");
-        }
-        const courseDocument = preparedDocument.content.content?.[0];
-        if (courseDocument?.type !== "courseDocument") {
-          throw new Error("Learner Interaction runtime requires a Course Document root.");
-        }
-        const configuration =
-          CourseDocumentAttrsSchema.parse(courseDocument.attrs).learnerInteractions ?? null;
-        const compilation = compileLearnerInteractions({
-          configuration,
-          courseStructure: semanticSource.courseStructure,
-          semanticSnapshot: semanticSource.semantics,
-          controlCapabilities: getControlCapabilityCatalogueForEditor(editor),
-        });
-        setRuntimeProgramOwner({
-          preparedDocument,
-          source: createSlideshowRuntimeProgramSource({
+        let source = authorPreviewRuntimeMount?.programSource;
+        if (!source) {
+          const semanticSource = getRuntimeSemanticDocumentSourceForEditor(editor);
+          if (semanticSource.courseStructure.kind !== "slideshow") {
+            throw new Error("Slideshow runtime semantic source has Page Course Structure.");
+          }
+          const courseDocument = preparedDocument.content.content?.[0];
+          if (courseDocument?.type !== "courseDocument") {
+            throw new Error("Learner Interaction runtime requires a Course Document root.");
+          }
+          const configuration =
+            CourseDocumentAttrsSchema.parse(courseDocument.attrs).learnerInteractions ?? null;
+          const compilation = compileLearnerInteractions({
+            configuration,
+            courseStructure: semanticSource.courseStructure,
+            semanticSnapshot: semanticSource.semantics,
+            controlCapabilities: getControlCapabilityCatalogueForEditor(editor),
+          });
+          source = createSlideshowRuntimeProgramSource({
             ...(presentationPreview ? { presentation: presentationPreview.program } : {}),
             learnerInteractions: compilation.surfaceById,
-          }),
+          });
+        }
+        setRuntimeProgramOwner({
+          preparedDocument,
+          source,
         });
       }
       onEditorReady?.(editor);
     },
     [
+      authorPreviewRuntimeMount,
       onEditorReady,
       playerSelection.player,
       preparedDocument,
@@ -302,6 +327,23 @@ function HydratedRuntimePlayer({
         structure={playerSelection.structure}
         surfaceExitPolicy={surfaceExitPolicy}
         {...(surfaceRuntimeProgramSource ? { surfaceRuntimeProgramSource } : {})}
+        {...(authorPreviewRuntimeMount
+          ? {
+              initialSurfaceId: authorPreviewRuntimeMount.initialSurfaceId,
+              ...(authorPreviewRuntimeMount.onPresentationPlaybackPortChange
+                ? {
+                    onPresentationPreviewPortChange:
+                      authorPreviewRuntimeMount.onPresentationPlaybackPortChange,
+                  }
+                : {}),
+              ...(authorPreviewRuntimeMount.onLearnerInteractionReportsPortChange
+                ? {
+                    onLearnerInteractionReportsPortChange:
+                      authorPreviewRuntimeMount.onLearnerInteractionReportsPortChange,
+                  }
+                : {}),
+            }
+          : {})}
         {...(presentationPreview
           ? {
               initialSurfaceId: presentationPreview.activeSurfaceId,

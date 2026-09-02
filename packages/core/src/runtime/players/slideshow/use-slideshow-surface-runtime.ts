@@ -11,6 +11,7 @@ import type { PresentationGateObservationSnapshot } from "@/runtime/presentation
 import type { PresentationPlaybackSnapshot } from "@/runtime/presentation/presentation-playback-session";
 import type { PresentationFeatureViewBaselinePort } from "@/runtime/presentation/presentation-surface-repositioner";
 import { getPresentationContentLayoutPortForEditor } from "@/runtime/presentation/visual/presentation-content-layout-port";
+import type { LearnerInteractionPreviewReportsPort } from "@/learner-interaction/model";
 
 import type { RequestSurfaceChange } from "./slideshow-surface-change";
 import {
@@ -36,6 +37,7 @@ export type SlideshowSurfaceRuntimeState =
       readonly presentationControls?: never;
       readonly narration?: never;
       readonly seek?: never;
+      readonly learnerInteractionReportsPort?: never;
     }
   | {
       readonly status: "pending";
@@ -44,6 +46,7 @@ export type SlideshowSurfaceRuntimeState =
       readonly presentationControls?: never;
       readonly narration?: never;
       readonly seek?: never;
+      readonly learnerInteractionReportsPort?: never;
     }
   | {
       readonly status: "ready";
@@ -52,6 +55,7 @@ export type SlideshowSurfaceRuntimeState =
       readonly presentationControls?: SlideshowPresentationControls;
       readonly narration?: SlideshowPresentationNarrationSnapshot;
       readonly seek?: (timeMs: number) => Promise<SlideshowPresentationSeekResult>;
+      readonly learnerInteractionReportsPort: LearnerInteractionPreviewReportsPort;
     };
 
 interface UseSlideshowSurfaceRuntimeInput {
@@ -243,6 +247,17 @@ export function useSlideshowSurfaceRuntime({
     getNarrationSnapshot,
   );
   const learnerRuntime = currentRuntime?.composition.learnerRuntime;
+  const learnerInteractionReportsPort = useMemo<LearnerInteractionPreviewReportsPort | undefined>(
+    () =>
+      learnerRuntime
+        ? Object.freeze({
+            subscribeReports: (
+              listener: Parameters<LearnerInteractionPreviewReportsPort["subscribeReports"]>[0],
+            ) => learnerRuntime.subscribeReports(listener),
+          })
+        : undefined,
+    [learnerRuntime],
+  );
   const subscribeGateObservation = useCallback(
     (listener: () => void) =>
       learnerRuntime?.subscribeGateObservation(() => {
@@ -306,6 +321,7 @@ export function useSlideshowSurfaceRuntime({
     ...(presentationControls ? { presentationControls } : {}),
     ...(narrationSnapshot ? { narration: narrationSnapshot } : {}),
     ...(seek ? { seek } : {}),
+    learnerInteractionReportsPort: learnerInteractionReportsPort!,
   };
 }
 

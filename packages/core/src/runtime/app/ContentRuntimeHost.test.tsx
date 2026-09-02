@@ -1,7 +1,11 @@
 // @vitest-environment happy-dom
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
+import {
+  EmbeddedNodeIdSchema,
+  type EmbeddedNodeId,
+  type LearnerInteractionRuleId,
+} from "@scaffold/contracts";
 import userEvent from "@testing-library/user-event";
 import type { JSONContent } from "@tiptap/core";
 import { StrictMode } from "react";
@@ -34,9 +38,11 @@ import {
 import {
   ContentRuntimeHost as PublicContentRuntimeHost,
   ContentRuntimeHostWithSurfaceExitPolicy,
+  type AuthorPreviewRuntimeMount,
   type ContentRuntimeHostProps,
-  type PresentationRuntimePreview,
 } from "./ContentRuntimeHost";
+import type { LearnerInteractionPreviewReportsPort } from "@/learner-interaction/model";
+import type { SlideshowSurfaceRuntimeProgramSource } from "../players/slideshow/slideshow-surface-runtime-composition";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import type { LearningEventSession } from "../learning-events/session";
 
@@ -831,11 +837,13 @@ describe("ContentRuntimeHost", () => {
     const user = userEvent.setup();
     const content = presentationPreviewDocument();
     normalizeRuntimeFixtureIds(content);
-    const presentationPreview = presentationRuntimePreview(SECOND_SLIDESHOW_SURFACE_ID, [
-      FIRST_SLIDESHOW_SURFACE_ID,
+    const authorPreviewRuntimeMount = presentationAuthorPreviewRuntimeMount(
       SECOND_SLIDESHOW_SURFACE_ID,
-    ]);
-    let previewPort: Parameters<PresentationRuntimePreview["onPortChange"]>[0] = null;
+      [FIRST_SLIDESHOW_SURFACE_ID, SECOND_SLIDESHOW_SURFACE_ID],
+    );
+    let previewPort: Parameters<
+      NonNullable<AuthorPreviewRuntimeMount["onPresentationPlaybackPortChange"]>
+    >[0] = null;
     const onPortChange = vi.fn((port: typeof previewPort) => {
       previewPort = port;
     });
@@ -845,7 +853,10 @@ describe("ContentRuntimeHost", () => {
         artifactId="artifact-preview"
         composition={runtimeComposition}
         publication={{ status: "supported", learnerContent: content }}
-        presentationPreview={{ ...presentationPreview, onPortChange }}
+        authorPreviewRuntimeMount={{
+          ...authorPreviewRuntimeMount,
+          onPresentationPlaybackPortChange: onPortChange,
+        }}
         productAccess={coreProductAccess}
         surfaceExitPolicy="observe-only"
       />,
@@ -879,6 +890,53 @@ describe("ContentRuntimeHost", () => {
 
     unmount();
     expect(onPortChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it("connects real learner turn reports without a Presentation transport", async () => {
+    const user = userEvent.setup();
+    const content = slideshowDocumentWithPortableLearnerRules();
+    normalizeRuntimeFixtureIds(content);
+    let reportsPort: LearnerInteractionPreviewReportsPort | null = null;
+    const onReportsPortChange = vi.fn((port: LearnerInteractionPreviewReportsPort | null) => {
+      reportsPort = port;
+    });
+    const onPresentationPortChange = vi.fn();
+    const { unmount } = render(
+      <ContentRuntimeHostWithSurfaceExitPolicy
+        artifactId="artifact-interaction-preview"
+        authorPreviewRuntimeMount={{
+          initialSurfaceId: FIRST_SLIDESHOW_SURFACE_ID,
+          programSource: learnerInteractionPreviewProgramSource(),
+          onLearnerInteractionReportsPortChange: onReportsPortChange,
+          onPresentationPlaybackPortChange: onPresentationPortChange,
+        }}
+        composition={runtimeComposition}
+        publication={{ status: "supported", learnerContent: content }}
+        productAccess={coreProductAccess}
+        surfaceExitPolicy="observe-only"
+      />,
+    );
+
+    await waitFor(() => expect(reportsPort).not.toBeNull());
+    const reportListener = vi.fn();
+    reportsPort!.subscribeReports(reportListener);
+    await user.click(screen.getByRole("tab", { name: "Practice" }));
+
+    await waitFor(() => expect(reportListener).toHaveBeenCalledOnce());
+    expect(reportListener.mock.calls[0]?.[0]).toMatchObject({
+      event: { targetId: LEARNER_PRACTICE_ID, type: "selected" },
+      ruleEvaluations: [{ kind: "matched", ruleId: "rule00000001" }],
+      commandExecutions: [
+        {
+          address: { ruleId: "rule00000001", commandIndex: 0 },
+          outcome: { kind: "succeeded" },
+        },
+      ],
+    });
+    expect(onPresentationPortChange).not.toHaveBeenCalled();
+
+    unmount();
+    expect(onReportsPortChange).toHaveBeenLastCalledWith(null);
   });
   it("renders a private Surface with its supplied runtime composition", async () => {
     const capability = privateRuntimeSurfaceCapability("private-runtime-surface");
@@ -2515,10 +2573,10 @@ describe("ContentRuntimeHost", () => {
   });
 });
 
-function presentationRuntimePreview(
+function presentationAuthorPreviewRuntimeMount(
   activeSurfaceId: EmbeddedNodeId,
   surfaceIds: readonly EmbeddedNodeId[],
-): Omit<PresentationRuntimePreview, "onPortChange"> {
+): AuthorPreviewRuntimeMount {
   const surfaces = surfaceIds.map((surfaceId) => ({
     surfaceId,
     durationMs: 1_000,
@@ -2533,14 +2591,46 @@ function presentationRuntimePreview(
     },
   }));
   return {
-    activeSurfaceId,
-    program: {
-      schemaVersion: 1,
-      autoAdvance: false,
-      allowPrevious: true,
-      surfaces,
-      surfaceById: new Map(surfaces.map((surface) => [surface.surfaceId, surface])),
+    initialSurfaceId: activeSurfaceId,
+    programSource: (surfaceId) => {
+      const timeline = surfaces.find((surface) => surface.surfaceId === surfaceId);
+      return timeline ? { presentation: { timeline, autoAdvance: false } } : undefined;
     },
+  };
+}
+
+function learnerInteractionPreviewProgramSource(): SlideshowSurfaceRuntimeProgramSource {
+  return (surfaceId) => {
+    if (surfaceId !== FIRST_SLIDESHOW_SURFACE_ID) return undefined;
+    return {
+      learnerInteractions: {
+        surfaceId,
+        rulesByEvent: new Map([
+          [
+            JSON.stringify([LEARNER_TABS_ID, LEARNER_PRACTICE_ID, "selected"]),
+            [
+              {
+                id: "rule00000001" as LearnerInteractionRuleId,
+                when: {
+                  ownerId: LEARNER_TABS_ID,
+                  targetId: LEARNER_PRACTICE_ID,
+                  type: "selected",
+                },
+                conditions: [],
+                commands: [
+                  {
+                    kind: "target-command",
+                    ownerId: LEARNER_TABS_ID,
+                    targetId: LEARNER_OVERVIEW_ID,
+                    type: "select",
+                  },
+                ],
+              },
+            ],
+          ],
+        ]),
+      },
+    };
   };
 }
 

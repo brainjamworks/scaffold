@@ -29,6 +29,7 @@ import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtif
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import type { ScaffoldColorMode } from "@/theme/state/color-mode";
+import type { LearnerInteractionPreviewReportsPort } from "@/learner-interaction/model";
 import {
   checkRuntimeDocumentReadiness,
   type PreparedCourseDocumentRuntimeRendererProps,
@@ -635,6 +636,84 @@ describe("SlideshowPlayer", () => {
     expect(contentOwner).toHaveAttribute("inert");
     expect(chromeOwner).not.toBeNull();
     expect(chromeOwner).not.toHaveAttribute("inert");
+  });
+
+  it("connects and replaces only the requested active-runtime report port", async () => {
+    let reportsPort: LearnerInteractionPreviewReportsPort | null = null;
+    const onReportsPortChange = vi.fn((port: LearnerInteractionPreviewReportsPort | null) => {
+      reportsPort = port;
+    });
+    const onPresentationPortChange = vi.fn();
+    const { unmount } = render(
+      <TestSlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "First report slide" },
+          { id: "slide_000002", text: "Second report slide" },
+        ])}
+        surfaceRuntimeProgramSource={(surfaceId) => ({
+          learnerInteractions: { surfaceId, rulesByEvent: new Map() },
+        })}
+        onLearnerInteractionReportsPortChange={onReportsPortChange}
+        onPresentationPreviewPortChange={onPresentationPortChange}
+      />,
+    );
+
+    await waitFor(() => expect(reportsPort).not.toBeNull());
+    expect(onPresentationPortChange).not.toHaveBeenCalled();
+    const firstPort = reportsPort;
+    await userEvent.click(screen.getByRole("button", { name: "Next slide" }));
+    await waitFor(() => expect(reportsPort).not.toBe(firstPort));
+    expect(onReportsPortChange).toHaveBeenCalledWith(null);
+
+    unmount();
+    expect(onReportsPortChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it("connects Presentation and learner report siblings independently", async () => {
+    const { StrictMode: PreviewStrictMode } = await import("react");
+    const onReportsPortChange = vi.fn();
+    const onPresentationPortChange = vi.fn();
+    const { unmount } = render(
+      <PreviewStrictMode>
+        <TestSlideshowPlayer
+          composition={runtimeComposition}
+          initialContent={slideshowDocumentContent([
+            { id: "slide_000001", text: "Both ports slide" },
+          ])}
+          surfaceRuntimeProgramSource={(surfaceId) => ({
+            learnerInteractions: { surfaceId, rulesByEvent: new Map() },
+            presentation: {
+              autoAdvance: false,
+              timeline: {
+                surfaceId,
+                durationMs: 0,
+                cues: [],
+                waits: [],
+                visualProgram: {
+                  surfaceId,
+                  durationMs: 0,
+                  targetById: new Map(),
+                  segments: [],
+                  sequenceContainers: [],
+                },
+              },
+            },
+          })}
+          onLearnerInteractionReportsPortChange={onReportsPortChange}
+          onPresentationPreviewPortChange={onPresentationPortChange}
+        />
+      </PreviewStrictMode>,
+    );
+
+    await waitFor(() => {
+      expect(onReportsPortChange.mock.calls.some(([port]) => port !== null)).toBe(true);
+      expect(onPresentationPortChange.mock.calls.some(([port]) => port !== null)).toBe(true);
+    });
+
+    unmount();
+    expect(onReportsPortChange).toHaveBeenLastCalledWith(null);
+    expect(onPresentationPortChange).toHaveBeenLastCalledWith(null);
   });
 
   it("uses the viewport owner document and retargets distinct content and chrome hosts", async () => {

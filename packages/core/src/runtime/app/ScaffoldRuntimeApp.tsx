@@ -10,6 +10,7 @@ import type { SurfaceExitPolicy } from "../players/slideshow/slideshow-surface-c
 
 import {
   ContentRuntimeHostWithSurfaceExitPolicy,
+  type AuthorPreviewRuntimeMount,
   type PresentationRuntimePreview,
 } from "./ContentRuntimeHost";
 
@@ -21,6 +22,7 @@ interface ScaffoldRuntimeAppProps {
   services: ScaffoldLearnerHostServices;
   slideshowSizing?: SlideshowPlayerSizing;
   surfaceExitPolicy: SurfaceExitPolicy;
+  authorPreviewRuntimeMount?: AuthorPreviewRuntimeMount;
   presentationPreview?: PresentationRuntimePreview;
 }
 
@@ -33,6 +35,7 @@ export function ScaffoldRuntimeApp({
   services,
   slideshowSizing = "embedded",
   surfaceExitPolicy,
+  authorPreviewRuntimeMount,
   presentationPreview,
 }: ScaffoldRuntimeAppProps) {
   const ports = useMemo(
@@ -66,6 +69,7 @@ export function ScaffoldRuntimeApp({
         {...(hostColorMode === undefined ? {} : { hostColorMode })}
         slideshowSizing={slideshowSizing}
         surfaceExitPolicy={surfaceExitPolicy}
+        {...(authorPreviewRuntimeMount ? { authorPreviewRuntimeMount } : {})}
         {...(presentationPreview ? { presentationPreview } : {})}
       />
     </ScaffoldServicesProvider>

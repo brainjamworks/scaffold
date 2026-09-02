@@ -41,6 +41,7 @@ import {
 import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
 import { iconMd } from "@/ui/tokens/icon-sizes";
 import type { PresentationPreviewPlaybackPort } from "@/presentation/model";
+import type { LearnerInteractionPreviewReportsPort } from "@/learner-interaction/model";
 
 import {
   PreparedCourseDocumentRuntimeRenderer,
@@ -122,6 +123,9 @@ export interface SlideshowPlayerProps {
   onActiveSurfaceChange?: (surfaceId: SurfaceId | null) => void;
   initialSurfaceId?: SurfaceId;
   onPresentationPreviewPortChange?: (port: PresentationPreviewPlaybackPort | null) => void;
+  onLearnerInteractionReportsPortChange?: (
+    port: LearnerInteractionPreviewReportsPort | null,
+  ) => void;
 }
 
 export function SlideshowPlayer({
@@ -135,6 +139,7 @@ export function SlideshowPlayer({
   onActiveSurfaceChange,
   initialSurfaceId,
   onPresentationPreviewPortChange,
+  onLearnerInteractionReportsPortChange,
 }: SlideshowPlayerProps) {
   const initialContent = preparedDocument.content;
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
@@ -256,6 +261,12 @@ export function SlideshowPlayer({
     onPresentationPreviewPortChange(presentationPreviewPort);
     return () => onPresentationPreviewPortChange(null);
   }, [onPresentationPreviewPortChange, presentationPreviewPort]);
+  const learnerInteractionReportsPort = surfaceRuntime.learnerInteractionReportsPort;
+  useEffect(() => {
+    if (!onLearnerInteractionReportsPortChange || !learnerInteractionReportsPort) return;
+    onLearnerInteractionReportsPortChange(learnerInteractionReportsPort);
+    return () => onLearnerInteractionReportsPortChange(null);
+  }, [learnerInteractionReportsPort, onLearnerInteractionReportsPortChange]);
   const slideshowOverlayInstanceId = useId();
   const slideshowOverlayOwnership = useMemo(
     () =>
