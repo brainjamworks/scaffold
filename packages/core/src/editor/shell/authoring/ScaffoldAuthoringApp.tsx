@@ -49,7 +49,7 @@ import {
 } from "@/document/authoring/semantic-document";
 import {
   compilePresentation,
-  type CompiledPresentationPlaybackProgram,
+  type CompiledSurfacePresentationTimeline,
   type PresentationPreviewDocument,
   type PresentationPreviewLoadResult,
 } from "@/presentation/model";
@@ -70,9 +70,19 @@ import {
   setLearnerInteractionRuleEnabled,
 } from "@/editor/learner-interaction/model";
 import {
+  LearnerInteractionPreviewController,
+  LearnerInteractionPreviewPortOwner,
+} from "@/editor/learner-interaction/preview";
+import {
   LearnerInteractionWorkspace,
   LearnerInteractionWorkspaceController,
 } from "@/editor/learner-interaction/workspace";
+import {
+  compileLearnerInteractions,
+  type CompiledSurfaceLearnerInteractionProgram,
+  type LearnerInteractionPreviewDocument,
+  type LearnerInteractionPreviewLoadResult,
+} from "@/learner-interaction/model";
 
 import { cn } from "@/lib/cn";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
@@ -155,15 +165,18 @@ const SAVE_DEBOUNCE_MS = 500;
 const SAVE_OK_DISPLAY_MS = 2_000;
 
 function importScaffoldAuthorPreviewApp() {
-  return import("@/runtime/app/ScaffoldAuthorPreviewApp").then(({ ScaffoldAuthorPreviewApp }) => ({
-    default: ScaffoldAuthorPreviewApp,
-  }));
+  return import("@/runtime/app/ScaffoldAuthorPreviewApp").then(
+    ({ ScaffoldAuthorPreviewApp, createSlideshowRuntimeProgramSource }) => ({
+      ScaffoldAuthorPreviewApp,
+      createSlideshowRuntimeProgramSource,
+    }),
+  );
 }
 
 let scaffoldAuthorPreviewAppPromise: ReturnType<typeof importScaffoldAuthorPreviewApp> | null =
   null;
 
-function loadScaffoldAuthorPreviewApp() {
+function loadScaffoldAuthorPreviewModule() {
   scaffoldAuthorPreviewAppPromise ??= importScaffoldAuthorPreviewApp().catch((error: unknown) => {
     scaffoldAuthorPreviewAppPromise = null;
     throw error;
@@ -171,7 +184,21 @@ function loadScaffoldAuthorPreviewApp() {
   return scaffoldAuthorPreviewAppPromise;
 }
 
-const LazyScaffoldAuthorPreviewApp = lazy(loadScaffoldAuthorPreviewApp);
+const LazyScaffoldAuthorPreviewApp = lazy(() =>
+  loadScaffoldAuthorPreviewModule().then(({ ScaffoldAuthorPreviewApp }) => ({
+    default: ScaffoldAuthorPreviewApp,
+  })),
+);
+
+type AuthorPreviewRuntimeProgramSource = (surfaceId: EmbeddedNodeId) =>
+  | {
+      readonly presentation?: {
+        readonly timeline: CompiledSurfacePresentationTimeline;
+        readonly autoAdvance: boolean;
+      };
+      readonly learnerInteractions?: CompiledSurfaceLearnerInteractionProgram;
+    }
+  | undefined;
 
 export interface ScaffoldLearnerPreviewContent {
   assessmentGroups: AssessmentGroupContract[];
@@ -357,10 +384,17 @@ function ScaffoldAuthoringAppSessionContent({
   const [previewServices, setPreviewServices] = useState<ScaffoldPreviewHostServices | null>(null);
   const presentationPreviewGenerationRef = useRef(0);
   const presentationPreviewPreparationGenerationRef = useRef(0);
+  const learnerInteractionPreviewGenerationRef = useRef(0);
+  const learnerInteractionPreviewPreparationGenerationRef = useRef(0);
   const [presentationPreviewRuntime, setPresentationPreviewRuntime] = useState<{
     readonly generation: number;
     readonly surfaceId: EmbeddedNodeId;
-    readonly program: CompiledPresentationPlaybackProgram;
+    readonly programSource: AuthorPreviewRuntimeProgramSource;
+  } | null>(null);
+  const [learnerInteractionPreviewRuntime, setLearnerInteractionPreviewRuntime] = useState<{
+    readonly generation: number;
+    readonly surfaceId: EmbeddedNodeId;
+    readonly programSource: AuthorPreviewRuntimeProgramSource;
   } | null>(null);
   const [previewState, setPreviewStateStatus] = useState<
     "idle" | "loading" | "error" | "requires-scaffold-plus" | "unavailable-content"
@@ -727,6 +761,8 @@ function ScaffoldAuthoringAppSessionContent({
     },
     [onPreviewChange, onPreviewContentChange],
   );
+  const closeLearnerInteractionPreviewRef = useRef<() => void>(() => undefined);
+  const closeLearnerInteractionPreviewSessionRef = useRef<() => void>(() => undefined);
 
   const preparePresentationPreview = useCallback(
     async (input: PresentationPreviewDocument): Promise<PresentationPreviewLoadResult> => {
@@ -854,8 +890,9 @@ function ScaffoldAuthoringAppSessionContent({
         throw new Error("Configured Presentation compiled without a playback program.");
       }
 
+      let previewModule: Awaited<ReturnType<typeof loadScaffoldAuthorPreviewModule>>;
       try {
-        await loadScaffoldAuthorPreviewApp();
+        previewModule = await loadScaffoldAuthorPreviewModule();
       } catch (cause) {
         return Result.err(Object.freeze({ reason: "preview-runtime-unavailable" as const, cause }));
       }
@@ -881,10 +918,13 @@ function ScaffoldAuthoringAppSessionContent({
         return superseded();
       }
       presentationPreviewGenerationRef.current += 1;
+      closeLearnerInteractionPreviewSessionRef.current();
       setPresentationPreviewRuntime({
         generation: presentationPreviewGenerationRef.current,
         surfaceId: input.surfaceId,
-        program: compiled.value,
+        programSource: previewModule.createSlideshowRuntimeProgramSource({
+          presentation: compiled.value,
+        }),
       });
       setPreviewState(true, nextContent, withoutLearningEventCapability(resolvedServices));
       setPreviewUnavailableContent([]);
@@ -931,9 +971,235 @@ function ScaffoldAuthoringAppSessionContent({
     [presentationPreviewSession],
   );
 
+  const prepareLearnerInteractionPreview = useCallback(
+    async (
+      input: LearnerInteractionPreviewDocument,
+    ): Promise<LearnerInteractionPreviewLoadResult> => {
+      const preparationGeneration = ++learnerInteractionPreviewPreparationGenerationRef.current;
+      const superseded = () =>
+        Result.err(
+          Object.freeze({
+            reason: "preview-load-superseded" as const,
+            surfaceId: input.surfaceId,
+          }),
+        );
+      if (!activeAuthoringMount) {
+        throw new Error("Learner Interaction Preview requires an active authoring mount.");
+      }
+      const structure = projectCourseStructure(input.document);
+      if (!structure) {
+        throw new Error("Learner Interaction Preview received malformed Course Structure.");
+      }
+      if (structure.kind !== "slideshow") {
+        return Result.err(
+          Object.freeze({ reason: "preview-not-slideshow" as const, mode: "page" as const }),
+        );
+      }
+      if (!structure.surfaceIds.includes(input.surfaceId)) {
+        return Result.err(
+          Object.freeze({
+            reason: "preview-surface-not-current" as const,
+            surfaceId: input.surfaceId,
+            currentSurfaceIds: Object.freeze([...structure.surfaceIds]),
+          }),
+        );
+      }
+
+      const mountState = getCourseDocumentAuthoringMountState(activeAuthoringMount);
+      const environmentState = getCourseDocumentAuthoringEnvironmentState(authoringEnvironment);
+      const readiness = checkLearnerProjectionReadiness({
+        workingDocument: input.document,
+        capabilities: environmentState.capabilities,
+        authoringSchema: environmentState.schema,
+        expectedRequiresScaffoldPlus: mountState.expectedRequiresScaffoldPlus,
+        productAccess: mountState.productAccess,
+      });
+      const publication = projectLearnerPublication(
+        readiness,
+        application.capabilities.blocks.registry,
+        application.capabilities.surfaces.registry,
+      );
+      switch (publication.status) {
+        case "invalid":
+          return Result.err(
+            Object.freeze({
+              reason: "preview-document-invalid" as const,
+              issues: Object.freeze(
+                publication.issues.map(({ path, message }) =>
+                  Object.freeze({ path: Object.freeze([...path]), message }),
+                ),
+              ),
+            }),
+          );
+        case "requires-scaffold-plus":
+          return Result.err(Object.freeze({ reason: "preview-requires-scaffold-plus" as const }));
+        case "unsupported-core-format":
+          return Result.err(
+            Object.freeze({
+              reason: "preview-unsupported-core-format" as const,
+              documentVersion: publication.documentVersion,
+              supportedVersion: publication.supportedVersion,
+            }),
+          );
+        case "unavailable-content":
+          return Result.err(
+            Object.freeze({
+              reason: "preview-unavailable-content" as const,
+              unavailableContent: Object.freeze(
+                publication.unavailableContent.map(({ kind, capabilityId, stableId }) =>
+                  Object.freeze({ kind, capabilityId, stableId }),
+                ),
+              ),
+            }),
+          );
+        case "supported":
+          break;
+      }
+      if (publication.warnings.length > 0) {
+        return Result.err(
+          Object.freeze({
+            reason: "preview-projection-warning" as const,
+            warningCount: publication.warnings.length,
+          }),
+        );
+      }
+      try {
+        validateLearnerPublicationPayloadSize(publication);
+      } catch (error) {
+        if (!(error instanceof ArtifactSavePayloadError)) throw error;
+        return Result.err(Object.freeze({ reason: "preview-payload-too-large" as const }));
+      }
+
+      const courseDocument = (input.document as JSONContent).content?.[0];
+      if (courseDocument?.type !== "courseDocument" || !courseDocument.attrs) {
+        throw new Error("Learner Interaction Preview received a malformed Course Document root.");
+      }
+      const configurationValue = courseDocument.attrs["learnerInteractions"];
+      if (configurationValue === null || configurationValue === undefined) {
+        return Result.err(
+          Object.freeze({
+            reason: "preview-surface-not-configured" as const,
+            surfaceId: input.surfaceId,
+          }),
+        );
+      }
+      const configuration = LearnerInteractionConfigurationV1Schema.parse(configurationValue);
+      if (!configuration.surfaces.some(({ surfaceId }) => surfaceId === input.surfaceId)) {
+        return Result.err(
+          Object.freeze({
+            reason: "preview-surface-not-configured" as const,
+            surfaceId: input.surfaceId,
+          }),
+        );
+      }
+      const currentEditor = latestEditorRef.current;
+      if (!currentEditor || currentEditor.isDestroyed) {
+        throw new Error("Learner Interaction Preview lost its authoring Editor.");
+      }
+      const compiled = compileLearnerInteractions({
+        configuration,
+        courseStructure: structure,
+        semanticSnapshot:
+          getSemanticDocumentControllerForEditor(currentEditor).getSnapshot().semantics,
+        controlCapabilities:
+          getSemanticDocumentControllerForEditor(currentEditor).getControlCapabilityCatalogue(),
+      });
+
+      let previewModule: Awaited<ReturnType<typeof loadScaffoldAuthorPreviewModule>>;
+      try {
+        previewModule = await loadScaffoldAuthorPreviewModule();
+      } catch (cause) {
+        return Result.err(Object.freeze({ reason: "preview-runtime-unavailable" as const, cause }));
+      }
+      if (preparationGeneration !== learnerInteractionPreviewPreparationGenerationRef.current) {
+        return superseded();
+      }
+      const nextContent = {
+        assessmentGroups: publication.assessmentGroups,
+        assessmentTargets: publication.assessmentTargets,
+        learnerContent: publication.learnerContent,
+      };
+      let resolvedServices: ScaffoldPreviewHostServices;
+      try {
+        resolvedServices = createPreviewServices
+          ? await createPreviewServices(nextContent)
+          : { media: services.media ?? null };
+      } catch (cause) {
+        return Result.err(
+          Object.freeze({ reason: "preview-services-unavailable" as const, cause }),
+        );
+      }
+      if (preparationGeneration !== learnerInteractionPreviewPreparationGenerationRef.current) {
+        return superseded();
+      }
+      presentationPreviewSession.controller.close();
+      learnerInteractionPreviewGenerationRef.current += 1;
+      setLearnerInteractionPreviewRuntime({
+        generation: learnerInteractionPreviewGenerationRef.current,
+        surfaceId: input.surfaceId,
+        programSource: previewModule.createSlideshowRuntimeProgramSource({
+          learnerInteractions: compiled.surfaceById,
+        }),
+      });
+      setPreviewState(true, nextContent, withoutLearningEventCapability(resolvedServices));
+      setPreviewUnavailableContent([]);
+      setPreviewStateStatus("idle");
+      return Result.ok();
+    },
+    [
+      activeAuthoringMount,
+      application.capabilities.blocks.registry,
+      application.capabilities.surfaces.registry,
+      authoringEnvironment,
+      createPreviewServices,
+      presentationPreviewSession,
+      services.media,
+      setPreviewState,
+    ],
+  );
+  const prepareLearnerInteractionPreviewRef = useRef(prepareLearnerInteractionPreview);
+  prepareLearnerInteractionPreviewRef.current = prepareLearnerInteractionPreview;
+  const learnerInteractionPreviewSession = useMemo(() => {
+    const owner = new LearnerInteractionPreviewPortOwner({
+      prepare: (input) => prepareLearnerInteractionPreviewRef.current(input),
+      close: () => closeLearnerInteractionPreviewRef.current(),
+    });
+    return Object.freeze({
+      source: contentSessionSource,
+      owner,
+      controller: new LearnerInteractionPreviewController({
+        port: owner,
+        close: () => owner.close(),
+      }),
+    });
+  }, [contentSessionSource]);
+  closeLearnerInteractionPreviewSessionRef.current = () => {
+    if (learnerInteractionPreviewSession.controller.getSnapshot().status !== "idle") {
+      learnerInteractionPreviewSession.controller.close();
+    }
+  };
+  closeLearnerInteractionPreviewRef.current = () => {
+    learnerInteractionPreviewPreparationGenerationRef.current += 1;
+    setLearnerInteractionPreviewRuntime(null);
+    setPreviewState(false, null, null);
+    setPreviewStateStatus("idle");
+  };
+  useEffect(
+    () => () => learnerInteractionPreviewSession.controller.dispose(),
+    [learnerInteractionPreviewSession],
+  );
+  const handleLearnerInteractionReportsPortChange = useCallback(
+    (port: Parameters<typeof learnerInteractionPreviewSession.owner.connect>[0]) =>
+      learnerInteractionPreviewSession.owner.connect(port),
+    [learnerInteractionPreviewSession],
+  );
+
   const handlePreviewToggle = useCallback(() => {
     if (preview) {
       presentationPreviewSession.controller.close();
+      if (learnerInteractionPreviewSession.controller.getSnapshot().status !== "idle") {
+        learnerInteractionPreviewSession.controller.close();
+      }
       return;
     }
 
@@ -985,7 +1251,7 @@ function ScaffoldAuthoringAppSessionContent({
           return;
         }
         validateLearnerPublicationPayloadSize(publication);
-        await loadScaffoldAuthorPreviewApp();
+        await loadScaffoldAuthorPreviewModule();
         const nextContent = {
           assessmentGroups: publication.assessmentGroups,
           assessmentTargets: publication.assessmentTargets,
@@ -996,6 +1262,7 @@ function ScaffoldAuthoringAppSessionContent({
           : { media: services.media ?? null };
         const nextServices = withoutLearningEventCapability(resolvedServices);
         setPresentationPreviewRuntime(null);
+        setLearnerInteractionPreviewRuntime(null);
         setPreviewState(true, nextContent, nextServices);
         setPreviewUnavailableContent([]);
         setPreviewStateStatus("idle");
@@ -1012,6 +1279,7 @@ function ScaffoldAuthoringAppSessionContent({
     preview,
     readLatestContent,
     presentationPreviewSession,
+    learnerInteractionPreviewSession,
     setPreviewState,
     services.media,
   ]);
@@ -1353,22 +1621,36 @@ function ScaffoldAuthoringAppSessionContent({
     activePreviewContent && previewServices ? (
       <Suspense fallback={<AppShellState kind="loading" title="Preparing preview" />}>
         <LazyScaffoldAuthorPreviewApp
-          key={presentationPreviewRuntime?.generation ?? "document-preview"}
+          key={
+            learnerInteractionPreviewRuntime
+              ? `interactions-${learnerInteractionPreviewRuntime.generation}`
+              : presentationPreviewRuntime
+                ? `presentation-${presentationPreviewRuntime.generation}`
+                : "document-preview"
+          }
           composition={application.runtime}
           bootstrap={activePreviewContent.bootstrap}
           hostColorMode={applicationColorMode}
           productAccess={productAccess}
           slideshowSizing="contained"
           services={previewServices}
-          {...(presentationPreviewRuntime
+          {...(learnerInteractionPreviewRuntime
             ? {
-                presentationPreview: {
-                  activeSurfaceId: presentationPreviewRuntime.surfaceId,
-                  program: presentationPreviewRuntime.program,
-                  onPortChange: handlePresentationPreviewPortChange,
+                authorPreviewRuntimeMount: {
+                  initialSurfaceId: learnerInteractionPreviewRuntime.surfaceId,
+                  programSource: learnerInteractionPreviewRuntime.programSource,
+                  onLearnerInteractionReportsPortChange: handleLearnerInteractionReportsPortChange,
                 },
               }
-            : {})}
+            : presentationPreviewRuntime
+              ? {
+                  authorPreviewRuntimeMount: {
+                    initialSurfaceId: presentationPreviewRuntime.surfaceId,
+                    programSource: presentationPreviewRuntime.programSource,
+                    onPresentationPlaybackPortChange: handlePresentationPreviewPortChange,
+                  },
+                }
+              : {})}
         />
       </Suspense>
     ) : null;
@@ -1448,6 +1730,9 @@ function ScaffoldAuthoringAppSessionContent({
                           key={surfaceWorkspaceSessionRef.current.key}
                           editor={editor}
                           previewController={presentationPreviewSession.controller}
+                          learnerInteractionPreviewController={
+                            learnerInteractionPreviewSession.controller
+                          }
                         />
                       ),
                     }
@@ -1481,9 +1766,11 @@ function ScaffoldAuthoringUnavailable({
 export function SlideshowSurfaceWorkspaces({
   editor,
   previewController,
+  learnerInteractionPreviewController,
 }: {
   readonly editor: TiptapEditor;
   readonly previewController: PresentationPreviewController;
+  readonly learnerInteractionPreviewController: LearnerInteractionPreviewController;
 }) {
   const semanticController = getSemanticDocumentControllerForEditor(editor);
   const semanticSnapshot = useSemanticDocumentControllerSnapshot(editor);
@@ -1506,9 +1793,12 @@ export function SlideshowSurfaceWorkspaces({
           }),
         closePreview: () => {
           if (previewController.getSnapshot().status !== "idle") previewController.close();
+          if (learnerInteractionPreviewController.getSnapshot().status !== "idle") {
+            learnerInteractionPreviewController.close();
+          }
         },
       }),
-    [editor, previewController],
+    [editor, learnerInteractionPreviewController, previewController],
   );
   const interactionSnapshot = useSyncExternalStore(
     interactionController.subscribe,
@@ -1628,7 +1918,15 @@ export function SlideshowSurfaceWorkspaces({
     if (nextWorkspace === workspace) return;
     interactionController.requestContextChange(
       { kind: "workspace", workspace: nextWorkspace },
-      () => setWorkspace(nextWorkspace),
+      () => {
+        if (
+          nextWorkspace !== "interactions" &&
+          learnerInteractionPreviewController.getSnapshot().status !== "idle"
+        ) {
+          learnerInteractionPreviewController.close();
+        }
+        setWorkspace(nextWorkspace);
+      },
     );
   };
 
@@ -1678,6 +1976,8 @@ export function SlideshowSurfaceWorkspaces({
           <LearnerInteractionWorkspace
             controller={interactionController}
             projection={learnerInteractionProjection}
+            previewController={learnerInteractionPreviewController}
+            previewDocument={document}
             onResolveContextChange={resolveInteractionContextChange}
             onSetRuleEnabled={(ruleId, isEnabled) =>
               setLearnerInteractionRuleEnabled({

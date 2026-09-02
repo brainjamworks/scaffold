@@ -31,6 +31,8 @@ import {
   createLearnerInteractionEventKey,
   type CompiledLearnerInteractionRule,
   type CompiledSurfaceLearnerInteractionProgram,
+  type LearnerInteractionPreviewReportsPort,
+  type LearnerInteractionTurnReport,
 } from "@/learner-interaction/model";
 import type { CompiledSurfacePresentationVisualProgram } from "@/presentation/model";
 import type { PresentationWaitId } from "@/runtime/presentation/compiled-presentation-program";
@@ -877,6 +879,8 @@ describe("Slideshow Presentation learner integration", () => {
 
   it("runs learner-only Tabs rules while Next remains ordinary navigation", async () => {
     const user = userEvent.setup();
+    const reports: LearnerInteractionTurnReport[] = [];
+    let reportsPort: LearnerInteractionPreviewReportsPort | null = null;
     const learnerInteractions = createTabsLearnerWaitProgram().learnerInteractions;
     if (!learnerInteractions) throw new Error("Expected the Tabs learner program.");
     const learnerOnlyProgram: SlideshowSurfaceRuntimeProgram = { learnerInteractions };
@@ -890,6 +894,9 @@ describe("Slideshow Presentation learner integration", () => {
           surfaceRuntimeProgramSource={(surfaceId) =>
             surfaceId === FIRST_SURFACE_ID ? learnerOnlyProgram : undefined
           }
+          onLearnerInteractionReportsPortChange={(port) => {
+            reportsPort = port;
+          }}
         />
       </CourseThemeProvider>,
     );
@@ -897,6 +904,8 @@ describe("Slideshow Presentation learner integration", () => {
     const next = await screen.findByRole("button", { name: "Next slide" });
     await waitFor(() => expect(next).not.toBeDisabled());
     expect(document.querySelector(".sc-slideshow-player__canvas")).not.toHaveAttribute("inert");
+    await waitFor(() => expect(reportsPort).not.toBeNull());
+    const unsubscribeReports = reportsPort!.subscribeReports((report) => reports.push(report));
     await user.click(screen.getByRole("tab", { name: "Practice" }));
     await waitFor(() =>
       expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
@@ -904,11 +913,18 @@ describe("Slideshow Presentation learner integration", () => {
         "true",
       ),
     );
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toMatchObject({
+      event: { targetId: PRACTICE_SECTION_ID, type: "selected" },
+      ruleEvaluations: [{ kind: "matched", ruleId: "practice-selected-rule" }],
+      commandExecutions: [{ outcome: { kind: "succeeded" } }],
+    });
     expect(next).not.toBeDisabled();
 
     await user.click(next);
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 of 2"));
+    unsubscribeReports();
   });
 
   it("navigates a configured Surface with no Presentation", async () => {

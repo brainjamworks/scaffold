@@ -265,6 +265,25 @@ vi.mock("@/runtime/app/ScaffoldAuthorPreviewApp", async () => {
   };
 
   return {
+    createSlideshowRuntimeProgramSource:
+      ({
+        presentation,
+        learnerInteractions,
+      }: {
+        presentation?: { autoAdvance: boolean; surfaceById: ReadonlyMap<EmbeddedNodeId, unknown> };
+        learnerInteractions?: ReadonlyMap<EmbeddedNodeId, unknown>;
+      }) =>
+      (surfaceId: EmbeddedNodeId) => {
+        const timeline = presentation?.surfaceById.get(surfaceId);
+        const learnerInteractionProgram = learnerInteractions?.get(surfaceId);
+        if (!timeline && !learnerInteractionProgram) return undefined;
+        return {
+          ...(timeline && presentation
+            ? { presentation: { timeline, autoAdvance: presentation.autoAdvance } }
+            : {}),
+          ...(learnerInteractionProgram ? { learnerInteractions: learnerInteractionProgram } : {}),
+        };
+      },
     get ScaffoldAuthorPreviewApp() {
       mocks.authorPreviewModuleReads += 1;
       if (mocks.authorPreviewModuleError) throw mocks.authorPreviewModuleError;
@@ -1108,6 +1127,86 @@ describe("ScaffoldAuthoringApp preview", () => {
     await screen.findByTestId("scaffold-learner-app");
     expect(mocks.authorPreviewModuleReads).toBe(1);
     expect(mocks.learnerModuleReads).toBe(0);
+  });
+
+  it("mounts saved Interaction rules without a Presentation program and reports the latest real turn", async () => {
+    const user = userEvent.setup();
+    const content = slideshowDocumentWithLearnerRule("activated");
+    const surfaceId = EmbeddedNodeIdSchema.parse("publishsurf1");
+    mocks.authorJSON = content;
+    mocks.fakeEditor.state.doc.firstChild.attrs = content.content?.[0]?.attrs ?? {};
+    mocks.renderBottomWorkspace = true;
+    const semanticController = new FakeWorkspaceSemanticController([surfaceId]);
+    vi.spyOn(semanticDocumentPluginKey, "getState").mockReturnValue(
+      semanticController as unknown as SemanticDocumentController,
+    );
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-interactions-preview",
+          title: "Interactions Preview",
+          mode: "slideshow",
+          content,
+        }}
+        services={{ artifactPersistence: { saveArtifact: vi.fn(async () => ({})) }, media: null }}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Interactions" }));
+    await user.click(screen.getByRole("button", { name: "Preview interactions" }));
+    await screen.findByTestId("scaffold-learner-app");
+
+    const mount = mocks.learnerAppProps.at(-1)?.["authorPreviewRuntimeMount"] as
+      | {
+          initialSurfaceId: EmbeddedNodeId;
+          programSource: (
+            surfaceId: EmbeddedNodeId,
+          ) => { presentation?: unknown; learnerInteractions?: unknown } | undefined;
+          onLearnerInteractionReportsPortChange: (port: {
+            subscribeReports: (listener: (report: unknown) => void) => () => void;
+          }) => void;
+        }
+      | undefined;
+    expect(mount?.initialSurfaceId).toBe(surfaceId);
+    expect(mount?.programSource(surfaceId)).toMatchObject({ learnerInteractions: {} });
+    expect(mount?.programSource(surfaceId)).not.toHaveProperty("presentation");
+
+    let publishReport: ((report: unknown) => void) | null = null;
+    act(() => {
+      mount?.onLearnerInteractionReportsPortChange({
+        subscribeReports(listener) {
+          publishReport = listener;
+          return () => {
+            publishReport = null;
+          };
+        },
+      });
+    });
+    await screen.findByRole("button", { name: "Close interactions preview" });
+    act(() => {
+      publishReport?.({
+        turnNumber: 1,
+        event: { targetId: surfaceId, type: "activated" },
+        ruleEvaluations: [{ kind: "matched", ruleId: "publishrule1", conditions: [] }],
+        commandExecutions: [
+          {
+            address: { ruleId: "publishrule1", commandIndex: 0 },
+            outcome: { kind: "succeeded" },
+          },
+        ],
+        end: "completed",
+      });
+    });
+    expect(screen.getByRole("region", { name: "Latest interaction turn" })).toHaveTextContent(
+      "Turn 1",
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Timeline" }));
+    await waitFor(() =>
+      expect(mocks.contentAuthorHostProps.at(-1)?.["stagePreview"]).toBeUndefined(),
+    );
   });
 
   it("presents invalid Course Structure as a plain-language App error", () => {

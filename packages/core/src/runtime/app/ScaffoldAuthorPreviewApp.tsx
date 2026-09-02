@@ -4,6 +4,8 @@ import type { AuthorPreviewRuntimeMount, PresentationRuntimePreview } from "./Co
 import { ScaffoldRuntimeApp } from "./ScaffoldRuntimeApp";
 import { createSlideshowRuntimeProgramSource } from "./slideshow-runtime-program-source";
 
+export { createSlideshowRuntimeProgramSource };
+
 export interface ScaffoldAuthorPreviewAppProps extends ScaffoldLearnerAppProps {
   readonly authorPreviewRuntimeMount?: AuthorPreviewRuntimeMount;
   readonly presentationPreview?: PresentationRuntimePreview;

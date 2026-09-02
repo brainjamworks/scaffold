@@ -1,5 +1,5 @@
-import type { LearnerInteractionRuleId } from "@scaffold/contracts";
-import { useRef, useState, useSyncExternalStore } from "react";
+import type { LearnerInteractionRuleId, ScaffoldDocumentContent } from "@scaffold/contracts";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import {
   validateLearnerInteractionRuleDraft,
@@ -8,6 +8,14 @@ import {
   type LearnerInteractionAuthoringProjection,
   type ProjectedLearnerInteractionRule,
 } from "../model";
+import {
+  projectLearnerInteractionPreviewReport,
+  type LearnerInteractionPreviewController,
+} from "../preview";
+import type {
+  LearnerInteractionPreviewLoadError,
+  LearnerInteractionTurnReport,
+} from "@/learner-interaction/model";
 import type {
   LearnerInteractionContextChange,
   LearnerInteractionWorkspaceController,
@@ -19,6 +27,8 @@ import "./LearnerInteractionWorkspace.css";
 export interface LearnerInteractionWorkspaceProps {
   readonly controller: LearnerInteractionWorkspaceController;
   readonly projection: LearnerInteractionAuthoringProjection;
+  readonly previewController: LearnerInteractionPreviewController;
+  readonly previewDocument: ScaffoldDocumentContent;
   readonly onSetRuleEnabled: (
     ruleId: LearnerInteractionRuleId,
     isEnabled: boolean,
@@ -36,6 +46,8 @@ export interface LearnerInteractionWorkspaceProps {
 export function LearnerInteractionWorkspace({
   controller,
   projection,
+  previewController,
+  previewDocument,
   onSetRuleEnabled,
   onReorderRule,
   onRemoveRule,
@@ -46,6 +58,12 @@ export function LearnerInteractionWorkspace({
     controller.getSnapshot,
     controller.getSnapshot,
   );
+  const previewSnapshot = useSyncExternalStore(
+    previewController.subscribe,
+    previewController.getSnapshot,
+    previewController.getSnapshot,
+  );
+  const [latestReport, setLatestReport] = useState<LearnerInteractionTurnReport | null>(null);
   const [commandError, setCommandError] = useState<LearnerInteractionAuthoringCommandError | null>(
     null,
   );
@@ -56,6 +74,25 @@ export function LearnerInteractionWorkspace({
     snapshot.status === "idle" || snapshot.draft.ruleId === null
       ? null
       : (projection.rules.find(({ rule }) => rule.id === snapshot.draft.ruleId) ?? null);
+  const projectedReport = useMemo(
+    () => (latestReport ? projectLearnerInteractionPreviewReport(latestReport, projection) : null),
+    [latestReport, projection],
+  );
+  const draftBlocksPreview =
+    snapshot.status !== "idle" &&
+    (snapshot.status !== "focused-clean" ||
+      validateLearnerInteractionRuleDraft(snapshot.draft).length > 0);
+  const previewDisabled = projection.rules.length === 0 || draftBlocksPreview;
+
+  useEffect(
+    () => previewController.subscribeReports((report) => setLatestReport(report)),
+    [previewController, previewSnapshot.status],
+  );
+  useEffect(() => {
+    if (previewSnapshot.status === "idle" || previewSnapshot.status === "loading") {
+      setLatestReport(null);
+    }
+  }, [previewSnapshot.status]);
 
   const applyResult = (result: LearnerInteractionAuthoringCommandResult) => {
     setCommandError(result.isErr() ? result.error : null);
@@ -79,18 +116,84 @@ export function LearnerInteractionWorkspace({
           <h2 id="learner-interactions-heading">Interactions</h2>
           <p>Rules for the selected Surface.</p>
         </div>
-        <button
-          type="button"
-          disabled={projection.capabilityState === "empty"}
-          onClick={() =>
-            controller.requestContextChange({ kind: "rule", ruleId: null }, () =>
-              controller.startNewRule(),
-            )
-          }
-        >
-          Add rule
-        </button>
+        <div>
+          {previewSnapshot.status === "idle" || previewSnapshot.status === "error" ? (
+            <button
+              type="button"
+              disabled={previewDisabled}
+              onClick={() => {
+                void previewController.loadCurrentDocument({
+                  document: previewDocument,
+                  surfaceId: projection.surfaceId,
+                });
+              }}
+            >
+              Preview interactions
+            </button>
+          ) : (
+            <button
+              type="button"
+              aria-label="Close interactions preview"
+              onClick={() => previewController.close()}
+            >
+              {previewSnapshot.status === "loading" ? "Cancel preview" : "Close preview"}
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={projection.capabilityState === "empty"}
+            onClick={() =>
+              controller.requestContextChange({ kind: "rule", ruleId: null }, () =>
+                controller.startNewRule(),
+              )
+            }
+          >
+            Add rule
+          </button>
+        </div>
       </header>
+
+      {previewSnapshot.status === "loading" ? <p role="status">Preparing preview…</p> : null}
+      {previewSnapshot.status === "error" ? (
+        <p role="alert">{previewErrorCopy(previewSnapshot.error)}</p>
+      ) : null}
+
+      {projectedReport ? (
+        <section aria-label="Latest interaction turn">
+          <h3>Turn {projectedReport.turnNumber}</h3>
+          <p>{projectedReport.eventSummary}</p>
+          <p>{projectedReport.endSummary}</p>
+          <ul>
+            {projectedReport.rules.map((row) => (
+              <li key={row.ruleId}>
+                <button type="button" onClick={() => focusReportSource(row.source)}>
+                  Inspect {row.label} event
+                </button>{" "}
+                {row.summary}
+                {row.predicates.map((predicate) => (
+                  <div key={predicate.conditionIndex}>
+                    <button type="button" onClick={() => focusReportSource(predicate.source)}>
+                      Inspect {row.label} condition {predicate.conditionIndex + 1}
+                    </button>{" "}
+                    {predicate.summary}
+                  </div>
+                ))}
+              </li>
+            ))}
+            {projectedReport.commands.map((row) => {
+              const ruleIndex = projection.rules.findIndex(({ rule }) => rule.id === row.ruleId);
+              return (
+                <li key={`${row.ruleId}:${row.commandIndex}`}>
+                  <button type="button" onClick={() => focusReportSource(row.source)}>
+                    Inspect Rule {ruleIndex + 1} command {row.commandIndex + 1}
+                  </button>{" "}
+                  {row.summary}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       {projection.capabilityState === "empty" ? (
         <p role="status">This Surface has no learner interaction capabilities.</p>
@@ -233,6 +336,21 @@ export function LearnerInteractionWorkspace({
       </AppDialog.Root>
     </section>
   );
+
+  function focusReportSource(source: {
+    readonly ruleId: LearnerInteractionRuleId;
+    readonly location: {
+      readonly kind: string;
+      readonly conditionIndex?: number;
+      readonly commandIndex?: number;
+    };
+  }) {
+    const row = projection.rules.find(({ rule }) => rule.id === source.ruleId);
+    if (!row) {
+      throw new Error(`Learner Interaction report rule "${source.ruleId}" is no longer saved.`);
+    }
+    requestFocus(row, sourceKey(source.location));
+  }
 }
 
 function toDraft({ rule }: ProjectedLearnerInteractionRule) {
@@ -273,6 +391,35 @@ export function authoringErrorCopy(error: LearnerInteractionAuthoringCommandErro
       return "Repair every unavailable rule source before saving.";
     case "rule-reorder-boundary":
       return `This rule cannot move ${error.direction}.`;
+  }
+}
+
+function previewErrorCopy(error: LearnerInteractionPreviewLoadError): string {
+  switch (error.reason) {
+    case "preview-load-superseded":
+      return "A newer interactions preview replaced this request.";
+    case "preview-not-slideshow":
+      return "Interactions preview is available only for Slideshows.";
+    case "preview-surface-not-current":
+      return "The selected Surface is no longer available.";
+    case "preview-surface-not-configured":
+      return "This Surface has no saved interaction rules.";
+    case "preview-document-invalid":
+      return "Repair the document before previewing interactions.";
+    case "preview-requires-scaffold-plus":
+      return "Interactions preview requires Scaffold Plus.";
+    case "preview-unsupported-core-format":
+      return "This document format cannot be previewed here.";
+    case "preview-unavailable-content":
+      return "Some course content is unavailable for preview.";
+    case "preview-projection-warning":
+      return "Resolve publication warnings before previewing interactions.";
+    case "preview-payload-too-large":
+      return "This course is too large to preview.";
+    case "preview-runtime-unavailable":
+      return "The learner preview could not be loaded.";
+    case "preview-services-unavailable":
+      return "The learner preview services could not be prepared.";
   }
 }
 

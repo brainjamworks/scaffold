@@ -3,10 +3,11 @@
 import {
   EmbeddedDataIdSchema,
   EmbeddedNodeIdSchema,
+  type ScaffoldDocumentContent,
   type LearnerInteractionRuleId,
   type LearnerInteractionRuleV1,
 } from "@scaffold/contracts";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Result } from "better-result";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -18,6 +19,11 @@ import type {
   LearnerInteractionRuleDraft,
   ProjectedLearnerInteractionRule,
 } from "../model";
+import {
+  LearnerInteractionPreviewController,
+  LearnerInteractionPreviewPortOwner,
+} from "../preview";
+import type { LearnerInteractionTurnReport } from "@/learner-interaction/model";
 import { LearnerInteractionWorkspaceController } from "./learner-interaction-workspace-controller";
 import { LearnerInteractionWorkspace } from "./LearnerInteractionWorkspace";
 
@@ -291,6 +297,49 @@ describe("LearnerInteractionWorkspace", () => {
     );
     expect(screen.getByRole("button", { name: "Add rule" })).toBeDisabled();
   });
+
+  it("previews only a clean saved Surface group and never submits the draft", async () => {
+    const user = userEvent.setup();
+    const harness = renderWorkspace(projection());
+
+    await user.click(screen.getByRole("button", { name: "Preview interactions" }));
+    expect(harness.preview.load).toHaveBeenCalledWith({
+      document: harness.previewDocument,
+      surfaceId: IDS.surface,
+    });
+    expect(harness.saveDraft).not.toHaveBeenCalled();
+    expect(await screen.findByRole("button", { name: "Close interactions preview" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Close interactions preview" }));
+    await user.click(screen.getByRole("button", { name: "Edit Rule 1" }));
+    await user.click(screen.getByLabelText("Rule enabled"));
+    expect(screen.getByRole("button", { name: "Preview interactions" })).toBeDisabled();
+  });
+
+  it("keeps only the latest real turn and focuses its exact saved source", async () => {
+    const user = userEvent.setup();
+    const harness = renderWorkspace(projection());
+    await user.click(screen.getByRole("button", { name: "Preview interactions" }));
+    await screen.findByRole("button", { name: "Close interactions preview" });
+
+    act(() => harness.preview.publish(report(1, IDS.firstRule)));
+    expect(
+      await screen.findByRole("region", { name: "Latest interaction turn" }),
+    ).toHaveTextContent("Turn 1");
+    act(() => harness.preview.publish(report(2, IDS.secondRule)));
+    expect(screen.getByRole("region", { name: "Latest interaction turn" })).toHaveTextContent(
+      "Turn 2",
+    );
+    expect(screen.getByRole("region", { name: "Latest interaction turn" })).not.toHaveTextContent(
+      "Turn 1",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Inspect Rule 2 command 1" }));
+    expect(screen.getByRole("heading", { name: "Rule 2" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Then command 1" })).toContainElement(
+      document.activeElement as HTMLElement,
+    );
+  });
 });
 
 function renderWorkspace(
@@ -322,16 +371,77 @@ function renderWorkspace(
   const onRemoveRule = vi.fn(
     (_ruleId: LearnerInteractionRuleId): LearnerInteractionAuthoringCommandResult => Result.ok(),
   );
+  const previewDocument = {} as ScaffoldDocumentContent;
+  const preview = createPreviewHarness();
   render(
     <LearnerInteractionWorkspace
       controller={controller}
       projection={value}
+      previewController={preview.controller}
+      previewDocument={previewDocument}
       onSetRuleEnabled={onSetRuleEnabled}
       onReorderRule={onReorderRule}
       onRemoveRule={onRemoveRule}
     />,
   );
-  return { controller, saveDraft, onSetRuleEnabled, onReorderRule, onRemoveRule };
+  return {
+    controller,
+    saveDraft,
+    onSetRuleEnabled,
+    onReorderRule,
+    onRemoveRule,
+    previewDocument,
+    preview,
+  };
+}
+
+function createPreviewHarness() {
+  let publishReport: ((report: LearnerInteractionTurnReport) => void) | null = null;
+  const reportsPort = {
+    subscribeReports(listener: (report: LearnerInteractionTurnReport) => void) {
+      publishReport = listener;
+      return () => {
+        publishReport = null;
+      };
+    },
+  };
+  let owner: LearnerInteractionPreviewPortOwner;
+  const prepare = vi.fn(async () => {
+    queueMicrotask(() => owner.connect(reportsPort));
+    return Result.ok();
+  });
+  owner = new LearnerInteractionPreviewPortOwner({ prepare, close: vi.fn() });
+  const controller = new LearnerInteractionPreviewController({
+    port: owner,
+    close: () => owner.close(),
+  });
+  return {
+    controller,
+    load: prepare,
+    publish(reportValue: LearnerInteractionTurnReport) {
+      publishReport?.(reportValue);
+    },
+  };
+}
+
+function report(
+  turnNumber: number,
+  ruleId: LearnerInteractionRuleId,
+): LearnerInteractionTurnReport {
+  return Object.freeze({
+    turnNumber,
+    event: Object.freeze({ targetId: IDS.source, type: "activated" }),
+    ruleEvaluations: Object.freeze([
+      Object.freeze({ kind: "matched" as const, ruleId, conditions: Object.freeze([]) }),
+    ]),
+    commandExecutions: Object.freeze([
+      Object.freeze({
+        address: Object.freeze({ ruleId, commandIndex: 0 }),
+        outcome: Object.freeze({ kind: "succeeded" as const }),
+      }),
+    ]),
+    end: "completed" as const,
+  });
 }
 
 function projection({
