@@ -85,6 +85,7 @@ export type PresentationSurfaceNarrationSeekError =
 export interface PresentationSurfaceNarrationController {
   readonly surfaceId: EmbeddedNodeId;
   getSnapshot(): PresentationSurfaceNarrationSnapshot;
+  getClockTimeMs(): number;
   subscribe(listener: () => void): () => void;
   load(
     narration: SurfacePresentationNarrationV1,
@@ -265,6 +266,12 @@ export function createPresentationSurfaceNarrationController({
   const controller: PresentationSurfaceNarrationController = {
     surfaceId,
     getSnapshot: () => snapshot,
+    getClockTimeMs() {
+      assertNotDisposed();
+      return snapshot.status === "playing"
+        ? readCurrentTimeMs(requireActive().audio)
+        : snapshot.currentTimeMs;
+    },
     subscribe(listener) {
       assertNotDisposed();
       listeners.add(listener);

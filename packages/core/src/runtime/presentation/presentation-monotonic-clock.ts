@@ -1,24 +1,24 @@
-import type {
-  PresentationSurfaceNarrationController,
-  PresentationSurfaceNarrationSnapshot,
-} from "./narration/presentation-surface-narration-controller";
+import type { PresentationSurfaceNarrationController } from "./narration/presentation-surface-narration-controller";
 
-export interface PresentationPlaybackClockSource {
+export interface PresentationPlaybackClockReadingSource {
   nowMs(): number;
+}
+
+export interface PresentationPlaybackClockSource extends PresentationPlaybackClockReadingSource {
   subscribe(listener: () => void): () => void;
 }
 
 export interface ReplaceablePresentationPlaybackClock extends PresentationPlaybackClockSource {
-  replaceSource(source: PresentationPlaybackClockSource): void;
+  replaceSource(source: PresentationPlaybackClockReadingSource): void;
 }
 
-export interface PresentationNarrationClockSource extends PresentationPlaybackClockSource {
+export interface PresentationNarrationClockSource extends PresentationPlaybackClockReadingSource {
   readonly surfaceId: PresentationSurfaceNarrationController["surfaceId"];
 }
 
 type PresentationNarrationClockPort = Pick<
   PresentationSurfaceNarrationController,
-  "surfaceId" | "getSnapshot" | "subscribe"
+  "surfaceId" | "getSnapshot" | "getClockTimeMs"
 >;
 
 export function createAnimationFramePresentationMonotonicClock(): PresentationPlaybackClockSource {
@@ -46,16 +46,16 @@ export function createAnimationFramePresentationMonotonicClock(): PresentationPl
 export function createReplaceablePresentationPlaybackClock(
   initialSource: PresentationPlaybackClockSource,
 ): ReplaceablePresentationPlaybackClock {
-  let source = initialSource;
-  let sourceAnchorMs = finiteClockReading(source.nowMs());
+  let readingSource: PresentationPlaybackClockReadingSource = initialSource;
+  let sourceAnchorMs = finiteClockReading(readingSource.nowMs());
   let clockAnchorMs = sourceAnchorMs;
-  let unsubscribeFromSource: (() => void) | null = null;
+  let unsubscribeFromHeartbeat: (() => void) | null = null;
   const listeners = new Set<() => void>();
 
-  const read = () => clockAnchorMs + (finiteClockReading(source.nowMs()) - sourceAnchorMs);
+  const read = () => clockAnchorMs + (finiteClockReading(readingSource.nowMs()) - sourceAnchorMs);
 
-  const subscribeToSource = () => {
-    unsubscribeFromSource = source.subscribe(() => {
+  const subscribeToHeartbeat = () => {
+    unsubscribeFromHeartbeat = initialSource.subscribe(() => {
       for (const listener of [...listeners]) listener();
     });
   };
@@ -64,26 +64,23 @@ export function createReplaceablePresentationPlaybackClock(
     nowMs: read,
     subscribe(listener: () => void) {
       listeners.add(listener);
-      if (listeners.size === 1) subscribeToSource();
+      if (listeners.size === 1) subscribeToHeartbeat();
       let active = true;
       return () => {
         if (!active) return;
         active = false;
         listeners.delete(listener);
         if (listeners.size > 0) return;
-        unsubscribeFromSource?.();
-        unsubscribeFromSource = null;
+        unsubscribeFromHeartbeat?.();
+        unsubscribeFromHeartbeat = null;
       };
     },
-    replaceSource(nextSource: PresentationPlaybackClockSource) {
+    replaceSource(nextSource: PresentationPlaybackClockReadingSource) {
       const preservedReadingMs = read();
       const nextSourceReadingMs = finiteClockReading(nextSource.nowMs());
-      unsubscribeFromSource?.();
-      unsubscribeFromSource = null;
-      source = nextSource;
+      readingSource = nextSource;
       sourceAnchorMs = nextSourceReadingMs;
       clockAnchorMs = preservedReadingMs;
-      if (listeners.size > 0) subscribeToSource();
       for (const listener of [...listeners]) listener();
     },
   });
@@ -96,15 +93,17 @@ export function createPresentationNarrationClockSource(
   if (initialSnapshot.status !== "playing") {
     throw new Error("Presentation narration clock requires confirmed playing media.");
   }
-  let confirmedTimeMs = confirmedTimeFrom(initialSnapshot);
+  let confirmedTimeMs = confirmedTimeFrom(controller.getClockTimeMs());
 
   const refreshConfirmedTime = () => {
     const nextSnapshot = controller.getSnapshot();
     switch (nextSnapshot.status) {
       case "playing":
+        confirmedTimeMs = confirmedTimeFrom(controller.getClockTimeMs());
+        return;
       case "paused":
       case "ended":
-        confirmedTimeMs = confirmedTimeFrom(nextSnapshot);
+        confirmedTimeMs = confirmedTimeFrom(nextSnapshot.currentTimeMs);
         return;
       case "buffering":
       case "seeking":
@@ -122,20 +121,14 @@ export function createPresentationNarrationClockSource(
       refreshConfirmedTime();
       return confirmedTimeMs;
     },
-    subscribe(listener: () => void) {
-      return controller.subscribe(() => {
-        refreshConfirmedTime();
-        listener();
-      });
-    },
   });
 }
 
-function confirmedTimeFrom(snapshot: PresentationSurfaceNarrationSnapshot): number {
-  if (!Number.isSafeInteger(snapshot.currentTimeMs) || snapshot.currentTimeMs < 0) {
+function confirmedTimeFrom(currentTimeMs: number): number {
+  if (!Number.isSafeInteger(currentTimeMs) || currentTimeMs < 0) {
     throw new Error("Presentation narration clock received an invalid confirmed media time.");
   }
-  return snapshot.currentTimeMs;
+  return currentTimeMs;
 }
 
 function finiteClockReading(readingMs: number): number {

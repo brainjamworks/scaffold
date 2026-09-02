@@ -9,6 +9,7 @@ import {
   createAnimationFramePresentationMonotonicClock,
   createReplaceablePresentationPlaybackClock,
   type PresentationNarrationClockSource,
+  type PresentationPlaybackClockReadingSource,
   type PresentationPlaybackClockSource,
 } from "./presentation-monotonic-clock";
 import { createPresentationPlaybackMachine } from "./presentation-playback-machine";
@@ -182,7 +183,7 @@ export function createPresentationPlaybackSession({
   const cueReportListeners = new Set<(report: PresentationCueReport) => void>();
   let disposed = false;
   const playbackClock = createReplaceablePresentationPlaybackClock(monotonicClock);
-  let activeClockSource: PresentationPlaybackClockSource = monotonicClock;
+  let activeClockSource: PresentationPlaybackClockReadingSource = monotonicClock;
   const machine = createPresentationPlaybackMachine({
     timeline,
     clockSource: playbackClock,

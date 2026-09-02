@@ -86,6 +86,7 @@ function createManualClock(initialNowMs = 1_000) {
 }
 
 function createNarrationClock(initialTimeMs: number, surfaceId = "surface-1" as EmbeddedNodeId) {
+  let liveTimeMs = initialTimeMs;
   let snapshot: PresentationSurfaceNarrationSnapshot = {
     status: "playing" as const,
     currentTimeMs: initialTimeMs,
@@ -98,6 +99,7 @@ function createNarrationClock(initialTimeMs: number, surfaceId = "surface-1" as 
   const controller = {
     surfaceId,
     getSnapshot: () => snapshot,
+    getClockTimeMs: () => liveTimeMs,
     subscribe(listener: () => void) {
       activeSubscriptions += 1;
       maximumActiveSubscriptions = Math.max(maximumActiveSubscriptions, activeSubscriptions);
@@ -111,6 +113,9 @@ function createNarrationClock(initialTimeMs: number, surfaceId = "surface-1" as 
 
   return {
     source: createPresentationNarrationClockSource(controller),
+    setLiveTimeMs(nextTimeMs: number) {
+      liveTimeMs = nextTimeMs;
+    },
     publish(status: "playing" | "buffering" | "seeking" | "failed", currentTimeMs: number) {
       snapshot = {
         status,
@@ -121,6 +126,7 @@ function createNarrationClock(initialTimeMs: number, surfaceId = "surface-1" as 
             ? ({ reason: "narration-unavailable", mediaErrorCode: 3 } as const)
             : null,
       };
+      liveTimeMs = currentTimeMs;
       for (const listener of [...listeners]) listener();
     },
     get activeSubscriptions() {
@@ -2181,13 +2187,16 @@ describe("createPresentationPlaybackSession", () => {
     expect(session.getSnapshot().currentTimeMs).toBe(100);
 
     session.useNarrationClock(narration.source);
-    expect(manualClock.activeSubscriptions).toBe(0);
-    expect(narration.activeSubscriptions).toBe(1);
+    expect(manualClock.activeSubscriptions).toBe(1);
+    expect(narration.activeSubscriptions).toBe(0);
 
-    narration.publish("playing", 175);
+    narration.setLiveTimeMs(175);
+    manualClock.emitAt(1_101);
     expect(session.getSnapshot().currentTimeMs).toBe(175);
     narration.publish("buffering", 300);
+    manualClock.emitAt(1_102);
     narration.publish("seeking", 600);
+    manualClock.emitAt(1_103);
     expect(session.getSnapshot().currentTimeMs).toBe(175);
 
     session.pause();
@@ -2195,8 +2204,9 @@ describe("createPresentationPlaybackSession", () => {
     expectSeekOk(session.seek(600));
     session.play();
     narration.publish("playing", 650);
+    manualClock.emitAt(1_104);
     expect(session.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 650 });
-    expect(narration.maximumActiveSubscriptions).toBe(1);
+    expect(narration.maximumActiveSubscriptions).toBe(0);
   });
 
   it("freezes a failed narration clock until explicit internal-clock continuation", () => {
@@ -2206,8 +2216,10 @@ describe("createPresentationPlaybackSession", () => {
     session.play();
     manualClock.emitAt(1_100);
     session.useNarrationClock(narration.source);
-    narration.publish("playing", 150);
+    narration.setLiveTimeMs(150);
+    manualClock.emitAt(1_101);
     narration.publish("failed", 900);
+    manualClock.emitAt(1_102);
     expect(session.getSnapshot().currentTimeMs).toBe(150);
 
     manualClock.emitAt(3_000);
@@ -2240,7 +2252,8 @@ describe("createPresentationPlaybackSession", () => {
     session.play();
     manualClock.emitAt(1_100);
     session.useNarrationClock(narration.source);
-    narration.publish("playing", 150);
+    narration.setLiveTimeMs(150);
+    manualClock.emitAt(1_101);
     expect(deferredCueExecutor.pending).toHaveLength(1);
 
     session.useInternalClock();
@@ -2248,7 +2261,7 @@ describe("createPresentationPlaybackSession", () => {
     manualClock.emitAt(1_200);
     expect(deferredCueExecutor.pending).toHaveLength(1);
     expect(manualClock.maximumActiveSubscriptions).toBe(1);
-    expect(narration.maximumActiveSubscriptions).toBe(1);
+    expect(narration.maximumActiveSubscriptions).toBe(0);
 
     const execution = deferredCueExecutor.pending[0];
     if (!execution) throw new Error("Expected one cue execution.");

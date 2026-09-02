@@ -54,13 +54,16 @@ describe("PresentationSurfaceNarrationController", () => {
     expect((await playing).isOk()).toBe(true);
     media.confirmTime(2.25);
     expect(controller.getSnapshot()).toMatchObject({ status: "playing", currentTimeMs: 2_250 });
+    media.native.currentTime = 2.75;
+    expect(controller.getClockTimeMs()).toBe(2_750);
+    expect(controller.getSnapshot()).toMatchObject({ currentTimeMs: 2_250 });
 
     controller.pause();
     expect(media.pause).toHaveBeenCalledOnce();
-    expect(controller.getSnapshot()).toMatchObject({ status: "paused", currentTimeMs: 2_250 });
+    expect(controller.getSnapshot()).toMatchObject({ status: "paused", currentTimeMs: 2_750 });
 
     const seeking = controller.seek(8_000);
-    expect(controller.getSnapshot()).toMatchObject({ status: "seeking", currentTimeMs: 2_250 });
+    expect(controller.getSnapshot()).toMatchObject({ status: "seeking", currentTimeMs: 2_750 });
     expect(media.currentTimeAssignments).toEqual([8]);
     media.confirmSeek(8);
     expect((await seeking).isOk()).toBe(true);

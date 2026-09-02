@@ -26,6 +26,9 @@ function createManualSource(initialNowMs: number) {
 
   return {
     source,
+    setNowMs(nextNowMs: number) {
+      nowMs = nextNowMs;
+    },
     emitAt(nextNowMs: number) {
       nowMs = nextNowMs;
       for (const listener of [...listeners]) listener();
@@ -38,10 +41,12 @@ function createManualSource(initialNowMs: number) {
 
 function createNarrationClockHarness(initialSnapshot: PresentationSurfaceNarrationSnapshot) {
   let snapshot = initialSnapshot;
+  let liveTimeMs = initialSnapshot.currentTimeMs;
   const listeners = new Set<() => void>();
   const controller = {
     surfaceId: "surface-1" as EmbeddedNodeId,
     getSnapshot: () => snapshot,
+    getClockTimeMs: () => liveTimeMs,
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -52,7 +57,11 @@ function createNarrationClockHarness(initialSnapshot: PresentationSurfaceNarrati
     controller,
     publish(nextSnapshot: PresentationSurfaceNarrationSnapshot) {
       snapshot = nextSnapshot;
+      liveTimeMs = nextSnapshot.currentTimeMs;
       for (const listener of [...listeners]) listener();
+    },
+    setLiveTimeMs(nextTimeMs: number) {
+      liveTimeMs = nextTimeMs;
     },
   };
 }
@@ -70,17 +79,16 @@ describe("createReplaceablePresentationPlaybackClock", () => {
 
     clock.replaceSource(narration.source);
     expect(clock.nowMs()).toBe(1_125);
-    expect(internal.activeSubscriptions).toBe(0);
-    expect(narration.activeSubscriptions).toBe(1);
+    expect(internal.activeSubscriptions).toBe(1);
+    expect(narration.activeSubscriptions).toBe(0);
 
+    narration.setNowMs(475);
     internal.emitAt(1_500);
-    expect(clock.nowMs()).toBe(1_125);
-    narration.emitAt(475);
     expect(clock.nowMs()).toBe(1_200);
     expect(listener).toHaveBeenCalledTimes(3);
 
     unsubscribe();
-    expect(narration.activeSubscriptions).toBe(0);
+    expect(internal.activeSubscriptions).toBe(0);
   });
 });
 
@@ -93,8 +101,9 @@ describe("createPresentationNarrationClockSource", () => {
       error: null,
     });
     const source = createPresentationNarrationClockSource(narration.controller);
-    const listener = vi.fn();
-    source.subscribe(listener);
+
+    narration.setLiveTimeMs(140);
+    expect(source.nowMs()).toBe(140);
 
     narration.publish({
       status: "playing",
@@ -113,7 +122,6 @@ describe("createPresentationNarrationClockSource", () => {
       });
       expect(source.nowMs()).toBe(175);
     }
-    expect(listener).toHaveBeenCalledTimes(4);
   });
 
   it("rejects an unconfirmed narration source as an invariant defect", () => {
