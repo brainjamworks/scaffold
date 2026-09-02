@@ -236,6 +236,22 @@ describe("projectLearnerInteractionAuthoring", () => {
     ).toEqual([["command-not-declared"], ["surface-not-found"]]);
   });
 
+  it("reports availability with an event and only reveal or navigation Then choices", () => {
+    const projection = projectLearnerInteractionAuthoring({
+      configuration: null,
+      surfaceId: SURFACE_ID,
+      courseStructure: courseStructure(),
+      semanticSnapshot: semanticSnapshot(),
+      controlCapabilities: controlCapabilities({ includeCommands: false }),
+    });
+
+    expect(projection.whenEvents).not.toHaveLength(0);
+    expect(projection.targetCommands).toEqual([]);
+    expect(projection.revealTargets).not.toHaveLength(0);
+    expect(projection.navigationSurfaces).not.toHaveLength(0);
+    expect(projection.capabilityState).toBe("available");
+  });
+
   it("reports a capability-empty Surface without hiding static state or navigation choices", () => {
     const snapshot = semanticSnapshot({ includeEventAndCommands: false });
     const projection = projectLearnerInteractionAuthoring({
@@ -321,15 +337,15 @@ function item(
 
 function controlCapabilities({
   includeEventAndCommands = true,
-}: { readonly includeEventAndCommands?: boolean } = {}): ControlCapabilityCatalogue {
+  includeCommands = includeEventAndCommands,
+}: {
+  readonly includeEventAndCommands?: boolean;
+  readonly includeCommands?: boolean;
+} = {}): ControlCapabilityCatalogue {
   const byTargetId = new Map<EmbeddedNodeId, ControlCapabilitySetDefinition>([
     [STATE_TARGET_ID, STATE_CAPABILITIES],
-    ...(includeEventAndCommands
-      ? ([
-          [EVENT_TARGET_ID, EVENT_CAPABILITIES],
-          [COMMAND_TARGET_ID, COMMAND_CAPABILITIES],
-        ] as const)
-      : []),
+    ...(includeEventAndCommands ? ([[EVENT_TARGET_ID, EVENT_CAPABILITIES]] as const) : []),
+    ...(includeCommands ? ([[COMMAND_TARGET_ID, COMMAND_CAPABILITIES]] as const) : []),
   ]);
   const resolve = (targetId: EmbeddedNodeId) => {
     const capabilities = byTargetId.get(targetId);

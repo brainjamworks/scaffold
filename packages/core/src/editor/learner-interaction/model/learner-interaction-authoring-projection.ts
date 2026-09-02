@@ -234,7 +234,11 @@ export function projectLearnerInteractionAuthoring({
 
   return Object.freeze({
     surfaceId,
-    capabilityState: whenEvents.length === 0 || targetCommands.length === 0 ? "empty" : "available",
+    capabilityState:
+      whenEvents.length > 0 &&
+      (revealTargets.length > 0 || targetCommands.length > 0 || navigationSurfaces.length > 0)
+        ? "available"
+        : "empty",
     rules: Object.freeze(rules),
     whenEvents: Object.freeze(whenEvents),
     conditionStates: Object.freeze(conditionStates),
