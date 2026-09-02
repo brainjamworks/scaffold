@@ -20,6 +20,7 @@ import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/Scaffo
 import { PresentationPreviewController } from "@/editor/presentation/preview";
 import type { PresentationPreviewDocument } from "@/presentation/model";
 import type { SemanticDocumentController } from "@/document/authoring/semantic-document/semantic-document-controller";
+import type { SemanticNavigationResult } from "@/document/authoring/semantic-document";
 import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
 import { type CourseDocumentAuthoringMount } from "@/document/authoring/prepared-authoring-mount";
 import type {
@@ -54,6 +55,8 @@ const mocks = vi.hoisted(() => {
     contentAuthorHostProps: [] as Array<Record<string, unknown>>,
     contentAuthorHostRenderCount: 0,
     renderBottomWorkspace: false,
+    stubLearnerInteractionSave: false,
+    learnerInteractionSaves: [] as Array<Record<string, unknown>>,
     savedBundles: [] as Array<ArtifactSavePayload>,
   };
 });
@@ -118,6 +121,21 @@ vi.mock("@/editor/presentation/timeline", async (importOriginal) => {
         { "data-testid": "presentation-timeline" },
         createElement("h2", null, "Timeline"),
       ),
+  };
+});
+
+vi.mock("@/editor/learner-interaction/model", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/editor/learner-interaction/model")>();
+  const { Result: BetterResult } = await import("better-result");
+  return {
+    ...actual,
+    saveLearnerInteractionRule: (
+      input: Parameters<typeof actual.saveLearnerInteractionRule>[0],
+    ) => {
+      if (!mocks.stubLearnerInteractionSave) return actual.saveLearnerInteractionRule(input);
+      mocks.learnerInteractionSaves.push(input);
+      return BetterResult.ok("testrule0001");
+    },
   };
 });
 
@@ -397,6 +415,8 @@ afterEach(() => {
   mocks.contentAuthorHostProps.length = 0;
   mocks.contentAuthorHostRenderCount = 0;
   mocks.renderBottomWorkspace = false;
+  mocks.stubLearnerInteractionSave = false;
+  mocks.learnerInteractionSaves.length = 0;
   mocks.savedBundles.length = 0;
   vi.clearAllMocks();
 });
@@ -531,6 +551,8 @@ function currentPresentationPreviewController(): PresentationPreviewController {
 
 class FakeWorkspaceSemanticController {
   readonly selectCalls: EmbeddedNodeId[] = [];
+  readonly #selectionResults: Array<SemanticNavigationResult | Promise<SemanticNavigationResult>> =
+    [];
   readonly #listeners = new Set<() => void>();
   #snapshot: ReturnType<SemanticDocumentController["getSnapshot"]>;
 
@@ -592,11 +614,17 @@ class FakeWorkspaceSemanticController {
         },
       }),
   });
-  readonly select = async (id: EmbeddedNodeId) => {
+  readonly select = async (id: EmbeddedNodeId): Promise<SemanticNavigationResult> => {
     this.selectCalls.push(id);
-    this.publish(id, "presentation-timeline");
-    return { kind: "reached" as const, id };
+    const result = await (this.#selectionResults.shift() ?? ({ kind: "reached", id } as const));
+    if (result.kind === "reached") this.publish(result.id, "presentation-timeline");
+    if (result.kind === "reached-owner") this.publish(result.ownerId, "presentation-timeline");
+    return result;
   };
+
+  queueSelectionResult(result: SemanticNavigationResult | Promise<SemanticNavigationResult>) {
+    this.#selectionResults.push(result);
+  }
 
   publish(
     id: EmbeddedNodeId,
@@ -762,6 +790,46 @@ function getCorePublishAction(): HTMLButtonElement {
   return action;
 }
 
+async function renderSurfaceWorkspaceHarness() {
+  const firstSurfaceId = EmbeddedNodeIdSchema.parse("workspace001");
+  const secondSurfaceId = EmbeddedNodeIdSchema.parse("workspace002");
+  const content = slideshowDocumentWithSurfaces(firstSurfaceId, secondSurfaceId);
+  mocks.authorJSON = content;
+  mocks.fakeEditor.state.doc.firstChild.attrs = content.content?.[0]?.attrs ?? {};
+  mocks.renderBottomWorkspace = true;
+  mocks.stubLearnerInteractionSave = true;
+  const semanticController = new FakeWorkspaceSemanticController([firstSurfaceId, secondSurfaceId]);
+  vi.spyOn(semanticDocumentPluginKey, "getState").mockReturnValue(
+    semanticController as unknown as SemanticDocumentController,
+  );
+  const user = userEvent.setup();
+
+  render(
+    <ScaffoldAuthoringApp
+      application={testApplication}
+      artifact={{
+        id: "artifact-surface-workspaces",
+        title: "Workspaces",
+        mode: "slideshow",
+        content,
+      }}
+      services={{ artifactPersistence: { saveArtifact: vi.fn(async () => ({})) }, media: null }}
+    />,
+  );
+  await screen.findByRole("tablist", { name: "Surface workspace" });
+  return { firstSurfaceId, secondSurfaceId, semanticController, user };
+}
+
+async function createDirtyInteractionDraft(
+  user: ReturnType<typeof userEvent.setup>,
+  surfaceId: EmbeddedNodeId,
+) {
+  await user.click(screen.getByRole("tab", { name: "Interactions" }));
+  await user.click(screen.getByRole("button", { name: "Add rule" }));
+  await user.selectOptions(screen.getByLabelText("When"), `${surfaceId}:activated`);
+  await user.click(screen.getByRole("button", { name: "Add reveal" }));
+}
+
 describe("ScaffoldAuthoringApp Surface workspaces", () => {
   it("mounts Timeline and Interactions exclusively and guards workspace and Surface changes", async () => {
     const user = userEvent.setup();
@@ -849,6 +917,130 @@ describe("ScaffoldAuthoringApp Surface workspaces", () => {
     expect(screen.queryByRole("heading", { name: "Interactions" })).toBeNull();
     expect(mocks.contentAuthorHostProps.at(-1)?.["bottomWorkspace"]).toBeUndefined();
   });
+
+  it("applies guarded workspace changes after Save and Discard", async () => {
+    const { firstSurfaceId, user } = await renderSurfaceWorkspaceHarness();
+    await createDirtyInteractionDraft(user, firstSurfaceId);
+
+    await user.click(screen.getByRole("tab", { name: "Timeline" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(screen.getByTestId("presentation-timeline")).toBeInTheDocument();
+    expect(mocks.learnerInteractionSaves).toHaveLength(1);
+    expect(mocks.learnerInteractionSaves[0]?.["surfaceId"]).toBe(firstSurfaceId);
+
+    await createDirtyInteractionDraft(user, firstSurfaceId);
+    await user.click(screen.getByRole("tab", { name: "Timeline" }));
+    await user.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(screen.getByTestId("presentation-timeline")).toBeInTheDocument();
+    expect(mocks.learnerInteractionSaves).toHaveLength(1);
+  });
+
+  it("keeps or applies guarded Surface changes after Cancel and Save", async () => {
+    const { firstSurfaceId, secondSurfaceId, semanticController, user } =
+      await renderSurfaceWorkspaceHarness();
+    await createDirtyInteractionDraft(user, firstSurfaceId);
+
+    semanticController.queueSelectionResult({
+      kind: "reached-owner",
+      requestedId: firstSurfaceId,
+      ownerId: firstSurfaceId,
+      reason: "temporarily-unavailable",
+    });
+    semanticController.publish(secondSurfaceId);
+    await screen.findByRole("alertdialog", { name: "Unsaved rule changes" });
+    await waitFor(() => expect(semanticController.getSnapshot().selectedId).toBe(firstSurfaceId));
+    await user.click(screen.getByRole("button", { name: "Cancel change" }));
+    expect(semanticController.getSnapshot().selectedId).toBe(firstSurfaceId);
+    expect(
+      document.querySelector(`[data-interaction-surface-id="${firstSurfaceId}"]`),
+    ).not.toBeNull();
+
+    semanticController.publish(secondSurfaceId);
+    await screen.findByRole("alertdialog", { name: "Unsaved rule changes" });
+    await waitFor(() => expect(semanticController.getSnapshot().selectedId).toBe(firstSurfaceId));
+    semanticController.queueSelectionResult({
+      kind: "reached-owner",
+      requestedId: secondSurfaceId,
+      ownerId: secondSurfaceId,
+      reason: "temporarily-unavailable",
+    });
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(semanticController.getSnapshot().selectedId).toBe(secondSurfaceId));
+    await waitFor(() =>
+      expect(
+        document.querySelector(`[data-interaction-surface-id="${secondSurfaceId}"]`),
+      ).not.toBeNull(),
+    );
+    expect(mocks.learnerInteractionSaves[0]?.["surfaceId"]).toBe(firstSurfaceId);
+  });
+
+  it.each(["missing", "interrupted"] as const)(
+    "keeps the dirty Surface decision pending when restoration is %s",
+    async (kind) => {
+      const { firstSurfaceId, secondSurfaceId, semanticController, user } =
+        await renderSurfaceWorkspaceHarness();
+      await createDirtyInteractionDraft(user, firstSurfaceId);
+      semanticController.queueSelectionResult({ kind, id: firstSurfaceId });
+
+      semanticController.publish(secondSurfaceId);
+      await screen.findByRole("alertdialog", { name: "Unsaved rule changes" });
+      await waitFor(() => expect(semanticController.selectCalls).toEqual([firstSurfaceId]));
+      expect(semanticController.getSnapshot().selectedId).toBe(secondSurfaceId);
+      expect(
+        document.querySelector(`[data-interaction-surface-id="${firstSurfaceId}"]`),
+      ).not.toBeNull();
+
+      semanticController.queueSelectionResult({ kind, id: firstSurfaceId });
+      await user.click(screen.getByRole("button", { name: "Cancel change" }));
+      await waitFor(() => expect(semanticController.selectCalls).toHaveLength(2));
+      expect(screen.getByRole("alertdialog", { name: "Unsaved rule changes" })).toBeInTheDocument();
+
+      semanticController.queueSelectionResult({ kind: "reached", id: firstSurfaceId });
+      await user.click(screen.getByRole("button", { name: "Cancel change" }));
+      await waitFor(() => expect(semanticController.getSnapshot().selectedId).toBe(firstSurfaceId));
+      expect(screen.queryByRole("alertdialog", { name: "Unsaved rule changes" })).toBeNull();
+    },
+  );
+
+  it.each(["missing", "interrupted"] as const)(
+    "retains the authoritative outgoing Surface when deferred application is %s",
+    async (kind) => {
+      const { firstSurfaceId, secondSurfaceId, semanticController, user } =
+        await renderSurfaceWorkspaceHarness();
+      await createDirtyInteractionDraft(user, firstSurfaceId);
+
+      semanticController.publish(secondSurfaceId);
+      await screen.findByRole("alertdialog", { name: "Unsaved rule changes" });
+      await waitFor(() => expect(semanticController.getSnapshot().selectedId).toBe(firstSurfaceId));
+      const selection = createDeferred<SemanticNavigationResult>();
+      semanticController.queueSelectionResult(selection.promise);
+      const observedSurfaceIds: Array<string | null> = [];
+      const workspace = document.querySelector<HTMLElement>(".sc-surface-workspaces");
+      if (!workspace) throw new Error("expected Surface workspace");
+      const observer = new MutationObserver(() => {
+        observedSurfaceIds.push(workspace.getAttribute("data-interaction-surface-id"));
+      });
+      observer.observe(workspace, {
+        attributes: true,
+        attributeFilter: ["data-interaction-surface-id"],
+      });
+      await user.click(screen.getByRole("button", { name: "Discard changes" }));
+
+      await waitFor(() => expect(semanticController.selectCalls.at(-1)).toBe(secondSurfaceId));
+      await act(async () => Promise.resolve());
+      expect(observedSurfaceIds).not.toContain(secondSurfaceId);
+      selection.resolve({ kind, id: secondSurfaceId });
+      await act(async () => selection.promise);
+      observer.disconnect();
+      expect(semanticController.getSnapshot().selectedId).toBe(firstSurfaceId);
+      expect(
+        document.querySelector(`[data-interaction-surface-id="${firstSurfaceId}"]`),
+      ).not.toBeNull();
+      expect(
+        document.querySelector(`[data-interaction-surface-id="${secondSurfaceId}"]`),
+      ).toBeNull();
+    },
+  );
 });
 
 describe("ScaffoldAuthoringApp preview", () => {
