@@ -177,12 +177,12 @@ export class LearnerInteractionWorkspaceController {
     this.#listeners.clear();
   }
 
-  #focus(
-    draft: LearnerInteractionRuleDraft,
-    baseline: LearnerInteractionRuleDraft | null,
-  ): void {
+  #focus(draft: LearnerInteractionRuleDraft, baseline: LearnerInteractionRuleDraft | null): void {
     if (this.#disposed) return;
-    if (this.#snapshot.status === "focused-dirty" || this.#snapshot.status === "decision-required") {
+    if (
+      this.#snapshot.status === "focused-dirty" ||
+      this.#snapshot.status === "decision-required"
+    ) {
       throw new Error("A dirty Learner Interaction draft requires an exit decision.");
     }
     this.#setFocused(draft, baseline, null);

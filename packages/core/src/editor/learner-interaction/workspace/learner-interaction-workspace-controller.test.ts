@@ -16,7 +16,9 @@ const IDS = Object.freeze({
   otherSurface: EmbeddedNodeIdSchema.parse("surface00002"),
 });
 
-function draft(ruleId: LearnerInteractionRuleDraft["ruleId"] = IDS.rule): LearnerInteractionRuleDraft {
+function draft(
+  ruleId: LearnerInteractionRuleDraft["ruleId"] = IDS.rule,
+): LearnerInteractionRuleDraft {
   return Object.freeze({
     ruleId,
     isEnabled: true,
@@ -68,10 +70,7 @@ describe("LearnerInteractionWorkspaceController", () => {
       pendingContextChange: request,
     });
     expect(
-      controller.requestContextChange(
-        { kind: "workspace", workspace: "interactions" },
-        vi.fn(),
-      ),
+      controller.requestContextChange({ kind: "workspace", workspace: "interactions" }, vi.fn()),
     ).toBe("decision-required");
     expect(controller.getSnapshot().pendingContextChange).toEqual(request);
     expect(apply).not.toHaveBeenCalled();
@@ -85,10 +84,7 @@ describe("LearnerInteractionWorkspaceController", () => {
     controller.focusRule(draft());
 
     expect(
-      controller.requestContextChange(
-        { kind: "surface", surfaceId: IDS.otherSurface },
-        apply,
-      ),
+      controller.requestContextChange({ kind: "surface", surfaceId: IDS.otherSurface }, apply),
     ).toBe("applied");
     expect(apply).toHaveBeenCalledOnce();
     expect(controller.getSnapshot().status).toBe("focused-clean");
@@ -147,10 +143,7 @@ describe("LearnerInteractionWorkspaceController", () => {
     const discardApply = vi.fn();
     controller.focusRule(draft());
     controller.updateDraft({ ...draft(), isEnabled: false });
-    controller.requestContextChange(
-      { kind: "rule", ruleId: IDS.createdRule },
-      discardApply,
-    );
+    controller.requestContextChange({ kind: "rule", ruleId: IDS.createdRule }, discardApply);
 
     expect(controller.resolveContextChange("cancel")).toBe("cancelled");
     expect(controller.getSnapshot()).toMatchObject({
@@ -160,10 +153,7 @@ describe("LearnerInteractionWorkspaceController", () => {
     });
     expect(discardApply).not.toHaveBeenCalled();
 
-    controller.requestContextChange(
-      { kind: "rule", ruleId: IDS.createdRule },
-      discardApply,
-    );
+    controller.requestContextChange({ kind: "rule", ruleId: IDS.createdRule }, discardApply);
     expect(controller.resolveContextChange("discard")).toBe("applied");
     expect(discardApply).toHaveBeenCalledOnce();
     expect(controller.getSnapshot()).toMatchObject({

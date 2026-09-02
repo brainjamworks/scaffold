@@ -3,7 +3,8 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { JSONContent } from "@tiptap/core";
-import { McqSettingsSchema } from "@scaffold/contracts";
+import { EmbeddedNodeIdSchema, McqSettingsSchema, type EmbeddedNodeId } from "@scaffold/contracts";
+import { Result } from "better-result";
 import { StrictMode, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
@@ -52,6 +53,7 @@ const mocks = vi.hoisted(() => {
     learnerAppProps: [] as Array<Record<string, unknown>>,
     contentAuthorHostProps: [] as Array<Record<string, unknown>>,
     contentAuthorHostRenderCount: 0,
+    renderBottomWorkspace: false,
     savedBundles: [] as Array<ArtifactSavePayload>,
   };
 });
@@ -102,6 +104,20 @@ vi.mock("@/editor/shell/chrome/Toolbar", async () => {
 
   return {
     Toolbar: () => createElement("aside", { "data-testid": "toolbar" }),
+  };
+});
+
+vi.mock("@/editor/presentation/timeline", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/editor/presentation/timeline")>();
+  const { createElement } = await import("react");
+  return {
+    ...actual,
+    PresentationTimeline: () =>
+      createElement(
+        "section",
+        { "data-testid": "presentation-timeline" },
+        createElement("h2", null, "Timeline"),
+      ),
   };
 });
 
@@ -182,6 +198,7 @@ vi.mock("./ContentAuthorHost", async () => {
         { "data-testid": "content-author-host" },
         authoringNavigatorDock?.(mocks.fakeEditor),
         stagePreview,
+        mocks.renderBottomWorkspace ? bottomWorkspace : null,
         rightRail?.(mocks.fakeEditor),
         agentOpen
           ? createElement(
@@ -379,6 +396,7 @@ afterEach(() => {
   mocks.blockStripProps.length = 0;
   mocks.contentAuthorHostProps.length = 0;
   mocks.contentAuthorHostRenderCount = 0;
+  mocks.renderBottomWorkspace = false;
   mocks.savedBundles.length = 0;
   vi.clearAllMocks();
 });
@@ -484,6 +502,99 @@ function currentPresentationPreviewController(): PresentationPreviewController {
     throw new Error("expected the mounted Presentation Timeline preview controller");
   }
   return workspace.props.previewController;
+}
+
+class FakeWorkspaceSemanticController {
+  readonly selectCalls: EmbeddedNodeId[] = [];
+  readonly #listeners = new Set<() => void>();
+  #snapshot: ReturnType<SemanticDocumentController["getSnapshot"]>;
+
+  constructor(surfaceIds: readonly EmbeddedNodeId[]) {
+    const items = surfaceIds.map((id, index) => ({
+      id,
+      kind: "surface" as const,
+      nodeType: "surface",
+      definitionId: index === 0 ? "slide-content" : "slide-cover",
+      label: `Slide ${index + 1}`,
+      summary: null,
+      presentation: { actionIds: [], disabledReason: null },
+      presentationContainer: null,
+      children: [],
+    }));
+    const semantics = {
+      revision: 0,
+      mode: "slideshow" as const,
+      roots: items,
+      itemById: new Map(items.map((item) => [item.id, item])),
+      parentById: new Map(items.map((item) => [item.id, null])),
+      locationById: new Map(
+        items.map((item, index) => [
+          item.id,
+          {
+            id: item.id,
+            nodeType: "surface",
+            from: index + 1,
+            to: index + 2,
+            selectionTarget: { kind: "node" as const, pos: index + 1 },
+            surfaceId: item.id,
+            authoringAnchorId: item.id,
+            activationPath: [],
+          },
+        ]),
+      ),
+      diagnostics: [],
+    };
+    this.#snapshot = Object.freeze({
+      semantics,
+      selectedId: surfaceIds[0] ?? null,
+      selectionOrigin: "editor" as const,
+    });
+  }
+
+  readonly getSnapshot = () => this.#snapshot;
+  readonly subscribe = (listener: () => void) => {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  };
+  readonly getControlCapabilityCatalogue = () => ({
+    resolve: (targetId: EmbeddedNodeId) =>
+      Result.ok({
+        ownerId: targetId,
+        targetId,
+        capabilities: {
+          events: [{ type: "activated", label: "Activated" }],
+          commands: [{ type: "activate", label: "Activate" }],
+        },
+      }),
+  });
+  readonly select = async (id: EmbeddedNodeId) => {
+    this.selectCalls.push(id);
+    this.publish(id, "presentation-timeline");
+    return { kind: "reached" as const, id };
+  };
+
+  publish(
+    id: EmbeddedNodeId,
+    selectionOrigin: "component" | "presentation-timeline" = "component",
+  ) {
+    this.#snapshot = Object.freeze({ ...this.#snapshot, selectedId: id, selectionOrigin });
+    for (const listener of this.#listeners) listener();
+  }
+}
+
+function slideshowDocumentWithSurfaces(
+  firstSurfaceId: EmbeddedNodeId,
+  secondSurfaceId: EmbeddedNodeId,
+): JSONContent {
+  const first = slideshowDocument(firstSurfaceId);
+  const second = slideshowDocument(secondSurfaceId);
+  const firstCourseDocument = first.content?.[0];
+  const secondSurface = second.content?.[0]?.content?.[1];
+  if (!firstCourseDocument?.content || !secondSurface) {
+    throw new Error("expected Slideshow fixtures");
+  }
+  firstCourseDocument.content.push(secondSurface);
+  return first;
 }
 
 function privateAssessmentDocument(): JSONContent {
@@ -625,6 +736,95 @@ function getCorePublishAction(): HTMLButtonElement {
   if (!action) throw new Error("Core Publish action is unavailable");
   return action;
 }
+
+describe("ScaffoldAuthoringApp Surface workspaces", () => {
+  it("mounts Timeline and Interactions exclusively and guards workspace and Surface changes", async () => {
+    const user = userEvent.setup();
+    const firstSurfaceId = EmbeddedNodeIdSchema.parse("workspace001");
+    const secondSurfaceId = EmbeddedNodeIdSchema.parse("workspace002");
+    const content = slideshowDocumentWithSurfaces(firstSurfaceId, secondSurfaceId);
+    mocks.authorJSON = content;
+    mocks.fakeEditor.state.doc.firstChild.attrs = content.content?.[0]?.attrs ?? {};
+    mocks.renderBottomWorkspace = true;
+    const semanticController = new FakeWorkspaceSemanticController([
+      firstSurfaceId,
+      secondSurfaceId,
+    ]);
+    vi.spyOn(semanticDocumentPluginKey, "getState").mockReturnValue(
+      semanticController as unknown as SemanticDocumentController,
+    );
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-surface-workspaces",
+          title: "Workspaces",
+          mode: "slideshow",
+          content,
+        }}
+        services={{ artifactPersistence: { saveArtifact: vi.fn(async () => ({})) }, media: null }}
+      />,
+    );
+
+    expect(await screen.findByRole("tablist", { name: "Surface workspace" })).toBeInTheDocument();
+    expect(screen.getByTestId("presentation-timeline")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Interactions" })).toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "Interactions" }));
+    expect(screen.getByRole("heading", { name: "Interactions" })).toBeInTheDocument();
+    expect(screen.queryByTestId("presentation-timeline")).toBeNull();
+    expect(
+      document.querySelector(`[data-interaction-surface-id="${firstSurfaceId}"]`),
+    ).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
+    await user.selectOptions(screen.getByLabelText("When"), `${firstSurfaceId}:activated`);
+    await user.click(screen.getByRole("button", { name: "Add reveal" }));
+    await user.click(screen.getByRole("tab", { name: "Timeline" }));
+    expect(screen.getByRole("alertdialog", { name: "Unsaved rule changes" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancel change" }));
+    expect(screen.getByRole("heading", { name: "Interactions" })).toBeInTheDocument();
+
+    semanticController.publish(secondSurfaceId);
+    expect(
+      await screen.findByRole("alertdialog", { name: "Unsaved rule changes" }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(semanticController.getSnapshot().selectedId).toBe(firstSurfaceId));
+    await user.click(screen.getByRole("button", { name: "Discard changes" }));
+    await waitFor(() => expect(semanticController.getSnapshot().selectedId).toBe(secondSurfaceId));
+    await waitFor(() =>
+      expect(
+        document.querySelector(`[data-interaction-surface-id="${secondSurfaceId}"]`),
+      ).not.toBeNull(),
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Timeline" }));
+    expect(screen.getByTestId("presentation-timeline")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Interactions" })).toBeNull();
+  });
+
+  it("omits the selector and Interactions entirely for Page mode", async () => {
+    mocks.renderBottomWorkspace = true;
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-page-no-interactions",
+          title: "Page",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{ artifactPersistence: { saveArtifact: vi.fn(async () => ({})) }, media: null }}
+      />,
+    );
+
+    await screen.findByTestId("content-author-host");
+    expect(screen.queryByRole("tablist", { name: "Surface workspace" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Interactions" })).toBeNull();
+    expect(mocks.contentAuthorHostProps.at(-1)?.["bottomWorkspace"]).toBeUndefined();
+  });
+});
 
 describe("ScaffoldAuthoringApp preview", () => {
   it("retains a recoverable preview-runtime cause and retries the lazy boundary", async () => {

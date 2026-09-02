@@ -10,12 +10,14 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
 import {
+  LearnerInteractionConfigurationV1Schema,
   PresentationConfigurationV1Schema,
   ScaffoldDocumentContentSchema,
   type AssessmentGroupContract,
@@ -58,6 +60,17 @@ import {
   PresentationTimelineController,
   projectPresentationTimeline,
 } from "@/editor/presentation/timeline";
+import {
+  projectLearnerInteractionAuthoring,
+  removeLearnerInteractionRule,
+  reorderLearnerInteractionRule,
+  saveLearnerInteractionRule,
+  setLearnerInteractionRuleEnabled,
+} from "@/editor/learner-interaction/model";
+import {
+  LearnerInteractionWorkspace,
+  LearnerInteractionWorkspaceController,
+} from "@/editor/learner-interaction/workspace";
 
 import { cn } from "@/lib/cn";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
@@ -363,6 +376,13 @@ function ScaffoldAuthoringAppSessionContent({
   const autosaveTimeoutRef = useRef<number | null>(null);
   const initialLatestContent = readyArtifact?.content ?? null;
   const contentSessionSource = readyArtifact?.id ?? artifact.id ?? artifactStateSource;
+  const surfaceWorkspaceSessionRef = useRef({ source: contentSessionSource, key: 0 });
+  if (surfaceWorkspaceSessionRef.current.source !== contentSessionSource) {
+    surfaceWorkspaceSessionRef.current = {
+      source: contentSessionSource,
+      key: surfaceWorkspaceSessionRef.current.key + 1,
+    };
+  }
   const latestContentRef = useRef<{
     source: unknown;
     value: unknown;
@@ -1397,7 +1417,8 @@ function ScaffoldAuthoringAppSessionContent({
                 {...(editor && readyArtifact.mode === "slideshow"
                   ? {
                       bottomWorkspace: (
-                        <PresentationTimelineAuthoringWorkspace
+                        <SlideshowSurfaceWorkspaces
+                          key={surfaceWorkspaceSessionRef.current.key}
                           editor={editor}
                           previewController={presentationPreviewSession.controller}
                         />
@@ -1430,7 +1451,7 @@ function ScaffoldAuthoringUnavailable({
   );
 }
 
-function PresentationTimelineAuthoringWorkspace({
+export function SlideshowSurfaceWorkspaces({
   editor,
   previewController,
 }: {
@@ -1439,20 +1460,194 @@ function PresentationTimelineAuthoringWorkspace({
 }) {
   const semanticController = getSemanticDocumentControllerForEditor(editor);
   const semanticSnapshot = useSemanticDocumentControllerSnapshot(editor);
-  const surfaceId = resolvePresentationSurfaceId(semanticSnapshot);
-  if (!surfaceId) {
-    throw new Error("Slideshow authoring has no current Surface for its Presentation Timeline.");
+  const requestedSurfaceId = resolvePresentationSurfaceId(semanticSnapshot);
+  if (!requestedSurfaceId) {
+    throw new Error("Slideshow authoring has no current Surface workspace.");
   }
-  const presentationValue = editor.state.doc.firstChild?.attrs["presentation"];
+  const [workspace, setWorkspace] = useState<"timeline" | "interactions">("timeline");
+  const [surfaceId, setSurfaceId] = useState(requestedSurfaceId);
+  const surfaceIdRef = useRef(surfaceId);
+  surfaceIdRef.current = surfaceId;
+  const documentRevision = semanticSnapshot.semantics.revision;
+  const document = useMemo(() => {
+    void documentRevision;
+    return ScaffoldDocumentContentSchema.parse(editor.getJSON());
+  }, [documentRevision, editor]);
+  const courseStructure = projectCourseStructure(document);
+  if (!courseStructure || courseStructure.kind !== "slideshow") {
+    throw new Error("Learner Interaction authoring requires a valid Slideshow Course Document.");
+  }
+  const courseDocument = (document as JSONContent).content?.[0];
+  if (courseDocument?.type !== "courseDocument") {
+    throw new Error("Learner Interaction authoring requires a Course Document root.");
+  }
+  const projectedSurfaceId =
+    courseStructure.surfaceById[surfaceId] && semanticSnapshot.semantics.itemById.has(surfaceId)
+      ? surfaceId
+      : requestedSurfaceId;
+  const presentationValue = courseDocument.attrs?.["presentation"];
   const configuration =
     presentationValue === null || presentationValue === undefined
       ? null
       : PresentationConfigurationV1Schema.parse(presentationValue);
-  const projection = projectPresentationTimeline(
-    surfaceId,
+  const presentationProjection = projectPresentationTimeline(
+    projectedSurfaceId,
     semanticSnapshot.semantics,
     configuration,
   );
+  const learnerInteractionValue = courseDocument.attrs?.["learnerInteractions"];
+  const learnerInteractionConfiguration =
+    learnerInteractionValue === null || learnerInteractionValue === undefined
+      ? null
+      : LearnerInteractionConfigurationV1Schema.parse(learnerInteractionValue);
+  const learnerInteractionProjection = projectLearnerInteractionAuthoring({
+    configuration: learnerInteractionConfiguration,
+    surfaceId: projectedSurfaceId,
+    courseStructure,
+    semanticSnapshot: semanticSnapshot.semantics,
+    controlCapabilities: semanticController.getControlCapabilityCatalogue(),
+  });
+  const interactionController = useMemo(
+    () =>
+      new LearnerInteractionWorkspaceController({
+        saveDraft: (draft) =>
+          saveLearnerInteractionRule({
+            editor,
+            surfaceId: surfaceIdRef.current,
+            draft,
+          }),
+        closePreview: () => {
+          if (previewController.getSnapshot().status !== "idle") previewController.close();
+        },
+      }),
+    [editor, previewController],
+  );
+  useEffect(() => () => interactionController.dispose(), [interactionController]);
+
+  useEffect(() => {
+    if (requestedSurfaceId === surfaceId) return;
+    if (workspace !== "interactions") {
+      setSurfaceId(requestedSurfaceId);
+      return;
+    }
+    if (!semanticSnapshot.semantics.itemById.has(surfaceId)) {
+      interactionController.replaceArtifact();
+      setSurfaceId(requestedSurfaceId);
+      return;
+    }
+    const requestedTargetId = semanticSnapshot.selectedId ?? requestedSurfaceId;
+    const result = interactionController.requestContextChange(
+      { kind: "surface", surfaceId: requestedSurfaceId },
+      () => {
+        setSurfaceId(requestedSurfaceId);
+        if (semanticController.getSnapshot().selectedId !== requestedTargetId) {
+          void semanticController.select(requestedTargetId, {
+            origin: "presentation-timeline",
+            focusEditor: false,
+          });
+        }
+      },
+    );
+    if (result === "decision-required") {
+      void semanticController.select(surfaceId, {
+        origin: "presentation-timeline",
+        focusEditor: false,
+      });
+    }
+  }, [
+    interactionController,
+    requestedSurfaceId,
+    semanticController,
+    semanticSnapshot.selectedId,
+    semanticSnapshot.semantics,
+    surfaceId,
+    workspace,
+  ]);
+
+  const workspaceTabsId = useId();
+  const requestWorkspace = (nextWorkspace: "timeline" | "interactions") => {
+    if (nextWorkspace === workspace) return;
+    interactionController.requestContextChange(
+      { kind: "workspace", workspace: nextWorkspace },
+      () => setWorkspace(nextWorkspace),
+    );
+  };
+
+  return (
+    <section
+      className="sc-surface-workspaces"
+      data-interaction-surface-id={workspace === "interactions" ? surfaceId : undefined}
+    >
+      <div className="sc-surface-workspace-selector" role="tablist" aria-label="Surface workspace">
+        <button
+          id={`${workspaceTabsId}-timeline-tab`}
+          type="button"
+          role="tab"
+          aria-selected={workspace === "timeline"}
+          aria-controls={`${workspaceTabsId}-panel`}
+          onClick={() => requestWorkspace("timeline")}
+        >
+          Timeline
+        </button>
+        <button
+          id={`${workspaceTabsId}-interactions-tab`}
+          type="button"
+          role="tab"
+          aria-selected={workspace === "interactions"}
+          aria-controls={`${workspaceTabsId}-panel`}
+          onClick={() => requestWorkspace("interactions")}
+        >
+          Interactions
+        </button>
+      </div>
+      <div
+        id={`${workspaceTabsId}-panel`}
+        className="sc-surface-workspace-content"
+        role="tabpanel"
+        aria-labelledby={`${workspaceTabsId}-${workspace}-tab`}
+      >
+        {workspace === "timeline" ? (
+          <PresentationTimelineAuthoringWorkspace
+            editor={editor}
+            previewController={previewController}
+            semanticController={semanticController}
+            surfaceId={projectedSurfaceId}
+            document={document}
+            projection={presentationProjection}
+          />
+        ) : (
+          <LearnerInteractionWorkspace
+            controller={interactionController}
+            projection={learnerInteractionProjection}
+            onSetRuleEnabled={(ruleId, isEnabled) =>
+              setLearnerInteractionRuleEnabled({ editor, surfaceId, ruleId, isEnabled })
+            }
+            onReorderRule={(ruleId, direction) =>
+              reorderLearnerInteractionRule({ editor, surfaceId, ruleId, direction })
+            }
+            onRemoveRule={(ruleId) => removeLearnerInteractionRule({ editor, surfaceId, ruleId })}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function PresentationTimelineAuthoringWorkspace({
+  editor,
+  previewController,
+  semanticController,
+  surfaceId,
+  document,
+  projection,
+}: {
+  readonly editor: TiptapEditor;
+  readonly previewController: PresentationPreviewController;
+  readonly semanticController: ReturnType<typeof getSemanticDocumentControllerForEditor>;
+  readonly surfaceId: EmbeddedNodeId;
+  readonly document: ReturnType<typeof ScaffoldDocumentContentSchema.parse>;
+  readonly projection: ReturnType<typeof projectPresentationTimeline>;
+}) {
   const [timelineController] = useState(
     () =>
       new PresentationTimelineController({
@@ -1465,15 +1660,6 @@ function PresentationTimelineAuthoringWorkspace({
       }),
   );
   useEffect(() => () => timelineController.destroy(), [timelineController]);
-  const documentOwner = useMemo(
-    () =>
-      Object.freeze({
-        document: ScaffoldDocumentContentSchema.parse(editor.getJSON()),
-        semanticRevision: semanticSnapshot.semantics.revision,
-      }),
-    [editor, semanticSnapshot.semantics.revision],
-  );
-  const document = documentOwner.document;
   const previousDocumentRef = useRef(document);
   useEffect(() => {
     if (
