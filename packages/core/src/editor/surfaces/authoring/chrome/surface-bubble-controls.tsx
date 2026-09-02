@@ -9,7 +9,7 @@ import {
   type SurfacePresentationNarrationV1,
 } from "@scaffold/contracts";
 import type { Editor } from "@tiptap/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   FilePickerModal,
@@ -17,9 +17,16 @@ import {
 } from "@/editor/media/authoring/picker/LazyFilePickerModal";
 import {
   setPresentationSurfaceNarration,
+  setPresentationSurfaceDuration,
   type PresentationAuthoringCommandError,
 } from "@/editor/presentation/model";
+import {
+  presentPresentationNarrationMetadataError,
+  resolvePresentationNarrationMetadata,
+  type PresentationNarrationMetadataError,
+} from "@/editor/presentation/narration/presentation-narration-metadata";
 import { presentPresentationAuthoringCommandError } from "@/editor/presentation/timeline/PresentationActionEditor";
+import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import { ConfigurationMenuControls } from "@/editor/shell/bubbles/interaction/menu-controls/ConfigurationMenuControls";
 import {
   MenuIconButton,
@@ -58,6 +65,7 @@ export interface SurfaceMenuSnapshot {
   authoringChrome?: SurfaceAuthoringChrome;
   presentation?: {
     readonly narration: SurfacePresentationNarrationV1 | null;
+    readonly durationMs: number;
   };
   surfaceId?: string;
   surfacePos: number;
@@ -75,11 +83,21 @@ export function SurfaceMenuBubbleContent({
   snapshot,
 }: SurfaceMenuBubbleContentProps) {
   const commands = useInteractionCommands();
+  const mediaPort = useMediaPort();
   const settingsOwnerTarget = useInteractionSnapshot().owners.settingsOwner.target;
+  const mountedRef = useRef(false);
   const [narrationPickerOpen, setNarrationPickerOpen] = useState(false);
   const [narrationError, setNarrationError] = useState<PresentationAuthoringCommandError | null>(
     null,
   );
+  const [narrationMetadataError, setNarrationMetadataError] =
+    useState<PresentationNarrationMetadataError | null>(null);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   if (!snapshot) return null;
 
   const quickMenu = snapshot.authoringChrome?.quickMenu;
@@ -99,13 +117,38 @@ export function SurfaceMenuBubbleContent({
       narration,
     });
     setNarrationError(result.isErr() ? result.error : null);
+    setNarrationMetadataError(null);
     return result.isOk();
   };
 
   const handleNarrationResolved = (result: FilePickerResult) => {
     const source = narrationSourceFromPickerResult(result);
     if (!source) throw new Error("The audio picker returned no media source.");
-    return applyNarration({ source });
+    if (!applyNarration({ source })) return false;
+    const surfaceId = EmbeddedNodeIdSchema.parse(snapshot.surfaceId);
+    resolvePresentationNarrationMetadata({
+      source,
+      mediaPort,
+      createAudioElement: () => new Audio(),
+      onResult: (metadataResult) => {
+        if (metadataResult.isErr()) {
+          if (mountedRef.current) setNarrationMetadataError(metadataResult.error);
+          return;
+        }
+        const current = resolveSurfacePresentation(editor, surfaceId, readCourseMode(editor));
+        if (!current || !sameNarrationSource(current.narration?.source, source)) return;
+        if (metadataResult.value.durationMs <= current.durationMs) return;
+        const durationResult = setPresentationSurfaceDuration({
+          editor,
+          surfaceId,
+          durationMs: metadataResult.value.durationMs,
+        });
+        if (mountedRef.current) {
+          setNarrationError(durationResult.isErr() ? durationResult.error : null);
+        }
+      },
+    });
+    return true;
   };
 
   return (
@@ -159,6 +202,11 @@ export function SurfaceMenuBubbleContent({
           />
           {narrationError ? (
             <span role="alert">{presentPresentationAuthoringCommandError(narrationError)}</span>
+          ) : null}
+          {narrationMetadataError ? (
+            <span role="alert">
+              {presentPresentationNarrationMetadataError(narrationMetadataError)}
+            </span>
           ) : null}
         </>
       ) : null}
@@ -241,13 +289,24 @@ function resolveSurfacePresentation(
   const courseDocument = editor.state.doc.firstChild;
   if (!courseDocument) throw new Error("The Course Document is missing.");
   const value = courseDocument.attrs["presentation"];
-  if (value === null || value === undefined) return { narration: null };
+  if (value === null || value === undefined) return { narration: null, durationMs: 0 };
   const configuration = PresentationConfigurationV1Schema.parse(value);
   const timeline = configuration.surfaces.find((candidate) => candidate.surfaceId === surfaceId);
   if (!timeline) {
     throw new Error(`Presentation configuration has no Timeline for Surface "${surfaceId}".`);
   }
-  return { narration: timeline.narration ?? null };
+  return { narration: timeline.narration ?? null, durationMs: timeline.durationMs };
+}
+
+function sameNarrationSource(
+  current: SurfacePresentationNarrationV1["source"] | undefined,
+  expected: SurfacePresentationNarrationV1["source"],
+): boolean {
+  if (!current || current.mode !== expected.mode) return false;
+  if (current.mode === "managed") {
+    return expected.mode === "managed" && current.mediaId === expected.mediaId;
+  }
+  return expected.mode === "external" && current.src === expected.src;
 }
 
 function narrationSourceFromPickerResult(

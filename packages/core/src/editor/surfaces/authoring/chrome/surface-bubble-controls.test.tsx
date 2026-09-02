@@ -15,6 +15,8 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { FilePickerResult } from "@/editor/media/authoring/picker/file-picker-modal";
+import type { MediaPort } from "@/host/ports/media";
+import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
@@ -87,11 +89,13 @@ const TestSectionArrangementNode = Node.create({
   content: "paragraph*",
 });
 
-function renderWithFacade(children: ReactNode) {
+function renderWithFacade(children: ReactNode, media: MediaPort | null = null) {
   return render(
-    <InteractionProvider store={createInteractionStore()}>
-      <TooltipProvider>{children}</TooltipProvider>
-    </InteractionProvider>,
+    <ScaffoldServicesProvider ports={{ media }}>
+      <InteractionProvider store={createInteractionStore()}>
+        <TooltipProvider>{children}</TooltipProvider>
+      </InteractionProvider>
+    </ScaffoldServicesProvider>,
   );
 }
 
@@ -108,6 +112,14 @@ function surfaceDescriptor(editor: Editor, surfaceId: string): SurfaceChromeTarg
 
 describe("SurfaceMenuBubbleContent", () => {
   it("attaches and replaces one Surface narration source through the checked command", async () => {
+    const audioDurations = [4, 7];
+    const originalAudio = globalThis.Audio;
+    globalThis.Audio = function Audio() {
+      const duration = audioDurations.shift();
+      if (duration === undefined) throw new Error("Unexpected narration metadata request.");
+      return new MetadataAudio(duration) as unknown as HTMLAudioElement;
+    } as unknown as typeof Audio;
+    const media = narrationMediaPort();
     const editor = createPresentationEditor();
     const descriptor = surfaceDescriptor(editor, "surface00001");
     const snapshot = resolveSurfaceMenuSnapshot(
@@ -122,6 +134,7 @@ describe("SurfaceMenuBubbleContent", () => {
         editor={editor}
         snapshot={narrationSnapshot}
       />,
+      media,
     );
 
     picker.result = {
@@ -132,24 +145,35 @@ describe("SurfaceMenuBubbleContent", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add narration" }));
     fireEvent.click(screen.getByRole("button", { name: "Choose narration file" }));
 
-    await waitFor(() =>
-      expect(readSurfaceTimeline(editor, "surface00001")?.narration).toEqual({
-        source: { mode: "external", src: "https://example.test/intro.mp3" },
-      }),
-    );
+    await waitFor(() => {
+      expect(readSurfaceTimeline(editor, "surface00001")).toEqual({
+        surfaceId: "surface00001",
+        durationMs: 4_000,
+        narration: {
+          source: { mode: "external", src: "https://example.test/intro.mp3" },
+        },
+        actions: [],
+      });
+    });
 
     rendered.rerender(
-      <InteractionProvider store={createInteractionStore()}>
-        <TooltipProvider>
-          <SurfaceMenuBubbleContent
-            descriptor={descriptor}
-            editor={editor}
-            snapshot={withoutDefaultActions(
-              resolveSurfaceMenuSnapshot(editor, descriptor, builtInSurfaceAuthoringChromeResolver),
-            )}
-          />
-        </TooltipProvider>
-      </InteractionProvider>,
+      <ScaffoldServicesProvider ports={{ media }}>
+        <InteractionProvider store={createInteractionStore()}>
+          <TooltipProvider>
+            <SurfaceMenuBubbleContent
+              descriptor={descriptor}
+              editor={editor}
+              snapshot={withoutDefaultActions(
+                resolveSurfaceMenuSnapshot(
+                  editor,
+                  descriptor,
+                  builtInSurfaceAuthoringChromeResolver,
+                ),
+              )}
+            />
+          </TooltipProvider>
+        </InteractionProvider>
+      </ScaffoldServicesProvider>,
     );
     picker.result = {
       source: "browse",
@@ -166,12 +190,127 @@ describe("SurfaceMenuBubbleContent", () => {
     fireEvent.click(screen.getByRole("button", { name: "Replace narration" }));
     fireEvent.click(screen.getByRole("button", { name: "Choose narration file" }));
 
-    await waitFor(() =>
-      expect(readSurfaceTimeline(editor, "surface00001")?.narration).toEqual({
-        source: { mode: "managed", mediaId: "narration-2" },
-      }),
-    );
+    await waitFor(() => {
+      expect(readSurfaceTimeline(editor, "surface00001")).toEqual({
+        surfaceId: "surface00001",
+        durationMs: 7_000,
+        narration: { source: { mode: "managed", mediaId: "narration-2" } },
+        actions: [],
+      });
+    });
+    expect(media.resolve).toHaveBeenCalledWith("narration-2");
     expect(screen.queryByRole("button", { name: /video/i })).toBeNull();
+    editor.destroy();
+    globalThis.Audio = originalAudio;
+  });
+
+  it("preserves actions and a longer authored silent tail when narration is replaced", async () => {
+    const action: TimelineActionV1 = {
+      kind: "manual-wait",
+      id: EmbeddedDataIdSchema.parse("wait00000001"),
+      isEnabled: true,
+      atMs: 2_000,
+    };
+    const audio = new MetadataAudio(3);
+    const originalAudio = globalThis.Audio;
+    globalThis.Audio = function Audio() {
+      return audio as unknown as HTMLAudioElement;
+    } as unknown as typeof Audio;
+    const editor = createPresentationEditor({
+      schemaVersion: 1,
+      autoAdvance: false,
+      allowPrevious: true,
+      surfaces: [
+        {
+          surfaceId: PRESENTATION_SURFACE_ID,
+          durationMs: 8_000,
+          narration: {
+            source: { mode: "external", src: "https://example.test/original.mp3" },
+          },
+          actions: [action],
+        },
+      ],
+    });
+    const descriptor = surfaceDescriptor(editor, "surface00001");
+    const snapshot = resolveSurfaceMenuSnapshot(
+      editor,
+      descriptor,
+      builtInSurfaceAuthoringChromeResolver,
+    );
+
+    renderWithFacade(
+      <SurfaceMenuBubbleContent
+        descriptor={descriptor}
+        editor={editor}
+        snapshot={withoutDefaultActions(snapshot)}
+      />,
+    );
+    picker.result = {
+      source: "url",
+      mediaType: "audio",
+      url: "https://example.test/replacement.mp3",
+    };
+    fireEvent.click(screen.getByRole("button", { name: "Replace narration" }));
+    fireEvent.click(screen.getByRole("button", { name: "Choose narration file" }));
+
+    await waitFor(() => {
+      expect(readSurfaceTimeline(editor, "surface00001")).toEqual({
+        surfaceId: "surface00001",
+        durationMs: 8_000,
+        narration: {
+          source: { mode: "external", src: "https://example.test/replacement.mp3" },
+        },
+        actions: [action],
+      });
+    });
+    editor.destroy();
+    globalThis.Audio = originalAudio;
+  });
+
+  it("keeps narration attached and presents a friendly error when duration is unavailable", async () => {
+    const cause = new Error("Managed source unavailable");
+    const media = narrationMediaPort();
+    media.resolve = vi.fn(async () => Promise.reject(cause));
+    const editor = createPresentationEditor();
+    const descriptor = surfaceDescriptor(editor, "surface00001");
+    const snapshot = resolveSurfaceMenuSnapshot(
+      editor,
+      descriptor,
+      builtInSurfaceAuthoringChromeResolver,
+    );
+
+    renderWithFacade(
+      <SurfaceMenuBubbleContent
+        descriptor={descriptor}
+        editor={editor}
+        snapshot={withoutDefaultActions(snapshot)}
+      />,
+      media,
+    );
+    picker.result = {
+      source: "browse",
+      mediaType: "audio",
+      browse: {
+        id: "narration-2",
+        url: "https://cdn.example.test/narration-2.mp3",
+        mediaType: "audio",
+        fileName: "narration-2.mp3",
+        mimeType: "audio/mpeg",
+        size: 42,
+      },
+    };
+    fireEvent.click(screen.getByRole("button", { name: "Add narration" }));
+    fireEvent.click(screen.getByRole("button", { name: "Choose narration file" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Narration was added, but its source could not be resolved to determine duration.",
+    );
+    expect(readSurfaceTimeline(editor, "surface00001")).toEqual({
+      surfaceId: "surface00001",
+      durationMs: 0,
+      narration: { source: { mode: "managed", mediaId: "narration-2" } },
+      actions: [],
+    });
     editor.destroy();
   });
 
@@ -490,6 +629,36 @@ function readSurfaceTimeline(editor: Editor, surfaceId: string) {
     | null
     | undefined;
   return presentation?.surfaces?.find((surface) => surface["surfaceId"] === surfaceId);
+}
+
+class MetadataAudio extends EventTarget {
+  duration: number;
+  paused = true;
+  preload = "";
+  src = "";
+
+  constructor(duration: number) {
+    super();
+    this.duration = duration;
+  }
+
+  load(): void {
+    queueMicrotask(() => this.dispatchEvent(new Event("loadedmetadata")));
+  }
+
+  removeAttribute(name: string): void {
+    if (name === "src") this.src = "";
+  }
+}
+
+function narrationMediaPort(): MediaPort {
+  return {
+    resolve: vi.fn(async () => "https://cdn.example.test/narration-2.mp3"),
+    upload: vi.fn(async () => {
+      throw new Error("Upload is not used by this test.");
+    }),
+    list: vi.fn(async () => []),
+  };
 }
 
 function withoutDefaultActions(snapshot: ReturnType<typeof resolveSurfaceMenuSnapshot>) {

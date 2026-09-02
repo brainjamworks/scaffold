@@ -19,6 +19,7 @@ import { PresentationNarrationLane } from "./PresentationNarrationLane";
 import { PresentationTimeline } from "./PresentationTimeline";
 import { PresentationTimelineController } from "./presentation-timeline-controller";
 import type { PresentationTimelineProjection } from "./presentation-timeline-projection";
+import { resolvePresentationNarrationMetadata } from "../narration/presentation-narration-metadata";
 
 const SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
 
@@ -67,10 +68,32 @@ describe("PresentationNarrationLane", () => {
     expect(container.querySelector("[data-waveform]")).toBeNull();
   });
 
-  it("presents a host metadata failure without inventing narration facts", async () => {
+  it("falls back to a generic managed label while still resolving duration", async () => {
+    const audio = new MetadataAudio(8);
     const media = mediaPort();
     const cause = new Error("Library unavailable");
     media.list = vi.fn(async () => Promise.reject(cause));
+
+    render(
+      <ScaffoldServicesProvider ports={{ media }}>
+        <PresentationNarrationLane
+          source={managedSource()}
+          pixelsPerSecond={50}
+          createAudioElement={() => audio as unknown as HTMLAudioElement}
+        />
+      </ScaffoldServicesProvider>,
+    );
+
+    expect(await screen.findByText("Narration audio · 8 seconds")).toBeInTheDocument();
+    expect(
+      screen.getByRole("group", { name: "Narration: Narration audio, 8 seconds" }),
+    ).toBeInTheDocument();
+    expect(media.resolve).toHaveBeenCalledWith("narration-1");
+  });
+
+  it("labels genuinely unavailable duration instead of remaining in loading state", async () => {
+    const media = mediaPort();
+    media.resolve = vi.fn(async () => Promise.reject(new Error("Source unavailable")));
 
     render(
       <ScaffoldServicesProvider ports={{ media }}>
@@ -79,9 +102,39 @@ describe("PresentationNarrationLane", () => {
     );
 
     expect(await screen.findByText("Narration metadata unavailable")).toBeInTheDocument();
-    expect(
-      screen.getByRole("group", { name: "Narration: Narration audio, metadata unavailable" }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Narration audio · Duration unavailable")).toBeInTheDocument();
+    expect(screen.queryByText(/Loading duration/)).toBeNull();
+  });
+
+  it("preserves the managed source-resolution failure cause", async () => {
+    const source = managedSource();
+    const cause = new Error("Source unavailable");
+    const media = mediaPort();
+    media.resolve = vi.fn(async () => Promise.reject(cause));
+
+    const result = await resolveMetadataResult({ source, media });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) throw new Error("Expected narration source resolution to fail.");
+    expect(result.error).toEqual({ reason: "narration-source-unavailable", source, cause });
+  });
+
+  it("preserves the native duration failure cause", async () => {
+    const source: MediaSource = {
+      mode: "external",
+      src: "https://example.test/voice-over.mp3",
+    };
+    const cause = new Event("error");
+
+    const result = await resolveMetadataResult({
+      source,
+      media: null,
+      createAudioElement: () => new MetadataErrorAudio(cause) as unknown as HTMLAudioElement,
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) throw new Error("Expected narration duration resolution to fail.");
+    expect(result.error).toEqual({ reason: "narration-duration-unavailable", source, cause });
   });
 
   it("expands the authored Surface duration for longer narration without changing actions", async () => {
@@ -181,6 +234,45 @@ class MetadataAudio extends EventTarget {
   removeAttribute(name: string): void {
     if (name === "src") this.src = "";
   }
+}
+
+class MetadataErrorAudio extends EventTarget {
+  paused = true;
+  preload = "";
+  src = "";
+
+  constructor(private readonly cause: Event) {
+    super();
+  }
+
+  load(): void {
+    queueMicrotask(() => this.dispatchEvent(this.cause));
+  }
+
+  removeAttribute(name: string): void {
+    if (name === "src") this.src = "";
+  }
+}
+
+function resolveMetadataResult({
+  source,
+  media,
+  createAudioElement = () => new MetadataAudio(1) as unknown as HTMLAudioElement,
+}: {
+  source: MediaSource;
+  media: MediaPort | null;
+  createAudioElement?: () => HTMLAudioElement;
+}) {
+  return new Promise<
+    Parameters<Parameters<typeof resolvePresentationNarrationMetadata>[0]["onResult"]>[0]
+  >((resolve) => {
+    resolvePresentationNarrationMetadata({
+      source,
+      mediaPort: media,
+      createAudioElement,
+      onResult: resolve,
+    });
+  });
 }
 
 function managedSource(): MediaSource {

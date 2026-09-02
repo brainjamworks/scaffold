@@ -1,8 +1,12 @@
 import type { MediaSource } from "@scaffold/contracts";
 import { useEffect, useState } from "react";
 
-import type { MediaPort } from "@/host/ports/media";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
+import {
+  fallbackNarrationLabel,
+  resolvePresentationNarrationMetadata,
+  type PresentationNarrationMetadataError,
+} from "@/editor/presentation/narration/presentation-narration-metadata";
 
 export interface PresentationNarrationLaneProps {
   readonly source: MediaSource;
@@ -20,12 +24,6 @@ type NarrationMetadataState =
       readonly error: PresentationNarrationMetadataError;
     };
 
-export interface PresentationNarrationMetadataError {
-  readonly reason: "narration-metadata-unavailable";
-  readonly source: MediaSource;
-  readonly cause: unknown;
-}
-
 const createNarrationAudioElement = () => new Audio();
 
 export function PresentationNarrationLane({
@@ -37,94 +35,43 @@ export function PresentationNarrationLane({
   const mediaPort = useMediaPort();
   const [metadata, setMetadata] = useState<NarrationMetadataState>(() => ({
     status: "loading",
-    label: fallbackLabel(source),
+    label: fallbackNarrationLabel(source),
   }));
 
   useEffect(() => {
     let active = true;
-    let audio: HTMLAudioElement | undefined;
-    let removeAudioListeners = () => undefined;
-
-    void (async () => {
-      let label: string;
-      try {
-        label = await resolveNarrationLabel(source, mediaPort);
-      } catch (cause) {
+    setMetadata({ status: "loading", label: fallbackNarrationLabel(source) });
+    const dispose = resolvePresentationNarrationMetadata({
+      source,
+      mediaPort,
+      createAudioElement,
+      onResult: (result) => {
         if (!active) return;
-        setMetadata({
-          status: "unavailable",
-          label: fallbackLabel(source),
-          error: { reason: "narration-metadata-unavailable", source, cause },
-        });
-        return;
-      }
-      if (!active) return;
-      setMetadata({ status: "loading", label });
-
-      let url: string;
-      try {
-        url = await resolveNarrationUrl(source, mediaPort);
-      } catch (cause) {
-        if (!active) return;
-        setMetadata({
-          status: "unavailable",
-          label,
-          error: { reason: "narration-metadata-unavailable", source, cause },
-        });
-        return;
-      }
-      if (!active) return;
-
-      audio = createAudioElement();
-      const handleMetadata = () => {
-        if (!active || !audio) return;
-        const durationMs = Math.round(audio.duration * 1_000);
-        if (!Number.isSafeInteger(durationMs) || durationMs < 0) {
+        if (result.isErr()) {
           setMetadata({
             status: "unavailable",
-            label,
-            error: {
-              reason: "narration-metadata-unavailable",
-              source,
-              cause: new Error("Narration duration is not finite."),
-            },
+            label: fallbackNarrationLabel(source),
+            error: result.error,
           });
           return;
         }
-        setMetadata({ status: "ready", label, durationMs });
-        onDurationResolved?.(durationMs);
-      };
-      const handleError = (event: Event) => {
-        if (!active) return;
-        setMetadata({
-          status: "unavailable",
-          label,
-          error: { reason: "narration-metadata-unavailable", source, cause: event },
-        });
-      };
-      audio.addEventListener("loadedmetadata", handleMetadata);
-      audio.addEventListener("error", handleError);
-      removeAudioListeners = () => {
-        audio?.removeEventListener("loadedmetadata", handleMetadata);
-        audio?.removeEventListener("error", handleError);
-      };
-      audio.preload = "metadata";
-      audio.src = url;
-      audio.load();
-    })();
+        setMetadata({ status: "ready", ...result.value });
+        onDurationResolved?.(result.value.durationMs);
+      },
+    });
 
     return () => {
       active = false;
-      removeAudioListeners();
-      if (audio) {
-        audio.removeAttribute("src");
-        audio.load();
-      }
+      dispose();
     };
   }, [createAudioElement, mediaPort, onDurationResolved, source]);
 
   const durationText =
-    metadata.status === "ready" ? formatNarrationDuration(metadata.durationMs) : "Loading duration";
+    metadata.status === "ready"
+      ? formatNarrationDuration(metadata.durationMs)
+      : metadata.status === "unavailable"
+        ? "Duration unavailable"
+        : "Loading duration";
   const accessibleDuration =
     metadata.status === "unavailable" ? "metadata unavailable" : durationText.toLowerCase();
 
@@ -153,28 +100,6 @@ export function PresentationNarrationLane({
       ) : null}
     </div>
   );
-}
-
-async function resolveNarrationLabel(source: MediaSource, mediaPort: MediaPort | null) {
-  if (source.mode === "external") return labelFromUrl(source.src);
-  if (!mediaPort?.list) return "Narration audio";
-  const items = await mediaPort.list({ mediaType: "audio" });
-  return items.find(({ id }) => id === source.mediaId)?.fileName ?? "Narration audio";
-}
-
-async function resolveNarrationUrl(source: MediaSource, mediaPort: MediaPort | null) {
-  if (source.mode === "external") return source.src;
-  if (!mediaPort) throw new Error("No media service is configured for managed narration.");
-  return mediaPort.resolve(source.mediaId);
-}
-
-function fallbackLabel(source: MediaSource): string {
-  return source.mode === "external" ? labelFromUrl(source.src) : "Narration audio";
-}
-
-function labelFromUrl(url: string): string {
-  const name = new URL(url).pathname.split("/").filter(Boolean).at(-1);
-  return name ? decodeURIComponent(name) : "Narration audio";
 }
 
 function formatNarrationDuration(durationMs: number): string {
