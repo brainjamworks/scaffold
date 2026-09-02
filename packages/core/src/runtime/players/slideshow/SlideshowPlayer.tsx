@@ -19,6 +19,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Editor as TiptapEditor } from "@tiptap/core";
+import { Result } from "better-result";
 
 import { IconButton } from "@/ui/components/IconButton/IconButton";
 import type {
@@ -39,6 +40,7 @@ import {
 } from "@/editor/surfaces/view/slideshow-canvas";
 import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
 import { iconMd } from "@/ui/tokens/icon-sizes";
+import type { PresentationPreviewPlaybackPort } from "@/presentation/model";
 
 import {
   PreparedCourseDocumentRuntimeRenderer,
@@ -115,6 +117,8 @@ export interface SlideshowPlayerProps {
   surfaceRuntimeProgramSource?: SlideshowSurfaceRuntimeProgramSource;
   onRendererReady?: (editor: TiptapEditor) => void;
   onActiveSurfaceChange?: (surfaceId: SurfaceId | null) => void;
+  initialSurfaceId?: SurfaceId;
+  onPresentationPreviewPortChange?: (port: PresentationPreviewPlaybackPort | null) => void;
 }
 
 export function SlideshowPlayer({
@@ -126,13 +130,18 @@ export function SlideshowPlayer({
   surfaceRuntimeProgramSource,
   onRendererReady,
   onActiveSurfaceChange,
+  initialSurfaceId,
+  onPresentationPreviewPortChange,
 }: SlideshowPlayerProps) {
   const initialContent = preparedDocument.content;
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const [canvasElement, setCanvasElement] = useState<HTMLDivElement | null>(null);
   const [scaleState, setScaleState] = useState<SlideshowCanvasScaleState | null>(null);
-  const initialActiveSurfaceId = structure.surfaceIds[0] ?? null;
+  if (initialSurfaceId && structure.surfaceById[initialSurfaceId] === undefined) {
+    throw new Error(`Author Preview Surface "${initialSurfaceId}" is not in the Slideshow.`);
+  }
+  const initialActiveSurfaceId = initialSurfaceId ?? structure.surfaceIds[0] ?? null;
   const [activeSurfaceId, setActiveSurfaceId] = useState(initialActiveSurfaceId);
   const [runtimeEditorOwner, setRuntimeEditorOwner] = useState<{
     readonly preparedDocument: PreparedRuntimeDocument;
@@ -197,6 +206,41 @@ export function SlideshowPlayer({
     requestSurfaceChange,
     surfaceExitEnvironment,
   });
+  const presentationPreviewPort = useMemo<PresentationPreviewPlaybackPort | null>(() => {
+    const controls = surfaceRuntime.presentationControls;
+    const seek = surfaceRuntime.seek;
+    if (!controls || !seek || !activeSurfaceId) return null;
+    return Object.freeze({
+      getSnapshot: () => {
+        const snapshot = controls.getSnapshot();
+        return Object.freeze({
+          status: "ready" as const,
+          surfaceId: activeSurfaceId,
+          phase: snapshot.phase,
+          currentTimeMs: snapshot.currentTimeMs,
+          durationMs: snapshot.durationMs,
+        });
+      },
+      subscribe: (listener: () => void) => controls.subscribe(listener),
+      play: () => {
+        controls.play();
+        return Result.ok();
+      },
+      pause: () => {
+        controls.pause();
+        return Result.ok();
+      },
+      async seek(timeMs: number) {
+        const result = await seek(timeMs);
+        return result.map((report) => Object.freeze({ kind: report.kind, timeMs: report.timeMs }));
+      },
+    });
+  }, [activeSurfaceId, surfaceRuntime.presentationControls, surfaceRuntime.seek]);
+  useEffect(() => {
+    if (!onPresentationPreviewPortChange || !presentationPreviewPort) return;
+    onPresentationPreviewPortChange(presentationPreviewPort);
+    return () => onPresentationPreviewPortChange(null);
+  }, [onPresentationPreviewPortChange, presentationPreviewPort]);
   const slideshowOverlayInstanceId = useId();
   const slideshowOverlayOwnership = useMemo(
     () =>

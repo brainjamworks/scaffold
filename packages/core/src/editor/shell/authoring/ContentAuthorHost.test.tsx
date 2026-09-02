@@ -39,6 +39,52 @@ describe("ContentAuthorHost", () => {
     expect(workspace.closest(".sc-editor-stage-column")).not.toBeNull();
   });
 
+  it("shows a neutral Stage preview without disposing the authoring editor or bottom workspace", async () => {
+    const content = createScaffoldDocumentContent({
+      mode: "slideshow",
+      initialCourseSectionTitle: "Presentation",
+    });
+    const onEditorReady = vi.fn();
+    const { rerender } = render(
+      <ContentAuthorHost
+        composition={coreAuthoringComposition}
+        agentIntegration={ScaffoldUnavailableAgentIntegration}
+        content={content}
+        bottomWorkspace={<section>Timeline remains mounted</section>}
+        onEditorReady={onEditorReady}
+      />,
+    );
+    await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
+    const editor = onEditorReady.mock.calls[0]?.[0] as TiptapEditor;
+
+    rerender(
+      <ContentAuthorHost
+        composition={coreAuthoringComposition}
+        agentIntegration={ScaffoldUnavailableAgentIntegration}
+        content={content}
+        bottomWorkspace={<section>Timeline remains mounted</section>}
+        onEditorReady={onEditorReady}
+        stagePreview={<section aria-label="Isolated presentation preview">Preview runtime</section>}
+      />,
+    );
+
+    expect(screen.getByRole("region", { name: "Isolated presentation preview" })).toBeVisible();
+    expect(screen.getByText("Timeline remains mounted")).toBeVisible();
+    expect(editor.isDestroyed).toBe(false);
+
+    rerender(
+      <ContentAuthorHost
+        composition={coreAuthoringComposition}
+        agentIntegration={ScaffoldUnavailableAgentIntegration}
+        content={content}
+        bottomWorkspace={<section>Timeline remains mounted</section>}
+        onEditorReady={onEditorReady}
+      />,
+    );
+    expect(onEditorReady).toHaveBeenCalledTimes(1);
+    expect(editor.isDestroyed).toBe(false);
+  });
+
   it("mounts the editor with the unavailable Agent integration", async () => {
     const content = createScaffoldDocumentContent({ mode: "page" });
     const onEditorReady = vi.fn();
@@ -66,7 +112,10 @@ describe("ContentAuthorHost", () => {
   });
 
   it("uses an unscaled viewport overlay host for slideshow authoring", async () => {
-    const content = createScaffoldDocumentContent({ mode: "slideshow" });
+    const content = createScaffoldDocumentContent({
+      mode: "slideshow",
+      initialCourseSectionTitle: "Section",
+    });
     const onEditorReady = vi.fn();
 
     const { container } = render(

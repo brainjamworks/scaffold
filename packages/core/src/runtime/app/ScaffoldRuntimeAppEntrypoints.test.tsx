@@ -4,6 +4,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vite-plus/test";
 
 import type { ScaffoldLearnerAppProps } from "./ScaffoldLearnerApp";
+import type { PresentationRuntimePreview } from "./ContentRuntimeHost";
 
 const runtimeAppProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 
@@ -26,6 +27,11 @@ const props = {
   productAccess: { scaffoldPlusAuthorized: false },
   services: {},
 } as unknown as ScaffoldLearnerAppProps;
+const presentationPreview = {
+  activeSurfaceId: "surface00001",
+  program: {},
+  onPortChange: vi.fn(),
+} as unknown as PresentationRuntimePreview;
 
 afterEach(() => {
   cleanup();
@@ -42,16 +48,20 @@ describe("runtime app entry points", () => {
   });
 
   it("fixes author Preview to observing Surface-exit blockers", () => {
-    render(<ScaffoldAuthorPreviewApp {...props} />);
+    render(<ScaffoldAuthorPreviewApp {...props} presentationPreview={presentationPreview} />);
 
     expect(screen.getByTestId("scaffold-runtime-app")).toBeInTheDocument();
     expect(runtimeAppProps).toHaveLength(1);
     expect(runtimeAppProps[0]?.["surfaceExitPolicy"]).toBe("observe-only");
+    expect(runtimeAppProps[0]?.["presentationPreview"]).toBe(presentationPreview);
   });
 
   it("does not expose the Surface-exit policy on learner app props", () => {
     expectTypeOf<
       "surfaceExitPolicy" extends keyof ScaffoldLearnerAppProps ? true : false
+    >().toEqualTypeOf<false>();
+    expectTypeOf<
+      "presentationPreview" extends keyof ScaffoldLearnerAppProps ? true : false
     >().toEqualTypeOf<false>();
   });
 });

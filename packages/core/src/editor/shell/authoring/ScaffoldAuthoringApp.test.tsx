@@ -4,7 +4,7 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { JSONContent } from "@tiptap/core";
 import { McqSettingsSchema } from "@scaffold/contracts";
-import { StrictMode, type ReactNode } from "react";
+import { StrictMode, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   createScaffoldApplication,
@@ -16,10 +16,11 @@ import { McqAuthoringExtension } from "@/editor/blocks/assessment/mcq/mcq-author
 import { McqRuntimeExtension } from "@/editor/blocks/assessment/mcq/mcq-runtime-extension";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/ScaffoldUnavailableAgentIntegration";
-import {
-  getCourseDocumentAuthoringMountState,
-  type CourseDocumentAuthoringMount,
-} from "@/document/authoring/prepared-authoring-mount";
+import { PresentationPreviewController } from "@/editor/presentation/preview";
+import type { PresentationPreviewDocument } from "@/presentation/model";
+import type { SemanticDocumentController } from "@/document/authoring/semantic-document/semantic-document-controller";
+import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
+import { type CourseDocumentAuthoringMount } from "@/document/authoring/prepared-authoring-mount";
 import type {
   ArtifactSavePayload,
   ArtifactSaveResult,
@@ -35,6 +36,7 @@ const mocks = vi.hoisted(() => {
     blockStripProps: [] as Array<Record<string, unknown>>,
     fakeEditor: {
       getJSON: vi.fn(),
+      isDestroyed: false,
       storage: {} as Record<string, unknown>,
       state: {
         doc: {
@@ -44,6 +46,7 @@ const mocks = vi.hoisted(() => {
         },
       },
     },
+    authorPreviewModuleError: null as unknown,
     authorPreviewModuleReads: 0,
     learnerModuleReads: 0,
     learnerAppProps: [] as Array<Record<string, unknown>>,
@@ -134,6 +137,8 @@ vi.mock("./ContentAuthorHost", async () => {
       onUnavailableContentChange,
       rightRail,
       courseAppearance,
+      bottomWorkspace,
+      stagePreview,
     }: {
       agentIntegration?: unknown;
       agentOpen?: boolean;
@@ -148,6 +153,8 @@ vi.mock("./ContentAuthorHost", async () => {
       onUnavailableContentChange?: (content: unknown) => void;
       rightRail?: (editor: unknown) => ReactNode;
       courseAppearance?: unknown;
+      bottomWorkspace?: ReactNode;
+      stagePreview?: ReactNode;
     }) => {
       mocks.contentAuthorHostRenderCount += 1;
       mocks.contentAuthorHostProps.push({
@@ -163,6 +170,8 @@ vi.mock("./ContentAuthorHost", async () => {
         onUnavailableContentChange,
         courseAppearance,
         rightRail,
+        bottomWorkspace,
+        stagePreview,
       });
       useEffect(() => {
         onEditorReady?.(mocks.fakeEditor);
@@ -172,6 +181,7 @@ vi.mock("./ContentAuthorHost", async () => {
         "section",
         { "data-testid": "content-author-host" },
         authoringNavigatorDock?.(mocks.fakeEditor),
+        stagePreview,
         rightRail?.(mocks.fakeEditor),
         agentOpen
           ? createElement(
@@ -222,6 +232,7 @@ vi.mock("@/runtime/app/ScaffoldAuthorPreviewApp", async () => {
   return {
     get ScaffoldAuthorPreviewApp() {
       mocks.authorPreviewModuleReads += 1;
+      if (mocks.authorPreviewModuleError) throw mocks.authorPreviewModuleError;
       return ScaffoldAuthorPreviewApp;
     },
   };
@@ -353,6 +364,7 @@ function createDefaultLearnerPublicationPort(): LearnerPublicationPort {
 beforeEach(() => {
   localStorage.clear();
   mocks.authorPreviewModuleReads = 0;
+  mocks.authorPreviewModuleError = null;
   mocks.learnerModuleReads = 0;
   mocks.authorJSON = pageDocumentWithParagraph("authorsurf01", "Author");
   mocks.fakeEditor.getJSON.mockImplementation(() => mocks.authorJSON);
@@ -421,6 +433,57 @@ function slideshowDocument(surfaceId: string): JSONContent {
     surfaceId,
     initialCourseSectionTitle: "Section 1",
   });
+}
+
+function presentationPreviewDocument(
+  surfaceId: PresentationPreviewDocument["surfaceId"],
+): PresentationPreviewDocument {
+  const document = slideshowDocument(surfaceId);
+  const courseDocument = document.content?.[0];
+  if (!courseDocument?.attrs) throw new Error("expected Course Document attributes");
+  courseDocument.attrs["presentation"] = {
+    schemaVersion: 1,
+    autoAdvance: false,
+    allowPrevious: true,
+    surfaces: [{ surfaceId, durationMs: 1_000, actions: [] }],
+  };
+  mocks.authorJSON = document;
+  mocks.fakeEditor.state.doc.firstChild.attrs = courseDocument.attrs;
+
+  const surface = {
+    id: surfaceId,
+    kind: "surface" as const,
+    nodeType: "surface",
+    definitionId: "slide-cover",
+    label: "Preview slide",
+    summary: null,
+    presentation: { actionIds: [], disabledReason: null },
+    presentationContainer: null,
+    children: [],
+  };
+  const semantics = {
+    revision: 0,
+    mode: "slideshow" as const,
+    roots: [surface],
+    itemById: new Map([[surfaceId, surface]]),
+    parentById: new Map([[surfaceId, null]]),
+    locationById: new Map(),
+    diagnostics: [],
+  };
+  vi.spyOn(semanticDocumentPluginKey, "getState").mockReturnValue({
+    getSnapshot: () => ({ semantics }),
+  } as unknown as SemanticDocumentController);
+  return { document: document as PresentationPreviewDocument["document"], surfaceId };
+}
+
+function currentPresentationPreviewController(): PresentationPreviewController {
+  const workspace = mocks.contentAuthorHostProps.at(-1)?.["bottomWorkspace"] as
+    | ReactElement<{ previewController: PresentationPreviewController }>
+    | undefined;
+  if (!workspace?.props.previewController) {
+    throw new Error("expected the mounted Presentation Timeline preview controller");
+  }
+  return workspace.props.previewController;
 }
 
 function privateAssessmentDocument(): JSONContent {
@@ -564,6 +627,45 @@ function getCorePublishAction(): HTMLButtonElement {
 }
 
 describe("ScaffoldAuthoringApp preview", () => {
+  it("retains a recoverable preview-runtime cause and retries the lazy boundary", async () => {
+    const surfaceId = "previewsurf5" as PresentationPreviewDocument["surfaceId"];
+    const input = presentationPreviewDocument(surfaceId);
+    const cause = new Error("preview chunk unavailable");
+    mocks.authorPreviewModuleError = cause;
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-presentation-preview-runtime-error",
+          title: "Draft",
+          mode: "slideshow",
+          content: input.document,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+          media: null,
+        }}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.contentAuthorHostProps.at(-1)?.["bottomWorkspace"]).toBeTruthy(),
+    );
+    const controller = currentPresentationPreviewController();
+    await expect(controller.play(input)).resolves.toMatchObject({
+      error: { reason: "preview-runtime-unavailable", cause },
+    });
+
+    const retryCause = new Error("preview chunk still unavailable");
+    mocks.authorPreviewModuleError = retryCause;
+    const retry = controller.play(input);
+    await waitFor(() => expect(mocks.authorPreviewModuleReads).toBe(2));
+    await expect(retry).resolves.toMatchObject({
+      error: { reason: "preview-runtime-unavailable", cause: retryCause },
+    });
+  });
+
   it("loads the dedicated author Preview runtime instead of the public learner app", async () => {
     const user = userEvent.setup();
     render(
@@ -1894,7 +1996,7 @@ describe("ScaffoldAuthoringApp preview", () => {
     expect(saveArtifact).not.toHaveBeenCalled();
   });
 
-  it("restores the current session document when returning from learner preview", async () => {
+  it("keeps the current authoring session mounted while entering and leaving Preview", async () => {
     const user = userEvent.setup();
     const initialContent = structuredClone(mocks.authorJSON);
     const workingContent = structuredClone(initialContent);
@@ -1921,6 +2023,7 @@ describe("ScaffoldAuthoringApp preview", () => {
       />,
     );
 
+    const initialMount = mocks.contentAuthorHostProps.at(-1)?.["mount"];
     const onUpdate = mocks.contentAuthorHostProps.at(-1)?.["onUpdate"] as
       | ((content: JSONContent, unavailableContent: readonly []) => void)
       | undefined;
@@ -1933,11 +2036,9 @@ describe("ScaffoldAuthoringApp preview", () => {
     await user.click(screen.getByRole("button", { name: "Switch to editing" }));
     await screen.findByTestId("content-author-host");
 
-    const remount = mocks.contentAuthorHostProps.at(-1)?.["mount"] as
-      | CourseDocumentAuthoringMount
-      | undefined;
-    expect(remount).toBeDefined();
-    expect(getCourseDocumentAuthoringMountState(remount!).workingDocument).toEqual(workingContent);
+    expect(screen.getByTestId("content-author-host")).toBeInTheDocument();
+    expect(mocks.contentAuthorHostProps.at(-1)?.["mount"]).toBe(initialMount);
+    expect(mocks.contentAuthorHostRenderCount).toBeGreaterThan(0);
   });
 
   it("shares application mode with the canvas and learner Preview without changing JSON", async () => {
@@ -2078,6 +2179,154 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     await screen.findByTestId("scaffold-learner-app");
     expect(createPreviewServices).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not publish a late Presentation preview after it is closed", async () => {
+    const surfaceId = "previewsurf1" as PresentationPreviewDocument["surfaceId"];
+    const input = presentationPreviewDocument(surfaceId);
+    const servicesResult = createDeferred<{ media: null }>();
+    const createPreviewServices = vi.fn(() => servicesResult.promise);
+    const onPreviewChange = vi.fn();
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-stale-presentation-preview",
+          title: "Draft",
+          mode: "slideshow",
+          content: input.document,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+          media: null,
+        }}
+        createPreviewServices={createPreviewServices}
+        onPreviewChange={onPreviewChange}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.contentAuthorHostProps.at(-1)?.["bottomWorkspace"]).toBeTruthy(),
+    );
+    const controller = currentPresentationPreviewController();
+    const play = controller.play(input);
+    await waitFor(() => expect(createPreviewServices).toHaveBeenCalledOnce());
+
+    controller.close();
+    onPreviewChange.mockClear();
+    await act(async () => {
+      servicesResult.resolve({ media: null });
+      await servicesResult.promise;
+      await Promise.resolve();
+    });
+    await expect(play).resolves.toMatchObject({
+      error: { reason: "preview-load-superseded", surfaceId },
+    });
+
+    expect(onPreviewChange).not.toHaveBeenCalledWith(true);
+    expect(mocks.contentAuthorHostProps.at(-1)?.["stagePreview"]).toBeUndefined();
+    expect(screen.queryByTestId("scaffold-learner-app")).toBeNull();
+  });
+
+  it("retains the preview-service failure cause as typed data", async () => {
+    const surfaceId = "previewsurf2" as PresentationPreviewDocument["surfaceId"];
+    const input = presentationPreviewDocument(surfaceId);
+    const cause = new Error("preview service unavailable");
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-presentation-preview-service-error",
+          title: "Draft",
+          mode: "slideshow",
+          content: input.document,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+          media: null,
+        }}
+        createPreviewServices={vi.fn().mockRejectedValue(cause)}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.contentAuthorHostProps.at(-1)?.["bottomWorkspace"]).toBeTruthy(),
+    );
+    await expect(currentPresentationPreviewController().play(input)).resolves.toMatchObject({
+      error: { reason: "preview-services-unavailable", cause },
+    });
+  });
+
+  it("returns the expected payload-size failure as typed data", async () => {
+    const surfaceId = "previewsurf4" as PresentationPreviewDocument["surfaceId"];
+    const input = presentationPreviewDocument(surfaceId);
+    const paragraph = findJsonNode(input.document, "paragraph");
+    if (!paragraph) throw new Error("expected a Presentation paragraph");
+    paragraph.content = [{ type: "text", text: "x".repeat(2 * 1024 * 1024 + 1) }];
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-presentation-preview-payload-size",
+          title: "Draft",
+          mode: "slideshow",
+          content: input.document,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+          media: null,
+        }}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.contentAuthorHostProps.at(-1)?.["bottomWorkspace"]).toBeTruthy(),
+    );
+    await expect(currentPresentationPreviewController().play(input)).resolves.toMatchObject({
+      error: { reason: "preview-payload-too-large" },
+    });
+  });
+
+  it("keeps unexpected payload-validation defects observable", async () => {
+    const surfaceId = "previewsurf3" as PresentationPreviewDocument["surfaceId"];
+    const input = presentationPreviewDocument(surfaceId);
+    const defect = new TypeError("Text encoding invariant failed");
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-presentation-preview-payload-defect",
+          title: "Draft",
+          mode: "slideshow",
+          content: input.document,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+          media: null,
+        }}
+      />,
+    );
+    await waitFor(() =>
+      expect(mocks.contentAuthorHostProps.at(-1)?.["bottomWorkspace"]).toBeTruthy(),
+    );
+    vi.stubGlobal(
+      "TextEncoder",
+      class {
+        encode(): never {
+          throw defect;
+        }
+      },
+    );
+
+    try {
+      await expect(currentPresentationPreviewController().play(input)).rejects.toBe(defect);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("keeps keyboard focus on the Preview and Edit action across the transition", async () => {
@@ -2388,7 +2637,7 @@ describe("ScaffoldAuthoringApp preview", () => {
     await waitFor(() => expect(previewButton).toHaveProperty("disabled", false));
     await user.click(previewButton);
 
-    await waitFor(() => expect(screen.queryByTestId("content-author-host")).toBeNull());
+    await waitFor(() => expect(screen.getByTestId("content-author-host")).toBeInTheDocument());
     expect(screen.queryByTestId("authoring-outline-dock")).toBeNull();
     expect(screen.queryByRole("button", { name: "Hide Document Outline" })).toBeNull();
   });
@@ -2479,6 +2728,9 @@ describe("ScaffoldAuthoringApp preview", () => {
     await user.click(previewButton);
 
     const learnerApp = await screen.findByTestId("scaffold-learner-app");
+    expect(screen.getByTestId("content-author-host")).toBeInTheDocument();
+    expect(mocks.contentAuthorHostProps.at(-1)?.["stagePreview"]).toBeTruthy();
+    expect(mocks.contentAuthorHostProps.at(-1)?.["bottomWorkspace"]).toBeTruthy();
     expect(mocks.learnerAppProps.at(-1)?.["slideshowSizing"]).toBe("contained");
     expect(
       learnerApp.closest(".sc-scaffold-authoring-workspace")?.getAttribute("data-preview-mode"),

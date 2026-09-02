@@ -41,6 +41,8 @@ export interface ContentAuthorHostProps {
   scrollModel?: EditorShellScrollModel;
   /** Optional neutral workspace rendered below the central Surface viewport. */
   bottomWorkspace?: ReactNode;
+  /** Optional isolated preview rendered in place of the editable Stage. */
+  stagePreview?: ReactNode;
   /** Wide left navigator rendered only for a ready, editable authoring editor. */
   authoringNavigatorDock?: (editor: TiptapEditor) => ReactNode;
   /**
@@ -69,6 +71,7 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
   onAgentClose,
   scrollModel = "page",
   bottomWorkspace,
+  stagePreview,
   authoringNavigatorDock,
   leftRail,
   rightRail,
@@ -147,13 +150,14 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
               {...(onDocumentError ? { onDocumentError } : {})}
               {...(onUnavailableContentChange ? { onUnavailableContentChange } : {})}
               {...(courseAppearance ? { courseAppearance } : {})}
-              suspended={reviewing}
+              suspended={reviewing || stagePreview != null}
             />
-            {contribution.mode === "review" ? (
-              <ScaffoldArtifactIdentityProvider artifactId={artifactId ?? null}>
-                {contribution.stage}
-              </ScaffoldArtifactIdentityProvider>
-            ) : null}
+            {stagePreview ??
+              (contribution.mode === "review" ? (
+                <ScaffoldArtifactIdentityProvider artifactId={artifactId ?? null}>
+                  {contribution.stage}
+                </ScaffoldArtifactIdentityProvider>
+              ) : null)}
           </>
         }
         dock={editor && editable && agentOpen ? contribution.dock : null}

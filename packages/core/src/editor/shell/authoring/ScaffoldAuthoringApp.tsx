@@ -15,17 +15,21 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { AssessmentGroupContract, AssessmentTargetContract } from "@scaffold/contracts";
+import {
+  PresentationConfigurationV1Schema,
+  ScaffoldDocumentContentSchema,
+  type AssessmentGroupContract,
+  type AssessmentTargetContract,
+  type EmbeddedNodeId,
+} from "@scaffold/contracts";
+import { Result } from "better-result";
 import type { ScaffoldApplication } from "@/composition/application/create-scaffold-application";
 import {
   createCourseDocumentAuthoringEnvironment,
   getCourseDocumentAuthoringEnvironmentState,
 } from "@/composition/authoring/create-authoring-composition";
 import type { CourseDocumentAuthoringFailure } from "@/document/authoring/CourseDocumentEditor";
-import {
-  getCourseDocumentAuthoringMountState,
-  prepareCourseDocumentAuthoringMount,
-} from "@/document/authoring/prepared-authoring-mount";
+import { getCourseDocumentAuthoringMountState } from "@/document/authoring/prepared-authoring-mount";
 import {
   prepareScaffoldArtifactForAuthoring,
   type PreparedScaffoldArtifactValue,
@@ -34,6 +38,26 @@ import {
   checkLearnerProjectionReadiness,
   type UnavailableContentRef,
 } from "@/document/model/establishment";
+import { projectCourseStructure } from "@/document/model/course-structure";
+import {
+  getSemanticDocumentControllerForEditor,
+  useSemanticDocumentControllerSnapshot,
+} from "@/document/authoring/semantic-document";
+import {
+  compilePresentation,
+  type CompiledPresentationPlaybackProgram,
+  type PresentationPreviewDocument,
+  type PresentationPreviewLoadResult,
+} from "@/presentation/model";
+import {
+  PresentationPreviewController,
+  PresentationPreviewPortOwner,
+} from "@/editor/presentation/preview";
+import {
+  PresentationTimeline,
+  PresentationTimelineController,
+  projectPresentationTimeline,
+} from "@/editor/presentation/timeline";
 
 import { cn } from "@/lib/cn";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
@@ -45,6 +69,7 @@ import {
 } from "@/ui/components/app/AppNotifications/AppNotifications";
 import { AppShellState } from "@/ui/components/app/AppShellState/AppShellState";
 import {
+  ArtifactSavePayloadError,
   createArtifactSavePayload,
   validateLearnerPublicationPayloadSize,
 } from "@/authoring/publication/artifact-save-bundle";
@@ -121,7 +146,10 @@ let scaffoldAuthorPreviewAppPromise: ReturnType<typeof importScaffoldAuthorPrevi
   null;
 
 function loadScaffoldAuthorPreviewApp() {
-  scaffoldAuthorPreviewAppPromise ??= importScaffoldAuthorPreviewApp();
+  scaffoldAuthorPreviewAppPromise ??= importScaffoldAuthorPreviewApp().catch((error: unknown) => {
+    scaffoldAuthorPreviewAppPromise = null;
+    throw error;
+  });
   return scaffoldAuthorPreviewAppPromise;
 }
 
@@ -279,12 +307,7 @@ function ScaffoldAuthoringAppSessionContent({
     preparedArtifact.status === "supported" || preparedArtifact.status === "unavailable"
       ? preparedArtifact.authoringMount
       : null;
-  const [authoringMountState, setAuthoringMountState] = useState<{
-    source: PreparedScaffoldArtifactValue | null;
-    mount: typeof authoringMount;
-  }>(() => ({ source: readyArtifact, mount: authoringMount }));
-  const activeAuthoringMount =
-    authoringMountState.source === readyArtifact ? authoringMountState.mount : authoringMount;
+  const activeAuthoringMount = authoringMount;
   const readyCourseTheme = useMemo(
     () =>
       readyArtifact
@@ -314,6 +337,13 @@ function ScaffoldAuthoringAppSessionContent({
   const [uncontrolledAgentOpen, setUncontrolledAgentOpen] = useState(agentOpen);
   const [previewContent, setPreviewContent] = useState<ScaffoldLearnerPreviewContent | null>(null);
   const [previewServices, setPreviewServices] = useState<ScaffoldPreviewHostServices | null>(null);
+  const presentationPreviewGenerationRef = useRef(0);
+  const presentationPreviewPreparationGenerationRef = useRef(0);
+  const [presentationPreviewRuntime, setPresentationPreviewRuntime] = useState<{
+    readonly generation: number;
+    readonly surfaceId: EmbeddedNodeId;
+    readonly program: CompiledPresentationPlaybackProgram;
+  } | null>(null);
   const [previewState, setPreviewStateStatus] = useState<
     "idle" | "loading" | "error" | "requires-scaffold-plus" | "unavailable-content"
   >("idle");
@@ -673,24 +703,212 @@ function ScaffoldAuthoringAppSessionContent({
     [onPreviewChange, onPreviewContentChange],
   );
 
+  const preparePresentationPreview = useCallback(
+    async (input: PresentationPreviewDocument): Promise<PresentationPreviewLoadResult> => {
+      const preparationGeneration = ++presentationPreviewPreparationGenerationRef.current;
+      const superseded = () =>
+        Result.err(
+          Object.freeze({
+            reason: "preview-load-superseded" as const,
+            surfaceId: input.surfaceId,
+          }),
+        );
+      if (!activeAuthoringMount) {
+        throw new Error("Presentation Preview requires an active authoring mount.");
+      }
+      const structure = projectCourseStructure(input.document);
+      if (!structure) {
+        throw new Error("Presentation Preview received malformed Course Structure.");
+      }
+      if (structure.kind !== "slideshow") {
+        return Result.err(
+          Object.freeze({ reason: "preview-not-slideshow" as const, mode: "page" as const }),
+        );
+      }
+      if (!structure.surfaceIds.includes(input.surfaceId)) {
+        return Result.err(
+          Object.freeze({
+            reason: "preview-surface-not-current" as const,
+            surfaceId: input.surfaceId,
+            currentSurfaceIds: Object.freeze([...structure.surfaceIds]),
+          }),
+        );
+      }
+
+      const mountState = getCourseDocumentAuthoringMountState(activeAuthoringMount);
+      const environmentState = getCourseDocumentAuthoringEnvironmentState(authoringEnvironment);
+      const readiness = checkLearnerProjectionReadiness({
+        workingDocument: input.document,
+        capabilities: environmentState.capabilities,
+        authoringSchema: environmentState.schema,
+        expectedRequiresScaffoldPlus: mountState.expectedRequiresScaffoldPlus,
+        productAccess: mountState.productAccess,
+      });
+      const publication = projectLearnerPublication(
+        readiness,
+        application.capabilities.blocks.registry,
+        application.capabilities.surfaces.registry,
+      );
+      switch (publication.status) {
+        case "invalid":
+          return Result.err(
+            Object.freeze({
+              reason: "preview-document-invalid" as const,
+              issues: Object.freeze(
+                publication.issues.map(({ path, message }) =>
+                  Object.freeze({ path: Object.freeze([...path]), message }),
+                ),
+              ),
+            }),
+          );
+        case "requires-scaffold-plus":
+          return Result.err(Object.freeze({ reason: "preview-requires-scaffold-plus" as const }));
+        case "unsupported-core-format":
+          return Result.err(
+            Object.freeze({
+              reason: "preview-unsupported-core-format" as const,
+              documentVersion: publication.documentVersion,
+              supportedVersion: publication.supportedVersion,
+            }),
+          );
+        case "unavailable-content":
+          return Result.err(
+            Object.freeze({
+              reason: "preview-unavailable-content" as const,
+              unavailableContent: Object.freeze(
+                publication.unavailableContent.map(({ kind, capabilityId, stableId }) =>
+                  Object.freeze({ kind, capabilityId, stableId }),
+                ),
+              ),
+            }),
+          );
+        case "supported":
+          break;
+      }
+      if (publication.warnings.length > 0) {
+        return Result.err(
+          Object.freeze({
+            reason: "preview-projection-warning" as const,
+            warningCount: publication.warnings.length,
+          }),
+        );
+      }
+      try {
+        validateLearnerPublicationPayloadSize(publication);
+      } catch (error) {
+        if (!(error instanceof ArtifactSavePayloadError)) throw error;
+        return Result.err(Object.freeze({ reason: "preview-payload-too-large" as const }));
+      }
+
+      const courseDocument = (input.document as JSONContent).content?.[0];
+      if (courseDocument?.type !== "courseDocument" || !courseDocument.attrs) {
+        throw new Error("Presentation Preview received a malformed Course Document root.");
+      }
+      const configurationValue = courseDocument.attrs["presentation"];
+      if (configurationValue === null || configurationValue === undefined) {
+        return Result.err(
+          Object.freeze({
+            reason: "preview-surface-not-configured" as const,
+            surfaceId: input.surfaceId,
+          }),
+        );
+      }
+      const configuration = PresentationConfigurationV1Schema.parse(configurationValue);
+      const currentEditor = latestEditorRef.current;
+      if (!currentEditor || currentEditor.isDestroyed) {
+        throw new Error("Presentation Preview lost its authoring Editor.");
+      }
+      const compiled = compilePresentation({
+        configuration,
+        courseStructure: structure,
+        semanticSnapshot:
+          getSemanticDocumentControllerForEditor(currentEditor).getSnapshot().semantics,
+      });
+      if (compiled.isErr()) return Result.err(compiled.error);
+      if (!compiled.value) {
+        throw new Error("Configured Presentation compiled without a playback program.");
+      }
+
+      try {
+        await loadScaffoldAuthorPreviewApp();
+      } catch (cause) {
+        return Result.err(Object.freeze({ reason: "preview-runtime-unavailable" as const, cause }));
+      }
+      if (preparationGeneration !== presentationPreviewPreparationGenerationRef.current) {
+        return superseded();
+      }
+      const nextContent = {
+        assessmentGroups: publication.assessmentGroups,
+        assessmentTargets: publication.assessmentTargets,
+        learnerContent: publication.learnerContent,
+      };
+      let resolvedServices: ScaffoldPreviewHostServices;
+      try {
+        resolvedServices = createPreviewServices
+          ? await createPreviewServices(nextContent)
+          : { media: services.media ?? null };
+      } catch (cause) {
+        return Result.err(
+          Object.freeze({ reason: "preview-services-unavailable" as const, cause }),
+        );
+      }
+      if (preparationGeneration !== presentationPreviewPreparationGenerationRef.current) {
+        return superseded();
+      }
+      presentationPreviewGenerationRef.current += 1;
+      setPresentationPreviewRuntime({
+        generation: presentationPreviewGenerationRef.current,
+        surfaceId: input.surfaceId,
+        program: compiled.value,
+      });
+      setPreviewState(true, nextContent, withoutLearningEventCapability(resolvedServices));
+      setPreviewUnavailableContent([]);
+      setPreviewStateStatus("idle");
+      return Result.ok();
+    },
+    [
+      activeAuthoringMount,
+      application.capabilities.blocks.registry,
+      application.capabilities.surfaces.registry,
+      authoringEnvironment,
+      createPreviewServices,
+      services.media,
+      setPreviewState,
+    ],
+  );
+  const preparePresentationPreviewRef = useRef(preparePresentationPreview);
+  preparePresentationPreviewRef.current = preparePresentationPreview;
+  const closePresentationPreviewRef = useRef<() => void>(() => undefined);
+  const presentationPreviewSession = useMemo(() => {
+    const owner = new PresentationPreviewPortOwner({
+      prepare: (input) => preparePresentationPreviewRef.current(input),
+      close: () => closePresentationPreviewRef.current(),
+    });
+    return Object.freeze({
+      source: contentSessionSource,
+      owner,
+      controller: new PresentationPreviewController({ port: owner, close: () => owner.close() }),
+    });
+  }, [contentSessionSource]);
+  closePresentationPreviewRef.current = () => {
+    presentationPreviewPreparationGenerationRef.current += 1;
+    setPresentationPreviewRuntime(null);
+    setPreviewState(false, null, null);
+    setPreviewStateStatus("idle");
+  };
+  useEffect(
+    () => () => presentationPreviewSession.controller.dispose(),
+    [presentationPreviewSession],
+  );
+  const handlePresentationPreviewPortChange = useCallback(
+    (port: Parameters<typeof presentationPreviewSession.owner.connect>[0]) =>
+      presentationPreviewSession.owner.connect(port),
+    [presentationPreviewSession],
+  );
+
   const handlePreviewToggle = useCallback(() => {
     if (preview) {
-      const remount = prepareCourseDocumentAuthoringMount(
-        readLatestContent(),
-        authoringEnvironment,
-        productAccess,
-      );
-      if (
-        remount.status === "invalid" ||
-        remount.status === "requires-scaffold-plus" ||
-        remount.status === "unsupported-core-format"
-      ) {
-        setPreviewStateStatus("error");
-        return;
-      }
-      setAuthoringMountState({ source: readyArtifact, mount: remount.mount });
-      setPreviewState(false, null, null);
-      setPreviewStateStatus("idle");
+      presentationPreviewSession.controller.close();
       return;
     }
 
@@ -752,8 +970,7 @@ function ScaffoldAuthoringAppSessionContent({
           ? await createPreviewServices(nextContent)
           : { media: services.media ?? null };
         const nextServices = withoutLearningEventCapability(resolvedServices);
-        latestEditorRef.current = null;
-        setEditor(null);
+        setPresentationPreviewRuntime(null);
         setPreviewState(true, nextContent, nextServices);
         setPreviewUnavailableContent([]);
         setPreviewStateStatus("idle");
@@ -768,9 +985,8 @@ function ScaffoldAuthoringAppSessionContent({
     editor,
     createPreviewServices,
     preview,
-    productAccess,
     readLatestContent,
-    readyArtifact,
+    presentationPreviewSession,
     setPreviewState,
     services.media,
   ]);
@@ -1086,6 +1302,29 @@ function ScaffoldAuthoringAppSessionContent({
           content: previewContent,
         }
       : null;
+  const stagePreview =
+    activePreviewContent && previewServices ? (
+      <Suspense fallback={<AppShellState kind="loading" title="Preparing preview" />}>
+        <LazyScaffoldAuthorPreviewApp
+          key={presentationPreviewRuntime?.generation ?? "document-preview"}
+          composition={application.runtime}
+          bootstrap={activePreviewContent.bootstrap}
+          hostColorMode={applicationColorMode}
+          productAccess={productAccess}
+          slideshowSizing="contained"
+          services={previewServices}
+          {...(presentationPreviewRuntime
+            ? {
+                presentationPreview: {
+                  activeSurfaceId: presentationPreviewRuntime.surfaceId,
+                  program: presentationPreviewRuntime.program,
+                  onPortChange: handlePresentationPreviewPortChange,
+                },
+              }
+            : {})}
+        />
+      </Suspense>
+    ) : null;
   const authoringUnavailableState =
     preparedArtifact.status === "requires-scaffold-plus"
       ? {
@@ -1136,21 +1375,12 @@ function ScaffoldAuthoringAppSessionContent({
           <ScaffoldServicesProvider ports={providerPorts}>
             {authoringUnavailableState && !readyArtifact ? (
               <ScaffoldAuthoringUnavailable {...authoringUnavailableState} />
-            ) : activePreviewContent && previewServices ? (
-              <Suspense fallback={<AppShellState kind="loading" title="Preparing preview" />}>
-                <LazyScaffoldAuthorPreviewApp
-                  composition={application.runtime}
-                  bootstrap={activePreviewContent.bootstrap}
-                  hostColorMode={applicationColorMode}
-                  productAccess={productAccess}
-                  slideshowSizing="contained"
-                  services={previewServices}
-                />
-              </Suspense>
             ) : readyArtifact && activeAuthoringMount ? (
               <ContentAuthorHost
                 agentIntegration={ScaffoldUnavailableAgentIntegration}
-                {...(outlineOpen ? { authoringNavigatorDock: renderAuthoringNavigatorDock } : {})}
+                {...(outlineOpen && !preview
+                  ? { authoringNavigatorDock: renderAuthoringNavigatorDock }
+                  : {})}
                 artifactId={resolvedArtifactId}
                 mount={activeAuthoringMount}
                 courseAppearance={applicationColorMode}
@@ -1158,11 +1388,22 @@ function ScaffoldAuthoringAppSessionContent({
                 onEditorReady={handleEditorReady}
                 onDocumentError={handleDocumentError}
                 onUpdate={handleCanonicalUpdate}
-                agentOpen={resolvedAgentOpen}
+                agentOpen={!preview && resolvedAgentOpen}
                 onAgentClose={handleAgentClose}
                 scrollModel={scrollModel}
                 leftRail={renderLeftRail}
                 rightRail={renderRightRail}
+                {...(stagePreview ? { stagePreview } : {})}
+                {...(editor && readyArtifact.mode === "slideshow"
+                  ? {
+                      bottomWorkspace: (
+                        <PresentationTimelineAuthoringWorkspace
+                          editor={editor}
+                          previewController={presentationPreviewSession.controller}
+                        />
+                      ),
+                    }
+                  : {})}
               />
             ) : null}
           </ScaffoldServicesProvider>
@@ -1187,6 +1428,85 @@ function ScaffoldAuthoringUnavailable({
       title={title}
     />
   );
+}
+
+function PresentationTimelineAuthoringWorkspace({
+  editor,
+  previewController,
+}: {
+  readonly editor: TiptapEditor;
+  readonly previewController: PresentationPreviewController;
+}) {
+  const semanticController = getSemanticDocumentControllerForEditor(editor);
+  const semanticSnapshot = useSemanticDocumentControllerSnapshot(editor);
+  const surfaceId = resolvePresentationSurfaceId(semanticSnapshot);
+  if (!surfaceId) {
+    throw new Error("Slideshow authoring has no current Surface for its Presentation Timeline.");
+  }
+  const presentationValue = editor.state.doc.firstChild?.attrs["presentation"];
+  const configuration =
+    presentationValue === null || presentationValue === undefined
+      ? null
+      : PresentationConfigurationV1Schema.parse(presentationValue);
+  const projection = projectPresentationTimeline(
+    surfaceId,
+    semanticSnapshot.semantics,
+    configuration,
+  );
+  const [timelineController] = useState(
+    () =>
+      new PresentationTimelineController({
+        semanticSelection: semanticController,
+        initialViewport: {
+          durationMs: projection.durationMs ?? 0,
+          viewportWidthPx: 600,
+        },
+        zoomBounds: { minPixelsPerSecond: 20, maxPixelsPerSecond: 400 },
+      }),
+  );
+  useEffect(() => () => timelineController.destroy(), [timelineController]);
+  const documentOwner = useMemo(
+    () =>
+      Object.freeze({
+        document: ScaffoldDocumentContentSchema.parse(editor.getJSON()),
+        semanticRevision: semanticSnapshot.semantics.revision,
+      }),
+    [editor, semanticSnapshot.semantics.revision],
+  );
+  const document = documentOwner.document;
+  const previousDocumentRef = useRef(document);
+  useEffect(() => {
+    if (
+      previousDocumentRef.current !== document &&
+      previewController.getSnapshot().status !== "idle"
+    ) {
+      previewController.close();
+    }
+    previousDocumentRef.current = document;
+  }, [document, previewController]);
+
+  return (
+    <PresentationTimeline
+      controller={timelineController}
+      editor={editor}
+      preview={{ controller: previewController, document: { document, surfaceId } }}
+      projection={projection}
+    />
+  );
+}
+
+function resolvePresentationSurfaceId(
+  snapshot: ReturnType<typeof useSemanticDocumentControllerSnapshot>,
+): EmbeddedNodeId | null {
+  const selectedItem = snapshot.selectedId
+    ? snapshot.semantics.itemById.get(snapshot.selectedId)
+    : null;
+  if (selectedItem?.kind === "surface") return selectedItem.id;
+  const selectedSurfaceId = snapshot.selectedId
+    ? snapshot.semantics.locationById.get(snapshot.selectedId)?.surfaceId
+    : null;
+  if (selectedSurfaceId) return selectedSurfaceId;
+  return snapshot.semantics.roots.find(({ kind }) => kind === "surface")?.id ?? null;
 }
 
 function derivePublishState({

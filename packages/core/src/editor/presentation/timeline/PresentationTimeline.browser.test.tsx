@@ -5,6 +5,7 @@ import type {
   TimelineActionV1,
 } from "@scaffold/contracts";
 import { Editor, type JSONContent } from "@tiptap/core";
+import { Result } from "better-result";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vite-plus/test";
@@ -25,6 +26,12 @@ import {
 } from "./presentation-timeline-controller";
 import type { PresentationTimelineProjection } from "./presentation-timeline-projection";
 import { PresentationTimeline } from "./PresentationTimeline";
+import { PresentationPreviewController } from "../preview/presentation-preview-controller";
+import type {
+  PresentationPreviewDocument,
+  PresentationPreviewPort,
+  PresentationPreviewSnapshot,
+} from "@/presentation/model";
 
 const SURFACE_ID = nodeId("surface");
 const SELECTED_TARGET_ID = nodeId("target000001");
@@ -151,6 +158,47 @@ describe("PresentationTimeline browser layout", () => {
       expect(zoomed.pixelsPerSecond).toBeGreaterThan(initial.pixelsPerSecond);
       expect(pointedTimeAfter).toBeCloseTo(pointedTimeBefore, 5);
       expect(mounted.semanticSelection.selectCalls).toEqual([]);
+    } finally {
+      mounted.destroy();
+    }
+  });
+
+  it("drives the isolated preview transport and keeps its snapshot aligned to the ruler", async () => {
+    const mounted = mountTimeline(1_200, 10_000, false, false, true);
+
+    try {
+      await nextLayout();
+      requiredElement<HTMLButtonElement>(mounted.host, '[aria-label="Play preview"]').click();
+      await nextLayout();
+      expect(mounted.previewPort?.playCalls).toBe(1);
+
+      const ruler = requiredElement<HTMLElement>(
+        mounted.host,
+        '[role="slider"][aria-label="Timeline playhead"]',
+      );
+      ruler.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight" }));
+      await nextLayout();
+      expect(mounted.previewPort?.seekCalls).toEqual([100]);
+
+      mounted.previewPort?.publish({
+        status: "ready",
+        surfaceId: SURFACE_ID,
+        phase: "paused",
+        currentTimeMs: 5_000,
+        durationMs: 10_000,
+      });
+      await nextLayout();
+      expect(ruler).toHaveAttribute("aria-valuenow", "5000");
+      expect(
+        requiredElement<HTMLElement>(
+          mounted.host,
+          ".sc-presentation-timeline-lane-playhead",
+        ).getBoundingClientRect().left,
+      ).toBeCloseTo(
+        requiredElement<HTMLElement>(mounted.host, '[data-time-ms="5000"]').getBoundingClientRect()
+          .left,
+        1,
+      );
     } finally {
       mounted.destroy();
     }
@@ -355,6 +403,7 @@ function mountTimeline(
   durationMs: number,
   authoring = false,
   withFeedbackAction = false,
+  withPreview = false,
 ) {
   const host = document.createElement("div");
   host.style.width = `${hostWidth}px`;
@@ -367,6 +416,14 @@ function mountTimeline(
     zoomBounds: { minPixelsPerSecond: 10, maxPixelsPerSecond: 200 },
   });
   const editor = authoring ? createAuthoringEditor(durationMs, withFeedbackAction) : null;
+  const previewPort = withPreview ? new BrowserPreviewPort(durationMs) : null;
+  const previewController = previewPort
+    ? new PresentationPreviewController({ port: previewPort })
+    : null;
+  const previewDocument: PresentationPreviewDocument = {
+    document: { type: "doc" },
+    surfaceId: SURFACE_ID,
+  };
   const root = createRoot(host);
 
   flushSync(() => {
@@ -379,6 +436,9 @@ function mountTimeline(
         bottomWorkspace={
           <PresentationTimeline
             controller={controller}
+            {...(previewController
+              ? { preview: { controller: previewController, document: previewDocument } }
+              : {})}
             projection={projection(durationMs, 14, withFeedbackAction)}
             {...(editor ? { editor } : {})}
           />
@@ -392,13 +452,62 @@ function mountTimeline(
     controller,
     semanticSelection,
     editor,
+    previewPort,
     destroy() {
       flushSync(() => root.unmount());
       controller.destroy();
+      previewController?.dispose();
       editor?.destroy();
       host.remove();
     },
   };
+}
+
+class BrowserPreviewPort implements PresentationPreviewPort {
+  readonly seekCalls: number[] = [];
+  playCalls = 0;
+  #snapshot: PresentationPreviewSnapshot = { status: "idle" };
+  readonly #listeners = new Set<() => void>();
+
+  constructor(readonly durationMs: number) {}
+
+  getSnapshot = () => this.#snapshot;
+  subscribe = (listener: () => void) => {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  };
+  async loadCurrentDocument(input: PresentationPreviewDocument) {
+    this.publish({
+      status: "ready",
+      surfaceId: input.surfaceId,
+      phase: "awaiting-start",
+      currentTimeMs: 0,
+      durationMs: this.durationMs,
+    });
+    return Result.ok();
+  }
+  play() {
+    this.playCalls += 1;
+    this.publish({ ...this.requireReady(), phase: "playing" });
+    return Result.ok();
+  }
+  pause() {
+    this.publish({ ...this.requireReady(), phase: "paused" });
+    return Result.ok();
+  }
+  async seek(timeMs: number) {
+    this.seekCalls.push(timeMs);
+    this.publish({ ...this.requireReady(), phase: "paused", currentTimeMs: timeMs });
+    return Result.ok({ kind: "applied" as const, timeMs });
+  }
+  publish(snapshot: PresentationPreviewSnapshot) {
+    this.#snapshot = Object.freeze(snapshot);
+    for (const listener of this.#listeners) listener();
+  }
+  private requireReady() {
+    if (this.#snapshot.status !== "ready") throw new Error("Expected ready preview.");
+    return this.#snapshot;
+  }
 }
 
 function createAuthoringEditor(durationMs: number, withFeedbackAction: boolean): Editor {

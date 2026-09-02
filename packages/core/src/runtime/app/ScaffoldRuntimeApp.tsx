@@ -8,7 +8,10 @@ import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 import type { SlideshowPlayerSizing } from "../players/player-types";
 import type { SurfaceExitPolicy } from "../players/slideshow/slideshow-surface-change";
 
-import { ContentRuntimeHostWithSurfaceExitPolicy } from "./ContentRuntimeHost";
+import {
+  ContentRuntimeHostWithSurfaceExitPolicy,
+  type PresentationRuntimePreview,
+} from "./ContentRuntimeHost";
 
 interface ScaffoldRuntimeAppProps {
   bootstrap: ScaffoldLearnerBootstrap;
@@ -18,6 +21,7 @@ interface ScaffoldRuntimeAppProps {
   services: ScaffoldLearnerHostServices;
   slideshowSizing?: SlideshowPlayerSizing;
   surfaceExitPolicy: SurfaceExitPolicy;
+  presentationPreview?: PresentationRuntimePreview;
 }
 
 /** @internal Shared implementation for fixed learner and author Preview entry points. */
@@ -29,6 +33,7 @@ export function ScaffoldRuntimeApp({
   services,
   slideshowSizing = "embedded",
   surfaceExitPolicy,
+  presentationPreview,
 }: ScaffoldRuntimeAppProps) {
   const ports = useMemo(
     () => ({
@@ -54,14 +59,14 @@ export function ScaffoldRuntimeApp({
         {...(bootstrap.initialLearnerState?.learnerActivitySnapshot === undefined
           ? {}
           : {
-              initialLearnerActivitySnapshot:
-                bootstrap.initialLearnerState.learnerActivitySnapshot,
+              initialLearnerActivitySnapshot: bootstrap.initialLearnerState.learnerActivitySnapshot,
             })}
         publication={bootstrap.publication}
         productAccess={productAccess}
         {...(hostColorMode === undefined ? {} : { hostColorMode })}
         slideshowSizing={slideshowSizing}
         surfaceExitPolicy={surfaceExitPolicy}
+        {...(presentationPreview ? { presentationPreview } : {})}
       />
     </ScaffoldServicesProvider>
   );

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import type { EmbeddedDataId, EmbeddedNodeId, TimelineActionV1 } from "@scaffold/contracts";
+import { Result } from "better-result";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -16,6 +17,12 @@ import {
   type PresentationTimelineProjection,
   type PresentationTimelineSemanticSelection,
 } from "./index";
+import { PresentationPreviewController } from "../preview/presentation-preview-controller";
+import type {
+  PresentationPreviewDocument,
+  PresentationPreviewPort,
+  PresentationPreviewSnapshot,
+} from "@/presentation/model";
 
 const SURFACE_ID = nodeId("surface");
 const TARGET_A_ID = nodeId("target-a");
@@ -167,6 +174,96 @@ describe("PresentationTimeline", () => {
     expect(playhead).toHaveAttribute("aria-valuenow", "10000");
     expect(semanticSelection.selectCalls).toEqual([]);
 
+    controller.destroy();
+  });
+
+  it("routes Play, Pause, and playhead seeks through the isolated preview controller", async () => {
+    const user = userEvent.setup();
+    const semanticSelection = new FakeSemanticSelection(TARGET_A_ID);
+    const controller = createController(semanticSelection);
+    const port = new FakePreviewPort();
+    const previewController = new PresentationPreviewController({ port });
+    const input: PresentationPreviewDocument = {
+      document: { type: "doc" },
+      surfaceId: SURFACE_ID,
+    };
+    render(
+      <PresentationTimeline
+        controller={controller}
+        preview={{ controller: previewController, document: input }}
+        projection={projection()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Play preview" }));
+    await waitFor(() => expect(port.playCalls).toBe(1));
+    expect(port.loadCalls).toEqual([input]);
+    expect(screen.getByRole("button", { name: "Pause preview" })).toBeInTheDocument();
+
+    const playhead = screen.getByRole("slider", { name: "Timeline playhead" });
+    fireEvent.keyDown(playhead, { key: "ArrowRight" });
+    await waitFor(() => expect(port.seekCalls).toEqual([100]));
+
+    port.publish({
+      status: "ready",
+      surfaceId: SURFACE_ID,
+      phase: "paused",
+      currentTimeMs: 650,
+      durationMs: 10_000,
+    });
+    await waitFor(() => expect(playhead).toHaveAttribute("aria-valuenow", "650"));
+    await user.click(screen.getByRole("button", { name: "Play preview" }));
+    await user.click(screen.getByRole("button", { name: "Pause preview" }));
+    expect(port.pauseCalls).toBe(1);
+
+    previewController.dispose();
+    controller.destroy();
+  });
+
+  it("reloads its selected Surface instead of controlling a navigated preview Surface", async () => {
+    const user = userEvent.setup();
+    const controller = createController(new FakeSemanticSelection(TARGET_A_ID));
+    const port = new FakePreviewPort();
+    const previewController = new PresentationPreviewController({ port });
+    const input: PresentationPreviewDocument = {
+      document: { type: "doc" },
+      surfaceId: SURFACE_ID,
+    };
+    render(
+      <PresentationTimeline
+        controller={controller}
+        preview={{ controller: previewController, document: input }}
+        projection={projection()}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Play preview" }));
+
+    port.publish({
+      status: "ready",
+      surfaceId: TARGET_B_ID,
+      phase: "playing",
+      currentTimeMs: 300,
+      durationMs: 10_000,
+    });
+    const play = await screen.findByRole("button", { name: "Play preview" });
+    await user.click(play);
+    await waitFor(() => expect(port.loadCalls).toEqual([input, input]));
+    expect(port.pauseCalls).toBe(0);
+
+    port.publish({
+      status: "ready",
+      surfaceId: TARGET_B_ID,
+      phase: "paused",
+      currentTimeMs: 500,
+      durationMs: 10_000,
+    });
+    fireEvent.keyDown(screen.getByRole("slider", { name: "Timeline playhead" }), {
+      key: "ArrowRight",
+    });
+    await waitFor(() => expect(port.loadCalls).toEqual([input, input, input]));
+    expect(port.seekCalls).toEqual([100]);
+
+    previewController.dispose();
     controller.destroy();
   });
 
@@ -340,6 +437,58 @@ class FakeSemanticSelection implements PresentationTimelineSemanticSelection {
     this.#selectedId = id;
     for (const listener of this.#listeners) listener();
     return { kind: "reached", id };
+  }
+}
+
+class FakePreviewPort implements PresentationPreviewPort {
+  readonly loadCalls: PresentationPreviewDocument[] = [];
+  readonly seekCalls: number[] = [];
+  playCalls = 0;
+  pauseCalls = 0;
+  #snapshot: PresentationPreviewSnapshot = { status: "idle" };
+  readonly #listeners = new Set<() => void>();
+
+  getSnapshot = () => this.#snapshot;
+  subscribe = (listener: () => void) => {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  };
+  async loadCurrentDocument(input: PresentationPreviewDocument) {
+    this.loadCalls.push(input);
+    this.publish({
+      status: "ready",
+      surfaceId: input.surfaceId,
+      phase: "awaiting-start",
+      currentTimeMs: 0,
+      durationMs: 10_000,
+    });
+    return Result.ok();
+  }
+  play() {
+    this.playCalls += 1;
+    const snapshot = this.requireReady();
+    this.publish({ ...snapshot, phase: "playing" });
+    return Result.ok();
+  }
+  pause() {
+    this.pauseCalls += 1;
+    const snapshot = this.requireReady();
+    this.publish({ ...snapshot, phase: "paused" });
+    return Result.ok();
+  }
+  async seek(timeMs: number) {
+    this.seekCalls.push(timeMs);
+    const snapshot = this.requireReady();
+    this.publish({ ...snapshot, currentTimeMs: timeMs, phase: "paused" });
+    return Result.ok({ kind: "applied" as const, timeMs });
+  }
+  publish(snapshot: PresentationPreviewSnapshot) {
+    this.#snapshot = Object.freeze(snapshot);
+    for (const listener of this.#listeners) listener();
+  }
+  private requireReady() {
+    if (this.#snapshot.status !== "ready") throw new Error("Expected ready preview.");
+    return this.#snapshot;
   }
 }
 

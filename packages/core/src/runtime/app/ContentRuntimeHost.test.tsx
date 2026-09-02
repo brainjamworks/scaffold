@@ -33,7 +33,9 @@ import {
 
 import {
   ContentRuntimeHost as PublicContentRuntimeHost,
+  ContentRuntimeHostWithSurfaceExitPolicy,
   type ContentRuntimeHostProps,
+  type PresentationRuntimePreview,
 } from "./ContentRuntimeHost";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import type { LearningEventSession } from "../learning-events/session";
@@ -453,7 +455,10 @@ function runtimeDocumentContent({
     };
   }
 
-  const content = createScaffoldDocumentContent({ mode });
+  const content =
+    mode === "slideshow"
+      ? createScaffoldDocumentContent({ mode, initialCourseSectionTitle: "Section" })
+      : createScaffoldDocumentContent({ mode });
   const courseDocument = content.content?.[0];
 
   if (!courseDocument) {
@@ -712,6 +717,59 @@ function PrivateSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
 }
 
 describe("ContentRuntimeHost", () => {
+  it("connects author Preview transport to the selected isolated Slideshow Surface", async () => {
+    const user = userEvent.setup();
+    const content = presentationPreviewDocument();
+    normalizeRuntimeFixtureIds(content);
+    const presentationPreview = presentationRuntimePreview(SECOND_SLIDESHOW_SURFACE_ID, [
+      FIRST_SLIDESHOW_SURFACE_ID,
+      SECOND_SLIDESHOW_SURFACE_ID,
+    ]);
+    let previewPort: Parameters<PresentationRuntimePreview["onPortChange"]>[0] = null;
+    const onPortChange = vi.fn((port: typeof previewPort) => {
+      previewPort = port;
+    });
+
+    const { unmount } = render(
+      <ContentRuntimeHostWithSurfaceExitPolicy
+        artifactId="artifact-preview"
+        composition={runtimeComposition}
+        publication={{ status: "supported", learnerContent: content }}
+        presentationPreview={{ ...presentationPreview, onPortChange }}
+        productAccess={coreProductAccess}
+        surfaceExitPolicy="observe-only"
+      />,
+    );
+
+    await waitFor(() => expect(previewPort).not.toBeNull());
+    expect(previewPort!.getSnapshot()).toMatchObject({
+      status: "ready",
+      surfaceId: SECOND_SLIDESHOW_SURFACE_ID,
+      phase: "awaiting-start",
+      currentTimeMs: 0,
+    });
+    expect(surfaceById(SECOND_SLIDESHOW_SURFACE_ID)).toHaveAttribute(
+      "data-runtime-surface-visible",
+      "true",
+    );
+
+    expect(previewPort!.play().isOk()).toBe(true);
+    expect(previewPort!.getSnapshot()).toMatchObject({ phase: "playing" });
+    const seek = await previewPort!.seek(500);
+    expect(seek).toMatchObject({ value: { kind: "applied", timeMs: 500 } });
+    expect(previewPort!.getSnapshot()).toMatchObject({ phase: "paused", currentTimeMs: 500 });
+
+    await user.click(screen.getByRole("button", { name: "Previous slide" }));
+    await waitFor(() =>
+      expect(previewPort?.getSnapshot()).toMatchObject({
+        status: "ready",
+        surfaceId: FIRST_SLIDESHOW_SURFACE_ID,
+      }),
+    );
+
+    unmount();
+    expect(onPortChange).toHaveBeenLastCalledWith(null);
+  });
   it("renders a private Surface with its supplied runtime composition", async () => {
     const capability = privateRuntimeSurfaceCapability("private-runtime-surface");
     const application = createScaffoldApplication({
@@ -2346,3 +2404,50 @@ describe("ContentRuntimeHost", () => {
     expect(document.body.querySelector("[data-authoring-resize-handle]")).toBeNull();
   });
 });
+
+function presentationRuntimePreview(
+  activeSurfaceId: EmbeddedNodeId,
+  surfaceIds: readonly EmbeddedNodeId[],
+): Omit<PresentationRuntimePreview, "onPortChange"> {
+  const surfaces = surfaceIds.map((surfaceId) => ({
+    surfaceId,
+    durationMs: 1_000,
+    cues: [],
+    waits: [],
+    visualProgram: {
+      surfaceId,
+      durationMs: 1_000,
+      targetById: new Map(),
+      segments: [],
+      sequenceContainers: [],
+    },
+  }));
+  return {
+    activeSurfaceId,
+    program: {
+      schemaVersion: 1,
+      autoAdvance: false,
+      allowPrevious: true,
+      surfaces,
+      surfaceById: new Map(surfaces.map((surface) => [surface.surfaceId, surface])),
+    },
+  };
+}
+
+function presentationPreviewDocument(): JSONContent {
+  const content = createScaffoldDocumentContent({
+    mode: "slideshow",
+    initialCourseSectionTitle: "Preview",
+  });
+  const courseDocument = content.content?.[0];
+  const definition = builtInSurfaceVariantRegistry.get("slide-cover");
+  if (!courseDocument?.content?.[0] || !definition) {
+    throw new Error("Presentation Preview test document is incomplete.");
+  }
+  courseDocument.content = [
+    courseDocument.content[0],
+    definition.createSurface({ surfaceId: FIRST_SLIDESHOW_SURFACE_ID }),
+    definition.createSurface({ surfaceId: SECOND_SLIDESHOW_SURFACE_ID }),
+  ];
+  return content;
+}

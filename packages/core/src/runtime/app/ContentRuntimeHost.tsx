@@ -5,6 +5,10 @@ import type { ScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-
 import type { SurfaceId } from "@/document/model/course-structure";
 import type { ScaffoldLearnerPublication } from "@/host/contracts";
 import type { ScaffoldProductAccess } from "@/host/contracts/product-access";
+import type {
+  CompiledPresentationPlaybackProgram,
+  PresentationPreviewPlaybackPort,
+} from "@/presentation/model";
 import { CourseDocumentAttrsSchema } from "@/schemas/course-document";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import type { ScaffoldColorMode } from "@/theme/state/color-mode";
@@ -44,9 +48,14 @@ export interface ContentRuntimeHostProps {
   onEditorReady?: (editor: TiptapEditor) => void;
 }
 
-export function ContentRuntimeHost({
-  ...props
-}: ContentRuntimeHostProps) {
+/** @internal Neutral author-preview input; public learner hosts never receive this. */
+export interface PresentationRuntimePreview {
+  readonly activeSurfaceId: SurfaceId;
+  readonly program: CompiledPresentationPlaybackProgram;
+  readonly onPortChange: (port: PresentationPreviewPlaybackPort | null) => void;
+}
+
+export function ContentRuntimeHost({ ...props }: ContentRuntimeHostProps) {
   return <ContentRuntimeHostWithSurfaceExitPolicy {...props} surfaceExitPolicy="enforce" />;
 }
 
@@ -63,7 +72,11 @@ export function ContentRuntimeHostWithSurfaceExitPolicy({
   slideshowSizing,
   onEditorReady,
   surfaceExitPolicy,
-}: ContentRuntimeHostProps & { readonly surfaceExitPolicy: SurfaceExitPolicy }) {
+  presentationPreview,
+}: ContentRuntimeHostProps & {
+  readonly presentationPreview?: PresentationRuntimePreview;
+  readonly surfaceExitPolicy: SurfaceExitPolicy;
+}) {
   const colorMode = useLearnerColorMode(hostColorMode);
   const runtimeArtifactId = artifactId ?? null;
   const readiness = useMemo(
@@ -131,6 +144,7 @@ export function ContentRuntimeHostWithSurfaceExitPolicy({
                     playerSelection={playerSelection}
                     runtimeArtifactId={runtimeArtifactId}
                     surfaceExitPolicy={surfaceExitPolicy}
+                    {...(presentationPreview ? { presentationPreview } : {})}
                     {...(onEditorReady ? { onEditorReady } : {})}
                     {...(slideshowSizing ? { slideshowSizing } : {})}
                   />
@@ -151,6 +165,7 @@ interface HydratedRuntimePlayerProps {
   readonly runtimeArtifactId: string | null;
   readonly slideshowSizing?: SlideshowPlayerSizing;
   readonly surfaceExitPolicy: SurfaceExitPolicy;
+  readonly presentationPreview?: PresentationRuntimePreview;
 }
 
 function HydratedRuntimePlayer({
@@ -160,6 +175,7 @@ function HydratedRuntimePlayer({
   runtimeArtifactId,
   slideshowSizing,
   surfaceExitPolicy,
+  presentationPreview,
 }: HydratedRuntimePlayerProps) {
   const learningEventReporter = useLearningEventReporter();
   const rendererReadyRef = useRef(false);
@@ -240,6 +256,23 @@ function HydratedRuntimePlayer({
         onRendererReady={handleRendererReady}
         structure={playerSelection.structure}
         surfaceExitPolicy={surfaceExitPolicy}
+        {...(presentationPreview
+          ? {
+              initialSurfaceId: presentationPreview.activeSurfaceId,
+              onPresentationPreviewPortChange: presentationPreview.onPortChange,
+              surfaceRuntimeProgramSource: (surfaceId: SurfaceId) => {
+                const timeline = presentationPreview.program.surfaceById.get(surfaceId);
+                return timeline
+                  ? {
+                      presentation: {
+                        timeline,
+                        autoAdvance: presentationPreview.program.autoAdvance,
+                      },
+                    }
+                  : undefined;
+              },
+            }
+          : {})}
         {...(slideshowSizing ? { sizing: slideshowSizing } : {})}
       />
     );

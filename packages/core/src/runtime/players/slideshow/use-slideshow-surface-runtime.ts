@@ -17,6 +17,7 @@ import {
   createSlideshowSurfaceRuntimeComposition,
   type SlideshowSurfaceRuntimeComposition,
   type SlideshowPresentationControls,
+  type SlideshowPresentationSeekResult,
   type SlideshowSurfaceRuntimeProgram,
   type SlideshowSurfaceRuntimeProgramSource,
 } from "./slideshow-surface-runtime-composition";
@@ -31,18 +32,21 @@ export type SlideshowSurfaceRuntimeState =
       readonly nextMode: "navigate";
       readonly contentInteraction: "enabled";
       readonly presentationControls?: never;
+      readonly seek?: never;
     }
   | {
       readonly status: "pending";
       readonly nextMode: "disabled";
       readonly contentInteraction: SlideshowContentInteraction;
       readonly presentationControls?: never;
+      readonly seek?: never;
     }
   | {
       readonly status: "ready";
       readonly nextMode: SlideshowNextMode;
       readonly contentInteraction: SlideshowContentInteraction;
       readonly presentationControls?: SlideshowPresentationControls;
+      readonly seek?: (timeMs: number) => Promise<SlideshowPresentationSeekResult>;
     };
 
 interface UseSlideshowSurfaceRuntimeInput {
@@ -203,6 +207,11 @@ export function useSlideshowSurfaceRuntime({
   ]);
 
   const presentationControls = currentRuntime?.composition.presentationControls;
+  const currentComposition = currentRuntime?.composition;
+  const seek = useMemo(
+    () => currentComposition?.seek?.bind(currentComposition),
+    [currentComposition],
+  );
   const subscribe = useCallback(
     (listener: () => void) => presentationControls?.subscribe(listener) ?? (() => undefined),
     [presentationControls],
@@ -255,6 +264,7 @@ export function useSlideshowSurfaceRuntime({
       program.presentation !== undefined,
     ),
     ...(presentationControls ? { presentationControls } : {}),
+    ...(seek ? { seek } : {}),
   };
 }
 

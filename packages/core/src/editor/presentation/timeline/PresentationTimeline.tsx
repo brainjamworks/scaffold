@@ -1,5 +1,10 @@
 import type { EmbeddedDataId, TimelineActionV1 } from "@scaffold/contracts";
-import { MinusIcon as Minus, PlusIcon as Plus } from "@phosphor-icons/react";
+import {
+  MinusIcon as Minus,
+  PauseIcon as Pause,
+  PlayIcon as Play,
+  PlusIcon as Plus,
+} from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/core";
 import {
   useEffect,
@@ -21,6 +26,13 @@ import {
   type NewPresentationTimelineAction,
   type PresentationAuthoringCommandError,
 } from "@/editor/presentation/model";
+import type {
+  PresentationPreviewDocument,
+  PresentationPreviewLoadError,
+  PresentationPreviewOperationError,
+  PresentationPreviewSeekError,
+} from "@/presentation/model";
+import type { PresentationPreviewController } from "../preview/presentation-preview-controller";
 
 import {
   PresentationActionEditor,
@@ -38,24 +50,43 @@ export interface PresentationTimelineProps {
   readonly projection: PresentationTimelineProjection;
   readonly ariaLabel?: string;
   readonly editor?: Editor;
+  readonly preview?: {
+    readonly controller: PresentationPreviewController;
+    readonly document: PresentationPreviewDocument;
+  };
 }
+
+const IDLE_PREVIEW_SNAPSHOT = Object.freeze({ status: "idle" as const });
+const subscribeToNoPreview = () => () => undefined;
+const getIdlePreviewSnapshot = () => IDLE_PREVIEW_SNAPSHOT;
 
 export function PresentationTimeline({
   controller,
   projection,
   ariaLabel = "Presentation timeline",
   editor,
+  preview,
 }: PresentationTimelineProps) {
   const timeViewportRef = useRef<HTMLDivElement>(null);
   const playheadPointerIdRef = useRef<number | null>(null);
   const [authoringError, setAuthoringError] = useState<PresentationAuthoringCommandError | null>(
     null,
   );
+  const [previewError, setPreviewError] = useState<PresentationPreviewUiError | null>(null);
   const snapshot = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
     controller.getSnapshot,
   );
+  const previewSnapshot = useSyncExternalStore(
+    preview?.controller.subscribe ?? subscribeToNoPreview,
+    preview?.controller.getSnapshot ?? getIdlePreviewSnapshot,
+    preview?.controller.getSnapshot ?? getIdlePreviewSnapshot,
+  );
+  const currentSurfaceIsPlaying =
+    previewSnapshot.status === "ready" &&
+    previewSnapshot.surfaceId === preview?.document.surfaceId &&
+    previewSnapshot.phase === "playing";
   const durationMs = projection.durationMs ?? 0;
   const contentWidthPx = (durationMs / 1_000) * snapshot.pixelsPerSecond;
   const contentStyle = {
@@ -78,6 +109,12 @@ export function PresentationTimeline({
       viewport.scrollLeft = snapshot.viewportLeftPx;
     }
   }, [snapshot.viewportLeftPx]);
+
+  useEffect(() => {
+    if (previewSnapshot.status === "ready" && previewSnapshot.surfaceId === projection.surfaceId) {
+      controller.setPlayheadDraft(previewSnapshot.currentTimeMs, durationMs);
+    }
+  }, [controller, durationMs, previewSnapshot, projection.surfaceId]);
 
   useEffect(() => {
     const viewport = timeViewportRef.current;
@@ -140,7 +177,28 @@ export function PresentationTimeline({
   function seekPlayheadFromPointer(event: PointerEvent<HTMLDivElement>): void {
     const bounds = event.currentTarget.getBoundingClientRect();
     const timeMs = ((event.clientX - bounds.left) / snapshot.pixelsPerSecond) * 1_000;
-    controller.setPlayheadDraft(Math.max(0, timeMs), durationMs);
+    setPlayhead(Math.max(0, timeMs));
+  }
+
+  function setPlayhead(timeMs: number): void {
+    const nextTimeMs = Math.round(Math.min(durationMs, Math.max(0, timeMs)));
+    controller.setPlayheadDraft(nextTimeMs, durationMs);
+    if (!preview) return;
+    void preview.controller.seek(preview.document, nextTimeMs).then((result) => {
+      setPreviewError(result.isErr() ? result.error : null);
+    });
+  }
+
+  function togglePreviewPlayback(): void {
+    if (!preview) return;
+    if (currentSurfaceIsPlaying) {
+      const result = preview.controller.pause(preview.document);
+      setPreviewError(result.isErr() ? result.error : null);
+      return;
+    }
+    void preview.controller.play(preview.document).then((result) => {
+      setPreviewError(result.isErr() ? result.error : null);
+    });
   }
 
   function handlePlayheadPointerDown(event: PointerEvent<HTMLDivElement>): void {
@@ -184,13 +242,26 @@ export function PresentationTimeline({
     }
     event.preventDefault();
     event.stopPropagation();
-    controller.setPlayheadDraft(Math.max(0, nextTimeMs), durationMs);
+    setPlayhead(nextTimeMs);
   }
 
   return (
     <section className="sc-presentation-timeline" aria-label={ariaLabel}>
       <header className="sc-presentation-timeline-toolbar">
         <h2>Timeline</h2>
+        {preview ? (
+          <IconButton
+            size="sm"
+            aria-label={currentSurfaceIsPlaying ? "Pause preview" : "Play preview"}
+            onClick={togglePreviewPlayback}
+          >
+            {currentSurfaceIsPlaying ? (
+              <Pause size={iconXs} aria-hidden />
+            ) : (
+              <Play size={iconXs} aria-hidden />
+            )}
+          </IconButton>
+        ) : null}
         <span className="sc-presentation-timeline-time-readout" aria-hidden="true">
           {formatTime(snapshot.playheadDraftMs)} / {formatTime(durationMs)}
         </span>
@@ -324,8 +395,55 @@ export function PresentationTimeline({
           {presentPresentationAuthoringCommandError(authoringError)}
         </p>
       ) : null}
+      {previewError ? (
+        <p className="sc-presentation-timeline-authoring-error" role="alert">
+          {presentPresentationPreviewError(previewError)}
+        </p>
+      ) : null}
     </section>
   );
+}
+
+type PresentationPreviewUiError =
+  | PresentationPreviewLoadError
+  | PresentationPreviewOperationError
+  | PresentationPreviewSeekError;
+
+function presentPresentationPreviewError(error: PresentationPreviewUiError): string {
+  switch (error.reason) {
+    case "preview-load-superseded":
+      return "Preview moved to a newer document or slide.";
+    case "preview-not-ready":
+      return "Preview is still preparing. Try again.";
+    case "preview-surface-mismatch":
+      return "Preview moved to another slide. Play this slide to reload it.";
+    case "preview-not-slideshow":
+      return "Presentation preview is available for slideshows.";
+    case "preview-surface-not-current":
+    case "surface-coverage-missing":
+      return "This slide is no longer available to preview.";
+    case "preview-surface-not-configured":
+      return "Set a duration for this slide before previewing it.";
+    case "seek-out-of-range":
+      return "The requested preview time is outside this slide.";
+    case "preview-document-invalid":
+    case "preview-requires-scaffold-plus":
+    case "preview-unsupported-core-format":
+    case "preview-unavailable-content":
+    case "preview-projection-warning":
+    case "preview-payload-too-large":
+    case "preview-runtime-unavailable":
+    case "preview-services-unavailable":
+      return "This document cannot be previewed yet.";
+    case "surface-coverage-stale":
+    case "navigation-destination-not-current":
+    case "target-not-current":
+    case "target-moved-to-another-surface":
+    case "visual-capability-unavailable":
+    case "same-target-timed-overlap":
+    case "surface-timed-layout-overlap":
+      return "Resolve the highlighted Timeline issue before previewing.";
+  }
 }
 
 function TimelineTargetLabel({
