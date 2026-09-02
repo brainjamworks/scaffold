@@ -5,6 +5,7 @@ import {
   ScaffoldDocumentContentSchema,
   type LearnerInteractionRuleV1,
 } from "@scaffold/contracts";
+import type { JSONContent } from "@tiptap/core";
 import { Result } from "better-result";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -66,7 +67,7 @@ describe("checkLearnerInteractionPublication", () => {
 
   it("does not convert compiler invariant failures into publication diagnostics", () => {
     const document = createDocument("slideshow", [validRule()]);
-    const courseDocument = document.content?.[0];
+    const courseDocument = (document as JSONContent).content?.[0];
     if (!courseDocument?.attrs) throw new Error("Expected Course Document attributes.");
     courseDocument.attrs["learnerInteractions"] = LearnerInteractionConfigurationV1Schema.parse({
       schemaVersion: 1,
@@ -91,11 +92,14 @@ function check(document: ReturnType<typeof createDocument>) {
 }
 
 function createDocument(mode: "page" | "slideshow", rules?: readonly LearnerInteractionRuleV1[]) {
-  const document = createScaffoldDocumentContent({
-    mode,
-    surfaceId: SURFACE_ID,
-    ...(mode === "slideshow" ? { initialCourseSectionTitle: "Section" } : {}),
-  });
+  const document =
+    mode === "slideshow"
+      ? createScaffoldDocumentContent({
+          mode,
+          surfaceId: SURFACE_ID,
+          initialCourseSectionTitle: "Section",
+        })
+      : createScaffoldDocumentContent({ mode, surfaceId: SURFACE_ID });
   const courseDocument = document.content?.[0];
   if (!courseDocument?.attrs) throw new Error("Expected Course Document attributes.");
   if (rules) {

@@ -132,6 +132,10 @@ const runtimeStoreFactories = vi.hoisted(() => ({
 
 const runtimePlayerSelectionCalls = vi.hoisted(() => vi.fn());
 const documentEstablishmentCalls = vi.hoisted(() => vi.fn());
+const surfaceRuntimeLifecycle = vi.hoisted(() => ({
+  created: vi.fn(),
+  disposed: vi.fn(),
+}));
 
 vi.mock("@/document/model/establishment/establish-authoring-document", async (importOriginal) => {
   const actual =
@@ -154,6 +158,33 @@ vi.mock("../players/player-selection", async (importOriginal) => {
     selectRuntimePlayer: (...args: Parameters<typeof actual.selectRuntimePlayer>) => {
       runtimePlayerSelectionCalls(...args);
       return actual.selectRuntimePlayer(...args);
+    },
+  };
+});
+
+vi.mock("../players/slideshow/slideshow-surface-runtime-composition", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("../players/slideshow/slideshow-surface-runtime-composition")
+    >();
+  return {
+    ...actual,
+    createSlideshowSurfaceRuntimeComposition: (
+      ...args: Parameters<typeof actual.createSlideshowSurfaceRuntimeComposition>
+    ) => {
+      const composition = actual.createSlideshowSurfaceRuntimeComposition(...args);
+      const owner = {};
+      let disposed = false;
+      surfaceRuntimeLifecycle.created(args[0].program, owner);
+      return Object.freeze({
+        ...composition,
+        dispose() {
+          composition.dispose();
+          if (disposed) return;
+          disposed = true;
+          surfaceRuntimeLifecycle.disposed(owner);
+        },
+      });
     },
   };
 });
@@ -200,6 +231,8 @@ beforeEach(() => {
   runtimeStoreFactories.learnerActivity.mockClear();
   documentEstablishmentCalls.mockClear();
   runtimePlayerSelectionCalls.mockClear();
+  surfaceRuntimeLifecycle.created.mockClear();
+  surfaceRuntimeLifecycle.disposed.mockClear();
 });
 
 afterEach(() => {
@@ -491,6 +524,45 @@ function slideshowDocumentWithPortableLearnerRules(): JSONContent {
             when: { targetId: LEARNER_PRACTICE_ID, type: "missing-event" },
             conditions: [],
             commands: [{ kind: "reveal-target", targetId: LEARNER_PRACTICE_ID }],
+          },
+        ],
+      },
+    ],
+  };
+  return content;
+}
+
+function slideshowDocumentWithPortableSelectionRule({
+  ruleId,
+  eventTargetId,
+  selectedTargetId,
+}: {
+  readonly ruleId: string;
+  readonly eventTargetId: EmbeddedNodeId;
+  readonly selectedTargetId: EmbeddedNodeId;
+}): JSONContent {
+  const content = slideshowDocumentWithPortableLearnerRules();
+  const courseDocument = content.content?.[0];
+  if (!courseDocument?.attrs) {
+    throw new Error("runtime learner replacement fixture is incomplete");
+  }
+  courseDocument.attrs["learnerInteractions"] = {
+    schemaVersion: 1,
+    surfaces: [
+      {
+        surfaceId: FIRST_SLIDESHOW_SURFACE_ID,
+        rules: [
+          {
+            id: ruleId,
+            isEnabled: true,
+            when: { targetId: eventTargetId, type: "selected" },
+            conditions: [],
+            commands: [
+              {
+                kind: "target-command",
+                command: { targetId: selectedTargetId, type: "select" },
+              },
+            ],
           },
         ],
       },
@@ -831,6 +903,72 @@ describe("ContentRuntimeHost", () => {
       ),
     );
     expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
+  });
+
+  it("replaces and disposes locally compiled portable learner programs", async () => {
+    const user = userEvent.setup();
+    const initialContent = slideshowDocumentWithPortableSelectionRule({
+      ruleId: "rule00000004",
+      eventTargetId: LEARNER_PRACTICE_ID,
+      selectedTargetId: LEARNER_OVERVIEW_ID,
+    });
+    const replacementContent = slideshowDocumentWithPortableSelectionRule({
+      ruleId: "rule00000005",
+      eventTargetId: LEARNER_OVERVIEW_ID,
+      selectedTargetId: LEARNER_PRACTICE_ID,
+    });
+    const { rerender, unmount } = render(
+      <ContentRuntimeHost
+        artifactId="artifact-portable-interaction-replacement"
+        composition={runtimeComposition}
+        initialContent={initialContent}
+      />,
+    );
+
+    await waitFor(() => expect(surfaceRuntimeLifecycle.created).toHaveBeenCalled());
+    await user.click(await screen.findByRole("tab", { name: "Practice" }));
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      ),
+    );
+    const outgoingOwner = surfaceRuntimeLifecycle.created.mock.lastCall?.[1];
+    const creationCountBeforeReplacement = surfaceRuntimeLifecycle.created.mock.calls.length;
+
+    rerender(
+      <ContentRuntimeHost
+        artifactId="artifact-portable-interaction-replacement"
+        composition={runtimeComposition}
+        initialContent={replacementContent}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(surfaceRuntimeLifecycle.disposed).toHaveBeenCalledWith(outgoingOwner),
+    );
+    await waitFor(() =>
+      expect(surfaceRuntimeLifecycle.created.mock.calls.length).toBeGreaterThan(
+        creationCountBeforeReplacement,
+      ),
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Practice" }));
+    expect(screen.getByRole("tab", { name: "Practice" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "false");
+
+    await user.click(screen.getByRole("tab", { name: "Overview" }));
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: "Practice" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      ),
+    );
+    const replacementOwner = surfaceRuntimeLifecycle.created.mock.lastCall?.[1];
+
+    unmount();
+
+    expect(surfaceRuntimeLifecycle.disposed).toHaveBeenCalledWith(replacementOwner);
   });
 
   it("connects author Preview transport to the selected isolated Slideshow Surface", async () => {

@@ -99,9 +99,7 @@ import {
   validateLearnerPublicationPayloadSize,
 } from "@/authoring/publication/artifact-save-bundle";
 import { projectLearnerPublication } from "@/authoring/publication/document-projection";
-import {
-  checkLearnerInteractionPublication,
-} from "@/authoring/publication/learner-interaction-publication";
+import { checkLearnerInteractionPublication } from "@/authoring/publication/learner-interaction-publication";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/ScaffoldUnavailableAgentIntegration";
 import { Header } from "@/editor/shell/chrome/Header";
