@@ -484,7 +484,19 @@ export function createSlideshowSurfaceRuntimeComposition({
       }
     });
     const unsubscribeNarration =
-      narration?.subscribe(refreshNarrationSnapshot) ?? (() => undefined);
+      narration?.subscribe(() => {
+        const next = narration.getSnapshot();
+        if (
+          next.status === "ended" &&
+          !usingInternalClock &&
+          next.currentTimeMs < session.getSnapshot().durationMs
+        ) {
+          session.useInternalClock();
+          usingInternalClock = true;
+          narrationError = null;
+        }
+        refreshNarrationSnapshot();
+      }) ?? (() => undefined);
     disposePresentationCoordination = () => {
       unsubscribeNarration();
       unsubscribeSession();

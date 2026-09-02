@@ -1548,9 +1548,42 @@ describe("SlideshowPlayer", () => {
     media.fail(4);
 
     expect(await screen.findByText(/Narration is unavailable/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry narration" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Continue without narration" }));
     await waitFor(() => expect(screen.queryByText(/Narration is unavailable/)).toBeNull());
     expect(await screen.findByRole("button", { name: "Pause presentation" })).toBeInTheDocument();
+  });
+
+  it("does not present recovery controls when narration ends naturally", async () => {
+    const user = userEvent.setup();
+    const media = createTestNarrationAudio();
+    vi.stubGlobal("Audio", function AudioStub() {
+      return media.audio;
+    });
+
+    render(
+      <TestSlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "Naturally ended narration slide" },
+        ])}
+        surfaceRuntimeProgramSource={(surfaceId) => narratedSurfaceProgram(surfaceId)}
+      />,
+    );
+
+    await waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.confirmMetadata(4);
+    await user.click(await screen.findByRole("button", { name: "Play presentation" }));
+    media.confirmPlay();
+    await screen.findByRole("button", { name: "Pause presentation" });
+
+    media.confirmEnd(4);
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Retry narration" })).toBeNull(),
+    );
+    expect(screen.queryByRole("button", { name: "Continue without narration" })).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("omits authoring and expanded slideshow product controls", async () => {
@@ -1659,9 +1692,16 @@ function createTestNarrationAudio() {
     },
     confirmPlay() {
       native.paused = false;
+      native.ended = false;
       audio.dispatchEvent(new Event("play"));
       confirmPendingPlay?.();
       confirmPendingPlay = null;
+    },
+    confirmEnd(seconds: number) {
+      native.currentTime = seconds;
+      native.ended = true;
+      native.paused = true;
+      audio.dispatchEvent(new Event("ended"));
     },
     confirmSeek(seconds: number) {
       native.currentTime = seconds;

@@ -527,6 +527,117 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     composition.dispose();
   });
 
+  it("continues an authored silent tail from natural narration end without duplicating cues or heartbeats", async () => {
+    const heartbeat = createAnimationFrameHarness();
+    const media = createTestNarrationAudio();
+    const execute = vi.fn(async () => Result.ok());
+    const narratedTimeline = Object.freeze({
+      ...emptyPresentationTimeline(SURFACE_ID, 10_000),
+      narration: Object.freeze({
+        source: Object.freeze({
+          mode: "external" as const,
+          src: "https://media.example.test/narration.mp3",
+        }),
+      }),
+      cues: Object.freeze([
+        Object.freeze({
+          id: EmbeddedDataIdSchema.parse("narratecue01"),
+          atMs: 3_000,
+          command: Object.freeze({
+            kind: "target-command" as const,
+            ownerId: OWNER_ID,
+            targetId: TARGET_ID,
+            type: "select",
+          }),
+          seekBehavior: "consume" as const,
+        }),
+      ]),
+    });
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: { presentation: { timeline: narratedTimeline, autoAdvance: false } },
+      controlBindings: {
+        get: () => ({ ownerId: OWNER_ID, commandExecutor: { execute } }),
+      },
+      semanticTargets: {
+        activate: vi.fn(async (requestedId: EmbeddedNodeId) => ({
+          kind: "reached" as const,
+          requestedId,
+        })),
+      },
+      featureViewBaseline: emptyFeatureViewBaseline(),
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+      createNarrationAudioElement: () => media.audio,
+    });
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+
+    try {
+      await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+      media.confirmMetadata(4);
+      const playing = controls.play();
+      media.confirmPlay();
+      await playing;
+      expect(heartbeat.pendingCount()).toBe(1);
+
+      media.confirmEnd(4);
+      await flushPromises();
+
+      expect(controls.getNarrationSnapshot()).toMatchObject({
+        status: "ended",
+        currentTimeMs: 4_000,
+        usingInternalClock: true,
+        error: null,
+      });
+      expect(controls.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 4_000 });
+      expect(execute).toHaveBeenCalledOnce();
+      expect(heartbeat.pendingCount()).toBe(1);
+
+      heartbeat.step(5_000);
+      expect(controls.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 9_000 });
+      heartbeat.step(6_000);
+      await flushPromises();
+
+      expect(controls.getSnapshot()).toMatchObject({ phase: "completed", currentTimeMs: 10_000 });
+      expect(execute).toHaveBeenCalledOnce();
+      expect(media.native.paused).toBe(true);
+      expect(heartbeat.pendingCount()).toBe(0);
+    } finally {
+      composition.dispose();
+      heartbeat.restore();
+    }
+  });
+
+  it("completes normally when narration naturally ends at the Timeline endpoint", async () => {
+    const heartbeat = createAnimationFrameHarness();
+    const media = createTestNarrationAudio();
+    const composition = createNarratedComposition(media.audio);
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+
+    try {
+      await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+      media.confirmMetadata(10);
+      const playing = controls.play();
+      media.confirmPlay();
+      await playing;
+
+      media.confirmEnd(10);
+      heartbeat.step(0);
+
+      expect(controls.getSnapshot()).toMatchObject({ phase: "completed", currentTimeMs: 10_000 });
+      expect(controls.getNarrationSnapshot()).toMatchObject({
+        status: "ended",
+        usingInternalClock: false,
+        error: null,
+      });
+      expect(heartbeat.pendingCount()).toBe(0);
+    } finally {
+      composition.dispose();
+      heartbeat.restore();
+    }
+  });
+
   it("disposes narration media before the active Surface runtime", async () => {
     const order: string[] = [];
     const media = createTestNarrationAudio(() => order.push("narration"));
@@ -1263,6 +1374,39 @@ function deferred<Value>() {
   return { promise, resolve, reject };
 }
 
+function createAnimationFrameHarness() {
+  let nowMs = 0;
+  let nextId = 1;
+  const callbacks = new Map<number, FrameRequestCallback>();
+  const now = vi.spyOn(performance, "now").mockImplementation(() => nowMs);
+  const request = vi
+    .spyOn(globalThis, "requestAnimationFrame")
+    .mockImplementation((callback: FrameRequestCallback) => {
+      const id = nextId;
+      nextId += 1;
+      callbacks.set(id, callback);
+      return id;
+    });
+  const cancel = vi.spyOn(globalThis, "cancelAnimationFrame").mockImplementation((id: number) => {
+    callbacks.delete(id);
+  });
+
+  return {
+    pendingCount: () => callbacks.size,
+    step(nextNowMs: number) {
+      nowMs = nextNowMs;
+      const pending = [...callbacks.values()];
+      callbacks.clear();
+      for (const callback of pending) callback(nowMs);
+    },
+    restore() {
+      cancel.mockRestore();
+      request.mockRestore();
+      now.mockRestore();
+    },
+  };
+}
+
 function createTestNarrationAudio(onDispose?: () => void) {
   const audio = document.createElement("audio");
   const native = {
@@ -1315,9 +1459,16 @@ function createTestNarrationAudio(onDispose?: () => void) {
     },
     confirmPlay() {
       native.paused = false;
+      native.ended = false;
       audio.dispatchEvent(new Event("play"));
       confirmPendingPlay?.();
       confirmPendingPlay = null;
+    },
+    confirmEnd(seconds: number) {
+      native.currentTime = seconds;
+      native.ended = true;
+      native.paused = true;
+      audio.dispatchEvent(new Event("ended"));
     },
     confirmSeek(seconds: number) {
       native.currentTime = seconds;

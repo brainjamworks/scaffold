@@ -310,6 +310,10 @@ export function SlideshowPlayer({
   const presentationControls = surfaceRuntime.presentationControls;
   const presentationSnapshot = presentationControls?.getSnapshot();
   const narrationSnapshot = surfaceRuntime.narration;
+  const narrationFailure = narrationSnapshot?.error ?? null;
+  const canRetryNarration = narrationFailure?.reason === "playback-not-allowed";
+  const canContinueWithoutNarration =
+    narrationFailure !== null && narrationFailure.reason !== "cancelled";
   const narrationMessage = narrationSnapshot?.error
     ? getNarrationFailureMessage(narrationSnapshot.error.reason)
     : narrationSnapshot?.status === "loading"
@@ -590,22 +594,26 @@ export function SlideshowPlayer({
                           role={narrationSnapshot?.error ? "alert" : "status"}
                         >
                           <span>{narrationMessage}</span>
-                          {narrationSnapshot?.error ? (
+                          {canRetryNarration || canContinueWithoutNarration ? (
                             <span className="sc-slideshow-player__narration-actions">
-                              <button
-                                type="button"
-                                className="sc-slideshow-player__presentation-button"
-                                onClick={() => void presentationControls.play()}
-                              >
-                                Retry narration
-                              </button>
-                              <button
-                                type="button"
-                                className="sc-slideshow-player__presentation-button"
-                                onClick={() => presentationControls.continueWithoutNarration()}
-                              >
-                                Continue without narration
-                              </button>
+                              {canRetryNarration ? (
+                                <button
+                                  type="button"
+                                  className="sc-slideshow-player__presentation-button"
+                                  onClick={() => void presentationControls.play()}
+                                >
+                                  Retry narration
+                                </button>
+                              ) : null}
+                              {canContinueWithoutNarration ? (
+                                <button
+                                  type="button"
+                                  className="sc-slideshow-player__presentation-button"
+                                  onClick={() => presentationControls.continueWithoutNarration()}
+                                >
+                                  Continue without narration
+                                </button>
+                              ) : null}
                             </span>
                           ) : null}
                         </div>
@@ -773,12 +781,12 @@ function getNarrationFailureMessage(reason: SlideshowPresentationNarrationError[
     case "playback-not-allowed":
       return "Narration needs permission to play. Retry after interacting with the page, or continue without narration.";
     case "narration-unavailable":
-      return "Narration is unavailable. Retry it, or continue without narration.";
+      return "Narration is unavailable. Continue without narration to keep playing.";
     case "seek-out-of-range":
     case "seek-unsupported":
-      return "Narration could not move to that time. Retry it, or continue without narration.";
+      return "Narration could not move to that time. Continue without narration to keep playing.";
     case "cancelled":
-      return "Narration was interrupted. Retry it, or continue without narration.";
+      return "Narration was interrupted.";
   }
 }
 
