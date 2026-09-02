@@ -104,7 +104,7 @@ describe("Gallery document semantics", () => {
         label: `Gallery item ${index + 1}`,
         summary: null,
         presentation: {
-          actionIds: ["reveal", "hide", "move", "emphasize"],
+          actionIds: ["reveal", "hide", "emphasize"],
           disabledReason: null,
         },
       });

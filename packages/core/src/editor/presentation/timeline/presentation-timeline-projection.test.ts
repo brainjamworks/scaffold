@@ -2,7 +2,6 @@ import {
   type EmbeddedDataId,
   type EmbeddedNodeId,
   type PresentationConfigurationV1,
-  PresentationSvgPathDataSchema,
   type TimelineActionV1,
 } from "@scaffold/contracts";
 import { describe, expect, it } from "vite-plus/test";
@@ -112,7 +111,7 @@ describe("projectPresentationTimeline", () => {
     const semantics = semanticSnapshot([
       semanticItem(IDS.surface, "surface", {
         children: [
-          semanticItem(IDS.owner, "block", { actionIds: ["move"] }),
+          semanticItem(IDS.owner, "block", { actionIds: ["emphasize"] }),
           semanticItem(IDS.member, "published-child", {
             reconstructableCommandTypes: ["select-tab"],
           }),
@@ -139,7 +138,7 @@ describe("projectPresentationTimeline", () => {
   });
 
   it("retains stale actions on the Surface row and reports narrow source diagnostics", () => {
-    const currentTarget = semanticItem(IDS.owner, "block", { actionIds: ["move"] });
+    const currentTarget = semanticItem(IDS.owner, "block", { actionIds: ["emphasize"] });
     const semantics = semanticSnapshot([
       semanticItem(IDS.surface, "surface", { children: [currentTarget] }),
       semanticItem(IDS.otherSurface, "surface", {
@@ -272,33 +271,17 @@ function presentation(
 function animate(
   value: string,
   targetId: EmbeddedNodeId,
-  kind: "reveal" | "move",
+  kind: "reveal",
   atMs: number,
 ): TimelineActionV1 {
-  return kind === "reveal"
-    ? {
-        kind: "animate",
-        id: dataId(value),
-        targetId,
-        isEnabled: true,
-        atMs,
-        visual: { kind: "reveal", transition: { kind: "instant" } },
-      }
-    : {
-        kind: "animate",
-        id: dataId(value),
-        targetId,
-        isEnabled: true,
-        atMs,
-        visual: {
-          kind: "move",
-          durationMs: 100,
-          easing: { kind: "preset", preset: "linear" },
-          boundaryId: IDS.surface,
-          pathData: PresentationSvgPathDataSchema.parse("M 0 0 L 10 10"),
-          orientToPath: false,
-        },
-      };
+  return {
+    kind: "animate",
+    id: dataId(value),
+    targetId,
+    isEnabled: true,
+    atMs,
+    visual: { kind, transition: { kind: "instant" } },
+  };
 }
 
 function targetCommand(

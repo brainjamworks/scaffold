@@ -17,7 +17,6 @@ const FLOW_SECOND_ID = EmbeddedNodeIdSchema.parse("flowchild002");
 const SEQUENCE_ID = EmbeddedNodeIdSchema.parse("sequence0001");
 const SEQUENCE_A_ID = EmbeddedNodeIdSchema.parse("sequenceA001");
 const SEQUENCE_B_ID = EmbeddedNodeIdSchema.parse("sequenceB001");
-const BOUNDARY_ID = EmbeddedNodeIdSchema.parse("boundary0001");
 const VISIBILITY_RECIPES: readonly VisibilityTransitionV1[] = [
   timedTransition("fade"),
   timedTransition("scale"),
@@ -144,48 +143,15 @@ describe("sceneAt", () => {
     },
   );
 
-  it("retains completed and active Move intent for direct absolute projection", () => {
-    const program = moveProgram();
+  it("keeps a target withheld when a later emphasis becomes active and settles", () => {
+    const program = hiddenEmphasizeProgram();
 
-    expect(sceneAt(program, 499, "normal").targetStates.get(TARGET_ID)?.moveContributions).toEqual(
-      [],
-    );
-    expect(sceneAt(program, 750, "normal").targetStates.get(TARGET_ID)?.moveContributions).toEqual([
-      {
-        segmentId: "move00000001",
-        progress: 0.5,
-        visual: expect.objectContaining({ kind: "move", pathData: "M 0 0 L 40 20" }),
-      },
-    ]);
-    expect(
-      sceneAt(program, 1_000, "normal").targetStates.get(TARGET_ID)?.moveContributions,
-    ).toEqual([
-      {
-        segmentId: "move00000001",
-        progress: 1,
-        visual: expect.objectContaining({ kind: "move", pathData: "M 0 0 L 40 20" }),
-      },
-    ]);
-    expect(sceneAt(program, 750, "normal")).toEqual(sceneAt(program, 750, "normal"));
+    for (const timeMs of [1_250, 1_500]) {
+      const state = sceneAt(program, timeMs, "normal").targetStates.get(TARGET_ID);
+      expect(state).toMatchObject({ availability: "withheld", paint: { kind: "none" } });
+      expect(sceneAt(program, timeMs, "normal")).toEqual(sceneAt(program, timeMs, "normal"));
+    }
   });
-
-  it.each(["move", "emphasize"] as const)(
-    "keeps a target withheld when a later %s becomes active and settles",
-    (kind) => {
-      const program = hiddenEffectProgram(kind);
-
-      for (const timeMs of [1_250, 1_500]) {
-        const state = sceneAt(program, timeMs, "normal").targetStates.get(TARGET_ID);
-        expect(state).toMatchObject({ availability: "withheld", paint: { kind: "none" } });
-        expect(sceneAt(program, timeMs, "normal")).toEqual(sceneAt(program, timeMs, "normal"));
-      }
-      if (kind === "move") {
-        expect(
-          sceneAt(program, 1_500, "normal").targetStates.get(TARGET_ID)?.moveContributions,
-        ).toHaveLength(1);
-      }
-    },
-  );
 
   it("uses instant semantic results and a static outline substitute under reduced motion", () => {
     expect(
@@ -199,15 +165,6 @@ describe("sceneAt", () => {
       layoutParticipation: "none",
       paint: { kind: "none" },
     });
-    expect(
-      sceneAt(moveProgram(), 500, "reduced-motion").targetStates.get(TARGET_ID)?.moveContributions,
-    ).toEqual([
-      {
-        segmentId: "move00000001",
-        progress: 1,
-        visual: expect.objectContaining({ kind: "move" }),
-      },
-    ]);
     expect(
       sceneAt(emphasizeProgram("pulse"), 750, "reduced-motion").targetStates.get(TARGET_ID)?.paint,
     ).toMatchObject({
@@ -507,57 +464,19 @@ function emphasizeProgram(effect: "outline" | "pulse"): CompiledSurfacePresentat
   });
 }
 
-function moveProgram(): CompiledSurfacePresentationVisualProgram {
-  return revealProgram({
-    targetById: new Map([[TARGET_ID, { targetId: TARGET_ID, initialVisibility: "visible" }]]),
-    segments: [
-      {
-        id: EmbeddedDataIdSchema.parse("move00000001"),
-        targetId: TARGET_ID,
-        startMs: 500,
-        endMs: 1_000,
-        visual: {
-          kind: "move",
-          durationMs: 500,
-          easing: { kind: "preset", preset: "linear" },
-          boundaryId: BOUNDARY_ID,
-          pathData: "M 0 0 L 40 20",
-          orientToPath: false,
-        },
-      },
-    ],
-  });
-}
-
-function hiddenEffectProgram(kind: "move" | "emphasize"): CompiledSurfacePresentationVisualProgram {
-  const effect =
-    kind === "move"
-      ? {
-          id: EmbeddedDataIdSchema.parse("hiddenmove01"),
-          targetId: TARGET_ID,
-          startMs: 1_000,
-          endMs: 1_500,
-          visual: {
-            kind: "move" as const,
-            durationMs: 500,
-            easing: { kind: "preset" as const, preset: "linear" as const },
-            boundaryId: BOUNDARY_ID,
-            pathData: "M 0 0 L 40 20",
-            orientToPath: false,
-          },
-        }
-      : {
-          id: EmbeddedDataIdSchema.parse("hiddenemph01"),
-          targetId: TARGET_ID,
-          startMs: 1_000,
-          endMs: 1_500,
-          visual: {
-            kind: "emphasize" as const,
-            durationMs: 500,
-            easing: { kind: "preset" as const, preset: "linear" as const },
-            effect: "pulse" as const,
-          },
-        };
+function hiddenEmphasizeProgram(): CompiledSurfacePresentationVisualProgram {
+  const effect = {
+    id: EmbeddedDataIdSchema.parse("hiddenemph01"),
+    targetId: TARGET_ID,
+    startMs: 1_000,
+    endMs: 1_500,
+    visual: {
+      kind: "emphasize" as const,
+      durationMs: 500,
+      easing: { kind: "preset" as const, preset: "linear" as const },
+      effect: "pulse" as const,
+    },
+  };
   return revealProgram({
     targetById: new Map([[TARGET_ID, { targetId: TARGET_ID, initialVisibility: "visible" }]]),
     segments: [instant("hide00000001", "hide", 500), effect],

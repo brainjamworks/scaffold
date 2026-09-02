@@ -90,7 +90,6 @@ export function PresentationActionEditor({
       projection={projection}
       targetId={row.targetId}
       targetLabel={row.label}
-      motionBoundaryId={row.parentTargetId ?? projection.surfaceId}
       visualChoices={visualChoices}
       control={control}
       defaultChoice={defaultChoice}
@@ -107,7 +106,6 @@ function ActionForm({
   projection,
   targetId,
   targetLabel,
-  motionBoundaryId,
   visualChoices,
   control,
   defaultChoice,
@@ -120,7 +118,6 @@ function ActionForm({
   readonly projection: PresentationTimelineProjection;
   readonly targetId: PresentationTimelineProjection["surfaceId"];
   readonly targetLabel: string;
-  readonly motionBoundaryId: PresentationTimelineProjection["surfaceId"];
   readonly visualChoices: readonly PresentationVisualCapabilityId[];
   readonly control: ControlCapabilitySetDefinition | null;
   readonly defaultChoice: string;
@@ -159,15 +156,9 @@ function ActionForm({
     form.set("atMs", String(resolvePlacement(form, projection, selectedAction)));
     const intent = (event.nativeEvent as SubmitEvent).submitter?.getAttribute("data-intent");
     if (intent === "replace" && replaceTarget) {
-      const hide = createAction("animate:hide", targetId, motionBoundaryId, form, null);
+      const hide = createAction("animate:hide", targetId, form, null);
       form.set("atMs", String(hide.atMs + durationOfNewAction(hide)));
-      const reveal = createAction(
-        "animate:reveal",
-        replaceTarget.targetId,
-        motionBoundaryId,
-        form,
-        null,
-      );
+      const reveal = createAction("animate:reveal", replaceTarget.targetId, form, null);
       const result = createPresentationActions({
         editor,
         surfaceId: projection.surfaceId,
@@ -180,7 +171,7 @@ function ActionForm({
       }
       return;
     }
-    const action = createAction(choice, targetId, motionBoundaryId, form, selectedAction);
+    const action = createAction(choice, targetId, form, selectedAction);
     if (selectedAction) {
       const result = updatePresentationAction({
         editor,
@@ -368,7 +359,6 @@ function ActionForm({
 function createAction(
   choice: string,
   targetId: PresentationTimelineProjection["surfaceId"],
-  motionBoundaryId: PresentationTimelineProjection["surfaceId"],
   form: FormData,
   current: TimelineActionV1 | null,
 ): NewPresentationTimelineAction {
@@ -424,24 +414,6 @@ function createAction(
     };
   }
   const visualKind = choice.slice("animate:".length) as PresentationVisualCapabilityId;
-  if (visualKind === "move") {
-    const currentMove =
-      current?.kind === "animate" && current.visual.kind === "move" ? current.visual : null;
-    return {
-      kind: "animate",
-      targetId,
-      isEnabled: current?.isEnabled ?? true,
-      atMs,
-      visual: {
-        kind: "move",
-        durationMs: numberField(form, "durationMs"),
-        easing: readEasing(form),
-        boundaryId: currentMove?.boundaryId ?? motionBoundaryId,
-        pathData: currentMove?.pathData ?? "M 0 0 L 100 0",
-        orientToPath: currentMove?.orientToPath ?? false,
-      },
-    };
-  }
   if (visualKind === "emphasize") {
     return {
       kind: "animate",
@@ -535,7 +507,7 @@ function VisualFields({
           </select>
         </label>
       ) : null}
-      {visualKind === "move" || visualKind === "emphasize" || recipe !== "instant" ? (
+      {visualKind === "emphasize" || recipe !== "instant" ? (
         <>
           <label>
             Duration (ms)

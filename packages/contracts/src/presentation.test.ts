@@ -8,7 +8,6 @@ import {
 
 const SURFACE_ID = "surface00001";
 const TARGET_ID = "target000001";
-const BOUNDARY_ID = "boundary0001";
 
 function configuration(actions: readonly unknown[] = []): unknown {
   return {
@@ -31,12 +30,10 @@ describe("PresentationConfigurationV1", () => {
         visual: {
           kind: "reveal",
           transition: {
-            kind: "path-fade",
+            kind: "slide",
+            direction: "right",
             durationMs: 1_000,
             easing: { kind: "preset", preset: "ease-out" },
-            boundaryId: BOUNDARY_ID,
-            pathData: "M -20 0 C -10 0 -5 0 0 0",
-            orientToPath: false,
           },
         },
       },
@@ -53,21 +50,6 @@ describe("PresentationConfigurationV1", () => {
             durationMs: 500,
             easing: { kind: "cubic-bezier", x1: 0.2, y1: 0, x2: 0.8, y2: 1 },
           },
-        },
-      },
-      {
-        kind: "animate",
-        id: "action000003",
-        targetId: TARGET_ID,
-        isEnabled: false,
-        atMs: 3_000,
-        visual: {
-          kind: "move",
-          durationMs: 500,
-          easing: { kind: "preset", preset: "linear" },
-          boundaryId: BOUNDARY_ID,
-          pathData: "M 0 0 L 40 10",
-          orientToPath: true,
         },
       },
       {
@@ -132,7 +114,6 @@ describe("PresentationConfigurationV1", () => {
 
     expect(JSON.parse(JSON.stringify(parsed))).toEqual(parsed);
     expect(parsed.surfaces[0]?.actions.map((action) => action.kind)).toEqual([
-      "animate",
       "animate",
       "animate",
       "animate",
@@ -232,58 +213,6 @@ describe("PresentationConfigurationV1", () => {
                   easing: { kind: "preset", preset: "linear" },
                 },
               },
-            },
-          ]),
-        ).success,
-      ).toBe(false);
-    }
-  });
-
-  it("enforces action-specific SVG path endpoints", () => {
-    const invalidVisuals = [
-      {
-        kind: "reveal",
-        transition: {
-          kind: "path-fade",
-          durationMs: 100,
-          easing: { kind: "preset", preset: "linear" },
-          boundaryId: BOUNDARY_ID,
-          pathData: "M -10 0 L 5 0",
-          orientToPath: false,
-        },
-      },
-      {
-        kind: "hide",
-        transition: {
-          kind: "path-fade",
-          durationMs: 100,
-          easing: { kind: "preset", preset: "linear" },
-          boundaryId: BOUNDARY_ID,
-          pathData: "M 5 0 L 20 0",
-          orientToPath: false,
-        },
-      },
-      {
-        kind: "move",
-        durationMs: 100,
-        easing: { kind: "preset", preset: "linear" },
-        boundaryId: BOUNDARY_ID,
-        pathData: "M 5 0 L 20 0",
-        orientToPath: false,
-      },
-    ];
-
-    for (const [index, visual] of invalidVisuals.entries()) {
-      expect(
-        PresentationConfigurationV1Schema.safeParse(
-          configuration([
-            {
-              kind: "animate",
-              id: `action00000${index}`,
-              targetId: TARGET_ID,
-              isEnabled: true,
-              atMs: 0,
-              visual,
             },
           ]),
         ).success,

@@ -173,13 +173,11 @@ describe("Core structural semantic projection", () => {
     expect(snapshot.itemById.get(IDS.surface1)?.presentation.actionIds).toEqual([
       "reveal",
       "hide",
-      "move",
       "emphasize",
     ]);
     expect(snapshot.itemById.get(IDS.block1)?.presentation.actionIds).toEqual([
       "reveal",
       "hide",
-      "move",
       "emphasize",
     ]);
   });
@@ -226,7 +224,6 @@ describe("Core structural semantic projection", () => {
       expect(snapshot.itemById.get(targetId)?.presentation.actionIds).toEqual([
         "reveal",
         "hide",
-        "move",
         "emphasize",
       ]);
     }
@@ -278,7 +275,7 @@ describe("Core structural semantic projection", () => {
             ...definition,
             documentSemantics: {
               presentation: {
-                actionIds: ["move"],
+                actionIds: ["hide"],
                 reconstructableCommandTypes: ["activate"],
               },
             },

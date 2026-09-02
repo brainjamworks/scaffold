@@ -31,7 +31,6 @@ export * from "./numbered-list";
 export * from "./pdf-embed";
 export * from "./presentation-container-layout";
 export * from "./presentation";
-export * from "./presentation-svg-path";
 export * from "./pull-quote";
 export * from "./process-flow";
 export * from "./quiz";

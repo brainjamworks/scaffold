@@ -8,12 +8,6 @@ import type {
   PresentationMotionMode,
 } from "./compiled-presentation-program";
 
-export interface PresentationMoveContribution {
-  readonly segmentId: EmbeddedDataId;
-  readonly progress: number;
-  readonly visual: Extract<CompiledVisualIntent, { readonly kind: "move" }>;
-}
-
 export type PresentationTargetPaintState =
   | { readonly kind: "none" }
   | { readonly kind: "settled" }
@@ -28,7 +22,6 @@ export interface PresentationTargetSceneState {
   readonly targetId: EmbeddedNodeId;
   readonly availability: "available" | "withheld";
   readonly layoutParticipation: "normal" | "shared-position" | "transition-overlay" | "none";
-  readonly moveContributions: readonly PresentationMoveContribution[];
   readonly paint: PresentationTargetPaintState;
 }
 
@@ -72,7 +65,6 @@ export interface PresentationVisualScene {
 
 interface MutableTargetState {
   availability: PresentationTargetSceneState["availability"];
-  moveContributions: PresentationMoveContribution[];
   paint: PresentationTargetPaintState;
   outgoingTransition: boolean;
 }
@@ -93,7 +85,6 @@ export function sceneAt(
   for (const target of program.targetById.values()) {
     mutableByTargetId.set(target.targetId, {
       availability: target.initialVisibility === "visible" ? "available" : "withheld",
-      moveContributions: [],
       paint: target.initialVisibility === "visible" ? settledPaint() : nonePaint(),
       outgoingTransition: false,
     });
@@ -129,7 +120,6 @@ export function sceneAt(
         targetId: target.targetId,
         availability: state.availability,
         layoutParticipation,
-        moveContributions: Object.freeze(state.moveContributions),
         paint: state.paint,
       }),
     );
@@ -187,20 +177,6 @@ function applySegment(
       state.availability = "withheld";
       state.outgoingTransition = active && !reduced;
       state.paint = state.outgoingTransition ? transitionPaint() : nonePaint();
-      return;
-    case "move":
-      state.moveContributions.push(
-        Object.freeze({
-          segmentId: segment.id,
-          progress: reduced ? 1 : progress,
-          visual: segment.visual,
-        }),
-      );
-      if (state.availability === "withheld") {
-        state.paint = nonePaint();
-        return;
-      }
-      state.paint = active && !reduced ? transitionPaint() : settledPaint();
       return;
     case "emphasize":
       if (state.availability === "withheld") {

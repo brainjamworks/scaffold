@@ -45,14 +45,14 @@ describe("hidden Layout Section semantic publication", () => {
         {
           relativePos: 0,
           presentation: {
-            actionIds: ["reveal", "hide", "move", "emphasize"],
+            actionIds: ["reveal", "hide", "emphasize"],
           },
           activation: [{ ownerId, childId: firstId, ownerKind: "layout" }],
         },
         {
           relativePos: owner.child(0).nodeSize,
           presentation: {
-            actionIds: ["reveal", "hide", "move", "emphasize"],
+            actionIds: ["reveal", "hide", "emphasize"],
           },
           activation: [{ ownerId, childId: secondId, ownerKind: "layout" }],
         },
@@ -60,7 +60,6 @@ describe("hidden Layout Section semantic publication", () => {
       expect(definition.documentSemantics.presentation?.actionIds).toEqual([
         "reveal",
         "hide",
-        "move",
         "emphasize",
       ]);
       expect(Object.isFrozen(children)).toBe(true);

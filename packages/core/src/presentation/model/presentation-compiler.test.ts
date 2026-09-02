@@ -674,7 +674,7 @@ function semanticItem(
     summary: null,
     presentation: {
       actionIds:
-        id === TARGET_ID || id === SECOND_TARGET_ID ? ["reveal", "hide", "move", "emphasize"] : [],
+        id === TARGET_ID || id === SECOND_TARGET_ID ? ["reveal", "hide", "emphasize"] : [],
       ...(id === TARGET_ID ? { reconstructableCommandTypes: ["select-tab"] } : {}),
       disabledReason: null,
     },

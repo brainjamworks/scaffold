@@ -451,7 +451,6 @@ function applyPaint({
     cancelTargetHandle(activeByTargetId, state.targetId);
     restoreTransientPaint(element, baseline);
     element.style.opacity = "1";
-    applySettledMove(element, state, baseline);
     return;
   }
 
@@ -511,8 +510,6 @@ function resolveAnimationInput(
           { offset: 1, transform: Object.freeze({ scale: 1 }) },
         ),
       });
-    case "move":
-      return resolveMoveAnimationInput(state, element, baseline);
   }
 }
 
@@ -545,7 +542,7 @@ function resolveVisibilityAnimationInput(
 }
 
 function visibilityKeyframes(
-  kind: "fade" | "path-fade" | "slide" | "float" | "scale" | "wipe",
+  kind: "fade" | "slide" | "float" | "scale" | "wipe",
   direction: "up" | "right" | "down" | "left" | undefined,
 ): readonly [
   Omit<VisualAnimationInput["keyframes"][number], "offset">,
@@ -554,7 +551,6 @@ function visibilityKeyframes(
   const visible = Object.freeze({ opacity: 1 });
   switch (kind) {
     case "fade":
-    case "path-fade":
       return [Object.freeze({ opacity: 0 }), visible];
     case "scale":
       return [
@@ -605,43 +601,6 @@ function hiddenWipeInset(direction: "up" | "right" | "down" | "left"): string {
   }
 }
 
-function resolveMoveAnimationInput(
-  state: PresentationTargetSceneState & {
-    readonly paint: Extract<PresentationTargetSceneState["paint"], { kind: "transition" }>;
-  },
-  element: HTMLElement,
-  baseline: ElementBaseline,
-): VisualAnimationInput {
-  const paint = state.paint;
-  if (paint.visual.kind !== "move") throw new Error("Expected an active Move recipe.");
-  const activeIndex = state.moveContributions.findIndex(
-    ({ segmentId }) => segmentId === paint.segmentId,
-  );
-  if (activeIndex < 0) throw new Error("Active Move has no scene contribution.");
-  const start = accumulatedMoveOffset(state.moveContributions.slice(0, activeIndex));
-  const endpoint = pathEndpoint(paint.visual.pathData);
-  return Object.freeze({
-    segmentId: paint.segmentId,
-    element,
-    durationMs: paint.visual.durationMs,
-    easing: resolvePresentationEasing(paint.visual.easing),
-    ...(baseline.authoredTransform ? { baseTransform: baseline.authoredTransform } : {}),
-    keyframes: freezeKeyframes(
-      {
-        offset: 0,
-        transform: Object.freeze({ translateX: start.x, translateY: start.y }),
-      },
-      {
-        offset: 1,
-        transform: Object.freeze({
-          translateX: start.x + endpoint.x,
-          translateY: start.y + endpoint.y,
-        }),
-      },
-    ),
-  });
-}
-
 function freezeKeyframes(
   first: VisualKeyframe,
   second: VisualKeyframe,
@@ -652,43 +611,6 @@ function freezeKeyframes(
     Object.freeze(second),
     ...rest.map((keyframe) => Object.freeze(keyframe)),
   ]) as VisualAnimationInput["keyframes"];
-}
-
-function accumulatedMoveOffset(
-  contributions: readonly PresentationTargetSceneState["moveContributions"][number][],
-): { readonly x: number; readonly y: number } {
-  let x = 0;
-  let y = 0;
-  for (const contribution of contributions) {
-    const endpoint = pathEndpoint(contribution.visual.pathData);
-    x += endpoint.x * contribution.progress;
-    y += endpoint.y * contribution.progress;
-  }
-  return { x, y };
-}
-
-function pathEndpoint(pathData: string): { readonly x: number; readonly y: number } {
-  const values = pathData.match(/-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi)?.map(Number) ?? [];
-  if (values.length < 2 || values.some((value) => !Number.isFinite(value))) {
-    throw new Error("Presentation Move path has no finite endpoint.");
-  }
-  return { x: values.at(-2)!, y: values.at(-1)! };
-}
-
-function applySettledMove(
-  element: HTMLElement,
-  state: PresentationTargetSceneState,
-  baseline: ElementBaseline,
-): void {
-  if (state.moveContributions.length === 0) {
-    element.style.transform = baseline.transform;
-    return;
-  }
-  const offset = accumulatedMoveOffset(state.moveContributions);
-  element.style.transform = composeTransforms(
-    baseline.authoredTransform,
-    `translate(${offset.x}px, ${offset.y}px)`,
-  );
 }
 
 function restoreTransientPaint(element: HTMLElement, baseline: ElementBaseline): void {
@@ -739,10 +661,6 @@ function rememberBaseline(
 function resolveAuthoredTransform(element: HTMLElement): string {
   const transform = element.style.transform || getComputedStyle(element).transform;
   return transform && transform !== "none" ? transform : "";
-}
-
-function composeTransforms(...transforms: readonly string[]): string {
-  return transforms.filter(Boolean).join(" ");
 }
 
 function restoreElement(element: HTMLElement, baseline: ElementBaseline): void {

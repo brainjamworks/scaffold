@@ -39,7 +39,7 @@ const BLOCK_MEMBER_INTERACTION_BY_OWNER_TYPE = new Map<string, "activation" | "a
   ["timeline", "activation"],
 ]);
 const VISUAL_MEMBER_OWNER_TYPES = new Set(["annotated_figure", "gallery"]);
-const VISUAL_ACTION_IDS = ["reveal", "hide", "move", "emphasize"] as const;
+const VISUAL_ACTION_IDS = ["reveal", "hide", "emphasize"] as const;
 
 describe("semantic presentation address book", () => {
   it("publishes the complete twelve-family hierarchy with exact persisted addresses", () => {

@@ -128,7 +128,7 @@ describe("semantic snapshot builder", () => {
 
   it("deeply freezes items, locations, diagnostics, arrays and read-only indexes", () => {
     const builder = createSemanticSnapshotBuilder({ revision: 3, mode: "slideshow" });
-    const actionIds = ["reveal", "reveal", "move", "reveal"] as const;
+    const actionIds = ["reveal", "reveal", "hide", "reveal"] as const;
     const reconstructableCommandTypes = ["select", "select", "expand", "select"];
     const diagnostic = {
       code: "definition-callback-failed",
@@ -162,7 +162,7 @@ describe("semantic snapshot builder", () => {
     expect(Object.isFrozen(snapshot.roots[0])).toBe(true);
     expect(Object.isFrozen(snapshot.roots[0]?.presentation)).toBe(true);
     expect(Object.isFrozen(snapshot.roots[0]?.presentation.actionIds)).toBe(true);
-    expect(snapshot.roots[0]?.presentation.actionIds).toEqual(["reveal", "move"]);
+    expect(snapshot.roots[0]?.presentation.actionIds).toEqual(["reveal", "hide"]);
     expect(snapshot.roots[0]?.presentation.actionIds).not.toBe(actionIds);
     expect(snapshot.roots[0]?.presentation.reconstructableCommandTypes).toEqual([
       "select",

@@ -2,10 +2,6 @@ import { z } from "zod";
 
 import { EmbeddedDataIdSchema, EmbeddedNodeIdSchema } from "./embedded-id";
 import { ExternalMediaSourceSchema, ManagedMediaSourceSchema } from "./media";
-import {
-  PresentationSvgPathDataSchema,
-  parsePresentationSvgPathData,
-} from "./presentation-svg-path";
 
 const SafeTimeMsSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 const PositiveDurationMsSchema = SafeTimeMsSchema.min(1);
@@ -15,7 +11,6 @@ const ControlValueSchema = z.union([z.boolean(), z.string(), z.number().finite()
 export const PresentationVisualCapabilityIdSchema = z.enum([
   "reveal",
   "hide",
-  "move",
   "emphasize",
 ]);
 export type PresentationVisualCapabilityId = z.infer<typeof PresentationVisualCapabilityIdSchema>;
@@ -64,75 +59,20 @@ const ScaleVisibilityTransitionV1Schema = z
     easing: PresentationEasingV1Schema,
   })
   .strict();
-const PathFadeVisibilityTransitionV1Schema = z
-  .object({
-    kind: z.literal("path-fade"),
-    direction: z.never().optional(),
-    durationMs: PositiveDurationMsSchema,
-    easing: PresentationEasingV1Schema,
-    boundaryId: EmbeddedNodeIdSchema,
-    pathData: PresentationSvgPathDataSchema,
-    orientToPath: z.boolean(),
-  })
-  .strict();
 export const VisibilityTransitionV1Schema = z.discriminatedUnion("kind", [
   InstantVisibilityTransitionV1Schema,
   FadeVisibilityTransitionV1Schema,
   DirectionalVisibilityTransitionV1Schema,
   ScaleVisibilityTransitionV1Schema,
-  PathFadeVisibilityTransitionV1Schema,
 ]);
 export type VisibilityTransitionV1 = z.infer<typeof VisibilityTransitionV1Schema>;
 
 const RevealVisualIntentV1Schema = z
   .object({ kind: z.literal("reveal"), transition: VisibilityTransitionV1Schema })
-  .strict()
-  .superRefine((visual, context) => {
-    if (
-      visual.transition.kind === "path-fade" &&
-      !isOrigin(parsePresentationSvgPathData(visual.transition.pathData).end)
-    ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["transition", "pathData"],
-        message: "Reveal path data must end at 0,0.",
-      });
-    }
-  });
+  .strict();
 const HideVisualIntentV1Schema = z
   .object({ kind: z.literal("hide"), transition: VisibilityTransitionV1Schema })
-  .strict()
-  .superRefine((visual, context) => {
-    if (
-      visual.transition.kind === "path-fade" &&
-      !isOrigin(parsePresentationSvgPathData(visual.transition.pathData).start)
-    ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["transition", "pathData"],
-        message: "Hide path data must begin at 0,0.",
-      });
-    }
-  });
-const MoveVisualIntentV1Schema = z
-  .object({
-    kind: z.literal("move"),
-    durationMs: PositiveDurationMsSchema,
-    easing: PresentationEasingV1Schema,
-    boundaryId: EmbeddedNodeIdSchema,
-    pathData: PresentationSvgPathDataSchema,
-    orientToPath: z.boolean(),
-  })
-  .strict()
-  .superRefine((visual, context) => {
-    if (!isOrigin(parsePresentationSvgPathData(visual.pathData).start)) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["pathData"],
-        message: "Move path data must begin at 0,0.",
-      });
-    }
-  });
+  .strict();
 const EmphasizeVisualIntentV1Schema = z
   .object({
     kind: z.literal("emphasize"),
@@ -144,7 +84,6 @@ const EmphasizeVisualIntentV1Schema = z
 export const PresentationVisualIntentV1Schema = z.union([
   RevealVisualIntentV1Schema,
   HideVisualIntentV1Schema,
-  MoveVisualIntentV1Schema,
   EmphasizeVisualIntentV1Schema,
 ]);
 export type PresentationVisualIntentV1 = z.infer<typeof PresentationVisualIntentV1Schema>;
@@ -324,10 +263,6 @@ function durationOf(action: TimelineActionV1): number {
     return action.visual.transition.kind === "instant" ? 0 : action.visual.transition.durationMs;
   }
   return action.visual.durationMs;
-}
-
-function isOrigin(point: { readonly x: number; readonly y: number }): boolean {
-  return point.x === 0 && point.y === 0;
 }
 
 function addIssue(context: z.RefinementCtx, path: (string | number)[], message: string): void {

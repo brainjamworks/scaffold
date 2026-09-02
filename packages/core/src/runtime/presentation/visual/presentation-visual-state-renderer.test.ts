@@ -108,7 +108,7 @@ describe("PresentationVisualStateRenderer", () => {
     expect(element.style.opacity).toBe("1");
   });
 
-  it("preserves an authored transform through active effects and settled Move", () => {
+  it("preserves an authored transform through active effects and cleanup", () => {
     const element = document.createElement("div");
     element.style.transform = "translate(-50%, -50%)";
     document.body.append(element);
@@ -122,9 +122,6 @@ describe("PresentationVisualStateRenderer", () => {
     expect(driver.create).toHaveBeenCalledWith(
       expect.objectContaining({ baseTransform: "translate(-50%, -50%)" }),
     );
-
-    renderer.apply(scene(settledMoveState()));
-    expect(element.style.transform).toBe("translate(-50%, -50%) translate(40px, 20px)");
 
     renderer.dispose();
     expect(element.style.transform).toBe("translate(-50%, -50%)");
@@ -181,7 +178,6 @@ function transitionState(progress: number): PresentationTargetSceneState {
     targetId: TARGET_ID,
     availability: "available",
     layoutParticipation: "normal",
-    moveContributions: [],
     paint: {
       kind: "transition",
       segmentId: SEGMENT_ID,
@@ -203,7 +199,6 @@ function withheldState(): PresentationTargetSceneState {
     targetId: TARGET_ID,
     availability: "withheld",
     layoutParticipation: "none",
-    moveContributions: [],
     paint: { kind: "none" },
   };
 }
@@ -213,7 +208,6 @@ function pulseState(): PresentationTargetSceneState {
     targetId: TARGET_ID,
     availability: "available",
     layoutParticipation: "normal",
-    moveContributions: [],
     paint: {
       kind: "transition",
       segmentId: SEGMENT_ID,
@@ -228,24 +222,6 @@ function pulseState(): PresentationTargetSceneState {
   };
 }
 
-function settledMoveState(): PresentationTargetSceneState {
-  const visual = {
-    kind: "move" as const,
-    durationMs: 500,
-    easing: { kind: "preset" as const, preset: "linear" as const },
-    boundaryId: SURFACE_ID,
-    pathData: "M 0 0 L 40 20",
-    orientToPath: false,
-  };
-  return {
-    targetId: TARGET_ID,
-    availability: "available",
-    layoutParticipation: "normal",
-    moveContributions: [{ segmentId: SEGMENT_ID, progress: 1, visual }],
-    paint: { kind: "settled" },
-  };
-}
-
 function settledState(
   targetId: ReturnType<typeof EmbeddedNodeIdSchema.parse>,
 ): PresentationTargetSceneState {
@@ -253,7 +229,6 @@ function settledState(
     targetId,
     availability: "available",
     layoutParticipation: "normal",
-    moveContributions: [],
     paint: { kind: "settled" },
   };
 }

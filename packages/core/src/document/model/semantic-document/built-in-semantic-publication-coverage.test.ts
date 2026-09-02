@@ -117,7 +117,7 @@ const SURFACE_PUBLICATION = {
   "slide-sequencing-question": assessmentSurface("surface_sequencing_question"),
 } as const satisfies Readonly<Record<string, SurfacePublicationClassification>>;
 
-const VISUAL_ACTION_IDS = ["reveal", "hide", "move", "emphasize"] as const;
+const VISUAL_ACTION_IDS = ["reveal", "hide", "emphasize"] as const;
 
 describe("built-in semantic publication coverage", () => {
   it("classifies every exact mounted Block, Layout and Surface definition", () => {

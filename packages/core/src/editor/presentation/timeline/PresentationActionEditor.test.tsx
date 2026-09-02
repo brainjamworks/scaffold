@@ -111,6 +111,7 @@ describe("PresentationActionEditor", () => {
 
     expect(screen.getByRole("option", { name: "Reveal" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Hide" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Move" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add action" }));
 
     expect(actions(editor)).toMatchObject([
@@ -121,90 +122,6 @@ describe("PresentationActionEditor", () => {
         visual: { kind: "reveal", transition: { kind: "fade" } },
       },
     ]);
-    controller.destroy();
-  });
-
-  it("adds a declared Move with the bounded default without exposing raw path syntax", async () => {
-    const user = userEvent.setup();
-    const editor = createEditor();
-    const controller = createController(TARGET_ID);
-
-    render(
-      <PresentationActionEditor
-        editor={editor}
-        controller={controller}
-        projection={projection(["move"])}
-      />,
-    );
-    expect(screen.getByRole("option", { name: "Move" })).toBeInTheDocument();
-    expect(screen.queryByRole("textbox", { name: "Motion path" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Add action" }));
-
-    expect(actions(editor)[0]).toMatchObject({
-      kind: "animate",
-      targetId: TARGET_ID,
-      visual: {
-        kind: "move",
-        boundaryId: SURFACE_ID,
-        pathData: "M 0 0 L 100 0",
-        orientToPath: false,
-      },
-    });
-    controller.destroy();
-  });
-
-  it("preserves existing Move path data during ordinary Timeline edits", async () => {
-    const user = userEvent.setup();
-    const editor = createEditor();
-    const created = createPresentationAction({
-      editor,
-      surfaceId: SURFACE_ID,
-      action: {
-        kind: "animate",
-        targetId: TARGET_ID,
-        isEnabled: true,
-        atMs: 500,
-        visual: {
-          kind: "move",
-          durationMs: 500,
-          easing: { kind: "preset", preset: "ease-out" },
-          boundaryId: SURFACE_ID,
-          pathData: "M 0 0 C 20 0 40 80 100 100",
-          orientToPath: true,
-        },
-      },
-    });
-    if (created.isErr()) throw new Error("Expected seeded Move.");
-    const controller = createController(TARGET_ID);
-    await controller.selectAction(created.value, TARGET_ID);
-
-    render(
-      <PresentationActionEditor
-        editor={editor}
-        controller={controller}
-        projection={projection(["move"], TARGET_ID, actions(editor))}
-      />,
-    );
-    expect(screen.queryByRole("textbox", { name: "Motion path" })).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("checkbox", { name: "Follow path direction" }),
-    ).not.toBeInTheDocument();
-    await user.clear(screen.getByRole("spinbutton", { name: "Start (ms)" }));
-    await user.type(screen.getByRole("spinbutton", { name: "Start (ms)" }), "900");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Easing" }), "linear");
-    await user.click(screen.getByRole("button", { name: "Save action" }));
-
-    expect(actions(editor)[0]).toMatchObject({
-      id: created.value,
-      atMs: 900,
-      visual: {
-        kind: "move",
-        easing: { kind: "preset", preset: "linear" },
-        boundaryId: SURFACE_ID,
-        pathData: "M 0 0 C 20 0 40 80 100 100",
-        orientToPath: true,
-      },
-    });
     controller.destroy();
   });
 

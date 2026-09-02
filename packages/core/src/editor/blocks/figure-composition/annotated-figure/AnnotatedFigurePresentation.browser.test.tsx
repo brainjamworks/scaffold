@@ -162,18 +162,6 @@ describe("Annotated Figure presentation contract", () => {
     expect(firstPin.style.transform).toBe("");
     expect(firstPin.style.outline).toContain("3px");
 
-    motionMode = "normal";
-    seek(firstHarness.session, 1_750);
-    expectElementCenter(firstPin, {
-      x: authoredCenter.x + 15,
-      y: authoredCenter.y + 5,
-    });
-    seek(firstHarness.session, 1_900);
-    expectElementCenter(firstPin, {
-      x: authoredCenter.x + 30,
-      y: authoredCenter.y + 10,
-    });
-
     seek(firstHarness.session, 0);
     expect(firstPin).toHaveAttribute("data-presentation-availability", "withheld");
     expect(secondPin).toHaveAttribute("data-presentation-availability", "available");
@@ -472,20 +460,6 @@ function annotationVisualProgram(
           effect: "pulse" as const,
           durationMs: 500,
           easing: Object.freeze({ kind: "preset" as const, preset: "linear" as const }),
-        }),
-      }),
-      Object.freeze({
-        id: EmbeddedDataIdSchema.parse("move00000001"),
-        targetId: firstId,
-        startMs: 1_600,
-        endMs: 1_900,
-        visual: Object.freeze({
-          kind: "move" as const,
-          durationMs: 300,
-          easing: Object.freeze({ kind: "preset" as const, preset: "linear" as const }),
-          boundaryId: surfaceId,
-          pathData: "M 0 0 L 30 10",
-          orientToPath: false,
         }),
       }),
     ]),

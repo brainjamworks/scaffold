@@ -309,7 +309,6 @@ function flowScene(progress: number | null, segmentId = SEGMENT_ID): Presentatio
           targetId: TARGET_ID,
           availability: "withheld",
           layoutParticipation: progress === null ? "none" : "transition-overlay",
-          moveContributions: [],
           paint:
             progress === null
               ? { kind: "none" }

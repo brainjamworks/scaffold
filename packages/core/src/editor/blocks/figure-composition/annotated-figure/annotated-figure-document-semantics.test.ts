@@ -109,7 +109,7 @@ describe("Annotated Figure document semantics", () => {
         kind: "published-child",
         nodeType: ANNOTATED_FIGURE_ANNOTATION_NODE,
         presentation: {
-          actionIds: ["reveal", "hide", "move", "emphasize"],
+          actionIds: ["reveal", "hide", "emphasize"],
           disabledReason: null,
         },
       });
@@ -207,7 +207,6 @@ describe("Annotated Figure document semantics", () => {
       expect(edited.itemById.get(annotationId)?.presentation.actionIds).toEqual([
         "reveal",
         "hide",
-        "move",
         "emphasize",
       ]);
       expect(edited.locationById.get(annotationId)).not.toEqual(

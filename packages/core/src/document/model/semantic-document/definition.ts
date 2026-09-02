@@ -5,7 +5,6 @@ import type { EmbeddedNodeId, PresentationVisualCapabilityId } from "@scaffold/c
 export const PRESENTATION_VISUAL_ACTION_IDS = Object.freeze([
   "reveal",
   "hide",
-  "move",
   "emphasize",
 ] as const satisfies readonly PresentationVisualCapabilityId[]);
 
