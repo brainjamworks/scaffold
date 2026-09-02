@@ -12,12 +12,8 @@ import type {
   EventSource,
   StateReader,
 } from "./control-binding";
-import type {
-  ControlCommandInputDefinition,
-  ControlDefinition,
-  ControlStateValueTypeDefinition,
-  ControlValue,
-} from "./control-definition";
+import type { ControlDefinition } from "./control-definition";
+import { isControlCommandInputValid, isControlValueValid } from "./control-value-validation";
 
 export interface CreateControlBindingRegistryInput {
   readonly requireOwnerControlDefinition: ControlCapabilityCatalogue["requireOwnerControlDefinition"];
@@ -223,14 +219,11 @@ function createRegisteredStateReader(
       }
 
       const value = stateReader.read(request);
-      assertControlValue(
-        value,
-        state.valueType,
-        () =>
-          new Error(
-            `Control state "${request.key}" returned an invalid value for target "${request.targetId}".`,
-          ),
-      );
+      if (!isControlValueValid(value, state.valueType)) {
+        throw new Error(
+          `Control state "${request.key}" returned an invalid value for target "${request.targetId}".`,
+        );
+      }
       assertActive(registration);
       return value;
     },
@@ -264,14 +257,9 @@ function createRegisteredCommandExecutor(
           `Control command "${request.type}" requires input for target "${request.targetId}".`,
         );
       }
-      if (command.input) {
-        assertControlCommandInput(
-          request.input,
-          command.input,
-          () =>
-            new Error(
-              `Control command "${request.type}" received invalid input for target "${request.targetId}".`,
-            ),
+      if (!isControlCommandInputValid(request.input, command.input, hasInput)) {
+        throw new Error(
+          `Control command "${request.type}" received invalid input for target "${request.targetId}".`,
         );
       }
 
@@ -333,68 +321,6 @@ function assertFacet(
       `Control binding for owner "${binding.ownerId}" has undeclared ${facet} facet.`,
     );
   }
-}
-
-function assertControlCommandInput(
-  value: ControlValue | undefined,
-  type: ControlCommandInputDefinition,
-  createError: () => Error,
-): asserts value is ControlValue {
-  if (type.kind !== "runtime-bounded-number") {
-    assertControlValue(value, type, createError);
-    return;
-  }
-  if (
-    typeof value !== "number" ||
-    !Number.isFinite(value) ||
-    value < type.min ||
-    (type.step !== undefined && !isStepAligned(value, type.min, type.step))
-  ) {
-    throw createError();
-  }
-}
-
-function assertControlValue(
-  value: ControlValue | undefined,
-  type: ControlStateValueTypeDefinition,
-  createError: () => Error,
-): asserts value is ControlValue {
-  if (type.kind === "runtime-bounded-number") {
-    if (
-      typeof value !== "number" ||
-      !Number.isFinite(value) ||
-      value < type.min ||
-      (type.step !== undefined && !isStepAligned(value, type.min, type.step))
-    ) {
-      throw createError();
-    }
-    return;
-  }
-  if (type.kind === "boolean") {
-    if (typeof value !== "boolean") throw createError();
-    return;
-  }
-  if (type.kind === "enum") {
-    if (typeof value !== "string" || !type.options.some((option) => option.value === value)) {
-      throw createError();
-    }
-    return;
-  }
-  if (
-    typeof value !== "number" ||
-    !Number.isFinite(value) ||
-    value < type.min ||
-    value > type.max ||
-    (type.step !== undefined && !isStepAligned(value, type.min, type.step))
-  ) {
-    throw createError();
-  }
-}
-
-function isStepAligned(value: number, min: number, step: number): boolean {
-  const quotient = (value - min) / step;
-  const tolerance = Number.EPSILON * Math.max(1, Math.abs(quotient)) * 8;
-  return Math.abs(quotient - Math.round(quotient)) <= tolerance;
 }
 
 function assertActive(registration: MountedRegistration): void {

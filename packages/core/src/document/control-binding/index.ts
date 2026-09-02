@@ -43,6 +43,7 @@ export {
   createControlBindingRegistry,
   type CreateControlBindingRegistryInput,
 } from "./control-binding-registry";
+export { isControlCommandInputValid, isControlValueValid } from "./control-value-validation";
 export {
   createControlCapabilityCatalogueStorageExtension,
   getControlCapabilityCatalogueForEditor,
