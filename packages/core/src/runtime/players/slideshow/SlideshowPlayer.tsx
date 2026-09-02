@@ -50,7 +50,10 @@ import type { SlideshowPlayerSizing } from "../player-types";
 import { CourseSectionNavigation } from "./CourseSectionNavigation";
 import { getSlideshowNavigationState, getSlideshowSurfaceStates } from "./slideshow-navigation";
 import { createRequestSurfaceChange, type SurfaceExitPolicy } from "./slideshow-surface-change";
-import type { SlideshowSurfaceRuntimeProgramSource } from "./slideshow-surface-runtime-composition";
+import type {
+  SlideshowPresentationNarrationError,
+  SlideshowSurfaceRuntimeProgramSource,
+} from "./slideshow-surface-runtime-composition";
 import { createSurfaceExitEnvironment } from "./surface-exit-environment";
 import { getSurfaceExitGuidance } from "./surface-exit-guidance";
 import { SurfaceExitEnvironmentProvider } from "./SurfaceExitEnvironmentProvider";
@@ -223,7 +226,7 @@ export function SlideshowPlayer({
       },
       subscribe: (listener: () => void) => controls.subscribe(listener),
       play: () => {
-        controls.play();
+        void controls.play();
         return Result.ok();
       },
       pause: () => {
@@ -232,7 +235,17 @@ export function SlideshowPlayer({
       },
       async seek(timeMs: number) {
         const result = await seek(timeMs);
-        return result.map((report) => Object.freeze({ kind: report.kind, timeMs: report.timeMs }));
+        if (result.isErr()) {
+          if (result.error.reason === "seek-out-of-range") return Result.err(result.error);
+          return Result.err(
+            Object.freeze({
+              reason: "preview-not-ready" as const,
+              operation: "seek" as const,
+              status: "error" as const,
+            }),
+          );
+        }
+        return Result.ok(Object.freeze({ kind: result.value.kind, timeMs: result.value.timeMs }));
       },
     });
   }, [activeSurfaceId, surfaceRuntime.presentationControls, surfaceRuntime.seek]);
@@ -294,6 +307,14 @@ export function SlideshowPlayer({
   const nextSurfaceNavigationAriaDescribedBy = nextRequestsSurfaceChange
     ? surfaceNavigationAriaDescribedBy
     : undefined;
+  const presentationControls = surfaceRuntime.presentationControls;
+  const presentationSnapshot = presentationControls?.getSnapshot();
+  const narrationSnapshot = surfaceRuntime.narration;
+  const narrationMessage = narrationSnapshot?.error
+    ? getNarrationFailureMessage(narrationSnapshot.error.reason)
+    : narrationSnapshot?.status === "loading"
+      ? "Loading narration…"
+      : null;
   const surfaceStates = getSlideshowSurfaceStates(structure, navigation);
   const viewSettings = readSurfaceViewSettings(initialContent);
   const courseDocument = initialContent.content?.[0];
@@ -526,6 +547,71 @@ export function SlideshowPlayer({
                       </InteractionDragEnvironmentProvider>
                     </div>
                   </OverlayBoundary>
+                  {presentationControls && presentationSnapshot ? (
+                    <div
+                      className="sc-slideshow-player__presentation-transport"
+                      role="group"
+                      aria-label="Presentation playback"
+                    >
+                      <button
+                        type="button"
+                        className="sc-slideshow-player__presentation-button"
+                        onClick={() => {
+                          if (presentationSnapshot.phase === "playing") {
+                            presentationControls.pause();
+                            return;
+                          }
+                          void presentationControls.play();
+                        }}
+                      >
+                        {presentationSnapshot.phase === "playing"
+                          ? "Pause presentation"
+                          : "Play presentation"}
+                      </button>
+                      <input
+                        className="sc-slideshow-player__presentation-progress"
+                        type="range"
+                        min={0}
+                        max={presentationSnapshot.durationMs}
+                        step={1}
+                        value={presentationSnapshot.currentTimeMs}
+                        aria-label="Presentation progress"
+                        aria-valuetext={`${formatPresentationTime(presentationSnapshot.currentTimeMs)} of ${formatPresentationTime(presentationSnapshot.durationMs)}`}
+                        onChange={(event) => {
+                          if (!surfaceRuntime.seek) {
+                            throw new Error("Presentation progress requires a reposition owner.");
+                          }
+                          void surfaceRuntime.seek(Number(event.currentTarget.value));
+                        }}
+                      />
+                      {narrationMessage ? (
+                        <div
+                          className="sc-slideshow-player__narration-status"
+                          role={narrationSnapshot?.error ? "alert" : "status"}
+                        >
+                          <span>{narrationMessage}</span>
+                          {narrationSnapshot?.error ? (
+                            <span className="sc-slideshow-player__narration-actions">
+                              <button
+                                type="button"
+                                className="sc-slideshow-player__presentation-button"
+                                onClick={() => void presentationControls.play()}
+                              >
+                                Retry narration
+                              </button>
+                              <button
+                                type="button"
+                                className="sc-slideshow-player__presentation-button"
+                                onClick={() => presentationControls.continueWithoutNarration()}
+                              >
+                                Continue without narration
+                              </button>
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div
                     className="sc-slideshow-player__chrome"
                     data-fullscreen-available={fullscreenAvailable}
@@ -600,7 +686,7 @@ export function SlideshowPlayer({
                                   "Slideshow play mode requires a Presentation Session.",
                                 );
                               }
-                              session.play();
+                              void session.play();
                               return;
                             }
                             case "advance": {
@@ -610,8 +696,7 @@ export function SlideshowPlayer({
                                   "Slideshow advance mode requires a Presentation Session.",
                                 );
                               }
-                              const result = session.advance();
-                              if (result.isErr()) return;
+                              void session.advance();
                               return;
                             }
                             case "navigate":
@@ -681,4 +766,25 @@ function resolveActiveSurfaceRoot(
     throw new Error(`Slideshow rendered duplicate active Surface roots for "${activeSurfaceId}".`);
   }
   return matches[0] ?? null;
+}
+
+function getNarrationFailureMessage(reason: SlideshowPresentationNarrationError["reason"]): string {
+  switch (reason) {
+    case "playback-not-allowed":
+      return "Narration needs permission to play. Retry after interacting with the page, or continue without narration.";
+    case "narration-unavailable":
+      return "Narration is unavailable. Retry it, or continue without narration.";
+    case "seek-out-of-range":
+    case "seek-unsupported":
+      return "Narration could not move to that time. Retry it, or continue without narration.";
+    case "cancelled":
+      return "Narration was interrupted. Retry it, or continue without narration.";
+  }
+}
+
+function formatPresentationTime(timeMs: number): string {
+  const totalSeconds = Math.floor(timeMs / 1_000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }

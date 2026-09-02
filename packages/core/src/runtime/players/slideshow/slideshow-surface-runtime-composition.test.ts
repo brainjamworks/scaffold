@@ -421,6 +421,125 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     composition.dispose();
   });
 
+  it("waits for confirmed narration play before advancing the Presentation Session", async () => {
+    const media = createTestNarrationAudio();
+    const narrationTimeline = Object.freeze({
+      ...emptyPresentationTimeline(SURFACE_ID, 10_000),
+      narration: Object.freeze({
+        source: Object.freeze({
+          mode: "external" as const,
+          src: "https://media.example.test/narration.mp3",
+        }),
+      }),
+    });
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: { presentation: { timeline: narrationTimeline, autoAdvance: false } },
+      controlBindings: { get: vi.fn() },
+      semanticTargets: { activate: vi.fn() },
+      featureViewBaseline: emptyFeatureViewBaseline(),
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+      createNarrationAudioElement: () => media.audio,
+    });
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+    await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.confirmMetadata(10);
+
+    const playing = controls.play();
+    expect(controls.getSnapshot().phase).toBe("awaiting-start");
+    media.confirmPlay();
+
+    expect((await playing).isOk()).toBe(true);
+    expect(controls.getSnapshot().phase).toBe("playing");
+    expect(controls.getNarrationSnapshot()).toMatchObject({
+      status: "playing",
+      usingInternalClock: false,
+      error: null,
+    });
+    composition.dispose();
+  });
+
+  it("freezes for narrated seek and resumes only after media seek and play confirmation", async () => {
+    const media = createTestNarrationAudio();
+    const composition = createNarratedComposition(media.audio);
+    const controls = composition.presentationControls;
+    if (!controls || !composition.seek) throw new Error("Expected Presentation controls.");
+    await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.confirmMetadata(10);
+    const firstPlay = controls.play();
+    await vi.waitFor(() => expect(media.play).toHaveBeenCalledOnce());
+    media.confirmPlay();
+    await firstPlay;
+    expect(controls.getSnapshot().phase).toBe("playing");
+
+    const seeking = composition.seek(4_000);
+    expect(controls.getSnapshot().phase).toBe("paused");
+    await vi.waitFor(() =>
+      expect(controls.getNarrationSnapshot()).toMatchObject({ status: "seeking" }),
+    );
+    expect(media.pause).toHaveBeenCalled();
+    expect(media.native.paused).toBe(true);
+    await vi.waitFor(() => expect(media.native.currentTime).toBe(4));
+    media.confirmSeek(4);
+    expect(media.native.paused).toBe(true);
+    await vi.waitFor(() => expect(media.play).toHaveBeenCalledTimes(2));
+    expect(controls.getSnapshot()).toMatchObject({ phase: "paused", currentTimeMs: 4_000 });
+    media.confirmPlay();
+
+    expect(await seeking).toMatchObject({ value: { kind: "applied", timeMs: 4_000 } });
+    expect(controls.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 4_000 });
+    composition.dispose();
+  });
+
+  it("preserves blocked-play facts and explicitly continues without narration", async () => {
+    const media = createTestNarrationAudio();
+    const blocked = new DOMException("gesture required", "NotAllowedError");
+    media.play.mockRejectedValueOnce(blocked);
+    const composition = createNarratedComposition(media.audio);
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+    await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.confirmMetadata(10);
+
+    const result = await controls.play();
+
+    if (result.isOk()) throw new Error("Expected narration play to be blocked.");
+    expect(result.error).toEqual({
+      reason: "playback-not-allowed",
+      surfaceId: SURFACE_ID,
+      cause: blocked,
+    });
+    expect(controls.getSnapshot()).toMatchObject({ phase: "awaiting-start", currentTimeMs: 0 });
+    expect(controls.getNarrationSnapshot()).toMatchObject({
+      status: "paused",
+      error: result.error,
+      usingInternalClock: false,
+    });
+
+    controls.continueWithoutNarration();
+
+    expect(controls.getNarrationSnapshot()).toMatchObject({
+      usingInternalClock: true,
+      error: null,
+    });
+    expect(controls.getSnapshot().phase).toBe("playing");
+    composition.dispose();
+  });
+
+  it("disposes narration media before the active Surface runtime", async () => {
+    const order: string[] = [];
+    const media = createTestNarrationAudio(() => order.push("narration"));
+    const composition = createNarratedComposition(media.audio, () => order.push("learner"));
+    await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.confirmMetadata(10);
+
+    composition.dispose();
+
+    expect(order).toEqual(["narration", "learner"]);
+    expect(media.audio.getAttribute("src")).toBeNull();
+  });
+
   it.each([
     {
       name: "learner program",
@@ -560,7 +679,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     expect(session.getSnapshot().phase).toBe("awaiting-start");
     expect(events.subscriptionsStarted).toBe(1);
     expect(execute).not.toHaveBeenCalled();
-    session.play();
+    void session.play();
     await flushPromises();
     expect(session.getSnapshot()).toMatchObject({
       phase: "held",
@@ -634,7 +753,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     composition.learnerRuntime.subscribeReports(report);
     const session = composition.presentationControls;
     if (!session) throw new Error("Expected a Presentation Session.");
-    session.play();
+    void session.play();
     await flushPromises();
 
     await events.emit({ targetId: TARGET_ID, type: "selected" });
@@ -827,7 +946,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
       if (!session) throw new Error("Expected a Presentation Session.");
       expect(events.subscriptionsStarted).toBe(0);
 
-      session.play();
+      void session.play();
       await flushPromises();
       expect(events.subscriptionsStarted).toBe(1);
       expect(session.getSnapshot()).toMatchObject({
@@ -899,7 +1018,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     const session = composition.presentationControls;
     if (!session) throw new Error("Expected a Presentation Session.");
     session.subscribeCueReports(cueReport);
-    session.play();
+    void session.play();
     await flushPromises();
     expect(execute).toHaveBeenCalledOnce();
 
@@ -996,6 +1115,35 @@ function createLearnerOnlyComposition(
     semanticTargets: { activate: vi.fn() },
     featureViewBaseline: emptyFeatureViewBaseline(),
     requestSurfaceChange,
+  });
+}
+
+function createNarratedComposition(audio: HTMLAudioElement, onLearnerDispose?: () => void) {
+  const events = createTestEventSource(onLearnerDispose);
+  return createSlideshowSurfaceRuntimeComposition({
+    surfaceId: SURFACE_ID,
+    program: {
+      presentation: {
+        timeline: Object.freeze({
+          ...emptyPresentationTimeline(SURFACE_ID, 10_000),
+          narration: Object.freeze({
+            source: Object.freeze({
+              mode: "external" as const,
+              src: "https://media.example.test/narration.mp3",
+            }),
+          }),
+        }),
+        autoAdvance: false,
+      },
+      ...(onLearnerDispose ? { learnerInteractions: learnerProgram(SURFACE_ID) } : {}),
+    },
+    controlBindings: {
+      get: () => ({ ownerId: OWNER_ID, eventSource: events.eventSource }),
+    },
+    semanticTargets: { activate: vi.fn() },
+    featureViewBaseline: emptyFeatureViewBaseline(),
+    requestSurfaceChange: vi.fn(() => Result.ok()),
+    createNarrationAudioElement: () => audio,
   });
 }
 
@@ -1113,4 +1261,67 @@ function deferred<Value>() {
     reject = rejectPromise;
   });
   return { promise, resolve, reject };
+}
+
+function createTestNarrationAudio(onDispose?: () => void) {
+  const audio = document.createElement("audio");
+  const native = {
+    currentTime: 0,
+    duration: Number.NaN,
+    ended: false,
+    error: null as MediaError | null,
+    paused: true,
+  };
+  Object.defineProperties(audio, {
+    currentTime: {
+      configurable: true,
+      get: () => native.currentTime,
+      set: (value: number) => {
+        native.currentTime = value;
+      },
+    },
+    duration: { configurable: true, get: () => native.duration },
+    ended: { configurable: true, get: () => native.ended },
+    error: { configurable: true, get: () => native.error },
+    paused: { configurable: true, get: () => native.paused },
+  });
+  Object.defineProperty(audio, "load", { configurable: true, value: vi.fn() });
+  let confirmPendingPlay: (() => void) | null = null;
+  const play = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        confirmPendingPlay = resolve;
+      }),
+  );
+  Object.defineProperty(audio, "play", { configurable: true, value: play });
+  const pause = vi.fn(() => {
+    native.paused = true;
+  });
+  Object.defineProperty(audio, "pause", { configurable: true, value: pause });
+  const removeAttribute = audio.removeAttribute.bind(audio);
+  vi.spyOn(audio, "removeAttribute").mockImplementation((name) => {
+    if (name === "src") onDispose?.();
+    removeAttribute(name);
+  });
+
+  return {
+    audio,
+    native,
+    pause,
+    play,
+    confirmMetadata(durationSeconds: number) {
+      native.duration = durationSeconds;
+      audio.dispatchEvent(new Event("loadedmetadata"));
+    },
+    confirmPlay() {
+      native.paused = false;
+      audio.dispatchEvent(new Event("play"));
+      confirmPendingPlay?.();
+      confirmPendingPlay = null;
+    },
+    confirmSeek(seconds: number) {
+      native.currentTime = seconds;
+      audio.dispatchEvent(new Event("seeked"));
+    },
+  };
 }

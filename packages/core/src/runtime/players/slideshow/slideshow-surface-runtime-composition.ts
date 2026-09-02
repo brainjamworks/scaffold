@@ -3,6 +3,7 @@ import { Result, type Result as ResultType } from "better-result";
 import type { ControlBindingRegistry } from "@/document/control-binding/control-binding";
 import type { SurfaceId } from "@/document/model/course-structure";
 import type { SemanticTargetInteractionCoordinator } from "@/document/semantic-target-interaction/semantic-target-interaction-coordinator";
+import type { MediaPort } from "@/host/ports/media";
 import type {
   CompiledSurfacePresentationTimeline,
   PresentationMotionMode,
@@ -14,9 +15,19 @@ import {
 } from "@/runtime/learner-interaction/surface-learner-interaction-runtime";
 import { projectInternalClockSurfaceTimeline } from "@/runtime/presentation/compiled-presentation-program";
 import { createPresentationCueExecutor } from "@/runtime/presentation/presentation-cue-executor";
+import { createPresentationNarrationClockSource } from "@/runtime/presentation/presentation-monotonic-clock";
+import {
+  createPresentationSurfaceNarrationController,
+  type PresentationSurfaceNarrationController,
+  type PresentationSurfaceNarrationLoadError,
+  type PresentationSurfaceNarrationPlayError,
+  type PresentationSurfaceNarrationSeekError,
+  type PresentationSurfaceNarrationSnapshot,
+} from "@/runtime/presentation/narration";
 import {
   createPresentationPlaybackSession,
-  type PresentationPlaybackSession,
+  type PresentationAdvanceError,
+  type PresentationPlaybackSessionWithReplaceableClock,
   type PresentationSeekError,
 } from "@/runtime/presentation/presentation-playback-session";
 import {
@@ -60,25 +71,49 @@ export interface CreateSlideshowSurfaceRuntimeCompositionInput {
   readonly surfaceRoot?: HTMLElement;
   readonly getPresentationMotionMode?: () => PresentationMotionMode;
   readonly contentLayoutPort?: PresentationContentLayoutPort;
+  readonly mediaPort?: Pick<MediaPort, "resolve"> | null;
+  readonly createNarrationAudioElement?: () => HTMLAudioElement;
+}
+
+export type SlideshowPresentationNarrationError =
+  | PresentationSurfaceNarrationLoadError
+  | PresentationSurfaceNarrationPlayError
+  | PresentationSurfaceNarrationSeekError;
+
+export interface SlideshowPresentationNarrationSnapshot extends Omit<
+  PresentationSurfaceNarrationSnapshot,
+  "error"
+> {
+  readonly error: SlideshowPresentationNarrationError | null;
+  readonly usingInternalClock: boolean;
 }
 
 export type SlideshowPresentationSeekResult = ResultType<
   PresentationRepositionReport,
-  PresentationSeekError
+  PresentationSeekError | SlideshowPresentationNarrationError
 >;
 
-export type SlideshowPresentationControls = Pick<
-  PresentationPlaybackSession,
-  | "getSnapshot"
-  | "subscribe"
-  | "subscribeCueReports"
-  | "play"
-  | "pause"
-  | "advance"
-  | "stop"
-> & {
+export interface SlideshowPresentationControls {
+  getSnapshot: PresentationPlaybackSessionWithReplaceableClock["getSnapshot"];
+  getNarrationSnapshot(): SlideshowPresentationNarrationSnapshot | null;
+  subscribe: PresentationPlaybackSessionWithReplaceableClock["subscribe"];
+  subscribeCueReports: PresentationPlaybackSessionWithReplaceableClock["subscribeCueReports"];
+  play(): Promise<
+    ResultType<void, PresentationSurfaceNarrationLoadError | PresentationSurfaceNarrationPlayError>
+  >;
+  pause(): void;
+  advance(): Promise<
+    ResultType<
+      void,
+      | PresentationAdvanceError
+      | PresentationSurfaceNarrationLoadError
+      | PresentationSurfaceNarrationPlayError
+    >
+  >;
+  continueWithoutNarration(): void;
   restart(): Promise<SlideshowPresentationSeekResult>;
-};
+  stop(): void;
+}
 
 export interface SlideshowSurfaceRuntimeComposition {
   readonly surfaceId: SurfaceId;
@@ -100,6 +135,8 @@ export function createSlideshowSurfaceRuntimeComposition({
   surfaceRoot,
   getPresentationMotionMode,
   contentLayoutPort,
+  mediaPort = null,
+  createNarrationAudioElement,
 }: CreateSlideshowSurfaceRuntimeCompositionInput): SlideshowSurfaceRuntimeComposition {
   assertSlideshowSurfaceRuntimeProgramIdentity(surfaceId, program);
   const learnerRuntime = createSurfaceLearnerInteractionRuntime({
@@ -122,11 +159,13 @@ export function createSlideshowSurfaceRuntimeComposition({
     },
     semanticInteractionOrigin: "learner-interaction-rule",
   });
-  let presentationSession: PresentationPlaybackSession | undefined;
+  let presentationSession: PresentationPlaybackSessionWithReplaceableClock | undefined;
+  let narrationController: PresentationSurfaceNarrationController | undefined;
   let presentationControls: SlideshowPresentationControls | undefined;
   let presentationSurfaceExitGuard: SurfaceExitGuard | undefined;
   let presentationRepositioner: PresentationSurfaceRepositioner | undefined;
   let presentationVisualRuntime: PresentationVisualRuntime | undefined;
+  let narrationLoad: Promise<ResultType<void, PresentationSurfaceNarrationLoadError>> | undefined;
   try {
     if (program.presentation) {
       const timeline = projectInternalClockSurfaceTimeline(program.presentation.timeline);
@@ -139,8 +178,19 @@ export function createSlideshowSurfaceRuntimeComposition({
         timeline,
         cueExecutor,
         gatePort: learnerRuntime,
-        autoAdvance: program.presentation.autoAdvance,
+        autoAdvance:
+          program.presentation.autoAdvance && program.presentation.timeline.narration === undefined,
       });
+      if (program.presentation.timeline.narration) {
+        narrationController = createPresentationSurfaceNarrationController({
+          surfaceId,
+          mediaPort,
+          ...(createNarrationAudioElement
+            ? { createAudioElement: createNarrationAudioElement }
+            : {}),
+        });
+        narrationLoad = narrationController.load(program.presentation.timeline.narration);
+      }
       presentationSurfaceExitGuard = createPresentationWaitSurfaceExitGuard({
         surfaceId,
         session: presentationSession,
@@ -167,6 +217,11 @@ export function createSlideshowSurfaceRuntimeComposition({
   } catch (error) {
     let firstDefect: unknown = error;
     try {
+      narrationController?.dispose();
+    } catch (disposeError) {
+      firstDefect ??= disposeError;
+    }
+    try {
       presentationRepositioner?.dispose();
     } catch (disposeError) {
       firstDefect ??= disposeError;
@@ -186,13 +241,110 @@ export function createSlideshowSurfaceRuntimeComposition({
   let disposed = false;
   let presentationOperationGeneration = 0;
   let seekPresentation: SlideshowSurfaceRuntimeComposition["seek"];
+  let disposePresentationCoordination = () => undefined;
 
   if (presentationSession && presentationRepositioner) {
     const session = presentationSession;
     const repositioner = presentationRepositioner;
+    const narration = narrationController;
+    const listeners = new Set<() => void>();
+    let narrationError: SlideshowPresentationNarrationError | null = null;
+    let usingInternalClock = false;
+    let narrationSnapshot: SlideshowPresentationNarrationSnapshot | null = narration
+      ? freezeNarrationSnapshot(narration.getSnapshot(), narrationError, usingInternalClock)
+      : null;
+    let autoAdvancePending = false;
 
-    seekPresentation = async (timeMs): Promise<SlideshowPresentationSeekResult> => {
-      assertCompositionNotDisposed(disposed, "seek");
+    const publish = () => {
+      for (const listener of [...listeners]) listener();
+    };
+    const refreshNarrationSnapshot = () => {
+      const sourceSnapshot = narration?.getSnapshot();
+      const narrationSource = program.presentation?.timeline.narration?.source;
+      if (
+        sourceSnapshot?.status === "failed" &&
+        sourceSnapshot.error?.reason === "narration-unavailable" &&
+        narrationSource &&
+        !usingInternalClock &&
+        narrationError === null
+      ) {
+        narrationError = Object.freeze({
+          reason: "narration-unavailable",
+          surfaceId,
+          source: narrationSource,
+          mediaErrorCode: sourceSnapshot.error.mediaErrorCode,
+          cause: null,
+        });
+      }
+      narrationSnapshot = narration
+        ? freezeNarrationSnapshot(sourceSnapshot!, narrationError, usingInternalClock)
+        : null;
+      publish();
+    };
+    const getNarrationSnapshot = () => narrationSnapshot;
+    const rememberNarrationError = (error: SlideshowPresentationNarrationError | null) => {
+      narrationError = error;
+      refreshNarrationSnapshot();
+    };
+    const pauseNarration = () => {
+      if (!narration) return;
+      const status = narration.getSnapshot().status;
+      if (status === "playing" || status === "buffering" || status === "seeking") {
+        narration.pause();
+      }
+    };
+    const ensureNarrationLoaded = async () => {
+      if (!narration || !narrationLoad) return Result.ok();
+      const result = await narrationLoad;
+      if (result.isErr() && !disposed) rememberNarrationError(result.error);
+      return result;
+    };
+    const playPresentation = async (): ReturnType<SlideshowPresentationControls["play"]> => {
+      assertCompositionNotDisposed(disposed, "play");
+      if (!narration || usingInternalClock) {
+        session.play();
+        return Result.ok();
+      }
+      const generation = ++presentationOperationGeneration;
+      const loaded = await ensureNarrationLoaded();
+      if (loaded.isErr()) return loaded;
+      const played = await narration.play();
+      if (disposed || generation !== presentationOperationGeneration) return played;
+      if (played.isErr()) {
+        rememberNarrationError(played.error);
+        return played;
+      }
+      narrationError = null;
+      session.useNarrationClock(createPresentationNarrationClockSource(narration));
+      session.play();
+      refreshNarrationSnapshot();
+      return Result.ok();
+    };
+    const advancePresentation = async (): ReturnType<SlideshowPresentationControls["advance"]> => {
+      assertCompositionNotDisposed(disposed, "advance");
+      if (!narration || usingInternalClock) return session.advance();
+      const generation = ++presentationOperationGeneration;
+      const loaded = await ensureNarrationLoaded();
+      if (loaded.isErr()) return loaded;
+      const played = await narration.play();
+      if (disposed || generation !== presentationOperationGeneration) return played;
+      if (played.isErr()) {
+        rememberNarrationError(played.error);
+        return played;
+      }
+      narrationError = null;
+      session.useNarrationClock(createPresentationNarrationClockSource(narration));
+      const result = session.advance();
+      if (result.isErr()) pauseNarration();
+      refreshNarrationSnapshot();
+      return result;
+    };
+
+    const repositionPresentation = async (
+      timeMs: number,
+      restart: boolean,
+    ): Promise<SlideshowPresentationSeekResult> => {
+      assertCompositionNotDisposed(disposed, restart ? "restart" : "seek");
       assertPresentationSeekTime(timeMs);
       const snapshot = session.getSnapshot();
       if (timeMs < 0 || timeMs > snapshot.durationMs) {
@@ -205,40 +357,139 @@ export function createSlideshowSurfaceRuntimeComposition({
         );
       }
 
+      const resumeAfterSeek = !restart && snapshot.phase === "playing";
       const generation = ++presentationOperationGeneration;
-      session.pause();
+      if (snapshot.phase !== "stopped") session.pause();
+      pauseNarration();
+
+      if (narration && !usingInternalClock) {
+        const loaded = await ensureNarrationLoaded();
+        if (disposed || generation !== presentationOperationGeneration) {
+          return Result.ok(supersededReport(timeMs));
+        }
+        if (loaded.isErr()) return loaded;
+        if (narration.getSnapshot().currentTimeMs !== timeMs) {
+          const mediaSeek = await narration.seek(timeMs);
+          if (disposed || generation !== presentationOperationGeneration) {
+            return Result.ok(supersededReport(timeMs));
+          }
+          if (mediaSeek.isErr()) {
+            rememberNarrationError(mediaSeek.error);
+            return mediaSeek;
+          }
+        }
+      }
+
       const report = await repositioner.reposition(timeMs);
       if (disposed || generation !== presentationOperationGeneration) {
         return Result.ok(asSupersededReport(report));
       }
       if (report.kind === "applied") {
+        if (restart) session.restart();
         const sessionResult = session.seek(timeMs);
         if (sessionResult.isErr()) {
-          throw new Error("Validated Slideshow seek was refused by its Presentation Session.");
+          throw new Error(
+            "Validated Slideshow reposition was refused by its Presentation Session.",
+          );
         }
+      }
+
+      if (resumeAfterSeek && report.kind === "applied" && narration && !usingInternalClock) {
+        const played = await narration.play();
+        if (disposed || generation !== presentationOperationGeneration) {
+          pauseNarration();
+          return Result.ok(asSupersededReport(report));
+        }
+        if (played.isErr()) {
+          rememberNarrationError(played.error);
+          return played;
+        }
+        narrationError = null;
+        session.useNarrationClock(createPresentationNarrationClockSource(narration));
+        session.play();
+        refreshNarrationSnapshot();
+      } else if (resumeAfterSeek && report.kind === "applied") {
+        session.play();
       }
       return Result.ok(report);
     };
 
-    const restartPresentation = async (): Promise<SlideshowPresentationSeekResult> => {
-      assertCompositionNotDisposed(disposed, "restart");
-      const generation = ++presentationOperationGeneration;
-      if (session.getSnapshot().phase !== "stopped") session.pause();
-      const report = await repositioner.reposition(0);
-      if (disposed || generation !== presentationOperationGeneration) {
-        return Result.ok(asSupersededReport(report));
-      }
-      if (report.kind === "applied") {
-        session.restart();
-        const sessionResult = session.seek(0);
-        if (sessionResult.isErr()) {
-          throw new Error("Validated Slideshow restart was refused by its Presentation Session.");
+    seekPresentation = (timeMs) => repositionPresentation(timeMs, false);
+    presentationControls = Object.freeze({
+      getSnapshot: () => session.getSnapshot(),
+      getNarrationSnapshot,
+      subscribe(listener: () => void) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      subscribeCueReports: (
+        listener: Parameters<
+          PresentationPlaybackSessionWithReplaceableClock["subscribeCueReports"]
+        >[0],
+      ) => session.subscribeCueReports(listener),
+      play: playPresentation,
+      pause() {
+        assertCompositionNotDisposed(disposed, "pause");
+        presentationOperationGeneration += 1;
+        if (session.getSnapshot().phase !== "stopped") session.pause();
+        pauseNarration();
+      },
+      advance: advancePresentation,
+      continueWithoutNarration() {
+        assertCompositionNotDisposed(disposed, "continue without narration in");
+        presentationOperationGeneration += 1;
+        pauseNarration();
+        session.useInternalClock();
+        usingInternalClock = true;
+        narrationError = null;
+        const current = session.getSnapshot();
+        if (current.phase === "held") {
+          if (current.hold.kind === "manual" || current.hold.status === "ready") {
+            const advanced = session.advance();
+            if (advanced.isErr()) {
+              throw new Error("Ready Presentation hold refused narration fallback.");
+            }
+          }
+        } else if (current.phase === "awaiting-start" || current.phase === "paused") {
+          session.play();
         }
-      }
-      return Result.ok(report);
-    };
+        refreshNarrationSnapshot();
+      },
+      restart: () => repositionPresentation(0, true),
+      stop() {
+        assertCompositionNotDisposed(disposed, "stop");
+        presentationOperationGeneration += 1;
+        pauseNarration();
+        session.stop();
+      },
+    });
 
-    presentationControls = createSlideshowPresentationControls(session, restartPresentation);
+    const unsubscribeSession = session.subscribe(() => {
+      const next = session.getSnapshot();
+      if (next.phase !== "playing") pauseNarration();
+      publish();
+      if (
+        narration &&
+        !usingInternalClock &&
+        program.presentation?.autoAdvance &&
+        next.phase === "held" &&
+        next.hold.kind === "learner" &&
+        next.hold.status === "ready" &&
+        !autoAdvancePending
+      ) {
+        autoAdvancePending = true;
+        void advancePresentation().finally(() => {
+          autoAdvancePending = false;
+        });
+      }
+    });
+    const unsubscribeNarration =
+      narration?.subscribe(refreshNarrationSnapshot) ?? (() => undefined);
+    disposePresentationCoordination = () => {
+      unsubscribeNarration();
+      unsubscribeSession();
+      listeners.clear();
+    };
   }
 
   return Object.freeze({
@@ -254,9 +505,19 @@ export function createSlideshowSurfaceRuntimeComposition({
       presentationOperationGeneration += 1;
       let firstDefect: unknown;
       try {
-        presentationRepositioner?.dispose();
+        narrationController?.dispose();
       } catch (error) {
         firstDefect = error;
+      }
+      try {
+        disposePresentationCoordination();
+      } catch (error) {
+        firstDefect ??= error;
+      }
+      try {
+        presentationRepositioner?.dispose();
+      } catch (error) {
+        firstDefect ??= error;
       }
       try {
         presentationSession?.dispose();
@@ -278,37 +539,29 @@ export function createSlideshowSurfaceRuntimeComposition({
   });
 }
 
-function createSlideshowPresentationControls(
-  session: PresentationPlaybackSession,
-  restart: () => Promise<SlideshowPresentationSeekResult>,
-): SlideshowPresentationControls {
-  return Object.freeze({
-    getSnapshot: () => session.getSnapshot(),
-    subscribe: (listener: () => void) => session.subscribe(listener),
-    subscribeCueReports: (
-      listener: Parameters<PresentationPlaybackSession["subscribeCueReports"]>[0],
-    ) => session.subscribeCueReports(listener),
-    play: () => session.play(),
-    pause: () => session.pause(),
-    advance: () => session.advance(),
-    restart,
-    stop: () => session.stop(),
-  });
-}
-
 function assertCompositionNotDisposed(disposed: boolean, operation: string): void {
   if (disposed) throw new Error(`Cannot ${operation} a disposed Slideshow Surface runtime.`);
 }
 
-function asSupersededReport(
-  report: PresentationRepositionReport,
-): PresentationRepositionReport {
+function asSupersededReport(report: PresentationRepositionReport): PresentationRepositionReport {
   if (report.kind === "superseded") return report;
   return Object.freeze({
     kind: "superseded",
     timeMs: report.timeMs,
     cueReports: report.cueReports,
   });
+}
+
+function supersededReport(timeMs: number): PresentationRepositionReport {
+  return Object.freeze({ kind: "superseded", timeMs, cueReports: Object.freeze([]) });
+}
+
+function freezeNarrationSnapshot(
+  snapshot: PresentationSurfaceNarrationSnapshot,
+  error: SlideshowPresentationNarrationError | null,
+  usingInternalClock: boolean,
+): SlideshowPresentationNarrationSnapshot {
+  return Object.freeze({ ...snapshot, error, usingInternalClock });
 }
 
 function assertPresentationSeekTime(timeMs: number): void {

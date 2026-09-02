@@ -6,6 +6,7 @@ import { flushSync } from "react-dom";
 import { getControlBindingRegistryForEditor } from "@/document/control-binding";
 import type { SurfaceId } from "@/document/model/course-structure";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
+import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import type { PresentationGateObservationSnapshot } from "@/runtime/presentation/presentation-progression-gate";
 import type { PresentationPlaybackSnapshot } from "@/runtime/presentation/presentation-playback-session";
 import type { PresentationFeatureViewBaselinePort } from "@/runtime/presentation/presentation-surface-repositioner";
@@ -17,6 +18,7 @@ import {
   createSlideshowSurfaceRuntimeComposition,
   type SlideshowSurfaceRuntimeComposition,
   type SlideshowPresentationControls,
+  type SlideshowPresentationNarrationSnapshot,
   type SlideshowPresentationSeekResult,
   type SlideshowSurfaceRuntimeProgram,
   type SlideshowSurfaceRuntimeProgramSource,
@@ -32,6 +34,7 @@ export type SlideshowSurfaceRuntimeState =
       readonly nextMode: "navigate";
       readonly contentInteraction: "enabled";
       readonly presentationControls?: never;
+      readonly narration?: never;
       readonly seek?: never;
     }
   | {
@@ -39,6 +42,7 @@ export type SlideshowSurfaceRuntimeState =
       readonly nextMode: "disabled";
       readonly contentInteraction: SlideshowContentInteraction;
       readonly presentationControls?: never;
+      readonly narration?: never;
       readonly seek?: never;
     }
   | {
@@ -46,6 +50,7 @@ export type SlideshowSurfaceRuntimeState =
       readonly nextMode: SlideshowNextMode;
       readonly contentInteraction: SlideshowContentInteraction;
       readonly presentationControls?: SlideshowPresentationControls;
+      readonly narration?: SlideshowPresentationNarrationSnapshot;
       readonly seek?: (timeMs: number) => Promise<SlideshowPresentationSeekResult>;
     };
 
@@ -68,6 +73,7 @@ interface MountedSurfaceRuntime {
 }
 
 const NO_PRESENTATION_SNAPSHOT = null;
+const NO_NARRATION_SNAPSHOT = null;
 const NO_GATE_OBSERVATION = Object.freeze({ status: "inactive" as const });
 
 export function useSlideshowSurfaceRuntime({
@@ -79,6 +85,7 @@ export function useSlideshowSurfaceRuntime({
   requestSurfaceChange,
   surfaceExitEnvironment,
 }: UseSlideshowSurfaceRuntimeInput): SlideshowSurfaceRuntimeState {
+  const mediaPort = useMediaPort();
   const program = useMemo(() => {
     if (activeSurfaceId === null || programSource === undefined) return undefined;
     const resolvedProgram = programSource(activeSurfaceId);
@@ -123,6 +130,7 @@ export function useSlideshowSurfaceRuntime({
           semanticTargets,
           featureViewBaseline,
           requestSurfaceChange,
+          mediaPort,
           contentLayoutPort: getPresentationContentLayoutPortForEditor(editor),
           ...(activeSurfaceRoot === null ? {} : { surfaceRoot: activeSurfaceRoot }),
         });
@@ -132,9 +140,10 @@ export function useSlideshowSurfaceRuntime({
           if (!active || composition !== nextComposition) return;
           if (initialReposition) {
             if (initialReposition.isErr()) {
-              throw new Error("Time-zero Slideshow reconstruction was unexpectedly refused.");
-            }
-            if (initialReposition.value.kind === "superseded") {
+              if (initialReposition.error.reason === "seek-out-of-range") {
+                throw new Error("Time-zero Slideshow reconstruction was unexpectedly refused.");
+              }
+            } else if (initialReposition.value.kind === "superseded") {
               throw new Error("Active time-zero Slideshow reconstruction was superseded.");
             }
           }
@@ -201,6 +210,7 @@ export function useSlideshowSurfaceRuntime({
     activeSurfaceRoot,
     editor,
     featureViewBaseline,
+    mediaPort,
     program,
     requestSurfaceChange,
     surfaceExitEnvironment,
@@ -221,6 +231,15 @@ export function useSlideshowSurfaceRuntime({
     [presentationControls],
   );
   const presentationSnapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const getNarrationSnapshot = useCallback(
+    () => presentationControls?.getNarrationSnapshot() ?? NO_NARRATION_SNAPSHOT,
+    [presentationControls],
+  );
+  const narrationSnapshot = useSyncExternalStore(
+    subscribe,
+    getNarrationSnapshot,
+    getNarrationSnapshot,
+  );
   const learnerRuntime = currentRuntime?.composition.learnerRuntime;
   const subscribeGateObservation = useCallback(
     (listener: () => void) =>
@@ -264,6 +283,7 @@ export function useSlideshowSurfaceRuntime({
       program.presentation !== undefined,
     ),
     ...(presentationControls ? { presentationControls } : {}),
+    ...(narrationSnapshot ? { narration: narrationSnapshot } : {}),
     ...(seek ? { seek } : {}),
   };
 }

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import {
   act,
   cleanup,
+  fireEvent,
   render as renderTest,
   screen,
   waitFor,
@@ -1460,6 +1461,98 @@ describe("SlideshowPlayer", () => {
     expect(menu.closest('[data-slideshow-overlay-owner="content"]')).toBeNull();
   });
 
+  it("hosts narrated play, pause and absolute progress through the composed Surface runtime", async () => {
+    const user = userEvent.setup();
+    const media = createTestNarrationAudio();
+    vi.stubGlobal("Audio", function AudioStub() {
+      return media.audio;
+    });
+
+    render(
+      <TestSlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={slideshowDocumentContent([{ id: "slide_000001", text: "Narrated slide" }])}
+        surfaceRuntimeProgramSource={(surfaceId) => narratedSurfaceProgram(surfaceId)}
+      />,
+    );
+
+    await waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.confirmMetadata(10);
+    const play = await screen.findByRole("button", { name: "Play presentation" });
+    await user.click(play);
+    await waitFor(() => expect(media.play).toHaveBeenCalledOnce());
+    expect(screen.getByRole("button", { name: "Play presentation" })).toBeInTheDocument();
+    media.confirmPlay();
+
+    await screen.findByRole("button", { name: "Pause presentation" });
+    const progress = screen.getByRole("slider", { name: "Presentation progress" });
+    expect(progress).toHaveAttribute("max", "10000");
+    fireEvent.change(progress, { target: { value: "4000" } });
+    await waitFor(() => expect(media.native.currentTime).toBe(4));
+    media.confirmSeek(4);
+    await waitFor(() => expect(media.play).toHaveBeenCalledTimes(2));
+    media.confirmPlay();
+    expect(await screen.findByRole("button", { name: "Pause presentation" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Pause presentation" }));
+    expect(await screen.findByRole("button", { name: "Play presentation" })).toBeInTheDocument();
+  });
+
+  it("presents blocked narration as retry or explicit internal-clock continuation", async () => {
+    const user = userEvent.setup();
+    const media = createTestNarrationAudio();
+    media.play.mockRejectedValueOnce(new DOMException("gesture required", "NotAllowedError"));
+    vi.stubGlobal("Audio", function AudioStub() {
+      return media.audio;
+    });
+
+    render(
+      <TestSlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "Blocked narration slide" },
+        ])}
+        surfaceRuntimeProgramSource={(surfaceId) => narratedSurfaceProgram(surfaceId)}
+      />,
+    );
+
+    await waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.confirmMetadata(10);
+    await user.click(await screen.findByRole("button", { name: "Play presentation" }));
+
+    expect(await screen.findByText(/Narration needs permission to play/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry narration" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Continue without narration" }));
+
+    expect(screen.queryByText(/Narration needs permission to play/)).toBeNull();
+    expect(await screen.findByRole("button", { name: "Pause presentation" })).toBeInTheDocument();
+  });
+
+  it("keeps unavailable narration recoverable in the mounted Slideshow", async () => {
+    const user = userEvent.setup();
+    const media = createTestNarrationAudio();
+    vi.stubGlobal("Audio", function AudioStub() {
+      return media.audio;
+    });
+
+    render(
+      <TestSlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "Unavailable narration slide" },
+        ])}
+        surfaceRuntimeProgramSource={(surfaceId) => narratedSurfaceProgram(surfaceId)}
+      />,
+    );
+
+    await waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.fail(4);
+
+    expect(await screen.findByText(/Narration is unavailable/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Continue without narration" }));
+    await waitFor(() => expect(screen.queryByText(/Narration is unavailable/)).toBeNull());
+    expect(await screen.findByRole("button", { name: "Pause presentation" })).toBeInTheDocument();
+  });
+
   it("omits authoring and expanded slideshow product controls", async () => {
     const onRendererReady = vi.fn();
 
@@ -1490,6 +1583,96 @@ describe("SlideshowPlayer", () => {
     expect(document.body.querySelector('[data-authoring-chrome="menu"]')).toBeNull();
   });
 });
+
+function narratedSurfaceProgram(surfaceId: SurfaceId) {
+  return Object.freeze({
+    presentation: Object.freeze({
+      autoAdvance: false,
+      timeline: Object.freeze({
+        surfaceId,
+        durationMs: 10_000,
+        narration: Object.freeze({
+          source: Object.freeze({
+            mode: "external" as const,
+            src: "https://media.example.test/narration.mp3",
+          }),
+        }),
+        cues: Object.freeze([]),
+        waits: Object.freeze([]),
+        visualProgram: Object.freeze({
+          surfaceId,
+          durationMs: 10_000,
+          targetById: new Map(),
+          segments: Object.freeze([]),
+          sequenceContainers: Object.freeze([]),
+        }),
+      }),
+    }),
+  });
+}
+
+function createTestNarrationAudio() {
+  const audio = document.createElement("audio");
+  const native = {
+    currentTime: 0,
+    duration: Number.NaN,
+    ended: false,
+    error: null as MediaError | null,
+    paused: true,
+  };
+  Object.defineProperties(audio, {
+    currentTime: {
+      configurable: true,
+      get: () => native.currentTime,
+      set: (value: number) => {
+        native.currentTime = value;
+      },
+    },
+    duration: { configurable: true, get: () => native.duration },
+    ended: { configurable: true, get: () => native.ended },
+    error: { configurable: true, get: () => native.error },
+    paused: { configurable: true, get: () => native.paused },
+  });
+  Object.defineProperty(audio, "load", { configurable: true, value: vi.fn() });
+  let confirmPendingPlay: (() => void) | null = null;
+  const play = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        confirmPendingPlay = resolve;
+      }),
+  );
+  Object.defineProperty(audio, "play", { configurable: true, value: play });
+  Object.defineProperty(audio, "pause", {
+    configurable: true,
+    value: vi.fn(() => {
+      native.paused = true;
+    }),
+  });
+
+  return {
+    audio,
+    native,
+    play,
+    confirmMetadata(durationSeconds: number) {
+      native.duration = durationSeconds;
+      audio.dispatchEvent(new Event("loadedmetadata"));
+    },
+    confirmPlay() {
+      native.paused = false;
+      audio.dispatchEvent(new Event("play"));
+      confirmPendingPlay?.();
+      confirmPendingPlay = null;
+    },
+    confirmSeek(seconds: number) {
+      native.currentTime = seconds;
+      audio.dispatchEvent(new Event("seeked"));
+    },
+    fail(code: number) {
+      native.error = { code } as MediaError;
+      audio.dispatchEvent(new Event("error"));
+    },
+  };
+}
 
 function buttonByNameIn(root: ParentNode, name: string): HTMLButtonElement {
   const button = Array.from(root.querySelectorAll("button")).find(
