@@ -1,10 +1,13 @@
 import type { Editor as TiptapEditor } from "@tiptap/core";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { getRuntimeSemanticDocumentSourceForEditor } from "@/composition/runtime/create-runtime-composition";
 import type { ScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import { getControlCapabilityCatalogueForEditor } from "@/document/control-binding";
 import type { SurfaceId } from "@/document/model/course-structure";
 import type { ScaffoldLearnerPublication } from "@/host/contracts";
 import type { ScaffoldProductAccess } from "@/host/contracts/product-access";
+import { compileLearnerInteractions } from "@/learner-interaction/model";
 import type {
   CompiledPresentationPlaybackProgram,
   PresentationPreviewPlaybackPort,
@@ -28,12 +31,15 @@ import type { RuntimePlayerSelection, SlideshowPlayerSizing } from "../players/p
 import { PagePlayer } from "../players/page/PagePlayer";
 import { SlideshowPlayer } from "../players/slideshow/SlideshowPlayer";
 import type { SurfaceExitPolicy } from "../players/slideshow/slideshow-surface-change";
+import type { SlideshowSurfaceRuntimeProgramSource } from "../players/slideshow/slideshow-surface-runtime-composition";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import {
   LearningEventRuntimeProvider,
   useLearningEventReporter,
   type LearningEventReporter,
 } from "../learning-events/LearningEventRuntimeProvider";
+
+import { createSlideshowRuntimeProgramSource } from "./slideshow-runtime-program-source";
 
 export interface ContentRuntimeHostProps {
   artifactId?: string | null;
@@ -179,6 +185,14 @@ function HydratedRuntimePlayer({
 }: HydratedRuntimePlayerProps) {
   const learningEventReporter = useLearningEventReporter();
   const rendererReadyRef = useRef(false);
+  const [runtimeProgramOwner, setRuntimeProgramOwner] = useState<{
+    readonly preparedDocument: PreparedRuntimeDocument;
+    readonly source: SlideshowSurfaceRuntimeProgramSource;
+  } | null>(null);
+  const surfaceRuntimeProgramSource =
+    runtimeProgramOwner?.preparedDocument === preparedDocument
+      ? runtimeProgramOwner.source
+      : undefined;
   const surfaceIds = playerSelection.structure.surfaceIds;
   const activeSurfaceIdRef = useRef<SurfaceId | null>(surfaceIds[0] ?? null);
   const recordedSurfaceRef = useRef<{
@@ -229,9 +243,40 @@ function HydratedRuntimePlayer({
     (editor: TiptapEditor) => {
       rendererReadyRef.current = true;
       recordSurfaceExperienced(activeSurfaceIdRef.current);
+      if (playerSelection.player === "slideshow") {
+        const semanticSource = getRuntimeSemanticDocumentSourceForEditor(editor);
+        if (semanticSource.courseStructure.kind !== "slideshow") {
+          throw new Error("Slideshow runtime semantic source has Page Course Structure.");
+        }
+        const courseDocument = preparedDocument.content.content?.[0];
+        if (courseDocument?.type !== "courseDocument") {
+          throw new Error("Learner Interaction runtime requires a Course Document root.");
+        }
+        const configuration =
+          CourseDocumentAttrsSchema.parse(courseDocument.attrs).learnerInteractions ?? null;
+        const compilation = compileLearnerInteractions({
+          configuration,
+          courseStructure: semanticSource.courseStructure,
+          semanticSnapshot: semanticSource.semantics,
+          controlCapabilities: getControlCapabilityCatalogueForEditor(editor),
+        });
+        setRuntimeProgramOwner({
+          preparedDocument,
+          source: createSlideshowRuntimeProgramSource({
+            ...(presentationPreview ? { presentation: presentationPreview.program } : {}),
+            learnerInteractions: compilation.surfaceById,
+          }),
+        });
+      }
       onEditorReady?.(editor);
     },
-    [onEditorReady, recordSurfaceExperienced],
+    [
+      onEditorReady,
+      playerSelection.player,
+      preparedDocument,
+      presentationPreview,
+      recordSurfaceExperienced,
+    ],
   );
 
   useEffect(() => {
@@ -256,21 +301,11 @@ function HydratedRuntimePlayer({
         onRendererReady={handleRendererReady}
         structure={playerSelection.structure}
         surfaceExitPolicy={surfaceExitPolicy}
+        {...(surfaceRuntimeProgramSource ? { surfaceRuntimeProgramSource } : {})}
         {...(presentationPreview
           ? {
               initialSurfaceId: presentationPreview.activeSurfaceId,
               onPresentationPreviewPortChange: presentationPreview.onPortChange,
-              surfaceRuntimeProgramSource: (surfaceId: SurfaceId) => {
-                const timeline = presentationPreview.program.surfaceById.get(surfaceId);
-                return timeline
-                  ? {
-                      presentation: {
-                        timeline,
-                        autoAdvance: presentationPreview.program.autoAdvance,
-                      },
-                    }
-                  : undefined;
-              },
             }
           : {})}
         {...(slideshowSizing ? { sizing: slideshowSizing } : {})}

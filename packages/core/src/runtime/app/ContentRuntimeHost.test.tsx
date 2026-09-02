@@ -115,6 +115,9 @@ const SECOND_SLIDESHOW_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00003");
 const THIRD_SLIDESHOW_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00004");
 const COURSE_SECTION_ID = EmbeddedNodeIdSchema.parse("section00001");
 const SECOND_COURSE_SECTION_ID = EmbeddedNodeIdSchema.parse("section00002");
+const LEARNER_TABS_ID = EmbeddedNodeIdSchema.parse("layout000001");
+const LEARNER_OVERVIEW_ID = EmbeddedNodeIdSchema.parse("overview0001");
+const LEARNER_PRACTICE_ID = EmbeddedNodeIdSchema.parse("practice0001");
 
 const runtimeStoreFactories = vi.hoisted(() => ({
   assessment: vi.fn(),
@@ -402,6 +405,91 @@ function slideshowDocumentWithTabs(): JSONContent {
     },
   ];
 
+  return content;
+}
+
+function slideshowDocumentWithPortableLearnerRules(): JSONContent {
+  const content = createScaffoldDocumentContent({
+    mode: "slideshow",
+    initialCourseSectionTitle: "Interactions",
+    surfaceId: FIRST_SLIDESHOW_SURFACE_ID,
+  });
+  const courseDocument = content.content?.[0];
+  const definition = builtInSurfaceVariantRegistry.get("slide-content");
+  if (!courseDocument?.attrs || !courseDocument.content?.[0] || !definition) {
+    throw new Error("runtime learner rule fixture is incomplete");
+  }
+  const firstSurface = definition.createSurface({ surfaceId: FIRST_SLIDESHOW_SURFACE_ID });
+  const secondSurface = definition.createSurface({ surfaceId: SECOND_SLIDESHOW_SURFACE_ID });
+  const firstRegion = firstSurface.content?.find((node) => node.type === "region");
+  if (!firstRegion) throw new Error("runtime learner rule fixture has no content region");
+  firstRegion.content = [
+    {
+      type: "layout",
+      attrs: {
+        id: LEARNER_TABS_ID,
+        variant: "tabs",
+        options: { variant: "default", label: "Lesson sections" },
+      },
+      content: [
+        {
+          type: "section",
+          attrs: {
+            id: LEARNER_OVERVIEW_ID,
+            role: "tab-panel",
+            options: { label: "Overview" },
+          },
+          content: [{ type: "paragraph" }],
+        },
+        {
+          type: "section",
+          attrs: {
+            id: LEARNER_PRACTICE_ID,
+            role: "tab-panel",
+            options: { label: "Practice" },
+          },
+          content: [{ type: "paragraph" }],
+        },
+      ],
+    },
+  ];
+  courseDocument.content = [courseDocument.content[0], firstSurface, secondSurface];
+  courseDocument.attrs["learnerInteractions"] = {
+    schemaVersion: 1,
+    surfaces: [
+      {
+        surfaceId: FIRST_SLIDESHOW_SURFACE_ID,
+        rules: [
+          {
+            id: "rule00000001",
+            isEnabled: true,
+            when: { targetId: LEARNER_PRACTICE_ID, type: "selected" },
+            conditions: [],
+            commands: [
+              {
+                kind: "target-command",
+                command: { targetId: LEARNER_OVERVIEW_ID, type: "select" },
+              },
+            ],
+          },
+          {
+            id: "rule00000002",
+            isEnabled: true,
+            when: { targetId: LEARNER_OVERVIEW_ID, type: "selected" },
+            conditions: [],
+            commands: [{ kind: "navigate-surface", surfaceId: SECOND_SLIDESHOW_SURFACE_ID }],
+          },
+          {
+            id: "rule00000003",
+            isEnabled: false,
+            when: { targetId: LEARNER_PRACTICE_ID, type: "missing-event" },
+            conditions: [],
+            commands: [{ kind: "reveal-target", targetId: LEARNER_PRACTICE_ID }],
+          },
+        ],
+      },
+    ],
+  };
   return content;
 }
 
@@ -717,6 +805,28 @@ function PrivateSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
 }
 
 describe("ContentRuntimeHost", () => {
+  it("compiles portable learner rules after renderer readiness without a programmatic second turn", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ContentRuntimeHost
+        artifactId="artifact-portable-interactions"
+        composition={runtimeComposition}
+        initialContent={slideshowDocumentWithPortableLearnerRules()}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Practice" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      ),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("1 of 2");
+  });
+
   it("connects author Preview transport to the selected isolated Slideshow Surface", async () => {
     const user = userEvent.setup();
     const content = presentationPreviewDocument();

@@ -37,7 +37,10 @@ import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRunt
 import * as surfaceRuntimeNode from "@/editor/surfaces/runtime/nodes/surface-runtime-node";
 import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
 
-import { createCourseDocumentRuntimeExtensions } from "./create-runtime-composition";
+import {
+  createCourseDocumentRuntimeExtensions,
+  getRuntimeSemanticDocumentSourceForEditor,
+} from "./create-runtime-composition";
 import {
   createCoreScaffoldRuntimeComposition,
   type ScaffoldRuntimeComposition,
@@ -126,6 +129,45 @@ describe("createCourseDocumentRuntimeExtensions", () => {
 
   it("does not own a parallel Course Structure validator", () => {
     expect(coreRuntimeComposition).not.toHaveProperty("courseStructure");
+  });
+
+  it("exposes only the cached immutable runtime semantic source", () => {
+    const editor = new Editor({
+      editable: false,
+      extensions: createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition }),
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "courseDocument",
+            attrs: { mode: "page" },
+            content: [
+              {
+                type: "surface",
+                attrs: { id: "surface00001", variant: "page-default" },
+                content: [{ type: "paragraph", attrs: { id: "paragraph001" } }],
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    try {
+      const source = getRuntimeSemanticDocumentSourceForEditor(editor);
+
+      expect(source.courseStructure).toMatchObject({
+        kind: "page",
+        surfaceIds: ["surface00001"],
+      });
+      expect(source.semantics.itemById.has("surface00001" as EmbeddedNodeId)).toBe(true);
+      expect(Object.isFrozen(source)).toBe(true);
+      expect(getRuntimeSemanticDocumentSourceForEditor(editor)).toBe(source);
+      expect(source).not.toHaveProperty("controlBindings");
+      expect(source).not.toHaveProperty("environment");
+    } finally {
+      editor.destroy();
+    }
   });
 
   it("renders a persisted host Surface through its runtime component only", async () => {

@@ -130,7 +130,7 @@ export function createCourseDocumentRuntimeExtensions({
   ];
 }
 
-interface RuntimeSemanticDocumentSnapshotSource {
+export interface RuntimeSemanticDocumentSource {
   readonly semantics: SemanticDocumentSnapshot;
   readonly courseStructure: ProjectedCourseStructure;
 }
@@ -144,7 +144,7 @@ class RuntimeSemanticDocumentController {
   readonly #environmentOwner: SemanticTargetInteractionEnvironmentOwner;
   readonly #definitions: SemanticDefinitionLookup;
   #revision = 0;
-  #snapshot: RuntimeSemanticDocumentSnapshotSource | null = null;
+  #snapshot: RuntimeSemanticDocumentSource | null = null;
   #state: EditorState;
 
   constructor({
@@ -198,7 +198,7 @@ class RuntimeSemanticDocumentController {
     return this.#controlCapabilityCatalogue;
   };
 
-  readonly getSnapshotSource = (): RuntimeSemanticDocumentSnapshotSource => this.#getSnapshot();
+  readonly getSnapshotSource = (): RuntimeSemanticDocumentSource => this.#getSnapshot();
 
   applyTransaction(transaction: Transaction, state: EditorState): void {
     if (!transaction.docChanged) return;
@@ -212,7 +212,7 @@ class RuntimeSemanticDocumentController {
     this.#environmentOwner.dispose();
   }
 
-  #getSnapshot(): RuntimeSemanticDocumentSnapshotSource {
+  #getSnapshot(): RuntimeSemanticDocumentSource {
     this.#snapshot ??= projectRuntimeSemanticSnapshot(
       this.#state,
       this.#definitions,
@@ -272,6 +272,12 @@ function requireRuntimeSemanticDocumentController(
     throw new Error("Runtime Semantic Document extension is not installed for this editor");
   }
   return controller;
+}
+
+export function getRuntimeSemanticDocumentSourceForEditor(
+  editor: Editor,
+): RuntimeSemanticDocumentSource {
+  return requireRuntimeSemanticDocumentController(editor).getSnapshotSource();
 }
 
 export function createPresentationContentLayoutPortForEditor(
@@ -334,7 +340,7 @@ export function createPresentationContentLayoutPortForEditor(
 
 function validatePresentationContentLayoutRequest(
   request: PresentationContentLayoutRequest,
-  source: RuntimeSemanticDocumentSnapshotSource,
+  source: RuntimeSemanticDocumentSource,
 ): PresentationContentLayoutError | null {
   if (!source.courseStructure.surfaceIds.includes(request.surfaceId)) {
     return Object.freeze({
@@ -389,12 +395,12 @@ function projectRuntimeSemanticSnapshot(
   state: EditorState,
   definitions: SemanticDefinitionLookup,
   revision: number,
-): RuntimeSemanticDocumentSnapshotSource {
+): RuntimeSemanticDocumentSource {
   const courseStructure = projectCourseStructure(state.doc.toJSON());
   if (!courseStructure) {
     throw new Error("Cannot project runtime semantics from invalid Course Structure");
   }
-  return {
+  return Object.freeze({
     semantics: projectSemanticDocument({
       doc: state.doc,
       courseStructure,
@@ -402,5 +408,5 @@ function projectRuntimeSemanticSnapshot(
       revision,
     }),
     courseStructure,
-  };
+  });
 }
