@@ -1,6 +1,8 @@
 import {
   EmbeddedNodeIdSchema,
+  LearnerInteractionConfigurationV1Schema,
   PresentationConfigurationV1Schema,
+  type SurfaceLearnerInteractionRulesV1,
   type SurfacePresentationTimelineV1,
 } from "@scaffold/contracts";
 import { Fragment, type Node as ProseMirrorNode } from "@tiptap/pm/model";
@@ -87,6 +89,7 @@ export function applyCourseStructureCommandToTransaction({
     candidate,
   });
   reconcilePresentationSurfaceTimelines(tr);
+  reconcileLearnerInteractionSurfaceGroups(tr);
 
   restoreLogicalSelection(
     tr,
@@ -95,6 +98,41 @@ export function applyCourseStructureCommandToTransaction({
       : logicalSelection,
   );
   return true;
+}
+
+function reconcileLearnerInteractionSurfaceGroups(tr: Transaction): void {
+  const courseDocument = tr.doc.firstChild;
+  if (!courseDocument || courseDocument.type.name !== "courseDocument") {
+    throw new Error("The Course Document is missing after a Course Structure mutation.");
+  }
+  const value = courseDocument.attrs["learnerInteractions"];
+  if (value === null || value === undefined) return;
+
+  const configuration = LearnerInteractionConfigurationV1Schema.parse(value);
+  const groupBySurfaceId = new Map(
+    configuration.surfaces.map((group) => [group.surfaceId, group]),
+  );
+  const surfaces: SurfaceLearnerInteractionRulesV1[] = [];
+  for (let index = 0; index < courseDocument.childCount; index += 1) {
+    const child = courseDocument.child(index);
+    if (!isCourseSurfaceRoot(child)) continue;
+    const surfaceId = EmbeddedNodeIdSchema.parse(child.attrs["id"]);
+    const group = groupBySurfaceId.get(surfaceId);
+    if (group) surfaces.push(group);
+  }
+  if (
+    configuration.surfaces.length === surfaces.length &&
+    configuration.surfaces.every(({ surfaceId }, index) => surfaceId === surfaces[index]?.surfaceId)
+  ) {
+    return;
+  }
+
+  const learnerInteractions =
+    surfaces.length === 0
+      ? null
+      : LearnerInteractionConfigurationV1Schema.parse({ ...configuration, surfaces });
+  tr.setNodeMarkup(0, undefined, { ...courseDocument.attrs, learnerInteractions });
+  tr.doc.check();
 }
 
 function reconcilePresentationSurfaceTimelines(tr: Transaction): void {

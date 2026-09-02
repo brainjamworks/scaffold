@@ -3,6 +3,8 @@
 import {
   EmbeddedDataIdSchema,
   EmbeddedNodeIdSchema,
+  type LearnerInteractionConfigurationV1,
+  type LearnerInteractionRuleV1,
   type PresentationConfigurationV1,
   type SurfacePresentationTimelineV1,
 } from "@scaffold/contracts";
@@ -49,6 +51,8 @@ const SECTION_2 = EmbeddedNodeIdSchema.parse("section00002");
 const SECTION_3 = EmbeddedNodeIdSchema.parse("section00003");
 const BLOCK_1 = EmbeddedNodeIdSchema.parse("copyblock001");
 const ACTION_1 = EmbeddedDataIdSchema.parse("action000001");
+const RULE_1 = EmbeddedDataIdSchema.parse("rule00000001");
+const RULE_2 = EmbeddedDataIdSchema.parse("rule00000002");
 
 const editors: Editor[] = [];
 const EMPTY_BLOCK_CAPABILITIES: ResolvedBlockCapabilities = Object.freeze({
@@ -936,12 +940,208 @@ describe("Course Structure Presentation lifecycle", () => {
   });
 });
 
+describe("Course Structure Learner Interaction lifecycle", () => {
+  it("does not create rule groups when inserting or duplicating Surfaces", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "One"), surface(SURFACE_1)],
+      "slideshow",
+      ["copysurf0001"],
+      EMPTY_BLOCK_CAPABILITIES,
+      null,
+      learnerInteractions([{ surfaceId: SURFACE_1, rules: [rule(RULE_1, SURFACE_1)] }]),
+    );
+    const changedTransactions: Transaction[] = [];
+    editor.on("transaction", ({ transaction }) => {
+      if (transaction.docChanged) changedTransactions.push(transaction);
+    });
+
+    expect(
+      runCommand(editor, {
+        type: "surface.insert",
+        surface: editor.schema.nodeFromJSON(surface(SURFACE_2)),
+        destination: { afterSurfaceId: SURFACE_1 },
+      }),
+    ).toBe(true);
+    expect(runCommand(editor, { type: "surface.duplicate", surfaceId: SURFACE_1 })).toBe(true);
+
+    expect(changedTransactions).toHaveLength(2);
+    expect(readLearnerInteractions(editor)?.surfaces).toEqual([
+      { surfaceId: SURFACE_1, rules: [rule(RULE_1, SURFACE_1)] },
+    ]);
+  });
+
+  it("preserves rules and orders sparse groups by moved Surface order", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "One"), surface(SURFACE_1), surface(SURFACE_2)],
+      "slideshow",
+      [],
+      EMPTY_BLOCK_CAPABILITIES,
+      null,
+      learnerInteractions([
+        { surfaceId: SURFACE_1, rules: [rule(RULE_1, SURFACE_1)] },
+        { surfaceId: SURFACE_2, rules: [rule(RULE_2, SURFACE_2)] },
+      ]),
+    );
+
+    expect(
+      runCommand(editor, {
+        type: "surface.move",
+        surfaceId: SURFACE_2,
+        destination: { beforeSurfaceId: SURFACE_1 },
+      }),
+    ).toBe(true);
+
+    expect(readLearnerInteractions(editor)?.surfaces).toEqual([
+      { surfaceId: SURFACE_2, rules: [rule(RULE_2, SURFACE_2)] },
+      { surfaceId: SURFACE_1, rules: [rule(RULE_1, SURFACE_1)] },
+    ]);
+  });
+
+  it("removes an owning Surface group but preserves surviving external references", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "One"), surface(SURFACE_1), surface(SURFACE_2)],
+      "slideshow",
+      [],
+      EMPTY_BLOCK_CAPABILITIES,
+      null,
+      learnerInteractions([
+        { surfaceId: SURFACE_1, rules: [rule(RULE_1, SURFACE_1)] },
+        { surfaceId: SURFACE_2, rules: [rule(RULE_2, SURFACE_1)] },
+      ]),
+    );
+
+    expect(runCommand(editor, { type: "surface.delete", surfaceId: SURFACE_1 })).toBe(true);
+
+    expect(readLearnerInteractions(editor)?.surfaces).toEqual([
+      { surfaceId: SURFACE_2, rules: [rule(RULE_2, SURFACE_1)] },
+    ]);
+  });
+
+  it("sets the sparse root to null when its final owning Surface is deleted", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "One"), surface(SURFACE_1), surface(SURFACE_2)],
+      "slideshow",
+      [],
+      EMPTY_BLOCK_CAPABILITIES,
+      null,
+      learnerInteractions([{ surfaceId: SURFACE_1, rules: [rule(RULE_1, SURFACE_1)] }]),
+    );
+
+    expect(runCommand(editor, { type: "surface.delete", surfaceId: SURFACE_1 })).toBe(true);
+
+    expect(readLearnerInteractions(editor)).toBeNull();
+  });
+
+  it("does not copy groups when duplicating a Course Section", () => {
+    const editor = makeEditor(
+      [
+        section(SECTION_1, "One"),
+        surface(SURFACE_1),
+        surface(SURFACE_2),
+        section(SECTION_2, "Two"),
+        surface(SURFACE_3),
+      ],
+      "slideshow",
+      ["copysect0001", "copysurf0001", "copysurf0002"],
+      EMPTY_BLOCK_CAPABILITIES,
+      null,
+      learnerInteractions([
+        { surfaceId: SURFACE_1, rules: [rule(RULE_1, SURFACE_1)] },
+        { surfaceId: SURFACE_3, rules: [rule(RULE_2, SURFACE_3)] },
+      ]),
+    );
+
+    expect(
+      runCommand(editor, {
+        type: "course-section.duplicate",
+        courseSectionId: SECTION_1,
+      }),
+    ).toBe(true);
+
+    expect(readLearnerInteractions(editor)?.surfaces).toEqual([
+      { surfaceId: SURFACE_1, rules: [rule(RULE_1, SURFACE_1)] },
+      { surfaceId: SURFACE_3, rules: [rule(RULE_2, SURFACE_3)] },
+    ]);
+  });
+
+  it("removes every group owned by a deleted Course Section", () => {
+    const editor = makeEditor(
+      [
+        section(SECTION_1, "One"),
+        surface(SURFACE_1),
+        surface(SURFACE_2),
+        section(SECTION_2, "Two"),
+        surface(SURFACE_3),
+      ],
+      "slideshow",
+      [],
+      EMPTY_BLOCK_CAPABILITIES,
+      null,
+      learnerInteractions([
+        { surfaceId: SURFACE_1, rules: [rule(RULE_1, SURFACE_1)] },
+        { surfaceId: SURFACE_3, rules: [rule(RULE_2, SURFACE_3)] },
+      ]),
+    );
+
+    expect(
+      runCommand(editor, {
+        type: "course-section.delete",
+        courseSectionId: SECTION_1,
+        expectedSurfaceIds: [SURFACE_1, SURFACE_2],
+      }),
+    ).toBe(true);
+
+    expect(readLearnerInteractions(editor)?.surfaces).toEqual([
+      { surfaceId: SURFACE_3, rules: [rule(RULE_2, SURFACE_3)] },
+    ]);
+  });
+
+  it("leaves the root absent on ordinary documents", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "One"), surface(SURFACE_1)],
+      "slideshow",
+      [],
+    );
+
+    expect(
+      runCommand(editor, {
+        type: "surface.insert",
+        surface: editor.schema.nodeFromJSON(surface(SURFACE_2)),
+        destination: { afterSurfaceId: SURFACE_1 },
+      }),
+    ).toBe(true);
+
+    expect(readLearnerInteractions(editor)).toBeNull();
+  });
+
+  it("keeps malformed roots observable as thrown invariant defects", () => {
+    const editor = makeEditor(
+      [section(SECTION_1, "One"), surface(SURFACE_1)],
+      "slideshow",
+      [],
+      EMPTY_BLOCK_CAPABILITIES,
+      null,
+      { schemaVersion: 2 } as unknown as LearnerInteractionConfigurationV1,
+    );
+
+    expect(() =>
+      runCommand(editor, {
+        type: "surface.insert",
+        surface: editor.schema.nodeFromJSON(surface(SURFACE_2)),
+        destination: { afterSurfaceId: SURFACE_1 },
+      }),
+    ).toThrow();
+    expect(childIdentity(editor)).toEqual([SECTION_1, SURFACE_1]);
+  });
+});
+
 function makeEditor(
   children: JSONContent[],
   mode: "page" | "slideshow",
   ids: string[],
   mountedBlocks: ResolvedBlockCapabilities = EMPTY_BLOCK_CAPABILITIES,
   presentationConfiguration: PresentationConfigurationV1 | null = null,
+  learnerInteractionConfiguration: LearnerInteractionConfigurationV1 | null = null,
 ): Editor {
   const remainingIds = [...ids];
   const capabilities = resolveScaffoldCapabilities({
@@ -974,7 +1174,7 @@ function makeEditor(
         },
       }),
     ],
-    content: document(mode, children, presentationConfiguration),
+    content: document(mode, children, presentationConfiguration, learnerInteractionConfiguration),
   });
   editors.push(editor);
   return editor;
@@ -1021,6 +1221,7 @@ function document(
   mode: "page" | "slideshow",
   content: JSONContent[],
   presentationConfiguration: PresentationConfigurationV1 | null,
+  learnerInteractionConfiguration: LearnerInteractionConfigurationV1 | null,
 ): JSONContent {
   return {
     type: "doc",
@@ -1034,6 +1235,7 @@ function document(
           surfaceSize: mode === "slideshow" ? "16x9" : "fluid",
           overflowMode: "grow",
           theme: createDefaultPersistedCourseTheme(),
+          learnerInteractions: learnerInteractionConfiguration,
           presentation: presentationConfiguration,
         },
         content,
@@ -1068,6 +1270,30 @@ function timeline(
 function readPresentation(editor: Editor): PresentationConfigurationV1 | null {
   const value = editor.getJSON().content?.[0]?.attrs?.["presentation"];
   return (value ?? null) as PresentationConfigurationV1 | null;
+}
+
+function learnerInteractions(
+  surfaces: LearnerInteractionConfigurationV1["surfaces"],
+): LearnerInteractionConfigurationV1 {
+  return { schemaVersion: 1, surfaces };
+}
+
+function rule(
+  id: LearnerInteractionRuleV1["id"],
+  targetId: LearnerInteractionRuleV1["when"]["targetId"],
+): LearnerInteractionRuleV1 {
+  return {
+    id,
+    isEnabled: true,
+    when: { targetId, type: "activated" },
+    conditions: [],
+    commands: [{ kind: "reveal-target", targetId }],
+  };
+}
+
+function readLearnerInteractions(editor: Editor): LearnerInteractionConfigurationV1 | null {
+  const value = editor.getJSON().content?.[0]?.attrs?.["learnerInteractions"];
+  return (value ?? null) as LearnerInteractionConfigurationV1 | null;
 }
 
 function section(id: string, title: string): JSONContent {
