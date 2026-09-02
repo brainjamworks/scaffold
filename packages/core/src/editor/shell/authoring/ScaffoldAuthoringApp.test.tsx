@@ -453,6 +453,31 @@ function slideshowDocument(surfaceId: string): JSONContent {
   });
 }
 
+function slideshowDocumentWithLearnerRule(type: string, isEnabled = true): JSONContent {
+  const surfaceId = "publishsurf1";
+  const document = slideshowDocument(surfaceId);
+  const courseDocument = document.content?.[0];
+  if (!courseDocument?.attrs) throw new Error("expected Course Document attributes");
+  courseDocument.attrs["learnerInteractions"] = {
+    schemaVersion: 1,
+    surfaces: [
+      {
+        surfaceId,
+        rules: [
+          {
+            id: "publishrule1",
+            isEnabled,
+            when: { targetId: surfaceId, type },
+            conditions: [],
+            commands: [{ kind: "reveal-target", targetId: surfaceId }],
+          },
+        ],
+      },
+    ],
+  };
+  return document;
+}
+
 function presentationPreviewDocument(
   surfaceId: PresentationPreviewDocument["surfaceId"],
 ): PresentationPreviewDocument {
@@ -1877,6 +1902,84 @@ describe("ScaffoldAuthoringApp preview", () => {
       assessmentGroups: [],
     });
     expect(getCorePublishAction()).toHaveAttribute("data-publish-state", "published");
+  });
+
+  it("refuses Interaction diagnostics and publishes the portable document after repair", async () => {
+    const user = userEvent.setup();
+    const invalidContent = slideshowDocumentWithLearnerRule("missing-event", false);
+    mocks.authorJSON = invalidContent;
+    mocks.fakeEditor.state.doc.firstChild.attrs = invalidContent.content?.[0]?.attrs ?? {};
+    const surfaceId = EmbeddedNodeIdSchema.parse("publishsurf1");
+    const semanticController = new FakeWorkspaceSemanticController([surfaceId]);
+    vi.spyOn(semanticDocumentPluginKey, "getState").mockReturnValue(
+      semanticController as unknown as SemanticDocumentController,
+    );
+    const saveArtifact = vi.fn(async () => ({ artifactRevision: "revision-interactions" }));
+    const publish = vi.fn(async (payload: LearnerPublicationPayload) => ({
+      currentArtifactRevision: payload.sourceArtifactRevision,
+      publishedArtifactRevision: payload.sourceArtifactRevision,
+      publishedAt: "2026-08-11T12:00:00.000Z",
+    }));
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-interaction-publication",
+          title: "Interactions",
+          mode: "slideshow",
+          content: invalidContent,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact },
+          learnerPublication: {
+            getStatus: async () => ({
+              currentArtifactRevision: "revision-interactions",
+              publishedArtifactRevision: null,
+              publishedAt: null,
+            }),
+            publish,
+          },
+          media: null,
+        }}
+        hostHeaderActions={({ saveNow }) => ({
+          beforePublish: (
+            <button type="button" onClick={() => void saveNow()}>
+              Save interactions
+            </button>
+          ),
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save interactions" }));
+    await waitFor(() => expect(saveArtifact).toHaveBeenCalledTimes(1));
+    await user.click(getCorePublishAction());
+
+    expect(publish).not.toHaveBeenCalled();
+    expect(getCorePublishAction()).toHaveAttribute("data-publish-state", "invalid");
+
+    const repairedContent = slideshowDocumentWithLearnerRule("activated");
+    const onUpdate = mocks.contentAuthorHostProps.at(-1)?.["onUpdate"] as
+      | ((content: JSONContent, unavailableContent: readonly []) => void)
+      | undefined;
+    act(() => onUpdate?.(repairedContent, []));
+    await user.click(screen.getByRole("button", { name: "Save interactions" }));
+    await waitFor(() => expect(saveArtifact).toHaveBeenCalledTimes(2));
+    await user.click(getCorePublishAction());
+
+    await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+    const payload = publish.mock.calls[0]?.[0];
+    expect(Object.keys(payload ?? {}).sort()).toEqual([
+      "artifact",
+      "assessmentGroups",
+      "assessmentTargets",
+      "learnerContent",
+      "sourceArtifactRevision",
+    ]);
+    expect(payload?.learnerContent.content?.[0]?.attrs?.["learnerInteractions"]).toEqual(
+      repairedContent.content?.[0]?.attrs?.["learnerInteractions"],
+    );
   });
 
   it("saves an empty quiz canonically and publishes learner content without it", async () => {

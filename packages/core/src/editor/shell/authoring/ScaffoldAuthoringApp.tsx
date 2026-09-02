@@ -87,6 +87,9 @@ import {
   validateLearnerPublicationPayloadSize,
 } from "@/authoring/publication/artifact-save-bundle";
 import { projectLearnerPublication } from "@/authoring/publication/document-projection";
+import {
+  checkLearnerInteractionPublication,
+} from "@/authoring/publication/learner-interaction-publication";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/ScaffoldUnavailableAgentIntegration";
 import { Header } from "@/editor/shell/chrome/Header";
@@ -1079,6 +1082,28 @@ function ScaffoldAuthoringAppSessionContent({
     if (projection.warnings.length > 0) {
       setPublishActionState("projection-warning");
       return false;
+    }
+
+    const courseStructure = projectCourseStructure(currentContent);
+    if (!courseStructure) {
+      throw new Error("Learner Interaction publication requires a valid Course Structure.");
+    }
+    if (courseStructure.kind === "slideshow") {
+      const currentEditor = latestEditorRef.current;
+      if (!currentEditor || currentEditor.isDestroyed) {
+        throw new Error("Learner Interaction publication lost its authoring Editor.");
+      }
+      const semanticController = getSemanticDocumentControllerForEditor(currentEditor);
+      const interactionPublication = checkLearnerInteractionPublication({
+        document: ScaffoldDocumentContentSchema.parse(currentContent),
+        courseStructure,
+        semanticSnapshot: semanticController.getSnapshot().semantics,
+        controlCapabilities: semanticController.getControlCapabilityCatalogue(),
+      });
+      if (interactionPublication.status === "diagnostic") {
+        setPublishActionState("invalid");
+        return false;
+      }
     }
 
     try {
