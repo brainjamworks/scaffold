@@ -44,6 +44,7 @@ const mocks = vi.hoisted(() => {
         },
       },
     },
+    authorPreviewModuleReads: 0,
     learnerModuleReads: 0,
     learnerAppProps: [] as Array<Record<string, unknown>>,
     contentAuthorHostProps: [] as Array<Record<string, unknown>>,
@@ -207,6 +208,25 @@ vi.mock("@/runtime/app/ScaffoldLearnerApp", async () => {
   };
 });
 
+vi.mock("@/runtime/app/ScaffoldAuthorPreviewApp", async () => {
+  const React = await import("react");
+  const { createElement } = React;
+
+  const ScaffoldAuthorPreviewApp = (props: Record<string, unknown>) => {
+    mocks.learnerAppProps.push(props);
+    return createElement("section", {
+      "data-testid": "scaffold-learner-app",
+    });
+  };
+
+  return {
+    get ScaffoldAuthorPreviewApp() {
+      mocks.authorPreviewModuleReads += 1;
+      return ScaffoldAuthorPreviewApp;
+    },
+  };
+});
+
 const testApplication = createScaffoldApplication();
 const PRIVATE_ASSESSMENT_NODE_TYPE = "private_assessment_fixture";
 const coreMcqDefinition = builtInBlockRegistry.getByNodeType("mcq");
@@ -332,6 +352,7 @@ function createDefaultLearnerPublicationPort(): LearnerPublicationPort {
 
 beforeEach(() => {
   localStorage.clear();
+  mocks.authorPreviewModuleReads = 0;
   mocks.learnerModuleReads = 0;
   mocks.authorJSON = pageDocumentWithParagraph("authorsurf01", "Author");
   mocks.fakeEditor.getJSON.mockImplementation(() => mocks.authorJSON);
@@ -543,6 +564,33 @@ function getCorePublishAction(): HTMLButtonElement {
 }
 
 describe("ScaffoldAuthoringApp preview", () => {
+  it("loads the dedicated author Preview runtime instead of the public learner app", async () => {
+    const user = userEvent.setup();
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-author-preview-runtime",
+          title: "Author Preview",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+          media: null,
+        }}
+      />,
+    );
+
+    const previewButton = screen.getByRole("button", { name: "Switch to preview" });
+    await waitFor(() => expect(previewButton).not.toBeDisabled());
+    await user.click(previewButton);
+
+    await screen.findByTestId("scaffold-learner-app");
+    expect(mocks.authorPreviewModuleReads).toBe(1);
+    expect(mocks.learnerModuleReads).toBe(0);
+  });
+
   it("presents invalid Course Structure as a plain-language App error", () => {
     const content = pageDocumentWithParagraph("authorsurf01", "Invalid structure");
     const courseDocument = content.content?.[0];

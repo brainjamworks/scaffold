@@ -111,20 +111,21 @@ export type ScaffoldAuthoringPublishState =
 const SAVE_DEBOUNCE_MS = 500;
 const SAVE_OK_DISPLAY_MS = 2_000;
 
-function importScaffoldLearnerApp() {
-  return import("@/runtime/app/ScaffoldLearnerApp").then(({ ScaffoldLearnerApp }) => ({
-    default: ScaffoldLearnerApp,
+function importScaffoldAuthorPreviewApp() {
+  return import("@/runtime/app/ScaffoldAuthorPreviewApp").then(({ ScaffoldAuthorPreviewApp }) => ({
+    default: ScaffoldAuthorPreviewApp,
   }));
 }
 
-let scaffoldLearnerAppPromise: ReturnType<typeof importScaffoldLearnerApp> | null = null;
+let scaffoldAuthorPreviewAppPromise: ReturnType<typeof importScaffoldAuthorPreviewApp> | null =
+  null;
 
-function loadScaffoldLearnerApp() {
-  scaffoldLearnerAppPromise ??= importScaffoldLearnerApp();
-  return scaffoldLearnerAppPromise;
+function loadScaffoldAuthorPreviewApp() {
+  scaffoldAuthorPreviewAppPromise ??= importScaffoldAuthorPreviewApp();
+  return scaffoldAuthorPreviewAppPromise;
 }
 
-const LazyScaffoldLearnerApp = lazy(loadScaffoldLearnerApp);
+const LazyScaffoldAuthorPreviewApp = lazy(loadScaffoldAuthorPreviewApp);
 
 export interface ScaffoldLearnerPreviewContent {
   assessmentGroups: AssessmentGroupContract[];
@@ -741,7 +742,7 @@ function ScaffoldAuthoringAppSessionContent({
           return;
         }
         validateLearnerPublicationPayloadSize(publication);
-        await loadScaffoldLearnerApp();
+        await loadScaffoldAuthorPreviewApp();
         const nextContent = {
           assessmentGroups: publication.assessmentGroups,
           assessmentTargets: publication.assessmentTargets,
@@ -1137,7 +1138,7 @@ function ScaffoldAuthoringAppSessionContent({
               <ScaffoldAuthoringUnavailable {...authoringUnavailableState} />
             ) : activePreviewContent && previewServices ? (
               <Suspense fallback={<AppShellState kind="loading" title="Preparing preview" />}>
-                <LazyScaffoldLearnerApp
+                <LazyScaffoldAuthorPreviewApp
                   composition={application.runtime}
                   bootstrap={activePreviewContent.bootstrap}
                   hostColorMode={applicationColorMode}

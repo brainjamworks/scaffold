@@ -68,5 +68,11 @@ describe("@scaffold/core/runtime", () => {
     expectTypeOf<
       {} extends Pick<ContentRuntimeHostProps, "productAccess"> ? true : false
     >().toEqualTypeOf<false>();
+    expectTypeOf<
+      "surfaceExitPolicy" extends keyof ScaffoldLearnerAppProps ? true : false
+    >().toEqualTypeOf<false>();
+    expectTypeOf<
+      "surfaceExitPolicy" extends keyof ContentRuntimeHostProps ? true : false
+    >().toEqualTypeOf<false>();
   });
 });

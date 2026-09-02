@@ -23,6 +23,7 @@ import { selectRuntimePlayer } from "../players/player-selection";
 import type { RuntimePlayerSelection, SlideshowPlayerSizing } from "../players/player-types";
 import { PagePlayer } from "../players/page/PagePlayer";
 import { SlideshowPlayer } from "../players/slideshow/SlideshowPlayer";
+import type { SurfaceExitPolicy } from "../players/slideshow/slideshow-surface-change";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import {
   LearningEventRuntimeProvider,
@@ -44,6 +45,13 @@ export interface ContentRuntimeHostProps {
 }
 
 export function ContentRuntimeHost({
+  ...props
+}: ContentRuntimeHostProps) {
+  return <ContentRuntimeHostWithSurfaceExitPolicy {...props} surfaceExitPolicy="enforce" />;
+}
+
+/** @internal Author Preview supplies the only non-enforcing policy. */
+export function ContentRuntimeHostWithSurfaceExitPolicy({
   artifactId,
   composition,
   courseTitle,
@@ -54,7 +62,8 @@ export function ContentRuntimeHost({
   hostColorMode,
   slideshowSizing,
   onEditorReady,
-}: ContentRuntimeHostProps) {
+  surfaceExitPolicy,
+}: ContentRuntimeHostProps & { readonly surfaceExitPolicy: SurfaceExitPolicy }) {
   const colorMode = useLearnerColorMode(hostColorMode);
   const runtimeArtifactId = artifactId ?? null;
   const readiness = useMemo(
@@ -121,6 +130,7 @@ export function ContentRuntimeHost({
                     preparedDocument={readiness.preparedDocument}
                     playerSelection={playerSelection}
                     runtimeArtifactId={runtimeArtifactId}
+                    surfaceExitPolicy={surfaceExitPolicy}
                     {...(onEditorReady ? { onEditorReady } : {})}
                     {...(slideshowSizing ? { slideshowSizing } : {})}
                   />
@@ -140,6 +150,7 @@ interface HydratedRuntimePlayerProps {
   readonly playerSelection: RuntimePlayerSelection;
   readonly runtimeArtifactId: string | null;
   readonly slideshowSizing?: SlideshowPlayerSizing;
+  readonly surfaceExitPolicy: SurfaceExitPolicy;
 }
 
 function HydratedRuntimePlayer({
@@ -148,6 +159,7 @@ function HydratedRuntimePlayer({
   playerSelection,
   runtimeArtifactId,
   slideshowSizing,
+  surfaceExitPolicy,
 }: HydratedRuntimePlayerProps) {
   const learningEventReporter = useLearningEventReporter();
   const rendererReadyRef = useRef(false);
@@ -227,6 +239,7 @@ function HydratedRuntimePlayer({
         onActiveSurfaceChange={recordSurfaceExperienced}
         onRendererReady={handleRendererReady}
         structure={playerSelection.structure}
+        surfaceExitPolicy={surfaceExitPolicy}
         {...(slideshowSizing ? { sizing: slideshowSizing } : {})}
       />
     );

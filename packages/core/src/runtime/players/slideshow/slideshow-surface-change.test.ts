@@ -68,6 +68,33 @@ describe("requestSurfaceChange", () => {
     expect(evaluateSnapshot()).toBe(snapshot);
   });
 
+  it("observes every blocker but commits the requested Surface when enforcement is disabled", () => {
+    const snapshot = blockedSnapshot(SURFACE_ONE, [
+      quizBlocker("quiz-one", "in_progress"),
+      presentationBlocker("presentation-one", "learner-wait"),
+    ]);
+    const evaluateSnapshot = vi.fn(() => snapshot);
+    const commitSurfaceChange = vi.fn();
+    const requestSurfaceChange = createRequestSurfaceChange({
+      environment: { evaluateSnapshot },
+      getActiveSurfaceId: () => SURFACE_ONE,
+      isKnownSurfaceId: isKnownSurfaceId,
+      commitSurfaceChange,
+      surfaceExitPolicy: "observe-only",
+    });
+
+    const result = requestSurfaceChange(SURFACE_TWO);
+
+    expect(result.status).toBe("ok");
+    expect(evaluateSnapshot).toHaveBeenCalledOnce();
+    expect(commitSurfaceChange).toHaveBeenCalledOnce();
+    expect(commitSurfaceChange).toHaveBeenCalledWith(SURFACE_TWO);
+    expect(snapshot.blockers).toEqual([
+      quizBlocker("quiz-one", "in_progress"),
+      presentationBlocker("presentation-one", "learner-wait"),
+    ]);
+  });
+
   it("allows a satisfying learner-rule branch through a Presentation-only blocker", () => {
     const snapshot = blockedSnapshot(SURFACE_ONE, [
       presentationBlocker("presentation-one", "learner-wait"),
@@ -202,6 +229,22 @@ describe("requestSurfaceChange", () => {
     );
   });
 
+  it("still rejects an unknown Surface when enforcement is disabled", () => {
+    const evaluateSnapshot = vi.fn(() => allowedSnapshot(SURFACE_ONE));
+    const requestSurfaceChange = createRequestSurfaceChange({
+      environment: { evaluateSnapshot },
+      getActiveSurfaceId: () => SURFACE_ONE,
+      isKnownSurfaceId: isKnownSurfaceId,
+      commitSurfaceChange: vi.fn(),
+      surfaceExitPolicy: "observe-only",
+    });
+
+    expect(() => requestSurfaceChange(UNKNOWN_SURFACE)).toThrowError(
+      'Cannot request unknown Slideshow Surface "surface99999".',
+    );
+    expect(evaluateSnapshot).not.toHaveBeenCalled();
+  });
+
   it("throws when a departure is requested without an active Surface", () => {
     const evaluateSnapshot = vi.fn(() => allowedSnapshot(null));
     const requestSurfaceChange = createRequestSurfaceChange({
@@ -224,6 +267,22 @@ describe("requestSurfaceChange", () => {
       getActiveSurfaceId: () => SURFACE_ONE,
       isKnownSurfaceId: isKnownSurfaceId,
       commitSurfaceChange,
+    });
+
+    expect(() => requestSurfaceChange(SURFACE_TWO)).toThrowError(
+      'Surface Exit snapshot for "surface00002" does not match active Surface "surface00001".',
+    );
+    expect(commitSurfaceChange).not.toHaveBeenCalled();
+  });
+
+  it("still rejects a stale active snapshot when enforcement is disabled", () => {
+    const commitSurfaceChange = vi.fn();
+    const requestSurfaceChange = createRequestSurfaceChange({
+      environment: { evaluateSnapshot: () => blockedSnapshot(SURFACE_TWO, [quizBlocker("quiz-two", "in_progress")]) },
+      getActiveSurfaceId: () => SURFACE_ONE,
+      isKnownSurfaceId: isKnownSurfaceId,
+      commitSurfaceChange,
+      surfaceExitPolicy: "observe-only",
     });
 
     expect(() => requestSurfaceChange(SURFACE_TWO)).toThrowError(

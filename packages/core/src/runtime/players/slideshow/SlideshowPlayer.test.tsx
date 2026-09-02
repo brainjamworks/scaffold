@@ -1258,6 +1258,80 @@ describe("SlideshowPlayer", () => {
     expect(screen.getByText("1 of 2")).toBeInTheDocument();
   });
 
+  it("observes blocked snapshots without disabling or refusing author Preview Surface navigation", async () => {
+    const user = userEvent.setup();
+    render(
+      <TestSlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={sectionedSlideshowDocumentContent([
+          {
+            id: "section00001",
+            title: "Introduction",
+            surfaces: [
+              { id: "slide_000001", text: "First guarded slide" },
+              { id: "slide_000002", text: "Second guarded slide" },
+            ],
+          },
+          {
+            id: "section00002",
+            title: "Practice",
+            surfaces: [{ id: "slide_000003", text: "Third guarded slide" }],
+          },
+        ])}
+        surfaceExitPolicy="observe-only"
+      />,
+    );
+
+    await screen.findByTestId("course-document-runtime-renderer");
+    const firstGuard = controllableQuizExitGuard(EmbeddedNodeIdSchema.parse("slide_000001"));
+    const secondGuard = controllableQuizExitGuard(EmbeddedNodeIdSchema.parse("slide_000002"));
+    firstGuard.setAttemptStatus("not_started");
+    secondGuard.setAttemptStatus("in_progress");
+    act(() => {
+      surfaceExitEnvironmentFromRenderer().registerGuard(firstGuard.guard);
+      surfaceExitEnvironmentFromRenderer().registerGuard(secondGuard.guard);
+    });
+
+    await waitFor(() =>
+      expect(surfaceExitEnvironmentFromRenderer().getSnapshot()).toMatchObject({
+        status: "blocked",
+        surfaceId: "slide_000001",
+      }),
+    );
+    const courseSection = screen.getByRole("button", {
+      name: "Introduction, Course Section 1 of 2",
+    });
+    expect(courseSection).not.toBeDisabled();
+    expect(buttonByName("Next slide")).not.toBeDisabled();
+    expect(screen.queryByText("Complete this quiz before moving to another slide.")).toBeNull();
+
+    await user.click(buttonByName("Next slide"));
+
+    await waitFor(() =>
+      expect(surfaceById("slide_000002")).toHaveAttribute("data-runtime-surface-visible", "true"),
+    );
+    expect(surfaceExitEnvironmentFromRenderer().getSnapshot()).toMatchObject({
+      status: "blocked",
+      surfaceId: "slide_000002",
+    });
+    expect(buttonByName("Previous slide")).not.toBeDisabled();
+    expect(buttonByName("Next slide")).not.toBeDisabled();
+
+    await user.click(buttonByName("Previous slide"));
+    await waitFor(() =>
+      expect(surfaceById("slide_000001")).toHaveAttribute("data-runtime-surface-visible", "true"),
+    );
+    await user.click(courseSection);
+    await user.click(
+      screen.getByRole("menuitemradio", { name: "Practice, Course Section 2 of 2" }),
+    );
+
+    await waitFor(() =>
+      expect(surfaceById("slide_000003")).toHaveAttribute("data-runtime-surface-visible", "true"),
+    );
+    expect(screen.getByText("3 of 3")).toBeInTheDocument();
+  });
+
   it("presents Course Section context and jumps to a selected section's first Surface", async () => {
     const user = userEvent.setup();
     render(

@@ -5,6 +5,8 @@ import type { SurfaceExitEnvironment, SurfaceExitSnapshot } from "./surface-exit
 
 type BlockedSurfaceExitSnapshot = Extract<SurfaceExitSnapshot, { status: "blocked" }>;
 
+export type SurfaceExitPolicy = "enforce" | "observe-only";
+
 export interface SurfaceChangeRefused {
   readonly reason: "surface-exit-blocked";
   readonly activeSurfaceId: SurfaceId;
@@ -27,6 +29,7 @@ export interface CreateRequestSurfaceChangeInput {
   readonly getActiveSurfaceId: () => SurfaceId | null;
   readonly isKnownSurfaceId: (surfaceId: SurfaceId) => boolean;
   readonly commitSurfaceChange: (surfaceId: SurfaceId) => void;
+  readonly surfaceExitPolicy?: SurfaceExitPolicy;
 }
 
 export function createRequestSurfaceChange({
@@ -34,6 +37,7 @@ export function createRequestSurfaceChange({
   getActiveSurfaceId,
   isKnownSurfaceId,
   commitSurfaceChange,
+  surfaceExitPolicy = "enforce",
 }: CreateRequestSurfaceChangeInput): RequestSurfaceChange {
   return (targetSurfaceId, context) => {
     if (!isKnownSurfaceId(targetSurfaceId)) {
@@ -53,7 +57,7 @@ export function createRequestSurfaceChange({
       );
     }
 
-    if (snapshot.status === "blocked") {
+    if (surfaceExitPolicy === "enforce" && snapshot.status === "blocked") {
       const blockers =
         context?.kind === "satisfied-learner-rule-branch"
           ? snapshot.blockers.filter((blocker) => blocker.reason !== "presentation-learner-wait")

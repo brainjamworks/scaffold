@@ -428,9 +428,10 @@ test("allows runtime-safe selection facts and the exact dynamic Preview edge", a
       'export { previewValue } from "../editor/shell/authoring/ScaffoldAuthoringApp";',
     ].join("\n"),
     "packages/core/src/editor/shell/authoring/ScaffoldAuthoringApp.tsx": [
-      'export const previewValue = import("../../../runtime/app/ScaffoldLearnerApp");',
+      'export const previewValue = import("../../../runtime/app/ScaffoldAuthorPreviewApp");',
     ].join("\n"),
-    "packages/core/src/runtime/app/ScaffoldLearnerApp.tsx": "export const learnerApp = true;\n",
+    "packages/core/src/runtime/app/ScaffoldAuthorPreviewApp.tsx":
+      "export const authorPreviewApp = true;\n",
     "packages/core/src/runtime/assessment/index.ts": "export const assessment = true;\n",
     "packages/core/src/runtime/learner-activity/index.ts": "export const activity = true;\n",
   });
@@ -823,17 +824,17 @@ for (const violation of isolatedDragBoundaryViolations) {
 test("permits only the exact lazy Preview source and target", async (t) => {
   const fixtureRoot = await createFixture(t, {
     "packages/core/src/editor/shell/authoring/ScaffoldAuthoringApp.tsx": [
-      'import { learnerApp } from "../../../runtime/app/ScaffoldLearnerApp";',
+      'import { authorPreviewApp } from "../../../runtime/app/ScaffoldAuthorPreviewApp";',
       'void import("../../../runtime/app/OtherRuntimeApp");',
-      "export { learnerApp };",
+      "export { authorPreviewApp };",
     ].join("\n"),
     "packages/core/src/editor/shell/authoring/AlternatePreview.tsx": [
-      'void import("../../../runtime/app/ScaffoldLearnerApp");',
+      'void import("../../../runtime/app/ScaffoldAuthorPreviewApp");',
       "export const alternatePreview = true;",
     ].join("\n"),
-    "packages/core/src/runtime/app/ScaffoldLearnerApp.tsx": [
+    "packages/core/src/runtime/app/ScaffoldAuthorPreviewApp.tsx": [
       'import { authoringValue } from "../../editor/shell/authoring/AuthoringValue";',
-      "export const learnerApp = authoringValue;",
+      "export const authorPreviewApp = authoringValue;",
     ].join("\n"),
     "packages/core/src/runtime/app/OtherRuntimeApp.tsx": "export const otherRuntimeApp = true;\n",
     "packages/core/src/editor/shell/authoring/AuthoringValue.ts":
@@ -846,7 +847,7 @@ test("permits only the exact lazy Preview source and target", async (t) => {
   assert.notEqual(result.status, 0, output);
   assert.match(output, /authoring-does-not-import-runtime-except-preview/);
   assert.match(output, /preview-does-not-import-other-runtime-modules/);
-  assert.match(output, /preview-learner-app-import-must-be-dynamic/);
+  assert.match(output, /preview-author-app-import-must-be-dynamic/);
   assert.match(output, /runtime-does-not-reach-authoring/);
 });
 

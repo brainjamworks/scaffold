@@ -430,7 +430,8 @@ module.exports = {
     },
     {
       // Owner: the exact Preview exception in the tracked architecture.
-      // Preview delegates only to the learner application, never another runtime module.
+      // Preview delegates only to the dedicated author Preview application, never another runtime
+      // module (including the public learner application).
       name: "preview-does-not-import-other-runtime-modules",
       severity: "error",
       from: {
@@ -438,19 +439,19 @@ module.exports = {
       },
       to: {
         path: "^packages/core/src/runtime/",
-        pathNot: "^packages/core/src/runtime/app/ScaffoldLearnerApp\\.tsx$",
+        pathNot: "^packages/core/src/runtime/app/ScaffoldAuthorPreviewApp\\.tsx$",
       },
     },
     {
       // Owner: the exact Preview exception in the tracked architecture.
-      // The learner app stays lazy; a static or type edge does not qualify.
-      name: "preview-learner-app-import-must-be-dynamic",
+      // The author Preview app stays lazy; a static or type edge does not qualify.
+      name: "preview-author-app-import-must-be-dynamic",
       severity: "error",
       from: {
         path: "^packages/core/src/editor/shell/authoring/ScaffoldAuthoringApp\\.tsx$",
       },
       to: {
-        path: "^packages/core/src/runtime/app/ScaffoldLearnerApp\\.tsx$",
+        path: "^packages/core/src/runtime/app/ScaffoldAuthorPreviewApp\\.tsx$",
         dynamic: false,
       },
     },

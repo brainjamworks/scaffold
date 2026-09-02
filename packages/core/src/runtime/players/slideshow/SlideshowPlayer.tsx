@@ -47,7 +47,7 @@ import {
 import type { SlideshowPlayerSizing } from "../player-types";
 import { CourseSectionNavigation } from "./CourseSectionNavigation";
 import { getSlideshowNavigationState, getSlideshowSurfaceStates } from "./slideshow-navigation";
-import { createRequestSurfaceChange } from "./slideshow-surface-change";
+import { createRequestSurfaceChange, type SurfaceExitPolicy } from "./slideshow-surface-change";
 import type { SlideshowSurfaceRuntimeProgramSource } from "./slideshow-surface-runtime-composition";
 import { createSurfaceExitEnvironment } from "./surface-exit-environment";
 import { getSurfaceExitGuidance } from "./surface-exit-guidance";
@@ -111,6 +111,7 @@ export interface SlideshowPlayerProps {
   preparedDocument: PreparedRuntimeDocument;
   structure: ProjectedSlideshowCourseStructure;
   sizing?: SlideshowPlayerSizing;
+  surfaceExitPolicy?: SurfaceExitPolicy;
   surfaceRuntimeProgramSource?: SlideshowSurfaceRuntimeProgramSource;
   onRendererReady?: (editor: TiptapEditor) => void;
   onActiveSurfaceChange?: (surfaceId: SurfaceId | null) => void;
@@ -121,6 +122,7 @@ export function SlideshowPlayer({
   preparedDocument,
   structure,
   sizing = "contained",
+  surfaceExitPolicy = "enforce",
   surfaceRuntimeProgramSource,
   onRendererReady,
   onActiveSurfaceChange,
@@ -173,8 +175,9 @@ export function SlideshowPlayer({
         getActiveSurfaceId: () => activeSurfaceIdRef.current,
         isKnownSurfaceId: (surfaceId) => structure.surfaceById[surfaceId] !== undefined,
         commitSurfaceChange,
+        surfaceExitPolicy,
       }),
-    [commitSurfaceChange, structure.surfaceById, surfaceExitEnvironment],
+    [commitSurfaceChange, structure.surfaceById, surfaceExitEnvironment, surfaceExitPolicy],
   );
   const activeSurfaceRoot = useMemo(
     () =>
@@ -226,7 +229,8 @@ export function SlideshowPlayer({
     getSurfaceExitSnapshot,
   );
   const surfaceNavigationDescriptionId = useId();
-  const surfaceNavigationBlocked = surfaceExitSnapshot.status === "blocked";
+  const surfaceNavigationBlocked =
+    surfaceExitPolicy === "enforce" && surfaceExitSnapshot.status === "blocked";
   const surfaceNavigationGuidance = surfaceNavigationBlocked
     ? getSurfaceExitGuidance(surfaceExitSnapshot.blockers)
     : null;
