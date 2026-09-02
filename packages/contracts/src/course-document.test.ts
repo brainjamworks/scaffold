@@ -175,6 +175,50 @@ describe("course document contracts", () => {
     ).toBe(false);
   });
 
+  it("keeps Learner Interaction configuration optional and Slideshow-only", () => {
+    const ordinary = {
+      schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+      requiresScaffoldPlus: false,
+      mode: "slideshow",
+      surfaceSize: "16x9",
+      theme: persistedCourseTheme(),
+    } as const;
+    const learnerInteractions = {
+      schemaVersion: 1,
+      surfaces: [
+        {
+          surfaceId: "surface00001",
+          rules: [
+            {
+              id: "rule00000001",
+              isEnabled: true,
+              when: { targetId: "target000001", type: "selected" },
+              conditions: [],
+              commands: [{ kind: "reveal-target", targetId: "target000001" }],
+            },
+          ],
+        },
+      ],
+    } as const;
+
+    expect(CourseDocumentAttrsSchema.parse(ordinary)).not.toHaveProperty("learnerInteractions");
+    expect(CourseDocumentAttrsSchema.parse({ ...ordinary, learnerInteractions })).toHaveProperty(
+      "learnerInteractions",
+      learnerInteractions,
+    );
+
+    for (const mode of ["page", "branching"] as const) {
+      expect(
+        CourseDocumentAttrsSchema.safeParse({
+          ...ordinary,
+          mode,
+          surfaceSize: "fluid",
+          learnerInteractions,
+        }).success,
+      ).toBe(false);
+    }
+  });
+
   it("accepts exact design and colour-system revisions with empty overrides", () => {
     expect(PersistedCourseThemeSchema.parse(persistedCourseTheme())).toEqual({
       schemaVersion: 1,

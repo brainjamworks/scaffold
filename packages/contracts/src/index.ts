@@ -21,6 +21,7 @@ export * from "./icon-value";
 export * from "./image-hotspot";
 export * from "./key-value-list";
 export * from "./learner-activity";
+export * from "./learner-interaction";
 export * from "./marginalia";
 export * from "./matching";
 export * from "./media";

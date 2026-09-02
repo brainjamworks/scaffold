@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "./embedded-id";
+import { LearnerInteractionConfigurationV1Schema } from "./learner-interaction";
 import { PresentationConfigurationV1Schema } from "./presentation";
 
 export const SCAFFOLD_DOCUMENT_FORMAT_VERSION = 4;
@@ -115,6 +116,7 @@ export const CourseDocumentAttrsSchema = z
     overflowMode: OverflowModeSchema.default("grow"),
     theme: PersistedCourseThemeSchema,
     branching: z.unknown().optional(),
+    learnerInteractions: LearnerInteractionConfigurationV1Schema.optional(),
     presentation: PresentationConfigurationV1Schema.optional(),
   })
   .refine(
@@ -124,7 +126,11 @@ export const CourseDocumentAttrsSchema = z
       message: "surfaceSize must match the course mode",
       path: ["surfaceSize"],
     },
-  );
+  )
+  .refine((attrs) => attrs.learnerInteractions === undefined || attrs.mode === "slideshow", {
+    message: "learnerInteractions requires slideshow mode",
+    path: ["learnerInteractions"],
+  });
 export type CourseDocumentAttrs = z.infer<typeof CourseDocumentAttrsSchema>;
 
 export const ImagePositionSchema = z.enum([
