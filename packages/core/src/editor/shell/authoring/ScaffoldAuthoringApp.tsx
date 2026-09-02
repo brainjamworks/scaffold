@@ -80,6 +80,7 @@ import {
 import {
   LearnerInteractionWorkspace,
   LearnerInteractionWorkspaceController,
+  type LearnerInteractionWorkspaceSnapshot,
 } from "@/editor/learner-interaction/workspace";
 import {
   compileLearnerInteractions,
@@ -946,16 +947,24 @@ function ScaffoldAuthoringAppSessionContent({
   const preparePresentationPreviewRef = useRef(preparePresentationPreview);
   preparePresentationPreviewRef.current = preparePresentationPreview;
   const closePresentationPreviewRef = useRef<() => void>(() => undefined);
-  const presentationPreviewSession = useMemo(() => {
+  const [presentationPreviewSession, setPresentationPreviewSession] =
+    useState<PresentationPreviewSession | null>(null);
+  useEffect(() => {
     const owner = new PresentationPreviewPortOwner({
       prepare: (input) => preparePresentationPreviewRef.current(input),
       close: () => closePresentationPreviewRef.current(),
     });
-    return Object.freeze({
+    const controller = new PresentationPreviewController({
+      port: owner,
+      close: () => owner.close(),
+    });
+    const session = Object.freeze({
       source: contentSessionSource,
       owner,
-      controller: new PresentationPreviewController({ port: owner, close: () => owner.close() }),
+      controller,
     });
+    setPresentationPreviewSession(session);
+    return () => controller.dispose();
   }, [contentSessionSource]);
   closePresentationPreviewRef.current = () => {
     presentationPreviewPreparationGenerationRef.current += 1;
@@ -963,13 +972,9 @@ function ScaffoldAuthoringAppSessionContent({
     setPreviewState(false, null, null);
     setPreviewStateStatus("idle");
   };
-  useEffect(
-    () => () => presentationPreviewSession.controller.dispose(),
-    [presentationPreviewSession],
-  );
   const handlePresentationPreviewPortChange = useCallback(
-    (port: Parameters<typeof presentationPreviewSession.owner.connect>[0]) =>
-      presentationPreviewSession.owner.connect(port),
+    (port: Parameters<PresentationPreviewPortOwner["connect"]>[0]) =>
+      presentationPreviewSession?.owner.connect(port),
     [presentationPreviewSession],
   );
 
@@ -1134,7 +1139,7 @@ function ScaffoldAuthoringAppSessionContent({
       if (preparationGeneration !== learnerInteractionPreviewPreparationGenerationRef.current) {
         return superseded();
       }
-      presentationPreviewSession.controller.close();
+      presentationPreviewSession?.controller.close();
       learnerInteractionPreviewGenerationRef.current += 1;
       setLearnerInteractionPreviewRuntime({
         generation: learnerInteractionPreviewGenerationRef.current,
@@ -1161,23 +1166,28 @@ function ScaffoldAuthoringAppSessionContent({
   );
   const prepareLearnerInteractionPreviewRef = useRef(prepareLearnerInteractionPreview);
   prepareLearnerInteractionPreviewRef.current = prepareLearnerInteractionPreview;
-  const learnerInteractionPreviewSession = useMemo(() => {
+  const [learnerInteractionPreviewSession, setLearnerInteractionPreviewSession] =
+    useState<LearnerInteractionPreviewSession | null>(null);
+  useEffect(() => {
     const owner = new LearnerInteractionPreviewPortOwner({
       prepare: (input) => prepareLearnerInteractionPreviewRef.current(input),
       close: () => closeLearnerInteractionPreviewRef.current(),
     });
-    return Object.freeze({
+    const controller = new LearnerInteractionPreviewController({
+      port: owner,
+      close: () => owner.close(),
+    });
+    const session = Object.freeze({
       source: contentSessionSource,
       owner,
-      controller: new LearnerInteractionPreviewController({
-        port: owner,
-        close: () => owner.close(),
-      }),
+      controller,
     });
+    setLearnerInteractionPreviewSession(session);
+    return () => controller.dispose();
   }, [contentSessionSource]);
   closeLearnerInteractionPreviewSessionRef.current = () => {
-    if (learnerInteractionPreviewSession.controller.getSnapshot().status !== "idle") {
-      learnerInteractionPreviewSession.controller.close();
+    if (learnerInteractionPreviewSession?.controller.getSnapshot().status !== "idle") {
+      learnerInteractionPreviewSession?.controller.close();
     }
   };
   closeLearnerInteractionPreviewRef.current = () => {
@@ -1186,21 +1196,17 @@ function ScaffoldAuthoringAppSessionContent({
     setPreviewState(false, null, null);
     setPreviewStateStatus("idle");
   };
-  useEffect(
-    () => () => learnerInteractionPreviewSession.controller.dispose(),
-    [learnerInteractionPreviewSession],
-  );
   const handleLearnerInteractionReportsPortChange = useCallback(
-    (port: Parameters<typeof learnerInteractionPreviewSession.owner.connect>[0]) =>
-      learnerInteractionPreviewSession.owner.connect(port),
+    (port: Parameters<LearnerInteractionPreviewPortOwner["connect"]>[0]) =>
+      learnerInteractionPreviewSession?.owner.connect(port),
     [learnerInteractionPreviewSession],
   );
 
   const handlePreviewToggle = useCallback(() => {
     if (preview) {
-      presentationPreviewSession.controller.close();
-      if (learnerInteractionPreviewSession.controller.getSnapshot().status !== "idle") {
-        learnerInteractionPreviewSession.controller.close();
+      presentationPreviewSession?.controller.close();
+      if (learnerInteractionPreviewSession?.controller.getSnapshot().status !== "idle") {
+        learnerInteractionPreviewSession?.controller.close();
       }
       return;
     }
@@ -1725,7 +1731,10 @@ function ScaffoldAuthoringAppSessionContent({
                 leftRail={renderLeftRail}
                 rightRail={renderRightRail}
                 {...(stagePreview ? { stagePreview } : {})}
-                {...(editor && readyArtifact.mode === "slideshow"
+                {...(editor &&
+                readyArtifact.mode === "slideshow" &&
+                presentationPreviewSession &&
+                learnerInteractionPreviewSession
                   ? {
                       bottomWorkspace: (
                         <SlideshowSurfaceWorkspaces
@@ -1804,6 +1813,18 @@ interface SlideshowSurfaceWorkspacesProps {
   readonly learnerInteractionPreviewController: LearnerInteractionPreviewController;
 }
 
+interface PresentationPreviewSession {
+  readonly source: unknown;
+  readonly owner: PresentationPreviewPortOwner;
+  readonly controller: PresentationPreviewController;
+}
+
+interface LearnerInteractionPreviewSession {
+  readonly source: unknown;
+  readonly owner: LearnerInteractionPreviewPortOwner;
+  readonly controller: LearnerInteractionPreviewController;
+}
+
 function ResolvedSlideshowSurfaceWorkspaces({
   editor,
   previewController,
@@ -1824,31 +1845,42 @@ function ResolvedSlideshowSurfaceWorkspaces({
   const [, refreshInteractionSurface] = useState(0);
   const interactionSurfaceIdRef = useRef(requestedSurfaceId);
   const pendingSurfaceChangeRef = useRef<PendingInteractionSurfaceChange | null>(null);
-  const interactionController = useMemo(
-    () =>
-      new LearnerInteractionWorkspaceController({
-        saveDraft: (draft) =>
-          saveLearnerInteractionRule({
-            editor,
-            surfaceId: interactionSurfaceIdRef.current,
-            draft,
-          }),
-        closePreview: () => {
-          if (previewController.getSnapshot().status !== "idle") previewController.close();
-          if (learnerInteractionPreviewController.getSnapshot().status !== "idle") {
-            learnerInteractionPreviewController.close();
-          }
-        },
-      }),
-    [editor, learnerInteractionPreviewController, previewController],
+  const [interactionController, setInteractionController] =
+    useState<LearnerInteractionWorkspaceController | null>(null);
+  useEffect(() => {
+    const created = new LearnerInteractionWorkspaceController({
+      saveDraft: (draft) =>
+        saveLearnerInteractionRule({
+          editor,
+          surfaceId: interactionSurfaceIdRef.current,
+          draft,
+        }),
+      closePreview: () => {
+        if (previewController.getSnapshot().status !== "idle") previewController.close();
+        if (learnerInteractionPreviewController.getSnapshot().status !== "idle") {
+          learnerInteractionPreviewController.close();
+        }
+      },
+    });
+    setInteractionController(created);
+    return () => created.dispose();
+  }, [editor, learnerInteractionPreviewController, previewController]);
+  const subscribeToInteraction = useCallback(
+    (listener: () => void) =>
+      interactionController?.subscribe(listener) ?? (() => undefined),
+    [interactionController],
+  );
+  const getInteractionSnapshot = useCallback(
+    (): LearnerInteractionWorkspaceSnapshot =>
+      interactionController?.getSnapshot() ?? IDLE_LEARNER_INTERACTION_WORKSPACE_SNAPSHOT,
+    [interactionController],
   );
   const interactionSnapshot = useSyncExternalStore(
-    interactionController.subscribe,
-    interactionController.getSnapshot,
-    interactionController.getSnapshot,
+    subscribeToInteraction,
+    getInteractionSnapshot,
+    getInteractionSnapshot,
   );
   void interactionSnapshot;
-  useEffect(() => () => interactionController.dispose(), [interactionController]);
   if (workspace !== "interactions") interactionSurfaceIdRef.current = requestedSurfaceId;
   const courseDocument = (document as JSONContent).content?.[0];
   if (courseDocument?.type !== "courseDocument") {
@@ -1883,7 +1915,11 @@ function ResolvedSlideshowSurfaceWorkspaces({
     controlCapabilities: semanticController.getControlCapabilityCatalogue(),
   });
   useEffect(() => {
-    if (workspace !== "interactions" || requestedSurfaceId === interactionSurfaceIdRef.current) {
+    if (
+      !interactionController ||
+      workspace !== "interactions" ||
+      requestedSurfaceId === interactionSurfaceIdRef.current
+    ) {
       return;
     }
     const outgoingSurfaceId = interactionSurfaceIdRef.current;
@@ -1935,6 +1971,7 @@ function ResolvedSlideshowSurfaceWorkspaces({
   ]);
 
   const resolveInteractionContextChange = (decision: "save" | "discard" | "cancel") => {
+    if (!interactionController) return;
     const pending = interactionController.getSnapshot().pendingContextChange;
     if (decision !== "cancel" || pending?.kind !== "surface") {
       interactionController.resolveContextChange(decision);
@@ -1951,7 +1988,7 @@ function ResolvedSlideshowSurfaceWorkspaces({
 
   const workspaceTabsId = useId();
   const requestWorkspace = (nextWorkspace: "timeline" | "interactions") => {
-    if (nextWorkspace === workspace) return;
+    if (nextWorkspace === workspace || !interactionController) return;
     interactionController.requestContextChange(
       { kind: "workspace", workspace: nextWorkspace },
       () => {
@@ -2008,7 +2045,7 @@ function ResolvedSlideshowSurfaceWorkspaces({
             document={document}
             projection={presentationProjection}
           />
-        ) : (
+        ) : interactionController ? (
           <LearnerInteractionWorkspace
             controller={interactionController}
             projection={learnerInteractionProjection}
@@ -2035,11 +2072,20 @@ function ResolvedSlideshowSurfaceWorkspaces({
               removeLearnerInteractionRule({ editor, surfaceId: projectedSurfaceId, ruleId })
             }
           />
-        )}
+        ) : null}
       </div>
     </section>
   );
 }
+
+const IDLE_LEARNER_INTERACTION_WORKSPACE_SNAPSHOT: LearnerInteractionWorkspaceSnapshot =
+  Object.freeze({
+    status: "idle",
+    draft: null,
+    baseline: null,
+    pendingContextChange: null,
+    saveError: null,
+  });
 
 interface PendingInteractionSurfaceChange {
   phase: "decision" | "applying";
@@ -2163,18 +2209,27 @@ function PresentationTimelineAuthoringWorkspace({
   readonly document: ReturnType<typeof ScaffoldDocumentContentSchema.parse>;
   readonly projection: ReturnType<typeof projectPresentationTimeline>;
 }) {
-  const [timelineController] = useState(
-    () =>
-      new PresentationTimelineController({
-        semanticSelection: semanticController,
-        initialViewport: {
-          durationMs: projection.durationMs ?? 0,
-          viewportWidthPx: 600,
-        },
-        zoomBounds: { minPixelsPerSecond: 20, maxPixelsPerSecond: 400 },
-      }),
+  const initialViewportRef = useRef<{ durationMs: number; viewportWidthPx: number } | null>(
+    null,
   );
-  useEffect(() => () => timelineController.destroy(), [timelineController]);
+  initialViewportRef.current ??= {
+    durationMs: projection.durationMs ?? 0,
+    viewportWidthPx: 600,
+  };
+  const [timelineController, setTimelineController] =
+    useState<PresentationTimelineController | null>(null);
+  useEffect(() => {
+    const created = new PresentationTimelineController({
+      semanticSelection: semanticController,
+      initialViewport: initialViewportRef.current ?? {
+        durationMs: 0,
+        viewportWidthPx: 600,
+      },
+      zoomBounds: { minPixelsPerSecond: 20, maxPixelsPerSecond: 400 },
+    });
+    setTimelineController(created);
+    return () => created.destroy();
+  }, [semanticController]);
   const previousDocumentRef = useRef(document);
   useEffect(() => {
     if (
@@ -2185,6 +2240,8 @@ function PresentationTimelineAuthoringWorkspace({
     }
     previousDocumentRef.current = document;
   }, [document, previewController]);
+
+  if (!timelineController) return null;
 
   return (
     <PresentationTimeline

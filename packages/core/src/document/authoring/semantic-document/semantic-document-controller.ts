@@ -134,6 +134,11 @@ export class SemanticDocumentController {
     this.#navigation.setEnvironment(environment);
   }
 
+  clearNavigation(): void {
+    this.#navigationEnvironment = null;
+    this.#navigation.clearNavigation();
+  }
+
   select(
     id: EmbeddedNodeId,
     options: SemanticNavigationOptions,

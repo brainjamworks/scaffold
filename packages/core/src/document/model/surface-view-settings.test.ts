@@ -80,6 +80,26 @@ describe("surface view settings", () => {
     expect(readSurfaceViewSettings({ type: "doc", content: [] })).toBeNull();
   });
 
+  it("ignores ProseMirror null sentinels for absent orchestration values", () => {
+    expect(
+      readSurfaceViewSettings(
+        documentContent({
+          mode: "slideshow",
+          surfaceSize: "16x9",
+          overflowMode: "clip",
+          requiresScaffoldPlus: false,
+          branching: null,
+          learnerInteractions: null,
+          presentation: null,
+        }),
+      ),
+    ).toEqual({
+      mode: "slideshow",
+      surfaceSize: "16x9",
+      overflowMode: "clip",
+    });
+  });
+
   it("rejects removed 4x3 presentation settings", () => {
     expect(
       readSurfaceViewSettings(

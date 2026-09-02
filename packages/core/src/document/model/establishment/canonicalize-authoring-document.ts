@@ -2,6 +2,7 @@ import { isEmbeddedId } from "@scaffold/contracts";
 import type { JSONContent } from "@tiptap/core";
 
 import { CourseDocumentAttrsSchema } from "@/schemas/course-document";
+import { toPortableCourseDocumentAttrs } from "@/document/model/course-document-attrs";
 
 import { cloneBoundedJson, inspectBoundedJson } from "./document-bounds";
 import type { CanonicalizeAuthoringDocumentInput } from "./document-capability-lookups";
@@ -87,9 +88,10 @@ export function canonicalizeAuthoringDocument({
     return formatResult;
   }
   const canonicalCurrentDocument = formatResult.canonicalDocument as JSONContent;
-  const courseAttrs = CourseDocumentAttrsSchema.safeParse(
-    canonicalCurrentDocument.content?.[0]?.attrs,
-  );
+  const courseNode = canonicalCurrentDocument.content?.[0];
+  const portableCourseAttrs = toPortableCourseDocumentAttrs(courseNode?.attrs);
+  if (courseNode && isRecord(portableCourseAttrs)) courseNode.attrs = portableCourseAttrs;
+  const courseAttrs = CourseDocumentAttrsSchema.safeParse(portableCourseAttrs);
   if (!courseAttrs.success) {
     return invalid(
       "invalid_course_document_attrs",

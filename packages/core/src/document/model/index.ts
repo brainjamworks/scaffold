@@ -16,6 +16,7 @@ export type {
   SurfaceId,
 } from "./course-structure";
 export { CourseDocumentNode, DocumentNode } from "./nodes";
+export { toPortableCourseDocumentAttrs } from "./course-document-attrs";
 export {
   cloneCourseDocumentJSON,
   findCourseDocument,

@@ -209,6 +209,9 @@ function MountedCourseDocumentEditor({
         view: editor.view,
       }),
     );
+    return () => {
+      controller.clearNavigation();
+    };
   }, [composition.capabilities.blocks.registry, editor, overlayContainer]);
 
   if (!editor || suspended) {

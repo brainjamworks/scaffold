@@ -96,6 +96,12 @@ export class SemanticNavigationCoordinator {
     this.#environment = environment;
   }
 
+  clearNavigation(): void {
+    this.interrupt();
+    this.#editor = null;
+    this.#environment = null;
+  }
+
   interrupt(): void {
     this.#requestToken += 1;
     this.#requestAbortController?.abort();

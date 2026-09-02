@@ -135,6 +135,30 @@ describe("canonicalizeAuthoringDocument", () => {
     });
   });
 
+  it("omits ProseMirror null sentinels for absent orchestration values", () => {
+    const working = documentWith(knownBlock());
+    const workingAttrs = working.content![0]!.attrs!;
+    workingAttrs["branching"] = null;
+    workingAttrs["learnerInteractions"] = null;
+    workingAttrs["presentation"] = null;
+
+    const result = canonicalizeAuthoringDocument({
+      workingDocument: working,
+      capabilities,
+      authoringSchema: schema,
+      expectedRequiresScaffoldPlus: false,
+      productAccess: coreProductAccess,
+    });
+
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+    const canonicalAttrs = (result.canonicalDocument.content?.[0] as NodeJson).attrs!;
+    expect(canonicalAttrs).not.toHaveProperty("branching");
+    expect(canonicalAttrs).not.toHaveProperty("learnerInteractions");
+    expect(canonicalAttrs).not.toHaveProperty("presentation");
+    expect(workingAttrs["learnerInteractions"]).toBeNull();
+  });
+
   it("preserves the unsupported Core format result for real future-version input", () => {
     const future = documentWith(knownBlock());
     future.content![0]!.attrs!.schemaVersion = SCAFFOLD_DOCUMENT_FORMAT_VERSION + 1;

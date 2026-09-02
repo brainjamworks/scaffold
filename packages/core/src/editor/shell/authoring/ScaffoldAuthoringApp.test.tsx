@@ -18,6 +18,7 @@ import { McqRuntimeExtension } from "@/editor/blocks/assessment/mcq/mcq-runtime-
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/ScaffoldUnavailableAgentIntegration";
 import { PresentationPreviewController } from "@/editor/presentation/preview";
+import { LearnerInteractionPreviewController } from "@/editor/learner-interaction/preview";
 import type { PresentationPreviewDocument } from "@/presentation/model";
 import type { SemanticDocumentController } from "@/document/authoring/semantic-document/semantic-document-controller";
 import type { SemanticNavigationResult } from "@/document/authoring/semantic-document";
@@ -567,6 +568,16 @@ function currentPresentationPreviewController(): PresentationPreviewController {
     throw new Error("expected the mounted Presentation Timeline preview controller");
   }
   return workspace.props.previewController;
+}
+
+function currentLearnerInteractionPreviewController(): LearnerInteractionPreviewController {
+  const workspace = mocks.contentAuthorHostProps.at(-1)?.["bottomWorkspace"] as
+    | ReactElement<{ learnerInteractionPreviewController: LearnerInteractionPreviewController }>
+    | undefined;
+  if (!workspace?.props.learnerInteractionPreviewController) {
+    throw new Error("expected the mounted Learner Interaction preview controller");
+  }
+  return workspace.props.learnerInteractionPreviewController;
 }
 
 class FakeWorkspaceSemanticController {
@@ -1176,6 +1187,78 @@ describe("ScaffoldAuthoringApp Surface workspaces", () => {
       ).toBeNull();
     },
   );
+});
+
+describe("ScaffoldAuthoringApp StrictMode lifecycle", () => {
+  it("keeps both preview controllers usable after StrictMode replay", async () => {
+    const surfaceId = "previewsurf6" as PresentationPreviewDocument["surfaceId"];
+    const input = presentationPreviewDocument(surfaceId);
+    mocks.authorPreviewModuleError = new Error("preview chunk unavailable");
+
+    render(
+      <StrictMode>
+        <ScaffoldAuthoringApp
+          application={testApplication}
+          artifact={{
+            id: "artifact-strict-mode-preview",
+            title: "Draft",
+            mode: "slideshow",
+            content: input.document,
+          }}
+          services={{
+            artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+            media: null,
+          }}
+        />
+      </StrictMode>,
+    );
+
+    await waitFor(() =>
+      expect(mocks.contentAuthorHostProps.at(-1)?.["bottomWorkspace"]).toBeTruthy(),
+    );
+    expect(() => currentPresentationPreviewController().close()).not.toThrow();
+    expect(() => currentLearnerInteractionPreviewController().close()).not.toThrow();
+    await expect(
+      currentPresentationPreviewController().play(input),
+    ).resolves.toMatchObject({
+      error: { reason: "preview-runtime-unavailable" },
+    });
+  });
+
+  it("keeps the Interactions workspace usable after StrictMode replay", async () => {
+    const firstSurfaceId = EmbeddedNodeIdSchema.parse("workspace001");
+    const secondSurfaceId = EmbeddedNodeIdSchema.parse("workspace002");
+    const content = slideshowDocumentWithSurfaces(firstSurfaceId, secondSurfaceId);
+    mocks.authorJSON = content;
+    mocks.fakeEditor.state.doc.firstChild.attrs = content.content?.[0]?.attrs ?? {};
+    mocks.renderBottomWorkspace = true;
+    const semanticController = new FakeWorkspaceSemanticController([
+      firstSurfaceId,
+      secondSurfaceId,
+    ]);
+    vi.spyOn(semanticDocumentPluginKey, "getState").mockReturnValue(
+      semanticController as unknown as SemanticDocumentController,
+    );
+    const user = userEvent.setup();
+
+    render(
+      <StrictMode>
+        <ScaffoldAuthoringApp
+          application={testApplication}
+          artifact={{
+            id: "artifact-strict-mode-workspaces",
+            title: "Workspaces",
+            mode: "slideshow",
+            content,
+          }}
+          services={{ artifactPersistence: { saveArtifact: vi.fn(async () => ({})) }, media: null }}
+        />
+      </StrictMode>,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Interactions" }));
+    expect(screen.getByRole("heading", { name: "Interactions" })).toBeInTheDocument();
+  });
 });
 
 describe("ScaffoldAuthoringApp preview", () => {

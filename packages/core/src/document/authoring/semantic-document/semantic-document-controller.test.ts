@@ -116,6 +116,29 @@ describe("SemanticDocumentController", () => {
     }
   });
 
+  it("clears mounted navigation so replayed setup cannot reuse a stale environment", async () => {
+    const editor = createEditor(unavailableSectionedSlideshowWorkingDocument());
+
+    try {
+      const controller = connectAuthoringNavigation(editor);
+      const courseSectionId = testId("x", "unavailable");
+
+      controller.clearNavigation();
+
+      await expect(
+        controller.select(courseSectionId, { origin: "document-outline" }),
+      ).rejects.toThrow("Authoring semantic navigation environment is not mounted");
+
+      connectAuthoringNavigation(editor);
+
+      await expect(
+        controller.select(courseSectionId, { origin: "document-outline" }),
+      ).resolves.toEqual({ kind: "reached", id: courseSectionId });
+    } finally {
+      editor.destroy();
+    }
+  });
+
   it("interrupts pending coordinated navigation for editor-origin semantic intent", async () => {
     const physicalId = testId("p", "intent-caret");
     const navigationId = testId("p", "intent-navigation");
