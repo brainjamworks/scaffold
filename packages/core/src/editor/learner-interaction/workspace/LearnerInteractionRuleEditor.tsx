@@ -2,6 +2,7 @@ import type { ControlStatePredicateV1, LearnerInteractionCommandV1 } from "@scaf
 import { useEffect, useRef } from "react";
 
 import type {
+  LearnerInteractionAuthoringCommandError,
   LearnerInteractionAuthoringProjection,
   LearnerInteractionRuleDraft,
   ProjectedLearnerInteractionRule,
@@ -11,6 +12,7 @@ import type {
   ControlStateValueTypeDefinition,
   ControlValue,
 } from "@/document/control-binding";
+import { isControlValueValid } from "@/document/control-binding";
 import type { LearnerInteractionCompileDiagnostic } from "@/learner-interaction/model";
 import type { LearnerInteractionWorkspaceController } from "./learner-interaction-workspace-controller";
 import { validateLearnerInteractionRuleDraft } from "../model";
@@ -22,6 +24,7 @@ export interface LearnerInteractionRuleEditorProps {
   readonly projectedRule: ProjectedLearnerInteractionRule | null;
   readonly focusSource: string | null;
   readonly onFocusComplete: () => void;
+  readonly errorCopy: (error: LearnerInteractionAuthoringCommandError) => string;
 }
 
 export function LearnerInteractionRuleEditor({
@@ -31,9 +34,11 @@ export function LearnerInteractionRuleEditor({
   projectedRule,
   focusSource,
   onFocusComplete,
+  errorCopy,
 }: LearnerInteractionRuleEditorProps) {
   const regionRef = useRef<HTMLElement>(null);
   const structuralDiagnostics = validateLearnerInteractionRuleDraft(draft);
+  const saveError = controller.getSnapshot().saveError;
   useEffect(() => {
     if (!focusSource) return;
     regionRef.current
@@ -112,8 +117,8 @@ export function LearnerInteractionRuleEditor({
             projection.conditionStates.find(
               (candidate) =>
                 candidate.targetId === condition.targetId && candidate.key === condition.key,
-            ) ?? (sameValue(condition, saved?.predicate) ? saved?.option : undefined);
-          const diagnostics = sameValue(condition, saved?.predicate)
+            ) ?? (sameConditionValue(condition, saved?.predicate) ? saved?.option : undefined);
+          const diagnostics = sameConditionValue(condition, saved?.predicate)
             ? (saved?.diagnostics ?? [])
             : [];
           return (
@@ -281,7 +286,7 @@ export function LearnerInteractionRuleEditor({
             : "Add at least one Then command."}
         </p>
       ))}
-      {controller.getSnapshot().saveError ? <p role="alert">The rule could not be saved.</p> : null}
+      {saveError ? <p role="alert">{errorCopy(saveError)}</p> : null}
       <div className="sc-learner-interactions-editor-actions">
         <button
           type="button"
@@ -313,8 +318,8 @@ function CommandRow({
   readonly projectedRule: ProjectedLearnerInteractionRule | null;
   readonly controller: LearnerInteractionWorkspaceController;
 }) {
-  const saved = projectedRule?.commands[index];
-  const diagnostics = sameValue(command, saved?.command) ? (saved?.diagnostics ?? []) : [];
+  const saved = projectedRule?.commands.find((candidate) => sameValue(command, candidate.command));
+  const diagnostics = saved?.diagnostics ?? [];
   const replace = (next: LearnerInteractionCommandV1) =>
     replaceCommand(controller, draft, index, next);
   let field;
@@ -465,55 +470,96 @@ function ControlValueField({
   readonly value: ControlValue | undefined;
   readonly onChange: (value: ControlValue) => void;
 }) {
+  const isValid = isControlValueValid(value, definition);
+  const invalidValue = isValid ? null : value === undefined ? "No value" : String(value);
   if (definition.kind === "boolean")
     return (
-      <label>
-        {label}
-        <select
-          aria-label={label}
-          value={String(value === true)}
-          onChange={(event) => onChange(event.currentTarget.value === "true")}
-        >
-          <option value="false">False</option>
-          <option value="true">True</option>
-        </select>
-      </label>
+      <>
+        <label>
+          {label}
+          <select
+            aria-label={label}
+            value={isValid ? String(value) : ""}
+            onChange={(event) => onChange(event.currentTarget.value === "true")}
+          >
+            {invalidValue === null ? null : <option value="">Choose a replacement</option>}
+            <option value="false">False</option>
+            <option value="true">True</option>
+          </select>
+        </label>
+        {invalidValue === null ? null : (
+          <output aria-label={`${controlSourceLabel(label)} invalid saved value`}>
+            {invalidValue}
+          </output>
+        )}
+      </>
     );
   if (definition.kind === "enum")
     return (
-      <label>
-        {label}
-        <select
-          aria-label={label}
-          value={typeof value === "string" ? value : definition.options[0].value}
-          onChange={(event) => onChange(event.currentTarget.value)}
-        >
-          {definition.options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <>
+        <label>
+          {label}
+          <select
+            aria-label={label}
+            value={isValid ? String(value) : ""}
+            onChange={(event) => onChange(event.currentTarget.value)}
+          >
+            {invalidValue === null ? null : <option value="">Choose a replacement</option>}
+            {definition.options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {invalidValue === null ? null : (
+          <output aria-label={`${controlSourceLabel(label)} invalid saved value`}>
+            {invalidValue}
+          </output>
+        )}
+      </>
     );
   return (
-    <label>
-      {label}
-      <input
-        aria-label={label}
-        type="number"
-        min={definition.min}
-        {...(definition.kind === "number" ? { max: definition.max } : {})}
-        step={definition.step}
-        value={typeof value === "number" ? value : definition.min}
-        onChange={(event) => {
-          const parsed = Number(event.currentTarget.value);
-          if (Number.isFinite(parsed)) onChange(parsed);
-        }}
-      />
-      <span>{definition.unitLabel}</span>
-    </label>
+    <>
+      <label>
+        {label}
+        <input
+          aria-label={label}
+          type="number"
+          min={definition.min}
+          {...(definition.kind === "number" ? { max: definition.max } : {})}
+          step={definition.step}
+          value={typeof value === "number" ? value : ""}
+          onChange={(event) => {
+            const parsed = Number(event.currentTarget.value);
+            if (Number.isFinite(parsed)) onChange(parsed);
+          }}
+        />
+        <span>{definition.unitLabel}</span>
+      </label>
+      {invalidValue === null ? null : (
+        <output aria-label={`${controlSourceLabel(label)} invalid saved value`}>
+          {invalidValue}
+        </output>
+      )}
+    </>
   );
+}
+
+function sameConditionValue(
+  condition: ControlStatePredicateV1,
+  saved: ControlStatePredicateV1 | undefined,
+): boolean {
+  return (
+    saved !== undefined &&
+    condition.targetId === saved.targetId &&
+    condition.key === saved.key &&
+    sameValue(condition.value, saved.value)
+  );
+}
+
+function controlSourceLabel(label: string): string {
+  return label.replace(/ (?:input|value)$/, "");
 }
 
 function SourceDiagnostics({

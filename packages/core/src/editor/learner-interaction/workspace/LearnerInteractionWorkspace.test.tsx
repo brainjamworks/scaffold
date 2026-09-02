@@ -31,6 +31,38 @@ const IDS = Object.freeze({
   secondRule: EmbeddedDataIdSchema.parse("rule00000002"),
 });
 
+const DIRECT_SAVE_ERRORS: readonly {
+  readonly error: LearnerInteractionAuthoringCommandError;
+  readonly copy: string;
+}[] = [
+  { error: { reason: "editor-read-only" }, copy: "This document is read-only." },
+  {
+    error: {
+      reason: "surface-not-current",
+      surfaceId: IDS.surface,
+      currentSurfaceIds: Object.freeze([IDS.otherSurface]),
+    },
+    copy: "The selected Surface is no longer available.",
+  },
+  {
+    error: { reason: "rule-not-current", surfaceId: IDS.surface, ruleId: IDS.firstRule },
+    copy: "This rule is no longer available on the selected Surface.",
+  },
+  {
+    error: { reason: "invalid-rule-draft", diagnostics: Object.freeze([]) },
+    copy: "Choose a When event and add at least one Then command.",
+  },
+  {
+    error: {
+      reason: "rule-unresolved",
+      surfaceId: IDS.surface,
+      ruleId: IDS.firstRule,
+      diagnostics: Object.freeze([]),
+    },
+    copy: "Repair every unavailable rule source before saving.",
+  },
+];
+
 describe("LearnerInteractionWorkspace", () => {
   it("edits the complete bounded When, If and ordered Then grammar in one transient draft", async () => {
     const user = userEvent.setup();
@@ -97,6 +129,38 @@ describe("LearnerInteractionWorkspace", () => {
     expect(harness.onRemoveRule).toHaveBeenCalledWith(IDS.secondRule);
   });
 
+  it("writes a focused clean rule enable toggle to its draft before Save", async () => {
+    const user = userEvent.setup();
+    const harness = renderWorkspace(projection());
+
+    await user.click(screen.getByRole("button", { name: "Edit Rule 1" }));
+    await user.click(screen.getByRole("button", { name: "Disable Rule 1" }));
+
+    expect(harness.onSetRuleEnabled).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Rule enabled")).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Enable Rule 1" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save rule" }));
+    expect(harness.saveDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ ruleId: IDS.firstRule, isEnabled: false }),
+    );
+  });
+
+  it("discards a focused dirty rule enable toggle without persisting a saved-row value", async () => {
+    const user = userEvent.setup();
+    const harness = renderWorkspace(projection());
+
+    await user.click(screen.getByRole("button", { name: "Edit Rule 1" }));
+    await user.click(screen.getByLabelText("Rule enabled"));
+    await user.click(screen.getByRole("button", { name: "Enable Rule 1" }));
+    await user.click(screen.getByRole("button", { name: "Disable Rule 1" }));
+    await user.click(screen.getByRole("button", { name: "Discard draft" }));
+
+    expect(harness.onSetRuleEnabled).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Rule enabled")).toBeChecked();
+    expect(screen.getByRole("button", { name: "Disable Rule 1" })).toBeInTheDocument();
+  });
+
   it("keeps stale sources visible and focuses exact inline repair from a rule badge", async () => {
     const user = userEvent.setup();
     renderWorkspace(projection({ stale: true }));
@@ -122,6 +186,70 @@ describe("LearnerInteractionWorkspace", () => {
     expect(screen.getByText("This command is no longer available.")).toBeInTheDocument();
   });
 
+  it("retains invalid boolean, enum and number state values through unrelated edits until repair", async () => {
+    const user = userEvent.setup();
+    renderWorkspace(projectionWithValueDrift());
+
+    await user.click(screen.getByRole("button", { name: "Edit Rule 1" }));
+    expect(screen.getByLabelText("Condition 1 invalid saved value")).toHaveTextContent(
+      "legacy-boolean",
+    );
+    expect(screen.getByLabelText("Condition 2 invalid saved value")).toHaveTextContent("retired");
+    expect(screen.getByLabelText("Condition 3 invalid saved value")).toHaveTextContent(
+      "legacy-number",
+    );
+    expect(screen.getAllByText("Choose a valid state value.")).toHaveLength(3);
+
+    await user.selectOptions(screen.getByLabelText("Condition 1 comparison"), "not-equals");
+    expect(screen.getAllByText("Choose a valid state value.")).toHaveLength(3);
+
+    await user.selectOptions(screen.getByLabelText("Condition 1 value"), "true");
+    await user.selectOptions(screen.getByLabelText("Condition 2 value"), "active");
+    await user.type(screen.getByLabelText("Condition 3 value"), "4");
+    expect(screen.queryByText("Choose a valid state value.")).not.toBeInTheDocument();
+  });
+
+  it("keeps invalid command inputs with their rows through reordering until exact repair", async () => {
+    const user = userEvent.setup();
+    renderWorkspace(projectionWithValueDrift());
+
+    await user.click(screen.getByRole("button", { name: "Edit Rule 1" }));
+    expect(screen.getByLabelText("Command 1 invalid saved value")).toHaveTextContent(
+      "legacy-command-boolean",
+    );
+    expect(screen.getByLabelText("Command 2 invalid saved value")).toHaveTextContent(
+      "retired-command",
+    );
+    expect(screen.getByLabelText("Command 3 invalid saved value")).toHaveTextContent(
+      "legacy-command-number",
+    );
+    expect(screen.getAllByText("Choose a valid command value.")).toHaveLength(3);
+
+    await user.click(screen.getByRole("button", { name: "Move command 3 earlier" }));
+    expect(screen.getAllByText("Choose a valid command value.")).toHaveLength(3);
+    expect(screen.getByLabelText("Command 2 invalid saved value")).toHaveTextContent(
+      "legacy-command-number",
+    );
+
+    await user.selectOptions(screen.getByLabelText("Command 1 input"), "true");
+    await user.type(screen.getByLabelText("Command 2 input"), "4");
+    await user.selectOptions(screen.getByLabelText("Command 3 input"), "active");
+    expect(screen.queryByText("Choose a valid command value.")).not.toBeInTheDocument();
+  });
+
+  it.each(DIRECT_SAVE_ERRORS)(
+    "presents the retained $error.reason error from direct Save",
+    async ({ error, copy }) => {
+      const user = userEvent.setup();
+      renderWorkspace(projection(), { saveResult: Result.err(error) });
+
+      await user.click(screen.getByRole("button", { name: "Edit Rule 1" }));
+      await user.click(screen.getByRole("button", { name: "Save rule" }));
+
+      expect(screen.getByRole("alert")).toHaveTextContent(copy);
+    },
+  );
+
   it("uses the controller dialog for guarded focus changes and preserves failed Save facts", async () => {
     const user = userEvent.setup();
     const error: LearnerInteractionAuthoringCommandError = Object.freeze({
@@ -143,7 +271,9 @@ describe("LearnerInteractionWorkspace", () => {
       saveError: error,
     });
     expect(
-      screen.getByText("Repair every unavailable rule source before saving."),
+      within(screen.getByRole("alertdialog", { name: "Unsaved rule changes" })).getByText(
+        "Repair every unavailable rule source before saving.",
+      ),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Cancel change" }));
@@ -397,4 +527,178 @@ function projectionWithUnavailableValues(): LearnerInteractionAuthoringProjectio
     ]),
   });
   return Object.freeze({ ...value, rules: Object.freeze([projected, value.rules[1]!]) });
+}
+
+function projectionWithValueDrift(): LearnerInteractionAuthoringProjection {
+  type TargetCommand = Extract<
+    LearnerInteractionRuleV1["commands"][number],
+    { readonly kind: "target-command" }
+  > & { readonly command: { readonly input: string } };
+  const value = projection();
+  const source = value.rules[0]!;
+  const conditions = [
+    {
+      targetId: IDS.source,
+      key: "expanded",
+      operator: "equals" as const,
+      value: "legacy-boolean",
+    },
+    {
+      targetId: IDS.source,
+      key: "mode",
+      operator: "equals" as const,
+      value: "retired",
+    },
+    {
+      targetId: IDS.source,
+      key: "duration",
+      operator: "equals" as const,
+      value: "legacy-number",
+    },
+  ];
+  const commands: [TargetCommand, TargetCommand, TargetCommand] = [
+    {
+      kind: "target-command" as const,
+      command: { targetId: IDS.target, type: "toggle", input: "legacy-command-boolean" },
+    },
+    {
+      kind: "target-command" as const,
+      command: { targetId: IDS.target, type: "choose", input: "retired-command" },
+    },
+    {
+      kind: "target-command" as const,
+      command: { targetId: IDS.target, type: "seek", input: "legacy-command-number" },
+    },
+  ];
+  const conditionStates = Object.freeze([
+    Object.freeze({
+      availability: "available" as const,
+      targetId: IDS.source,
+      targetLabel: "Source",
+      key: "expanded",
+      label: "Expanded",
+      valueType: Object.freeze({ kind: "boolean" as const }),
+    }),
+    Object.freeze({
+      availability: "available" as const,
+      targetId: IDS.source,
+      targetLabel: "Source",
+      key: "mode",
+      label: "Mode",
+      valueType: Object.freeze({
+        kind: "enum" as const,
+        options: Object.freeze([
+          Object.freeze({ value: "active", label: "Active" }),
+          Object.freeze({ value: "paused", label: "Paused" }),
+        ] as const),
+      }),
+    }),
+    Object.freeze({
+      availability: "available" as const,
+      targetId: IDS.source,
+      targetLabel: "Source",
+      key: "duration",
+      label: "Duration",
+      valueType: Object.freeze({
+        kind: "number" as const,
+        min: 0,
+        max: 10,
+        step: 1,
+        unitLabel: "s",
+      }),
+    }),
+  ]);
+  const targetCommands = Object.freeze([
+    Object.freeze({
+      availability: "available" as const,
+      targetId: IDS.target,
+      targetLabel: "Target",
+      type: "toggle",
+      label: "Toggle",
+      input: Object.freeze({ kind: "boolean" as const }),
+    }),
+    Object.freeze({
+      availability: "available" as const,
+      targetId: IDS.target,
+      targetLabel: "Target",
+      type: "choose",
+      label: "Choose",
+      input: Object.freeze({
+        kind: "enum" as const,
+        options: Object.freeze([
+          Object.freeze({ value: "active", label: "Active" }),
+          Object.freeze({ value: "paused", label: "Paused" }),
+        ] as const),
+      }),
+    }),
+    Object.freeze({
+      availability: "available" as const,
+      targetId: IDS.target,
+      targetLabel: "Target",
+      type: "seek",
+      label: "Seek",
+      input: Object.freeze({ kind: "number" as const, min: 0, max: 10, step: 1, unitLabel: "s" }),
+    }),
+  ]);
+  const stateDiagnostics = conditions.map((condition, conditionIndex) =>
+    Object.freeze({
+      reason: "state-value-invalid" as const,
+      source: Object.freeze({
+        surfaceId: IDS.surface,
+        ruleId: IDS.firstRule,
+        location: Object.freeze({ kind: "condition" as const, conditionIndex }),
+      }),
+      targetId: condition.targetId,
+      key: condition.key,
+      value: condition.value,
+    }),
+  );
+  const commandDiagnostics = commands.map((command, commandIndex) =>
+    Object.freeze({
+      reason: "command-input-invalid" as const,
+      source: Object.freeze({
+        surfaceId: IDS.surface,
+        ruleId: IDS.firstRule,
+        location: Object.freeze({ kind: "command" as const, commandIndex }),
+      }),
+      targetId: command.command.targetId,
+      type: command.command.type,
+      input: Object.freeze({ kind: "value" as const, value: command.command.input }),
+    }),
+  );
+  const rule: LearnerInteractionRuleV1 = {
+    ...source.rule,
+    conditions,
+    commands,
+  };
+  const projected: ProjectedLearnerInteractionRule = Object.freeze({
+    rule,
+    diagnostics: Object.freeze([...stateDiagnostics, ...commandDiagnostics]),
+    when: source.when,
+    conditions: Object.freeze(
+      conditions.map((predicate, index) =>
+        Object.freeze({
+          predicate,
+          option: conditionStates[index]!,
+          diagnostics: Object.freeze([stateDiagnostics[index]!]),
+        }),
+      ),
+    ),
+    commands: Object.freeze(
+      commands.map((command, index) =>
+        Object.freeze({
+          kind: "target-command" as const,
+          command,
+          option: targetCommands[index]!,
+          diagnostics: Object.freeze([commandDiagnostics[index]!]),
+        }),
+      ),
+    ),
+  });
+  return Object.freeze({
+    ...value,
+    rules: Object.freeze([projected, value.rules[1]!]),
+    conditionStates,
+    targetCommands,
+  });
 }

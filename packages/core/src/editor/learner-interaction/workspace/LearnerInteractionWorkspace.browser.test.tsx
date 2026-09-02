@@ -52,7 +52,21 @@ describe("LearnerInteractionWorkspace browser behavior", () => {
         .element(page.getByRole("alertdialog", { name: "Unsaved rule changes" }))
         .toBeVisible();
       await expect.poll(() => document.activeElement?.textContent?.trim()).toBe("Save changes");
+      expect(host.getAttribute("aria-hidden")).toBe("true");
 
+      await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
+      await expect.poll(() => document.activeElement?.textContent?.trim()).toBe("Cancel change");
+      await userEvent.keyboard("{Tab}");
+      await expect.poll(() => document.activeElement?.textContent?.trim()).toBe("Save changes");
+
+      await userEvent.keyboard("{Escape}");
+      await expect
+        .element(page.getByRole("alertdialog", { name: "Unsaved rule changes" }))
+        .not.toBeInTheDocument();
+      expect(controller.getSnapshot().status).toBe("focused-dirty");
+      await expect.poll(() => document.activeElement?.textContent?.trim()).toBe("Add rule");
+
+      await userEvent.click(page.getByRole("button", { name: "Add rule" }));
       await userEvent.keyboard("{Tab}{Enter}");
       await expect.element(page.getByRole("heading", { name: "New rule" })).toBeVisible();
       expect(controller.getSnapshot()).toMatchObject({

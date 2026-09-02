@@ -1,5 +1,5 @@
 import type { LearnerInteractionRuleId } from "@scaffold/contracts";
-import { useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 
 import {
   validateLearnerInteractionRuleDraft,
@@ -13,6 +13,7 @@ import type {
   LearnerInteractionWorkspaceController,
 } from "./learner-interaction-workspace-controller";
 import { LearnerInteractionRuleEditor } from "./LearnerInteractionRuleEditor";
+import { AppDialog } from "@/ui/components/app/AppDialog/AppDialog";
 import "./LearnerInteractionWorkspace.css";
 
 export interface LearnerInteractionWorkspaceProps {
@@ -29,6 +30,7 @@ export interface LearnerInteractionWorkspaceProps {
   readonly onRemoveRule: (
     ruleId: LearnerInteractionRuleId,
   ) => LearnerInteractionAuthoringCommandResult;
+  readonly onResolveContextChange?: (decision: "save" | "discard" | "cancel") => void;
 }
 
 export function LearnerInteractionWorkspace({
@@ -37,6 +39,7 @@ export function LearnerInteractionWorkspace({
   onSetRuleEnabled,
   onReorderRule,
   onRemoveRule,
+  onResolveContextChange,
 }: LearnerInteractionWorkspaceProps) {
   const snapshot = useSyncExternalStore(
     controller.subscribe,
@@ -47,6 +50,8 @@ export function LearnerInteractionWorkspace({
     null,
   );
   const [focusSource, setFocusSource] = useState<string | null>(null);
+  const saveDecisionRef = useRef<HTMLButtonElement>(null);
+  const decisionOpenerRef = useRef<HTMLElement | null>(null);
   const focusedRule =
     snapshot.status === "idle" || snapshot.draft.ruleId === null
       ? null
@@ -54,6 +59,10 @@ export function LearnerInteractionWorkspace({
 
   const applyResult = (result: LearnerInteractionAuthoringCommandResult) => {
     setCommandError(result.isErr() ? result.error : null);
+  };
+  const resolveContextChange = (decision: "save" | "discard" | "cancel") => {
+    if (onResolveContextChange) onResolveContextChange(decision);
+    else controller.resolveContextChange(decision);
   };
   const requestFocus = (row: ProjectedLearnerInteractionRule, source?: string) => {
     const request: LearnerInteractionContextChange = { kind: "rule", ruleId: row.rule.id };
@@ -92,6 +101,7 @@ export function LearnerInteractionWorkspace({
           {projection.rules.map((row, index) => {
             const label = `Rule ${index + 1}`;
             const selected = snapshot.status !== "idle" && snapshot.draft.ruleId === row.rule.id;
+            const isEnabled = selected ? snapshot.draft.isEnabled : row.rule.isEnabled;
             const firstDiagnostic = row.diagnostics[0];
             return (
               <li key={row.rule.id} data-diagnostic={row.diagnostics.length > 0 || undefined}>
@@ -115,10 +125,16 @@ export function LearnerInteractionWorkspace({
                 ) : null}
                 <button
                   type="button"
-                  aria-label={`${row.rule.isEnabled ? "Disable" : "Enable"} ${label}`}
-                  onClick={() => applyResult(onSetRuleEnabled(row.rule.id, !row.rule.isEnabled))}
+                  aria-label={`${isEnabled ? "Disable" : "Enable"} ${label}`}
+                  onClick={() => {
+                    if (selected) {
+                      controller.updateDraft({ ...snapshot.draft, isEnabled: !isEnabled });
+                      return;
+                    }
+                    applyResult(onSetRuleEnabled(row.rule.id, !isEnabled));
+                  }}
                 >
-                  {row.rule.isEnabled ? "Disable" : "Enable"}
+                  {isEnabled ? "Disable" : "Enable"}
                 </button>
                 <button
                   type="button"
@@ -160,6 +176,7 @@ export function LearnerInteractionWorkspace({
             projectedRule={focusedRule}
             focusSource={focusSource}
             onFocusComplete={() => setFocusSource(null)}
+            errorCopy={authoringErrorCopy}
           />
         ) : (
           <p className="sc-learner-interactions-editor-empty">Choose a rule to edit.</p>
@@ -167,32 +184,53 @@ export function LearnerInteractionWorkspace({
       </div>
 
       {commandError ? <p role="alert">{authoringErrorCopy(commandError)}</p> : null}
-      {snapshot.status === "decision-required" ? (
-        <div
-          className="sc-learner-interactions-exit-dialog"
+      <AppDialog.Root
+        open={snapshot.status === "decision-required"}
+        onOpenChange={(open) => {
+          if (!open) resolveContextChange("cancel");
+        }}
+      >
+        <AppDialog.Content
           role="alertdialog"
-          aria-modal="true"
-          aria-labelledby="learner-interactions-exit-title"
-          aria-describedby="learner-interactions-exit-description"
+          intent="warning"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            if (decisionOpenerRef.current?.isConnected) decisionOpenerRef.current.focus();
+            decisionOpenerRef.current = null;
+          }}
+          onOpenAutoFocus={(event) => {
+            const activeElement = saveDecisionRef.current?.ownerDocument.activeElement;
+            event.preventDefault();
+            decisionOpenerRef.current = activeElement instanceof HTMLElement ? activeElement : null;
+            saveDecisionRef.current?.focus();
+          }}
         >
-          <h3 id="learner-interactions-exit-title">Unsaved rule changes</h3>
-          <p id="learner-interactions-exit-description">
-            Save or discard this draft before changing context.
-          </p>
-          {snapshot.saveError ? <p>{authoringErrorCopy(snapshot.saveError)}</p> : null}
-          <div>
-            <button type="button" autoFocus onClick={() => controller.resolveContextChange("save")}>
+          <AppDialog.Header>
+            <AppDialog.Title>Unsaved rule changes</AppDialog.Title>
+            <AppDialog.Description>
+              Save or discard this draft before changing context.
+            </AppDialog.Description>
+          </AppDialog.Header>
+          {snapshot.status === "decision-required" && snapshot.saveError ? (
+            <AppDialog.Body>{authoringErrorCopy(snapshot.saveError)}</AppDialog.Body>
+          ) : null}
+          <AppDialog.Actions>
+            <button
+              ref={saveDecisionRef}
+              type="button"
+              onClick={() => resolveContextChange("save")}
+            >
               Save changes
             </button>
-            <button type="button" onClick={() => controller.resolveContextChange("discard")}>
+            <button type="button" onClick={() => resolveContextChange("discard")}>
               Discard changes
             </button>
-            <button type="button" onClick={() => controller.resolveContextChange("cancel")}>
+            <button type="button" onClick={() => resolveContextChange("cancel")}>
               Cancel change
             </button>
-          </div>
-        </div>
-      ) : null}
+          </AppDialog.Actions>
+        </AppDialog.Content>
+      </AppDialog.Root>
     </section>
   );
 }

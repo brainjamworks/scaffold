@@ -61,19 +61,6 @@
   display: grid;
   gap: 0.5rem;
 }
-.sc-learner-interactions-exit-dialog {
-  position: absolute;
-  inset: 1rem;
-  z-index: 1;
-  padding: 1rem;
-  border: 1px solid currentColor;
-  background: Canvas;
-}
-.sc-learner-interactions-exit-dialog > div {
-  display: flex;
-  gap: 0.5rem;
-}
-
 @media (max-width: 48rem) {
   .sc-learner-interactions-body {
     grid-template-columns: 1fr;
