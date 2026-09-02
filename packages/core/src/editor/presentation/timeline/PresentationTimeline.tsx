@@ -8,6 +8,7 @@ import {
 import type { Editor } from "@tiptap/core";
 import {
   useEffect,
+  useCallback,
   useMemo,
   useRef,
   useState,
@@ -41,6 +42,7 @@ import {
   PresentationActionEditor,
   presentPresentationAuthoringCommandError,
 } from "./PresentationActionEditor";
+import { PresentationNarrationLane } from "./PresentationNarrationLane";
 import type { PresentationTimelineController } from "./presentation-timeline-controller";
 import type {
   PresentationTimelineProjection,
@@ -127,6 +129,18 @@ export function PresentationTimeline({
   const visibleRows = useMemo(
     () => visiblePresentationTimelineRows(projection.rows, rowById, collapsedTargetIds),
     [collapsedTargetIds, projection.rows, rowById],
+  );
+  const expandSurfaceForNarration = useCallback(
+    (narrationDurationMs: number) => {
+      if (!editor || narrationDurationMs <= durationMs) return;
+      const result = setPresentationSurfaceDuration({
+        editor,
+        surfaceId: projection.surfaceId,
+        durationMs: narrationDurationMs,
+      });
+      setAuthoringError(result.isErr() ? result.error : null);
+    },
+    [durationMs, editor, projection.surfaceId],
   );
 
   useEffect(() => {
@@ -421,6 +435,14 @@ export function PresentationTimeline({
       </div>
       <div className="sc-presentation-timeline-row-scroll">
         <div className="sc-presentation-timeline-labels">
+          {projection.narration ? (
+            <div className="sc-presentation-timeline-target-row">
+              <div className="sc-presentation-timeline-target">
+                <span className="sc-presentation-timeline-target-label">Narration</span>
+                <span className="sc-presentation-timeline-target-summary">Surface audio</span>
+              </div>
+            </div>
+          ) : null}
           {visibleRows.map((row) => (
             <TimelineTargetLabel
               key={row.targetId}
@@ -472,6 +494,18 @@ export function PresentationTimeline({
                   />
                 ))}
               </>
+            ) : null}
+            {projection.narration ? (
+              <PresentationNarrationLane
+                key={
+                  projection.narration.source.mode === "managed"
+                    ? projection.narration.source.mediaId
+                    : projection.narration.source.src
+                }
+                source={projection.narration.source}
+                pixelsPerSecond={snapshot.pixelsPerSecond}
+                onDurationResolved={expandSurfaceForNarration}
+              />
             ) : null}
             {visibleRows.map((row) => (
               <TimelineActionLane

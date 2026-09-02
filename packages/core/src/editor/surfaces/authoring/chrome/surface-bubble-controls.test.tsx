@@ -1,14 +1,24 @@
 // @vitest-environment happy-dom
 
 import { TooltipProvider } from "@radix-ui/react-tooltip";
+import {
+  EmbeddedDataIdSchema,
+  EmbeddedNodeIdSchema,
+  type PresentationConfigurationV1,
+  type TimelineActionV1,
+} from "@scaffold/contracts";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
+
+import type { FilePickerResult } from "@/editor/media/authoring/picker/file-picker-modal";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
@@ -37,6 +47,33 @@ import {
   resolveSurfaceMenuSnapshot,
   surfaceMenuSnapshotHasControls,
 } from "./surface-bubble-controls";
+
+const picker = vi.hoisted(() => ({
+  result: null as FilePickerResult | null,
+}));
+
+const PRESENTATION_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
+
+vi.mock("@/editor/media/authoring/picker/LazyFilePickerModal", () => ({
+  FilePickerModal: ({
+    open,
+    onResolved,
+  }: {
+    open: boolean;
+    onResolved: (result: FilePickerResult) => boolean | void;
+  }) =>
+    open ? (
+      <button
+        type="button"
+        onClick={() => {
+          if (!picker.result) throw new Error("The test file picker has no result.");
+          onResolved(picker.result);
+        }}
+      >
+        Choose narration file
+      </button>
+    ) : null,
+}));
 
 const TestArrangementNode = Node.create({
   name: "testArrangement",
@@ -70,6 +107,122 @@ function surfaceDescriptor(editor: Editor, surfaceId: string): SurfaceChromeTarg
 }
 
 describe("SurfaceMenuBubbleContent", () => {
+  it("attaches and replaces one Surface narration source through the checked command", async () => {
+    const editor = createPresentationEditor();
+    const descriptor = surfaceDescriptor(editor, "surface00001");
+    const snapshot = resolveSurfaceMenuSnapshot(
+      editor,
+      descriptor,
+      builtInSurfaceAuthoringChromeResolver,
+    );
+    const narrationSnapshot = withoutDefaultActions(snapshot);
+    const rendered = renderWithFacade(
+      <SurfaceMenuBubbleContent
+        descriptor={descriptor}
+        editor={editor}
+        snapshot={narrationSnapshot}
+      />,
+    );
+
+    picker.result = {
+      source: "url",
+      mediaType: "audio",
+      url: "https://example.test/intro.mp3",
+    };
+    fireEvent.click(screen.getByRole("button", { name: "Add narration" }));
+    fireEvent.click(screen.getByRole("button", { name: "Choose narration file" }));
+
+    await waitFor(() =>
+      expect(readSurfaceTimeline(editor, "surface00001")?.narration).toEqual({
+        source: { mode: "external", src: "https://example.test/intro.mp3" },
+      }),
+    );
+
+    rendered.rerender(
+      <InteractionProvider store={createInteractionStore()}>
+        <TooltipProvider>
+          <SurfaceMenuBubbleContent
+            descriptor={descriptor}
+            editor={editor}
+            snapshot={withoutDefaultActions(
+              resolveSurfaceMenuSnapshot(editor, descriptor, builtInSurfaceAuthoringChromeResolver),
+            )}
+          />
+        </TooltipProvider>
+      </InteractionProvider>,
+    );
+    picker.result = {
+      source: "browse",
+      mediaType: "audio",
+      browse: {
+        id: "narration-2",
+        url: "https://cdn.example.test/narration-2.mp3",
+        mediaType: "audio",
+        fileName: "narration-2.mp3",
+        mimeType: "audio/mpeg",
+        size: 42,
+      },
+    };
+    fireEvent.click(screen.getByRole("button", { name: "Replace narration" }));
+    fireEvent.click(screen.getByRole("button", { name: "Choose narration file" }));
+
+    await waitFor(() =>
+      expect(readSurfaceTimeline(editor, "surface00001")?.narration).toEqual({
+        source: { mode: "managed", mediaId: "narration-2" },
+      }),
+    );
+    expect(screen.queryByRole("button", { name: /video/i })).toBeNull();
+    editor.destroy();
+  });
+
+  it("removes narration without changing authored actions or duration", async () => {
+    const action: TimelineActionV1 = {
+      kind: "manual-wait",
+      id: EmbeddedDataIdSchema.parse("wait00000001"),
+      isEnabled: true,
+      atMs: 2_000,
+    };
+    const editor = createPresentationEditor({
+      schemaVersion: 1,
+      autoAdvance: false,
+      allowPrevious: true,
+      surfaces: [
+        {
+          surfaceId: PRESENTATION_SURFACE_ID,
+          durationMs: 8_000,
+          narration: {
+            source: { mode: "external", src: "https://example.test/intro.mp3" },
+          },
+          actions: [action],
+        },
+      ],
+    });
+    const descriptor = surfaceDescriptor(editor, "surface00001");
+    const snapshot = resolveSurfaceMenuSnapshot(
+      editor,
+      descriptor,
+      builtInSurfaceAuthoringChromeResolver,
+    );
+
+    renderWithFacade(
+      <SurfaceMenuBubbleContent
+        descriptor={descriptor}
+        editor={editor}
+        snapshot={withoutDefaultActions(snapshot)}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove narration" }));
+
+    await waitFor(() => {
+      expect(readSurfaceTimeline(editor, "surface00001")).toEqual({
+        surfaceId: "surface00001",
+        durationMs: 8_000,
+        actions: [action],
+      });
+    });
+    editor.destroy();
+  });
+
   it("renders default slide actions before variant quick controls", () => {
     const editor = createEditor("slideshow", [
       surface("surface00001", "slide-cover"),
@@ -298,6 +451,51 @@ function createEditor(mode: "page" | "slideshow", surfaces: JSONContent[]): Edit
       ],
     },
   });
+}
+
+function createPresentationEditor(presentation: PresentationConfigurationV1 | null = null): Editor {
+  return new Editor({
+    extensions: createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: createCoreScaffoldAuthoringComposition(),
+    }),
+    content: {
+      type: "doc",
+      content: [
+        {
+          type: "courseDocument",
+          attrs: {
+            id: "course000001",
+            mode: "slideshow",
+            presentation,
+            surfaceSize: "16x9",
+            overflowMode: "fit",
+          },
+          content: [
+            {
+              type: "courseSection",
+              attrs: { id: "section00001", title: "Presentation" },
+            },
+            slideCoverSurfaceDefinition.createSurface({ surfaceId: PRESENTATION_SURFACE_ID }),
+          ],
+        },
+      ],
+    },
+  });
+}
+
+function readSurfaceTimeline(editor: Editor, surfaceId: string) {
+  const presentation = editor.getJSON().content?.[0]?.attrs?.["presentation"] as
+    | { surfaces?: Array<Record<string, unknown>> }
+    | null
+    | undefined;
+  return presentation?.surfaces?.find((surface) => surface["surfaceId"] === surfaceId);
+}
+
+function withoutDefaultActions(snapshot: ReturnType<typeof resolveSurfaceMenuSnapshot>) {
+  if (!snapshot) return null;
+  const { defaultActions: _defaultActions, ...rest } = snapshot;
+  return rest;
 }
 
 function readCourseChildren(editor: Editor): JSONContent[] {

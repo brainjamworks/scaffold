@@ -1,6 +1,25 @@
-import { GearSixIcon as Gear } from "@phosphor-icons/react";
+import {
+  GearSixIcon as Gear,
+  SpeakerHighIcon as Speaker,
+  TrashIcon as Trash,
+} from "@phosphor-icons/react";
+import {
+  EmbeddedNodeIdSchema,
+  PresentationConfigurationV1Schema,
+  type SurfacePresentationNarrationV1,
+} from "@scaffold/contracts";
 import type { Editor } from "@tiptap/react";
+import { useState } from "react";
 
+import {
+  FilePickerModal,
+  type FilePickerResult,
+} from "@/editor/media/authoring/picker/LazyFilePickerModal";
+import {
+  setPresentationSurfaceNarration,
+  type PresentationAuthoringCommandError,
+} from "@/editor/presentation/model";
+import { presentPresentationAuthoringCommandError } from "@/editor/presentation/timeline/PresentationActionEditor";
 import { ConfigurationMenuControls } from "@/editor/shell/bubbles/interaction/menu-controls/ConfigurationMenuControls";
 import {
   MenuIconButton,
@@ -37,6 +56,9 @@ export interface SurfaceMenuSnapshot {
     duplicateLabel: string;
   };
   authoringChrome?: SurfaceAuthoringChrome;
+  presentation?: {
+    readonly narration: SurfacePresentationNarrationV1 | null;
+  };
   surfaceId?: string;
   surfacePos: number;
 }
@@ -54,15 +76,37 @@ export function SurfaceMenuBubbleContent({
 }: SurfaceMenuBubbleContentProps) {
   const commands = useInteractionCommands();
   const settingsOwnerTarget = useInteractionSnapshot().owners.settingsOwner.target;
+  const [narrationPickerOpen, setNarrationPickerOpen] = useState(false);
+  const [narrationError, setNarrationError] = useState<PresentationAuthoringCommandError | null>(
+    null,
+  );
   if (!snapshot) return null;
 
   const quickMenu = snapshot.authoringChrome?.quickMenu;
   const settingsSheet = resolveSurfaceSettingsSheet(snapshot);
   const hasDefaultActions = Boolean(snapshot.defaultActions);
   const hasQuickMenu = Boolean(quickMenu?.controls.length);
+  const hasPresentationControls = Boolean(snapshot.presentation && snapshot.surfaceId);
   const settingsSheetOpen = Boolean(
     settingsOwnerTarget && sameInteractionTarget(settingsOwnerTarget, descriptor.target),
   );
+
+  const applyNarration = (narration: SurfacePresentationNarrationV1 | null) => {
+    if (!snapshot.surfaceId) throw new Error("Surface narration requires a stable Surface ID.");
+    const result = setPresentationSurfaceNarration({
+      editor,
+      surfaceId: EmbeddedNodeIdSchema.parse(snapshot.surfaceId),
+      narration,
+    });
+    setNarrationError(result.isErr() ? result.error : null);
+    return result.isOk();
+  };
+
+  const handleNarrationResolved = (result: FilePickerResult) => {
+    const source = narrationSourceFromPickerResult(result);
+    if (!source) throw new Error("The audio picker returned no media source.");
+    return applyNarration({ source });
+  };
 
   return (
     <>
@@ -87,7 +131,38 @@ export function SurfaceMenuBubbleContent({
           />
         </>
       ) : null}
-      {hasDefaultActions && hasQuickMenu ? <MenuSeparator /> : null}
+      {hasDefaultActions && hasPresentationControls ? <MenuSeparator /> : null}
+      {hasPresentationControls ? (
+        <>
+          <MenuIconButton
+            icon={Speaker}
+            label={snapshot.presentation?.narration ? "Replace narration" : "Add narration"}
+            onClick={() => setNarrationPickerOpen(true)}
+          />
+          {snapshot.presentation?.narration ? (
+            <MenuIconButton
+              destructive
+              icon={Trash}
+              label="Remove narration"
+              onClick={() => applyNarration(null)}
+            />
+          ) : null}
+          <FilePickerModal
+            open={narrationPickerOpen}
+            onOpenChange={setNarrationPickerOpen}
+            kind="media"
+            allowedMediaTypes={["audio"]}
+            defaultMediaType="audio"
+            title={snapshot.presentation?.narration ? "Replace narration" : "Add narration"}
+            metadataFields={[]}
+            onResolved={handleNarrationResolved}
+          />
+          {narrationError ? (
+            <span role="alert">{presentPresentationAuthoringCommandError(narrationError)}</span>
+          ) : null}
+        </>
+      ) : null}
+      {(hasDefaultActions || hasPresentationControls) && hasQuickMenu ? <MenuSeparator /> : null}
       {hasQuickMenu && quickMenu ? (
         <ConfigurationMenuControls
           editor={editor}
@@ -99,7 +174,9 @@ export function SurfaceMenuBubbleContent({
           controls={quickMenu.controls}
         />
       ) : null}
-      {(hasDefaultActions || hasQuickMenu) && settingsSheet ? <MenuSeparator /> : null}
+      {(hasDefaultActions || hasPresentationControls || hasQuickMenu) && settingsSheet ? (
+        <MenuSeparator />
+      ) : null}
       {settingsSheet ? (
         <MenuIconButton
           active={settingsSheetOpen}
@@ -129,6 +206,7 @@ export function resolveSurfaceMenuSnapshot(
 
   const courseMode = readCourseMode(editor);
   const defaultActions = surfaceDefaultActionsForMode(courseMode);
+  const presentation = resolveSurfacePresentation(editor, descriptor.id, courseMode);
   const authoringChrome = descriptor.variant
     ? authoringChromeResolver.resolve(descriptor.variant)
     : undefined;
@@ -136,6 +214,7 @@ export function resolveSurfaceMenuSnapshot(
   return {
     ...(defaultActions ? { defaultActions } : {}),
     ...(authoringChrome ? { authoringChrome } : {}),
+    ...(presentation ? { presentation } : {}),
     ...(descriptor.id ? { surfaceId: descriptor.id } : {}),
     surfacePos: descriptor.pos,
   };
@@ -147,9 +226,43 @@ export function surfaceMenuSnapshotHasControls(
   return Boolean(
     snapshot &&
     (snapshot.defaultActions ||
+      snapshot.presentation ||
       snapshot.authoringChrome?.quickMenu?.controls.length ||
       snapshot.authoringChrome?.settingsSheet),
   );
+}
+
+function resolveSurfacePresentation(
+  editor: Editor,
+  surfaceId: string | null | undefined,
+  courseMode: string | null,
+): SurfaceMenuSnapshot["presentation"] | undefined {
+  if (courseMode !== "slideshow" || !surfaceId) return undefined;
+  const courseDocument = editor.state.doc.firstChild;
+  if (!courseDocument) throw new Error("The Course Document is missing.");
+  const value = courseDocument.attrs["presentation"];
+  if (value === null || value === undefined) return { narration: null };
+  const configuration = PresentationConfigurationV1Schema.parse(value);
+  const timeline = configuration.surfaces.find((candidate) => candidate.surfaceId === surfaceId);
+  if (!timeline) {
+    throw new Error(`Presentation configuration has no Timeline for Surface "${surfaceId}".`);
+  }
+  return { narration: timeline.narration ?? null };
+}
+
+function narrationSourceFromPickerResult(
+  result: FilePickerResult,
+): SurfacePresentationNarrationV1["source"] | null {
+  if (result.source === "upload" && result.upload) {
+    return { mode: "managed", mediaId: result.upload.id };
+  }
+  if (result.source === "browse" && result.browse) {
+    return { mode: "managed", mediaId: result.browse.id };
+  }
+  if (result.source === "url" && result.url) {
+    return { mode: "external", src: result.url };
+  }
+  return null;
 }
 
 function readCourseMode(editor: Editor): string | null {
