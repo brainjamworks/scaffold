@@ -1,5 +1,6 @@
 import {
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -22,11 +23,12 @@ const BOTTOM_WORKSPACE_MIN_HEIGHT_PX = 160;
 const BOTTOM_WORKSPACE_DEFAULT_HEIGHT_PX = 240;
 const BOTTOM_WORKSPACE_MAX_HEIGHT_PX = 480;
 const BOTTOM_WORKSPACE_KEYBOARD_STEP_PX = 16;
+const BOTTOM_WORKSPACE_MIN_STAGE_HEIGHT_PX = 160;
 
-function clampBottomWorkspaceHeight(heightPx: number): number {
+function clampBottomWorkspaceHeight(heightPx: number, maximumHeightPx: number): number {
   return Math.min(
-    BOTTOM_WORKSPACE_MAX_HEIGHT_PX,
-    Math.max(BOTTOM_WORKSPACE_MIN_HEIGHT_PX, heightPx),
+    maximumHeightPx,
+    Math.max(Math.min(BOTTOM_WORKSPACE_MIN_HEIGHT_PX, maximumHeightPx), heightPx),
   );
 }
 
@@ -39,27 +41,57 @@ interface BottomWorkspaceResizeSession {
 
 function EditorBottomWorkspace({ children }: { readonly children: ReactNode }) {
   const contentId = useId();
+  const workspaceRef = useRef<HTMLElement>(null);
   const resizeSessionRef = useRef<BottomWorkspaceResizeSession | null>(null);
   const [heightPx, setHeightPx] = useState(BOTTOM_WORKSPACE_DEFAULT_HEIGHT_PX);
+  const [availableHeightPx, setAvailableHeightPx] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState(false);
-  const renderedHeightPx = collapsed ? BOTTOM_WORKSPACE_COLLAPSED_HEIGHT_PX : heightPx;
+  const maximumHeightPx =
+    availableHeightPx === null
+      ? BOTTOM_WORKSPACE_MAX_HEIGHT_PX
+      : Math.min(
+          BOTTOM_WORKSPACE_MAX_HEIGHT_PX,
+          Math.max(
+            BOTTOM_WORKSPACE_COLLAPSED_HEIGHT_PX,
+            availableHeightPx - BOTTOM_WORKSPACE_MIN_STAGE_HEIGHT_PX,
+          ),
+        );
+  const expandedHeightPx = clampBottomWorkspaceHeight(heightPx, maximumHeightPx);
+  const renderedHeightPx = collapsed ? BOTTOM_WORKSPACE_COLLAPSED_HEIGHT_PX : expandedHeightPx;
+
+  useLayoutEffect(() => {
+    const stageColumn = workspaceRef.current?.parentElement;
+    if (!stageColumn) return;
+    const updateAvailableHeight = () => {
+      if (stageColumn.clientHeight > 0) setAvailableHeightPx(stageColumn.clientHeight);
+    };
+    updateAvailableHeight();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateAvailableHeight);
+    observer.observe(stageColumn);
+    return () => observer.disconnect();
+  }, []);
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     switch (event.key) {
       case "ArrowUp":
-        setHeightPx((current) =>
+        setHeightPx(
           clampBottomWorkspaceHeight(
             collapsed
-              ? BOTTOM_WORKSPACE_MIN_HEIGHT_PX
-              : current + BOTTOM_WORKSPACE_KEYBOARD_STEP_PX,
+              ? Math.min(BOTTOM_WORKSPACE_MIN_HEIGHT_PX, maximumHeightPx)
+              : expandedHeightPx + BOTTOM_WORKSPACE_KEYBOARD_STEP_PX,
+            maximumHeightPx,
           ),
         );
         setCollapsed(false);
         break;
       case "ArrowDown":
         if (!collapsed) {
-          setHeightPx((current) =>
-            clampBottomWorkspaceHeight(current - BOTTOM_WORKSPACE_KEYBOARD_STEP_PX),
+          setHeightPx(
+            clampBottomWorkspaceHeight(
+              expandedHeightPx - BOTTOM_WORKSPACE_KEYBOARD_STEP_PX,
+              maximumHeightPx,
+            ),
           );
         }
         break;
@@ -67,7 +99,7 @@ function EditorBottomWorkspace({ children }: { readonly children: ReactNode }) {
         setCollapsed(true);
         break;
       case "End":
-        setHeightPx(BOTTOM_WORKSPACE_MAX_HEIGHT_PX);
+        setHeightPx(maximumHeightPx);
         setCollapsed(false);
         break;
       case "Enter":
@@ -88,7 +120,7 @@ function EditorBottomWorkspace({ children }: { readonly children: ReactNode }) {
     resizeSessionRef.current = {
       pointerId: event.pointerId,
       startClientY: event.clientY,
-      startHeightPx: heightPx,
+      startHeightPx: expandedHeightPx,
       startCollapsed: collapsed,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -98,7 +130,7 @@ function EditorBottomWorkspace({ children }: { readonly children: ReactNode }) {
     const session = resizeSessionRef.current;
     if (!session || session.pointerId !== event.pointerId) return;
     const nextHeightPx = session.startHeightPx + session.startClientY - event.clientY;
-    setHeightPx(clampBottomWorkspaceHeight(Math.round(nextHeightPx)));
+    setHeightPx(clampBottomWorkspaceHeight(Math.round(nextHeightPx), maximumHeightPx));
     setCollapsed(false);
   }
 
@@ -119,6 +151,7 @@ function EditorBottomWorkspace({ children }: { readonly children: ReactNode }) {
 
   return (
     <section
+      ref={workspaceRef}
       className="sc-editor-bottom-workspace"
       data-state={collapsed ? "collapsed" : "expanded"}
       style={
@@ -135,9 +168,9 @@ function EditorBottomWorkspace({ children }: { readonly children: ReactNode }) {
         aria-controls={contentId}
         aria-orientation="horizontal"
         aria-valuemin={0}
-        aria-valuemax={BOTTOM_WORKSPACE_MAX_HEIGHT_PX}
-        aria-valuenow={collapsed ? 0 : heightPx}
-        aria-valuetext={collapsed ? "Collapsed" : `${heightPx} pixels, expanded`}
+        aria-valuemax={maximumHeightPx}
+        aria-valuenow={collapsed ? 0 : expandedHeightPx}
+        aria-valuetext={collapsed ? "Collapsed" : `${expandedHeightPx} pixels, expanded`}
         onKeyDown={handleKeyDown}
         onPointerCancel={handlePointerCancel}
         onPointerDown={handlePointerDown}

@@ -19,6 +19,7 @@ import {
   createPresentationAction,
   createPresentationActions,
   removePresentationAction,
+  reorderPresentationAction,
   setPresentationActionEnabled,
   setPresentationSurfaceDuration,
   setPresentationSurfaceNarration,
@@ -112,6 +113,88 @@ describe("presentation authoring commands", () => {
     expect(actions(editor).map(({ id }) => id)).toEqual([earlier.value, later.value, tied.value]);
     expect(new Set(actions(editor).map(({ id }) => id)).size).toBe(3);
     expect(actions(editor).every(({ id }) => /^[0-9A-Z_a-z-]{12}$/.test(id))).toBe(true);
+  });
+
+  it("reorders equal-time actions by source order without changing identity or timing", () => {
+    const editor = createEditor();
+    setPresentationSurfaceDuration({
+      editor,
+      surfaceId: IDS.firstSurface,
+      durationMs: 5_000,
+    });
+    const first = createPresentationAction({
+      editor,
+      surfaceId: IDS.firstSurface,
+      action: instantReveal(IDS.firstParagraph, 1_000),
+    });
+    const second = createPresentationAction({
+      editor,
+      surfaceId: IDS.firstSurface,
+      action: { kind: "manual-wait", isEnabled: true, atMs: 1_000 },
+    });
+    if (first.isErr() || second.isErr()) throw new Error("Expected equal-time actions.");
+    let changedTransactions = 0;
+    editor.on("transaction", ({ transaction }) => {
+      if (transaction.docChanged) changedTransactions += 1;
+    });
+
+    const result = reorderPresentationAction({
+      editor,
+      surfaceId: IDS.firstSurface,
+      actionId: second.value,
+      direction: "earlier",
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(changedTransactions).toBe(1);
+    expect(actions(editor).map(({ id }) => id)).toEqual([second.value, first.value]);
+    expect(actions(editor).map(({ atMs }) => atMs)).toEqual([1_000, 1_000]);
+
+    expect(
+      reorderPresentationAction({
+        editor,
+        surfaceId: IDS.firstSurface,
+        actionId: second.value,
+        direction: "later",
+      }).isOk(),
+    ).toBe(true);
+    expect(changedTransactions).toBe(2);
+    expect(actions(editor).map(({ id }) => id)).toEqual([first.value, second.value]);
+  });
+
+  it("returns source facts when an action has no equal-time reorder neighbour", () => {
+    const editor = createEditor();
+    setPresentationSurfaceDuration({
+      editor,
+      surfaceId: IDS.firstSurface,
+      durationMs: 5_000,
+    });
+    const created = createPresentationAction({
+      editor,
+      surfaceId: IDS.firstSurface,
+      action: instantReveal(IDS.firstParagraph, 1_000),
+    });
+    if (created.isErr()) throw new Error("Expected action creation.");
+    let changedTransactions = 0;
+    editor.on("transaction", ({ transaction }) => {
+      if (transaction.docChanged) changedTransactions += 1;
+    });
+
+    const result = reorderPresentationAction({
+      editor,
+      surfaceId: IDS.firstSurface,
+      actionId: created.value,
+      direction: "earlier",
+    });
+
+    expect(result.isErr() && result.error).toEqual({
+      reason: "action-reorder-boundary",
+      surfaceId: IDS.firstSurface,
+      actionId: created.value,
+      atMs: 1_000,
+      direction: "earlier",
+    });
+    expect(changedTransactions).toBe(0);
   });
 
   it("creates adjacent Replace actions in one transaction without a Replace kind", () => {

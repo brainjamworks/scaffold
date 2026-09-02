@@ -2,12 +2,16 @@
 
 import {
   EmbeddedNodeIdSchema,
+  PresentationConfigurationV1Schema,
+  ScaffoldDocumentContentSchema,
   type EmbeddedNodeId,
   type PresentationConfigurationV1,
 } from "@scaffold/contracts";
 import { Editor, type JSONContent } from "@tiptap/core";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Result } from "better-result";
+import { useEffect, useReducer } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
@@ -16,17 +20,28 @@ import type {
   SemanticNavigationOptions,
   SemanticNavigationResult,
 } from "@/document/authoring/semantic-document";
+import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document/semantic-document-storage";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createTabsContent } from "@/editor/arrangements/layout/tabs/tabs-content";
 import { createPresentationAction, updatePresentationAction } from "@/editor/presentation/model";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
+import type {
+  PresentationPreviewDocument,
+  PresentationPreviewPort,
+  PresentationPreviewSnapshot,
+} from "@/presentation/model";
+import { PresentationPreviewController } from "../preview/presentation-preview-controller";
 
 import { PresentationActionEditor } from "./PresentationActionEditor";
+import { PresentationTimeline } from "./PresentationTimeline";
 import {
   PresentationTimelineController,
   type PresentationTimelineSemanticSelection,
 } from "./presentation-timeline-controller";
-import type { PresentationTimelineProjection } from "./presentation-timeline-projection";
+import {
+  projectPresentationTimeline,
+  type PresentationTimelineProjection,
+} from "./presentation-timeline-projection";
 
 const SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
 const TARGET_ID = EmbeddedNodeIdSchema.parse("paragraph001");
@@ -40,6 +55,47 @@ afterEach(() => {
 });
 
 describe("PresentationActionEditor", () => {
+  it("sets duration before creating and previewing a timed action from absent Presentation data", async () => {
+    const user = userEvent.setup();
+    const editor = createUnconfiguredEditor();
+    const controller = createController(TARGET_ID);
+    const previewPort = new RecordingPreviewPort();
+    const previewController = new PresentationPreviewController({ port: previewPort });
+    expect(readPresentation(editor)).toBeNull();
+
+    render(
+      <LivePresentationTimeline
+        editor={editor}
+        controller={controller}
+        previewController={previewController}
+      />,
+    );
+
+    const duration = screen.getByRole("spinbutton", { name: "Surface duration (ms)" });
+    await user.clear(duration);
+    await user.type(duration, "5000");
+    await user.click(screen.getByRole("button", { name: "Set duration" }));
+    await waitFor(() => expect(readPresentation(editor)?.surfaces[0]?.durationMs).toBe(5_000));
+
+    await user.click(screen.getByRole("button", { name: "Add action" }));
+    await waitFor(() => expect(actions(editor)).toHaveLength(1));
+    expect(actions(editor)[0]).toMatchObject({
+      kind: "animate",
+      targetId: TARGET_ID,
+      atMs: 0,
+      visual: { kind: "reveal", transition: { kind: "fade", durationMs: 500 } },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Play preview" }));
+    await waitFor(() => expect(previewPort.loadCalls).toHaveLength(1));
+    const loadedPresentation = presentationFromPreviewDocument(previewPort.loadCalls[0]!.document);
+    expect(loadedPresentation.surfaces[0]).toMatchObject({ durationMs: 5_000 });
+    expect(loadedPresentation.surfaces[0]?.actions).toHaveLength(1);
+
+    previewController.dispose();
+    controller.destroy();
+  });
+
   it("adds only a visual action declared by the selected target", async () => {
     const user = userEvent.setup();
     const editor = createEditor();
@@ -458,23 +514,36 @@ describe("PresentationActionEditor", () => {
     controller.destroy();
   });
 
-  it("reorders an action by retiming it without changing its identity", async () => {
+  it("reorders an equal-time action by source order without changing identity or timing", async () => {
     const user = userEvent.setup();
     const editor = createEditor();
+    const predecessor = createPresentationAction({
+      editor,
+      surfaceId: SURFACE_ID,
+      action: { kind: "manual-wait", isEnabled: true, atMs: 500 },
+    });
     const created = seedReveal(editor, 500);
+    if (predecessor.isErr()) throw new Error("Expected predecessor action.");
     const controller = createController(TARGET_ID);
     await controller.selectAction(created, TARGET_ID);
+    const sourceActions = actions(editor);
+    const selectedAction = sourceActions.find(({ id }) => id === created)!;
+    const currentProjection = {
+      ...projection(["reveal"], TARGET_ID, [selectedAction], [sourceActions[0]!]),
+      orderedActionIds: sourceActions.map(({ id }) => id),
+    };
 
     render(
       <PresentationActionEditor
         editor={editor}
         controller={controller}
-        projection={projection(["reveal"], TARGET_ID, actions(editor))}
+        projection={currentProjection}
       />,
     );
     await user.click(screen.getByRole("button", { name: "Move earlier" }));
 
-    expect(actions(editor)[0]).toMatchObject({ id: created, atMs: 400 });
+    expect(actions(editor).map(({ id }) => id)).toEqual([created, predecessor.value]);
+    expect(actions(editor).map(({ atMs }) => atMs)).toEqual([500, 500]);
     controller.destroy();
   });
 
@@ -699,6 +768,19 @@ function createEditor(content: "paragraph" | "tabs" = "paragraph"): Editor {
   return editor;
 }
 
+function createUnconfiguredEditor(): Editor {
+  const content = courseDocument("paragraph");
+  content.content![0]!.attrs = { ...content.content![0]!.attrs, presentation: null };
+  const composition = createCoreScaffoldAuthoringComposition();
+  const editor = new Editor({
+    editable: true,
+    extensions: createCourseDocumentAuthoringExtensions({ editable: true, composition }),
+    content,
+  });
+  editors.push(editor);
+  return editor;
+}
+
 function seedReveal(editor: Editor, atMs: number) {
   const created = createPresentationAction({
     editor,
@@ -837,10 +919,12 @@ function assignMissingNodeIds(root: JSONContent): void {
 }
 
 function actions(editor: Editor) {
-  const presentation = editor.getJSON().content?.[0]?.attrs?.["presentation"] as
-    | PresentationConfigurationV1
-    | undefined;
-  return presentation?.surfaces[0]?.actions ?? [];
+  return readPresentation(editor)?.surfaces[0]?.actions ?? [];
+}
+
+function readPresentation(editor: Editor): PresentationConfigurationV1 | null {
+  const presentation = editor.getJSON().content?.[0]?.attrs?.["presentation"];
+  return (presentation ?? null) as PresentationConfigurationV1 | null;
 }
 
 class FakeSemanticSelection implements PresentationTimelineSemanticSelection {
@@ -866,4 +950,91 @@ class FakeSemanticSelection implements PresentationTimelineSemanticSelection {
     for (const listener of this.#listeners) listener();
     return { kind: "reached", id };
   }
+}
+
+function LivePresentationTimeline({
+  editor,
+  controller,
+  previewController,
+}: {
+  readonly editor: Editor;
+  readonly controller: PresentationTimelineController;
+  readonly previewController: PresentationPreviewController;
+}) {
+  const [, rerender] = useReducer((revision: number) => revision + 1, 0);
+  useEffect(() => {
+    editor.on("transaction", rerender);
+    return () => {
+      editor.off("transaction", rerender);
+    };
+  }, [editor]);
+  const semanticSnapshot = getSemanticDocumentControllerForEditor(editor).getSnapshot().semantics;
+  const configuration = readPresentation(editor);
+  return (
+    <PresentationTimeline
+      controller={controller}
+      editor={editor}
+      preview={{
+        controller: previewController,
+        document: {
+          document: ScaffoldDocumentContentSchema.parse(editor.getJSON()),
+          surfaceId: SURFACE_ID,
+        },
+      }}
+      projection={projectPresentationTimeline(SURFACE_ID, semanticSnapshot, configuration)}
+    />
+  );
+}
+
+class RecordingPreviewPort implements PresentationPreviewPort {
+  readonly loadCalls: PresentationPreviewDocument[] = [];
+  readonly #listeners = new Set<() => void>();
+  #snapshot: PresentationPreviewSnapshot = { status: "idle" };
+
+  readonly getSnapshot = () => this.#snapshot;
+  readonly subscribe = (listener: () => void) => {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  };
+  async loadCurrentDocument(input: PresentationPreviewDocument) {
+    this.loadCalls.push(input);
+    const presentation = presentationFromPreviewDocument(input.document);
+    this.publish({
+      status: "ready",
+      surfaceId: input.surfaceId,
+      phase: "awaiting-start",
+      currentTimeMs: 0,
+      durationMs: presentation.surfaces[0]!.durationMs,
+    });
+    return Result.ok();
+  }
+  play() {
+    const snapshot = this.requireReady();
+    this.publish({ ...snapshot, phase: "playing" });
+    return Result.ok();
+  }
+  pause() {
+    const snapshot = this.requireReady();
+    this.publish({ ...snapshot, phase: "paused" });
+    return Result.ok();
+  }
+  async seek(timeMs: number) {
+    this.publish({ ...this.requireReady(), currentTimeMs: timeMs, phase: "paused" });
+    return Result.ok({ kind: "applied" as const, timeMs });
+  }
+  private publish(snapshot: PresentationPreviewSnapshot) {
+    this.#snapshot = Object.freeze(snapshot);
+    for (const listener of this.#listeners) listener();
+  }
+  private requireReady() {
+    if (this.#snapshot.status !== "ready") throw new Error("Expected ready preview.");
+    return this.#snapshot;
+  }
+}
+
+function presentationFromPreviewDocument(
+  document: PresentationPreviewDocument["document"],
+): PresentationConfigurationV1 {
+  const content = document as unknown as JSONContent;
+  return PresentationConfigurationV1Schema.parse(content.content?.[0]?.attrs?.["presentation"]);
 }

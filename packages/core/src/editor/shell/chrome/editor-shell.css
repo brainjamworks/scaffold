@@ -46,11 +46,13 @@
   }
 
   .sc-editor-bottom-workspace {
+    box-sizing: border-box;
     display: flex;
     width: 100%;
     min-width: 0;
     min-height: 0;
     height: var(--sc-editor-bottom-workspace-height);
+    max-height: calc(100% - 160px);
     flex: 0 0 var(--sc-editor-bottom-workspace-height);
     flex-direction: column;
     overflow: hidden;

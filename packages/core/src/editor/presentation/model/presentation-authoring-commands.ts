@@ -93,6 +93,13 @@ export type PresentationAuthoringCommandError =
       readonly currentSurfaceId: EmbeddedNodeId;
       readonly actionId: EmbeddedDataId;
     }
+  | {
+      readonly reason: "action-reorder-boundary";
+      readonly surfaceId: EmbeddedNodeId;
+      readonly actionId: EmbeddedDataId;
+      readonly atMs: number;
+      readonly direction: "earlier" | "later";
+    }
   | PresentationAuthoringCompilationError;
 
 export interface PresentationAuthoringInputIssue {
@@ -233,6 +240,41 @@ export function setPresentationActionEnabled({
   const actions = prepared.value.timeline.actions.map((action) =>
     action.id === actionId ? { ...action, isEnabled } : action,
   );
+  return validateAndDispatch(
+    editor,
+    replaceTimeline(prepared.value.configuration, prepared.value.timeline, actions),
+    prepared.value.courseStructure,
+  );
+}
+
+export function reorderPresentationAction({
+  editor,
+  surfaceId,
+  actionId,
+  direction,
+}: ActionCommandInput & {
+  readonly direction: "earlier" | "later";
+}): PresentationAuthoringCommandResult {
+  const prepared = prepareActionMutation(editor, surfaceId, actionId);
+  if (prepared.isErr()) return Result.err(prepared.error);
+  const action = prepared.value.timeline.actions[prepared.value.actionIndex]!;
+  const adjacentIndex = prepared.value.actionIndex + (direction === "earlier" ? -1 : 1);
+  const adjacent = prepared.value.timeline.actions[adjacentIndex];
+  if (!adjacent || adjacent.atMs !== action.atMs) {
+    return Result.err(
+      Object.freeze({
+        reason: "action-reorder-boundary",
+        surfaceId,
+        actionId,
+        atMs: action.atMs,
+        direction,
+      }),
+    );
+  }
+
+  const actions = [...prepared.value.timeline.actions];
+  actions[prepared.value.actionIndex] = adjacent;
+  actions[adjacentIndex] = action;
   return validateAndDispatch(
     editor,
     replaceTimeline(prepared.value.configuration, prepared.value.timeline, actions),

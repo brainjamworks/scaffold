@@ -25,6 +25,7 @@ import type {
 } from "@/presentation/model";
 
 const SURFACE_ID = nodeId("surface");
+const SECOND_SURFACE_ID = nodeId("surface-b");
 const TARGET_A_ID = nodeId("target-a");
 const TARGET_B_ID = nodeId("target-b");
 const ACTION_A_ID = dataId("action-a");
@@ -98,6 +99,46 @@ describe("PresentationTimeline", () => {
     });
 
     controller.destroy();
+  });
+
+  it("expands collapsed ancestors and reveals a target selected outside the Timeline", async () => {
+    const user = userEvent.setup();
+    const semanticSelection = new FakeSemanticSelection(SURFACE_ID);
+    const controller = createController(semanticSelection);
+    const scrollIntoView = vi.fn();
+    const originalScrollIntoView = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "scrollIntoView",
+    );
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+
+    try {
+      render(<PresentationTimeline controller={controller} projection={nestedProjection()} />);
+      await user.click(screen.getByRole("button", { name: "Collapse First target" }));
+      expect(
+        screen.queryByRole("button", { name: "Select Second target" }),
+      ).not.toBeInTheDocument();
+
+      semanticSelection.publish(TARGET_B_ID);
+
+      const selected = await screen.findByRole("button", { name: "Select Second target" });
+      expect(selected).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByRole("button", { name: "Collapse First target" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" }));
+    } finally {
+      if (originalScrollIntoView) {
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalScrollIntoView);
+      } else {
+        Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+      }
+      controller.destroy();
+    }
   });
 
   it("fits, zooms around the viewport centre, and shares horizontal scroll with the action layer", async () => {
@@ -174,6 +215,44 @@ describe("PresentationTimeline", () => {
     expect(playhead).toHaveAttribute("aria-valuenow", "10000");
     expect(semanticSelection.selectCalls).toEqual([]);
 
+    controller.destroy();
+  });
+
+  it("clamps the local playhead when the current Surface duration becomes shorter", async () => {
+    const controller = createController(new FakeSemanticSelection(TARGET_A_ID));
+    controller.setPlayheadDraft(9_000, 10_000);
+    const { rerender } = render(
+      <PresentationTimeline controller={controller} projection={projection()} />,
+    );
+
+    rerender(<PresentationTimeline controller={controller} projection={projection(2_000)} />);
+
+    const playhead = screen.getByRole("slider", { name: "Timeline playhead" });
+    await waitFor(() => expect(controller.getSnapshot().playheadDraftMs).toBe(2_000));
+    expect(playhead).toHaveAttribute("aria-valuemax", "2000");
+    expect(playhead).toHaveAttribute("aria-valuenow", "2000");
+    controller.destroy();
+  });
+
+  it("resets the local playhead when the current Surface identity changes", async () => {
+    const controller = createController(new FakeSemanticSelection(TARGET_A_ID));
+    controller.setPlayheadDraft(9_000, 10_000);
+    const { rerender } = render(
+      <PresentationTimeline controller={controller} projection={projection()} />,
+    );
+
+    rerender(
+      <PresentationTimeline
+        controller={controller}
+        projection={projectionForSurface(SECOND_SURFACE_ID, 10_000)}
+      />,
+    );
+
+    await waitFor(() => expect(controller.getSnapshot().playheadDraftMs).toBe(0));
+    expect(screen.getByRole("slider", { name: "Timeline playhead" })).toHaveAttribute(
+      "aria-valuenow",
+      "0",
+    );
     controller.destroy();
   });
 
@@ -357,6 +436,22 @@ function projection(durationMs = 10_000): PresentationTimelineProjection {
   };
 }
 
+function projectionForSurface(
+  surfaceId: EmbeddedNodeId,
+  durationMs: number,
+): PresentationTimelineProjection {
+  const current = projection(durationMs);
+  return {
+    ...current,
+    surfaceId,
+    rows: current.rows.map((row) => ({
+      ...row,
+      targetId: row.targetId === SURFACE_ID ? surfaceId : row.targetId,
+      parentTargetId: row.parentTargetId === SURFACE_ID ? surfaceId : row.parentTargetId,
+    })),
+  };
+}
+
 function projectionWithSecondAction(): PresentationTimelineProjection {
   const base = projection();
   return {
@@ -383,6 +478,16 @@ function projectionWithSecondAction(): PresentationTimelineProjection {
             ],
           }
         : row,
+    ),
+  };
+}
+
+function nestedProjection(): PresentationTimelineProjection {
+  const current = projection();
+  return {
+    ...current,
+    rows: current.rows.map((row) =>
+      row.targetId === TARGET_B_ID ? { ...row, parentTargetId: TARGET_A_ID, depth: 2 } : row,
     ),
   };
 }
@@ -437,6 +542,11 @@ class FakeSemanticSelection implements PresentationTimelineSemanticSelection {
     this.#selectedId = id;
     for (const listener of this.#listeners) listener();
     return { kind: "reached", id };
+  }
+
+  publish(id: EmbeddedNodeId | null): void {
+    this.#selectedId = id;
+    for (const listener of this.#listeners) listener();
   }
 }
 

@@ -11,6 +11,7 @@ import {
   createPresentationAction,
   createPresentationActions,
   removePresentationAction,
+  reorderPresentationAction,
   setPresentationActionEnabled,
   type NewPresentationTimelineAction,
   type PresentationAuthoringCommandError,
@@ -139,6 +140,18 @@ function ActionForm({
   const selectedState = choice.startsWith("wait:state:")
     ? control?.states?.find(({ key }) => key === choice.slice("wait:state:".length))
     : null;
+  const orderedActions = orderedProjectionActions(projection);
+  const selectedSourceIndex = selectedAction
+    ? orderedActions.findIndex(({ id }) => id === selectedAction.id)
+    : -1;
+  const canMoveEarlier =
+    selectedAction !== null &&
+    selectedSourceIndex > 0 &&
+    orderedActions[selectedSourceIndex - 1]?.atMs === selectedAction.atMs;
+  const canMoveLater =
+    selectedAction !== null &&
+    selectedSourceIndex >= 0 &&
+    orderedActions[selectedSourceIndex + 1]?.atMs === selectedAction.atMs;
 
   function saveAction(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -208,14 +221,13 @@ function ActionForm({
     else controller.clearActionSelection();
   }
 
-  function reorderAction(deltaMs: number): void {
+  function reorderAction(direction: "earlier" | "later"): void {
     if (!selectedAction) return;
-    const { id, ...action } = selectedAction;
-    const result = updatePresentationAction({
+    const result = reorderPresentationAction({
       editor,
       surfaceId: projection.surfaceId,
-      actionId: id,
-      action: { ...action, atMs: Math.max(0, action.atMs + deltaMs) },
+      actionId: selectedAction.id,
+      direction,
     });
     setError(result.isErr() ? result.error : null);
   }
@@ -334,10 +346,10 @@ function ActionForm({
           <button type="button" onClick={toggleEnabled}>
             {selectedAction.isEnabled ? "Disable action" : "Enable action"}
           </button>
-          <button type="button" onClick={() => reorderAction(-100)}>
+          <button type="button" disabled={!canMoveEarlier} onClick={() => reorderAction("earlier")}>
             Move earlier
           </button>
-          <button type="button" onClick={() => reorderAction(100)}>
+          <button type="button" disabled={!canMoveLater} onClick={() => reorderAction("later")}>
             Move later
           </button>
           <button type="button" onClick={deleteAction}>
@@ -764,16 +776,7 @@ function resolvePlacement(
   const exact = numberField(form, "atMs");
   const placement = stringField(form, "placement");
   if (placement === "exact") return exact;
-  const actionById = new Map(
-    projection.rows.flatMap(({ actions }) => actions).map((action) => [action.id, action]),
-  );
-  const orderedActions = projection.orderedActionIds.map((actionId) => {
-    const action = actionById.get(actionId);
-    if (!action) {
-      throw new Error(`Presentation Timeline ordered action "${actionId}" is missing.`);
-    }
-    return action;
-  });
+  const orderedActions = orderedProjectionActions(projection);
   const currentIndex = current
     ? projection.orderedActionIds.findIndex((actionId) => actionId === current.id)
     : orderedActions.length;
@@ -785,6 +788,19 @@ function resolvePlacement(
   return placement === "after-previous"
     ? previous.atMs + durationOfAction(previous)
     : previous.atMs;
+}
+
+function orderedProjectionActions(
+  projection: PresentationTimelineProjection,
+): readonly TimelineActionV1[] {
+  const actionById = new Map(
+    projection.rows.flatMap(({ actions }) => actions).map((action) => [action.id, action]),
+  );
+  return projection.orderedActionIds.map((actionId) => {
+    const action = actionById.get(actionId);
+    if (!action) throw new Error(`Presentation Timeline ordered action "${actionId}" is missing.`);
+    return action;
+  });
 }
 
 function durationOfAction(action: TimelineActionV1): number {
@@ -830,6 +846,8 @@ export function presentPresentationAuthoringCommandError(
       return "This action is no longer in the current Surface.";
     case "action-belongs-to-another-surface":
       return "This action now belongs to another Surface.";
+    case "action-reorder-boundary":
+      return `This action has no equal-time action ${error.direction === "earlier" ? "before" : "after"} it.`;
     case "surface-coverage-stale":
       return "The Presentation Surface list is out of date.";
     case "navigation-destination-not-current":

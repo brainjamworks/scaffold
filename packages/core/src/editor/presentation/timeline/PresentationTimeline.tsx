@@ -1,4 +1,4 @@
-import type { EmbeddedDataId, TimelineActionV1 } from "@scaffold/contracts";
+import type { EmbeddedDataId, EmbeddedNodeId, TimelineActionV1 } from "@scaffold/contracts";
 import {
   MinusIcon as Minus,
   PauseIcon as Pause,
@@ -8,10 +8,12 @@ import {
 import type { Editor } from "@tiptap/core";
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
   type CSSProperties,
+  type FormEvent,
   type KeyboardEvent,
   type PointerEvent,
   type UIEvent,
@@ -22,6 +24,7 @@ import { Button } from "@/ui/components/Button/Button";
 import { IconButton } from "@/ui/components/IconButton/IconButton";
 import { iconXs } from "@/ui/tokens/icon-sizes";
 import {
+  setPresentationSurfaceDuration,
   updatePresentationAction,
   type NewPresentationTimelineAction,
   type PresentationAuthoringCommandError,
@@ -68,7 +71,11 @@ export function PresentationTimeline({
   preview,
 }: PresentationTimelineProps) {
   const timeViewportRef = useRef<HTMLDivElement>(null);
+  const targetRowRefs = useRef(new Map<EmbeddedNodeId, HTMLDivElement>());
   const playheadPointerIdRef = useRef<number | null>(null);
+  const [collapsedTargetIds, setCollapsedTargetIds] = useState<ReadonlySet<EmbeddedNodeId>>(
+    () => new Set(),
+  );
   const [authoringError, setAuthoringError] = useState<PresentationAuthoringCommandError | null>(
     null,
   );
@@ -88,6 +95,8 @@ export function PresentationTimeline({
     previewSnapshot.surfaceId === preview?.document.surfaceId &&
     previewSnapshot.phase === "playing";
   const durationMs = projection.durationMs ?? 0;
+  const playheadMs = Math.min(durationMs, snapshot.playheadDraftMs);
+  const previousTimelineRef = useRef({ surfaceId: projection.surfaceId, durationMs });
   const contentWidthPx = (durationMs / 1_000) * snapshot.pixelsPerSecond;
   const contentStyle = {
     "--sc-presentation-timeline-content-width": `${contentWidthPx}px`,
@@ -102,6 +111,53 @@ export function PresentationTimeline({
     snapshot.editDraft && draftAction
       ? deriveDraftFeedback(snapshot.editDraft, draftAction, projection, snapshot.pixelsPerSecond)
       : null;
+  const rowById = useMemo(
+    () => new Map(projection.rows.map((row) => [row.targetId, row])),
+    [projection.rows],
+  );
+  const ownerTargetIds = useMemo(
+    () =>
+      new Set(
+        projection.rows.flatMap(({ parentTargetId }) =>
+          parentTargetId === null ? [] : [parentTargetId],
+        ),
+      ),
+    [projection.rows],
+  );
+  const visibleRows = useMemo(
+    () => visiblePresentationTimelineRows(projection.rows, rowById, collapsedTargetIds),
+    [collapsedTargetIds, projection.rows, rowById],
+  );
+
+  useEffect(() => {
+    const selectedTargetId = snapshot.selectedTargetId;
+    if (!selectedTargetId) return;
+    const ancestors = presentationTimelineAncestorIds(selectedTargetId, rowById);
+    setCollapsedTargetIds((current) => {
+      if (!ancestors.some((targetId) => current.has(targetId))) return current;
+      const next = new Set(current);
+      for (const targetId of ancestors) next.delete(targetId);
+      return next;
+    });
+  }, [rowById, snapshot.selectedTargetId]);
+
+  useEffect(() => {
+    const selectedTargetId = snapshot.selectedTargetId;
+    if (!selectedTargetId || !visibleRows.some(({ targetId }) => targetId === selectedTargetId)) {
+      return;
+    }
+    targetRowRefs.current.get(selectedTargetId)?.scrollIntoView?.({ block: "nearest" });
+  }, [collapsedTargetIds, snapshot.selectedTargetId, visibleRows]);
+
+  useEffect(() => {
+    const previous = previousTimelineRef.current;
+    if (previous.surfaceId !== projection.surfaceId) {
+      controller.setPlayheadDraft(0, durationMs);
+    } else if (previous.durationMs !== durationMs) {
+      controller.setPlayheadDraft(snapshot.playheadDraftMs, durationMs);
+    }
+    previousTimelineRef.current = { surfaceId: projection.surfaceId, durationMs };
+  }, [controller, durationMs, projection.surfaceId, snapshot.playheadDraftMs]);
 
   useEffect(() => {
     const viewport = timeViewportRef.current;
@@ -201,6 +257,26 @@ export function PresentationTimeline({
     });
   }
 
+  function setSurfaceDuration(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    if (!editor) return;
+    const result = setPresentationSurfaceDuration({
+      editor,
+      surfaceId: projection.surfaceId,
+      durationMs: Number(new FormData(event.currentTarget).get("surfaceDurationMs")),
+    });
+    setAuthoringError(result.isErr() ? result.error : null);
+  }
+
+  function toggleTargetCollapsed(targetId: EmbeddedNodeId): void {
+    setCollapsedTargetIds((current) => {
+      const next = new Set(current);
+      if (next.has(targetId)) next.delete(targetId);
+      else next.add(targetId);
+      return next;
+    });
+  }
+
   function handlePlayheadPointerDown(event: PointerEvent<HTMLDivElement>): void {
     if (event.button !== 0) return;
     event.preventDefault();
@@ -226,10 +302,10 @@ export function PresentationTimeline({
     let nextTimeMs: number;
     switch (event.key) {
       case "ArrowLeft":
-        nextTimeMs = snapshot.playheadDraftMs - stepMs;
+        nextTimeMs = playheadMs - stepMs;
         break;
       case "ArrowRight":
-        nextTimeMs = snapshot.playheadDraftMs + stepMs;
+        nextTimeMs = playheadMs + stepMs;
         break;
       case "Home":
         nextTimeMs = 0;
@@ -263,8 +339,30 @@ export function PresentationTimeline({
           </IconButton>
         ) : null}
         <span className="sc-presentation-timeline-time-readout" aria-hidden="true">
-          {formatTime(snapshot.playheadDraftMs)} / {formatTime(durationMs)}
+          {formatTime(playheadMs)} / {formatTime(durationMs)}
         </span>
+        {editor ? (
+          <form
+            key={`${projection.surfaceId}:${durationMs}`}
+            className="sc-presentation-timeline-duration-control"
+            onSubmit={setSurfaceDuration}
+          >
+            <label>
+              <span>Duration</span>
+              <input
+                aria-label="Surface duration (ms)"
+                name="surfaceDurationMs"
+                type="number"
+                min={0}
+                step={1}
+                defaultValue={durationMs}
+              />
+            </label>
+            <Button aria-label="Set duration" size="sm" type="submit">
+              Set
+            </Button>
+          </form>
+        ) : null}
         <div className="sc-presentation-timeline-zoom-controls">
           <Button size="sm" variant="ghost" onClick={fitTimeline}>
             Fit timeline
@@ -293,8 +391,8 @@ export function PresentationTimeline({
             aria-label="Timeline playhead"
             aria-valuemin={0}
             aria-valuemax={durationMs}
-            aria-valuenow={snapshot.playheadDraftMs}
-            aria-valuetext={formatPlayheadValue(snapshot.playheadDraftMs, durationMs)}
+            aria-valuenow={playheadMs}
+            aria-valuetext={formatPlayheadValue(playheadMs, durationMs)}
             onKeyDown={handlePlayheadKeyDown}
             onPointerCancel={() => {
               playheadPointerIdRef.current = null;
@@ -316,19 +414,26 @@ export function PresentationTimeline({
             ))}
             <span
               className="sc-presentation-timeline-ruler-playhead"
-              style={{ left: timeToPixels(snapshot.playheadDraftMs, snapshot.pixelsPerSecond) }}
+              style={{ left: timeToPixels(playheadMs, snapshot.pixelsPerSecond) }}
             />
           </div>
         </div>
       </div>
       <div className="sc-presentation-timeline-row-scroll">
         <div className="sc-presentation-timeline-labels">
-          {projection.rows.map((row) => (
+          {visibleRows.map((row) => (
             <TimelineTargetLabel
               key={row.targetId}
               row={row}
               expanded={snapshot.selectedTargetId === row.targetId}
+              hasChildren={ownerTargetIds.has(row.targetId)}
+              collapsed={collapsedTargetIds.has(row.targetId)}
+              rowRef={(element) => {
+                if (element) targetRowRefs.current.set(row.targetId, element);
+                else targetRowRefs.current.delete(row.targetId);
+              }}
               onSelect={() => void controller.selectTarget(row.targetId)}
+              onToggleCollapsed={() => toggleTargetCollapsed(row.targetId)}
             />
           ))}
         </div>
@@ -342,7 +447,7 @@ export function PresentationTimeline({
           >
             <span
               className="sc-presentation-timeline-lane-playhead"
-              style={{ left: timeToPixels(snapshot.playheadDraftMs, snapshot.pixelsPerSecond) }}
+              style={{ left: timeToPixels(playheadMs, snapshot.pixelsPerSecond) }}
             />
             {draftFeedback ? (
               <>
@@ -368,7 +473,7 @@ export function PresentationTimeline({
                 ))}
               </>
             ) : null}
-            {projection.rows.map((row) => (
+            {visibleRows.map((row) => (
               <TimelineActionLane
                 key={row.targetId}
                 row={row}
@@ -449,18 +554,40 @@ function presentPresentationPreviewError(error: PresentationPreviewUiError): str
 function TimelineTargetLabel({
   row,
   expanded,
+  hasChildren,
+  collapsed,
+  rowRef,
   onSelect,
+  onToggleCollapsed,
 }: {
   readonly row: PresentationTimelineRow;
   readonly expanded: boolean;
+  readonly hasChildren: boolean;
+  readonly collapsed: boolean;
+  readonly rowRef: (element: HTMLDivElement | null) => void;
   readonly onSelect: () => void;
+  readonly onToggleCollapsed: () => void;
 }) {
   return (
     <div
+      ref={rowRef}
       className="sc-presentation-timeline-target-row"
       data-expanded={expanded}
+      data-has-children={hasChildren}
       data-target-id={row.targetId}
+      style={{ "--sc-presentation-timeline-depth": row.depth } as CSSProperties}
     >
+      {hasChildren ? (
+        <button
+          type="button"
+          className="sc-presentation-timeline-disclosure"
+          aria-label={`${collapsed ? "Expand" : "Collapse"} ${row.label}`}
+          aria-expanded={!collapsed}
+          onClick={onToggleCollapsed}
+        >
+          {collapsed ? "▸" : "▾"}
+        </button>
+      ) : null}
       <button
         type="button"
         className="sc-presentation-timeline-target"
@@ -478,6 +605,49 @@ function TimelineTargetLabel({
       </button>
     </div>
   );
+}
+
+function visiblePresentationTimelineRows(
+  rows: readonly PresentationTimelineRow[],
+  rowById: ReadonlyMap<EmbeddedNodeId, PresentationTimelineRow>,
+  collapsedTargetIds: ReadonlySet<EmbeddedNodeId>,
+): readonly PresentationTimelineRow[] {
+  return rows.filter((row) => {
+    let parentTargetId = row.parentTargetId;
+    const visited = new Set<EmbeddedNodeId>();
+    while (parentTargetId) {
+      if (visited.has(parentTargetId)) {
+        throw new Error(`Presentation Timeline hierarchy contains a cycle at "${parentTargetId}".`);
+      }
+      visited.add(parentTargetId);
+      if (collapsedTargetIds.has(parentTargetId)) return false;
+      const parent = rowById.get(parentTargetId);
+      if (!parent) {
+        throw new Error(`Presentation Timeline parent target "${parentTargetId}" is missing.`);
+      }
+      parentTargetId = parent.parentTargetId;
+    }
+    return true;
+  });
+}
+
+function presentationTimelineAncestorIds(
+  targetId: EmbeddedNodeId,
+  rowById: ReadonlyMap<EmbeddedNodeId, PresentationTimelineRow>,
+): readonly EmbeddedNodeId[] {
+  const ancestors: EmbeddedNodeId[] = [];
+  let parentTargetId = rowById.get(targetId)?.parentTargetId ?? null;
+  while (parentTargetId) {
+    if (ancestors.includes(parentTargetId)) {
+      throw new Error(`Presentation Timeline hierarchy contains a cycle at "${parentTargetId}".`);
+    }
+    ancestors.push(parentTargetId);
+    const parent = rowById.get(parentTargetId);
+    if (!parent)
+      throw new Error(`Presentation Timeline parent target "${parentTargetId}" is missing.`);
+    parentTargetId = parent.parentTargetId;
+  }
+  return ancestors;
 }
 
 function TimelineActionLane({
