@@ -22,6 +22,7 @@ import type { PresentationPreviewDocument } from "@/presentation/model";
 import type { SemanticDocumentController } from "@/document/authoring/semantic-document/semantic-document-controller";
 import type { SemanticNavigationResult } from "@/document/authoring/semantic-document";
 import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
+import type { SemanticItem, SemanticLocation } from "@/document/model/semantic-document";
 import { type CourseDocumentAuthoringMount } from "@/document/authoring/prepared-authoring-mount";
 import type {
   ArtifactSavePayload,
@@ -575,8 +576,14 @@ class FakeWorkspaceSemanticController {
   readonly #listeners = new Set<() => void>();
   #snapshot: ReturnType<SemanticDocumentController["getSnapshot"]>;
 
-  constructor(surfaceIds: readonly EmbeddedNodeId[]) {
-    const items = surfaceIds.map((id, index) => ({
+  constructor(
+    surfaceIds: readonly EmbeddedNodeId[],
+    options: {
+      readonly courseSectionId?: EmbeddedNodeId;
+      readonly selectedId?: EmbeddedNodeId | null;
+    } = {},
+  ) {
+    const items: SemanticItem[] = surfaceIds.map((id, index) => ({
       id,
       kind: "surface" as const,
       nodeType: "surface",
@@ -587,33 +594,67 @@ class FakeWorkspaceSemanticController {
       presentationContainer: null,
       children: [],
     }));
+    const courseSection: SemanticItem | null = options.courseSectionId
+      ? {
+          id: options.courseSectionId,
+          kind: "course-section" as const,
+          nodeType: "courseSection",
+          definitionId: null,
+          label: "Section 1",
+          summary: null,
+          presentation: { actionIds: [], disabledReason: null },
+          presentationContainer: null,
+          children: items,
+        }
+      : null;
+    const itemById = new Map<EmbeddedNodeId, SemanticItem>(items.map((item) => [item.id, item]));
+    const parentById = new Map<EmbeddedNodeId, EmbeddedNodeId | null>(
+      items.map((item) => [item.id, courseSection?.id ?? null]),
+    );
+    const locationById = new Map<EmbeddedNodeId, SemanticLocation>(
+      items.map((item, index) => [
+        item.id,
+        {
+          id: item.id,
+          nodeType: "surface",
+          from: index + 2,
+          to: index + 3,
+          selectionTarget: { kind: "node" as const, pos: index + 2 },
+          surfaceId: item.id,
+          authoringAnchorId: item.id,
+          activationPath: [],
+        },
+      ]),
+    );
+    if (courseSection) {
+      itemById.set(courseSection.id, courseSection);
+      parentById.set(courseSection.id, null);
+      locationById.set(courseSection.id, {
+        id: courseSection.id,
+        nodeType: "courseSection",
+        from: 1,
+        to: 2,
+        selectionTarget: { kind: "node", pos: 1 },
+        surfaceId: null,
+        authoringAnchorId: null,
+        activationPath: [],
+      });
+    }
     const semantics = {
       revision: 0,
       mode: "slideshow" as const,
-      roots: items,
-      itemById: new Map(items.map((item) => [item.id, item])),
-      parentById: new Map(items.map((item) => [item.id, null])),
-      locationById: new Map(
-        items.map((item, index) => [
-          item.id,
-          {
-            id: item.id,
-            nodeType: "surface",
-            from: index + 1,
-            to: index + 2,
-            selectionTarget: { kind: "node" as const, pos: index + 1 },
-            surfaceId: item.id,
-            authoringAnchorId: item.id,
-            activationPath: [],
-          },
-        ]),
-      ),
+      roots: courseSection ? [courseSection] : items,
+      itemById,
+      parentById,
+      locationById,
       diagnostics: [],
     };
+    const selectedId =
+      options.selectedId === undefined ? (surfaceIds[0] ?? null) : options.selectedId;
     this.#snapshot = Object.freeze({
       semantics,
-      selectedId: surfaceIds[0] ?? null,
-      selectionOrigin: "editor" as const,
+      selectedId,
+      selectionOrigin: selectedId ? ("editor" as const) : null,
     });
   }
 
@@ -850,6 +891,81 @@ async function createDirtyInteractionDraft(
 }
 
 describe("ScaffoldAuthoringApp Surface workspaces", () => {
+  it("omits the Surface workspace for a Slideshow with no Surfaces", async () => {
+    const content = slideshowDocument("removedsurf1");
+    const courseDocument = content.content?.[0];
+    const courseSection = courseDocument?.content?.[0];
+    if (!courseDocument || courseSection?.type !== "courseSection") {
+      throw new Error("expected a sectioned Slideshow fixture");
+    }
+    courseDocument.content = [courseSection];
+    const courseSectionId = EmbeddedNodeIdSchema.parse(courseSection.attrs?.["id"]);
+    mocks.authorJSON = content;
+    mocks.fakeEditor.state.doc.firstChild.attrs = courseDocument.attrs ?? {};
+    mocks.renderBottomWorkspace = true;
+    const semanticController = new FakeWorkspaceSemanticController([], {
+      courseSectionId,
+      selectedId: courseSectionId,
+    });
+    vi.spyOn(semanticDocumentPluginKey, "getState").mockReturnValue(
+      semanticController as unknown as SemanticDocumentController,
+    );
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-empty-slideshow-workspace",
+          title: "Empty Slideshow",
+          mode: "slideshow",
+          content,
+        }}
+        services={{ artifactPersistence: { saveArtifact: vi.fn(async () => ({})) }, media: null }}
+      />,
+    );
+
+    await screen.findByTestId("content-author-host");
+    expect(screen.queryByRole("tablist", { name: "Surface workspace" })).toBeNull();
+  });
+
+  it("resolves a selected Course Section to its first Surface workspace", async () => {
+    const user = userEvent.setup();
+    const firstSurfaceId = EmbeddedNodeIdSchema.parse("workspace001");
+    const secondSurfaceId = EmbeddedNodeIdSchema.parse("workspace002");
+    const content = slideshowDocumentWithSurfaces(firstSurfaceId, secondSurfaceId);
+    const courseSectionId = EmbeddedNodeIdSchema.parse(
+      findJsonNode(content, "courseSection")?.attrs?.["id"],
+    );
+    mocks.authorJSON = content;
+    mocks.fakeEditor.state.doc.firstChild.attrs = content.content?.[0]?.attrs ?? {};
+    mocks.renderBottomWorkspace = true;
+    const semanticController = new FakeWorkspaceSemanticController(
+      [firstSurfaceId, secondSurfaceId],
+      { courseSectionId, selectedId: courseSectionId },
+    );
+    vi.spyOn(semanticDocumentPluginKey, "getState").mockReturnValue(
+      semanticController as unknown as SemanticDocumentController,
+    );
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-section-workspace",
+          title: "Section workspace",
+          mode: "slideshow",
+          content,
+        }}
+        services={{ artifactPersistence: { saveArtifact: vi.fn(async () => ({})) }, media: null }}
+      />,
+    );
+
+    await user.click(await screen.findByRole("tab", { name: "Interactions" }));
+    expect(
+      document.querySelector(`[data-interaction-surface-id="${firstSurfaceId}"]`),
+    ).not.toBeNull();
+  });
+
   it("mounts Timeline and Interactions exclusively and guards workspace and Surface changes", async () => {
     const user = userEvent.setup();
     const firstSurfaceId = EmbeddedNodeIdSchema.parse("workspace001");

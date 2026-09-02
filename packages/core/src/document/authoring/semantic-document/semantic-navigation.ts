@@ -6,6 +6,7 @@ import type {
   SemanticDocumentSnapshot,
   SemanticLocation,
 } from "@/document/model/semantic-document";
+import { resolveSemanticTargetSurfaceId } from "@/document/model/semantic-document";
 import type {
   SemanticTargetInteractionCoordinator,
   SemanticTargetInteractionResult,
@@ -159,10 +160,11 @@ export class SemanticNavigationCoordinator {
   }
 
   #resolveSurfaceId(target: ResolvedSemanticTarget): EmbeddedNodeId | null {
-    if (target.location.surfaceId) return target.location.surfaceId;
-    const item = this.#getSemantics().itemById.get(target.id);
-    if (item?.kind !== "course-section") return null;
-    return this.#getCourseStructure().courseSectionById[target.id]?.firstSurfaceId ?? null;
+    return resolveSemanticTargetSurfaceId(
+      target.id,
+      this.#getSemantics(),
+      this.#getCourseStructure(),
+    );
   }
 
   async #reachOwner(

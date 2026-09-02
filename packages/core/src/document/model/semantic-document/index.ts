@@ -38,3 +38,4 @@ export {
   projectSemanticDocument,
   type ProjectSemanticDocumentInput,
 } from "./project-semantic-document";
+export { resolveSemanticTargetSurfaceId } from "./semantic-surface-resolution";
