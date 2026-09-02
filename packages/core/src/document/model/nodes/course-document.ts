@@ -138,6 +138,17 @@ export const CourseDocumentNode = Node.create({
             ? {}
             : { "data-course-branching": JSON.stringify(attrs.branching) },
       },
+      learnerInteractions: {
+        default: null,
+        parseHTML: (element: HTMLElement) =>
+          parseJsonAttr(element.getAttribute("data-course-learner-interactions")),
+        renderHTML: (attrs: { learnerInteractions?: unknown }) =>
+          attrs.learnerInteractions === null || attrs.learnerInteractions === undefined
+            ? {}
+            : {
+                "data-course-learner-interactions": JSON.stringify(attrs.learnerInteractions),
+              },
+      },
       presentation: {
         default: null,
         parseHTML: (element: HTMLElement) =>

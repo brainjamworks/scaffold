@@ -365,6 +365,62 @@ describe("course document nodes", () => {
     reopenedEditor.destroy();
   });
 
+  it("round-trips optional Learner Interaction JSON beside Presentation", () => {
+    const ordinaryEditor = makeEditor();
+    const ordinaryCourse = ordinaryEditor.getJSON().content?.[0] as JSONContent | undefined;
+    expect(ordinaryCourse?.attrs?.["learnerInteractions"]).toBeNull();
+    expect(ordinaryEditor.getHTML()).not.toContain("data-course-learner-interactions");
+
+    const content = courseDocumentContent();
+    const courseDocument = content.content![0]!;
+    const learnerInteractions = {
+      schemaVersion: 1,
+      surfaces: [
+        {
+          surfaceId: "surface00001",
+          rules: [
+            {
+              id: "rule00000001",
+              isEnabled: true,
+              when: { targetId: "target000001", type: "selected" },
+              conditions: [],
+              commands: [{ kind: "reveal-target", targetId: "target000001" }],
+            },
+          ],
+        },
+      ],
+    };
+    const presentation = {
+      schemaVersion: 1,
+      autoAdvance: false,
+      allowPrevious: true,
+      surfaces: [{ surfaceId: "surface00001", durationMs: 10_000, actions: [] }],
+    };
+    courseDocument.attrs = {
+      ...courseDocument.attrs,
+      mode: "slideshow",
+      surfaceSize: "16x9",
+      learnerInteractions,
+      presentation,
+    };
+
+    const editor = makeEditor(content);
+    const storedCourse = editor.getJSON().content?.[0] as JSONContent | undefined;
+    const html = editor.getHTML();
+    const reopenedEditor = makeEditor(html);
+    const reopenedCourse = reopenedEditor.getJSON().content?.[0] as JSONContent | undefined;
+
+    expect(storedCourse?.attrs?.["learnerInteractions"]).toEqual(learnerInteractions);
+    expect(html).toContain("data-course-learner-interactions=");
+    expect(html).toContain("data-course-presentation=");
+    expect(reopenedCourse?.attrs?.["learnerInteractions"]).toEqual(learnerInteractions);
+    expect(reopenedCourse?.attrs?.["presentation"]).toEqual(presentation);
+
+    ordinaryEditor.destroy();
+    editor.destroy();
+    reopenedEditor.destroy();
+  });
+
   it.each([undefined, "not-json", '{"schemaVersion":1,"preset":{}}'])(
     "uses the required default for an absent or invalid HTML theme attribute",
     (serializedTheme) => {
