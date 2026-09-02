@@ -2,7 +2,11 @@
 
 import { Result } from "better-result";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { EmbeddedDataIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
+import {
+  EmbeddedDataIdSchema,
+  type EmbeddedDataId,
+  type EmbeddedNodeId,
+} from "@scaffold/contracts";
 
 import type {
   ControlCommandRequest,
@@ -13,8 +17,8 @@ import type {
 } from "@/document/control-binding/control-binding";
 import type { SurfaceId } from "@/document/model/course-structure";
 import type { CompiledSurfacePresentationTimeline } from "@/presentation/model";
-import type { CompiledSurfaceLearnerInteractionProgram } from "@/runtime/learner-interaction/compiled-learner-interaction-program";
-import { createLearnerInteractionEventKey } from "@/runtime/learner-interaction/compiled-learner-interaction-program";
+import type { CompiledSurfaceLearnerInteractionProgram } from "@/learner-interaction/model";
+import { createLearnerInteractionEventKey } from "@/learner-interaction/model";
 import type { PresentationWaitId } from "@/runtime/presentation/compiled-presentation-program";
 import type { SurfaceChangeRefused, SurfaceChangeResult } from "./slideshow-surface-change";
 import { createRequestSurfaceChange } from "./slideshow-surface-change";
@@ -478,7 +482,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
           createLearnerInteractionEventKey(when),
           [
             {
-              id: "rule-command",
+              id: "rule-command" as EmbeddedDataId,
               when,
               conditions: [],
               commands: [
@@ -938,7 +942,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
           createLearnerInteractionEventKey(when),
           [
             {
-              id: "cancel-before-navigation",
+              id: "cancel-before-navigation" as EmbeddedDataId,
               when,
               conditions: [],
               commands: [
@@ -1038,7 +1042,7 @@ function learnerProgram(surfaceId: SurfaceId): CompiledSurfaceLearnerInteraction
         createLearnerInteractionEventKey(when),
         Object.freeze([
           Object.freeze({
-            id: "rule-1",
+            id: "rule-1" as EmbeddedDataId,
             when,
             conditions: Object.freeze([]),
             commands: Object.freeze([

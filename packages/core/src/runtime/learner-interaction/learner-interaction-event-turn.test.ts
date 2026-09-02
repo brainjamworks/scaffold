@@ -1,4 +1,4 @@
-import type { EmbeddedNodeId } from "@scaffold/contracts";
+import type { EmbeddedDataId, EmbeddedNodeId } from "@scaffold/contracts";
 import { Result } from "better-result";
 import { describe, expect, it, vi } from "vite-plus/test";
 
@@ -14,8 +14,8 @@ import type {
   CompiledControlEventReference,
   CompiledLearnerInteractionRule,
   CompiledSurfaceLearnerInteractionProgram,
-} from "./compiled-learner-interaction-program";
-import { createLearnerInteractionEventKey } from "./compiled-learner-interaction-program";
+} from "@/learner-interaction/model";
+import { createLearnerInteractionEventKey } from "@/learner-interaction/model";
 import { executeLearnerInteractionEventTurn } from "./learner-interaction-event-turn";
 
 const SURFACE_ID = "surface-1" as EmbeddedNodeId;
@@ -26,6 +26,10 @@ const EVENT_REFERENCE: CompiledControlEventReference = {
   targetId: TARGET_ID,
   type: "selected",
 };
+
+function ruleId(value: string): EmbeddedDataId {
+  return value as EmbeddedDataId;
+}
 
 function programWithRules(
   rules: readonly CompiledLearnerInteractionRule[],
@@ -103,7 +107,7 @@ it("returns a frozen completed report when the event has no exact rule bucket", 
 it("matches an exact zero-condition rule and records expected navigation cancellation", async () => {
   const destinationId = "surface-2" as EmbeddedNodeId;
   const rule = {
-    id: "rule-zero-conditions",
+    id: ruleId("rule-zero-conditions"),
     when: EVENT_REFERENCE,
     conditions: [],
     commands: [{ kind: "navigate-surface", surfaceId: destinationId }],
@@ -157,7 +161,7 @@ it.each([
 ])("does not select a rule when the event $name differs", async ({ ownerId, event }) => {
   const navigate = vi.fn(async () => Result.ok());
   const rule = {
-    id: "rule-exact-event",
+    id: ruleId("rule-exact-event"),
     when: EVENT_REFERENCE,
     conditions: [],
     commands: [{ kind: "navigate-surface", surfaceId: SURFACE_ID }],
@@ -208,7 +212,7 @@ it("reads unique condition state before commands and evaluates every rule agains
   } as const;
   const rules = [
     {
-      id: "rule-equals",
+      id: ruleId("rule-equals"),
       when: EVENT_REFERENCE,
       conditions: [{ ...sharedCondition, operator: "equals", value: false }],
       commands: [
@@ -222,7 +226,7 @@ it("reads unique condition state before commands and evaluates every rule agains
       ],
     },
     {
-      id: "rule-not-equals",
+      id: ruleId("rule-not-equals"),
       when: EVENT_REFERENCE,
       conditions: [{ ...sharedCondition, operator: "not-equals", value: true }],
       commands: [
@@ -235,7 +239,7 @@ it("reads unique condition state before commands and evaluates every rule agains
       ],
     },
     {
-      id: "rule-not-matched",
+      id: ruleId("rule-not-matched"),
       when: EVENT_REFERENCE,
       conditions: [
         { ...sharedCondition, operator: "equals", value: true },
@@ -323,7 +327,7 @@ it("reads unique condition state before commands and evaluates every rule agains
 it("reveals a target with the configured origin and shared signal", async () => {
   const revealTargetId = "target-reveal" as EmbeddedNodeId;
   const rule = {
-    id: "rule-reveal",
+    id: ruleId("rule-reveal"),
     when: EVENT_REFERENCE,
     conditions: [],
     commands: [{ kind: "reveal-target", targetId: revealTargetId }],
@@ -378,7 +382,7 @@ it.each([
   "records semantic $kind as an exact target-not-reached outcome",
   async (semanticResult) => {
     const rule = {
-      id: `rule-${semanticResult.kind}`,
+      id: ruleId(`rule-${semanticResult.kind}`),
       when: EVENT_REFERENCE,
       conditions: [],
       commands: [{ kind: "reveal-target", targetId: semanticResult.requestedId }],
@@ -420,7 +424,7 @@ it.each([
     const execute = vi.fn(async () => Result.err(error));
     const activate = vi.fn();
     const rule = {
-      id: `rule-${error.reason}`,
+      id: ruleId(`rule-${error.reason}`),
       when: EVENT_REFERENCE,
       conditions: [],
       commands: [
@@ -484,7 +488,7 @@ it("preserves ordered outcomes until successful navigation skips every later com
     .mockImplementationOnce(async () => Result.ok());
   const rules = [
     {
-      id: "rule-expected-outcomes",
+      id: ruleId("rule-expected-outcomes"),
       when: EVENT_REFERENCE,
       conditions: [],
       commands: [
@@ -505,7 +509,7 @@ it("preserves ordered outcomes until successful navigation skips every later com
       ],
     },
     {
-      id: "rule-navigation",
+      id: ruleId("rule-navigation"),
       when: EVENT_REFERENCE,
       conditions: [],
       commands: [
@@ -514,7 +518,7 @@ it("preserves ordered outcomes until successful navigation skips every later com
       ],
     },
     {
-      id: "rule-after-navigation",
+      id: ruleId("rule-after-navigation"),
       when: EVENT_REFERENCE,
       conditions: [],
       commands: [
@@ -599,7 +603,7 @@ it("awaits each command before starting the next one", async () => {
     }
   });
   const rule = {
-    id: "rule-sequential",
+    id: ruleId("rule-sequential"),
     when: EVENT_REFERENCE,
     conditions: [],
     commands: [
@@ -653,7 +657,7 @@ it("stops before dispatching another command when aborted during the current com
     return Result.ok();
   });
   const rule = {
-    id: "rule-aborted",
+    id: ruleId("rule-aborted"),
     when: EVENT_REFERENCE,
     conditions: [],
     commands: [
@@ -710,7 +714,7 @@ describe("programming defects", () => {
   ])("rejects condition evaluation for a $name", async ({ get, expected }) => {
     const stateOwnerId = "owner-state-defect" as EmbeddedNodeId;
     const rule = {
-      id: "rule-state-defect",
+      id: ruleId("rule-state-defect"),
       when: EVENT_REFERENCE,
       conditions: [
         {
@@ -753,7 +757,7 @@ describe("programming defects", () => {
   ])("rejects target-command execution for a $name", async ({ get, expected }) => {
     const commandOwnerId = "owner-command-defect" as EmbeddedNodeId;
     const rule = {
-      id: "rule-command-defect",
+      id: ruleId("rule-command-defect"),
       when: EVENT_REFERENCE,
       conditions: [],
       commands: [
@@ -784,7 +788,7 @@ describe("programming defects", () => {
   it("rejects a semantic result for a different target", async () => {
     const requestedId = "target-requested" as EmbeddedNodeId;
     const rule = {
-      id: "rule-semantic-identity",
+      id: ruleId("rule-semantic-identity"),
       when: EVENT_REFERENCE,
       conditions: [],
       commands: [{ kind: "reveal-target", targetId: requestedId }],
@@ -814,7 +818,7 @@ describe("programming defects", () => {
     const defect = new Error("state reader defect");
     const stateOwnerId = "owner-state-throw" as EmbeddedNodeId;
     const rule = {
-      id: "rule-state-throw",
+      id: ruleId("rule-state-throw"),
       when: EVENT_REFERENCE,
       conditions: [
         {
@@ -872,7 +876,7 @@ describe("programming defects", () => {
               } as const)
             : ({ kind: "navigate-surface", surfaceId: SURFACE_ID } as const);
       const rule = {
-        id: `rule-rejected-${kind}`,
+        id: ruleId(`rule-rejected-${kind}`),
         when: EVENT_REFERENCE,
         conditions: [],
         commands: [command],
@@ -919,7 +923,7 @@ it("returns deeply frozen copied plain report data", async () => {
     durationSeconds: 12,
   };
   const rule = {
-    id: "rule-plain-data",
+    id: ruleId("rule-plain-data"),
     when: EVENT_REFERENCE,
     conditions: [
       {
@@ -987,7 +991,7 @@ it("executes every command kind without touching a learner Event Source", async 
   const commandTargetId = "target-no-events" as EmbeddedNodeId;
   const subscribe = vi.fn();
   const rule = {
-    id: "rule-no-events",
+    id: ruleId("rule-no-events"),
     when: EVENT_REFERENCE,
     conditions: [],
     commands: [

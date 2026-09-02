@@ -10,16 +10,16 @@ import type { SemanticInteractionOrigin } from "@/document/semantic-target-inter
 import type { SemanticTargetInteractionCoordinator } from "@/document/semantic-target-interaction/semantic-target-interaction-coordinator";
 import type { CompiledLearnerRequirement } from "@/runtime/presentation/compiled-presentation-program";
 import type {
+  CompiledSurfaceLearnerInteractionProgram,
+  LearnerInteractionTurnReport,
+} from "@/learner-interaction/model";
+import type {
   PresentationGateObservationPort,
   PresentationGateObservationSnapshot,
   PresentationGatePort,
 } from "@/runtime/presentation/presentation-progression-gate";
 
-import type { CompiledSurfaceLearnerInteractionProgram } from "./compiled-learner-interaction-program";
-import type {
-  LearnerInteractionSurfaceNavigationPort,
-  LearnerInteractionTurnReport,
-} from "./learner-interaction-event-turn";
+import type { LearnerInteractionSurfaceNavigationPort } from "./learner-interaction-event-turn";
 import { executeLearnerInteractionEventTurn } from "./learner-interaction-event-turn";
 
 export interface CreateSurfaceLearnerInteractionRuntimeInput {

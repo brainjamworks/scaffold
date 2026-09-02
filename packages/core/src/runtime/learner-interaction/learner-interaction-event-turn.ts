@@ -19,11 +19,13 @@ import type {
   CompiledLearnerInteractionCommand,
   CompiledLearnerInteractionRule,
   CompiledSurfaceLearnerInteractionProgram,
-  LearnerInteractionRuleId,
-} from "./compiled-learner-interaction-program";
-import { createLearnerInteractionEventKey } from "./compiled-learner-interaction-program";
-
-export type LearnerInteractionTurnNumber = number;
+  LearnerInteractionCommandAddress,
+  LearnerInteractionCommandExecution,
+  LearnerInteractionRuleEvaluation,
+  LearnerInteractionTurnNumber,
+  LearnerInteractionTurnReport,
+} from "@/learner-interaction/model";
+import { createLearnerInteractionEventKey } from "@/learner-interaction/model";
 
 export interface LearnerInteractionNavigationError {
   readonly reason: "cancelled";
@@ -35,58 +37,6 @@ export interface LearnerInteractionSurfaceNavigationPort {
     signal: AbortSignal,
   ): Promise<ResultType<void, LearnerInteractionNavigationError>>;
 }
-
-export interface LearnerInteractionTurnReport {
-  readonly turnNumber: LearnerInteractionTurnNumber;
-  readonly event: ControlEvent;
-  readonly ruleEvaluations: readonly LearnerInteractionRuleEvaluation[];
-  readonly commandExecutions: readonly LearnerInteractionCommandExecution[];
-  readonly end: "completed" | "surface-navigation-committed";
-}
-
-export type LearnerInteractionRuleEvaluation =
-  | {
-      readonly kind: "matched";
-      readonly ruleId: LearnerInteractionRuleId;
-      readonly conditions: readonly LearnerInteractionConditionEvaluation[];
-    }
-  | {
-      readonly kind: "not-matched";
-      readonly ruleId: LearnerInteractionRuleId;
-      readonly conditions: readonly LearnerInteractionConditionEvaluation[];
-    };
-
-export interface LearnerInteractionConditionEvaluation {
-  readonly conditionIndex: number;
-  readonly actualValue: ControlValue;
-  readonly matched: boolean;
-}
-
-export interface LearnerInteractionCommandAddress {
-  readonly ruleId: LearnerInteractionRuleId;
-  readonly commandIndex: number;
-}
-
-export interface LearnerInteractionCommandExecution {
-  readonly address: LearnerInteractionCommandAddress;
-  readonly outcome: LearnerInteractionCommandOutcome;
-}
-
-export type LearnerInteractionCommandOutcome =
-  | { readonly kind: "succeeded" }
-  | {
-      readonly kind: "control-command-error";
-      readonly error: ControlCommandError;
-    }
-  | {
-      readonly kind: "target-not-reached";
-      readonly result: Exclude<SemanticTargetInteractionResult, { readonly kind: "reached" }>;
-    }
-  | { readonly kind: "navigation-cancelled" }
-  | {
-      readonly kind: "skipped";
-      readonly reason: "surface-navigation-committed";
-    };
 
 export interface ExecuteLearnerInteractionEventTurnInput {
   readonly turnNumber: LearnerInteractionTurnNumber;

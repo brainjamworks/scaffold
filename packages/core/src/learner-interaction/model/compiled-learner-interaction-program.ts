@@ -1,4 +1,4 @@
-import type { EmbeddedNodeId } from "@scaffold/contracts";
+import type { EmbeddedNodeId, LearnerInteractionRuleId } from "@scaffold/contracts";
 
 import type {
   ControlCommandType,
@@ -6,8 +6,6 @@ import type {
   ControlStateKey,
   ControlValue,
 } from "@/document/control-binding/control-definition";
-
-export type LearnerInteractionRuleId = string;
 
 export interface CompiledSurfaceLearnerInteractionProgram {
   readonly surfaceId: EmbeddedNodeId;

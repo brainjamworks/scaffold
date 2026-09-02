@@ -1,4 +1,4 @@
-import type { EmbeddedNodeId } from "@scaffold/contracts";
+import type { EmbeddedDataId, EmbeddedNodeId } from "@scaffold/contracts";
 import { Result } from "better-result";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -15,8 +15,8 @@ import type {
   CompiledControlEventReference,
   CompiledLearnerInteractionRule,
   CompiledSurfaceLearnerInteractionProgram,
-} from "./compiled-learner-interaction-program";
-import { createLearnerInteractionEventKey } from "./compiled-learner-interaction-program";
+} from "@/learner-interaction/model";
+import { createLearnerInteractionEventKey } from "@/learner-interaction/model";
 import { createSurfaceLearnerInteractionRuntime } from "./surface-learner-interaction-runtime";
 
 const SURFACE_ID = "surface-runtime" as EmbeddedNodeId;
@@ -88,7 +88,7 @@ function eventReference(
 
 function rule(id: string, when: CompiledControlEventReference): CompiledLearnerInteractionRule {
   return {
-    id,
+    id: id as EmbeddedDataId,
     when,
     conditions: [],
     commands: [{ kind: "navigate-surface", surfaceId: SURFACE_ID }],
@@ -100,7 +100,7 @@ function commandRule(
   when: CompiledControlEventReference,
 ): CompiledLearnerInteractionRule {
   return {
-    id,
+    id: id as EmbeddedDataId,
     when,
     conditions: [],
     commands: [
@@ -812,7 +812,7 @@ it("marks navigation after authoritative state equality as satisfying the active
         reference,
         [
           {
-            id: "rule-complete-and-navigate",
+            id: "rule-complete-and-navigate" as EmbeddedDataId,
             when: reference,
             conditions: [],
             commands: [
@@ -1357,7 +1357,7 @@ it("settles a matching event gate after expected command, semantic, and navigati
         selected,
         [
           {
-            id: "rule-expected-outcomes",
+            id: "rule-expected-outcomes" as EmbeddedDataId,
             when: selected,
             conditions: [],
             commands: [

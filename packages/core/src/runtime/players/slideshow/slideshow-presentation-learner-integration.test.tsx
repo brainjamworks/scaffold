@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
 
-import { EmbeddedDataIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
+import {
+  EmbeddedDataIdSchema,
+  type EmbeddedDataId,
+  type EmbeddedNodeId,
+} from "@scaffold/contracts";
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { Result } from "better-result";
 import {
@@ -27,7 +31,7 @@ import {
   createLearnerInteractionEventKey,
   type CompiledLearnerInteractionRule,
   type CompiledSurfaceLearnerInteractionProgram,
-} from "@/runtime/learner-interaction/compiled-learner-interaction-program";
+} from "@/learner-interaction/model";
 import type { CompiledSurfacePresentationVisualProgram } from "@/presentation/model";
 import type { PresentationWaitId } from "@/runtime/presentation/compiled-presentation-program";
 import type { PresentationGateObservationSnapshot } from "@/runtime/presentation/presentation-progression-gate";
@@ -190,7 +194,7 @@ describe("Slideshow Presentation learner integration", () => {
             createLearnerInteractionEventKey(when),
             [
               {
-                id: "owner-derivation-rule",
+                id: "owner-derivation-rule" as EmbeddedDataId,
                 when,
                 conditions: [
                   {
@@ -1652,7 +1656,7 @@ function createTabsLearnerWaitProgram(
     type: "selected",
   } as const;
   const practiceRule: CompiledLearnerInteractionRule = Object.freeze({
-    id: "practice-selected-rule",
+    id: "practice-selected-rule" as EmbeddedDataId,
     when: practiceSelected,
     conditions: Object.freeze([
       {
@@ -1673,7 +1677,7 @@ function createTabsLearnerWaitProgram(
     ] as const),
   });
   const programmaticEventLeakRule: CompiledLearnerInteractionRule = Object.freeze({
-    id: "programmatic-event-leak-detector",
+    id: "programmatic-event-leak-detector" as EmbeddedDataId,
     when: overviewSelected,
     conditions: Object.freeze([]),
     commands: Object.freeze([
@@ -1737,7 +1741,7 @@ function createTabsStateWaitProgram(
     type: "selected",
   } as const;
   const revertPracticeRule: CompiledLearnerInteractionRule = Object.freeze({
-    id: "revert-practice-selection",
+    id: "revert-practice-selection" as EmbeddedDataId,
     when: practiceSelected,
     conditions: Object.freeze([]),
     commands: Object.freeze([
@@ -1817,7 +1821,7 @@ function createTabsLearnerNavigationProgram(
         createLearnerInteractionEventKey(practiceSelected),
         Object.freeze([
           Object.freeze({
-            id: "practice-navigation-rule",
+            id: "practice-navigation-rule" as EmbeddedDataId,
             when: practiceSelected,
             conditions: Object.freeze([]),
             commands: Object.freeze([

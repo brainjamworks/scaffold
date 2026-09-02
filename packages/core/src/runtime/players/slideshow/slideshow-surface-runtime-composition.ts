@@ -7,7 +7,7 @@ import type {
   CompiledSurfacePresentationTimeline,
   PresentationMotionMode,
 } from "@/presentation/model";
-import type { CompiledSurfaceLearnerInteractionProgram } from "@/runtime/learner-interaction/compiled-learner-interaction-program";
+import type { CompiledSurfaceLearnerInteractionProgram } from "@/learner-interaction/model";
 import {
   createSurfaceLearnerInteractionRuntime,
   type SurfaceLearnerInteractionRuntime,
