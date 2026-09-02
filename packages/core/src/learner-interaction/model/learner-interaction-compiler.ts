@@ -167,14 +167,16 @@ export function compileLearnerInteractions({
       else rulesByEvent.set(eventKey, [compiledRule]);
     }
 
-    const frozenRulesByEvent = new Map(
-      [...rulesByEvent].map(([eventKey, rules]) => [eventKey, Object.freeze(rules)] as const),
+    const readonlyRulesByEvent = freezeReadonlyMap(
+      new Map(
+        [...rulesByEvent].map(([eventKey, rules]) => [eventKey, Object.freeze(rules)] as const),
+      ),
     );
     surfaceById.set(
       surface.surfaceId,
       Object.freeze({
         surfaceId: surface.surfaceId,
-        rulesByEvent: Object.freeze(frozenRulesByEvent),
+        rulesByEvent: readonlyRulesByEvent,
       }),
     );
   }
@@ -445,9 +447,44 @@ function freezeCompilation(
   diagnostics: LearnerInteractionCompileDiagnostic[],
 ): LearnerInteractionCompilation {
   return Object.freeze({
-    surfaceById: Object.freeze(surfaceById),
+    surfaceById: freezeReadonlyMap(surfaceById),
     diagnostics: Object.freeze(diagnostics),
   });
+}
+
+function freezeReadonlyMap<Key, Value>(entries: ReadonlyMap<Key, Value>): ReadonlyMap<Key, Value> {
+  const source = new Map(entries);
+  let view: ReadonlyMap<Key, Value>;
+  view = Object.freeze({
+    get size() {
+      return source.size;
+    },
+    get(key: Key) {
+      return source.get(key);
+    },
+    has(key: Key) {
+      return source.has(key);
+    },
+    forEach(
+      callback: (value: Value, key: Key, map: ReadonlyMap<Key, Value>) => void,
+      thisArg?: unknown,
+    ) {
+      source.forEach((value, key) => callback.call(thisArg, value, key, view));
+    },
+    entries() {
+      return source.entries();
+    },
+    keys() {
+      return source.keys();
+    },
+    values() {
+      return source.values();
+    },
+    [Symbol.iterator]() {
+      return source[Symbol.iterator]();
+    },
+  });
+  return view;
 }
 
 function assertCatalogueTargetRemainsPublic(reason: string, targetId: EmbeddedNodeId): void {

@@ -72,6 +72,8 @@ const COMMAND_CAPABILITIES = {
   ],
 } as const satisfies ControlCapabilitySetDefinition;
 
+const MAP_MUTATIONS = ["set", "delete", "clear"] as const;
+
 describe("compileLearnerInteractions", () => {
   it("returns frozen empty partial results for absent configuration", () => {
     const compilation = compileLearnerInteractions({
@@ -182,6 +184,40 @@ describe("compileLearnerInteractions", () => {
     expect(Object.isFrozen(rules)).toBe(true);
     expect(Object.isFrozen(rules?.[0])).toBe(true);
     expect(Object.isFrozen(rules?.[0]?.commands)).toBe(true);
+  });
+
+  it.each(MAP_MUTATIONS)(
+    "prevents %s from mutating the compilation Surface lookup",
+    (mutation) => {
+      const { compilation, program } = compileSingleRule();
+      const entries = [...compilation.surfaceById];
+      const args =
+        mutation === "set"
+          ? [SECOND_SURFACE_ID, program]
+          : mutation === "delete"
+            ? [SURFACE_ID]
+            : [];
+
+      expect(() => invokeMapMutation(compilation.surfaceById, mutation, args)).toThrow(TypeError);
+      expect([...compilation.surfaceById]).toEqual(entries);
+    },
+  );
+
+  it.each(MAP_MUTATIONS)("prevents %s from mutating a Surface event lookup", (mutation) => {
+    const { eventKey, program, rules } = compileSingleRule();
+    const entries = [...program.rulesByEvent];
+    const args =
+      mutation === "set" ? ["different-event", rules] : mutation === "delete" ? [eventKey] : [];
+
+    expect(() => invokeMapMutation(program.rulesByEvent, mutation, args)).toThrow(TypeError);
+    expect([...program.rulesByEvent]).toEqual(entries);
+  });
+
+  it("preserves complete ReadonlyMap behavior for both lookup levels", () => {
+    const { compilation, eventKey, program, rules } = compileSingleRule();
+
+    expectReadonlyMapBehavior(compilation.surfaceById, [[SURFACE_ID, program]]);
+    expectReadonlyMapBehavior(program.rulesByEvent, [[eventKey, rules]]);
   });
 
   it("retains every source diagnostic in stable order and keeps valid siblings", () => {
@@ -365,6 +401,61 @@ describe("compileLearnerInteractions", () => {
     ).toThrow(defect);
   });
 });
+
+function compileSingleRule() {
+  const configuration = parseConfiguration([
+    {
+      id: EmbeddedDataIdSchema.parse("rule00000001"),
+      isEnabled: true,
+      when: { targetId: EVENT_TARGET_ID, type: "selected" },
+      conditions: [],
+      commands: [{ kind: "reveal-target", targetId: PASSIVE_TARGET_ID }],
+    },
+  ]);
+  const compilation = compileLearnerInteractions({
+    configuration,
+    courseStructure: courseStructure(),
+    semanticSnapshot: semanticSnapshot(),
+    controlCapabilities: controlCapabilities(),
+  });
+  const program = compilation.surfaceById.get(SURFACE_ID);
+  if (!program) throw new Error("Expected the valid test Surface to compile.");
+  const eventKey = createLearnerInteractionEventKey({
+    ownerId: EVENT_OWNER_ID,
+    targetId: EVENT_TARGET_ID,
+    type: "selected",
+  });
+  const rules = program.rulesByEvent.get(eventKey);
+  if (!rules) throw new Error("Expected the valid test event bucket to compile.");
+  return { compilation, eventKey, program, rules };
+}
+
+function invokeMapMutation(
+  map: ReadonlyMap<unknown, unknown>,
+  mutation: (typeof MAP_MUTATIONS)[number],
+  args: readonly unknown[],
+): void {
+  Reflect.apply(Reflect.get(map, mutation), map, args);
+}
+
+function expectReadonlyMapBehavior<Key, Value>(
+  map: ReadonlyMap<Key, Value>,
+  entries: readonly (readonly [Key, Value])[],
+): void {
+  const firstEntry = entries[0];
+  if (!firstEntry) throw new Error("Expected at least one test map entry.");
+  const visited: (readonly [Key, Value, ReadonlyMap<Key, Value>])[] = [];
+
+  expect(map.size).toBe(entries.length);
+  expect(map.get(firstEntry[0])).toBe(firstEntry[1]);
+  expect(map.has(firstEntry[0])).toBe(true);
+  map.forEach((value, key, source) => visited.push([key, value, source]));
+  expect(visited).toEqual(entries.map(([key, value]) => [key, value, map]));
+  expect([...map.entries()]).toEqual(entries);
+  expect([...map.keys()]).toEqual(entries.map(([key]) => key));
+  expect([...map.values()]).toEqual(entries.map(([, value]) => value));
+  expect([...map[Symbol.iterator]()]).toEqual(entries);
+}
 
 function parseConfiguration(
   rules: LearnerInteractionConfigurationV1["surfaces"][number]["rules"],
