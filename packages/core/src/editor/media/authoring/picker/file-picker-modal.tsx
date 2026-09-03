@@ -256,6 +256,8 @@ export interface FilePickerResult {
 }
 
 export interface FilePickerModalProps {
+  /** Layer the picker above a modal workspace it was opened from. */
+  nested?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onResolved: (result: FilePickerResult) => boolean | void;
@@ -277,6 +279,7 @@ function safeDomId(id: string): string {
  * ────────────────────────────────────────────────────────────────────── */
 
 export function FilePickerModal({
+  nested = false,
   open,
   onOpenChange,
   onResolved,
@@ -515,14 +518,14 @@ export function FilePickerModal({
           aria-hidden="true"
           className="sc-file-picker-overlay"
           data-state="open"
-          style={{ zIndex: zIndex.modalBackdrop }}
+          style={{ zIndex: nested ? zIndex.nestedModal : zIndex.modalBackdrop }}
         />
         <RemoveScroll allowPinchZoom forwardProps>
           <FocusScope asChild loop trapped>
             <Dialog.Content
               ref={setContentElement}
               className="sc-file-picker-dialog"
-              style={{ zIndex: zIndex.modal }}
+              style={{ zIndex: nested ? zIndex.nestedModalContent : zIndex.modal }}
               onCloseAutoFocus={(event) => {
                 const preferredTarget = returnFocusRef?.current;
                 const target = preferredTarget?.isConnected

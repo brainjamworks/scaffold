@@ -1,6 +1,19 @@
+import {
+  ArrowsClockwiseIcon as ArrowsClockwise,
+  PlusIcon as Plus,
+} from "@phosphor-icons/react";
 import { Extension } from "@tiptap/core";
-import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
+import {
+  NodeViewWrapper,
+  ReactNodeViewRenderer,
+  useEditorState,
+  type NodeViewProps,
+} from "@tiptap/react";
 import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveActiveBoundedPlacement } from "@/editor/bounded-containers/model/bounded-container-placement";
+import { iconMd } from "@/ui/tokens/icon-sizes";
 import type { FilePickerResult } from "@/editor/media/authoring/picker/LazyFilePickerModal";
 import { FilePickerModal } from "@/editor/media/authoring/picker/LazyFilePickerModal";
 import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";
@@ -17,6 +30,7 @@ import {
   type MarkerVisual,
 } from "@scaffold/contracts";
 import type { MediaPort } from "@/host/ports/media";
+import { TextSelection } from "@tiptap/pm/state";
 import type { CheckedMutationIssue } from "@/document/model/commands/checked-transactions";
 
 import {
@@ -172,14 +186,24 @@ function DragDropCanvasAuthoringView(props: NodeViewProps) {
         message: "This Drag and Drop question is no longer available for editing.",
         ownerId,
       });
-      return;
+      return null;
     }
-    const result = target.transact(mutation);
+    const result = target.transact((tr, resolved) => {
+      const outcome = mutation(tr, resolved);
+      if (outcome.ok) {
+        // Keep the editor selection parked at this block. Post-transaction
+        // focus otherwise scrolls the editor to a stale selection (often
+        // the document tail), yanking the author away from the canvas.
+        outcome.tr.setSelection(TextSelection.near(outcome.tr.doc.resolve(resolved.pos)));
+      }
+      return outcome;
+    });
     if (!result.ok) {
       setAuthoringIssue(expectedAuthoringIssue(result.issue));
-      return;
+      return null;
     }
     setAuthoringIssue(null);
+    return result;
   };
 
   const applyBackground = async (result: FilePickerResult) => {
@@ -210,55 +234,77 @@ function DragDropCanvasAuthoringView(props: NodeViewProps) {
     );
   };
 
-  const authoringCanvas = (
-    <DragDropAuthoringCanvas
-      data={data}
-      assessment={assessment}
-      imageSrc={imageSrc}
-      mediaError={mediaError}
-      onRequestBackground={() => setPickerKind("background")}
-      onRetryBackground={() => setReload((value) => value + 1)}
-      onCreateMarker={(draft, geometry) =>
-        transact((tr, resolved) =>
-          createDragDropMarkerChecked({
-            tr,
-            target: resolved,
-            draft,
-            geometry,
-            createMarkerId: createEmbeddedDataId,
-          }),
-        )
-      }
-      onUpdateMarker={(markerId, patch) =>
-        transact((tr, resolved) =>
-          updateDragDropMarkerChecked({ tr, target: resolved, markerId, patch }),
-        )
-      }
-      onReorderMarkers={(markerIds) =>
-        transact((tr, resolved) =>
-          reorderDragDropMarkersChecked({ tr, target: resolved, markerIds }),
-        )
-      }
-      onSetCorrectPlacement={(markerId, geometry) =>
-        transact((tr, resolved) =>
-          setDragDropCorrectPlacementChecked({ tr, target: resolved, markerId, geometry }),
-        )
-      }
-      onDeleteMarker={(markerId) =>
-        transact((tr, resolved) => deleteDragDropMarkerChecked({ tr, target: resolved, markerId }))
-      }
-      onSetDefaultMarkerVisual={(visual) =>
-        transact((tr, resolved) =>
-          setDragDropDefaultMarkerVisualChecked({ tr, target: resolved, visual }),
-        )
-      }
-      onRequestCustomIcon={(apply) => {
-        customApply.current = apply;
-        setPickerKind("custom");
-      }}
-      customIconSrc={(mediaId) => customSources[mediaId] ?? null}
-    />
-  );
+  const boundedFillActive = useEditorState({
+    editor: props.editor,
+    selector: ({ editor }) => isDragDropBoundedFillActive(editor, canvasPos),
+  });
+  const isFullSlide = owner?.node.type.name === "surface_drag_drop_question";
+  const canEditInline = isFullSlide || !boundedFillActive;
+
+  const canvasCallbacks = {
+    onRequestBackground: () => setPickerKind("background"),
+    onRetryBackground: () => setReload((value) => value + 1),
+    onCreateMarker: (
+      draft: Readonly<{ label: string; visualOverride: MarkerVisual | null }>,
+      geometry: Parameters<typeof createDragDropMarkerChecked>[0]["geometry"],
+    ) => {
+      const result = transact((tr, resolved) =>
+        createDragDropMarkerChecked({
+          tr,
+          target: resolved,
+          draft,
+          geometry,
+          createMarkerId: createEmbeddedDataId,
+        }),
+      );
+      return result && "markerId" in result ? ((result.markerId ?? null) as never) : null;
+    },
+    onUpdateMarker: (
+      markerId: string,
+      patch: Parameters<typeof updateDragDropMarkerChecked>[0]["patch"],
+    ) => {
+      transact((tr, resolved) =>
+        updateDragDropMarkerChecked({ tr, target: resolved, markerId, patch }),
+      );
+    },
+    onReorderMarkers: (markerIds: readonly string[]) => {
+      transact((tr, resolved) =>
+        reorderDragDropMarkersChecked({ tr, target: resolved, markerIds }),
+      );
+    },
+    onSetCorrectPlacement: (
+      markerId: string,
+      geometry: Parameters<typeof setDragDropCorrectPlacementChecked>[0]["geometry"],
+    ) => {
+      transact((tr, resolved) =>
+        setDragDropCorrectPlacementChecked({ tr, target: resolved, markerId, geometry }),
+      );
+    },
+    onDeleteMarker: (markerId: string) => {
+      transact((tr, resolved) =>
+        deleteDragDropMarkerChecked({ tr, target: resolved, markerId }),
+      );
+    },
+    onSetDefaultMarkerVisual: (visual: MarkerVisual) => {
+      transact((tr, resolved) =>
+        setDragDropDefaultMarkerVisualChecked({ tr, target: resolved, visual }),
+      );
+    },
+    onRequestCustomIcon: (
+      apply: (visual: Extract<MarkerVisual, { kind: "custom" }>) => void,
+    ) => {
+      customApply.current = apply;
+      setPickerKind("custom");
+    },
+    customIconSrc: (mediaId: string) => customSources[mediaId] ?? null,
+  } as const;
+
+  const addMarkerFromToolbar = () => {
+    canvasCallbacks.onCreateMarker(
+      { label: `Marker ${data.markers.length + 1}`, visualOverride: null },
+      { kind: "circle", centerX: 50, centerY: 50, radius: 8 },
+    );
+  };
 
   return (
     <NodeViewWrapper data-node="drag-drop-canvas" contentEditable={false}>
@@ -268,18 +314,51 @@ function DragDropCanvasAuthoringView(props: NodeViewProps) {
         </p>
       ) : null}
       <DragDropAuthoringWorkspace.Root open={workspaceOpen} onOpenChange={setWorkspaceOpen}>
-        {authoringCanvas}
-        <DragDropAuthoringWorkspace.Trigger asChild>
-          <button type="button">Open Drag and Drop workspace</button>
-        </DragDropAuthoringWorkspace.Trigger>
+        <DragDropAuthoringCanvas
+          {...canvasCallbacks}
+          data={data}
+          assessment={assessment}
+          imageSrc={imageSrc}
+          mediaError={mediaError}
+          presentation={isFullSlide ? "full-slide" : "compact"}
+          canEditInline={canEditInline}
+          onRequestWorkspace={() => setWorkspaceOpen(true)}
+        />
         <DragDropAuthoringWorkspace.Content
-          title="Drag and Drop"
-          description="Place and manage markers on the background image."
+          title="Edit Drag and Drop markers"
+          description={`${data.markers.length} marker${data.markers.length === 1 ? "" : "s"}. Click the image to place markers; drag them to move.`}
+          toolbar={
+            <DragDropAuthoringWorkspace.ToolbarGroup aria-label="Image actions">
+              <DragDropAuthoringWorkspace.ToolbarAction
+                label="Replace background image"
+                intent="replace"
+                onClick={() => setPickerKind("background")}
+              >
+                <ArrowsClockwise size={iconMd} aria-hidden />
+              </DragDropAuthoringWorkspace.ToolbarAction>
+              <DragDropAuthoringWorkspace.ToolbarAction
+                data-drag-drop-add-marker=""
+                label="Add marker"
+                intent="add"
+                onClick={addMarkerFromToolbar}
+              >
+                <Plus size={iconMd} aria-hidden />
+              </DragDropAuthoringWorkspace.ToolbarAction>
+            </DragDropAuthoringWorkspace.ToolbarGroup>
+          }
         >
-          {authoringCanvas}
+          <DragDropAuthoringCanvas
+            {...canvasCallbacks}
+            data={data}
+            assessment={assessment}
+            imageSrc={imageSrc}
+            mediaError={mediaError}
+            presentation="expanded"
+          />
         </DragDropAuthoringWorkspace.Content>
       </DragDropAuthoringWorkspace.Root>
       <FilePickerModal
+        nested={workspaceOpen}
         open={pickerKind !== null}
         onOpenChange={(open) => {
           if (!open) setPickerKind(null);
@@ -317,7 +396,17 @@ const DragDropAuthoringNode = createDragDropNode({
 });
 
 const DragDropCanvasAuthoringNode = createDragDropCanvasNode({
-  addNodeView: () => ReactNodeViewRenderer(DragDropCanvasAuthoringViewWithBoundary),
+  addNodeView: () =>
+    ReactNodeViewRenderer(DragDropCanvasAuthoringViewWithBoundary, {
+      // ProseMirror's native mousedown listener runs before React's
+      // delegated handlers, so it would move the selection (and scroll to
+      // it) on every canvas click. The canvas owns its pointer events.
+      stopEvent: ({ event }) =>
+        event.type.startsWith("pointer") ||
+        event.type.startsWith("mouse") ||
+        event.type === "click" ||
+        event.type === "dblclick",
+    }),
 });
 
 export const DragDropAuthoringExtension = Extension.create({
@@ -326,6 +415,31 @@ export const DragDropAuthoringExtension = Extension.create({
     return [DragDropCanvasAuthoringNode, DragDropAuthoringNode];
   },
 });
+
+function isDragDropBoundedFillActive(
+  editor: NodeViewProps["editor"],
+  canvasPos: number | undefined,
+): boolean {
+  if (typeof canvasPos !== "number") return false;
+  const owner = findOwner(editor.state.doc.resolve(canvasPos));
+  if (!owner || owner.node.type.name !== "drag_drop") return false;
+  let capabilities: ReturnType<typeof getScaffoldCapabilitiesForEditor>;
+  try {
+    capabilities = getScaffoldCapabilitiesForEditor(editor);
+  } catch {
+    // Minimal editors (tests, embedded hosts) may not install capabilities.
+    return false;
+  }
+  return (
+    resolveActiveBoundedPlacement({
+      blockDefinitions: capabilities.blocks.registry,
+      capability: "fill",
+      doc: editor.state.doc,
+      layoutDefinitions: capabilities.layouts.registry,
+      pos: owner.pos,
+    }) === "fill"
+  );
+}
 
 function findOwner($pos: ReturnType<NodeViewProps["editor"]["state"]["doc"]["resolve"]>) {
   for (let depth = $pos.depth; depth > 0; depth -= 1) {

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -33,20 +33,23 @@ describe("DragDropCourseWorkspace", () => {
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
-  it("gives the expanded presentation a bounded scrolling tray and a reachable action row", () => {
+  it("gives the expanded presentation a bounded scrolling shelf and a footer submit", () => {
     render(
       <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
         <div className="sc-course-drag-drop-workspace">
           <div className="sc-course-drag-drop-interaction" data-drag-drop-presentation="expanded">
             <div className="sc-course-drag-drop-interaction__layout">
-              <div className="sc-course-drag-drop-stage">image</div>
               <aside className="sc-course-drag-drop-tray" aria-label="Markers">
                 <div className="sc-course-drag-drop-tray__unplaced">tray</div>
                 <div className="sc-course-drag-drop-tray__actions">
-                  <button type="button">Reset marker placements</button>
+                  <button type="button">Reset</button>
                 </div>
               </aside>
+              <div className="sc-course-drag-drop-stage">image</div>
             </div>
+          </div>
+          <div className="sc-course-drag-drop-workspace__footer">
+            <button type="button">Submit</button>
           </div>
         </div>
       </CourseThemeProvider>,
@@ -58,19 +61,19 @@ describe("DragDropCourseWorkspace", () => {
     const tray = document.querySelector<HTMLElement>(
       '[data-drag-drop-presentation="expanded"] .sc-course-drag-drop-tray',
     );
-    const actions = document.querySelector<HTMLElement>(
-      '[data-drag-drop-presentation="expanded"] .sc-course-drag-drop-tray__actions',
+    const footer = document.querySelector<HTMLElement>(
+      ".sc-course-drag-drop-workspace__footer",
     );
     expect(layout).not.toBeNull();
-    expect(actions).not.toBeNull();
+    expect(tray).not.toBeNull();
+    expect(footer).not.toBeNull();
     expect(getComputedStyle(layout!).display).toBe("grid");
-    expect(getComputedStyle(tray!).overflow).toBe("auto");
-    // Real browsers resolve min(70vh, 48rem) against the viewport.
-    expect(Number.parseFloat(getComputedStyle(tray!).maxHeight)).toBeCloseTo(
-      Math.min(window.innerHeight * 0.7, 768),
-      0,
-    );
-    expect(tray!.lastElementChild).toBe(actions);
+    // The shelf renders above the stage in the DOM.
+    expect(layout!.firstElementChild).toBe(tray);
+    // The shelf wraps; the expanded interaction body is the scroll container.
+    // The reachable action row is the footer submit, not tray placed-rows.
+    const submit = within(footer!).getByRole("button", { name: "Submit" });
+    expect(submit).toBeVisible();
   });
 });
 

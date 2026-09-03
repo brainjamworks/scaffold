@@ -37,6 +37,7 @@ import {
 } from "./drag-drop-keyboard-cursor";
 import { resolveDragDropPointerPlacement } from "./drag-drop-pointer-session";
 import { DragDropCourseWorkspace } from "./DragDropCourseWorkspace";
+import { RuntimeAssessmentControls } from "@/editor/blocks/assessment/shared/chrome/AssessmentControls";
 import "./DragDrop.css";
 
 export type DragDropPresentation = "inline" | "expanded" | "full-slide";
@@ -133,6 +134,12 @@ export function DragDropInlineCourseWorkspace({
               description="Place each marker on the image."
             >
               <Presentation owner={owner} presentation="expanded" />
+              <div className="sc-course-drag-drop-workspace__footer">
+                <RuntimeAssessmentControls
+                  problem={owner.problem}
+                  maxAttempts={owner.problem?.state.maxAttempts ?? null}
+                />
+              </div>
             </DragDropCourseWorkspace.Content>
           ) : null}
         </DragDropCourseWorkspace.Root>
@@ -820,17 +827,6 @@ function Presentation({
     [clearSurface, presentation],
   );
 
-  const navigableMarkers = owner.displayMarkers;
-  const activeNavigationMarkerId = owner.reviewMarkerId ?? owner.selectedMarkerId;
-  const selectedPlacedIndex = navigableMarkers.findIndex(
-    ({ id }) => id === activeNavigationMarkerId,
-  );
-  const currentPlacedIndex = selectedPlacedIndex >= 0 ? selectedPlacedIndex : 0;
-  const currentPlaced = navigableMarkers[currentPlacedIndex] ?? null;
-  const navigatePlaced = (index: number) => {
-    const marker = navigableMarkers[index];
-    if (marker) owner.inspectPlacedMarker(marker);
-  };
   const keyboardMarkerId =
     owner.keyboardCursor.kind === "positioning" ? owner.keyboardCursor.markerId : null;
   const keyboardMarker = keyboardMarkerId
@@ -855,16 +851,61 @@ function Presentation({
       {owner.content.accessibleLegend ? (
         <p id={legendId}>{owner.content.accessibleLegend}</p>
       ) : null}
-      <p id={instructionsId} className="sc-course-drag-drop-keyboard-instructions">
+      <p id={instructionsId} className="sc-sr-only">
         Keyboard: focus a marker and press Enter or Space to position it. Use arrow keys to move;
         Shift moves coarsely and Alt moves finely. Press Enter or Space to place, or Escape to
-        cancel.
+        cancel. Press Delete on a placed marker to return it to the shelf.
       </p>
       <p id={statusId} role="status" aria-live="polite">
         {owner.announcement ? `${owner.announcement} ` : null}
         {owner.placed.length} of {owner.content.markers.length} markers placed.
       </p>
       <div className="sc-course-drag-drop-interaction__layout">
+        <aside className="sc-course-drag-drop-tray" aria-label="Markers">
+          <div className="sc-course-drag-drop-tray__unplaced">
+            <h3>Markers to place</h3>
+            {owner.unplaced.length === 0 ? <p>All markers placed.</p> : null}
+            {owner.unplaced.map((marker) => (
+              <TrayMarker
+                key={marker.id}
+                describedBy={instructionsId}
+                disabled={owner.locked || !ready}
+                focusMarkerId={marker.id}
+                label={`Select ${accessibleMarkerLabel(owner.content, marker)} for placement`}
+                marker={marker}
+                presentation={presentation}
+                resolvedIcons={owner.resolvedIcons}
+                selected={owner.selectedMarkerId === marker.id}
+                onKeyboardStart={(origin) =>
+                  owner.startKeyboardPositioning(marker, presentation, origin)
+                }
+                onSelect={() => owner.selectMarker(marker)}
+              />
+            ))}
+          </div>
+          <div className="sc-course-drag-drop-tray__actions">
+            <button
+              type="button"
+              disabled={owner.locked || owner.placed.length === 0}
+              onClick={() => owner.reset(presentation)}
+            >
+              Reset
+            </button>
+            {presentation === "inline" && onRequestExpand ? (
+              <button type="button" onClick={onRequestExpand}>
+                Expand
+              </button>
+            ) : null}
+          </div>
+          {owner.placed.length > 0 ? (
+            <ul className="sc-sr-only" aria-label="Placed markers">
+              {owner.placed.map((marker) => (
+                <li key={marker.id}>{accessibleMarkerLabel(owner.content, marker)} placed.</li>
+              ))}
+            </ul>
+          ) : null}
+        </aside>
+
         <div
           className="sc-course-drag-drop-stage"
           data-drop-active={drop.isDropTarget || undefined}
@@ -923,6 +964,11 @@ function Presentation({
                                 owner.startKeyboardPositioning(marker, presentation, origin)
                         }
                         onSelect={() => owner.selectPlacedMarker(marker)}
+                        onRemove={
+                          owner.locked
+                            ? undefined
+                            : () => owner.removeMarker(marker, presentation)
+                        }
                       />
                     );
                   })}
@@ -957,121 +1003,6 @@ function Presentation({
           ) : null}
           {!owner.imageSrc && !owner.mediaUnavailable ? <p role="status">Loading image…</p> : null}
         </div>
-
-        <aside className="sc-course-drag-drop-tray" aria-label="Markers">
-          <div className="sc-course-drag-drop-tray__unplaced">
-            <h3>Markers to place</h3>
-            {owner.unplaced.length === 0 ? <p>All markers placed.</p> : null}
-            {owner.unplaced.map((marker) => (
-              <TrayMarker
-                key={marker.id}
-                describedBy={instructionsId}
-                disabled={owner.locked || !ready}
-                focusMarkerId={marker.id}
-                label={`Select ${accessibleMarkerLabel(owner.content, marker)} for placement`}
-                marker={marker}
-                presentation={presentation}
-                resolvedIcons={owner.resolvedIcons}
-                selected={owner.selectedMarkerId === marker.id}
-                onKeyboardStart={(origin) =>
-                  owner.startKeyboardPositioning(marker, presentation, origin)
-                }
-                onSelect={() => owner.selectMarker(marker)}
-              />
-            ))}
-          </div>
-          {owner.placed.length > 0 ? (
-            <div className="sc-course-drag-drop-tray__placed">
-              <h3>Placed markers</h3>
-              <div
-                className="sc-course-drag-drop-tray__navigation"
-                role="group"
-                aria-label="Placed marker navigation"
-              >
-                <button
-                  type="button"
-                  aria-label="Previous placed marker"
-                  disabled={currentPlacedIndex <= 0}
-                  onClick={() => navigatePlaced(currentPlacedIndex - 1)}
-                >
-                  Previous
-                </button>
-                <span aria-live="polite">
-                  {currentPlaced
-                    ? `${currentPlacedIndex + 1} of ${navigableMarkers.length}: ${currentPlaced.label}`
-                    : "No placed marker"}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Next placed marker"
-                  disabled={currentPlacedIndex >= navigableMarkers.length - 1}
-                  onClick={() => navigatePlaced(currentPlacedIndex + 1)}
-                >
-                  Next
-                </button>
-              </div>
-              {owner.placed.map((marker) => (
-                <div key={marker.id}>
-                  <TrayMarker
-                    describedBy={instructionsId}
-                    disabled={!ready}
-                    dragDisabled={owner.locked || !ready}
-                    label={
-                      owner.locked
-                        ? `Inspect placed ${accessibleMarkerLabel(owner.content, marker)} position`
-                        : `Select placed ${accessibleMarkerLabel(owner.content, marker)} for repositioning`
-                    }
-                    marker={marker}
-                    presentation={presentation}
-                    resolvedIcons={owner.resolvedIcons}
-                    selected={
-                      owner.selectedMarkerId === marker.id || owner.reviewMarkerId === marker.id
-                    }
-                    onKeyboardStart={
-                      owner.locked
-                        ? undefined
-                        : (origin) => owner.startKeyboardPositioning(marker, presentation, origin)
-                    }
-                    onSelect={() => owner.selectPlacedMarker(marker)}
-                  />
-                  <button
-                    type="button"
-                    disabled={owner.locked}
-                    onClick={() => owner.removeMarker(marker, presentation)}
-                  >
-                    Remove {accessibleMarkerLabel(owner.content, marker)}
-                  </button>
-                </div>
-              ))}
-              {currentPlaced ? (
-                <button
-                  type="button"
-                  disabled={owner.locked}
-                  onClick={() => owner.removeMarker(currentPlaced, presentation)}
-                >
-                  Remove current marker, {accessibleMarkerLabel(owner.content, currentPlaced)}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-          {owner.content.markers.length >= 6 ? (
-            <p className="sc-course-drag-drop-tray__scroll-hint">Scroll for more markers.</p>
-          ) : null}
-          <div className="sc-course-drag-drop-tray__actions">
-            <button
-              type="button"
-              disabled={owner.locked || owner.placed.length === 0}
-              onClick={() => owner.reset(presentation)}
-            >
-              Reset marker placements
-            </button>
-            {presentation === "inline" && onRequestExpand ? (
-              <button type="button" onClick={onRequestExpand}>
-                Expand Drag and Drop
-              </button>
-            ) : null}
-          </div>
-        </aside>
       </div>
     </section>
   );
@@ -1148,6 +1079,7 @@ function PlacedMarker({
   inspectionDisabled,
   marker,
   onKeyboardStart,
+  onRemove,
   onSelect,
   point,
   presentation,
@@ -1162,6 +1094,7 @@ function PlacedMarker({
   readonly inspectionDisabled: boolean;
   readonly marker: DragDropCourseMarker;
   readonly onKeyboardStart?: ((origin: HTMLElement) => void) | undefined;
+  readonly onRemove?: (() => void) | undefined;
   readonly onSelect: () => void;
   readonly point: SpatialImagePoint;
   readonly presentation: DragDropPresentation;
@@ -1198,6 +1131,12 @@ function PlacedMarker({
         data-drag-drop-focus-marker={marker.id}
         disabled={inspectionDisabled}
         onKeyDown={(event) => {
+          if (onRemove && (event.key === "Delete" || event.key === "Backspace")) {
+            event.preventDefault();
+            event.stopPropagation();
+            onRemove();
+            return;
+          }
           if (!onKeyboardStart || (event.key !== "Enter" && event.key !== " ")) return;
           event.preventDefault();
           event.stopPropagation();
@@ -1211,6 +1150,19 @@ function PlacedMarker({
         <MarkerVisualView marker={marker} resolvedIcons={resolvedIcons} />
       </button>
       <span className="sc-course-drag-drop-marker__label">{marker.label}</span>
+      {selected && onRemove ? (
+        <button
+          type="button"
+          className="sc-course-drag-drop-marker__remove"
+          aria-label={`Remove ${marker.label} from the image`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRemove();
+          }}
+        >
+          <span aria-hidden>×</span>
+        </button>
+      ) : null}
       {feedbackState ? <span className="sc-sr-only">{feedbackState}</span> : null}
     </span>
   );

@@ -66,14 +66,22 @@ describe("full-slide Drag and Drop presentation", () => {
     expect(interaction.getBoundingClientRect().width).toBeGreaterThan(
       surface.getBoundingClientRect().width * 0.9,
     );
-    expect(stage.getBoundingClientRect().width).toBeGreaterThan(
-      tray.getBoundingClientRect().width * 1.5,
+    // Shelf above stage: the shelf spans the interaction width and the
+    // stage takes the remaining height below it.
+    expect(tray.getBoundingClientRect().width).toBeGreaterThan(
+      interaction.getBoundingClientRect().width * 0.9,
+    );
+    expect(stage.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      tray.getBoundingClientRect().bottom - 1,
     );
     expect(getComputedStyle(tray).overflowY).toBe("auto");
     expect(tray.scrollHeight).toBeGreaterThanOrEqual(tray.clientHeight);
     expect(surface.querySelectorAll(".sc-course-drag-drop-source")).toHaveLength(12);
 
-    const first = requiredElement<HTMLButtonElement>(surface, '[aria-label*="Marker 1"]');
+    const first = requiredElement<HTMLButtonElement>(
+      surface,
+      '[aria-label="Select Marker 1 for placement"]',
+    );
     await waitForCondition(() => !first.disabled);
     first.focus();
     fireEvent.keyDown(first, { code: "Enter", key: "Enter" });
@@ -114,7 +122,10 @@ describe("full-slide Drag and Drop presentation", () => {
 
     // A new keyboard placement after the resize proves conversion still uses
     // live image geometry rather than a stale pre-resize rectangle.
-    const second = requiredElement<HTMLButtonElement>(surface, '[aria-label*="Marker 2"]');
+    const second = requiredElement<HTMLButtonElement>(
+      surface,
+      '[aria-label="Select Marker 2 for placement"]',
+    );
     await waitForCondition(() => !second.disabled);
     second.focus();
     fireEvent.keyDown(second, { code: "Enter", key: "Enter" });
@@ -165,9 +176,9 @@ describe("full-slide Drag and Drop presentation", () => {
     const tray = requiredElement<HTMLElement>(layout, ".sc-course-drag-drop-tray");
     const stage = requiredElement<HTMLElement>(layout, ".sc-course-drag-drop-stage");
 
-    expect(trackCount(getComputedStyle(layout).gridTemplateColumns)).toBe(2);
-    expect(stage.getBoundingClientRect().width).toBeGreaterThan(
-      tray.getBoundingClientRect().width * 1.5,
+    expect(trackCount(getComputedStyle(layout).gridTemplateColumns)).toBe(1);
+    expect(stage.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      tray.getBoundingClientRect().bottom - 1,
     );
     expect(getComputedStyle(tray).overflowY).toBe("auto");
     expect(surface.scrollWidth).toBeLessThanOrEqual(surface.clientWidth + 1);

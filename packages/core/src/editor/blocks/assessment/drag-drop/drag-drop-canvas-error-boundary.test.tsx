@@ -59,7 +59,7 @@ function ErrorObserver({
   return (
     <div
       onErrorCapture={(event) => {
-        onError(event.error as Error);
+        onError((event as unknown as { error: Error }).error);
       }}
     >
       {children}

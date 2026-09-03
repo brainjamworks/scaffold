@@ -8,6 +8,15 @@
   font-weight: var(--font-weight-medium);
 }
 
+/* Disabled must stay legible: alpha-faded label on the accent surface
+   measured at 1.0:1. Swap to a quiet gray surface with readable text. */
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-submission-control__button:disabled {
+  background: var(--gray-a3);
+  color: var(--gray-11);
+  opacity: 1;
+}
+
 .sc-course.sc-course-theme-scaffold-flow-v1
   .sc-course-assessment-submission-control__button:focus-visible {
   outline: 2px solid var(--accent-8);

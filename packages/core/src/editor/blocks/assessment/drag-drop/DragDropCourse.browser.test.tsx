@@ -405,18 +405,18 @@ describe("DragDropCourseInteraction", () => {
     });
     await waitFor(() => expect(currentRuntime()?.response.hasValue).toBe(true));
 
-    const tray = screen.getByLabelText("Markers");
-    expect(getComputedStyle(tray).overflow).toBe("auto");
-    expect(screen.getByText("Scroll for more markers.")).toBeVisible();
+    // The shelf wraps instead of scrolling behind a hint; Reset stays reachable.
+    const reset = screen.getByRole("button", { name: "Reset" });
+    expect(reset).toBeVisible();
+    expect(reset).toBeEnabled();
     const firstStation = screen.getByRole("button", {
-      name: "Select placed Station, marker 1 of 12 for repositioning",
+      name: "Placed Station, 1 of 12. Drag to reposition",
     });
     expect(firstStation).toBeVisible();
-    expect(firstStation).toHaveTextContent("Station");
-    expect(firstStation).not.toHaveTextContent("Select placed");
+    expect(firstStation.parentElement).toHaveTextContent("Station");
     expect(
       screen.getByRole("button", {
-        name: "Select placed Station, marker 2 of 12 for repositioning",
+        name: "Placed Station, 2 of 12. Drag to reposition",
       }),
     ).toBeVisible();
 
@@ -429,12 +429,11 @@ describe("DragDropCourseInteraction", () => {
       "Station selected, 2 of 3 overlapping markers",
     );
 
-    await user.click(screen.getByRole("button", { name: "Next placed marker" }));
-    expect(
-      screen.getByRole("button", {
-        name: "Select placed Marker 3 for repositioning",
-      }),
-    ).toHaveAttribute("aria-pressed", "true");
+    const markerThree = screen.getByRole("button", {
+      name: "Placed Marker 3, 3 of 12. Drag to reposition",
+    });
+    await user.click(markerThree);
+    expect(markerThree).toHaveAttribute("aria-pressed", "true");
 
     const edgeMarker = screen.getByRole("button", {
       name: /Placed A very long marker label.*12 of 12\. Drag to reposition/,
@@ -449,7 +448,7 @@ describe("DragDropCourseInteraction", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Remove current marker, Marker 3",
+        name: "Remove Marker 3 from the image",
       }),
     );
     await waitFor(() =>
@@ -482,9 +481,8 @@ describe("DragDropCourseInteraction", () => {
     const trays = screen.getAllByLabelText("Markers");
     expect(trays).toHaveLength(1);
     const tray = trays[0]!;
-    expect(getComputedStyle(tray).overflow).toBe("auto");
-    // Actions stay in normal flow as the last tray row so the sticky scroll
-    // hint above them is never covered while the tray scrolls.
+    // Actions stay in normal flow as the last shelf row so Reset/Expand stay
+    // reachable while a dense shelf scrolls.
     const actions = tray.querySelector<HTMLElement>(".sc-course-drag-drop-tray__actions");
     expect(actions).not.toBeNull();
     expect(getComputedStyle(actions!).position).not.toBe("sticky");
@@ -496,7 +494,7 @@ describe("DragDropCourseInteraction", () => {
     expect(inlineLayout).not.toBeNull();
     expect(getComputedStyle(inlineLayout!).display).toBe("grid");
 
-    await user.click(screen.getByRole("button", { name: "Expand Drag and Drop" }));
+    await user.click(screen.getByRole("button", { name: "Expand" }));
     const expandedTray = await waitFor(() => {
       const element = document.querySelector<HTMLElement>(
         '[data-drag-drop-presentation="expanded"] .sc-course-drag-drop-tray',
@@ -504,17 +502,11 @@ describe("DragDropCourseInteraction", () => {
       expect(element).not.toBeNull();
       return element!;
     });
-    expect(getComputedStyle(expandedTray).overflow).toBe("auto");
-    // Real browsers resolve min(70vh, 48rem) against the viewport.
-    expect(Number.parseFloat(getComputedStyle(expandedTray).maxHeight)).toBeCloseTo(
-      Math.min(window.innerHeight * 0.7, 768),
-      0,
-    );
     const expandedActions = expandedTray.querySelector<HTMLElement>(
       ".sc-course-drag-drop-tray__actions",
     );
     expect(expandedActions).not.toBeNull();
-    expect(expandedTray.lastElementChild).toBe(expandedActions);
+    expect(within(expandedActions!).getByRole("button", { name: "Reset" })).toBeVisible();
   });
 
   it("uses shared submission, retry retention, feedback, exhausted and mutually exclusive answer views", async () => {
@@ -583,18 +575,20 @@ describe("DragDropCourseInteraction", () => {
     expect(currentRuntime()?.problem?.canRetry).toBe(true);
     expect(document.querySelectorAll('[data-course-state="correct"]')).toHaveLength(1);
     expect(document.querySelectorAll('[data-course-state="incorrect"]')).toHaveLength(1);
-    const inspectLondon = screen.getByRole("button", { name: "Inspect placed London position" });
+    const inspectLondon = screen.getByRole("button", {
+      name: "Placed London, 1 of 2. Review position",
+    });
     expect(inspectLondon).toBeEnabled();
     const submittedResponse = currentRuntime()?.interaction.placements;
     inspectLondon.focus();
     fireEvent.keyDown(inspectLondon, { code: "Enter", key: "Enter" });
     expect(document.querySelector("[data-drag-drop-keyboard-cursor]")).toBeNull();
     expect(currentRuntime()?.interaction.placements).toEqual(submittedResponse);
-    await user.click(screen.getByRole("button", { name: "Next placed marker" }));
-    expect(screen.getByRole("button", { name: /Placed Paris, 2 of 2\./ })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    const inspectParis = screen.getByRole("button", {
+      name: "Placed Paris, 2 of 2. Review position",
+    });
+    await user.click(inspectParis);
+    expect(inspectParis).toHaveAttribute("aria-pressed", "true");
     expect(currentRuntime()?.interaction.placements).toEqual(submittedResponse);
 
     await act(async () => {
@@ -620,10 +614,13 @@ describe("DragDropCourseInteraction", () => {
     const correctLondon = screen.getByRole("button", {
       name: /Placed London, 1 of 2\. Review position/,
     }).parentElement;
-    fireEvent.keyDown(screen.getByRole("button", { name: "Inspect placed London position" }), {
-      code: "Space",
-      key: " ",
-    });
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Placed London, 1 of 2. Review position" }),
+      {
+        code: "Space",
+        key: " ",
+      },
+    );
     expect(document.querySelector("[data-drag-drop-keyboard-cursor]")).toBeNull();
     expect(correctLondon?.getAttribute("style")).toContain("left: 10%");
     expect(correctLondon?.getAttribute("style")).toContain("top: 20%");
@@ -728,7 +725,7 @@ describe("DragDropCourseInteraction", () => {
     });
 
     await user.click(
-      screen.getByRole("button", { name: "Select placed London for repositioning" }),
+      screen.getByRole("button", { name: "Placed London, 1 of 1. Drag to reposition" }),
     );
     fireEvent.click(surface, { clientX: 200, clientY: 100 });
     await waitFor(() => {
@@ -755,7 +752,7 @@ describe("DragDropCourseInteraction", () => {
     expect(screen.getByRole("status")).toHaveTextContent("2 of 2 markers placed");
     expect(document.querySelector("[data-drag-drop-response-ready='true']")).not.toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Reset marker placements" }));
+    await user.click(screen.getByRole("button", { name: "Reset" }));
     await waitFor(() => {
       expect(localAssessmentResponse(assessmentStore, problemId)).toEqual({ placements: {} });
     });
@@ -832,7 +829,8 @@ describe("DragDropCourseInteraction", () => {
     expect(screen.getByRole("status")).toHaveTextContent("London positioning cancelled");
     await waitFor(() => expect(placedLondon).toHaveFocus());
 
-    const remove = screen.getByRole("button", { name: "Remove London" });
+    await user.click(placedLondon);
+    const remove = screen.getByRole("button", { name: "Remove London from the image" });
     remove.focus();
     await user.keyboard("{Enter}");
     await waitFor(() =>
@@ -847,7 +845,7 @@ describe("DragDropCourseInteraction", () => {
       return element!;
     });
     fireEvent.keyDown(replacementCursor, { code: "Enter", key: "Enter" });
-    const reset = await screen.findByRole("button", { name: "Reset marker placements" });
+    const reset = await screen.findByRole("button", { name: "Reset" });
     reset.focus();
     await user.keyboard("{Enter}");
     await waitFor(() =>
@@ -992,7 +990,7 @@ describe("DragDropCourseInteraction", () => {
     await user.click(screen.getByRole("button", { name: "Toggle interaction" }));
     await readySurface();
     expect(
-      screen.getByRole("button", { name: "Select placed London for repositioning" }),
+      screen.getByRole("button", { name: "Placed London, 1 of 1. Drag to reposition" }),
     ).toBeTruthy();
     expect(currentRuntime()?.interaction.setPlacement("marker000002", { x: 75, y: 25 })).toEqual({
       status: "updated",
@@ -1087,7 +1085,7 @@ describe("DragDropCourseInteraction", () => {
     fireEvent.keyDown(inlineParis, { code: "Enter", key: "Enter" });
     expect(inline.querySelector("[data-drag-drop-keyboard-cursor]")).not.toBeNull();
 
-    const expand = within(inline).getByRole("button", { name: "Expand Drag and Drop" });
+    const expand = within(inline).getByRole("button", { name: "Expand" });
     await user.click(expand);
     const expanded = await waitFor(() => {
       const element = document.querySelector<HTMLElement>(
@@ -1096,18 +1094,29 @@ describe("DragDropCourseInteraction", () => {
       expect(element).not.toBeNull();
       return element!;
     });
-    expect(
-      within(expanded).getByRole("button", { name: "Select placed London for repositioning" }),
-    ).toBeTruthy();
-    expect(
-      within(expanded).getByRole("button", { name: "Select Paris for placement" }),
-    ).toHaveAttribute("aria-pressed", "true");
     const expandedSurface = expanded.querySelector<HTMLElement>("[data-spatial-image-surface]");
     if (!expandedSurface) throw new Error("Expected expanded spatial image surface.");
     await waitFor(() =>
       expect(expandedSurface).toHaveAttribute("data-spatial-image-surface-state", "ready"),
     );
     expandedSurface.getBoundingClientRect = imageRect;
+    const freshExpanded = () => {
+      const element = document.querySelector<HTMLElement>(
+        "[data-drag-drop-presentation='expanded']",
+      );
+      if (!element) throw new Error("Expected expanded Drag and Drop presentation.");
+      return element;
+    };
+    await waitFor(() =>
+      expect(
+        within(freshExpanded()).getByRole("button", {
+          name: /^Placed London, 1 of \d+\./,
+        }),
+      ).toBeTruthy(),
+    );
+    expect(
+      within(freshExpanded()).getByRole("button", { name: "Select Paris for placement" }),
+    ).toHaveAttribute("aria-pressed", "true");
     const expandedCursor = await waitFor(() => {
       const element = expanded.querySelector<HTMLElement>("[data-drag-drop-keyboard-cursor]");
       expect(element).not.toBeNull();
@@ -1138,7 +1147,7 @@ describe("DragDropCourseInteraction", () => {
     );
     await waitFor(() => expect(expand).toHaveFocus());
     expect(
-      within(inline).getByRole("button", { name: "Select placed Paris for repositioning" }),
+      within(inline).getByRole("button", { name: "Placed Paris, 2 of 2. Drag to reposition" }),
     ).toBeTruthy();
 
     fireEvent.click(expand);
@@ -1147,14 +1156,14 @@ describe("DragDropCourseInteraction", () => {
     );
     if (!reopened) throw new Error("Expected reopened expanded Drag and Drop presentation.");
     expect(
-      within(reopened).getByRole("button", { name: "Select placed London for repositioning" }),
+      within(reopened).getByRole("button", { name: /^Placed London, 1 of \d+\./ }),
     ).toBeDisabled();
     const reopenedImage = reopened.querySelector("img");
     if (!reopenedImage) throw new Error("Expected reopened expanded image.");
     fireEvent.load(reopenedImage);
     await waitFor(() =>
       expect(
-        within(reopened).getByRole("button", { name: "Select placed London for repositioning" }),
+        within(reopened).getByRole("button", { name: /^Placed London, 1 of \d+\./ }),
       ).toBeEnabled(),
     );
     const beforeCollapse = localAssessmentResponse(assessmentStore, problemId);

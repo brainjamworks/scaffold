@@ -129,12 +129,12 @@ describe("drag-drop authoring fresh flow", () => {
       let inserted = false;
       await act(async () => {
         inserted = editor.commands.insertContent(
-          dragDropBlockDefinition.insert.content() as JSONContent,
+          dragDropBlockDefinition.insert!.content() as JSONContent,
         );
       });
       expect(inserted).toBe(true);
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: "Open Drag and Drop workspace" })).toBeTruthy();
+        expect(screen.getByRole("button", { name: "Add background image" })).toBeTruthy();
       });
 
       const target = createAuthoringNodeTarget(editor, {
@@ -175,7 +175,7 @@ describe("drag-drop authoring fresh flow", () => {
         ).toBeGreaterThan(0);
       });
 
-      await user.click(screen.getByRole("button", { name: "Open Drag and Drop workspace" }));
+      await user.click(screen.getByRole("button", { name: "Edit markers in expanded workspace" }));
       await waitFor(() => {
         expect(screen.getByRole("dialog")).toBeTruthy();
       });

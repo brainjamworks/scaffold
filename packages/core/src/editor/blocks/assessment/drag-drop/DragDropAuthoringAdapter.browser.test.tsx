@@ -53,8 +53,13 @@ describe("Drag and Drop authoring adapter", () => {
 
     await waitFor(() => expect(resolve).toHaveBeenCalledWith("custom-marker-icon"));
     expect(screen.queryByRole("img", { name: "Custom marker icon unavailable" })).toBeNull();
-    await user.click(screen.getByRole("combobox", { name: "Default marker appearance" }));
-    await user.click(await screen.findByRole("option", { name: "check" }));
+    await user.click(
+      screen.getByRole("button", { name: "Edit markers in expanded workspace" }),
+    );
+    await user.click(
+      await screen.findByRole("combobox", { name: "Default marker appearance" }),
+    );
+    await user.click(await screen.findByRole("option", { name: "Check" }));
     await waitFor(() =>
       expect(canvasDataFrom(firstEditor.getJSON()).defaultMarkerVisual).toEqual({
         kind: "preset",
@@ -93,13 +98,11 @@ describe("Drag and Drop authoring adapter", () => {
     );
 
     freshEditor.commands.insertContent(
-      dragDropBlockDefinition.insert.content() as JSONContent,
+      dragDropBlockDefinition.insert!.content() as JSONContent,
     );
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Open Drag and Drop workspace" }),
-      ).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Add background image" })).toBeTruthy();
     });
   });
 });

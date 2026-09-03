@@ -34,9 +34,8 @@
     padding: clamp(0.75rem, 2cqw, 1.25rem) clamp(1rem, 4cqw, 2.5rem);
   }
 
-  .sc-slide-drag-drop-question-surface-authoring-view .sc-app-drag-drop-authoring__layout {
+  .sc-slide-drag-drop-question-surface-authoring-view .sc-app-drag-drop-stage {
     min-block-size: 18rem;
-    grid-template-columns: minmax(0, 3fr) minmax(13rem, 1fr);
   }
 
   .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"] {
@@ -52,8 +51,8 @@
     .sc-course-drag-drop-interaction__layout {
     block-size: 100%;
     min-block-size: 0;
-    grid-template-columns: minmax(0, 3fr) minmax(14rem, 1fr);
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"]
@@ -65,7 +64,7 @@
   .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"]
     .sc-course-drag-drop-tray {
     min-block-size: 0;
-    max-block-size: 100%;
+    max-block-size: 9rem;
     overflow: auto;
     overscroll-behavior: contain;
   }
@@ -78,16 +77,9 @@
   }
 
   @container (max-width: 46rem) {
-    .sc-slide-drag-drop-question-surface-authoring-view .sc-app-drag-drop-authoring__layout,
-    .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"]
-      .sc-course-drag-drop-interaction__layout {
-      grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: auto;
-    }
-
     .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"]
       .sc-course-drag-drop-tray {
-      max-block-size: 10rem;
+      max-block-size: 7rem;
     }
   }
 }

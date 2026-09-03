@@ -5733,7 +5733,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   [data-full-slide-question-family="drag-drop"]
   [data-drag-drop-presentation="full-slide"]
   .sc-course-drag-drop-tray {
-  border-inline-start: var(
+  border-block-end: var(
     --sc-course-drag-drop-stage-tray-boundary,
     var(--pa-keyline) solid var(--pa-ink)
   );
@@ -5776,113 +5776,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   transform: scale(0.97);
 }
 
-/* Drag-drop authoring paint follows the course theme so the authoring canvas matches. */
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker {
-  background: var(--pa-mango);
-}
-
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-panel li {
-  border: var(--pa-keyline) solid var(--pa-ink);
-  border-radius: 0;
-  background: var(--pa-paper-raised);
-}
-
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-panel__preview {
-  color: var(--pa-ink-soft);
-}
-
-.sc-course.sc-course-theme-pocket-atlas-v1
-  .sc-app-drag-drop-marker-panel__header
-  .sc-app-drag-drop-marker-label {
-  color: var(--pa-ink);
-  font-family: var(--heading-font-family);
-  font-size: calc(0.75rem * var(--sc-course-author-text-scale));
-  font-weight: 700;
-  line-height: 1.35;
-}
-
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-authoring__toolbar {
-  border: var(--pa-keyline) solid var(--pa-ink);
-  border-radius: 0;
-  background: var(--pa-paper-muted);
-}
-
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-toolbar__field,
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-form__field,
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-panel__field {
-  color: var(--pa-ink);
-  font-family: var(--heading-font-family);
-  font-size: calc(0.75rem * var(--sc-course-author-text-scale));
-  font-weight: 700;
-  line-height: 1.35;
-}
-
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-form__input,
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-panel__input {
-  border: var(--pa-keyline) solid var(--pa-ink);
-  border-radius: 0;
-  background: var(--pa-paper-raised);
-  color: var(--pa-ink);
-  font-family: var(--default-font-family);
-  font-size: calc(0.875rem * var(--sc-course-author-text-scale));
-  line-height: 1.45;
-}
-
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-toolbar__action,
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-form__action,
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-panel__action {
-  border: var(--pa-keyline) solid var(--pa-ink);
-  border-radius: 0;
-  background: var(--pa-paper-raised);
-  color: var(--pa-ink);
-  font-family: var(--heading-font-family);
-  font-size: calc(0.8125rem * var(--sc-course-author-text-scale));
-  font-weight: 700;
-  line-height: 1.35;
-  box-shadow: 2px 2px 0 var(--pa-ink);
-}
-
-.sc-course.sc-course-theme-pocket-atlas-v1
-  .sc-app-drag-drop-toolbar__action[data-intent="add"],
-.sc-course.sc-course-theme-pocket-atlas-v1
-  .sc-app-drag-drop-marker-form__action[data-intent="add"] {
-  background: var(--pa-violet);
-  color: var(--pa-violet-foreground);
-}
-
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-toolbar__action:disabled,
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-form__action:disabled,
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-panel__action:disabled {
-  opacity: 0.55;
-  box-shadow: none;
-}
-
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-authoring p[role="status"] {
-  color: var(--pa-ink-soft);
-  font-size: calc(0.875rem * var(--sc-course-author-text-scale));
-  line-height: 1.5;
-}
-
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-toolbar__action:focus-visible,
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-form__action:focus-visible,
-.sc-course.sc-course-theme-pocket-atlas-v1
-  .sc-app-drag-drop-marker-panel__action:focus-visible,
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-form__input:focus-visible,
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-panel__input:focus-visible {
-  outline: 3px solid var(--pa-focus);
-  outline-offset: 3px;
-}
-
 @media (hover: hover) and (pointer: fine) {
-  .sc-course.sc-course-theme-pocket-atlas-v1
-    .sc-app-drag-drop-toolbar__action:hover:not(:disabled),
-  .sc-course.sc-course-theme-pocket-atlas-v1
-    .sc-app-drag-drop-marker-form__action:hover:not(:disabled),
-  .sc-course.sc-course-theme-pocket-atlas-v1
-    .sc-app-drag-drop-marker-panel__action:hover:not(:disabled) {
-    background: var(--pa-mango);
-    box-shadow: 3px 3px 0 var(--pa-ink);
-  }
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-annotated-figure__legend {
@@ -6855,5 +6749,24 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       .sc-course-flashcard-mastered__reset
     ):focus-visible {
     outline-color: Highlight;
+  }
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker__remove {
+  border-color: var(--pa-ink);
+  border-radius: 0;
+  background: var(--pa-paper-raised);
+  color: var(--pa-ink);
+  box-shadow: 2px 2px 0 var(--pa-ink);
+  transition:
+    background-color 120ms steps(2, end),
+    box-shadow 120ms steps(2, end),
+    transform 120ms steps(2, end);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker__remove:hover {
+    background: var(--pa-coral);
+    color: var(--pa-paper);
   }
 }

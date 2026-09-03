@@ -215,7 +215,7 @@ function DragDropFixture() {
             </span>
           </div>
           <div className="sc-course-drag-drop-tray__actions">
-            <button type="button">Reset marker placements</button>
+            <button type="button">Reset</button>
           </div>
         </aside>
       </div>

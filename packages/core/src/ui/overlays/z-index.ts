@@ -32,6 +32,7 @@ export const zIndex = {
   modal: 210,
   modalContent: 220,
   nestedModal: 230,
+  nestedModalContent: 240,
 
   popover: 250,
   tooltip: 250,

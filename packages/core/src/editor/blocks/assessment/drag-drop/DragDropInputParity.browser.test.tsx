@@ -180,7 +180,7 @@ async function completeBy(mode: "mouse" | "touch" | "keyboard", missingIndex: nu
     inlineRect,
   );
 
-  const expand = within(inline).getByRole("button", { name: "Expand Drag and Drop" });
+  const expand = within(inline).getByRole("button", { name: "Expand" });
   expand.focus();
   fireEvent.keyDown(expand, { code: "Enter", key: "Enter" });
   fireEvent.click(expand);
@@ -212,7 +212,9 @@ async function completeBy(mode: "mouse" | "touch" | "keyboard", missingIndex: nu
   }).parentElement;
   expect(overlappingMarker?.style.left).toBe("50%");
   expect(overlappingMarker?.style.top).toBe("50%");
-  expect(within(expanded).getByText("1 of 12: Marker 1")).toBeVisible();
+  expect(within(expanded).getByRole("list", { name: "Placed markers" })).toHaveTextContent(
+    "Marker 1 placed.",
+  );
 
   rendered.unmount();
   dragRoot.remove();
@@ -263,7 +265,7 @@ async function place(
   await waitFor(() =>
     expect(
       within(presentation).getByRole("button", {
-        name: `Select placed ${label} for repositioning`,
+        name: new RegExp(`^Placed ${label},`),
       }),
     ).toBeVisible(),
   );
