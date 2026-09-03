@@ -15,7 +15,7 @@ import {
   type SpatialImageSurfaceState,
 } from "@/editor/blocks/assessment/shared/spatial";
 
-import "./DragDrop.css";
+import "@/editor/assessment/drag-drop/DragDrop.css";
 
 export const DRAG_DROP_MARKER_PRESETS = ["cross", "pin", "dot", "flag", "check"] as const;
 

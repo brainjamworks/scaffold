@@ -4,7 +4,7 @@ import {
   createIdleDragDropKeyboardCursor,
   transitionDragDropKeyboardCursor,
   type DragDropKeyboardCursorState,
-} from "./drag-drop-keyboard-cursor";
+} from "@/editor/assessment/drag-drop/drag-drop-keyboard-cursor";
 
 const markerId = "marker000001" as never;
 

@@ -4,5 +4,5 @@ export { DRAG_DROP_INSERT_ACTION_ID, dragDropBlockDefinition } from "./drag-drop
 export { DragDropRuntimeExtension } from "./drag-drop-runtime-extension";
 export { createDragDropNode, DragDropNode } from "./node";
 export { createDragDropCanvasNode, DragDropCanvasNode } from "@/editor/assessment/drag-drop/drag-drop-canvas-shared";
-export { DragDropCourseInteraction } from "./drag-drop-course-interaction";
-export type { DragDropCourseContent, DragDropCourseMarker } from "./drag-drop-course-content";
+export { DragDropCourseInteraction } from "@/editor/assessment/drag-drop/drag-drop-course-interaction";
+export type { DragDropCourseContent, DragDropCourseMarker } from "@/editor/assessment/drag-drop/drag-drop-course-content";

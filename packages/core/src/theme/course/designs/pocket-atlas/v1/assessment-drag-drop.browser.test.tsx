@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser/context";
 
 import "@/styles/globals.css";
-import "@/editor/blocks/assessment/drag-drop/DragDrop.css";
+import "@/editor/assessment/drag-drop/DragDrop.css";
 
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 

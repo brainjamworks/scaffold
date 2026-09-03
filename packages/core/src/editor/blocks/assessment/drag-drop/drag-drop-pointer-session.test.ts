@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { resolveDragDropPointerPlacement } from "./drag-drop-pointer-session";
+import { resolveDragDropPointerPlacement } from "@/editor/assessment/drag-drop/drag-drop-pointer-session";
 
 describe("resolveDragDropPointerPlacement", () => {
   it("commits the sole point returned by a ready spatial image surface", () => {

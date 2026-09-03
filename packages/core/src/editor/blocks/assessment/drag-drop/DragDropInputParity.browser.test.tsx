@@ -17,8 +17,8 @@ import {
 import type { AssessmentStoreApi } from "@/runtime/assessment/types";
 import { TestInteractionDragEnvironment } from "@/editor/interactions/drag/testing/TestInteractionDragEnvironment";
 
-import { DragDropInlineCourseWorkspace } from "./drag-drop-course-interaction";
-import type { DragDropCourseContent } from "./drag-drop-course-content";
+import { DragDropInlineCourseWorkspace } from "@/editor/assessment/drag-drop/drag-drop-course-interaction";
+import type { DragDropCourseContent } from "@/editor/assessment/drag-drop/drag-drop-course-content";
 import { dragDropResponseCodec, toDragDropContractResponse } from "@/editor/assessment/drag-drop/drag-drop-response-codec";
 
 const assessmentTargetId = "target000001";

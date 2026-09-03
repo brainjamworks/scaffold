@@ -10,8 +10,8 @@ import {
   projectDragDropInteraction,
   projectDragDropSettings,
 } from "@/editor/assessment/drag-drop/assessment";
-import { createDragDropCourseContent } from "@/editor/blocks/assessment/drag-drop/drag-drop-course-content";
-import { DragDropCourseInteraction } from "@/editor/blocks/assessment/drag-drop/drag-drop-course-interaction";
+import { createDragDropCourseContent } from "@/editor/assessment/drag-drop/drag-drop-course-content";
+import { DragDropCourseInteraction } from "@/editor/assessment/drag-drop/drag-drop-course-interaction";
 import { dragDropResponseCodec } from "@/editor/assessment/drag-drop/drag-drop-response-codec";
 import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { countAssessmentHints } from "@/editor/assessment/shared/model/assessment-prosemirror";

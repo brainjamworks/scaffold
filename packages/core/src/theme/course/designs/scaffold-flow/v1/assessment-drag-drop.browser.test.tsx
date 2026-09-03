@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import "@/styles/globals.css";
-import "@/editor/blocks/assessment/drag-drop/DragDrop.css";
+import "@/editor/assessment/drag-drop/DragDrop.css";
 import "./theme.css";
 
 const mountedRoots: Root[] = [];

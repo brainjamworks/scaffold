@@ -8,8 +8,8 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 
-import "./DragDrop.css";
-import { DragDropCourseWorkspace } from "./DragDropCourseWorkspace";
+import "@/editor/assessment/drag-drop/DragDrop.css";
+import { DragDropCourseWorkspace } from "@/editor/assessment/drag-drop/DragDropCourseWorkspace";
 
 afterEach(cleanup);
 

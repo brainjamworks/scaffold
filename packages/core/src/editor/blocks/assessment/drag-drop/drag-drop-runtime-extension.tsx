@@ -7,8 +7,8 @@ import { createBlockRuntimeNodeView } from "@/editor/frame/runtime/create-block-
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 
 import { createDragDropCanvasNode } from "@/editor/assessment/drag-drop/drag-drop-canvas-shared";
-import { createDragDropCourseContent } from "./drag-drop-course-content";
-import { DragDropInlineCourseWorkspace } from "./drag-drop-course-interaction";
+import { createDragDropCourseContent } from "@/editor/assessment/drag-drop/drag-drop-course-content";
+import { DragDropInlineCourseWorkspace } from "@/editor/assessment/drag-drop/drag-drop-course-interaction";
 import { dragDropBlockDefinition } from "./drag-drop-definition";
 import { createDragDropNode } from "./node";
 import { isDragDropOwnerNodeType, SURFACE_DRAG_DROP_QUESTION_NODE_TYPE } from "./node";

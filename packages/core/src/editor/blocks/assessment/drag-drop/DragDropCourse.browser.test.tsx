@@ -20,11 +20,11 @@ import {
 import type { AssessmentStoreApi } from "@/runtime/assessment/types";
 
 import { dragDropResponseCodec } from "@/editor/assessment/drag-drop/drag-drop-response-codec";
-import type { DragDropCourseContent } from "./drag-drop-course-content";
+import type { DragDropCourseContent } from "@/editor/assessment/drag-drop/drag-drop-course-content";
 import {
   DragDropCourseInteraction,
   DragDropInlineCourseWorkspace,
-} from "./drag-drop-course-interaction";
+} from "@/editor/assessment/drag-drop/drag-drop-course-interaction";
 
 const assessmentTargetId = "target000001";
 const problemId = `artifact:artifact-1/block:${assessmentTargetId}`;
