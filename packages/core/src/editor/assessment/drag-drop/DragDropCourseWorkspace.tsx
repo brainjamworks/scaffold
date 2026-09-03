@@ -62,12 +62,16 @@ export const DragDropCourseWorkspaceContent = forwardRef<
                 >
                   {title}
                 </Dialog.Title>
-                <Dialog.Description className="sc-course-drag-drop-workspace__description">
+                <Dialog.Description className="sc-course-drag-drop-workspace__description sc-sr-only">
                   {description}
                 </Dialog.Description>
               </div>
               <Dialog.Close asChild>
-                <button type="button" aria-label="Close expanded Drag and Drop workspace">
+                <button
+                  type="button"
+                  aria-label="Close expanded Drag and Drop workspace"
+                  className="sc-course-drag-drop-workspace__close"
+                >
                   Close
                 </button>
               </Dialog.Close>

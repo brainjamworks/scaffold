@@ -5148,6 +5148,31 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   line-height: 1.45;
 }
 
+/* Capped so the mango band hugs the title now that the description is sr-only. */
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-workspace__header {
+  padding: calc(0.75rem * var(--sc-course-author-density))
+    calc(1rem * var(--sc-course-author-density));
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-workspace__close {
+  padding: calc(0.5rem * var(--sc-course-author-density))
+    calc(0.75rem * var(--sc-course-author-density));
+  border: var(--pa-keyline) solid var(--pa-ink);
+  border-radius: 0;
+  background: var(--pa-paper-raised);
+  color: var(--pa-ink);
+  font-family: var(--heading-font-family);
+  font-size: calc(0.8125rem * var(--sc-course-author-text-scale));
+  font-weight: 700;
+  line-height: 1.35;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--pa-ink);
+  transition:
+    background-color 120ms steps(2, end),
+    box-shadow 120ms steps(2, end),
+    transform 120ms steps(2, end);
+}
+
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-image-hotspot-runtime-workspace__body {
   padding: 1rem;
   background: var(--pa-paper-muted);
@@ -5306,7 +5331,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-keyboard-instructions,
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-interaction p[role="status"] {
   color: var(--pa-ink-soft);
-  font-size: 0.875rem;
+  font-size: calc(0.875rem * var(--sc-course-author-text-scale));
   line-height: 1.5;
 }
 
@@ -5322,6 +5347,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   border: var(--pa-keyline) solid var(--pa-ink);
   border-radius: 0;
   background: var(--pa-paper-muted);
+  transition:
+    background-color 120ms steps(2, end),
+    outline-color 120ms steps(2, end);
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1
@@ -5342,8 +5370,16 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   border: var(--pa-keyline) solid var(--pa-ink);
   border-radius: 0;
   background: var(--pa-paper-muted);
-  padding: 0.75rem;
+  padding: var(
+    --sc-course-drag-drop-tray-padding,
+    calc(0.75rem * var(--sc-course-author-density))
+  );
   scrollbar-color: var(--pa-violet) var(--pa-paper-muted);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray__placed,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray__unplaced {
+  gap: var(--sc-course-drag-drop-stack-gap, calc(0.5rem * var(--sc-course-author-density)));
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1
@@ -5356,7 +5392,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   margin: 0;
   color: var(--pa-ink);
   font-family: var(--heading-font-family);
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--sc-course-author-text-scale));
   font-weight: 700;
   letter-spacing: 0.04em;
   line-height: 1.35;
@@ -5366,25 +5402,26 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray p {
   margin: 0;
   color: var(--pa-ink-soft);
-  font-size: 0.875rem;
+  font-size: calc(0.875rem * var(--sc-course-author-text-scale));
   line-height: 1.5;
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray__scroll-hint {
   background: var(--pa-paper-muted);
   color: var(--pa-ink-soft);
-  font-size: 0.8125rem;
+  font-size: calc(0.8125rem * var(--sc-course-author-text-scale));
   font-weight: 700;
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-source > button {
-  padding: 0.5rem 0.75rem;
+  padding: calc(0.5rem * var(--sc-course-author-density))
+    calc(0.75rem * var(--sc-course-author-density));
   border: var(--pa-keyline) solid var(--pa-ink);
   border-radius: 0;
   background: var(--pa-paper-raised);
   color: var(--pa-ink);
   font-family: var(--default-font-family);
-  font-size: 0.9375rem;
+  font-size: calc(0.9375rem * var(--sc-course-author-text-scale));
   line-height: 1.45;
   cursor: pointer;
   box-shadow: 2px 2px 0 var(--pa-ink);
@@ -5442,7 +5479,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   background: var(--pa-paper-raised);
   color: var(--pa-ink);
   font-family: var(--heading-font-family);
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--sc-course-author-text-scale));
   font-weight: 700;
   line-height: 1.35;
   box-shadow: 2px 2px 0 var(--pa-ink);
@@ -5451,15 +5488,17 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 .sc-course.sc-course-theme-pocket-atlas-v1
   .sc-course-drag-drop-marker[data-course-state="correct"]
   > button {
-  background: var(--pa-mint);
-  color: var(--pa-ink);
+  border-color: var(--sc-course-state-correct-border);
+  background: var(--sc-course-state-correct-background);
+  color: var(--sc-course-state-correct-text);
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1
   .sc-course-drag-drop-marker[data-course-state="incorrect"]
   > button {
-  background: var(--pa-coral);
-  color: var(--pa-ink);
+  border-color: var(--sc-course-state-incorrect-border);
+  background: var(--sc-course-state-incorrect-background);
+  color: var(--sc-course-state-incorrect-text);
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1
@@ -5475,7 +5514,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   background: var(--pa-violet);
   color: var(--pa-violet-foreground);
   font-family: var(--heading-font-family);
-  font-size: 0.8125rem;
+  font-size: calc(0.8125rem * var(--sc-course-author-text-scale));
   font-weight: 700;
   box-shadow: var(--pa-shadow-md);
 }
@@ -5505,7 +5544,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   background: var(--pa-paper-raised);
   color: var(--pa-ink);
   font-family: var(--heading-font-family);
-  font-size: 0.8125rem;
+  font-size: calc(0.8125rem * var(--sc-course-author-text-scale));
   font-weight: 700;
   line-height: 1.35;
   cursor: pointer;
@@ -5514,6 +5553,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     background-color 120ms steps(2, end),
     box-shadow 120ms steps(2, end),
     transform 120ms steps(2, end);
+}
+
+/* Retry accent: the stage alert button carries the attention color, mirroring
+   Flow's accent-tinted retry in Atlas vocabulary. */
+.sc-course.sc-course-theme-pocket-atlas-v1
+  .sc-course-drag-drop-stage
+  div[role="alert"]
+  button:not(:disabled) {
+  background: var(--pa-mango);
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1
@@ -5534,10 +5582,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-stage div[role="alert"] {
   color: var(--pa-ink);
-  font-size: 0.875rem;
+  font-size: calc(0.875rem * var(--sc-course-author-text-scale));
   line-height: 1.5;
 }
 
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-workspace__close:focus-visible,
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-source > button:focus-visible,
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker > button:focus-visible,
 .sc-course.sc-course-theme-pocket-atlas-v1
@@ -5556,6 +5605,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   outline-offset: 3px;
 }
 
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-workspace__close:active:not(:disabled),
 .sc-course.sc-course-theme-pocket-atlas-v1
   .sc-course-drag-drop-source
   > button:active:not(:disabled),
@@ -5574,6 +5624,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .sc-course.sc-course-theme-pocket-atlas-v1
+    .sc-course-drag-drop-workspace__close:hover:not(:disabled) {
+    background: var(--pa-mango);
+    box-shadow: 3px 3px 0 var(--pa-ink);
+    transform: translate(-1px, -1px);
+  }
+
   .sc-course.sc-course-theme-pocket-atlas-v1
     .sc-course-drag-drop-source
     > button:not(:disabled):hover {
@@ -5635,6 +5692,19 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     background: Canvas;
     color: CanvasText;
   }
+
+  .sc-course.sc-course-theme-pocket-atlas-v1
+    .sc-course-drag-drop-marker[data-course-state="correct"]
+    > button {
+    border-style: double;
+    border-width: 3px;
+  }
+
+  .sc-course.sc-course-theme-pocket-atlas-v1
+    .sc-course-drag-drop-marker[data-course-state="incorrect"]
+    > button {
+    border-style: dashed;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -5646,9 +5716,64 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       .sc-course-drag-drop-tray__placed,
       .sc-course-drag-drop-tray__navigation
     )
-    button {
+    button,
+  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker,
+  .sc-course.sc-course-theme-pocket-atlas-v1
+    .sc-course-drag-drop-stage
+    [data-spatial-image-surface],
+  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-workspace {
     transition: none;
   }
+}
+
+/* Full-slide Drag and Drop hooks (RIZ-289): the tray becomes the side panel, so
+   it takes the stage/tray boundary and panel paint; the prompt spans as a band
+   above the stage, mirroring categorise's full-slide bin-grid treatment. */
+.sc-course.sc-course-theme-pocket-atlas-v1
+  [data-full-slide-question-family="drag-drop"]
+  [data-drag-drop-presentation="full-slide"]
+  .sc-course-drag-drop-tray {
+  border-inline-start: var(
+    --sc-course-drag-drop-stage-tray-boundary,
+    var(--pa-keyline) solid var(--pa-ink)
+  );
+  background: var(--pa-paper-muted);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1
+  [data-full-slide-question-family="drag-drop"]
+  [data-slot="assessment-prompt"] {
+  border-block-end: var(--pa-keyline) solid var(--pa-ink);
+  background: var(--pa-paper-muted);
+}
+
+/* State-change motion (RIZ-292): transitions only, transform/opacity/color. */
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker {
+  transition: opacity 120ms steps(2, end);
+}
+
+@starting-style {
+  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker {
+    opacity: 0;
+  }
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-workspace {
+  transition:
+    opacity 120ms steps(2, end),
+    transform 120ms steps(2, end);
+}
+
+@starting-style {
+  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-workspace {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-workspace[data-state="closed"] {
+  opacity: 0;
+  transform: scale(0.97);
 }
 
 /* Drag-drop authoring paint follows the course theme so the authoring canvas matches. */
@@ -5671,7 +5796,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   .sc-app-drag-drop-marker-label {
   color: var(--pa-ink);
   font-family: var(--heading-font-family);
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--sc-course-author-text-scale));
   font-weight: 700;
   line-height: 1.35;
 }
@@ -5687,7 +5812,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-panel__field {
   color: var(--pa-ink);
   font-family: var(--heading-font-family);
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--sc-course-author-text-scale));
   font-weight: 700;
   line-height: 1.35;
 }
@@ -5699,7 +5824,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   background: var(--pa-paper-raised);
   color: var(--pa-ink);
   font-family: var(--default-font-family);
-  font-size: 0.875rem;
+  font-size: calc(0.875rem * var(--sc-course-author-text-scale));
   line-height: 1.45;
 }
 
@@ -5711,7 +5836,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   background: var(--pa-paper-raised);
   color: var(--pa-ink);
   font-family: var(--heading-font-family);
-  font-size: 0.8125rem;
+  font-size: calc(0.8125rem * var(--sc-course-author-text-scale));
   font-weight: 700;
   line-height: 1.35;
   box-shadow: 2px 2px 0 var(--pa-ink);
@@ -5734,7 +5859,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-authoring p[role="status"] {
   color: var(--pa-ink-soft);
-  font-size: 0.875rem;
+  font-size: calc(0.875rem * var(--sc-course-author-text-scale));
   line-height: 1.5;
 }
 

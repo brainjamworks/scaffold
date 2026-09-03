@@ -22,7 +22,6 @@ describe("Pocket Atlas Drag and Drop recipe", () => {
     async (appearance) => {
       const { host } = mountDragDrop(appearance);
       await waitForCondition(() => host.querySelector(".sc-course-drag-drop-marker") !== null);
-
       const resting = requireElement<HTMLButtonElement>(
         host,
         '[data-testid="plain-marker"] > button',

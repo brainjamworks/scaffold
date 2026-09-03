@@ -7,6 +7,7 @@ import {
 } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import { checkLearnerProjectionReadiness } from "@/document/model/establishment";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
@@ -19,11 +20,13 @@ import { prepareRuntimeLearnerPublication } from "@/runtime/renderer/CourseDocum
 import { projectLearnerPublication } from "./document-projection";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
-const authoringSchema = getCourseDocumentAuthoringEnvironmentState(
+const authoringEnvironmentState = getCourseDocumentAuthoringEnvironmentState(
   createCourseDocumentAuthoringEnvironment({
     composition: createCoreScaffoldAuthoringComposition(),
   }),
-).schema;
+);
+const authoringSchema = authoringEnvironmentState.schema;
+const authoringCapabilities = authoringEnvironmentState.capabilities;
 const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
 const assessmentNodeTypes = [
   "categorise",
@@ -54,11 +57,9 @@ describe("assessment learner publication runtime compatibility", () => {
       const surface = insertDocument.content?.[0]?.content?.[0];
       if (!surface) throw new Error("Assessment publication fixture has no surface");
       surface.content = [authoredBlock];
-      assignMissingNodeIds(insertDocument);
-      const canonicalDocument = authoringSchema.nodeFromJSON(insertDocument).toJSON();
 
       const publication = projectLearnerPublication(
-        { status: "supported", canonicalDocument },
+        readinessForFixture(insertDocument),
         builtInBlockRegistry,
         builtInSurfaceVariantRegistry,
       );
@@ -101,11 +102,9 @@ describe("assessment learner publication runtime compatibility", () => {
         surfaceId: createEmbeddedNodeId(),
       }),
     ];
-    assignMissingNodeIds(insertDocument);
-    const canonicalDocument = authoringSchema.nodeFromJSON(insertDocument).toJSON();
 
     const publication = projectLearnerPublication(
-      { status: "supported", canonicalDocument },
+      readinessForFixture(insertDocument),
       builtInBlockRegistry,
       builtInSurfaceVariantRegistry,
     );
@@ -142,11 +141,9 @@ describe("assessment learner publication runtime compatibility", () => {
         surfaceId: createEmbeddedNodeId(),
       }),
     ];
-    assignMissingNodeIds(insertDocument);
-    const canonicalDocument = authoringSchema.nodeFromJSON(insertDocument).toJSON();
 
     const publication = projectLearnerPublication(
-      { status: "supported", canonicalDocument },
+      readinessForFixture(insertDocument),
       builtInBlockRegistry,
       builtInSurfaceVariantRegistry,
     );
@@ -286,6 +283,27 @@ function descendantsByType(root: JSONContent, type: string): JSONContent[] {
     stack.push(...(node.content ?? []));
   }
   return matches;
+}
+
+/**
+ * Runs a fixture through the same readiness gate the publish path uses
+ * (canonicalization, including the portable courseDocument attrs boundary)
+ * instead of hand-building readiness from working-attrs editor JSON.
+ */
+function readinessForFixture(insertDocument: JSONContent) {
+  assignMissingNodeIds(insertDocument);
+  const workingDocument = authoringSchema.nodeFromJSON(insertDocument).toJSON();
+  const readiness = checkLearnerProjectionReadiness({
+    workingDocument,
+    capabilities: authoringCapabilities,
+    authoringSchema,
+    expectedRequiresScaffoldPlus: false,
+    productAccess: coreProductAccess,
+  });
+  if (readiness.status !== "supported") {
+    throw new Error(`Expected supported projection readiness, got ${readiness.status}`);
+  }
+  return readiness;
 }
 
 function assignMissingNodeIds(root: JSONContent): void {

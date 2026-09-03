@@ -40,6 +40,8 @@
   }
 
   .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"] {
+    --sc-course-drag-drop-tray-padding: 0.75rem;
+    --sc-course-drag-drop-stack-gap: 0.5rem;
     block-size: 100%;
     min-inline-size: 0;
     min-block-size: 0;
