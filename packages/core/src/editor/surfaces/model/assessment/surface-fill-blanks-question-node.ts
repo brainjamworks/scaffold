@@ -8,7 +8,6 @@ import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 
 import {
   ASSESSMENT_QUESTION_CONTENT,
-  BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
 
 import { fullSlideQuestionStageAttributes } from "./full-slide-question-stage";
@@ -24,7 +23,7 @@ export function createSurfaceFillBlanksQuestionNode(
 ) {
   return Node.create({
     name: SURFACE_FILL_BLANKS_QUESTION_NODE_TYPE,
-    group: `${BLOCK_CONTENT} ${ASSESSMENT_QUESTION_CONTENT}`,
+    group: ASSESSMENT_QUESTION_CONTENT,
     content:
       "assessment_title assessment_instructions assessment_prompt " +
       "fill_blanks_body assessment_actions_group",

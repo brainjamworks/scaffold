@@ -2,7 +2,10 @@ import { mergeAttributes, Node, type NodeViewRenderer } from "@tiptap/core";
 
 import { SurfaceAttrsSchema, SurfaceSettingsSchema } from "@/schemas/course-document";
 
-import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
+import {
+  ARRANGEMENT_CONTENT,
+  ASSESSMENT_QUESTION_CONTENT,
+} from "@/document/model/content-model/content-groups";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
 import { SURFACE_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
 
@@ -39,7 +42,7 @@ function renderJsonAttr(name: string, value: unknown) {
 export function createSurfaceNode(options: SurfaceNodeOptions = {}) {
   return Node.create({
     name: SURFACE_NODE_TYPE,
-    content: `(block | ${ARRANGEMENT_CONTENT} | region)+`,
+    content: `(block | ${ASSESSMENT_QUESTION_CONTENT} | ${ARRANGEMENT_CONTENT} | region)+`,
     selectable: false,
     draggable: false,
     isolating: true,

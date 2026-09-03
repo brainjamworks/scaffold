@@ -138,7 +138,10 @@ const TestRichContentBlock = Node.create({
 
 const TestAssessmentQuestionBlock = Node.create({
   name: "test_assessment_question_block",
-  group: `${BLOCK_CONTENT} ${COURSE_BLOCK_CONTENT} ${ASSESSMENT_QUESTION_CONTENT}`,
+  // Mirrors the production surface-*-question nodes (RIZ-303): assessment-only
+  // group so regions `(block | arrangement)+` reject them while surfaces with an
+  // explicit `assessment_question` slot still host them.
+  group: ASSESSMENT_QUESTION_CONTENT,
   content: "paragraph",
   renderHTML() {
     return ["div", { "data-test-assessment-question-block": "" }, 0];
@@ -217,12 +220,12 @@ describe("content groups", () => {
     expect(ASSESSMENT_QUESTION_CONTENT).toBe("assessment_question");
   });
 
-  it("marks assessment question nodes without marking ordinary course blocks", () => {
+  it("keeps assessment question nodes out of the block group ordinary course blocks use", () => {
     const assessmentGroups = groupSet(TestAssessmentQuestionBlock.config.group);
     const courseBlockGroups = groupSet(TestCourseBlock.config.group);
 
-    expect(assessmentGroups.has(BLOCK_CONTENT)).toBe(true);
-    expect(assessmentGroups.has(COURSE_BLOCK_CONTENT)).toBe(true);
+    expect(assessmentGroups.has(BLOCK_CONTENT)).toBe(false);
+    expect(assessmentGroups.has(COURSE_BLOCK_CONTENT)).toBe(false);
     expect(assessmentGroups.has(ASSESSMENT_QUESTION_CONTENT)).toBe(true);
 
     expect(courseBlockGroups.has(BLOCK_CONTENT)).toBe(true);

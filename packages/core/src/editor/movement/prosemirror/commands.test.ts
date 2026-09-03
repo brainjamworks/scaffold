@@ -178,6 +178,24 @@ const TestBlockNode = Node.create({
   },
 });
 
+// Production compositions always register surface question nodes, so the
+// `assessment_question` group referenced by SurfaceNode is never empty there.
+// This minimal stub keeps the hand-built fixture schema honest (RIZ-303).
+const MovementTestAssessmentQuestionNode = Node.create({
+  name: "movement_test_assessment_question",
+  group: "assessment_question",
+  atom: true,
+  selectable: true,
+
+  parseHTML() {
+    return [{ tag: "div[data-movement-test-assessment-question]" }];
+  },
+
+  renderHTML() {
+    return ["div", { "data-movement-test-assessment-question": "" }];
+  },
+});
+
 const FillTestBlockNode = Node.create({
   name: FILL_TEST_BLOCK,
   group: "block",
@@ -310,6 +328,7 @@ function makeEditor(
       SectionAuthoringNode,
       TestBlockNode,
       FillTestBlockNode,
+      MovementTestAssessmentQuestionNode,
     ],
     content: courseDocument(content, surfaceVariant),
   });
