@@ -16,7 +16,7 @@ import { SlideDragDropQuestionSurfaceRuntimeView } from "./variants/assessment/s
 import { SlideFillBlanksQuestionSurfaceRuntimeView } from "../variants/slide-fill-blanks-question/runtime";
 import { SlideMatchingQuestionSurfaceRuntimeView } from "../variants/slide-matching-question/runtime";
 import { SlideImageHotspotQuestionSurfaceRuntimeView } from "../variants/slide-image-hotspot-question/runtime";
-import { SlideMultipleChoiceQuestionSurfaceRuntimeView } from "./variants/assessment/slide-multiple-choice-question";
+import { SlideMultipleChoiceQuestionSurfaceRuntimeView } from "../variants/slide-multiple-choice-question/runtime";
 import { SlideMultiselectQuestionSurfaceRuntimeView } from "./variants/assessment/slide-multiselect-question";
 import { SlideQuizSurfaceRuntimeView } from "./variants/assessment/slide-quiz";
 import { SlideSequencingQuestionSurfaceRuntimeView } from "../variants/slide-sequencing-question/runtime";

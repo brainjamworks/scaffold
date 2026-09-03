@@ -2,7 +2,7 @@ import { ArticleIcon } from "@phosphor-icons/react";
 import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 import { z } from "zod";
 
-import { mcqResponseCodec } from "./assessment/mcq/assessment";
+import { mcqResponseCodec } from "@/editor/assessment/mcq/assessment";
 import type { BlockCapabilitiesDefinition, BlockDefinition } from "./block-definition";
 import { createBlockRegistry, type BlockDefinitionLookup } from "./block-registry";
 

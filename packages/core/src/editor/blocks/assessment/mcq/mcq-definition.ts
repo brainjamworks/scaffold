@@ -17,7 +17,7 @@ import {
   projectMcqInteraction,
   projectMcqLearnerNode,
   projectMcqSettings,
-} from "./assessment";
+} from "@/editor/assessment/mcq/assessment";
 
 export const MCQ_BLOCK_ID = "mcq";
 

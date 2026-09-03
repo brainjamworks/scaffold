@@ -7,7 +7,7 @@ import StarterKit from "@tiptap/starter-kit";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { mcqResponseCodec } from "@/editor/blocks/assessment/mcq/assessment";
+import { mcqResponseCodec } from "@/editor/assessment/mcq/assessment";
 import { pageAssessmentExperience } from "../model/assessment-capability";
 import {
   useAssessmentBlockSetup,

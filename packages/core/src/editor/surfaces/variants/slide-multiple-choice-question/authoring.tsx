@@ -1,6 +1,6 @@
-import "../../../view/assessment-selectable-choice-surface.css";
-import type { SurfaceAuthoringViewProps } from "../../surface-authoring-view-registry";
-import { AssessmentSlideSurfaceAuthoringFrame } from "../../views/AssessmentSlideSurfaceAuthoringFrame";
+import "../../view/assessment-selectable-choice-surface.css";
+import type { SurfaceAuthoringViewProps } from "../../authoring/surface-authoring-view-registry";
+import { AssessmentSlideSurfaceAuthoringFrame } from "../../authoring/views/AssessmentSlideSurfaceAuthoringFrame";
 
 export function SlideMultipleChoiceQuestionSurfaceAuthoringView(props: SurfaceAuthoringViewProps) {
   return (

@@ -77,7 +77,7 @@ import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes"
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
 import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
 import { AssessmentActionsGroupRuntimeNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group-runtime";
-import { mcqResponseCodec } from "@/editor/blocks/assessment/mcq/assessment";
+import { mcqResponseCodec } from "@/editor/assessment/mcq/assessment";
 import { AssessmentChoicesGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-choices-group";
 import { AssessmentChoicesGroupRuntimeNode } from "@/editor/blocks/assessment/shared/nodes/assessment-choices-group-runtime";
 import { AssessmentHintNode } from "@/editor/blocks/assessment/shared/nodes/assessment-hint";

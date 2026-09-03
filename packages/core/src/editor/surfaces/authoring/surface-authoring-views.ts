@@ -13,7 +13,7 @@ import { slideMatchingQuestionSurfaceConfiguration } from "../variants/slide-mat
 import { slideCategoriseQuestionSurfaceConfiguration } from "../variants/slide-categorise-question/binding";
 import { slideDropdownQuestionSurfaceConfiguration } from "../variants/slide-dropdown-question/binding";
 import { slideFillBlanksQuestionSurfaceConfiguration } from "../variants/slide-fill-blanks-question/binding";
-import { mcqConfiguration } from "@/editor/blocks/assessment/mcq/mcq-definition";
+import { slideMultipleChoiceQuestionSurfaceConfiguration } from "../variants/slide-multiple-choice-question/binding";
 import { multiselectConfiguration } from "@/editor/blocks/assessment/multiselect/multiselect-definition";
 import { quizConfiguration } from "@/editor/blocks/assessment/quiz/quiz-definition";
 import {
@@ -60,7 +60,7 @@ import { SlideDragDropQuestionSurfaceAuthoringView } from "./variants/assessment
 import { SlideFillBlanksQuestionSurfaceAuthoringView } from "../variants/slide-fill-blanks-question/authoring";
 import { SlideMatchingQuestionSurfaceAuthoringView } from "../variants/slide-matching-question/authoring";
 import { SlideImageHotspotQuestionSurfaceAuthoringView } from "../variants/slide-image-hotspot-question/authoring";
-import { SlideMultipleChoiceQuestionSurfaceAuthoringView } from "./variants/assessment/slide-multiple-choice-question";
+import { SlideMultipleChoiceQuestionSurfaceAuthoringView } from "../variants/slide-multiple-choice-question/authoring";
 import { SlideMultiselectQuestionSurfaceAuthoringView } from "./variants/assessment/slide-multiselect-question";
 import { SlideQuizSurfaceAuthoringView } from "./variants/assessment/slide-quiz";
 import { SlideSequencingQuestionSurfaceAuthoringView } from "../variants/slide-sequencing-question/authoring";
@@ -408,10 +408,7 @@ const SPECIALISED_SURFACE_AUTHORING_VIEWS = [
   {
     variantId: "slide-multiple-choice-question",
     component: SlideMultipleChoiceQuestionSurfaceAuthoringView,
-    configuration: defineAssessmentSurfaceConfiguration({
-      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-multiple-choice-question"),
-      questionConfiguration: mcqConfiguration,
-    }),
+    configuration: slideMultipleChoiceQuestionSurfaceConfiguration,
   },
   {
     variantId: "slide-multiselect-question",

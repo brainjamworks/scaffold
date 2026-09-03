@@ -6,9 +6,9 @@ import {
   mcqResponseCodec,
   projectMcqInteraction,
   projectMcqSettings,
-} from "@/editor/blocks/assessment/mcq/assessment";
-import { mcqCourseContentFromProseMirror } from "@/editor/blocks/assessment/mcq/mcq-course-content";
-import { McqCourseInteraction } from "@/editor/blocks/assessment/mcq/mcq-course-interaction";
+} from "@/editor/assessment/mcq/assessment";
+import { mcqCourseContentFromProseMirror } from "@/editor/assessment/mcq/mcq-course-content";
+import { McqCourseInteraction } from "@/editor/assessment/mcq/mcq-course-interaction";
 import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { countAssessmentHints } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { textBetween } from "@/editor/assessment/shared/publication/projection";
@@ -20,11 +20,11 @@ import {
 import { SURFACE_MULTIPLE_CHOICE_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-multiple-choice-question-node";
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
-import "../../../view/assessment-selectable-choice-surface.css";
-import type { SurfaceRuntimeViewProps } from "../../surface-runtime-view-registry";
-import { AssessmentSlideSurfaceRuntimeFrame } from "../../views/AssessmentSlideSurfaceRuntimeFrame";
-import { useAssessmentSurfaceControlBinding } from "./assessment-surface-control-binding";
-import { FullSlideQuestionStage } from "./FullSlideQuestionStage";
+import "../../view/assessment-selectable-choice-surface.css";
+import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
+import { AssessmentSlideSurfaceRuntimeFrame } from "../../runtime/views/AssessmentSlideSurfaceRuntimeFrame";
+import { useAssessmentSurfaceControlBinding } from "../../runtime/variants/assessment/assessment-surface-control-binding";
+import { FullSlideQuestionStage } from "../../runtime/variants/assessment/FullSlideQuestionStage";
 
 export function SlideMultipleChoiceQuestionSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const question = surfaceMultipleChoiceQuestion(props.node);

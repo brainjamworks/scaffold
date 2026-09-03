@@ -17,7 +17,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { getControlBindingRegistryForEditor } from "@/document/control-binding";
-import { projectMcqLearnerNode } from "@/editor/blocks/assessment/mcq/assessment";
+import { projectMcqLearnerNode } from "@/editor/assessment/mcq/assessment";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { SURFACE_MULTIPLE_CHOICE_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-multiple-choice-question-node";
 import { SURFACE_DRAG_DROP_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-drag-drop-question-node";

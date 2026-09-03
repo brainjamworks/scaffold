@@ -11,7 +11,7 @@ import {
   projectMcqInteraction,
   projectMcqLearnerNode,
   projectMcqSettings,
-} from "@/editor/blocks/assessment/mcq/assessment";
+} from "@/editor/assessment/mcq/assessment";
 import {
   cloneJsonNodeWithoutContent,
   readAttrs,

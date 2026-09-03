@@ -8,7 +8,7 @@ import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaf
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { projectCourseStructure } from "@/document/model/course-structure";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { projectMcqLearnerNode } from "@/editor/blocks/assessment/mcq/assessment";
+import { projectMcqLearnerNode } from "@/editor/assessment/mcq/assessment";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";

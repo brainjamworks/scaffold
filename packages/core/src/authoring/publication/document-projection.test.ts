@@ -11,7 +11,7 @@ import {
 import { createBlockRegistry, type BlockRegistry } from "@/editor/blocks/block-registry";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
-import { mcqResponseCodec } from "@/editor/blocks/assessment/mcq/assessment";
+import { mcqResponseCodec } from "@/editor/assessment/mcq/assessment";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 
 import {
