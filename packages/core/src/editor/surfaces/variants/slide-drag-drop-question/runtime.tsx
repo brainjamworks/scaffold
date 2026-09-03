@@ -93,7 +93,6 @@ export function DragDropFullSlideQuestionPresenter({
   return (
     <FullSlideQuestionStage question={question}>
       <div
-        className="sc-course-drag-drop__content sc-course-drag-drop__content--runtime"
         data-assessment-interaction-content=""
         data-slot="drag-drop-content"
         data-surface-drag-drop-interaction=""

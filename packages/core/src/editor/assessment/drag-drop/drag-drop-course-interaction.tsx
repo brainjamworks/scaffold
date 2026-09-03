@@ -127,12 +127,14 @@ export function DragDropInlineCourseWorkspace({
       {(owner) => (
         <DragDropCourseWorkspace.Root open={open} onOpenChange={setOpen}>
           <Presentation owner={owner} presentation="inline" onRequestExpand={() => setOpen(true)} />
-          <DragDropCourseWorkspace.Content
-            title="Answer Drag and Drop"
-            description="Place each marker on the image."
-          >
-            <Presentation owner={owner} presentation="expanded" />
-          </DragDropCourseWorkspace.Content>
+          {open ? (
+            <DragDropCourseWorkspace.Content
+              title="Answer Drag and Drop"
+              description="Place each marker on the image."
+            >
+              <Presentation owner={owner} presentation="expanded" />
+            </DragDropCourseWorkspace.Content>
+          ) : null}
         </DragDropCourseWorkspace.Root>
       )}
     </Owner>

@@ -79,6 +79,31 @@ describe("Drag and Drop authoring adapter", () => {
     await waitFor(() => expect(resolve).toHaveBeenCalledWith("custom-marker-icon"));
     expect(screen.queryByRole("img", { name: "Custom marker icon unavailable" })).toBeNull();
   });
+
+  it("mounts a freshly inserted block without throwing", async () => {
+    const media = {
+      resolve: async () => TEST_IMAGE_SRC,
+      upload: async () => {
+        throw new Error("Upload is not used by this fresh-insert test.");
+      },
+    };
+    const freshEditor = createEditor({ type: "doc", content: [{ type: "paragraph" }] });
+    render(
+      <ScaffoldServicesProvider ports={{ media }}>
+        {createAuthoringMovementTestRoot(freshEditor, <EditorContent editor={freshEditor} />)}
+      </ScaffoldServicesProvider>,
+    );
+
+    freshEditor.commands.insertContent(
+      dragDropBlockDefinition.insert.content() as JSONContent,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Open Drag and Drop workspace" }),
+      ).toBeTruthy();
+    });
+  });
 });
 
 function createEditor(content: JSONContent): Editor {

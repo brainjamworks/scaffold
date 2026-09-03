@@ -1,6 +1,6 @@
 import { Extension } from "@tiptap/core";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { FilePickerResult } from "@/editor/media/authoring/picker/LazyFilePickerModal";
 import { FilePickerModal } from "@/editor/media/authoring/picker/LazyFilePickerModal";
 import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";
@@ -30,7 +30,10 @@ import {
   type DragDropAuthoringIssue,
 } from "./drag-drop-authoring-commands";
 import { DragDropAuthoringCanvas } from "./drag-drop-canvas-authoring";
-import { createDragDropCanvasNode } from "@/editor/assessment/drag-drop/drag-drop-canvas-shared";
+import {
+  createDragDropCanvasNode,
+  defaultDragDropCanvasData,
+} from "@/editor/assessment/drag-drop/drag-drop-canvas-shared";
 import { dragDropBlockDefinition, dragDropConfiguration } from "./drag-drop-definition";
 import { DragDropAuthoringWorkspace } from "./DragDropAuthoringWorkspace";
 import { createDragDropNode } from "./node";
@@ -41,6 +44,43 @@ export { dragDropConfiguration };
 function DragDropAuthoringView(props: NodeViewProps) {
   return (
     <AssessmentProblemContent editable blockClass="sc-course-drag-drop" nodeViewProps={props} />
+  );
+}
+
+export class DragDropCanvasErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error): { error: Error | null } {
+    return { error };
+  }
+
+  private readonly handleRetry = (): void => {
+    this.setState({ error: null });
+  };
+
+  render(): ReactNode {
+    if (this.state.error !== null) {
+      return (
+        <p role="alert" contentEditable={false} data-drag-drop-canvas-error="">
+          This block hit an error.{" "}
+          <button type="button" onClick={this.handleRetry}>
+            Retry
+          </button>
+        </p>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function DragDropCanvasAuthoringViewWithBoundary(props: NodeViewProps): ReactNode {
+  return (
+    <DragDropCanvasErrorBoundary>
+      <DragDropCanvasAuthoringView {...props} />
+    </DragDropCanvasErrorBoundary>
   );
 }
 
@@ -56,14 +96,21 @@ function DragDropCanvasAuthoringView(props: NodeViewProps) {
   );
   const rawData = props.node.attrs["data"];
   const rawAssessment = owner?.node.attrs["assessment"];
-  const data = useMemo(() => DragDropCanvasDataSchema.parse(rawData), [rawData]);
+  // Node views can render transiently before positions/attrs settle (fresh insert, node
+  // replacement): fall back to pristine defaults instead of white-screening. Genuinely
+  // malformed attrs still throw via schema parse below.
+  const data = useMemo(
+    () => DragDropCanvasDataSchema.parse(rawData ?? defaultDragDropCanvasData()),
+    [rawData],
+  );
   const assessment = useMemo(
-    () => DragDropPrivateAssessmentSchema.parse(rawAssessment),
+    () => DragDropPrivateAssessmentSchema.parse(rawAssessment ?? {}),
     [rawAssessment],
   );
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [mediaError, setMediaError] = useState(false);
   const [pickerKind, setPickerKind] = useState<"background" | "custom" | null>(null);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [reload, setReload] = useState(0);
   const customApply = useRef<((visual: Extract<MarkerVisual, { kind: "custom" }>) => void) | null>(
     null,
@@ -220,7 +267,7 @@ function DragDropCanvasAuthoringView(props: NodeViewProps) {
           {authoringIssue.message}
         </p>
       ) : null}
-      <DragDropAuthoringWorkspace.Root>
+      <DragDropAuthoringWorkspace.Root open={workspaceOpen} onOpenChange={setWorkspaceOpen}>
         {authoringCanvas}
         <DragDropAuthoringWorkspace.Trigger asChild>
           <button type="button">Open Drag and Drop workspace</button>
@@ -270,7 +317,7 @@ const DragDropAuthoringNode = createDragDropNode({
 });
 
 const DragDropCanvasAuthoringNode = createDragDropCanvasNode({
-  addNodeView: () => ReactNodeViewRenderer(DragDropCanvasAuthoringView),
+  addNodeView: () => ReactNodeViewRenderer(DragDropCanvasAuthoringViewWithBoundary),
 });
 
 export const DragDropAuthoringExtension = Extension.create({
