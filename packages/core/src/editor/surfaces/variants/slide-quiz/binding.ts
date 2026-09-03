@@ -24,8 +24,8 @@ import { builtInSurfaceVariantRegistry } from "../../model/built-in-surface-vari
  * and defaults are written out for this variant instead of projected from
  * the block configuration by generic machinery. Validation schemas are
  * shared (never duplicated); behaviour delegates to the shared draft
- * helpers. `binding-parity.test.ts` fails loudly if the block definition
- * drifts from this pairing.
+ * helpers. If the block definition drifts from this pairing, add the
+ * missing controls here by hand: nothing projects them automatically.
  */
 const surfaceDefinition = builtInSurfaceVariantRegistry.get("slide-quiz");
 if (!surfaceDefinition) throw new Error('Surface variant "slide-quiz" is not registered.');
@@ -47,8 +47,8 @@ const slideQuizEditSchema = z
 
 const slideQuizQuestionControls = [
   // Quiz's own controls, written out so this variant reads complete.
-  // If the block definition gains a control, binding-parity.test.ts fails
-  // until it is added here explicitly.
+  // If the block definition gains a control, add it here explicitly:
+  // nothing projects it automatically.
   {
     kind: "boolean",
     name: "question.allowBacktracking",

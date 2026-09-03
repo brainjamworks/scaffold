@@ -37,8 +37,8 @@ import { createScaffoldTextAlignExtension } from "@/editor/rich-text/model/text-
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 
-import { PageDefaultSurfaceAuthoringView } from "../variants/page-default";
-import { SlideCompositionSurfaceAuthoringView } from "../variants/slide-composition";
+import { PageDefaultSurfaceAuthoringView } from "../../variants/page-default/authoring";
+import { SlideCompositionSurfaceAuthoringView } from "../../variants/slide-composition/authoring";
 import { SlideCoverSurfaceAuthoringView } from "../../variants/slide-cover/authoring";
 import { SlideImageBandSurfaceAuthoringView } from "../../variants/slide-image-band/authoring";
 import { SlideImageCoverSurfaceAuthoringView } from "../../variants/slide-image-cover/authoring";
@@ -46,12 +46,10 @@ import { SlideModuleCoverSurfaceAuthoringView } from "../../variants/slide-modul
 import {
   createSurfaceAuthoringViewMap,
   type SurfaceAuthoringViewMap,
-  type SurfaceAuthoringViewProps,
 } from "../surface-authoring-view-registry";
-import {
-  builtInSurfaceAuthoringViewMap,
-  deriveSurfaceImageControls,
-} from "../surface-authoring-views";
+import { type SurfaceAuthoringViewProps } from "../../shared/surface-view-props";
+import { builtInSurfaceAuthoringViewMap } from "../surface-authoring-views";
+import { deriveSurfaceImageControls } from "../shared/surface-settings-configuration";
 import { isRegisteredSlideCompositionSurfaceDefinition } from "../../model/slide-composition-definition";
 import {
   createSurfaceVariantRegistry,
@@ -100,7 +98,11 @@ const TEST_ALIGNABLE_BLOCK = "region_alignment_test_block";
 
 const testBlockRegistry = createBlockRegistry([
   ...builtInBlockRegistry.definitions,
-  defineBlock({ nodeType: TEST_ALIGNABLE_BLOCK, frame: { resizable: true } }),
+  defineBlock({
+    nodeType: TEST_ALIGNABLE_BLOCK,
+    title: "Alignment test block",
+    frame: { resizable: true },
+  }),
 ]);
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: testBlockRegistry,

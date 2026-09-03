@@ -2,15 +2,13 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { builtInSurfaceVariantRegistry } from "../model/built-in-surface-variant-definitions";
 import { isRegisteredSlideCompositionSurfaceDefinition } from "../model/slide-composition-definition";
-import {
-  createSurfaceRuntimeViewMap,
-  type SurfaceRuntimeViewBinding,
-} from "./surface-runtime-view-registry";
+import { createSurfaceRuntimeViewMap } from "./surface-runtime-view-registry";
+import { type SurfaceRuntimeViewBinding } from "../shared/surface-view-props";
 import {
   builtInSurfaceRuntimeViewBindings,
   builtInSurfaceRuntimeViewMap,
 } from "./surface-runtime-views";
-import { SlideCompositionSurfaceRuntimeView } from "./variants/slide-composition";
+import { SlideCompositionSurfaceRuntimeView } from "../variants/slide-composition/runtime";
 
 describe("surface runtime view map", () => {
   it("covers the exact built-in 28-variant set", () => {

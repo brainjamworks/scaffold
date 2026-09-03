@@ -26,10 +26,10 @@ import { builtInSurfaceRuntimeViewMap } from "../surface-runtime-views";
 import {
   createSurfaceRuntimeViewMap,
   type SurfaceRuntimeViewMap,
-  type SurfaceRuntimeViewProps,
 } from "../surface-runtime-view-registry";
-import { PageDefaultSurfaceRuntimeView } from "../variants/page-default";
-import { SlideCompositionSurfaceRuntimeView } from "../variants/slide-composition";
+import { type SurfaceRuntimeViewProps } from "../../shared/surface-view-props";
+import { PageDefaultSurfaceRuntimeView } from "../../variants/page-default/runtime";
+import { SlideCompositionSurfaceRuntimeView } from "../../variants/slide-composition/runtime";
 import { SlideCoverSurfaceRuntimeView } from "../../variants/slide-cover/runtime";
 import { SlideImageBandSurfaceRuntimeView } from "../../variants/slide-image-band/runtime";
 import { SlideImageCoverSurfaceRuntimeView } from "../../variants/slide-image-cover/runtime";

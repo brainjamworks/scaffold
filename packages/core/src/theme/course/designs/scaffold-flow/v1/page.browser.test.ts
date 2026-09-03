@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "@/styles/globals.css";
 import "@/editor/surfaces/authoring/views/AuthoringSurfaceView.css";
-import "@/editor/surfaces/authoring/variants/page-default.css";
+import "@/editor/surfaces/variants/page-default/page-default.css";
 import "@/editor/surfaces/runtime/views/RuntimeSurfaceView.css";
 import "@/editor/surfaces/view/variants/page-default.css";
 import "@/runtime/players/page/PagePlayer.css";

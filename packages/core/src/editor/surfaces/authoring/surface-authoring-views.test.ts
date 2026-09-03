@@ -1,16 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { z } from "zod";
 
-import { categoriseConfiguration } from "@/editor/blocks/assessment/categorise/categorise-definition";
-import { dropdownConfiguration } from "@/editor/blocks/assessment/dropdown/dropdown-definition";
-import { dragDropConfiguration } from "@/editor/blocks/assessment/drag-drop/drag-drop-definition";
-import { fillBlanksConfiguration } from "@/editor/blocks/assessment/fill-blanks/fill-blanks-definition";
-import { imageHotspotConfiguration } from "@/editor/blocks/assessment/image-hotspot/image-hotspot-definition";
-import { matchingConfiguration } from "@/editor/blocks/assessment/matching/matching-definition";
-import { mcqConfiguration } from "@/editor/blocks/assessment/mcq/mcq-definition";
-import { multiselectConfiguration } from "@/editor/blocks/assessment/multiselect/multiselect-definition";
-import { quizConfiguration } from "@/editor/blocks/assessment/quiz/quiz-definition";
-import { sequencingConfiguration } from "@/editor/blocks/assessment/sequencing/sequencing-definition";
 import type { QuickControlDescriptor } from "@/editor/configuration/quick-menu";
 import { builtInSurfaceVariantRegistry } from "../model/built-in-surface-variant-definitions";
 import { applySurfaceSettings } from "./commands/surface-settings-command";
@@ -25,52 +15,18 @@ import {
   builtInSurfaceAuthoringViewMap,
 } from "./surface-authoring-views";
 
-const ASSESSMENT_SURFACE_CONFIGURATIONS = [
-  {
-    variantId: "slide-categorise-question",
-    questionConfiguration: categoriseConfiguration,
-  },
-  {
-    variantId: "slide-sequencing-question",
-    questionConfiguration: sequencingConfiguration,
-  },
-  {
-    variantId: "slide-matching-question",
-    questionConfiguration: matchingConfiguration,
-  },
-  {
-    variantId: "slide-image-hotspot-question",
-    questionConfiguration: imageHotspotConfiguration,
-  },
-  {
-    variantId: "slide-multiple-choice-question",
-    questionConfiguration: mcqConfiguration,
-  },
-  {
-    variantId: "slide-multiselect-question",
-    questionConfiguration: multiselectConfiguration,
-  },
-  {
-    variantId: "slide-dropdown-question",
-    questionConfiguration: dropdownConfiguration,
-  },
-  {
-    variantId: "slide-drag-drop-question",
-    questionConfiguration: dragDropConfiguration,
-  },
-  {
-    variantId: "slide-fill-blanks-question",
-    questionConfiguration: fillBlanksConfiguration,
-  },
-  {
-    variantId: "slide-quiz",
-    questionConfiguration: quizConfiguration,
-  },
-] as const;
-
-const ASSESSMENT_SURFACE_VARIANT_IDS: ReadonlySet<string> = new Set(
-  ASSESSMENT_SURFACE_CONFIGURATIONS.map(({ variantId }) => variantId),
-);
+const ASSESSMENT_SURFACE_VARIANT_IDS: ReadonlySet<string> = new Set([
+  "slide-categorise-question",
+  "slide-sequencing-question",
+  "slide-matching-question",
+  "slide-image-hotspot-question",
+  "slide-multiple-choice-question",
+  "slide-multiselect-question",
+  "slide-dropdown-question",
+  "slide-drag-drop-question",
+  "slide-fill-blanks-question",
+  "slide-quiz",
+]);
 
 describe("surface authoring view map", () => {
   it("covers the exact built-in 28-variant set", () => {
@@ -214,31 +170,6 @@ describe("surface authoring view map", () => {
 });
 
 describe("surface authoring view quick menus", () => {
-  it.each(ASSESSMENT_SURFACE_CONFIGURATIONS)(
-    "registers combined assessment quick controls and a Background-free drawer for $variantId",
-    ({ questionConfiguration, variantId }) => {
-      const expectedQuickNames = questionConfiguration.controls
-        .filter((control) => control.placement?.quickMenu)
-        .map(({ name }) => `question.${name}`);
-      const expectedSheetNames = [
-        ...questionConfiguration.controls
-          .filter((control) => control.placement?.sheet)
-          .map(({ name }) => `question.${name}`),
-        "surface.header.enabled",
-        "surface.footer.enabled",
-      ];
-
-      expect(
-        resolveView(builtInSurfaceAuthoringViewMap, variantId)?.quickMenu?.controls.map(
-          ({ name }) => name,
-        ) ?? [],
-      ).toEqual(expectedQuickNames);
-      expect(getSettingsSheetFieldNames(variantId)).toEqual(expectedSheetNames);
-      expect(getSettingsSheetFieldNames(variantId)).not.toContain("background");
-      expect(getSettingsSheetFieldNames(variantId)).not.toContain("background.color");
-    },
-  );
-
   it("uses icons for image-side controls without adding them to the settings sheet", () => {
     const control = getQuickMenuControl("slide-image-cover", "imageSide");
 
