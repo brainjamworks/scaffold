@@ -1,10 +1,10 @@
 import { SurfaceSettingsSchema } from "@/schemas/course-document";
 
+import { defineSlideCompositionSurface } from "../slide-composition-definition";
 import {
-  defineSlideCompositionSurface,
   SlideCompositionOrientationSchema,
   SlideTitleVisibilitySchema,
-} from "../slide-composition-definition";
+} from "../slide-composition-schema";
 import { DEFAULT_SURFACE_SETTINGS } from "../surface-settings";
 
 const SettingsSchema = SurfaceSettingsSchema.extend({

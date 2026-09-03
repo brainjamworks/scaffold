@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { isRegisteredSlideCompositionSurfaceDefinition } from "../model/slide-composition-definition";
 import {
-  isRegisteredSlideCompositionSurfaceDefinition,
   SlideCompositionKindSchema,
   type SlideCompositionKind,
-} from "../model/slide-composition-definition";
+} from "../model/slide-composition-schema";
 import { builtInSurfaceVariantRegistry } from "../model/built-in-surface-variant-definitions";
 import { expandSlideCompositionCases } from "./slide-composition-cases";
 

@@ -2,10 +2,8 @@ import { z } from "zod";
 
 import { SurfaceSettingsSchema } from "@/schemas/course-document";
 
-import {
-  defineSlideCompositionSurface,
-  SlideCompositionOrientationSchema,
-} from "../slide-composition-definition";
+import { defineSlideCompositionSurface } from "../slide-composition-definition";
+import { SlideCompositionOrientationSchema } from "../slide-composition-schema";
 import { DEFAULT_SURFACE_SETTINGS } from "../surface-settings";
 
 const SlideSideTitleSurfaceSettingsValueSchema = SurfaceSettingsSchema.extend({

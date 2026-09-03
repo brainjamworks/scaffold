@@ -9,21 +9,23 @@ const TEST_SURFACE_ID = createEmbeddedNodeId();
 import {
   defineSlideCompositionSurface,
   isRegisteredSlideCompositionSurfaceDefinition,
+  type DefineSlideCompositionSurfaceInput,
+} from "./slide-composition-definition";
+import {
   SlideCompositionKindSchema,
-  SlideCompositionOrientationSchema,
   SlideCompositionMetadataSchema,
+  SlideCompositionOrientationSchema,
   SlideCompositionProportionSchema,
   SlideRegionRoleSchema,
   SlideTitleModeSchema,
   SlideTitleVisibilitySchema,
   SurfaceImageSlotRoleSchema,
-  type DefineSlideCompositionSurfaceInput,
   type SlideCompositionKind,
   type SlideCompositionProportion,
   type SlideRegionRole,
   type SlideTitleMode,
   type SurfaceImageSlotRole,
-} from "./slide-composition-definition";
+} from "./slide-composition-schema";
 import {
   createSurfaceVariantRegistry,
   validateSurfaceVariantFactories,

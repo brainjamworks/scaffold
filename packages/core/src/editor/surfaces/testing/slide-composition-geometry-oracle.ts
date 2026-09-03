@@ -1,4 +1,4 @@
-import type { SlideCompositionKind } from "../model/slide-composition-definition";
+import type { SlideCompositionKind } from "../model/slide-composition-schema";
 
 export type CompositionGridLevel = "surface" | "content";
 

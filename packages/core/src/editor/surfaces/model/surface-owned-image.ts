@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { ImagePositionSchema } from "@/schemas/course-document";
 
-import type { SurfaceImageSlotRole } from "./slide-composition-definition";
+import type { SurfaceImageSlotRole } from "./slide-composition-schema";
 
 export const SurfaceOwnedImageSchema = z
   .object({

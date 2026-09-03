@@ -1,12 +1,12 @@
+import { isRegisteredSlideCompositionSurfaceDefinition } from "../model/slide-composition-definition";
 import {
-  isRegisteredSlideCompositionSurfaceDefinition,
   SlideCompositionKindSchema,
   type SlideCompositionKind,
   type SlideCompositionOrientation,
   type SlideCompositionProportion,
   type SlideRegionRole,
   type SurfaceImageSlotRole,
-} from "../model/slide-composition-definition";
+} from "../model/slide-composition-schema";
 import { builtInSurfaceVariantRegistry } from "../model/built-in-surface-variant-definitions";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 

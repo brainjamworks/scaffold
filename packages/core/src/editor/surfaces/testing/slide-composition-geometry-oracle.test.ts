@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { SlideCompositionKindSchema } from "../model/slide-composition-definition";
+import { SlideCompositionKindSchema } from "../model/slide-composition-schema";
 import {
   COMPOSITION_GEOMETRY_ORACLE,
   type CompositionParticipantKey,

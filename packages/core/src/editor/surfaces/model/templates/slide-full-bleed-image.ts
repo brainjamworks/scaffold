@@ -1,9 +1,7 @@
 import { SurfaceSettingsSchema } from "@/schemas/course-document";
 
-import {
-  defineSlideCompositionSurface,
-  SlideTitleVisibilitySchema,
-} from "../slide-composition-definition";
+import { defineSlideCompositionSurface } from "../slide-composition-definition";
+import { SlideTitleVisibilitySchema } from "../slide-composition-schema";
 import { DEFAULT_SURFACE_SETTINGS } from "../surface-settings";
 
 export const SlideFullBleedImageSurfaceSettingsSchema = SurfaceSettingsSchema.extend({
