@@ -1,19 +1,24 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-components {
-  .sc-slide-sequencing-question-surface-view [data-assessment-interaction-content] {
+  [data-full-slide-question-family="sequencing"] [data-assessment-interaction-content] {
     min-block-size: 0;
     overflow: hidden;
   }
 
-  .sc-slide-sequencing-question-surface-view .sc-course-sequencing__content,
-  .sc-slide-sequencing-question-surface-view .sc-course-sequencing__group,
-  .sc-slide-sequencing-question-surface-view .sc-course-sequencing__scroll {
+  [data-full-slide-question-family="sequencing"] .sc-course-sequencing__content,
+  .sc-course-sequencing__group[data-sequencing-presentation="full-slide"],
+  .sc-course-sequencing__group[data-sequencing-presentation="full-slide"]
+    .sc-course-sequencing__scroll {
     block-size: 100%;
     min-block-size: 0;
   }
 
-  .sc-slide-sequencing-question-surface-view .sc-course-sequencing__scroll {
+  :is(
+    [data-full-slide-question-family="sequencing"] .sc-course-sequencing__scroll,
+    .sc-course-sequencing__group[data-sequencing-presentation="full-slide"]
+      .sc-course-sequencing__scroll
+  ) {
     --sc-course-sequencing-route-offset: calc(
       var(--sc-course-sequencing-item-border-width, 0px) +
         var(--sc-course-sequencing-item-inline-padding, 0.75rem) + 1rem
@@ -26,7 +31,11 @@
     scrollbar-gutter: stable;
   }
 
-  .sc-slide-sequencing-question-surface-view .sc-course-sequencing__list {
+  :is(
+    [data-full-slide-question-family="sequencing"] .sc-course-sequencing__list,
+    .sc-course-sequencing__group[data-sequencing-presentation="full-slide"]
+      .sc-course-sequencing__list
+  ) {
     position: relative;
     inline-size: 100%;
     max-inline-size: 64rem;
@@ -34,17 +43,21 @@
     margin-inline: auto;
   }
 
-  .sc-slide-sequencing-question-surface-view .sc-app-sequencing-add-item {
+  [data-full-slide-question-family="sequencing"] .sc-app-sequencing-add-item {
     inline-size: 100%;
     max-inline-size: 64rem;
     margin-inline: auto;
   }
 
-  .sc-slide-sequencing-question-surface-view .sc-app-sequencing-add-item__position {
+  [data-full-slide-question-family="sequencing"] .sc-app-sequencing-add-item__position {
     margin-inline-start: calc(var(--sc-course-sequencing-route-offset) - 1.8125rem);
   }
 
-  .sc-slide-sequencing-question-surface-view .sc-course-sequencing__list::before {
+  :is(
+    [data-full-slide-question-family="sequencing"] .sc-course-sequencing__list,
+    .sc-course-sequencing__group[data-sequencing-presentation="full-slide"]
+      .sc-course-sequencing__list
+  )::before {
     position: absolute;
     z-index: 0;
     inset-block: var(--sc-course-sequencing-route-cap, 1.9375rem);
@@ -55,59 +68,91 @@
     pointer-events: none;
   }
 
-  .sc-slide-sequencing-question-surface-authoring-view .sc-course-sequencing__list::before {
+  .sc-assessment-slide-surface-authoring-view
+    [data-full-slide-question-family="sequencing"]
+    .sc-course-sequencing__list::before {
     inset-block-end: 0;
   }
 
-  .sc-slide-sequencing-question-surface-view .sc-course-sequencing__item {
+  :is(
+    [data-full-slide-question-family="sequencing"] .sc-course-sequencing__item,
+    .sc-course-sequencing__group[data-sequencing-presentation="full-slide"]
+      .sc-course-sequencing__item
+  ) {
     position: relative;
     z-index: 1;
     min-block-size: 4.5rem;
   }
 
-  .sc-slide-sequencing-question-surface-view .sc-course-sequencing__item > * {
+  :is(
+      [data-full-slide-question-family="sequencing"] .sc-course-sequencing__item,
+      .sc-course-sequencing__group[data-sequencing-presentation="full-slide"]
+        .sc-course-sequencing__item
+    )
+    > * {
     position: relative;
     z-index: 1;
   }
 
-  .sc-slide-sequencing-question-surface-view .sc-course-sequencing__position {
+  :is(
+      [data-full-slide-question-family="sequencing"],
+      .sc-course-sequencing__group[data-sequencing-presentation="full-slide"]
+    )
+    .sc-course-sequencing__position {
     z-index: 2;
   }
 
-  .sc-slide-sequencing-question-surface-view
-    [data-sequencing-density="compact"]
+  :is(
+      [data-full-slide-question-family="sequencing"] [data-sequencing-density="compact"],
+      .sc-course-sequencing__group[data-sequencing-presentation="full-slide"][data-sequencing-density="compact"]
+    )
     .sc-course-sequencing__item {
     min-block-size: 3.75rem;
   }
 
-  .sc-slide-sequencing-question-surface-view
-    [data-sequencing-density="compact"]
+  :is(
+      [data-full-slide-question-family="sequencing"] [data-sequencing-density="compact"],
+      .sc-course-sequencing__group[data-sequencing-presentation="full-slide"][data-sequencing-density="compact"]
+    )
     .sc-course-sequencing__list {
     --sc-course-sequencing-route-cap: 1.9375rem;
   }
 
-  .sc-slide-sequencing-question-surface-authoring-view [data-slot="sequencing-items-group"] {
+  .sc-assessment-slide-surface-authoring-view
+    [data-full-slide-question-family="sequencing"]
+    [data-slot="sequencing-items-group"] {
     block-size: 100%;
     min-block-size: 0;
     overflow: hidden;
   }
 
-  .sc-slide-sequencing-question-surface-authoring-view
+  .sc-assessment-slide-surface-authoring-view
+    [data-full-slide-question-family="sequencing"]
     [data-slot="sequencing-items-group"]
     > .sc-course-sequencing__scroll {
     justify-content: safe center;
   }
 
-  .sc-slide-sequencing-question-surface-authoring-view .sc-course-sequencing__list {
+  .sc-assessment-slide-surface-authoring-view
+    [data-full-slide-question-family="sequencing"]
+    .sc-course-sequencing__list {
     min-block-size: 0;
   }
 
   @container (max-width: 40rem) {
-    .sc-slide-sequencing-question-surface-view .sc-course-sequencing__scroll {
+    :is(
+      [data-full-slide-question-family="sequencing"] .sc-course-sequencing__scroll,
+      .sc-course-sequencing__group[data-sequencing-presentation="full-slide"]
+        .sc-course-sequencing__scroll
+    ) {
       padding-inline: 1rem;
     }
 
-    .sc-slide-sequencing-question-surface-view .sc-course-sequencing__item {
+    :is(
+      [data-full-slide-question-family="sequencing"] .sc-course-sequencing__item,
+      .sc-course-sequencing__group[data-sequencing-presentation="full-slide"]
+        .sc-course-sequencing__item
+    ) {
       min-block-size: 3.75rem;
     }
   }

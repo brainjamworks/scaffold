@@ -12,14 +12,14 @@ import {
 } from "@/editor/blocks/assessment/multiselect/assessment";
 import { multiselectCourseContentFromProseMirror } from "@/editor/blocks/assessment/multiselect/multiselect-course-content";
 import { MultiselectCourseInteraction } from "@/editor/blocks/assessment/multiselect/multiselect-course-interaction";
-import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
-import { countAssessmentHints } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
-import { textBetween } from "@/editor/blocks/assessment/shared/publication/projection";
-import { assessmentResponseName } from "@/editor/blocks/assessment/shared/runtime/assessment-response-name";
+import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
+import { countAssessmentHints } from "@/editor/assessment/shared/model/assessment-prosemirror";
+import { textBetween } from "@/editor/assessment/shared/publication/projection";
+import { assessmentResponseName } from "@/editor/assessment/shared/runtime/assessment-response-name";
 import {
   useAssessmentRuntimeForTarget,
   type AssessmentRuntimeProblemConfig,
-} from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
+} from "@/editor/assessment/shared/runtime/use-assessment-runtime";
 import { SURFACE_MULTISELECT_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-multiselect-question-node";
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
@@ -27,15 +27,42 @@ import "../../../view/assessment-selectable-choice-surface.css";
 import type { SurfaceRuntimeViewProps } from "../../surface-runtime-view-registry";
 import { AssessmentSlideSurfaceRuntimeFrame } from "../../views/AssessmentSlideSurfaceRuntimeFrame";
 import { useAssessmentSurfaceControlBinding } from "./assessment-surface-control-binding";
+import { FullSlideQuestionStage } from "./FullSlideQuestionStage";
 
 export function SlideMultiselectQuestionSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const question = surfaceMultiselectQuestion(props.node);
+
+  return (
+    <AssessmentSlideSurfaceRuntimeFrame
+      {...props}
+      variantClassName="sc-selectable-choice-slide-surface-view sc-selectable-choice-slide-surface-runtime-view sc-slide-multiselect-question-surface-view sc-slide-multiselect-question-surface-runtime-view"
+    >
+      <MultiselectFullSlideQuestionPresenter
+        editor={props.editor}
+        question={question}
+        surfaceControlBinding={props}
+      />
+    </AssessmentSlideSurfaceRuntimeFrame>
+  );
+}
+
+export function MultiselectFullSlideQuestionPresenter({
+  editor,
+  question,
+  surfaceControlBinding,
+  visible = true,
+}: {
+  editor: SurfaceRuntimeViewProps["editor"];
+  question: PMNode;
+  surfaceControlBinding?: SurfaceRuntimeViewProps;
+  visible?: boolean;
+}) {
+  if (question.type.name !== SURFACE_MULTISELECT_QUESTION_NODE_TYPE) {
+    throw new Error("Multi-select presenter requires a private Surface question.");
+  }
   const assessmentTargetId = readAssessmentTargetId(question);
   const config = useMemo(() => createRuntimeConfig(question), [question]);
-  const serializer = useMemo(
-    () => DOMSerializer.fromSchema(props.editor.schema),
-    [props.editor.schema],
-  );
+  const serializer = useMemo(() => DOMSerializer.fromSchema(editor.schema), [editor.schema]);
   const content = useMemo(
     () => multiselectCourseContentFromProseMirror(choicesGroup(question), serializer),
     [question, serializer],
@@ -44,19 +71,20 @@ export function SlideMultiselectQuestionSurfaceRuntimeView(props: SurfaceRuntime
   const store = useAssessmentStoreApi();
   useAssessmentSurfaceControlBinding({
     assessmentTargetId,
-    editor: props.editor,
-    enabled: !runtime.hasUnsafeIdentity && runtime.problem?.context === "standalone",
-    getPos: props.getPos,
-    node: props.node,
+    editor,
+    enabled:
+      Boolean(surfaceControlBinding) &&
+      !runtime.hasUnsafeIdentity &&
+      runtime.problem?.context === "standalone",
+    getPos: surfaceControlBinding?.getPos ?? (() => undefined),
+    node: surfaceControlBinding?.node ?? question,
     problemId: runtime.problemId,
     store,
   });
 
+  if (!visible) return null;
   return (
-    <AssessmentSlideSurfaceRuntimeFrame
-      {...props}
-      variantClassName="sc-selectable-choice-slide-surface-view sc-selectable-choice-slide-surface-runtime-view sc-slide-multiselect-question-surface-view sc-slide-multiselect-question-surface-runtime-view"
-    >
+    <FullSlideQuestionStage question={question}>
       <div
         data-assessment-interaction-content=""
         data-surface-multiselect-interaction=""
@@ -68,7 +96,7 @@ export function SlideMultiselectQuestionSurfaceRuntimeView(props: SurfaceRuntime
           presentation="full-slide"
         />
       </div>
-    </AssessmentSlideSurfaceRuntimeFrame>
+    </FullSlideQuestionStage>
   );
 }
 

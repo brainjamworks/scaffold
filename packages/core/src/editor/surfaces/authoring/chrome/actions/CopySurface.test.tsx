@@ -185,7 +185,7 @@ function createEditor(mode: "page" | "slideshow", unavailable = false): Editor {
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       createStructuralClipboardPolicy({
         blockDefinitions: capabilities.blocks.registry,
-        blockDuplications: capabilities.blocks.duplication,
+        identityRewrites: capabilities.contentIdentity.rewrites,
         carrierLimits,
         layoutDefinitions: capabilities.layouts.registry,
         surfaceVariants: capabilities.surfaces.registry,

@@ -1,7 +1,11 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-components {
-  .sc-selectable-choice-slide-surface-view [data-slot="assessment-prompt"] {
+  :where(
+      [data-full-slide-question-family="multiple-choice"],
+      [data-full-slide-question-family="multiselect"]
+    )
+    [data-slot="assessment-prompt"] {
     max-block-size: 7rem;
     overflow-x: hidden;
     overflow-y: auto;
@@ -9,8 +13,17 @@
     scrollbar-gutter: stable;
   }
 
-  .sc-selectable-choice-slide-surface-runtime-view [data-assessment-interaction-content],
-  .sc-selectable-choice-slide-surface-authoring-view [data-slot="assessment-choices-group"] {
+  :where(
+      [data-full-slide-question-family="multiple-choice"],
+      [data-full-slide-question-family="multiselect"]
+    )
+    [data-assessment-interaction-content],
+  .sc-assessment-slide-surface-authoring-view
+    :where(
+      [data-full-slide-question-family="multiple-choice"],
+      [data-full-slide-question-family="multiselect"]
+    )
+    [data-slot="assessment-choices-group"] {
     box-sizing: border-box;
     inline-size: 100%;
     min-inline-size: 0;
@@ -22,15 +35,19 @@
     padding: clamp(0.75rem, 2.5cqw, 1.5rem) clamp(1rem, 6.25cqw, 4rem);
   }
 
-  .sc-selectable-choice-slide-surface-runtime-view [data-assessment-interaction-content] {
+  :where(
+      [data-full-slide-question-family="multiple-choice"],
+      [data-full-slide-question-family="multiselect"]
+    )
+    [data-assessment-interaction-content] {
     display: grid;
     block-size: 100%;
     max-block-size: 100%;
   }
 
-  .sc-selectable-choice-slide-surface-view .sc-course-selectable-choice-interaction__content,
-  .sc-selectable-choice-slide-surface-view .sc-course-selectable-choice-interaction,
-  .sc-selectable-choice-slide-surface-view .sc-course-selectable-choice-interaction__viewport {
+  [data-full-slide-question-stage] .sc-course-selectable-choice-interaction__content,
+  [data-full-slide-question-stage] .sc-course-selectable-choice-interaction,
+  [data-full-slide-question-stage] .sc-course-selectable-choice-interaction__viewport {
     box-sizing: border-box;
     inline-size: 100%;
     block-size: 100%;
@@ -38,20 +55,20 @@
     min-block-size: 0;
   }
 
-  .sc-selectable-choice-slide-surface-view .sc-course-selectable-choice-interaction {
+  [data-full-slide-question-stage] .sc-course-selectable-choice-interaction {
     display: grid;
     grid-template-rows: minmax(0, 1fr);
     overflow: hidden;
   }
 
-  .sc-selectable-choice-slide-surface-view .sc-course-selectable-choice-interaction__viewport {
+  [data-full-slide-question-stage] .sc-course-selectable-choice-interaction__viewport {
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
   }
 
-  .sc-selectable-choice-slide-surface-view .sc-course-selectable-choice-interaction__fieldset {
+  [data-full-slide-question-stage] .sc-course-selectable-choice-interaction__fieldset {
     box-sizing: border-box;
     display: flex;
     inline-size: 100%;
@@ -64,12 +81,12 @@
     border: 0;
   }
 
-  .sc-selectable-choice-slide-surface-view .sc-course-selectable-choice-interaction__legend {
+  [data-full-slide-question-stage] .sc-course-selectable-choice-interaction__legend {
     margin: 0;
     padding: 0 0 clamp(0.5rem, 1.5cqw, 0.875rem);
   }
 
-  .sc-selectable-choice-slide-surface-view
+  [data-full-slide-question-stage]
     :is(
       .sc-course-selectable-choice-interaction__guidance,
       .sc-course-selectable-choice-interaction__limit-status
@@ -78,7 +95,7 @@
     padding: 0 0 clamp(0.375rem, 1cqw, 0.625rem);
   }
 
-  .sc-selectable-choice-slide-surface-view .sc-course-selectable-choice-interaction__list {
+  [data-full-slide-question-stage] .sc-course-selectable-choice-interaction__list {
     display: grid;
     min-inline-size: 0;
     flex: 1 0 auto;
@@ -88,45 +105,47 @@
     gap: clamp(0.625rem, 1.75cqw, 1rem);
   }
 
-  .sc-selectable-choice-slide-surface-view
+  [data-full-slide-question-stage]
     .sc-course-selectable-choice-interaction__list[data-selectable-choice-count="3"] {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .sc-selectable-choice-slide-surface-view
+  [data-full-slide-question-stage]
     .sc-course-selectable-choice-interaction__list[data-selectable-choice-density="sparse"] {
     grid-auto-rows: minmax(7rem, auto);
   }
 
-  .sc-selectable-choice-slide-surface-view
+  [data-full-slide-question-stage]
     .sc-course-selectable-choice-interaction__list[data-selectable-choice-count="3"] {
     grid-auto-rows: minmax(6.5rem, auto);
   }
 
-  .sc-selectable-choice-slide-surface-view
+  [data-full-slide-question-stage]
     .sc-course-selectable-choice-interaction__list[data-selectable-choice-density="dense"] {
     align-content: start;
     grid-auto-rows: minmax(3.5rem, auto);
   }
 
-  .sc-selectable-choice-slide-surface-view .sc-course-selectable-choice-interaction__choice,
-  .sc-selectable-choice-slide-surface-view .sc-course-assessment-choice {
+  [data-full-slide-question-stage] .sc-course-selectable-choice-interaction__choice,
+  [data-full-slide-question-stage] .sc-course-assessment-choice {
     min-inline-size: 0;
     min-block-size: 100%;
   }
 
-  .sc-selectable-choice-slide-surface-view .sc-course-assessment-choice__content {
+  [data-full-slide-question-stage] .sc-course-assessment-choice__content {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     gap: clamp(0.625rem, 1.5cqw, 0.875rem);
   }
 
-  .sc-selectable-choice-slide-surface-runtime-view .sc-course-assessment-choice__label {
+  .sc-assessment-slide-surface-runtime-view
+    [data-full-slide-question-stage]
+    .sc-course-assessment-choice__label {
     min-block-size: max(2.75rem, calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1)));
   }
 
-  .sc-selectable-choice-slide-surface-view .sc-course-selectable-choice-interaction__ordinal {
+  [data-full-slide-question-stage] .sc-course-selectable-choice-interaction__ordinal {
     display: inline-flex;
     box-sizing: border-box;
     inline-size: 2rem;
@@ -136,23 +155,35 @@
     justify-content: center;
   }
 
-  .sc-selectable-choice-slide-surface-view
-    .sc-course-selectable-choice-interaction__choice-content {
+  [data-full-slide-question-stage] .sc-course-selectable-choice-interaction__choice-content {
     min-inline-size: 0;
     overflow-wrap: anywhere;
   }
 
-  .sc-selectable-choice-slide-surface-authoring-view [data-slot="assessment-choices-group"] {
+  .sc-assessment-slide-surface-authoring-view
+    :where(
+      [data-full-slide-question-family="multiple-choice"],
+      [data-full-slide-question-family="multiselect"]
+    )
+    [data-slot="assessment-choices-group"] {
     display: flex;
     block-size: 100%;
     max-block-size: 100%;
     padding-block: 0.5rem;
   }
 
-  .sc-selectable-choice-slide-surface-authoring-view
+  .sc-assessment-slide-surface-authoring-view
+    :where(
+      [data-full-slide-question-family="multiple-choice"],
+      [data-full-slide-question-family="multiselect"]
+    )
     [data-slot="assessment-choices-group"]
     > .react-renderer,
-  .sc-selectable-choice-slide-surface-authoring-view
+  .sc-assessment-slide-surface-authoring-view
+    :where(
+      [data-full-slide-question-family="multiple-choice"],
+      [data-full-slide-question-family="multiselect"]
+    )
     [data-slot="assessment-choices-group"]
     .sc-course-assessment-choices-group {
     display: flex;
@@ -161,7 +192,12 @@
     min-block-size: 0;
   }
 
-  .sc-selectable-choice-slide-surface-authoring-view .sc-app-assessment-choices-scroll--authoring {
+  .sc-assessment-slide-surface-authoring-view
+    :where(
+      [data-full-slide-question-family="multiple-choice"],
+      [data-full-slide-question-family="multiselect"]
+    )
+    .sc-app-assessment-choices-scroll--authoring {
     min-block-size: 0;
     overflow-x: hidden;
     overflow-y: auto;
@@ -170,15 +206,15 @@
   }
 
   @container (max-width: 42rem) {
-    .sc-selectable-choice-slide-surface-view .sc-course-selectable-choice-interaction__list,
-    .sc-selectable-choice-slide-surface-view
+    [data-full-slide-question-stage] .sc-course-selectable-choice-interaction__list,
+    [data-full-slide-question-stage]
       .sc-course-selectable-choice-interaction__list[data-selectable-choice-count="3"] {
       grid-template-columns: minmax(0, 1fr);
     }
 
-    .sc-selectable-choice-slide-surface-view
+    [data-full-slide-question-stage]
       .sc-course-selectable-choice-interaction__list[data-selectable-choice-density="sparse"],
-    .sc-selectable-choice-slide-surface-view
+    [data-full-slide-question-stage]
       .sc-course-selectable-choice-interaction__list[data-selectable-choice-count="3"] {
       grid-auto-rows: minmax(4rem, auto);
     }

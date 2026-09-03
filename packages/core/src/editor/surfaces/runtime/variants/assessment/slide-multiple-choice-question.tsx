@@ -9,14 +9,14 @@ import {
 } from "@/editor/blocks/assessment/mcq/assessment";
 import { mcqCourseContentFromProseMirror } from "@/editor/blocks/assessment/mcq/mcq-course-content";
 import { McqCourseInteraction } from "@/editor/blocks/assessment/mcq/mcq-course-interaction";
-import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
-import { countAssessmentHints } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
-import { textBetween } from "@/editor/blocks/assessment/shared/publication/projection";
-import { assessmentResponseName } from "@/editor/blocks/assessment/shared/runtime/assessment-response-name";
+import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
+import { countAssessmentHints } from "@/editor/assessment/shared/model/assessment-prosemirror";
+import { textBetween } from "@/editor/assessment/shared/publication/projection";
+import { assessmentResponseName } from "@/editor/assessment/shared/runtime/assessment-response-name";
 import {
   useAssessmentRuntimeForTarget,
   type AssessmentRuntimeProblemConfig,
-} from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
+} from "@/editor/assessment/shared/runtime/use-assessment-runtime";
 import { SURFACE_MULTIPLE_CHOICE_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-multiple-choice-question-node";
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
@@ -24,15 +24,42 @@ import "../../../view/assessment-selectable-choice-surface.css";
 import type { SurfaceRuntimeViewProps } from "../../surface-runtime-view-registry";
 import { AssessmentSlideSurfaceRuntimeFrame } from "../../views/AssessmentSlideSurfaceRuntimeFrame";
 import { useAssessmentSurfaceControlBinding } from "./assessment-surface-control-binding";
+import { FullSlideQuestionStage } from "./FullSlideQuestionStage";
 
 export function SlideMultipleChoiceQuestionSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const question = surfaceMultipleChoiceQuestion(props.node);
+
+  return (
+    <AssessmentSlideSurfaceRuntimeFrame
+      {...props}
+      variantClassName="sc-selectable-choice-slide-surface-view sc-selectable-choice-slide-surface-runtime-view sc-slide-multiple-choice-question-surface-view sc-slide-multiple-choice-question-surface-runtime-view"
+    >
+      <MultipleChoiceFullSlideQuestionPresenter
+        editor={props.editor}
+        question={question}
+        surfaceControlBinding={props}
+      />
+    </AssessmentSlideSurfaceRuntimeFrame>
+  );
+}
+
+export function MultipleChoiceFullSlideQuestionPresenter({
+  editor,
+  question,
+  surfaceControlBinding,
+  visible = true,
+}: {
+  editor: SurfaceRuntimeViewProps["editor"];
+  question: PMNode;
+  surfaceControlBinding?: SurfaceRuntimeViewProps;
+  visible?: boolean;
+}) {
+  if (question.type.name !== SURFACE_MULTIPLE_CHOICE_QUESTION_NODE_TYPE) {
+    throw new Error("Multiple Choice presenter requires a private Surface question.");
+  }
   const assessmentTargetId = readAssessmentTargetId(question);
   const config = useMemo(() => createRuntimeConfig(question), [question]);
-  const serializer = useMemo(
-    () => DOMSerializer.fromSchema(props.editor.schema),
-    [props.editor.schema],
-  );
+  const serializer = useMemo(() => DOMSerializer.fromSchema(editor.schema), [editor.schema]);
   const content = useMemo(
     () => mcqCourseContentFromProseMirror(choicesGroup(question), serializer),
     [question, serializer],
@@ -41,19 +68,20 @@ export function SlideMultipleChoiceQuestionSurfaceRuntimeView(props: SurfaceRunt
   const store = useAssessmentStoreApi();
   useAssessmentSurfaceControlBinding({
     assessmentTargetId,
-    editor: props.editor,
-    enabled: !runtime.hasUnsafeIdentity && runtime.problem?.context === "standalone",
-    getPos: props.getPos,
-    node: props.node,
+    editor,
+    enabled:
+      Boolean(surfaceControlBinding) &&
+      !runtime.hasUnsafeIdentity &&
+      runtime.problem?.context === "standalone",
+    getPos: surfaceControlBinding?.getPos ?? (() => undefined),
+    node: surfaceControlBinding?.node ?? question,
     problemId: runtime.problemId,
     store,
   });
 
+  if (!visible) return null;
   return (
-    <AssessmentSlideSurfaceRuntimeFrame
-      {...props}
-      variantClassName="sc-selectable-choice-slide-surface-view sc-selectable-choice-slide-surface-runtime-view sc-slide-multiple-choice-question-surface-view sc-slide-multiple-choice-question-surface-runtime-view"
-    >
+    <FullSlideQuestionStage question={question}>
       <div
         data-assessment-interaction-content=""
         data-surface-multiple-choice-interaction=""
@@ -65,7 +93,7 @@ export function SlideMultipleChoiceQuestionSurfaceRuntimeView(props: SurfaceRunt
           presentation="full-slide"
         />
       </div>
-    </AssessmentSlideSurfaceRuntimeFrame>
+    </FullSlideQuestionStage>
   );
 }
 

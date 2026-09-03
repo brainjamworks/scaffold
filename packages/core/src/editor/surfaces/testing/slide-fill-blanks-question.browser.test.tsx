@@ -60,6 +60,8 @@ describe("full-slide Fill in Blanks runtime geometry", () => {
       );
       expect(inputs).toHaveLength(4);
       expect(inputs.every((input) => input.getBoundingClientRect().height >= 44)).toBe(true);
+      expect(getComputedStyle(scroll).borderTopWidth).toBe("0px");
+      expect(getComputedStyle(scroll).boxShadow).toBe("none");
       expect(scroll.scrollHeight).toBeLessThanOrEqual(scroll.clientHeight + 1);
       expect(surface.scrollHeight).toBeLessThanOrEqual(surface.clientHeight + 1);
       expect(
@@ -70,6 +72,50 @@ describe("full-slide Fill in Blanks runtime geometry", () => {
       expect(inputs[0]).toHaveFocus();
       await userEvent.keyboard("{Tab}");
       expect(inputs[1]).toHaveFocus();
+    },
+  );
+
+  it.each(["scaffold-flow", "pocket-atlas"] as const)(
+    "reserves visible clearance between wrapped blank rows in %s",
+    async (design) => {
+      await page.viewport(860, 540);
+      const { host } = mountRuntimeSlide({
+        blankCount: 4,
+        design,
+        height: 428,
+        longAnswers: true,
+        paragraphCount: 1,
+        width: 760,
+      });
+
+      await waitForCondition(() =>
+        host.querySelector('[data-fill-blanks-presentation="full-slide"]'),
+      );
+      normalizePlayerGeometry(host);
+      const body = requiredElement<HTMLElement>(
+        host,
+        '[data-fill-blanks-presentation="full-slide"]',
+      );
+      const inputs = Array.from(body.querySelectorAll<HTMLInputElement>('input[type="text"]'));
+      const rows = Array.from(
+        inputs.reduce((tops, input) => {
+          tops.add(Math.round(input.getBoundingClientRect().top));
+          return tops;
+        }, new Set<number>()),
+      ).sort((a, b) => a - b);
+
+      expect(rows.length).toBeGreaterThan(1);
+      const renderedScale =
+        inputs[0]!.getBoundingClientRect().height /
+        Number.parseFloat(getComputedStyle(inputs[0]!).height);
+      for (const [index, nextRowTop] of rows.slice(1).entries()) {
+        const previousRowBottom = Math.max(
+          ...inputs
+            .filter((input) => Math.abs(input.getBoundingClientRect().top - rows[index]!) < 2)
+            .map((input) => input.getBoundingClientRect().bottom),
+        );
+        expect((nextRowTop - previousRowBottom) / renderedScale).toBeGreaterThanOrEqual(7);
+      }
     },
   );
 
@@ -162,19 +208,19 @@ describe("full-slide Fill in Blanks runtime geometry", () => {
 
   it("keeps forced-colour and reduced-motion rules explicit in both Course themes", () => {
     const flowForced = requiredStyleRule(
-      ".sc-course.sc-course-theme-scaffold-flow-v1 .sc-fill-blanks-slide-surface-view .sc-course-fill-blank__input",
+      '.sc-course.sc-course-theme-scaffold-flow-v1 [data-full-slide-question-family="fill-blanks"] .sc-course-fill-blank__input',
       "(forced-colors: active)",
     );
     const flowMotion = requiredStyleRule(
-      ".sc-course.sc-course-theme-scaffold-flow-v1 .sc-fill-blanks-slide-surface-view .sc-course-fill-blank__input",
+      '.sc-course.sc-course-theme-scaffold-flow-v1 [data-full-slide-question-family="fill-blanks"] .sc-course-fill-blank__input',
       "(prefers-reduced-motion: reduce)",
     );
     const atlasForced = requiredStyleRule(
-      ".sc-course.sc-course-theme-pocket-atlas-v1 .sc-fill-blanks-slide-surface-view .sc-course-fill-blanks__scroll",
+      '.sc-course.sc-course-theme-pocket-atlas-v1 [data-full-slide-question-family="fill-blanks"] .sc-course-fill-blanks__scroll',
       "(forced-colors: active)",
     );
     const atlasMotion = requiredStyleRule(
-      ".sc-course.sc-course-theme-pocket-atlas-v1 .sc-fill-blanks-slide-surface-view .sc-course-fill-blank__input",
+      '.sc-course.sc-course-theme-pocket-atlas-v1 [data-full-slide-question-family="fill-blanks"] .sc-course-fill-blank__input',
       "(prefers-reduced-motion: reduce)",
     );
 

@@ -73,6 +73,11 @@ describe("SlideMatchingQuestionSurfaceRuntimeView", () => {
         "data-matching-presentation",
         "full-slide",
       );
+      expect(
+        document.querySelector(
+          '[data-full-slide-question-stage][data-full-slide-question-family="matching"] > [data-assessment-interaction-content]',
+        ),
+      ).not.toBeNull();
       expect(document.querySelector('[data-node="surface_matching_question"]')).toHaveAttribute(
         "data-surface-assessment-question",
       );

@@ -60,6 +60,43 @@
     calc(var(--space-4) * var(--sc-course-author-density));
 }
 
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :where(
+    [data-authoring-frame="block"],
+    [data-runtime-frame="block"]
+  )[data-bounded-placement="fill"]
+  > .sc-course-quiz[data-quiz-status="not_started"]
+  > .sc-course-quiz__container
+  > .sc-course-quiz__runtime-card {
+  gap: 0;
+  padding: 0;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :where(
+    [data-authoring-frame="block"],
+    [data-runtime-frame="block"]
+  )[data-bounded-placement="fill"]
+  .sc-course-quiz__runtime-start-copy {
+  inline-size: min(100%, 40rem);
+  gap: calc(var(--space-3) * var(--sc-course-author-density));
+  padding: calc(var(--space-6) * var(--sc-course-author-density))
+    calc(var(--space-7) * var(--sc-course-author-density));
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :where(
+    [data-authoring-frame="block"],
+    [data-runtime-frame="block"]
+  )[data-bounded-placement="fill"]
+  .sc-course-quiz__runtime-start-actions {
+  justify-content: flex-end;
+  padding: calc(var(--space-3) * var(--sc-course-author-density))
+    calc(var(--space-4) * var(--sc-course-author-density));
+  border-block-start: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+  background: var(--gray-2);
+}
+
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__runtime-title,
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__completion-title,
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__expired-title {
@@ -90,7 +127,7 @@
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__primary-action,
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__secondary-action {
-  min-block-size: 2.5rem;
+  min-block-size: var(--sc-course-quiz-action-min-block-size, 2.5rem);
   gap: var(--space-2);
   margin: 0;
   padding-inline: var(--space-3);
@@ -101,10 +138,17 @@
   line-height: var(--line-height-2);
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-course-quiz__runtime-card
-  > .sc-course-quiz__primary-action {
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__runtime-start-actions {
   align-self: flex-start;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :where(
+    [data-authoring-frame="block"],
+    [data-runtime-frame="block"]
+  )[data-bounded-placement="fill"]
+  .sc-course-quiz__runtime-start-actions {
+  align-self: stretch;
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__runtime-controls,
@@ -243,10 +287,7 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  :is(
-    .sc-course-quiz__primary-action,
-    .sc-course-quiz__secondary-action
-  ):focus-visible {
+  :is(.sc-course-quiz__primary-action, .sc-course-quiz__secondary-action):focus-visible {
   outline: 2px solid var(--accent-8);
   outline-offset: 2px;
 }
@@ -270,11 +311,7 @@
 
 @media (forced-colors: active) {
   .sc-course.sc-course-theme-scaffold-flow-v1
-    :is(
-      .sc-course-quiz__container,
-      .sc-course-quiz__timer,
-      .sc-course-quiz__request-feedback
-    ) {
+    :is(.sc-course-quiz__container, .sc-course-quiz__timer, .sc-course-quiz__request-feedback) {
     border-color: CanvasText;
     background: Canvas;
     color: CanvasText;
@@ -292,10 +329,7 @@
   }
 
   .sc-course.sc-course-theme-scaffold-flow-v1
-    :is(
-      .sc-course-quiz__primary-action,
-      .sc-course-quiz__secondary-action
-    ):focus-visible {
+    :is(.sc-course-quiz__primary-action, .sc-course-quiz__secondary-action):focus-visible {
     outline-color: Highlight;
   }
 

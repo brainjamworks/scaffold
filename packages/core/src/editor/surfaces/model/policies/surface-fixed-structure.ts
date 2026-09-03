@@ -39,6 +39,10 @@ export type FixedSurfaceChildrenMatchResult =
   | { exact: true }
   | { exact: false; mismatch: FixedSurfaceChildrenMismatch };
 
+export type FixedSurfaceJSONChildrenMatchResult =
+  | { exact: true; children: readonly JSONContent[] }
+  | { exact: false; mismatch: FixedSurfaceChildrenMismatch };
+
 type FixedSurfaceChildValueMismatch = Exclude<FixedSurfaceChildrenMismatch, { kind: "count" }>;
 
 export function matchFixedSurfaceChildren(
@@ -109,10 +113,22 @@ function fixedSurfaceChildValueMismatch(
 export function snapshotSurfaceStructureChildrenFromJSON(
   surface: JSONContent,
 ): readonly SurfaceStructureChild[] {
-  const children = (surface.content ?? []).map((child) =>
+  return boundaryStrippedSurfaceChildrenFromJSON(surface).map((child) =>
     snapshotSurfaceStructureChild(child.type ?? "", child.attrs),
   );
-  return excludeOptionalHeaderFooterBoundaries(children);
+}
+
+export function matchFixedSurfaceChildrenFromJSON(
+  surface: JSONContent,
+  expected: readonly FixedSurfaceChild[],
+): FixedSurfaceJSONChildrenMatchResult {
+  const children = boundaryStrippedSurfaceChildrenFromJSON(surface);
+  const match = matchFixedSurfaceChildren(
+    children.map((child) => snapshotSurfaceStructureChild(child.type ?? "", child.attrs)),
+    expected,
+  );
+
+  return match.exact ? { exact: true, children } : match;
 }
 
 export function snapshotSurfaceStructureChildrenFromProseMirror(
@@ -139,9 +155,13 @@ function snapshotSurfaceStructureChild(
   };
 }
 
-function excludeOptionalHeaderFooterBoundaries(
-  children: readonly SurfaceStructureChild[],
-): readonly SurfaceStructureChild[] {
+function boundaryStrippedSurfaceChildrenFromJSON(surface: JSONContent): readonly JSONContent[] {
+  return excludeOptionalHeaderFooterBoundaries(surface.content ?? []);
+}
+
+function excludeOptionalHeaderFooterBoundaries<Child extends { readonly type?: string }>(
+  children: readonly Child[],
+): readonly Child[] {
   const start = children[0]?.type === SURFACE_HEADER_NODE_TYPE ? 1 : 0;
   const end = children.at(-1)?.type === SURFACE_FOOTER_NODE_TYPE ? -1 : children.length;
   return children.slice(start, end);

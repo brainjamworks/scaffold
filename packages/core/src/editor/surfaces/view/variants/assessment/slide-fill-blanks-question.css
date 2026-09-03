@@ -1,7 +1,7 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-components {
-  .sc-fill-blanks-slide-surface-view [data-slot="assessment-prompt"] {
+  [data-full-slide-question-family="fill-blanks"] [data-slot="assessment-prompt"] {
     max-block-size: 7rem;
     overflow-x: hidden;
     overflow-y: auto;
@@ -9,7 +9,7 @@
     scrollbar-gutter: stable;
   }
 
-  .sc-fill-blanks-slide-surface-view [data-slot="fill-blanks-body"] {
+  [data-fill-blanks-presentation="full-slide"] {
     box-sizing: border-box;
     display: grid;
     inline-size: 100%;
@@ -24,11 +24,19 @@
     padding: clamp(1rem, 3cqw, 2rem) clamp(1rem, 6.25cqw, 4rem);
   }
 
-  .sc-fill-blanks-slide-surface-authoring-view [data-slot="fill-blanks-body"] {
-    padding-block-start: clamp(3.75rem, 8cqw, 4.5rem);
+  .sc-fill-blanks-slide-surface-authoring-view {
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   }
 
-  .sc-fill-blanks-slide-surface-view .sc-course-fill-blanks__scroll {
+  .sc-fill-blanks-slide-surface-authoring-view [data-slot="fill-blanks-body"] {
+    grid-row: 4;
+  }
+
+  .sc-fill-blanks-slide-surface-authoring-view [data-slot="assessment-actions-group"] {
+    grid-row: 5;
+  }
+
+  [data-fill-blanks-presentation="full-slide"] .sc-course-fill-blanks__scroll {
     box-sizing: border-box;
     inline-size: min(100%, 56rem);
     max-block-size: 100%;
@@ -42,28 +50,31 @@
     scrollbar-gutter: stable;
   }
 
-  .sc-fill-blanks-slide-surface-view .sc-course-fill-blanks__scroll[data-bounded-scroll-overflow] {
+  [data-fill-blanks-presentation="full-slide"]
+    .sc-course-fill-blanks__scroll[data-bounded-scroll-overflow] {
     justify-content: flex-start;
   }
 
-  .sc-fill-blanks-slide-surface-view .sc-course-fill-blanks__content {
+  [data-fill-blanks-presentation="full-slide"] .sc-course-fill-blanks__content {
     flex: 0 0 auto;
     gap: 0.75rem;
   }
 
-  .sc-fill-blanks-slide-surface-view .sc-course-fill-blanks__content p {
+  [data-fill-blanks-presentation="full-slide"] .sc-course-fill-blanks__content p {
     margin-block: 0;
   }
 
-  .sc-course
-    .sc-assessment-slide-surface-runtime-view.sc-fill-blanks-slide-surface-runtime-view
-    .sc-course-fill-blank__input {
+  [data-fill-blanks-presentation="full-slide"] .sc-course-fill-blank {
+    margin-block: 0.25rem;
+  }
+
+  .sc-course [data-fill-blanks-presentation="full-slide"] .sc-course-fill-blank__input {
     block-size: auto;
     min-block-size: max(2.75rem, calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1)));
     min-height: max(2.75rem, calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1)));
   }
 
-  .sc-fill-blanks-slide-surface-runtime-view
+  [data-fill-blanks-presentation="full-slide"]
     .sc-course-fill-blank__feedback-anchor
     .sc-course-assessment-feedback-action {
     min-inline-size: max(2.75rem, calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1)));
@@ -73,26 +84,48 @@
   .sc-app-fill-blanks-slide__authoring-actions {
     z-index: 2;
     display: flex;
+    box-sizing: border-box;
+    inline-size: 100%;
     min-inline-size: 0;
-    align-self: start;
-    justify-self: end;
+    min-block-size: 3.25rem;
+    align-items: center;
+    justify-content: space-between;
     grid-column: 1 / -1;
     grid-row: 3;
-    margin: 1rem clamp(1rem, 6.25cqw, 4rem) 0;
+    gap: 1rem;
+    padding: 0.625rem clamp(1rem, 6.25cqw, 4rem);
+    border-block-end: 1px solid var(--sc-app-color-border);
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-secondary);
+    font-family: var(--sc-app-font-family);
     pointer-events: none;
   }
 
+  .sc-app-fill-blanks-slide__selection-guidance {
+    min-inline-size: 0;
+    overflow: hidden;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .sc-app-fill-blanks-slide__create-blank {
+    flex: 0 0 auto;
     pointer-events: auto;
   }
 
   @container (max-width: 42rem) {
-    .sc-fill-blanks-slide-surface-view [data-slot="fill-blanks-body"] {
+    [data-fill-blanks-presentation="full-slide"] {
       padding-inline: 1rem;
     }
 
     .sc-app-fill-blanks-slide__authoring-actions {
-      margin-inline: 1rem;
+      padding-inline: 1rem;
+    }
+
+    .sc-app-fill-blanks-slide__selection-guidance {
+      white-space: normal;
     }
   }
 }

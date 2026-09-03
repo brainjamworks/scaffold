@@ -9,14 +9,14 @@ import {
 } from "@/editor/blocks/assessment/matching/assessment";
 import { matchingCourseContentFromProseMirror } from "@/editor/blocks/assessment/matching/matching-course-content";
 import { MatchingCourseInteraction } from "@/editor/blocks/assessment/matching/matching-course-interaction";
-import { countAssessmentHints } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
-import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
-import { textBetween } from "@/editor/blocks/assessment/shared/publication/projection";
-import { assessmentResponseName } from "@/editor/blocks/assessment/shared/runtime/assessment-response-name";
+import { countAssessmentHints } from "@/editor/assessment/shared/model/assessment-prosemirror";
+import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
+import { textBetween } from "@/editor/assessment/shared/publication/projection";
+import { assessmentResponseName } from "@/editor/assessment/shared/runtime/assessment-response-name";
 import {
   useAssessmentRuntimeForTarget,
   type AssessmentRuntimeProblemConfig,
-} from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
+} from "@/editor/assessment/shared/runtime/use-assessment-runtime";
 import { SURFACE_MATCHING_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-matching-question-node";
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
@@ -24,14 +24,41 @@ import "../../../view/variants/assessment/slide-matching-question.css";
 import { AssessmentSlideSurfaceRuntimeFrame } from "../../views/AssessmentSlideSurfaceRuntimeFrame";
 import type { SurfaceRuntimeViewProps } from "../../surface-runtime-view-registry";
 import { useAssessmentSurfaceControlBinding } from "./assessment-surface-control-binding";
+import { FullSlideQuestionStage } from "./FullSlideQuestionStage";
 
 export function SlideMatchingQuestionSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const question = surfaceMatchingQuestion(props.node);
-  const assessmentTargetId = readAssessmentTargetId(question);
-  const serializer = useMemo(
-    () => DOMSerializer.fromSchema(props.editor.schema),
-    [props.editor.schema],
+
+  return (
+    <AssessmentSlideSurfaceRuntimeFrame
+      {...props}
+      variantClassName="sc-slide-matching-question-surface-view sc-slide-matching-question-surface-runtime-view"
+    >
+      <MatchingFullSlideQuestionPresenter
+        editor={props.editor}
+        question={question}
+        surfaceControlBinding={props}
+      />
+    </AssessmentSlideSurfaceRuntimeFrame>
   );
+}
+
+export function MatchingFullSlideQuestionPresenter({
+  editor,
+  question,
+  surfaceControlBinding,
+  visible = true,
+}: {
+  editor: SurfaceRuntimeViewProps["editor"];
+  question: PMNode;
+  surfaceControlBinding?: SurfaceRuntimeViewProps;
+  visible?: boolean;
+}) {
+  if (question.type.name !== SURFACE_MATCHING_QUESTION_NODE_TYPE) {
+    throw new Error("Matching presenter requires a private Surface question.");
+  }
+  const assessmentTargetId = readAssessmentTargetId(question);
+  const serializer = useMemo(() => DOMSerializer.fromSchema(editor.schema), [editor.schema]);
   const config = useMemo(() => createRuntimeConfig(question), [question]);
   const content = useMemo(
     () => matchingCourseContentFromProseMirror(matchingPairsGroup(question), serializer),
@@ -41,19 +68,20 @@ export function SlideMatchingQuestionSurfaceRuntimeView(props: SurfaceRuntimeVie
   const store = useAssessmentStoreApi();
   useAssessmentSurfaceControlBinding({
     assessmentTargetId,
-    editor: props.editor,
-    enabled: !runtime.hasUnsafeIdentity && runtime.problem?.context === "standalone",
-    getPos: props.getPos,
-    node: props.node,
+    editor,
+    enabled:
+      Boolean(surfaceControlBinding) &&
+      !runtime.hasUnsafeIdentity &&
+      runtime.problem?.context === "standalone",
+    getPos: surfaceControlBinding?.getPos ?? (() => undefined),
+    node: surfaceControlBinding?.node ?? question,
     problemId: runtime.problemId,
     store,
   });
 
+  if (!visible) return null;
   return (
-    <AssessmentSlideSurfaceRuntimeFrame
-      {...props}
-      variantClassName="sc-slide-matching-question-surface-view sc-slide-matching-question-surface-runtime-view"
-    >
+    <FullSlideQuestionStage question={question}>
       <div
         className="sc-course-matching__content sc-course-matching__content--runtime"
         data-assessment-interaction-content=""
@@ -66,7 +94,7 @@ export function SlideMatchingQuestionSurfaceRuntimeView(props: SurfaceRuntimeVie
           presentation="full-slide"
         />
       </div>
-    </AssessmentSlideSurfaceRuntimeFrame>
+    </FullSlideQuestionStage>
   );
 }
 

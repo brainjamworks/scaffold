@@ -117,36 +117,32 @@
   color: currentColor;
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-dropdown-select__correct-answer {
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: var(--sc-course-author-stroke-width) solid var(--sc-course-state-correct-border);
-  border-radius: var(--radius-2);
-  font-size: var(--font-size-1);
-  line-height: var(--line-height-2);
-}
-
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-dropdown-select__correct-label {
-  flex-shrink: 0;
-  font-weight: var(--font-weight-medium);
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-dropdown-select__status[data-assessment-result-state="correct"] {
+  color: var(--sc-course-state-correct-indicator);
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-dropdown-slide-surface-view
+  .sc-course-dropdown-select__status[data-assessment-result-state="incorrect"] {
+  color: var(--sc-course-state-incorrect-indicator);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  [data-full-slide-question-family="dropdown"]
   [data-assessment-interaction-content] {
   border-block: var(--sc-course-author-stroke-width) solid var(--gray-a4);
   background: var(--gray-2);
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-dropdown-slide-surface-view
+  [data-full-slide-question-family="dropdown"]
   .sc-course-dropdown-select__label {
   font-size: var(--font-size-3);
   line-height: var(--line-height-3);
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-dropdown-slide-surface-view
+  [data-full-slide-question-family="dropdown"]
   .sc-course-dropdown-select__trigger {
   gap: var(--space-4);
   padding: var(--space-3) var(--space-4);
@@ -173,15 +169,11 @@
     width: 100%;
   }
 
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-dropdown-select__correct-answer {
-    flex-wrap: wrap;
-  }
 }
 
 @media (forced-colors: active) {
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-dropdown-select__trigger,
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-dropdown-select__content,
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-dropdown-select__correct-answer {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-dropdown-select__content {
     border-color: CanvasText;
   }
 
@@ -195,7 +187,7 @@
   }
 
   .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-dropdown-slide-surface-view
+    [data-full-slide-question-family="dropdown"]
     .sc-course-dropdown-select__trigger {
     border-color: CanvasText;
     box-shadow: none;
@@ -208,7 +200,7 @@
   }
 
   .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-dropdown-slide-surface-view
+    [data-full-slide-question-family="dropdown"]
     .sc-course-dropdown-select__trigger {
     transition: none;
   }

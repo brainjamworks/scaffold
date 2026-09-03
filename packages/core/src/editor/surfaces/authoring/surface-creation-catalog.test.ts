@@ -41,6 +41,8 @@ describe("surface creation catalog", () => {
       "slide-multiple-choice-question",
       "slide-multiselect-question",
       "slide-dropdown-question",
+      "slide-fill-blanks-question",
+      "slide-quiz",
     ]);
   });
 

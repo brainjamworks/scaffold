@@ -28,6 +28,27 @@
     min-block-size: 0;
   }
 
+  .sc-assessment-slide-surface-view > [data-full-slide-question-stage] {
+    display: grid;
+    inline-size: 100%;
+    block-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+    align-self: stretch;
+    justify-self: stretch;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .sc-assessment-slide-surface-view
+    > [data-full-slide-question-stage]
+    > [data-assessment-interaction-content] {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
   .sc-assessment-slide-surface-view > [data-surface-content],
   .sc-assessment-slide-surface-view > [data-surface-content] > [data-node-view-content-react],
   .sc-assessment-slide-surface-view

@@ -239,19 +239,19 @@ describe("full-slide Multiple Choice runtime geometry", () => {
 
   it("keeps forced-colour and reduced-motion rules explicit in both Course themes", () => {
     const flowChoice = requiredStyleRule(
-      ".sc-course.sc-course-theme-scaffold-flow-v1 .sc-selectable-choice-slide-surface-view .sc-course-assessment-choice",
+      ".sc-course.sc-course-theme-scaffold-flow-v1 [data-full-slide-question-stage] .sc-course-assessment-choice",
       "(forced-colors: active)",
     );
     const flowMotion = requiredStyleRule(
-      ".sc-course.sc-course-theme-scaffold-flow-v1 .sc-selectable-choice-slide-surface-view .sc-course-assessment-choice",
+      ".sc-course.sc-course-theme-scaffold-flow-v1 [data-full-slide-question-stage] .sc-course-assessment-choice",
       "(prefers-reduced-motion: reduce)",
     );
     const atlasChoice = requiredStyleRule(
-      ".sc-course.sc-course-theme-pocket-atlas-v1 .sc-selectable-choice-slide-surface-view .sc-course-assessment-choice",
+      ".sc-course.sc-course-theme-pocket-atlas-v1 [data-full-slide-question-stage] .sc-course-assessment-choice",
       "(forced-colors: active)",
     );
     const atlasMotion = requiredStyleRule(
-      ".sc-course.sc-course-theme-pocket-atlas-v1 .sc-selectable-choice-slide-surface-view .sc-course-assessment-choice",
+      ".sc-course.sc-course-theme-pocket-atlas-v1 [data-full-slide-question-stage] .sc-course-assessment-choice",
       "(prefers-reduced-motion: reduce)",
     );
 

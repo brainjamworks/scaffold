@@ -11,6 +11,8 @@ import {
   BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
 
+import { fullSlideQuestionStageAttributes } from "./full-slide-question-stage";
+
 export const SURFACE_CATEGORISE_QUESTION_NODE_TYPE = "surface_categorise_question";
 
 export interface SurfaceCategoriseQuestionNodeOptions {
@@ -67,10 +69,14 @@ export function createSurfaceCategoriseQuestionNode(
     renderHTML({ HTMLAttributes }) {
       return [
         "div",
-        mergeAttributes(HTMLAttributes, {
-          "data-node": SURFACE_CATEGORISE_QUESTION_NODE_TYPE,
-          "data-surface-assessment-question": "",
-        }),
+        mergeAttributes(
+          HTMLAttributes,
+          {
+            "data-node": SURFACE_CATEGORISE_QUESTION_NODE_TYPE,
+            "data-surface-assessment-question": "",
+          },
+          fullSlideQuestionStageAttributes(SURFACE_CATEGORISE_QUESTION_NODE_TYPE),
+        ),
         0,
       ];
     },

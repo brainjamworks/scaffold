@@ -26,7 +26,6 @@ import { readChartTokens } from "@/editor/blocks/media/chart/chart-theme";
 import { AttemptCounter } from "@/editor/blocks/assessment/shared/chrome/AttemptCounter";
 import { AssessmentSubmissionControl } from "@/ui/components/course/AssessmentSubmissionControl/AssessmentSubmissionControl";
 import { AssessmentSupportButton } from "@/ui/components/course/AssessmentSupportButton/AssessmentSupportButton";
-import { AssessmentSupportStatus } from "@/ui/components/course/AssessmentSupportStatus/AssessmentSupportStatus";
 import { CourseButton } from "@/ui/components/course/CourseActions/CourseActions";
 import { Button } from "@/ui/components/Button/Button";
 import "@/editor/blocks/assessment/shared/chrome/assessment-hints.css";
@@ -410,7 +409,9 @@ describe("Pocket Atlas Course theme", () => {
                 >
                   <AssessmentSupportButton intent="hint">Add hint</AssessmentSupportButton>
                   <AssessmentSupportButton intent="feedback">Show feedback</AssessmentSupportButton>
-                  <AssessmentSupportStatus status="answer-revealed" />
+                  <AssessmentSupportButton intent="answer" aria-pressed="true">
+                    Show answer
+                  </AssessmentSupportButton>
                 </div>
                 <div className="sc-assessment-control-layout__submission">
                   <AssessmentSubmissionControl state="correct" />
@@ -429,10 +430,6 @@ describe("Pocket Atlas Course theme", () => {
       const supportButtons = Array.from(
         supportZone.querySelectorAll<HTMLElement>(".sc-course-assessment-support-button"),
       );
-      const supportStatus = requiredElement<HTMLElement>(
-        host,
-        ".sc-course-assessment-support-status",
-      );
       const submissionStatus = requiredElement<HTMLElement>(
         host,
         ".sc-course-assessment-submission-control__status",
@@ -445,25 +442,25 @@ describe("Pocket Atlas Course theme", () => {
       expect(Number.parseFloat(getComputedStyle(meta).columnGap)).toBeGreaterThan(0);
       expect(Number.parseFloat(getComputedStyle(supportZone).columnGap)).toBeGreaterThan(0);
       expect(supportZone.scrollWidth).toBeLessThanOrEqual(supportZone.clientWidth);
-      expect(supportButtons).toHaveLength(2);
+      expect(supportButtons).toHaveLength(3);
       for (const button of supportButtons) {
         const style = getComputedStyle(button);
-        expect(button.getBoundingClientRect().height).toBe(44);
+        expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
         expect(style.boxSizing).toBe("border-box");
         expect(style.marginLeft).toBe("0px");
         expect(contrastRatio(style.color, style.backgroundColor)).toBeGreaterThanOrEqual(4.5);
       }
-      const firstSupportBounds = supportButtons[0]!.getBoundingClientRect();
-      const secondSupportBounds = supportButtons[1]!.getBoundingClientRect();
-      const controlsDoNotOverlap =
-        secondSupportBounds.left >= firstSupportBounds.right ||
-        secondSupportBounds.top >= firstSupportBounds.bottom;
-      expect(controlsDoNotOverlap).toBe(true);
-      for (const status of [supportStatus, submissionStatus]) {
-        const style = getComputedStyle(status);
-        expect(style.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
-        expect(style.borderStyle).toBe("solid");
+      for (let index = 1; index < supportButtons.length; index += 1) {
+        const previous = supportButtons[index - 1]!.getBoundingClientRect();
+        const current = supportButtons[index]!.getBoundingClientRect();
+        expect(current.left >= previous.right || current.top >= previous.bottom).toBe(true);
       }
+      const answerToggle = supportButtons[2]!;
+      expect(answerToggle.getAttribute("aria-pressed")).toBe("true");
+      expect(getComputedStyle(answerToggle).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+      const submissionStyle = getComputedStyle(submissionStatus);
+      expect(submissionStyle.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+      expect(submissionStyle.borderStyle).toBe("solid");
       expect(getComputedStyle(attemptCounter).fontFamily).toContain("Silkscreen");
     },
   );

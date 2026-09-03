@@ -1,11 +1,13 @@
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 
 import "../../view/assessment-slide-surface.css";
 import type { SurfaceRuntimeViewProps } from "../surface-runtime-view-registry";
 import { SurfaceRuntimeFrame } from "./SurfaceRuntimeFrame";
 
 interface AssessmentSlideSurfaceRuntimeFrameProps extends SurfaceRuntimeViewProps {
+  attributes?: Record<string, string | undefined>;
   children?: ReactNode;
+  surfaceRef?: RefObject<HTMLDivElement | null>;
   variantClassName: string;
 }
 

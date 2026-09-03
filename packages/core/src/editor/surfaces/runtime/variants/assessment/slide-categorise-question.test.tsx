@@ -59,6 +59,11 @@ describe("SlideCategoriseQuestionSurfaceRuntimeView", () => {
       expect(interactions).toHaveLength(1);
       expect(interactions[0]).toHaveAttribute("data-categorise-presentation", "full-slide");
       expect(document.querySelector('[data-categorise-presentation="inline"]')).toBeNull();
+      expect(
+        document.querySelector(
+          '[data-full-slide-question-stage][data-full-slide-question-family="categorise"] > [data-assessment-interaction-content]',
+        ),
+      ).not.toBeNull();
       expect(document.querySelector(".sc-assessment-slide-surface-runtime-view")).not.toBeNull();
       expect(
         document.querySelector(

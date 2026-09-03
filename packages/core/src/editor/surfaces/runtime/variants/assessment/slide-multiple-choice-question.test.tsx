@@ -60,6 +60,11 @@ describe("SlideMultipleChoiceQuestionSurfaceRuntimeView", () => {
       });
       expect(document.querySelectorAll('[data-mcq-presentation="full-slide"]')).toHaveLength(1);
       expect(
+        document.querySelector(
+          '[data-full-slide-question-stage][data-full-slide-question-family="multiple-choice"] > [data-assessment-interaction-content]',
+        ),
+      ).not.toBeNull();
+      expect(
         document.querySelector('[data-node="surface_multiple_choice_question"]'),
       ).toHaveAttribute("data-surface-assessment-question");
 

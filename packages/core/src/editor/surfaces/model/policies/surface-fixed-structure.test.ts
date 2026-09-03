@@ -23,6 +23,7 @@ import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import type { FixedSurfaceChild } from "../surface-variant-definition";
 import {
   matchFixedSurfaceChildren,
+  matchFixedSurfaceChildrenFromJSON,
   snapshotSurfaceStructureChildrenFromJSON,
   snapshotSurfaceStructureChildrenFromProseMirror,
   type SurfaceStructureChild,
@@ -254,6 +255,68 @@ describe("surface structure child snapshots", () => {
     expect(second).toEqual(first);
     expect(first[1]?.attrs).not.toHaveProperty("id");
     expect(matchFixedSurfaceChildren(first, FIXED_CHILDREN)).toEqual({ exact: true });
+  });
+});
+
+describe("JSON fixed Surface child matching", () => {
+  it("returns the original boundary-stripped children for an exact fixed signature", () => {
+    const fixedChild = { type: "question", attrs: { role: "assessment" } };
+    const surfaceJson = surface([header("surface_header"), fixedChild, header("surface_footer")]);
+
+    const result = matchFixedSurfaceChildrenFromJSON(surfaceJson, [
+      { type: "question", attrs: { role: "assessment" } },
+    ]);
+
+    expect(result.exact).toBe(true);
+    if (!result.exact) throw new Error("Expected an exact fixed Surface child match.");
+    expect(result.children).toEqual([fixedChild]);
+    expect(result.children[0]).toBe(fixedChild);
+  });
+
+  it("returns the existing mismatch diagnostic for boundary-stripped malformed children", () => {
+    const surfaceJson = surface([
+      header("surface_header"),
+      { type: "question", attrs: { role: "assessment" } },
+      { type: "paragraph" },
+      header("surface_footer"),
+    ]);
+
+    expect(
+      matchFixedSurfaceChildrenFromJSON(surfaceJson, [
+        { type: "question", attrs: { role: "assessment" } },
+      ]),
+    ).toEqual({
+      exact: false,
+      mismatch: {
+        kind: "count",
+        index: 1,
+        expectedCount: 1,
+        actualCount: 2,
+      },
+    });
+  });
+
+  it("preserves declared attribute mismatches after excluding valid boundaries", () => {
+    const surfaceJson = surface([
+      header("surface_header"),
+      { type: "question", attrs: { role: "content" } },
+      header("surface_footer"),
+    ]);
+
+    expect(
+      matchFixedSurfaceChildrenFromJSON(surfaceJson, [
+        { type: "question", attrs: { role: "assessment" } },
+      ]),
+    ).toEqual({
+      exact: false,
+      mismatch: {
+        kind: "attribute",
+        index: 0,
+        attribute: "role",
+        expectedValue: "assessment",
+        actualValue: "content",
+      },
+    });
   });
 });
 

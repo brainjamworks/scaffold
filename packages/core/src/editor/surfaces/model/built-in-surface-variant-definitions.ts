@@ -1,11 +1,16 @@
 import { pageDefaultSurfaceDefinition } from "./templates/page-default";
+import type { ContentIdentityRewriteRegistration } from "@/document/model/identity/clone-with-new-ids";
+import { rewriteDragDropCopiedContent } from "@/editor/blocks/assessment/drag-drop/drag-drop-copy-identity";
+import { SURFACE_DRAG_DROP_QUESTION_NODE_TYPE } from "./assessment/surface-drag-drop-question-node";
 import { slideCategoriseQuestionSurfaceDefinition } from "./templates/assessment/slide-categorise-question";
 import { slideDropdownQuestionSurfaceDefinition } from "./templates/assessment/slide-dropdown-question";
+import { slideDragDropQuestionSurfaceDefinition } from "./templates/assessment/slide-drag-drop-question";
 import { slideFillBlanksQuestionSurfaceDefinition } from "./templates/assessment/slide-fill-blanks-question";
 import { slideMatchingQuestionSurfaceDefinition } from "./templates/assessment/slide-matching-question";
 import { slideImageHotspotQuestionSurfaceDefinition } from "./templates/assessment/slide-image-hotspot-question";
 import { slideMultipleChoiceQuestionSurfaceDefinition } from "./templates/assessment/slide-multiple-choice-question";
 import { slideMultiselectQuestionSurfaceDefinition } from "./templates/assessment/slide-multiselect-question";
+import { slideQuizSurfaceDefinition } from "./templates/assessment/slide-quiz";
 import { slideSequencingQuestionSurfaceDefinition } from "./templates/assessment/slide-sequencing-question";
 import { slideCentredStageSurfaceDefinition } from "./templates/slide-centred-stage";
 import { slideContentSurfaceDefinition } from "./templates/slide-content";
@@ -27,34 +32,59 @@ import { slideTwoStackedSurfaceDefinition } from "./templates/slide-two-stacked"
 import type { SurfaceVariantDefinition } from "./surface-variant-definition";
 import { createSurfaceVariantRegistry } from "./surface-variant-registry";
 
-export const builtInSurfaceVariantDefinitions: readonly SurfaceVariantDefinition[] = Object.freeze([
-  pageDefaultSurfaceDefinition,
-  slideCoverSurfaceDefinition,
-  slideContentSurfaceDefinition,
-  slideTwoColumnsSurfaceDefinition,
-  slideTwoStackedSurfaceDefinition,
-  slideSideTitleSurfaceDefinition,
-  slideThreeColumnsSurfaceDefinition,
-  slideCentredStageSurfaceDefinition,
-  slideEditorialSurfaceDefinition,
-  slideImageContentSplitSurfaceDefinition,
-  slideImageContentStackedSurfaceDefinition,
-  slideFullBleedImageSurfaceDefinition,
-  slideImageBackdropPanelSurfaceDefinition,
-  slideDiptychSurfaceDefinition,
-  slideTriptychSurfaceDefinition,
-  slideImageCoverSurfaceDefinition,
-  slideImageBandSurfaceDefinition,
-  slideModuleCoverSurfaceDefinition,
-  slideCategoriseQuestionSurfaceDefinition,
-  slideSequencingQuestionSurfaceDefinition,
-  slideMatchingQuestionSurfaceDefinition,
-  slideImageHotspotQuestionSurfaceDefinition,
-  slideMultipleChoiceQuestionSurfaceDefinition,
-  slideMultiselectQuestionSurfaceDefinition,
-  slideDropdownQuestionSurfaceDefinition,
-  slideFillBlanksQuestionSurfaceDefinition,
-]);
+export interface BuiltInSurfaceCapabilityRegistration {
+  readonly definition: SurfaceVariantDefinition;
+  readonly identityRewrites?: readonly ContentIdentityRewriteRegistration[];
+}
+
+export const builtInSurfaceCapabilityRegistrations: readonly BuiltInSurfaceCapabilityRegistration[] =
+  Object.freeze([
+    { definition: pageDefaultSurfaceDefinition },
+    { definition: slideCoverSurfaceDefinition },
+    { definition: slideContentSurfaceDefinition },
+    { definition: slideTwoColumnsSurfaceDefinition },
+    { definition: slideTwoStackedSurfaceDefinition },
+    { definition: slideSideTitleSurfaceDefinition },
+    { definition: slideThreeColumnsSurfaceDefinition },
+    { definition: slideCentredStageSurfaceDefinition },
+    { definition: slideEditorialSurfaceDefinition },
+    { definition: slideImageContentSplitSurfaceDefinition },
+    { definition: slideImageContentStackedSurfaceDefinition },
+    { definition: slideFullBleedImageSurfaceDefinition },
+    { definition: slideImageBackdropPanelSurfaceDefinition },
+    { definition: slideDiptychSurfaceDefinition },
+    { definition: slideTriptychSurfaceDefinition },
+    { definition: slideImageCoverSurfaceDefinition },
+    { definition: slideImageBandSurfaceDefinition },
+    { definition: slideModuleCoverSurfaceDefinition },
+    { definition: slideCategoriseQuestionSurfaceDefinition },
+    { definition: slideSequencingQuestionSurfaceDefinition },
+    { definition: slideMatchingQuestionSurfaceDefinition },
+    { definition: slideImageHotspotQuestionSurfaceDefinition },
+    { definition: slideMultipleChoiceQuestionSurfaceDefinition },
+    { definition: slideMultiselectQuestionSurfaceDefinition },
+    { definition: slideDropdownQuestionSurfaceDefinition },
+    {
+      definition: slideDragDropQuestionSurfaceDefinition,
+      identityRewrites: Object.freeze([
+        Object.freeze({
+          nodeType: SURFACE_DRAG_DROP_QUESTION_NODE_TYPE,
+          rewrite: rewriteDragDropCopiedContent,
+        }),
+      ]),
+    },
+    { definition: slideFillBlanksQuestionSurfaceDefinition },
+    { definition: slideQuizSurfaceDefinition },
+  ]);
+
+export const builtInSurfaceVariantDefinitions: readonly SurfaceVariantDefinition[] = Object.freeze(
+  builtInSurfaceCapabilityRegistrations.map(({ definition }) => definition),
+);
+
+export const builtInSurfaceIdentityRewriteRegistrations: readonly ContentIdentityRewriteRegistration[] =
+  Object.freeze(
+    builtInSurfaceCapabilityRegistrations.flatMap(({ identityRewrites }) => identityRewrites ?? []),
+  );
 
 export const builtInSurfaceVariantRegistry = createSurfaceVariantRegistry(
   builtInSurfaceVariantDefinitions,

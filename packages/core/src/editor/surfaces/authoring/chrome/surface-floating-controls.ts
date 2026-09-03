@@ -5,7 +5,10 @@ import type {
   FloatingControl,
   FloatingTargetState,
 } from "@/editor/shell/authoring/floating/floating-control";
-import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
+import {
+  InteractionTargetKind,
+  type InteractionTargetRef,
+} from "@/editor/interactions/targets/model/interaction-owner-state";
 import { publishInteractionOwnerSnapshot } from "@/editor/interactions/targets/prosemirror/facade/interaction-owner-snapshot-publisher";
 import {
   resolveStructuralChromeTargetDescriptor,
@@ -28,8 +31,7 @@ export const surfaceMenuFloatingControl: FloatingControl = {
     if (state.target.kind !== InteractionTargetKind.Surface) return false;
     return commands.toggleMenu(state.target);
   },
-  resolveState: (editor) =>
-    resolveStructuralOwnerTriggerState(editor.state, InteractionTargetKind.Surface),
+  resolveState: (editor) => resolveSurfaceOwnerTriggerState(editor.state),
 };
 
 export const regionMenuFloatingControl: FloatingControl = {
@@ -52,6 +54,23 @@ export const SURFACE_FLOATING_AUTHORING_CONTROLS = [
   regionMenuFloatingControl,
 ] as const;
 
+function resolveSurfaceOwnerTriggerState(state: EditorState): FloatingTargetState | null {
+  const blockDefinitions = getScaffoldCapabilitiesForState(state).blocks.registry;
+  const owners = publishInteractionOwnerSnapshot(state, null, {
+    blockDefinitions,
+  }).owners;
+  const ownerRef =
+    surfaceOwnerRef(owners.menuOwner.target) ??
+    surfaceOwnerRef(owners.explicitOwner.target) ??
+    owners.contextOwners.surface;
+  if (!ownerRef) return null;
+
+  const descriptor = resolveStructuralChromeTargetDescriptor(state, ownerRef);
+  return descriptor?.kind === InteractionTargetKind.Surface
+    ? createStructuralOwnerTriggerState(descriptor)
+    : null;
+}
+
 function resolveStructuralOwnerTriggerState(
   state: EditorState,
   kind: StructuralInteractionTargetKind,
@@ -59,6 +78,13 @@ function resolveStructuralOwnerTriggerState(
   const descriptor = resolveStructuralOwnerDescriptor(state, kind);
   if (!descriptor) return null;
 
+  return createStructuralOwnerTriggerState(descriptor);
+}
+
+function createStructuralOwnerTriggerState(
+  descriptor: StructuralChromeTargetDescriptor,
+): FloatingTargetState {
+  const kind = descriptor.kind;
   const anchorId = structuralMenuAnchorId(kind, descriptor.id);
   return {
     anchorId,
@@ -66,6 +92,10 @@ function resolveStructuralOwnerTriggerState(
     pos: descriptor.pos,
     target: descriptor.target,
   };
+}
+
+function surfaceOwnerRef(ownerRef: InteractionTargetRef | null): InteractionTargetRef | null {
+  return ownerRef?.kind === InteractionTargetKind.Surface ? ownerRef : null;
 }
 
 function resolveStructuralOwnerDescriptor(

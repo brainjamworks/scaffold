@@ -454,7 +454,7 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-slide-categorise-question-surface-runtime-view
+  [data-full-slide-question-family="categorise"]
   [data-categorise-presentation="full-slide"]
   .sc-course-categorise__source {
   border: 0;
@@ -463,7 +463,7 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-slide-categorise-question-surface-runtime-view
+  [data-full-slide-question-family="categorise"]
   [data-categorise-presentation="full-slide"]
   .sc-course-categorise__bin-grid {
   border-block: var(--sc-course-author-stroke-width) solid var(--gray-a6);
@@ -471,7 +471,7 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-slide-categorise-question-surface-runtime-view
+  [data-full-slide-question-family="categorise"]
   .sc-course-categorise__category-preview {
   border-block-start: var(--sc-course-author-stroke-width) solid var(--gray-a5);
   background: var(--gray-2);
@@ -482,7 +482,7 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-slide-categorise-question-surface-runtime-view
+  [data-full-slide-question-family="categorise"]
   .sc-course-categorise__category-preview-more {
   color: var(--gray-10);
   font-weight: var(--font-weight-medium);

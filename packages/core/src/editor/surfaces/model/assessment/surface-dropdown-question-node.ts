@@ -11,6 +11,8 @@ import {
   BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
 
+import { fullSlideQuestionStageAttributes } from "./full-slide-question-stage";
+
 export const SURFACE_DROPDOWN_QUESTION_NODE_TYPE = "surface_dropdown_question";
 
 export interface SurfaceDropdownQuestionNodeOptions {
@@ -68,10 +70,14 @@ export function createSurfaceDropdownQuestionNode(
     renderHTML({ HTMLAttributes }) {
       return [
         "div",
-        mergeAttributes(HTMLAttributes, {
-          "data-node": SURFACE_DROPDOWN_QUESTION_NODE_TYPE,
-          "data-surface-assessment-question": "",
-        }),
+        mergeAttributes(
+          HTMLAttributes,
+          {
+            "data-node": SURFACE_DROPDOWN_QUESTION_NODE_TYPE,
+            "data-surface-assessment-question": "",
+          },
+          fullSlideQuestionStageAttributes(SURFACE_DROPDOWN_QUESTION_NODE_TYPE),
+        ),
         0,
       ];
     },

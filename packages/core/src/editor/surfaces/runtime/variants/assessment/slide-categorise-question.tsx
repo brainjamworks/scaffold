@@ -9,14 +9,14 @@ import {
 } from "@/editor/blocks/assessment/categorise/assessment";
 import { categoriseCourseContentFromProseMirror } from "@/editor/blocks/assessment/categorise/categorise-course-content";
 import { CategoriseCourseInteraction } from "@/editor/blocks/assessment/categorise/categorise-course-interaction";
-import { countAssessmentHints } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
-import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
-import { textBetween } from "@/editor/blocks/assessment/shared/publication/projection";
-import { assessmentResponseName } from "@/editor/blocks/assessment/shared/runtime/assessment-response-name";
+import { countAssessmentHints } from "@/editor/assessment/shared/model/assessment-prosemirror";
+import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
+import { textBetween } from "@/editor/assessment/shared/publication/projection";
+import { assessmentResponseName } from "@/editor/assessment/shared/runtime/assessment-response-name";
 import {
   useAssessmentRuntimeForTarget,
   type AssessmentRuntimeProblemConfig,
-} from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
+} from "@/editor/assessment/shared/runtime/use-assessment-runtime";
 import { SURFACE_CATEGORISE_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-categorise-question-node";
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
@@ -24,14 +24,41 @@ import "../../../view/variants/assessment/slide-categorise-question.css";
 import { AssessmentSlideSurfaceRuntimeFrame } from "../../views/AssessmentSlideSurfaceRuntimeFrame";
 import type { SurfaceRuntimeViewProps } from "../../surface-runtime-view-registry";
 import { useAssessmentSurfaceControlBinding } from "./assessment-surface-control-binding";
+import { FullSlideQuestionStage } from "./FullSlideQuestionStage";
 
 export function SlideCategoriseQuestionSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const question = surfaceCategoriseQuestion(props.node);
-  const assessmentTargetId = readAssessmentTargetId(question);
-  const serializer = useMemo(
-    () => DOMSerializer.fromSchema(props.editor.schema),
-    [props.editor.schema],
+
+  return (
+    <AssessmentSlideSurfaceRuntimeFrame
+      {...props}
+      variantClassName="sc-slide-categorise-question-surface-view sc-slide-categorise-question-surface-runtime-view"
+    >
+      <CategoriseFullSlideQuestionPresenter
+        editor={props.editor}
+        question={question}
+        surfaceControlBinding={props}
+      />
+    </AssessmentSlideSurfaceRuntimeFrame>
   );
+}
+
+export function CategoriseFullSlideQuestionPresenter({
+  editor,
+  question,
+  surfaceControlBinding,
+  visible = true,
+}: {
+  editor: SurfaceRuntimeViewProps["editor"];
+  question: PMNode;
+  surfaceControlBinding?: SurfaceRuntimeViewProps;
+  visible?: boolean;
+}) {
+  if (question.type.name !== SURFACE_CATEGORISE_QUESTION_NODE_TYPE) {
+    throw new Error("Categorise presenter requires a private Surface question.");
+  }
+  const assessmentTargetId = readAssessmentTargetId(question);
+  const serializer = useMemo(() => DOMSerializer.fromSchema(editor.schema), [editor.schema]);
   const config = useMemo(() => createRuntimeConfig(question), [question]);
   const content = useMemo(
     () => categoriseCourseContentFromProseMirror(categoriseContent(question), serializer),
@@ -41,19 +68,20 @@ export function SlideCategoriseQuestionSurfaceRuntimeView(props: SurfaceRuntimeV
   const store = useAssessmentStoreApi();
   useAssessmentSurfaceControlBinding({
     assessmentTargetId,
-    editor: props.editor,
-    enabled: !runtime.hasUnsafeIdentity && runtime.problem?.context === "standalone",
-    getPos: props.getPos,
-    node: props.node,
+    editor,
+    enabled:
+      Boolean(surfaceControlBinding) &&
+      !runtime.hasUnsafeIdentity &&
+      runtime.problem?.context === "standalone",
+    getPos: surfaceControlBinding?.getPos ?? (() => undefined),
+    node: surfaceControlBinding?.node ?? question,
     problemId: runtime.problemId,
     store,
   });
 
+  if (!visible) return null;
   return (
-    <AssessmentSlideSurfaceRuntimeFrame
-      {...props}
-      variantClassName="sc-slide-categorise-question-surface-view sc-slide-categorise-question-surface-runtime-view"
-    >
+    <FullSlideQuestionStage question={question}>
       <div
         className="sc-course-categorise__content sc-course-categorise__content--runtime"
         data-assessment-interaction-content=""
@@ -66,7 +94,7 @@ export function SlideCategoriseQuestionSurfaceRuntimeView(props: SurfaceRuntimeV
           presentation="full-slide"
         />
       </div>
-    </AssessmentSlideSurfaceRuntimeFrame>
+    </FullSlideQuestionStage>
   );
 }
 

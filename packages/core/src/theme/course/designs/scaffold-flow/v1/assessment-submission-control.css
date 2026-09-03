@@ -3,8 +3,7 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-submission-control__button {
-  height: 2.75rem;
-  min-height: 2.75rem;
+  min-height: var(--sc-course-assessment-control-min-height, 2.75rem);
   border-radius: max(var(--radius-6), var(--radius-full));
   font-weight: var(--font-weight-medium);
 }

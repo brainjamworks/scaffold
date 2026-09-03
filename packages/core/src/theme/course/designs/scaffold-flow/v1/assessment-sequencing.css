@@ -31,7 +31,10 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-slide-sequencing-question-surface-view
+  [data-full-slide-question-family="sequencing"]
+  .sc-course-sequencing__list::before,
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-sequencing__group[data-sequencing-presentation="full-slide"]
   .sc-course-sequencing__list::before {
   background: var(--gray-a6);
 }
@@ -129,7 +132,10 @@
   }
 
   .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-slide-sequencing-question-surface-view
+    [data-full-slide-question-family="sequencing"]
+    .sc-course-sequencing__list::before,
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-sequencing__group[data-sequencing-presentation="full-slide"]
     .sc-course-sequencing__list::before {
     background: CanvasText;
   }

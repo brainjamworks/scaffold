@@ -7,42 +7,37 @@ import {
 } from "@scaffold/contracts";
 import type { JSONContent } from "@tiptap/core";
 
-import { assessmentControlDefinition } from "@/editor/blocks/assessment/shared/model/assessment-control-definition";
+import { assessmentControlDefinition } from "@/editor/assessment/shared/model/assessment-control-definition";
 import {
   projectImageHotspotAssessment,
   projectImageHotspotInteraction,
   projectImageHotspotLearnerNode,
   projectImageHotspotSettings,
-} from "@/editor/blocks/assessment/image-hotspot/assessment";
+} from "@/editor/assessment/image-hotspot/assessment";
 import {
   cloneJsonNodeWithoutContent,
   readAttrs,
   readContent,
   readStringAttr,
-} from "@/editor/blocks/assessment/shared/publication/projection";
+} from "@/editor/assessment/shared/publication/projection";
 import { SurfaceSettingsSchema } from "@/schemas/course-document";
 import { createSurfaceAssessmentTargets } from "../../assessment/surface-assessment-target";
 import { SURFACE_IMAGE_HOTSPOT_QUESTION_NODE_TYPE } from "../../assessment/surface-image-hotspot-question-node";
+import { matchFixedSurfaceChildrenFromJSON } from "../../policies/surface-fixed-structure";
 import { createSurfaceDocumentSemantics } from "../../surface-document-semantics";
 import { DEFAULT_SURFACE_SETTINGS } from "../../surface-settings";
-import type { SurfaceVariantDefinition } from "../../surface-variant-definition";
+import type { FixedSurfaceChild, SurfaceVariantDefinition } from "../../surface-variant-definition";
 
 export const DEFAULT_SLIDE_IMAGE_HOTSPOT_QUESTION_SURFACE_SETTINGS =
   SurfaceSettingsSchema.parse(DEFAULT_SURFACE_SETTINGS);
 
 const SLIDE_IMAGE_HOTSPOT_QUESTION_VARIANT_ID = "slide-image-hotspot-question";
+const SLIDE_IMAGE_HOTSPOT_QUESTION_FIXED_CHILDREN = [
+  { type: SURFACE_IMAGE_HOTSPOT_QUESTION_NODE_TYPE },
+] as const satisfies readonly FixedSurfaceChild[];
 
 function projectSurfaceImageHotspotTargets(surface: JSONContent) {
-  const content = readContent(surface);
-  const questions = content.filter(
-    (child) => child.type === SURFACE_IMAGE_HOTSPOT_QUESTION_NODE_TYPE,
-  );
-  const question = content.length === 1 && questions.length === 1 ? questions[0] : undefined;
-  if (!question) {
-    throw new Error(
-      `Surface "${SLIDE_IMAGE_HOTSPOT_QUESTION_VARIANT_ID}" must contain exactly one image-hotspot question.`,
-    );
-  }
+  const question = resolveImageHotspotQuestion(surface);
 
   const assessmentTargetId = readStringAttr(question, "id");
   if (!assessmentTargetId) {
@@ -72,18 +67,30 @@ function projectSurfaceImageHotspotTargets(surface: JSONContent) {
 }
 
 function projectLearnerImageHotspotSurface(surface: JSONContent): JSONContent {
+  const question = resolveImageHotspotQuestion(surface);
   return {
     ...cloneJsonNodeWithoutContent(surface),
     ...(surface.content
       ? {
           content: readContent(surface).map((child) =>
-            child.type === SURFACE_IMAGE_HOTSPOT_QUESTION_NODE_TYPE
-              ? projectImageHotspotLearnerNode(child)
-              : child,
+            child === question ? projectImageHotspotLearnerNode(child) : child,
           ),
         }
       : {}),
   };
+}
+
+function resolveImageHotspotQuestion(surface: JSONContent): JSONContent {
+  const result = matchFixedSurfaceChildrenFromJSON(
+    surface,
+    SLIDE_IMAGE_HOTSPOT_QUESTION_FIXED_CHILDREN,
+  );
+  if (!result.exact) {
+    throw new Error(
+      `Surface "${SLIDE_IMAGE_HOTSPOT_QUESTION_VARIANT_ID}" must contain exactly one image-hotspot question.`,
+    );
+  }
+  return result.children[0]!;
 }
 
 export const slideImageHotspotQuestionSurfaceDefinition = {
@@ -107,7 +114,7 @@ export const slideImageHotspotQuestionSurfaceDefinition = {
   }),
   control: assessmentControlDefinition,
   structurePolicy: {
-    fixedChildren: [{ type: SURFACE_IMAGE_HOTSPOT_QUESTION_NODE_TYPE }],
+    fixedChildren: SLIDE_IMAGE_HOTSPOT_QUESTION_FIXED_CHILDREN,
     allowRootInsertion: false,
   },
   assessmentTargets: {

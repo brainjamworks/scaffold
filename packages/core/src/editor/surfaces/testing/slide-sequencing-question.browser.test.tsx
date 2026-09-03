@@ -10,6 +10,7 @@ import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaf
 import { projectSequencingLearnerNode } from "@/editor/blocks/assessment/sequencing/assessment";
 import { TestInteractionDragEnvironment } from "@/editor/interactions/drag/testing/TestInteractionDragEnvironment";
 import { slideSequencingQuestionSurfaceDefinition } from "@/editor/surfaces/model/templates/assessment/slide-sequencing-question";
+import { createScaffoldDocumentContent } from "@/format/artifact";
 import {
   assessmentProblemOutcome,
   createAssessmentRuntimeTestRoot,
@@ -288,21 +289,25 @@ function sequencingQuestionDocument(itemCount = 3): JSONContent {
     ),
   };
 
-  return {
-    type: "doc",
-    content: [
-      {
-        type: "courseDocument",
-        attrs: { mode: "slideshow" },
-        content: [
-          {
-            ...surface,
-            content: [projectSequencingLearnerNode(labelledQuestion)],
-          },
-        ],
-      },
-    ],
-  };
+  const document = createScaffoldDocumentContent({
+    mode: "slideshow",
+    surfaceId: "surface00001",
+    initialCourseSectionTitle: "Introduction",
+  });
+  const courseDocument = document.content?.[0];
+  const section = courseDocument?.content?.find((child) => child.type === "courseSection");
+  if (courseDocument?.type !== "courseDocument" || !section) {
+    throw new Error("Expected a Slideshow document fixture.");
+  }
+
+  courseDocument.content = [
+    section,
+    {
+      ...surface,
+      content: [projectSequencingLearnerNode(labelledQuestion)],
+    },
+  ];
+  return document;
 }
 
 function requiredElement<ElementType extends Element>(

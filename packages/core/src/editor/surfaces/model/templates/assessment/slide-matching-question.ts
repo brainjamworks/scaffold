@@ -7,7 +7,7 @@ import {
 import type { JSONContent } from "@tiptap/core";
 
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { assessmentControlDefinition } from "@/editor/blocks/assessment/shared/model/assessment-control-definition";
+import { assessmentControlDefinition } from "@/editor/assessment/shared/model/assessment-control-definition";
 import {
   projectMatchingAssessment,
   projectMatchingInteraction,
@@ -20,30 +20,25 @@ import {
   readAttrs,
   readContent,
   readStringAttr,
-} from "@/editor/blocks/assessment/shared/publication/projection";
+} from "@/editor/assessment/shared/publication/projection";
 import { SurfaceSettingsSchema } from "@/schemas/course-document";
 import { createSurfaceAssessmentTargets } from "../../assessment/surface-assessment-target";
 import { SURFACE_MATCHING_QUESTION_NODE_TYPE } from "../../assessment/surface-matching-question-node";
+import { matchFixedSurfaceChildrenFromJSON } from "../../policies/surface-fixed-structure";
 import { createSurfaceDocumentSemantics } from "../../surface-document-semantics";
 import { DEFAULT_SURFACE_SETTINGS } from "../../surface-settings";
-import type { SurfaceVariantDefinition } from "../../surface-variant-definition";
+import type { FixedSurfaceChild, SurfaceVariantDefinition } from "../../surface-variant-definition";
 
 export const DEFAULT_SLIDE_MATCHING_QUESTION_SURFACE_SETTINGS =
   SurfaceSettingsSchema.parse(DEFAULT_SURFACE_SETTINGS);
 
 const SLIDE_MATCHING_QUESTION_VARIANT_ID = "slide-matching-question";
+const SLIDE_MATCHING_QUESTION_FIXED_CHILDREN = [
+  { type: SURFACE_MATCHING_QUESTION_NODE_TYPE },
+] as const satisfies readonly FixedSurfaceChild[];
 
 function projectSurfaceMatchingTargets(surface: JSONContent) {
-  const surfaceContent = readContent(surface);
-  const questions = surfaceContent.filter(
-    (child) => child.type === SURFACE_MATCHING_QUESTION_NODE_TYPE,
-  );
-  const question = surfaceContent.length === 1 && questions.length === 1 ? questions[0] : undefined;
-  if (!question) {
-    throw new Error(
-      `Surface "${SLIDE_MATCHING_QUESTION_VARIANT_ID}" must contain exactly one matching question.`,
-    );
-  }
+  const question = resolveMatchingQuestion(surface);
 
   const assessmentTargetId = readStringAttr(question, "id");
   if (!assessmentTargetId) {
@@ -74,18 +69,27 @@ function projectSurfaceMatchingTargets(surface: JSONContent) {
 }
 
 function projectLearnerMatchingSurface(surface: JSONContent): JSONContent {
+  const question = resolveMatchingQuestion(surface);
   return {
     ...cloneJsonNodeWithoutContent(surface),
     ...(surface.content
       ? {
           content: readContent(surface).map((child) =>
-            child.type === SURFACE_MATCHING_QUESTION_NODE_TYPE
-              ? projectMatchingLearnerNode(child)
-              : child,
+            child === question ? projectMatchingLearnerNode(child) : child,
           ),
         }
       : {}),
   };
+}
+
+function resolveMatchingQuestion(surface: JSONContent): JSONContent {
+  const result = matchFixedSurfaceChildrenFromJSON(surface, SLIDE_MATCHING_QUESTION_FIXED_CHILDREN);
+  if (!result.exact) {
+    throw new Error(
+      `Surface "${SLIDE_MATCHING_QUESTION_VARIANT_ID}" must contain exactly one matching question.`,
+    );
+  }
+  return result.children[0]!;
 }
 
 function createMatchingPair() {
@@ -134,7 +138,7 @@ export const slideMatchingQuestionSurfaceDefinition = {
   }),
   control: assessmentControlDefinition,
   structurePolicy: {
-    fixedChildren: [{ type: SURFACE_MATCHING_QUESTION_NODE_TYPE }],
+    fixedChildren: SLIDE_MATCHING_QUESTION_FIXED_CHILDREN,
     allowRootInsertion: false,
   },
   assessmentTargets: {

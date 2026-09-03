@@ -9,14 +9,14 @@ import {
 } from "@/editor/blocks/assessment/dropdown/assessment";
 import { dropdownCourseContentFromProseMirror } from "@/editor/blocks/assessment/dropdown/dropdown-course-content";
 import { DropdownCourseInteraction } from "@/editor/blocks/assessment/dropdown/dropdown-course-interaction";
-import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
-import { countAssessmentHints } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
-import { textBetween } from "@/editor/blocks/assessment/shared/publication/projection";
-import { assessmentResponseName } from "@/editor/blocks/assessment/shared/runtime/assessment-response-name";
+import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
+import { countAssessmentHints } from "@/editor/assessment/shared/model/assessment-prosemirror";
+import { textBetween } from "@/editor/assessment/shared/publication/projection";
+import { assessmentResponseName } from "@/editor/assessment/shared/runtime/assessment-response-name";
 import {
   useAssessmentRuntimeForTarget,
   type AssessmentRuntimeProblemConfig,
-} from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
+} from "@/editor/assessment/shared/runtime/use-assessment-runtime";
 import { SURFACE_DROPDOWN_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-dropdown-question-node";
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
@@ -24,15 +24,42 @@ import "../../../view/variants/assessment/slide-dropdown-question.css";
 import type { SurfaceRuntimeViewProps } from "../../surface-runtime-view-registry";
 import { AssessmentSlideSurfaceRuntimeFrame } from "../../views/AssessmentSlideSurfaceRuntimeFrame";
 import { useAssessmentSurfaceControlBinding } from "./assessment-surface-control-binding";
+import { FullSlideQuestionStage } from "./FullSlideQuestionStage";
 
 export function SlideDropdownQuestionSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const question = surfaceDropdownQuestion(props.node);
+
+  return (
+    <AssessmentSlideSurfaceRuntimeFrame
+      {...props}
+      variantClassName="sc-dropdown-slide-surface-view sc-dropdown-slide-surface-runtime-view sc-slide-dropdown-question-surface-view sc-slide-dropdown-question-surface-runtime-view"
+    >
+      <DropdownFullSlideQuestionPresenter
+        editor={props.editor}
+        question={question}
+        surfaceControlBinding={props}
+      />
+    </AssessmentSlideSurfaceRuntimeFrame>
+  );
+}
+
+export function DropdownFullSlideQuestionPresenter({
+  editor,
+  question,
+  surfaceControlBinding,
+  visible = true,
+}: {
+  editor: SurfaceRuntimeViewProps["editor"];
+  question: PMNode;
+  surfaceControlBinding?: SurfaceRuntimeViewProps;
+  visible?: boolean;
+}) {
+  if (question.type.name !== SURFACE_DROPDOWN_QUESTION_NODE_TYPE) {
+    throw new Error("Dropdown presenter requires a private Surface question.");
+  }
   const assessmentTargetId = readAssessmentTargetId(question);
   const config = useMemo(() => createRuntimeConfig(question), [question]);
-  const serializer = useMemo(
-    () => DOMSerializer.fromSchema(props.editor.schema),
-    [props.editor.schema],
-  );
+  const serializer = useMemo(() => DOMSerializer.fromSchema(editor.schema), [editor.schema]);
   const content = useMemo(
     () => dropdownCourseContentFromProseMirror(choicesGroup(question), serializer),
     [question, serializer],
@@ -41,19 +68,20 @@ export function SlideDropdownQuestionSurfaceRuntimeView(props: SurfaceRuntimeVie
   const store = useAssessmentStoreApi();
   useAssessmentSurfaceControlBinding({
     assessmentTargetId,
-    editor: props.editor,
-    enabled: !runtime.hasUnsafeIdentity && runtime.problem?.context === "standalone",
-    getPos: props.getPos,
-    node: props.node,
+    editor,
+    enabled:
+      Boolean(surfaceControlBinding) &&
+      !runtime.hasUnsafeIdentity &&
+      runtime.problem?.context === "standalone",
+    getPos: surfaceControlBinding?.getPos ?? (() => undefined),
+    node: surfaceControlBinding?.node ?? question,
     problemId: runtime.problemId,
     store,
   });
 
+  if (!visible) return null;
   return (
-    <AssessmentSlideSurfaceRuntimeFrame
-      {...props}
-      variantClassName="sc-dropdown-slide-surface-view sc-dropdown-slide-surface-runtime-view sc-slide-dropdown-question-surface-view sc-slide-dropdown-question-surface-runtime-view"
-    >
+    <FullSlideQuestionStage question={question}>
       <div
         data-assessment-interaction-content=""
         data-surface-dropdown-interaction=""
@@ -66,7 +94,7 @@ export function SlideDropdownQuestionSurfaceRuntimeView(props: SurfaceRuntimeVie
           promptHasText={assessmentPromptText(question).length > 0}
         />
       </div>
-    </AssessmentSlideSurfaceRuntimeFrame>
+    </FullSlideQuestionStage>
   );
 }
 

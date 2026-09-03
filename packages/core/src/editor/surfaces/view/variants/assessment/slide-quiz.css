@@ -1,0 +1,386 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-slide-quiz-surface-view {
+    --sc-course-assessment-control-min-height: max(
+      2.75rem,
+      calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1))
+    );
+
+    position: relative;
+    min-inline-size: 0;
+    min-block-size: 0;
+    overflow: hidden;
+  }
+
+  .sc-slide-quiz-surface-view > [data-surface-content],
+  .sc-slide-quiz-surface-view > [data-surface-content] > [data-node-view-content-react],
+  .sc-slide-quiz-surface-runtime-view [data-surface-quiz] {
+    display: contents;
+  }
+
+  .sc-slide-quiz-surface-runtime-view [data-surface-quiz] > [data-surface-assessment-question] {
+    display: contents;
+  }
+
+  .sc-slide-quiz-surface-runtime-view > [data-full-slide-question-stage] {
+    z-index: 1;
+  }
+
+  .sc-slide-quiz-surface-runtime-view[data-quiz-stage-visible="false"] [data-surface-quiz] {
+    display: none;
+  }
+
+  .sc-slide-quiz-surface-runtime-view .sc-course-quiz__request-feedback {
+    position: absolute;
+    z-index: 4;
+    inset-block-start: 0.5rem;
+    inset-inline-end: clamp(1rem, 4cqw, 2.5rem);
+    max-inline-size: min(28rem, 55%);
+  }
+
+  .sc-slide-quiz-surface-runtime-view [data-surface-quiz] [data-slot="assessment-actions-group"] {
+    z-index: 3;
+    inline-size: 50%;
+    min-block-size: 0;
+    padding-inline-end: 0;
+  }
+
+  .sc-slide-quiz-surface-runtime-view
+    [data-surface-quiz]
+    [data-slot="assessment-actions-group"]
+    .sc-assessment-control-layout__submission {
+    display: none;
+  }
+
+  .sc-course-slide-quiz__action-dock {
+    --sc-course-quiz-action-min-block-size: max(
+      2.75rem,
+      calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1))
+    );
+
+    z-index: 2;
+    box-sizing: border-box;
+    display: grid;
+    min-inline-size: 0;
+    min-block-size: var(--sc-course-quiz-action-min-block-size);
+    grid-column: 1 / -1;
+    grid-row: 4;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem clamp(1rem, 4cqw, 2.5rem);
+  }
+
+  .sc-course-slide-quiz__action-dock
+    .sc-course-slide-quiz__actions
+    > :is(.sc-course-quiz__runtime-controls, .sc-course-quiz__runtime-nav) {
+    display: contents;
+  }
+
+  .sc-course-slide-quiz__actions {
+    display: inline-flex;
+    min-inline-size: 0;
+    grid-column: 3;
+    align-items: center;
+    justify-self: end;
+    gap: 0.75rem;
+  }
+
+  .sc-course-slide-quiz__action-dock .sc-course-quiz__runtime-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .sc-course-slide-quiz__action-dock .sc-course-quiz__runtime-meta {
+    min-inline-size: 0;
+    margin-inline-end: auto;
+  }
+
+  .sc-course-slide-quiz__progress {
+    display: inline-flex;
+    min-inline-size: 0;
+    grid-column: 1;
+    align-items: center;
+    justify-self: start;
+    gap: 0.5rem;
+  }
+
+  .sc-course-slide-quiz__progress-label,
+  .sc-course-slide-quiz__progress-position {
+    white-space: nowrap;
+  }
+
+  .sc-course-slide-quiz__progress-position {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sc-slide-quiz-surface-runtime-view
+    :is(.sc-course-quiz__primary-action, .sc-course-quiz__secondary-action) {
+    min-inline-size: max(2.75rem, calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1)));
+    min-block-size: max(2.75rem, calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1)));
+  }
+
+  .sc-course-slide-quiz__state,
+  .sc-slide-quiz-surface-runtime-view
+    :is(
+      .sc-course-quiz__runtime-incomplete,
+      .sc-course-quiz__timesup,
+      .sc-course-quiz__expired,
+      .sc-course-quiz__completion
+    ) {
+    box-sizing: border-box;
+    display: flex;
+    min-inline-size: 0;
+    min-block-size: 0;
+    grid-column: 1 / -1;
+    grid-row: 1 / 4;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(2rem, 8cqw, 6rem);
+    text-align: center;
+  }
+
+  .sc-course-slide-quiz__state {
+    align-items: flex-start;
+    text-align: start;
+  }
+
+  .sc-course-slide-quiz__state-title,
+  .sc-course-slide-quiz__state-copy {
+    margin: 0;
+  }
+
+  .sc-course-slide-quiz__state-copy {
+    max-inline-size: 36rem;
+  }
+
+  .sc-slide-quiz-surface-runtime-view[data-quiz-reviewing-answers="true"]
+    :is(
+      .sc-course-assessment-meta-title[data-slot="assessment-title"],
+      [data-slot="assessment-instructions"]
+    ) {
+    display: none;
+  }
+
+  .sc-slide-quiz-surface-runtime-view .sc-course-quiz__review-context {
+    position: static;
+    z-index: 1;
+    box-sizing: border-box;
+    inline-size: 100%;
+    min-inline-size: 0;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    align-self: stretch;
+    padding-inline: clamp(1rem, 4cqw, 2.5rem);
+  }
+
+  .sc-slide-quiz-surface-authoring-view {
+    --sc-authoring-node-flow-gap: 0;
+
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .sc-slide-quiz-surface-authoring-view [data-surface-quiz] {
+    display: contents;
+  }
+
+  .sc-app-slide-quiz__authoring-rail,
+  .sc-app-slide-quiz__summary,
+  .sc-slide-quiz-surface-authoring-view .sc-app-quiz__strip,
+  .sc-slide-quiz-surface-authoring-view .sc-app-quiz__stage-meta,
+  .sc-slide-quiz-surface-authoring-view .sc-app-quiz__empty,
+  .sc-slide-quiz-surface-authoring-view [data-surface-assessment-question] {
+    box-sizing: border-box;
+    min-inline-size: 0;
+  }
+
+  .sc-app-slide-quiz__authoring-rail {
+    position: relative;
+    z-index: 3;
+    display: grid;
+    min-block-size: 3.75rem;
+    grid-column: 1;
+    grid-row: 1;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .sc-app-slide-quiz__authoring-rail[data-quiz-density="dense"]
+    :is(.sc-app-slide-quiz__summary-meta, .sc-app-quiz__stage-meta-left, .sc-app-quiz__strip-type) {
+    display: none;
+  }
+
+  .sc-slide-quiz-surface-authoring-view[data-surface-header="on"]
+    .sc-app-slide-quiz__authoring-rail {
+    margin-block-start: 3.75rem;
+  }
+
+  .sc-app-slide-quiz__summary {
+    display: flex;
+    min-block-size: 2.75rem;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .sc-app-slide-quiz__summary-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sc-app-slide-quiz__summary-title {
+    font-weight: 700;
+  }
+
+  .sc-app-slide-quiz__summary-meta {
+    min-inline-size: 0;
+    margin-inline-start: auto;
+  }
+
+  .sc-slide-quiz-surface-authoring-view .sc-app-quiz__strip {
+    display: grid;
+    min-inline-size: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    padding-block: 0.5rem;
+    overflow: hidden;
+  }
+
+  .sc-slide-quiz-surface-authoring-view .sc-app-quiz__strip-sortable-items {
+    display: flex;
+    min-inline-size: 0;
+    overflow-x: auto;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    overscroll-behavior-inline: contain;
+  }
+
+  .sc-slide-quiz-surface-authoring-view .sc-app-quiz__strip-pill,
+  .sc-slide-quiz-surface-authoring-view .sc-app-quiz__strip-button,
+  .sc-slide-quiz-surface-authoring-view .sc-app-quiz__strip-add,
+  .sc-slide-quiz-surface-authoring-view .sc-app-quiz__strip-scroll {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .sc-slide-quiz-surface-authoring-view .sc-app-quiz__strip-pill {
+    flex: 0 0 auto;
+    align-items: stretch;
+  }
+
+  .sc-slide-quiz-surface-authoring-view .sc-app-quiz__stage-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-block: 0.5rem;
+  }
+
+  .sc-slide-quiz-surface-authoring-view
+    :is(.sc-app-quiz__stage-meta-left, .sc-app-quiz__stage-meta-actions) {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .sc-slide-quiz-surface-authoring-view [data-surface-assessment-question] {
+    block-size: 100%;
+    min-block-size: 0;
+    grid-column: 1;
+    grid-row: 2;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    margin: 0 !important;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .sc-slide-quiz-surface-authoring-view
+    [data-surface-quiz]
+    [data-slot="assessment-actions-group"]
+    .sc-assessment-control-layout__submission {
+    display: none;
+  }
+
+  .sc-slide-quiz-surface-authoring-view .sc-app-quiz__empty {
+    display: flex;
+    min-block-size: 0;
+    grid-column: 1;
+    grid-row: 2;
+    flex-direction: column;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .sc-slide-quiz-surface-authoring-view .sc-app-quiz__empty-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  }
+
+  .sc-slide-quiz-surface-authoring-view .sc-app-quiz__empty-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  @container (max-width: 46rem) {
+    .sc-app-slide-quiz__summary-meta,
+    .sc-slide-quiz-surface-authoring-view .sc-app-quiz__stage-meta-left {
+      display: none;
+    }
+  }
+
+  @container (max-width: 46rem) {
+    .sc-slide-quiz-surface-runtime-view [data-surface-quiz] [data-slot="assessment-actions-group"] {
+      inline-size: 42%;
+    }
+
+    .sc-course-slide-quiz__progress-label,
+    .sc-course-slide-quiz__action-dock .sc-course-quiz__runtime-meta {
+      display: none;
+    }
+  }
+
+  @container (max-width: 34rem) {
+    .sc-course-slide-quiz__action-dock {
+      gap: 0.375rem;
+    }
+
+    .sc-slide-quiz-surface-runtime-view [data-surface-quiz] [data-slot="assessment-actions-group"] {
+      display: none;
+    }
+
+    .sc-course-slide-quiz__progress {
+      display: none;
+    }
+
+    .sc-course-slide-quiz__actions {
+      grid-column: 1 / -1;
+    }
+  }
+}
+
+@media (forced-colors: active) {
+  .sc-course-slide-quiz__action-dock,
+  .sc-app-slide-quiz__summary {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-slide-quiz-surface-view *,
+  .sc-slide-quiz-surface-view *::before,
+  .sc-slide-quiz-surface-view *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

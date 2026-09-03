@@ -9,7 +9,7 @@ import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import {
   resolveScaffoldCapabilities,
-  type ResolvedBlockCapabilities,
+  type ResolvableBlockCapability,
 } from "@/composition/model/resolved-scaffold-capabilities";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
 import {
@@ -23,7 +23,6 @@ import {
 import { CourseDocumentNode, DocumentNode, createCourseSectionNode } from "@/document/model/nodes";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineBlock } from "@/editor/blocks/block-definition";
-import { createBlockRegistry } from "@/editor/blocks/block-registry";
 
 import {
   canDeleteSurface,
@@ -43,10 +42,6 @@ import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/s
 const STABLE_ID_PATTERN = /^[0-9A-Z_a-z-]{12}$/;
 const FIRST_CREATED_SURFACE_ID = createEmbeddedNodeId();
 const SECOND_CREATED_SURFACE_ID = createEmbeddedNodeId();
-const EMPTY_BLOCK_CAPABILITIES: ResolvedBlockCapabilities = Object.freeze({
-  registry: createBlockRegistry([]),
-  duplication: Object.freeze({ getByNodeType: () => undefined, hasNodeType: () => false }),
-});
 
 const TestCopyFixtureNode = Node.create({
   name: "copy_fixture",
@@ -109,14 +104,11 @@ function courseDocument(
 function makeEditor(
   mode: "page" | "slideshow" | "branching",
   surfaces: JSONContent[],
-  mountedBlocks: ResolvedBlockCapabilities = EMPTY_BLOCK_CAPABILITIES,
+  blockCapabilities: readonly ResolvableBlockCapability[] = [],
   withHistory = false,
 ): Editor {
   const capabilities = resolveScaffoldCapabilities({
-    blockCapabilities: mountedBlocks.registry.definitions.map((definition) => {
-      const duplication = mountedBlocks.duplication.getByNodeType(definition.nodeType);
-      return duplication ? { definition, duplication } : { definition };
-    }),
+    blockCapabilities,
     layoutDefinitions: [],
     surfaceDefinitions: [pageDefaultSurfaceDefinition, slideCoverSurfaceDefinition],
   });
@@ -294,20 +286,17 @@ describe("surface document commands", () => {
   });
 
   it("routes nested Blocks through mounted owners while duplicating a Surface", () => {
-    const duplication = vi.fn(({ content }) => ({
+    const rewrite = vi.fn(({ content }) => ({
       ...content,
       attrs: { ...content.attrs, data: { copiedBy: "surface-owner" } },
     }));
-    const blockCapabilities = Object.freeze({
-      registry: createBlockRegistry([
-        defineBlock({ nodeType: "copy_fixture", title: "Copy fixture" }),
-      ]),
-      duplication: Object.freeze({
-        getByNodeType: (nodeType: string) =>
-          nodeType === "copy_fixture" ? duplication : undefined,
-        hasNodeType: (nodeType: string) => nodeType === "copy_fixture",
-      }),
-    });
+    const definition = defineBlock({ nodeType: "copy_fixture", title: "Copy fixture" });
+    const blockCapabilities = [
+      {
+        definition,
+        identityRewrites: [{ nodeType: definition.nodeType, rewrite }],
+      },
+    ];
     const editor = makeEditor(
       "slideshow",
       [
@@ -324,7 +313,7 @@ describe("surface document commands", () => {
     expect(duplicateSurface(editor, "surface00001")).toBe(true);
 
     const duplicatedBlock = surfaces(editor)[1]?.content?.[0];
-    expect(duplication).toHaveBeenCalledOnce();
+    expect(rewrite).toHaveBeenCalledOnce();
     expect(duplicatedBlock?.attrs?.["data"]).toEqual({ copiedBy: "surface-owner" });
     editor.destroy();
   });

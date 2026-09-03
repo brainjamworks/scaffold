@@ -11,6 +11,8 @@ import {
   BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
 
+import { fullSlideQuestionStageAttributes } from "./full-slide-question-stage";
+
 export const SURFACE_MULTIPLE_CHOICE_QUESTION_NODE_TYPE = "surface_multiple_choice_question";
 
 export interface SurfaceMultipleChoiceQuestionNodeOptions {
@@ -62,10 +64,14 @@ export function createSurfaceMultipleChoiceQuestionNode(
     renderHTML({ HTMLAttributes }) {
       return [
         "div",
-        mergeAttributes(HTMLAttributes, {
-          "data-node": SURFACE_MULTIPLE_CHOICE_QUESTION_NODE_TYPE,
-          "data-surface-assessment-question": "",
-        }),
+        mergeAttributes(
+          HTMLAttributes,
+          {
+            "data-node": SURFACE_MULTIPLE_CHOICE_QUESTION_NODE_TYPE,
+            "data-surface-assessment-question": "",
+          },
+          fullSlideQuestionStageAttributes(SURFACE_MULTIPLE_CHOICE_QUESTION_NODE_TYPE),
+        ),
         0,
       ];
     },

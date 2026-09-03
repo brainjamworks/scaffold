@@ -7,7 +7,7 @@ import {
 import type { JSONContent } from "@tiptap/core";
 
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { assessmentControlDefinition } from "@/editor/blocks/assessment/shared/model/assessment-control-definition";
+import { assessmentControlDefinition } from "@/editor/assessment/shared/model/assessment-control-definition";
 import {
   projectDropdownAssessment,
   projectDropdownInteraction,
@@ -19,28 +19,25 @@ import {
   readAttrs,
   readContent,
   readStringAttr,
-} from "@/editor/blocks/assessment/shared/publication/projection";
+} from "@/editor/assessment/shared/publication/projection";
 import { SurfaceSettingsSchema } from "@/schemas/course-document";
 import { createSurfaceAssessmentTargets } from "../../assessment/surface-assessment-target";
 import { SURFACE_DROPDOWN_QUESTION_NODE_TYPE } from "../../assessment/surface-dropdown-question-node";
+import { matchFixedSurfaceChildrenFromJSON } from "../../policies/surface-fixed-structure";
 import { createSurfaceDocumentSemantics } from "../../surface-document-semantics";
 import { DEFAULT_SURFACE_SETTINGS } from "../../surface-settings";
-import type { SurfaceVariantDefinition } from "../../surface-variant-definition";
+import type { FixedSurfaceChild, SurfaceVariantDefinition } from "../../surface-variant-definition";
 
 export const DEFAULT_SLIDE_DROPDOWN_QUESTION_SURFACE_SETTINGS =
   SurfaceSettingsSchema.parse(DEFAULT_SURFACE_SETTINGS);
 
 const SLIDE_DROPDOWN_QUESTION_VARIANT_ID = "slide-dropdown-question";
+const SLIDE_DROPDOWN_QUESTION_FIXED_CHILDREN = [
+  { type: SURFACE_DROPDOWN_QUESTION_NODE_TYPE },
+] as const satisfies readonly FixedSurfaceChild[];
 
 function projectSurfaceDropdownTargets(surface: JSONContent) {
-  const content = readContent(surface);
-  const questions = content.filter((child) => child.type === SURFACE_DROPDOWN_QUESTION_NODE_TYPE);
-  const question = content.length === 1 && questions.length === 1 ? questions[0] : undefined;
-  if (!question) {
-    throw new Error(
-      `Surface "${SLIDE_DROPDOWN_QUESTION_VARIANT_ID}" must contain exactly one Dropdown question.`,
-    );
-  }
+  const question = resolveDropdownQuestion(surface);
 
   const assessmentTargetId = readStringAttr(question, "id");
   if (!assessmentTargetId) {
@@ -70,18 +67,27 @@ function projectSurfaceDropdownTargets(surface: JSONContent) {
 }
 
 function projectLearnerDropdownSurface(surface: JSONContent): JSONContent {
+  const question = resolveDropdownQuestion(surface);
   return {
     ...cloneJsonNodeWithoutContent(surface),
     ...(surface.content
       ? {
           content: readContent(surface).map((child) =>
-            child.type === SURFACE_DROPDOWN_QUESTION_NODE_TYPE
-              ? projectDropdownLearnerNode(child)
-              : child,
+            child === question ? projectDropdownLearnerNode(child) : child,
           ),
         }
       : {}),
   };
+}
+
+function resolveDropdownQuestion(surface: JSONContent): JSONContent {
+  const result = matchFixedSurfaceChildrenFromJSON(surface, SLIDE_DROPDOWN_QUESTION_FIXED_CHILDREN);
+  if (!result.exact) {
+    throw new Error(
+      `Surface "${SLIDE_DROPDOWN_QUESTION_VARIANT_ID}" must contain exactly one Dropdown question.`,
+    );
+  }
+  return result.children[0]!;
 }
 
 export const slideDropdownQuestionSurfaceDefinition = {
@@ -107,7 +113,7 @@ export const slideDropdownQuestionSurfaceDefinition = {
   }),
   control: assessmentControlDefinition,
   structurePolicy: {
-    fixedChildren: [{ type: SURFACE_DROPDOWN_QUESTION_NODE_TYPE }],
+    fixedChildren: SLIDE_DROPDOWN_QUESTION_FIXED_CHILDREN,
     allowRootInsertion: false,
   },
   assessmentTargets: {

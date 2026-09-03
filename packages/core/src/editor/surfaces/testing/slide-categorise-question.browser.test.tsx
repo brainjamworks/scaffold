@@ -8,6 +8,7 @@ import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/cre
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { projectCategoriseLearnerNode } from "@/editor/blocks/assessment/categorise/assessment";
 import { slideCategoriseQuestionSurfaceDefinition } from "@/editor/surfaces/model/templates/assessment/slide-categorise-question";
+import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
 import "@/styles/globals.css";
 
@@ -196,27 +197,43 @@ function categoriseQuestionDocument(): JSONContent {
   });
   const question = surface.content?.[0];
   if (!question) throw new Error("Expected Categorise Question Surface content.");
+  const document = createScaffoldDocumentContent({
+    mode: "slideshow",
+    surfaceId: "surface00001",
+    initialCourseSectionTitle: "Introduction",
+  });
+  const courseDocument = document.content?.[0];
+  const section = courseDocument?.content?.find((child) => child.type === "courseSection");
+  if (courseDocument?.type !== "courseDocument" || !section) {
+    throw new Error("Expected a Slideshow document fixture.");
+  }
 
-  return {
-    type: "doc",
-    content: [
-      {
-        type: "courseDocument",
-        attrs: { mode: "slideshow" },
-        content: [
-          {
-            ...surface,
-            content: [
-              projectCategoriseLearnerNode({
-                ...question,
-                attrs: { ...question.attrs, id: "target000001" },
-              }),
-            ],
-          },
-        ],
-      },
-    ],
-  };
+  courseDocument.content = [
+    section,
+    {
+      ...surface,
+      content: [
+        projectCategoriseLearnerNode({
+          ...question,
+          attrs: { ...question.attrs, id: "target000001" },
+          content: (question.content ?? []).map((child) =>
+            child.type === "assessment_prompt"
+              ? {
+                  ...child,
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Sort each animal into its category." }],
+                    },
+                  ],
+                }
+              : child,
+          ),
+        }),
+      ],
+    },
+  ];
+  return document;
 }
 
 function requiredElement<ElementType extends Element>(

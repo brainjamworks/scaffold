@@ -1,0 +1,67 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-slide-quiz-surface-view {
+  background: var(--gray-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-slide-quiz__action-dock {
+  border-block-start: var(--sc-course-author-stroke-width) solid var(--gray-a5);
+  background: var(--gray-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-slide-quiz-surface-runtime-view
+  [data-surface-quiz]
+  [data-slot="assessment-actions-group"] {
+  border-block-start: 0;
+  background: transparent;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-slide-quiz__progress {
+  color: var(--gray-11);
+  font-size: calc(var(--font-size-2) * var(--sc-course-author-text-scale));
+  line-height: var(--line-height-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-slide-quiz__progress-label {
+  color: var(--gray-12);
+  font-weight: 700;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-slide-quiz__progress-position {
+  padding: 0.2rem 0.45rem;
+  border: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+  border-radius: var(--radius-2);
+  background: var(--gray-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-slide-quiz__state {
+  background: var(--gray-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-slide-quiz__state-title {
+  color: var(--gray-12);
+  font-size: calc(var(--font-size-7) * var(--sc-course-author-text-scale));
+  line-height: var(--line-height-7);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-slide-quiz__state-copy {
+  margin-block-start: 0.75rem;
+  color: var(--gray-11);
+  font-size: calc(var(--font-size-4) * var(--sc-course-author-text-scale));
+  line-height: var(--line-height-4);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-slide-quiz-surface-runtime-view
+  [data-slot="assessment-prompt"] {
+  border-block-end: var(--sc-course-author-stroke-width) solid var(--gray-a5);
+  background: var(--gray-2);
+}
+
+@media (forced-colors: active) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    :is(.sc-course-slide-quiz__action-dock, .sc-course-slide-quiz__progress-position) {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+}

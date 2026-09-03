@@ -6,22 +6,23 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-fill-blanks-slide-surface-view
+  [data-full-slide-question-family="fill-blanks"]
   .sc-course-fill-blanks__body {
   font-size: calc(1.125rem * var(--sc-course-author-text-scale));
   line-height: calc(2.75rem * var(--sc-course-author-text-scale));
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-fill-blanks-slide-surface-view
+  [data-full-slide-question-family="fill-blanks"]
   .sc-course-fill-blanks__scroll {
   padding: 1.25rem 1.5rem;
-  border-block: 1px solid var(--gray-a6);
-  background: var(--gray-2);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-fill-blanks-slide-surface-view
+  [data-full-slide-question-family="fill-blanks"]
   .sc-course-fill-blank__input {
   min-height: max(2.75rem, calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1)));
   background: var(--color-background);
@@ -125,7 +126,7 @@
 
 @media (forced-colors: active) {
   .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-fill-blanks-slide-surface-view
+    [data-full-slide-question-family="fill-blanks"]
     .sc-course-fill-blank__input {
     border-color: CanvasText;
     background: Canvas;
@@ -160,7 +161,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-fill-blanks-slide-surface-view
+    [data-full-slide-question-family="fill-blanks"]
     .sc-course-fill-blank__input {
     transition: none;
   }

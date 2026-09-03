@@ -7,7 +7,7 @@ import {
 import type { JSONContent } from "@tiptap/core";
 
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { assessmentControlDefinition } from "@/editor/blocks/assessment/shared/model/assessment-control-definition";
+import { assessmentControlDefinition } from "@/editor/assessment/shared/model/assessment-control-definition";
 import {
   projectCategoriseAssessment,
   projectCategoriseInteraction,
@@ -19,30 +19,25 @@ import {
   readAttrs,
   readContent,
   readStringAttr,
-} from "@/editor/blocks/assessment/shared/publication/projection";
+} from "@/editor/assessment/shared/publication/projection";
 import { SurfaceSettingsSchema } from "@/schemas/course-document";
 import { createSurfaceAssessmentTargets } from "../../assessment/surface-assessment-target";
 import { SURFACE_CATEGORISE_QUESTION_NODE_TYPE } from "../../assessment/surface-categorise-question-node";
+import { matchFixedSurfaceChildrenFromJSON } from "../../policies/surface-fixed-structure";
 import { createSurfaceDocumentSemantics } from "../../surface-document-semantics";
 import { DEFAULT_SURFACE_SETTINGS } from "../../surface-settings";
-import type { SurfaceVariantDefinition } from "../../surface-variant-definition";
+import type { FixedSurfaceChild, SurfaceVariantDefinition } from "../../surface-variant-definition";
 
 export const DEFAULT_SLIDE_CATEGORISE_QUESTION_SURFACE_SETTINGS =
   SurfaceSettingsSchema.parse(DEFAULT_SURFACE_SETTINGS);
 
 const SLIDE_CATEGORISE_QUESTION_VARIANT_ID = "slide-categorise-question";
+const SLIDE_CATEGORISE_QUESTION_FIXED_CHILDREN = [
+  { type: SURFACE_CATEGORISE_QUESTION_NODE_TYPE },
+] as const satisfies readonly FixedSurfaceChild[];
 
 function projectSurfaceCategoriseTargets(surface: JSONContent) {
-  const surfaceContent = readContent(surface);
-  const questions = surfaceContent.filter(
-    (child) => child.type === SURFACE_CATEGORISE_QUESTION_NODE_TYPE,
-  );
-  const question = surfaceContent.length === 1 && questions.length === 1 ? questions[0] : undefined;
-  if (!question) {
-    throw new Error(
-      `Surface "${SLIDE_CATEGORISE_QUESTION_VARIANT_ID}" must contain exactly one categorise question.`,
-    );
-  }
+  const question = resolveCategoriseQuestion(surface);
 
   const assessmentTargetId = readStringAttr(question, "id");
   if (!assessmentTargetId) {
@@ -73,18 +68,30 @@ function projectSurfaceCategoriseTargets(surface: JSONContent) {
 }
 
 function projectLearnerCategoriseSurface(surface: JSONContent): JSONContent {
+  const question = resolveCategoriseQuestion(surface);
   return {
     ...cloneJsonNodeWithoutContent(surface),
     ...(surface.content
       ? {
           content: readContent(surface).map((child) =>
-            child.type === SURFACE_CATEGORISE_QUESTION_NODE_TYPE
-              ? projectCategoriseLearnerNode(child)
-              : child,
+            child === question ? projectCategoriseLearnerNode(child) : child,
           ),
         }
       : {}),
   };
+}
+
+function resolveCategoriseQuestion(surface: JSONContent): JSONContent {
+  const result = matchFixedSurfaceChildrenFromJSON(
+    surface,
+    SLIDE_CATEGORISE_QUESTION_FIXED_CHILDREN,
+  );
+  if (!result.exact) {
+    throw new Error(
+      `Surface "${SLIDE_CATEGORISE_QUESTION_VARIANT_ID}" must contain exactly one categorise question.`,
+    );
+  }
+  return result.children[0]!;
 }
 
 function createCategoriseItem() {
@@ -140,7 +147,7 @@ export const slideCategoriseQuestionSurfaceDefinition = {
   }),
   control: assessmentControlDefinition,
   structurePolicy: {
-    fixedChildren: [{ type: SURFACE_CATEGORISE_QUESTION_NODE_TYPE }],
+    fixedChildren: SLIDE_CATEGORISE_QUESTION_FIXED_CHILDREN,
     allowRootInsertion: false,
   },
   assessmentTargets: {

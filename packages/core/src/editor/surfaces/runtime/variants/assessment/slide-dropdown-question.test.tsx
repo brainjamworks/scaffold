@@ -62,6 +62,11 @@ describe("SlideDropdownQuestionSurfaceRuntimeView", () => {
         1,
       );
       expect(
+        document.querySelector(
+          '[data-full-slide-question-stage][data-full-slide-question-family="dropdown"] > [data-assessment-interaction-content]',
+        ),
+      ).not.toBeNull();
+      expect(
         document.querySelector("[data-surface-assessment-interaction-content]"),
       ).not.toBeVisible();
 
@@ -139,14 +144,11 @@ describe("SlideDropdownQuestionSurfaceRuntimeView", () => {
         }),
       );
       expect(await screen.findByRole("button", { name: "Show feedback" })).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
+      fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
       await waitFor(() => {
-        const correctAnswer = document.querySelector<HTMLElement>(
-          ".sc-course-dropdown-select__correct-answer",
+        expect(screen.getByRole("combobox", { name: "Select a planet" }).textContent).toContain(
+          "Earth",
         );
-        expect(correctAnswer).toBeInTheDocument();
-        expect(correctAnswer?.textContent).toContain("Correct answer:");
-        expect(correctAnswer?.textContent).toContain("Earth");
       });
       expect(revealAnswer).toHaveBeenCalledWith(
         expect.objectContaining({ targetId: assessmentTargetId }),

@@ -4,6 +4,7 @@ import type { SurfaceAuthoringViewProps } from "../surface-authoring-view-regist
 import { SurfaceAuthoringFrame } from "./SurfaceAuthoringFrame";
 
 interface AssessmentSlideSurfaceAuthoringFrameProps extends SurfaceAuthoringViewProps {
+  attributes?: Record<string, string | undefined>;
   children?: ReactNode;
   variantClassName: string;
 }

@@ -150,19 +150,19 @@ describe("full-slide Dropdown runtime geometry", () => {
 
   it("keeps forced-colour and reduced-motion rules explicit in both Course themes", () => {
     const flowForced = requiredStyleRule(
-      ".sc-course.sc-course-theme-scaffold-flow-v1 .sc-dropdown-slide-surface-view .sc-course-dropdown-select__trigger",
+      '.sc-course.sc-course-theme-scaffold-flow-v1 [data-full-slide-question-family="dropdown"] .sc-course-dropdown-select__trigger',
       "(forced-colors: active)",
     );
     const flowMotion = requiredStyleRule(
-      ".sc-course.sc-course-theme-scaffold-flow-v1 .sc-dropdown-slide-surface-view .sc-course-dropdown-select__trigger",
+      '.sc-course.sc-course-theme-scaffold-flow-v1 [data-full-slide-question-family="dropdown"] .sc-course-dropdown-select__trigger',
       "(prefers-reduced-motion: reduce)",
     );
     const atlasForced = requiredStyleRule(
-      ".sc-course.sc-course-theme-pocket-atlas-v1 .sc-dropdown-slide-surface-view .sc-course-dropdown-select__trigger",
+      '.sc-course.sc-course-theme-pocket-atlas-v1 [data-full-slide-question-family="dropdown"] .sc-course-dropdown-select__trigger',
       "(forced-colors: active)",
     );
     const atlasMotion = requiredStyleRule(
-      ".sc-course.sc-course-theme-pocket-atlas-v1 .sc-dropdown-slide-surface-view .sc-course-dropdown-select__trigger",
+      '.sc-course.sc-course-theme-pocket-atlas-v1 [data-full-slide-question-family="dropdown"] .sc-course-dropdown-select__trigger',
       "(prefers-reduced-motion: reduce)",
     );
 

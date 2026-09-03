@@ -1,0 +1,97 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  [data-full-slide-question-family="drag-drop"] [data-slot="assessment-prompt"] {
+    max-block-size: 6rem;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .sc-assessment-slide-surface-runtime-view
+    [data-full-slide-question-family="drag-drop"]
+    [data-slot="assessment-prompt"][data-assessment-prompt-empty="true"] {
+    display: none;
+  }
+
+  [data-full-slide-question-family="drag-drop"] [data-assessment-interaction-content] {
+    box-sizing: border-box;
+    display: grid;
+    block-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+    overflow: hidden;
+    padding: clamp(0.75rem, 2cqw, 1.25rem) clamp(1rem, 4cqw, 2.5rem);
+  }
+
+  .sc-slide-drag-drop-question-surface-runtime-view
+    [data-surface-content]
+    [data-node="surface_drag_drop_question"] {
+    display: none;
+  }
+
+  .sc-slide-drag-drop-question-surface-authoring-view [data-node="drag-drop-canvas"] {
+    box-sizing: border-box;
+    display: grid;
+    min-inline-size: 0;
+    min-block-size: 0;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    overflow: auto;
+    padding: clamp(0.75rem, 2cqw, 1.25rem) clamp(1rem, 4cqw, 2.5rem);
+  }
+
+  .sc-slide-drag-drop-question-surface-authoring-view .sc-app-drag-drop-authoring__layout {
+    min-block-size: 18rem;
+    grid-template-columns: minmax(0, 3fr) minmax(13rem, 1fr);
+  }
+
+  .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"] {
+    block-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+    overflow: hidden;
+  }
+
+  .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"]
+    .sc-course-drag-drop-interaction__layout {
+    block-size: 100%;
+    min-block-size: 0;
+    grid-template-columns: minmax(0, 3fr) minmax(14rem, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"]
+    .sc-course-drag-drop-stage {
+    min-block-size: 0;
+    max-block-size: 100%;
+  }
+
+  .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"]
+    .sc-course-drag-drop-tray {
+    min-block-size: 0;
+    max-block-size: 100%;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"]
+    .sc-course-drag-drop-stage
+    [data-spatial-image-surface] {
+    max-inline-size: 100%;
+    max-block-size: 100%;
+  }
+
+  @container (max-width: 46rem) {
+    .sc-slide-drag-drop-question-surface-authoring-view .sc-app-drag-drop-authoring__layout,
+    .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"]
+      .sc-course-drag-drop-interaction__layout {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto;
+    }
+
+    .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"]
+      .sc-course-drag-drop-tray {
+      max-block-size: 10rem;
+    }
+  }
+}

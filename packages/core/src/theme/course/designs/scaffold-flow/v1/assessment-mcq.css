@@ -1,5 +1,5 @@
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-selectable-choice-slide-surface-view
+  [data-full-slide-question-stage]
   .sc-course-selectable-choice-interaction__legend {
   color: var(--gray-11);
   font-family: var(--default-font-family);
@@ -9,13 +9,13 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-selectable-choice-slide-surface-view
+  [data-full-slide-question-stage]
   .sc-course-selectable-choice-interaction__viewport {
   scrollbar-color: var(--gray-a7) transparent;
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-selectable-choice-slide-surface-view
+  [data-full-slide-question-stage]
   :is(
     .sc-course-selectable-choice-interaction__guidance,
     .sc-course-selectable-choice-interaction__limit-status
@@ -27,13 +27,13 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-selectable-choice-slide-surface-view
+  [data-full-slide-question-stage]
   .sc-course-selectable-choice-interaction__limit-status {
   color: var(--accent-11);
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-selectable-choice-slide-surface-view
+  [data-full-slide-question-stage]
   .sc-course-assessment-choice {
   padding-block: var(--space-3);
   border-color: var(--gray-a7);
@@ -41,7 +41,7 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-selectable-choice-slide-surface-view
+  [data-full-slide-question-stage]
   .sc-course-selectable-choice-interaction__ordinal {
   border: var(--sc-course-author-stroke-width) solid var(--gray-a7);
   border-radius: var(--radius-2);
@@ -54,7 +54,7 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-selectable-choice-slide-surface-view
+  [data-full-slide-question-stage]
   .sc-course-assessment-choice[data-selected]:not([data-course-state])
   .sc-course-selectable-choice-interaction__ordinal {
   border-color: var(--accent-a8);
@@ -64,13 +64,13 @@
 
 @media (forced-colors: active) {
   .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-selectable-choice-slide-surface-view
+    [data-full-slide-question-stage]
     .sc-course-assessment-choice {
     border-color: CanvasText;
   }
 
   .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-selectable-choice-slide-surface-view
+    [data-full-slide-question-stage]
     .sc-course-selectable-choice-interaction__ordinal {
     border-color: CanvasText;
     background: Canvas;
@@ -80,7 +80,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-selectable-choice-slide-surface-view
+    [data-full-slide-question-stage]
     .sc-course-assessment-choice {
     transition: none;
   }

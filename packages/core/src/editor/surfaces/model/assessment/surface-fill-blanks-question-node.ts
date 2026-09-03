@@ -11,6 +11,8 @@ import {
   BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
 
+import { fullSlideQuestionStageAttributes } from "./full-slide-question-stage";
+
 export const SURFACE_FILL_BLANKS_QUESTION_NODE_TYPE = "surface_fill_blanks_question";
 
 export interface SurfaceFillBlanksQuestionNodeOptions {
@@ -67,10 +69,14 @@ export function createSurfaceFillBlanksQuestionNode(
     renderHTML({ HTMLAttributes }) {
       return [
         "div",
-        mergeAttributes(HTMLAttributes, {
-          "data-node": SURFACE_FILL_BLANKS_QUESTION_NODE_TYPE,
-          "data-surface-assessment-question": "",
-        }),
+        mergeAttributes(
+          HTMLAttributes,
+          {
+            "data-node": SURFACE_FILL_BLANKS_QUESTION_NODE_TYPE,
+            "data-surface-assessment-question": "",
+          },
+          fullSlideQuestionStageAttributes(SURFACE_FILL_BLANKS_QUESTION_NODE_TYPE),
+        ),
         0,
       ];
     },

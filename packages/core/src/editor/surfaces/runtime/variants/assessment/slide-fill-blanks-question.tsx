@@ -7,14 +7,14 @@ import {
   projectFillBlanksInteraction,
   projectFillBlanksSettings,
 } from "@/editor/blocks/assessment/fill-blanks/assessment";
-import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
-import { countAssessmentHints } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
-import { textBetween } from "@/editor/blocks/assessment/shared/publication/projection";
-import { assessmentResponseName } from "@/editor/blocks/assessment/shared/runtime/assessment-response-name";
+import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
+import { countAssessmentHints } from "@/editor/assessment/shared/model/assessment-prosemirror";
+import { textBetween } from "@/editor/assessment/shared/publication/projection";
+import { assessmentResponseName } from "@/editor/assessment/shared/runtime/assessment-response-name";
 import {
   useAssessmentRuntimeForTarget,
   type AssessmentRuntimeProblemConfig,
-} from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
+} from "@/editor/assessment/shared/runtime/use-assessment-runtime";
 import { SURFACE_FILL_BLANKS_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-fill-blanks-question-node";
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
@@ -25,26 +25,52 @@ import { useAssessmentSurfaceControlBinding } from "./assessment-surface-control
 
 export function SlideFillBlanksQuestionSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const question = surfaceFillBlanksQuestion(props.node);
+
+  return (
+    <AssessmentSlideSurfaceRuntimeFrame
+      {...props}
+      variantClassName="sc-fill-blanks-slide-surface-view sc-fill-blanks-slide-surface-runtime-view sc-slide-fill-blanks-question-surface-view sc-slide-fill-blanks-question-surface-runtime-view"
+    >
+      <FillBlanksFullSlideQuestionPresenter
+        editor={props.editor}
+        question={question}
+        surfaceControlBinding={props}
+      />
+    </AssessmentSlideSurfaceRuntimeFrame>
+  );
+}
+
+export function FillBlanksFullSlideQuestionPresenter({
+  editor,
+  question,
+  surfaceControlBinding,
+}: {
+  editor: SurfaceRuntimeViewProps["editor"];
+  question: PMNode;
+  surfaceControlBinding?: SurfaceRuntimeViewProps;
+  visible?: boolean;
+}) {
+  if (question.type.name !== SURFACE_FILL_BLANKS_QUESTION_NODE_TYPE) {
+    throw new Error("Fill in Blanks presenter requires a private Surface question.");
+  }
   const assessmentTargetId = readAssessmentTargetId(question);
   const config = useMemo(() => createRuntimeConfig(question), [question]);
   const runtime = useAssessmentRuntimeForTarget({ assessmentTargetId, config });
   const store = useAssessmentStoreApi();
   useAssessmentSurfaceControlBinding({
     assessmentTargetId,
-    editor: props.editor,
-    enabled: !runtime.hasUnsafeIdentity && runtime.problem?.context === "standalone",
-    getPos: props.getPos,
-    node: props.node,
+    editor,
+    enabled:
+      Boolean(surfaceControlBinding) &&
+      !runtime.hasUnsafeIdentity &&
+      runtime.problem?.context === "standalone",
+    getPos: surfaceControlBinding?.getPos ?? (() => undefined),
+    node: surfaceControlBinding?.node ?? question,
     problemId: runtime.problemId,
     store,
   });
 
-  return (
-    <AssessmentSlideSurfaceRuntimeFrame
-      {...props}
-      variantClassName="sc-fill-blanks-slide-surface-view sc-fill-blanks-slide-surface-runtime-view sc-slide-fill-blanks-question-surface-view sc-slide-fill-blanks-question-surface-runtime-view"
-    />
-  );
+  return null;
 }
 
 function createRuntimeConfig(question: PMNode): AssessmentRuntimeProblemConfig {

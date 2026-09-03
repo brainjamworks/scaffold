@@ -52,12 +52,25 @@ describe("full-slide Fill in Blanks authoring", () => {
       surface,
       ".sc-app-fill-blanks-slide__create-blank",
     );
+    const authoringActions = requiredElement<HTMLElement>(
+      surface,
+      ".sc-app-fill-blanks-slide__authoring-actions",
+    );
+    const selectionGuidance = requiredElement<HTMLElement>(
+      authoringActions,
+      ".sc-app-fill-blanks-slide__selection-guidance",
+    );
 
     expect(body.getBoundingClientRect().width).toBeGreaterThan(
       surface.getBoundingClientRect().width * 0.8,
     );
+    expect(authoringActions.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      body.getBoundingClientRect().top + 1,
+    );
     expect(createBlank.querySelector("[class^='sc-course-']")).toBeNull();
     expect(createBlank).toBeDisabled();
+    expect(selectionGuidance).toHaveTextContent("Select text in the passage to create a blank.");
+    expect(createBlank).toHaveAttribute("aria-describedby", selectionGuidance.id);
 
     const range = textRange(editor, "evidence");
     editor.commands.setTextSelection(range);

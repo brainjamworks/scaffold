@@ -60,6 +60,11 @@ describe("SlideSequencingQuestionSurfaceRuntimeView", () => {
       expect(interactions).toHaveLength(1);
       expect(interactions[0]).toHaveAttribute("data-sequencing-presentation", "full-slide");
       expect(document.querySelector('[data-sequencing-presentation="inline"]')).toBeNull();
+      expect(
+        document.querySelector(
+          '[data-full-slide-question-stage][data-full-slide-question-family="sequencing"] > [data-assessment-interaction-content]',
+        ),
+      ).not.toBeNull();
       expect(document.querySelectorAll(".sc-course-sequencing__position")).toHaveLength(3);
       expect(document.querySelector("[data-sequencing-presentation]")).toHaveAttribute(
         "data-sequencing-density",
@@ -157,7 +162,7 @@ describe("SlideSequencingQuestionSurfaceRuntimeView", () => {
       );
       await waitFor(() => {
         expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: "Show correct answer" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Show answer" })).toBeInTheDocument();
         expect(document.querySelector(".sc-course-sequencing__state-cue")).toBeNull();
         expect(document.querySelector('[data-course-state="incorrect"]')).not.toBeNull();
       });
@@ -168,10 +173,13 @@ describe("SlideSequencingQuestionSurfaceRuntimeView", () => {
       });
       fireEvent.click(screen.getByRole("button", { name: "Submit" }));
       await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
-      fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
+      fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
 
       await waitFor(() => expect(revealAnswer).toHaveBeenCalledOnce());
-      expect(screen.getByRole("status", { name: "Answer revealed" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Show answer" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
     } finally {
       editor.destroy();
     }

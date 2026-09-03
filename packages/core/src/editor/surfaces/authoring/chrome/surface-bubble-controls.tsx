@@ -218,7 +218,10 @@ export function SurfaceMenuBubbleContent({
           pos={snapshot.surfacePos}
           targetId={snapshot.surfaceId ?? null}
           attr={quickMenu.attr}
-          {...(quickMenu.schema ? { schema: quickMenu.schema } : {})}
+          schema={quickMenu.schema}
+          {...(quickMenu.editSchema ? { editSchema: quickMenu.editSchema } : {})}
+          {...(quickMenu.read ? { read: quickMenu.read } : {})}
+          {...(quickMenu.apply ? { apply: quickMenu.apply } : {})}
           controls={quickMenu.controls}
         />
       ) : null}

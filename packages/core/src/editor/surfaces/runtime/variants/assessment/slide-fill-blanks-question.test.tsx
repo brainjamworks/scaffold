@@ -57,6 +57,11 @@ describe("SlideFillBlanksQuestionSurfaceRuntimeView", () => {
       expect(
         document.querySelectorAll('[data-fill-blanks-presentation="full-slide"]'),
       ).toHaveLength(1);
+      expect(
+        document.querySelector(
+          '[data-node="surface_fill_blanks_question"][data-full-slide-question-family="fill-blanks"]',
+        ),
+      ).toHaveAttribute("data-full-slide-question-stage");
       expect(document.querySelectorAll('.sc-course-fill-blank__input[type="text"]')).toHaveLength(
         2,
       );
@@ -168,7 +173,7 @@ describe("SlideFillBlanksQuestionSurfaceRuntimeView", () => {
       expect(
         screen.getByRole("textbox", { name: "Blank 1 of 2, first term" }),
       ).toHaveAccessibleDescription("Submitted answer, incorrect. Feedback available");
-      fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
+      fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
       await waitFor(() => {
         expect(screen.getByRole("textbox", { name: "Blank 1 of 2, first term" })).toHaveValue(
           longRevealedAnswer,

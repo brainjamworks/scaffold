@@ -13,7 +13,7 @@ import {
   getControlBindingRegistryForEditor,
   type ControlEvent,
 } from "@/document/control-binding";
-import { assessmentControlDefinition } from "@/editor/blocks/assessment/shared/model/assessment-control-definition";
+import { assessmentControlDefinition } from "@/editor/assessment/shared/model/assessment-control-definition";
 import {
   createAssessmentStore,
   scopeAssessmentProblemId,

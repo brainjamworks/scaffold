@@ -61,6 +61,11 @@ describe("SlideMultiselectQuestionSurfaceRuntimeView", () => {
       expect(
         document.querySelectorAll('[data-multiselect-presentation="full-slide"]'),
       ).toHaveLength(1);
+      expect(
+        document.querySelector(
+          '[data-full-slide-question-stage][data-full-slide-question-family="multiselect"] > [data-assessment-interaction-content]',
+        ),
+      ).not.toBeNull();
 
       expect(
         setAssessmentResponseField(assessmentStore, problemId, "choices", [
@@ -147,11 +152,14 @@ describe("SlideMultiselectQuestionSurfaceRuntimeView", () => {
       expect(
         await screen.findByRole("button", { name: "Show feedback for Earth" }),
       ).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
+      fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
       await waitFor(() => {
-        expect(choiceRow(mercury)).toHaveAttribute("data-result-state", "missed");
+        expect(choiceRow(mercury)).toHaveAttribute("data-result-state", "correct");
         expect(choiceRow(venus)).toHaveAttribute("data-result-state", "correct");
-        expect(choiceRow(earth)).toHaveAttribute("data-result-state", "incorrect");
+        expect(choiceRow(earth)).not.toHaveAttribute("data-result-state");
+        expect(mercury).toBeChecked();
+        expect(venus).toBeChecked();
+        expect(earth).not.toBeChecked();
       });
       expect(revealAnswer).toHaveBeenCalledWith(
         expect.objectContaining({ targetId: assessmentTargetId }),
