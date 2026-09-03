@@ -1,9 +1,15 @@
 import type { Editor } from "@tiptap/react";
-import { z, type ZodTypeAny } from "zod";
 
-import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
-import { updateNodeSettingsChecked } from "@/document/model/commands/settings";
-import type { QuickControlDescriptor } from "@/editor/configuration/quick-menu";
+import {
+  applyConfigurationDraft,
+  readConfigurationDraft,
+  type ConfigurationAccessDefinition,
+} from "@/editor/configuration/configuration-access";
+import type {
+  QuickControlDescriptor,
+  QuickMenuDefinition,
+} from "@/editor/configuration/quick-menu";
+import { useAuthoringNodeTarget } from "@/editor/prosemirror/authoring-target";
 
 import { MenuControls } from "./MenuControls";
 
@@ -12,97 +18,71 @@ interface ConfigurationMenuControlsProps {
   nodeType: string;
   pos: number | null;
   targetId: string | null;
-  attr: string;
-  schema?: ZodTypeAny;
+  attr: QuickMenuDefinition["attr"];
+  schema: QuickMenuDefinition["schema"];
+  editSchema?: QuickMenuDefinition["editSchema"];
+  read?: QuickMenuDefinition["read"];
+  apply?: QuickMenuDefinition["apply"];
   controls: readonly QuickControlDescriptor[];
 }
 
 export function ConfigurationMenuControls({
   editor,
   nodeType,
-  pos,
   targetId,
   attr,
   schema,
+  editSchema,
+  read,
+  apply,
   controls,
 }: ConfigurationMenuControlsProps) {
+  const target = useAuthoringNodeTarget(editor, targetId ? { id: targetId, nodeType } : null);
   if (controls.length === 0) return null;
 
-  const targetAvailable = pos !== null && targetId !== null && isValidEditorDocPos(editor, pos);
-  const surfaceValue = readSurfaceValue(editor, pos, nodeType, attr);
-  const updateValue = (nextValue: Record<string, unknown>) =>
-    writeSurfaceValue({
-      editor,
-      nodeType,
-      targetId,
-      attr,
-      ...(schema ? { schema } : {}),
-      value: nextValue,
+  const definition = {
+    attr,
+    schema,
+    ...(editSchema ? { editSchema } : {}),
+    ...(read ? { read } : {}),
+    ...(apply ? { apply } : {}),
+  } satisfies ConfigurationAccessDefinition;
+  const resolved = target?.read() ?? null;
+  const value = resolved ? toRecord(readConfigurationDraft({ definition, target: resolved })) : {};
+  const updateName = (name: string, next: unknown) => {
+    if (!target) return false;
+
+    const checked = target.transact((tr, latestTarget) => {
+      const latestValue = toRecord(readConfigurationDraft({ definition, target: latestTarget }));
+      const prunedValue = pruneEmptyRecords(writeName(latestValue, name, next));
+      const draftSchema = definition.editSchema ?? definition.schema;
+      const candidate =
+        isEmptyRecord(prunedValue) && draftSchema.safeParse(prunedValue).success === false
+          ? null
+          : prunedValue;
+
+      return applyConfigurationDraft({
+        definition,
+        tr,
+        target: latestTarget,
+        value: candidate,
+      });
     });
-  const updateName = (name: string, next: unknown) =>
-    updateValue(writeName(readSurfaceValue(editor, pos, nodeType, attr), name, next));
+
+    return checked.ok;
+  };
   return (
     <MenuControls
       controls={controls}
-      value={surfaceValue}
-      disabled={!targetAvailable}
+      value={value}
+      disabled={resolved === null}
       onValueChange={updateName}
     />
   );
 }
 
-function readSurfaceValue(
-  editor: Editor,
-  pos: number | null,
-  nodeType: string,
-  attr: string,
-): Record<string, unknown> {
-  if (pos === null) return {};
-  if (!isValidEditorDocPos(editor, pos)) return {};
-  const node = editor.state.doc.nodeAt(pos);
-  if (!node || node.type.name !== nodeType) return {};
-  const value = node?.attrs[attr];
+function toRecord(value: unknown): Record<string, unknown> {
   return isRecord(value) ? value : {};
-}
-
-interface WriteSurfaceValueInput {
-  editor: Editor;
-  nodeType: string;
-  targetId: string | null;
-  attr: string;
-  schema?: ZodTypeAny;
-  value: Record<string, unknown>;
-}
-
-function writeSurfaceValue({
-  editor,
-  nodeType,
-  targetId,
-  attr,
-  schema,
-  value,
-}: WriteSurfaceValueInput): boolean {
-  if (!targetId) return false;
-  const prunedValue = pruneEmptyRecords(value);
-  const candidate =
-    schema && isEmptyRecord(prunedValue) && schema.safeParse(prunedValue).success === false
-      ? null
-      : prunedValue;
-  const parsed = schema ? schema.safeParse(candidate) : { success: true, data: candidate };
-  if (!parsed.success) return false;
-
-  const result = updateNodeSettingsChecked({
-    tr: editor.state.tr,
-    nodeId: targetId,
-    nodeType,
-    attr,
-    schema: schema ?? passthroughSurfaceSchema,
-    value: parsed.data,
-  });
-  if (!result.ok) return false;
-
-  editor.view.dispatch(result.tr);
-  return true;
 }
 
 function writeName(
@@ -157,5 +137,3 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isEmptyRecord(value: Record<string, unknown>): boolean {
   return Object.keys(value).length === 0;
 }
-
-const passthroughSurfaceSchema = z.record(z.string(), z.unknown());

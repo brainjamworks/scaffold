@@ -34,6 +34,10 @@ const SAVE_VARIANT: Record<NonNullable<HeaderProps["saveState"]>, PillVariant> =
   error: "error",
 };
 
+export function canonicalizeDocumentTitle(title: string): string {
+  return title.trim() || "Untitled";
+}
+
 export function Header({
   title,
   onTitleChange,
@@ -59,6 +63,10 @@ export function Header({
           type="text"
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
+          onBlur={(e) => {
+            const canonicalTitle = canonicalizeDocumentTitle(e.currentTarget.value);
+            if (canonicalTitle !== e.currentTarget.value) onTitleChange(canonicalTitle);
+          }}
           placeholder="Untitled"
           aria-label="Document title"
           className="sc-editor-header-title"

@@ -275,7 +275,7 @@ export function BlockInteractionBubbleMenuContent({
   return (
     <>
       <DuplicateBlock
-        blockDuplications={getScaffoldCapabilitiesForEditor(editor).blocks.duplication}
+        identityRewrites={getScaffoldCapabilitiesForEditor(editor).contentIdentity.rewrites}
         editor={editor}
         pos={pos}
       />
@@ -302,7 +302,7 @@ export function BlockInteractionBubbleMenuContent({
           <MenuControls controls={authoringControls} />
         </>
       ) : null}
-      {quickMenuControls.length > 0 ? (
+      {quickMenu && quickMenuControls.length > 0 ? (
         <>
           <MenuDivider />
           <ConfigurationMenuControls
@@ -310,8 +310,11 @@ export function BlockInteractionBubbleMenuContent({
             nodeType={nodeType}
             pos={pos}
             targetId={blockId}
-            attr={quickMenu?.attr ?? "options"}
-            {...(quickMenu?.schema ? { schema: quickMenu.schema } : {})}
+            attr={quickMenu.attr}
+            schema={quickMenu.schema}
+            {...(quickMenu.editSchema ? { editSchema: quickMenu.editSchema } : {})}
+            {...(quickMenu.read ? { read: quickMenu.read } : {})}
+            {...(quickMenu.apply ? { apply: quickMenu.apply } : {})}
             controls={quickMenuControls}
           />
         </>

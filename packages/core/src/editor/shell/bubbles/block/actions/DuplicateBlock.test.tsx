@@ -31,7 +31,7 @@ const TestMcqNode = Node.create({
   },
 });
 
-const EMPTY_BLOCK_DUPLICATIONS = Object.freeze({
+const EMPTY_IDENTITY_REWRITES = Object.freeze({
   getByNodeType: () => undefined,
   hasNodeType: () => false,
 });
@@ -162,7 +162,7 @@ describe("DuplicateBlock", () => {
 
     render(
       <TooltipProvider>
-        <DuplicateBlock blockDuplications={EMPTY_BLOCK_DUPLICATIONS} editor={editor} pos={0} />
+        <DuplicateBlock identityRewrites={EMPTY_IDENTITY_REWRITES} editor={editor} pos={0} />
       </TooltipProvider>,
     );
     await userEvent.click(screen.getByRole("button", { name: "Duplicate block" }));
@@ -187,7 +187,7 @@ describe("DuplicateBlock", () => {
 
     render(
       <TooltipProvider>
-        <DuplicateBlock blockDuplications={EMPTY_BLOCK_DUPLICATIONS} editor={editor} pos={0} />
+        <DuplicateBlock identityRewrites={EMPTY_IDENTITY_REWRITES} editor={editor} pos={0} />
       </TooltipProvider>,
     );
     await userEvent.click(screen.getByRole("button", { name: "Duplicate block" }));
@@ -211,23 +211,23 @@ describe("DuplicateBlock", () => {
     editor.destroy();
   });
 
-  it("routes controlled duplication through the mounted Block owner", async () => {
+  it("routes controlled duplication through the registered content owner", async () => {
     const editor = makeGalleryEditor();
-    const duplication = vi.fn(({ content }) => ({
+    const rewrite = vi.fn(({ content }) => ({
       ...content,
       attrs: {
         ...content.attrs,
         data: { rewrittenBy: "mounted-owner" },
       },
     }));
-    const blockDuplications = Object.freeze({
-      getByNodeType: (nodeType: string) => (nodeType === "gallery" ? duplication : undefined),
+    const identityRewrites = Object.freeze({
+      getByNodeType: (nodeType: string) => (nodeType === "gallery" ? rewrite : undefined),
       hasNodeType: (nodeType: string) => nodeType === "gallery",
     });
 
     render(
       <TooltipProvider>
-        <DuplicateBlock blockDuplications={blockDuplications} editor={editor} pos={0} />
+        <DuplicateBlock identityRewrites={identityRewrites} editor={editor} pos={0} />
       </TooltipProvider>,
     );
     await userEvent.click(screen.getByRole("button", { name: "Duplicate block" }));
@@ -235,7 +235,7 @@ describe("DuplicateBlock", () => {
     const galleries = ((editor.getJSON().content ?? []) as JSONContent[]).filter(
       (node) => node.type === "gallery",
     );
-    expect(duplication).toHaveBeenCalledOnce();
+    expect(rewrite).toHaveBeenCalledOnce();
     expect(galleries[0]?.attrs?.["data"]).toBeNull();
     expect(galleries[1]?.attrs?.["data"]).toEqual({ rewrittenBy: "mounted-owner" });
 

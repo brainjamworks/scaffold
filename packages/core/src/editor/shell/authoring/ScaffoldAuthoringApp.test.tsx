@@ -3,7 +3,12 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { JSONContent } from "@tiptap/core";
-import { EmbeddedNodeIdSchema, McqSettingsSchema, type EmbeddedNodeId } from "@scaffold/contracts";
+import {
+  EmbeddedNodeIdSchema,
+  McqSettingsSchema,
+  ScaffoldArtifactSchema,
+  type EmbeddedNodeId,
+} from "@scaffold/contracts";
 import { Result } from "better-result";
 import { StrictMode, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -79,6 +84,7 @@ vi.mock("@/editor/shell/chrome/Header", async () => {
   const { createElement } = await import("react");
 
   return {
+    canonicalizeDocumentTitle: (title: string) => title.trim() || "Untitled",
     Header: ({
       actions,
       onTitleChange,
@@ -94,6 +100,12 @@ vi.mock("@/editor/shell/chrome/Header", async () => {
         "header",
         { "data-save-state": saveState },
         createElement("h1", null, title),
+        createElement("input", {
+          "aria-label": "Document title",
+          onChange: (event: { currentTarget: { value: string } }) =>
+            onTitleChange?.(event.currentTarget.value),
+          value: title,
+        }),
         createElement(
           "button",
           { type: "button", onClick: () => onTitleChange?.("Changed title") },
@@ -1777,6 +1789,30 @@ describe("ScaffoldAuthoringApp preview", () => {
       contentA,
       contentC,
     ]);
+  });
+
+  it("materializes Untitled when saving a cleared title before blur", async () => {
+    const user = userEvent.setup();
+    const host = createControlledArtifactHost();
+    const harness = renderSaveCoordinatorHarness(host.saveArtifact);
+    const title = screen.getByRole("textbox", { name: "Document title" });
+
+    await user.clear(title);
+    expect(title).toHaveValue("");
+    expect(title).toHaveFocus();
+
+    const save = harness.saveNow();
+
+    expect(host.requests).toHaveLength(1);
+    expect(host.requests[0]?.payload.artifact.title).toBe("Untitled");
+    expect(ScaffoldArtifactSchema.parse(host.requests[0]?.payload.artifact).title).toBe("Untitled");
+    expect(title).toHaveValue("Untitled");
+    expect(title).toHaveFocus();
+
+    await act(async () => {
+      host.resolve(0, "revision-untitled");
+      await save;
+    });
   });
 
   it("orders title-only autosave behind an in-flight content Save", async () => {

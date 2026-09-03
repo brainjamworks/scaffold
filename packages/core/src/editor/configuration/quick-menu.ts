@@ -2,6 +2,9 @@ import type { Icon } from "@phosphor-icons/react";
 import type { FieldPath, FieldValues } from "react-hook-form";
 import type { ZodTypeAny } from "zod";
 
+import type { ConfigurationRead } from "./configuration-access";
+import type { SettingsSheetApply } from "./settings-sheet";
+
 export type QuickMenuAttrSurface = "data" | "settings" | "options";
 
 export interface QuickMenuSelectOption {
@@ -48,6 +51,9 @@ export type QuickControlDescriptor =
 export interface QuickMenuDefinition {
   attr: QuickMenuAttrSurface;
   schema: ZodTypeAny;
+  editSchema?: ZodTypeAny;
+  read?: ConfigurationRead;
+  apply?: SettingsSheetApply;
   controls: readonly QuickControlDescriptor[];
 }
 

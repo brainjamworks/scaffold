@@ -9,6 +9,8 @@ import type { ResolvedStableNode } from "@/document/model/identity/resolve-stabl
 import type { ButtonVariant } from "@/ui/components/Button/Button";
 import type { PillVariant } from "@/ui/components/app/Pill/Pill";
 
+import type { ConfigurationRead } from "./configuration-access";
+
 export type SettingsSheetAttrSurface = "data" | "settings" | "options";
 export type SettingsSheetFieldName = FieldPath<FieldValues>;
 
@@ -226,6 +228,7 @@ export interface SettingsSheetDefinition {
   editSchema?: ZodTypeAny;
   createInitialDraft?: () => unknown;
   toDraft?: SettingsSheetDraftTransform;
+  read?: ConfigurationRead;
   apply?: SettingsSheetApply;
   title: string;
   description?: string;

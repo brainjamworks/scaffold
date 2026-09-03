@@ -46,6 +46,7 @@ import { interactionOwnerPluginKey } from "@/editor/interactions/targets/prosemi
 import { authoringSlideDividersPluginKey } from "@/editor/surfaces/authoring/AuthoringSlideDividers";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { AppNotificationsProvider } from "@/ui/components/app/AppNotifications/AppNotifications";
 
 import {
   AuthoringDocumentBlockStrip,
@@ -295,13 +296,15 @@ describe("AuthoringDocumentChrome", () => {
     });
 
     const rendered = render(
-      <AuthoringDocumentChrome
-        editable
-        editor={editor}
-        surfaceAuthoringChrome={coreAuthoringComposition.surfaces.chrome}
-      >
-        <EditorContent className="sc-course-document-editor__content" editor={editor} />
-      </AuthoringDocumentChrome>,
+      <AppNotificationsProvider appearance="light">
+        <AuthoringDocumentChrome
+          editable
+          editor={editor}
+          surfaceAuthoringChrome={coreAuthoringComposition.surfaces.chrome}
+        >
+          <EditorContent className="sc-course-document-editor__content" editor={editor} />
+        </AuthoringDocumentChrome>
+      </AppNotificationsProvider>,
     );
 
     const surface = await waitUntil(() => {
@@ -338,7 +341,16 @@ describe("AuthoringDocumentChrome", () => {
     });
     editor.commands.focus();
 
-    expect(document.body.querySelector("[data-surface-menu-trigger]")).toBeNull();
+    const contextSurfaceTrigger = await waitUntil(() => {
+      const element = document.body.querySelector<HTMLButtonElement>(
+        '[data-scaffold-editor-floating-layer-kind="authoring"] [data-surface-menu-trigger]',
+      );
+      if (!element) throw new Error("Expected Surface options from the editable Surface context.");
+      return element;
+    });
+    expect(contextSurfaceTrigger.getAttribute(AUTHORING_ANCHOR_ATTR)).toBe(
+      `surface-menu:${REGION_MENU_SURFACE_ID}`,
+    );
     expect(document.body.querySelector("[data-region-menu-trigger]")).toBeNull();
 
     const ports = createInteractionOwnerCommandPorts(editor.view, builtInBlockRegistry);
@@ -685,10 +697,7 @@ function createSlideshowDocumentJSON({
           surfaceSize: "16x9",
           overflowMode: "clip",
         },
-        content: [
-          { type: "courseSection", attrs: { title: "Introduction" } },
-          surface,
-        ],
+        content: [{ type: "courseSection", attrs: { title: "Introduction" } }, surface],
       },
     ],
   });

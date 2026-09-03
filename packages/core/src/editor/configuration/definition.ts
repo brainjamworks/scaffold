@@ -12,6 +12,7 @@ import type {
   SettingsSheetVisibleWhen,
 } from "./settings-sheet";
 import type { QuickMenuSelectOption } from "./quick-menu";
+import type { ConfigurationRead } from "./configuration-access";
 
 export type ConfigurationAttrSurface = "data" | "settings" | "options";
 export type ConfigurationControlName = FieldPath<FieldValues>;
@@ -175,6 +176,7 @@ export interface ConfigurationDefinition {
   editSchema?: ZodTypeAny;
   createInitialDraft?: () => unknown;
   toDraft?: SettingsSheetDraftTransform;
+  read?: ConfigurationRead;
   apply?: SettingsSheetApply;
   controls: readonly ConfigurationControlDescriptor[];
   collections?: readonly ConfigurationDirectChildCollectionDescriptor[];
@@ -210,14 +212,14 @@ function assertUniqueControlIds(controls: readonly ConfigurationControlDescripto
 
 function assertEditSchemaContract(definition: ConfigurationDefinition): void {
   if (!definition.editSchema) return;
-  if (!definition.toDraft || !definition.apply) {
-    throw new Error("Configuration editSchema requires both toDraft and apply handlers.");
+  if ((!definition.toDraft && !definition.read) || !definition.apply) {
+    throw new Error("Configuration editSchema requires apply and either toDraft or read handlers.");
   }
   const quickMenuControl = definition.controls.find((control) => control.placement?.quickMenu);
-  if (quickMenuControl) {
+  if (quickMenuControl && (!definition.read || !definition.apply)) {
     const id = getConfigurationControlDescriptorId(quickMenuControl);
     throw new Error(
-      `Configuration control "${id}" cannot be placed in the quick menu when editSchema is used.`,
+      `Configuration control "${id}" requires read and apply handlers when editSchema is used in the quick menu.`,
     );
   }
 }

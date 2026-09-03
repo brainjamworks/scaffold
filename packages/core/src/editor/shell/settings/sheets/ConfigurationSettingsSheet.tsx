@@ -10,10 +10,14 @@ import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaff
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import { updateNodeSettingsChecked } from "@/document/model/commands/settings";
 import {
+  applyConfigurationDraft,
+  readConfigurationDraft,
+  type ConfigurationAccessDefinition,
+} from "@/editor/configuration/configuration-access";
+import {
   type NodeSettingsSheetDefinition,
   type SettingsSheetApply,
   type SettingsSheetAttrSurface,
-  type SettingsSheetDraftTransform,
   type SettingsSheetFieldDescriptor,
   type SettingsFormAction,
   type SettingsFormActionEvent,
@@ -55,66 +59,21 @@ export interface ApplySettingsSheetSettingsArgs<T extends ZodTypeAny> {
 
 export type ApplySettingsSheetSettingsResult = { ok: true } | { ok: false; error: string };
 
-export type ParseSettingsSheetDraftResult =
-  | { ok: true; data: unknown }
-  | { ok: false; error: string };
-
 export function applySettingsSheetSettings<T extends ZodTypeAny>(
   args: ApplySettingsSheetSettingsArgs<T>,
 ): ApplySettingsSheetSettingsResult {
   const { schema, attr, target, values, apply } = args;
-  const checked = target.transact((tr, resolved) => {
-    if (apply) {
-      return apply({
-        tr,
-        target: resolved,
-        attr: attr as SettingsSheetAttrSurface,
-        schema,
-        ...(args.editSchema ? { editSchema: args.editSchema } : {}),
-        value: values,
-      });
-    }
-
-    const nodeId = resolved.node.attrs["id"];
-    if (typeof nodeId !== "string") {
-      return {
-        ok: false,
-        issue: { code: "missing_settings_target_id", message: "The settings target has no id." },
-      };
-    }
-    return updateNodeSettingsChecked({
-      tr,
-      nodeId,
-      nodeType: resolved.node.type.name,
-      attr,
-      schema,
-      value: values,
-    });
-  });
+  const definition = {
+    attr: attr as SettingsSheetAttrSurface,
+    schema,
+    ...(args.editSchema ? { editSchema: args.editSchema } : {}),
+    ...(apply ? { apply } : {}),
+  } satisfies ConfigurationAccessDefinition;
+  const checked = target.transact((tr, resolved) =>
+    applyConfigurationDraft({ definition, tr, target: resolved, value: values }),
+  );
   if (!checked.ok) return { ok: false, error: checked.issue.message };
   return { ok: true };
-}
-
-export function parseSettingsSheetDraft<T extends ZodTypeAny>(
-  schema: T,
-  raw: unknown,
-  createInitialDraft?: () => unknown,
-  toDraft?: SettingsSheetDraftTransform,
-): ParseSettingsSheetDraftResult {
-  const draftRaw = toDraft ? toDraft(raw) : raw;
-  const parsed = schema.safeParse(draftRaw ?? {});
-  if (parsed.success) {
-    return { ok: true, data: parsed.data };
-  }
-
-  if ((raw === null || raw === undefined) && createInitialDraft) {
-    const fallback = schema.safeParse(createInitialDraft());
-    if (fallback.success) {
-      return { ok: true, data: fallback.data };
-    }
-  }
-
-  return { ok: false, error: parsed.error.message };
 }
 
 interface ConfigurationSettingsSheetProps {
@@ -260,23 +219,20 @@ function resolveSettingsSheetDraftLoad({
     };
   }
 
-  const parsed = parseSettingsSheetDraft(
-    formSchema,
-    resolved.node.attrs[attr],
-    entry.createInitialDraft,
-    entry.toDraft,
-  );
-
-  if (!parsed.ok) {
-    return {
-      initialDraft: {},
-      key: `target:${nodeType}:${targetId}:${attr}`,
-      loadError: parsed.error,
-    };
-  }
+  const initialDraft = readConfigurationDraft({
+    definition: {
+      attr: attr as SettingsSheetAttrSurface,
+      schema: entry.schema,
+      ...(entry.editSchema ? { editSchema: entry.editSchema } : {}),
+      ...(entry.createInitialDraft ? { createInitialDraft: entry.createInitialDraft } : {}),
+      ...(entry.toDraft ? { toDraft: entry.toDraft } : {}),
+      ...(entry.read ? { read: entry.read } : {}),
+    },
+    target: resolved,
+  });
 
   return {
-    initialDraft: parsed.data,
+    initialDraft,
     key: `target:${nodeType}:${targetId}:${attr}`,
     loadError: null,
   };

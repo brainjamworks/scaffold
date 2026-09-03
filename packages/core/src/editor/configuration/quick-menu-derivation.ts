@@ -27,6 +27,9 @@ export function deriveQuickMenuDefinition(
   return Object.freeze({
     attr: configuration.attr,
     schema: configuration.schema,
+    ...(configuration.editSchema ? { editSchema: configuration.editSchema } : {}),
+    ...(configuration.read ? { read: configuration.read } : {}),
+    ...(configuration.apply ? { apply: configuration.apply } : {}),
     controls,
   });
 }

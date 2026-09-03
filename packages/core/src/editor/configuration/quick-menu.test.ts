@@ -2,11 +2,41 @@ import { ArticleIcon } from "@phosphor-icons/react";
 import { describe, expect, it } from "vite-plus/test";
 import { z } from "zod";
 
+import type { ConfigurationRead } from "./configuration-access";
 import type { ConfigurationDefinition } from "./definition";
 import { getQuickControlDescriptorId, type QuickControlDescriptor } from "./quick-menu";
 import { deriveQuickMenuDefinition } from "./quick-menu-derivation";
+import type { SettingsSheetApply } from "./settings-sheet";
 
 describe("quick menu descriptors", () => {
+  it("carries the logical draft schemas and access hooks by identity", () => {
+    const schema = z.object({ persisted: z.boolean() });
+    const editSchema = z.object({ enabled: z.boolean() });
+    const read: ConfigurationRead = () => ({ enabled: true });
+    const apply: SettingsSheetApply = ({ tr }) => ({ ok: true, tr });
+
+    const quickMenu = deriveQuickMenuDefinition({
+      attr: "settings",
+      schema,
+      editSchema,
+      read,
+      apply,
+      controls: [
+        {
+          kind: "boolean",
+          name: "enabled",
+          label: "Enabled",
+          placement: { quickMenu: { presentation: "icon-toggle" } },
+        },
+      ],
+    });
+
+    expect(quickMenu?.schema).toBe(schema);
+    expect(quickMenu?.editSchema).toBe(editSchema);
+    expect(quickMenu?.read).toBe(read);
+    expect(quickMenu?.apply).toBe(apply);
+  });
+
   it("keeps stable ids for generic descriptor kinds", () => {
     const controls: QuickControlDescriptor[] = [
       { kind: "boolean", name: "isGraded", label: "Graded" },

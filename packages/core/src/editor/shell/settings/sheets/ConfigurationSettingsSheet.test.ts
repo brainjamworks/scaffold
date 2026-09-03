@@ -44,7 +44,6 @@ import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity"
 import {
   applySettingsSheetSettings,
   ConfigurationSettingsSheet,
-  parseSettingsSheetDraft,
   resolveSettingsTargetTitle,
 } from "./ConfigurationSettingsSheet";
 
@@ -269,6 +268,7 @@ function registerTestSettingsSheet(createInitialDraft?: () => unknown) {
 
 const configurationSheetEntry = defineBlock({
   nodeType: "test_configuration_sheet_block",
+  title: "Test configuration sheet",
   configuration: defineConfiguration({
     attr: "settings",
     schema: configurationSheetSchema,
@@ -525,6 +525,7 @@ describe("ConfigurationSettingsSheet", () => {
     const blockDefinitions = createBlockRegistry([
       {
         nodeType,
+        title: "Host definition",
         insert: {
           id: "host-settings-title-block",
           title: "Private host settings",
@@ -782,53 +783,52 @@ describe("ConfigurationSettingsSheet", () => {
     editor.destroy();
   });
 
-  it("parses transformed persisted attrs when the sheet owns a draft shape", () => {
-    const draftSchema = z.object({
-      title: z.string(),
-      table: z.object({
-        headers: z.array(z.string()),
-        rows: z.array(z.array(z.string())),
+  it("loads an owner-relative logical draft through the configuration read hook", () => {
+    const entry = {
+      ...registerTestSettingsSheet(),
+      read: vi.fn(() => ({
+        legend: "Logical draft",
+        points: 7,
+        maxAttempts: null,
+      })),
+    };
+    const { editor, mcqPos } = makeEditor({
+      legend: "Persisted owner value",
+      points: 1,
+      maxAttempts: 2,
+    });
+
+    renderSettingsSheet(editor, mcqPos, vi.fn(), entry);
+
+    expect((screen.getByLabelText("Points") as HTMLInputElement).value).toBe("7");
+    expect(entry.read).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attr: "settings",
+        schema,
+        target: expect.objectContaining({ pos: 0 }),
       }),
-    });
-
-    const result = parseSettingsSheetDraft(
-      draftSchema,
-      {
-        title: "Votes",
-        data: {
-          columns: [{ label: "Fruit" }, { label: "Votes" }],
-          rows: [{ cells: ["Apples", "12"] }],
-        },
-      },
-      undefined,
-      (raw) => {
-        const persisted = raw as {
-          title: string;
-          data: {
-            columns: Array<{ label: string }>;
-            rows: Array<{ cells: string[] }>;
-          };
-        };
-        return {
-          title: persisted.title,
-          table: {
-            headers: persisted.data.columns.map((column) => column.label),
-            rows: persisted.data.rows.map((row) => row.cells),
-          },
-        };
-      },
     );
+    editor.destroy();
+  });
 
-    expect(result).toEqual({
-      ok: true,
-      data: {
-        title: "Votes",
-        table: {
-          headers: ["Fruit", "Votes"],
-          rows: [["Apples", "12"]],
-        },
-      },
-    });
+  it("loads transformed persisted attrs through the shared access operation", () => {
+    const entry = {
+      ...registerTestSettingsSheet(),
+      schema: z.object({ storedPoints: z.number() }),
+      editSchema: schema,
+      toDraft: (raw: unknown) => ({
+        legend: "Transformed",
+        points: (raw as { storedPoints: number }).storedPoints,
+        maxAttempts: null,
+      }),
+      apply: ({ tr }: SettingsSheetApplyInput) => ({ ok: true as const, tr }),
+    };
+    const { editor, mcqPos } = makeEditor({ storedPoints: 6 });
+
+    renderSettingsSheet(editor, mcqPos, vi.fn(), entry);
+
+    expect((screen.getByLabelText("Points") as HTMLInputElement).value).toBe("6");
+    editor.destroy();
   });
 
   it("cancels without writing draft changes", async () => {
@@ -849,7 +849,7 @@ describe("ConfigurationSettingsSheet", () => {
     editor.destroy();
   });
 
-  it("shows an error state for invalid persisted settings", () => {
+  it("keeps malformed persisted settings observable as an invariant failure", () => {
     registerTestSettingsSheet();
     const { editor, mcqPos } = makeEditor({
       legend: "Old",
@@ -857,11 +857,7 @@ describe("ConfigurationSettingsSheet", () => {
       maxAttempts: 2,
     });
 
-    renderSettingsSheet(editor, mcqPos);
-
-    expect(screen.getByRole("alert").textContent).toMatch(/settings/i);
-    expect(screen.queryByLabelText("Points")).toBeNull();
-    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(() => renderSettingsSheet(editor, mcqPos)).toThrow();
     editor.destroy();
   });
 });

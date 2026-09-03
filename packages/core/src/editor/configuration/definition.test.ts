@@ -8,6 +8,55 @@ import {
 } from "./definition";
 
 describe("block configuration descriptors", () => {
+  it("accepts an edit-schema quick control with owner-relative read and checked apply", () => {
+    const read = () => ({ enabled: true });
+    const apply = ({ tr }: { tr: import("@tiptap/pm/state").Transaction }) => ({
+      ok: true as const,
+      tr,
+    });
+
+    const configuration = defineConfiguration({
+      attr: "settings",
+      schema: z.object({ persisted: z.boolean() }),
+      editSchema: z.object({ enabled: z.boolean() }),
+      read,
+      apply,
+      controls: [
+        {
+          kind: "boolean",
+          name: "enabled",
+          label: "Enabled",
+          placement: { quickMenu: { presentation: "icon-toggle" } },
+        },
+      ],
+    });
+
+    expect(configuration.read).toBe(read);
+    expect(configuration.apply).toBe(apply);
+  });
+
+  it("rejects an edit-schema quick control without both owner-relative hooks", () => {
+    expect(() =>
+      defineConfiguration({
+        attr: "settings",
+        schema: z.object({ persisted: z.boolean() }),
+        editSchema: z.object({ enabled: z.boolean() }),
+        toDraft: () => ({ enabled: true }),
+        apply: ({ tr }) => ({ ok: true, tr }),
+        controls: [
+          {
+            kind: "boolean",
+            name: "enabled",
+            label: "Enabled",
+            placement: { quickMenu: { presentation: "icon-toggle" } },
+          },
+        ],
+      }),
+    ).toThrow(
+      'Configuration control "name:enabled" requires read and apply handlers when editSchema is used in the quick menu.',
+    );
+  });
+
   it("accepts controls placed in quick menu and sheet surfaces", () => {
     const controls: ConfigurationControlDescriptor[] = [
       {

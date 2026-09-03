@@ -105,7 +105,7 @@ describe("Document Outline live mounted updates", () => {
       .toEqual([IDS.alpha, IDS.beta, IDS.figure, IDS.inserted]);
 
     const cloned = cloneJsonWithNewStableIds(requireNode(editor, IDS.inserted).node.toJSON(), {
-      blockDuplications: {
+      identityRewrites: {
         getByNodeType: () => undefined,
         hasNodeType: () => false,
       },
@@ -423,14 +423,12 @@ async function mountLiveOutline(
         Object.freeze({
           blocks: Object.freeze({
             registry: builtInBlockRegistry,
-            duplication: Object.freeze({
-              getByNodeType: () => undefined,
-              hasNodeType: (nodeType: string) =>
-                builtInBlockRegistry.getByNodeType(nodeType) !== undefined,
-            }),
           }),
           layouts: Object.freeze({ registry: builtInLayoutRegistry }),
           surfaces: Object.freeze({ registry: builtInSurfaceVariantRegistry }),
+          contentIdentity: Object.freeze({
+            rewrites: Object.freeze({ getByNodeType: () => undefined, hasNodeType: () => false }),
+          }),
           documentSemantics: semantics,
         }),
       ),

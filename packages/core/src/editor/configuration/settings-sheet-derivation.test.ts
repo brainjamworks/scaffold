@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 import { z } from "zod";
 
+import type { ConfigurationRead } from "./configuration-access";
 import type { ConfigurationDefinition } from "./definition";
 import type {
   SettingsFormDefinition,
@@ -11,6 +12,29 @@ import type {
 import { deriveSettingsSheetDefinition } from "./settings-sheet-derivation";
 
 describe("deriveSettingsSheetDefinition", () => {
+  it("carries an owner-relative read hook by identity", () => {
+    const read: ConfigurationRead = () => ({ enabled: true });
+    const settingsSheet = deriveSettingsSheetDefinition({
+      attr: "settings",
+      schema: z.object({ enabled: z.boolean() }),
+      read,
+      sheet: {
+        title: "Fixture settings",
+        sections: [{ id: "main", title: "Main" }],
+      },
+      controls: [
+        {
+          kind: "boolean",
+          name: "enabled",
+          label: "Enabled",
+          placement: { sheet: { section: "main" } },
+        },
+      ],
+    });
+
+    expect(settingsSheet?.read).toBe(read);
+  });
+
   it("exposes a body-only block settings contract", () => {
     type Section = SettingsSheetDefinition["sections"][number];
 

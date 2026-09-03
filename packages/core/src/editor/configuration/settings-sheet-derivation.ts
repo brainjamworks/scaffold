@@ -65,6 +65,7 @@ export function deriveSettingsSheetDefinition(
       ? { createInitialDraft: configuration.createInitialDraft }
       : {}),
     ...(configuration.toDraft ? { toDraft: configuration.toDraft } : {}),
+    ...(configuration.read ? { read: configuration.read } : {}),
     ...(configuration.apply ? { apply: configuration.apply } : {}),
     title: sheet.title,
     ...(sheet.description ? { description: sheet.description } : {}),

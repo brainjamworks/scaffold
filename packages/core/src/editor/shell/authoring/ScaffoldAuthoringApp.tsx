@@ -107,7 +107,7 @@ import { projectLearnerPublication } from "@/authoring/publication/document-proj
 import { checkLearnerInteractionPublication } from "@/authoring/publication/learner-interaction-publication";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/ScaffoldUnavailableAgentIntegration";
-import { Header } from "@/editor/shell/chrome/Header";
+import { canonicalizeDocumentTitle, Header } from "@/editor/shell/chrome/Header";
 import { AuthoringPublishAction } from "@/editor/shell/chrome/AuthoringPublishAction";
 import { AuthoringColorModeButton } from "@/editor/shell/chrome/AuthoringColorModeButton";
 import { Toolbar } from "@/editor/shell/chrome/Toolbar";
@@ -578,12 +578,17 @@ function ScaffoldAuthoringAppSessionContent({
     if (machine.source !== lifecycle.source) {
       throw new Error("Scaffold authoring save source is not current.");
     }
+    const canonicalTitle = canonicalizeDocumentTitle(titleRef.current);
+    if (canonicalTitle !== titleRef.current) {
+      titleRef.current = canonicalTitle;
+      setTitleForCurrentArtifact(canonicalTitle);
+    }
     const sequence = machine.reserveSequence();
     const content = structuredClone(readLatestContent());
     const payload = createArtifactSavePayload({
       artifact: toSaveableArtifact({
         artifact: readyArtifact,
-        title: titleRef.current,
+        title: canonicalTitle,
         content,
       }),
     });
@@ -594,7 +599,12 @@ function ScaffoldAuthoringAppSessionContent({
       sequence,
       source: lifecycle.source,
     };
-  }, [readLatestContent, readyArtifact, services.artifactPersistence.saveArtifact]);
+  }, [
+    readLatestContent,
+    readyArtifact,
+    services.artifactPersistence.saveArtifact,
+    setTitleForCurrentArtifact,
+  ]);
 
   const drainSaveCoordinator = useCallback(
     async (machine: AuthoringSaveMachine): Promise<void> => {
