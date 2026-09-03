@@ -15,7 +15,7 @@ import {
   readAssessmentSurfaceDraft,
   requireFixedQuestionDefinition,
   SURFACE_REGIONS_SECTION_ID,
-} from "../../authoring/assessment-surface-configuration";
+} from "../../authoring/assessment-surface-draft";
 import { builtInSurfaceVariantRegistry } from "../../model/built-in-surface-variant-definitions";
 
 /**
