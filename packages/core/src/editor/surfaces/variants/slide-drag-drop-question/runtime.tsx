@@ -24,11 +24,11 @@ import {
 import { SURFACE_DRAG_DROP_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-drag-drop-question-node";
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
-import "../../../view/variants/assessment/slide-drag-drop-question.css";
-import type { SurfaceRuntimeViewProps } from "../../surface-runtime-view-registry";
-import { AssessmentSlideSurfaceRuntimeFrame } from "../../views/AssessmentSlideSurfaceRuntimeFrame";
-import { useAssessmentSurfaceControlBinding } from "./assessment-surface-control-binding";
-import { FullSlideQuestionStage } from "./FullSlideQuestionStage";
+import "./styles.css";
+import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
+import { AssessmentSlideSurfaceRuntimeFrame } from "../../runtime/views/AssessmentSlideSurfaceRuntimeFrame";
+import { useAssessmentSurfaceControlBinding } from "../../runtime/variants/assessment/assessment-surface-control-binding";
+import { FullSlideQuestionStage } from "../../runtime/variants/assessment/FullSlideQuestionStage";
 
 export function SlideDragDropQuestionSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const question = findSurfaceDragDropQuestion(props.node);

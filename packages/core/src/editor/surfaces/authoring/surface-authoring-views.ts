@@ -6,7 +6,6 @@ import {
 } from "@phosphor-icons/react";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
-import { dragDropConfiguration } from "@/editor/blocks/assessment/drag-drop/drag-drop-definition";
 import { slideImageHotspotQuestionSurfaceConfiguration } from "../variants/slide-image-hotspot-question/binding";
 import { slideSequencingQuestionSurfaceConfiguration } from "../variants/slide-sequencing-question/binding";
 import { slideMatchingQuestionSurfaceConfiguration } from "../variants/slide-matching-question/binding";
@@ -16,6 +15,7 @@ import { slideFillBlanksQuestionSurfaceConfiguration } from "../variants/slide-f
 import { slideMultipleChoiceQuestionSurfaceConfiguration } from "../variants/slide-multiple-choice-question/binding";
 import { slideMultiselectQuestionSurfaceConfiguration } from "../variants/slide-multiselect-question/binding";
 import { slideQuizSurfaceConfiguration } from "../variants/slide-quiz/binding";
+import { slideDragDropQuestionSurfaceConfiguration } from "../variants/slide-drag-drop-question/binding";
 import {
   DEFAULT_SLIDE_IMAGE_BAND_SURFACE_SETTINGS,
   SlideImageBandSurfaceSettingsSchema,
@@ -47,7 +47,6 @@ import {
   createSurfaceAuthoringViewMap,
   type SurfaceAuthoringViewBinding,
 } from "./surface-authoring-view-registry";
-import { defineAssessmentSurfaceConfiguration } from "./assessment-surface-configuration";
 import { PageDefaultSurfaceAuthoringView } from "./variants/page-default";
 import { SlideCompositionSurfaceAuthoringView } from "./variants/slide-composition";
 import { SlideCoverSurfaceAuthoringView } from "./variants/slide-cover";
@@ -56,7 +55,7 @@ import { SlideImageCoverSurfaceAuthoringView } from "./variants/slide-image-cove
 import { SlideModuleCoverSurfaceAuthoringView } from "./variants/slide-module-cover";
 import { SlideCategoriseQuestionSurfaceAuthoringView } from "../variants/slide-categorise-question/authoring";
 import { SlideDropdownQuestionSurfaceAuthoringView } from "../variants/slide-dropdown-question/authoring";
-import { SlideDragDropQuestionSurfaceAuthoringView } from "./variants/assessment/slide-drag-drop-question";
+import { SlideDragDropQuestionSurfaceAuthoringView } from "../variants/slide-drag-drop-question/authoring";
 import { SlideFillBlanksQuestionSurfaceAuthoringView } from "../variants/slide-fill-blanks-question/authoring";
 import { SlideMatchingQuestionSurfaceAuthoringView } from "../variants/slide-matching-question/authoring";
 import { SlideImageHotspotQuestionSurfaceAuthoringView } from "../variants/slide-image-hotspot-question/authoring";
@@ -423,10 +422,7 @@ const SPECIALISED_SURFACE_AUTHORING_VIEWS = [
   {
     variantId: "slide-drag-drop-question",
     component: SlideDragDropQuestionSurfaceAuthoringView,
-    configuration: defineAssessmentSurfaceConfiguration({
-      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-drag-drop-question"),
-      questionConfiguration: dragDropConfiguration,
-    }),
+    configuration: slideDragDropQuestionSurfaceConfiguration,
   },
   {
     variantId: "slide-fill-blanks-question",
@@ -439,12 +435,6 @@ const SPECIALISED_SURFACE_AUTHORING_VIEWS = [
     configuration: slideQuizSurfaceConfiguration,
   },
 ] as const satisfies readonly SurfaceAuthoringViewBinding[];
-
-function requireBuiltInSurfaceDefinition(variantId: string) {
-  const definition = builtInSurfaceVariantRegistry.get(variantId);
-  if (!definition) throw new Error(`Surface variant "${variantId}" is not registered.`);
-  return definition;
-}
 
 const SPECIALISED_SURFACE_AUTHORING_VIEWS_BY_ID: ReadonlyMap<string, SurfaceAuthoringViewBinding> =
   new Map(SPECIALISED_SURFACE_AUTHORING_VIEWS.map((binding) => [binding.variantId, binding]));

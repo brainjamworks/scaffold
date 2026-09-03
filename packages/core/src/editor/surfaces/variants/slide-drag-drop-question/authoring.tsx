@@ -1,6 +1,6 @@
-import "../../../view/variants/assessment/slide-drag-drop-question.css";
-import type { SurfaceAuthoringViewProps } from "../../surface-authoring-view-registry";
-import { AssessmentSlideSurfaceAuthoringFrame } from "../../views/AssessmentSlideSurfaceAuthoringFrame";
+import "./styles.css";
+import type { SurfaceAuthoringViewProps } from "../../authoring/surface-authoring-view-registry";
+import { AssessmentSlideSurfaceAuthoringFrame } from "../../authoring/views/AssessmentSlideSurfaceAuthoringFrame";
 
 export function SlideDragDropQuestionSurfaceAuthoringView(props: SurfaceAuthoringViewProps) {
   return (

@@ -12,7 +12,7 @@ import { SlideImageCoverSurfaceRuntimeView } from "./variants/slide-image-cover"
 import { SlideModuleCoverSurfaceRuntimeView } from "./variants/slide-module-cover";
 import { SlideCategoriseQuestionSurfaceRuntimeView } from "../variants/slide-categorise-question/runtime";
 import { SlideDropdownQuestionSurfaceRuntimeView } from "../variants/slide-dropdown-question/runtime";
-import { SlideDragDropQuestionSurfaceRuntimeView } from "./variants/assessment/slide-drag-drop-question";
+import { SlideDragDropQuestionSurfaceRuntimeView } from "../variants/slide-drag-drop-question/runtime";
 import { SlideFillBlanksQuestionSurfaceRuntimeView } from "../variants/slide-fill-blanks-question/runtime";
 import { SlideMatchingQuestionSurfaceRuntimeView } from "../variants/slide-matching-question/runtime";
 import { SlideImageHotspotQuestionSurfaceRuntimeView } from "../variants/slide-image-hotspot-question/runtime";
