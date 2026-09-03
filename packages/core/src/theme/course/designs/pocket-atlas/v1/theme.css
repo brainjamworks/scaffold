@@ -5099,7 +5099,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-image-hotspot-workspace__overlay,
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-workspace__overlay {
-  background: rgb(16 11 39 / 0.78);
+  background: color-mix(in srgb, var(--pa-ink) 78%, transparent);
   backdrop-filter: blur(3px) saturate(0.8);
 }
 
@@ -5132,7 +5132,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-image-hotspot-workspace__title,
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-workspace__title {
-  color: #20164f;
+  color: var(--pa-ink);
   font-family: var(--heading-font-family);
   font-size: 1rem;
   font-weight: 700;
@@ -5143,7 +5143,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-image-hotspot-workspace__description,
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-workspace__description {
   margin-block-start: 0.25rem;
-  color: #514879;
+  color: var(--pa-ink-soft);
   font-size: 0.875rem;
   line-height: 1.45;
 }
@@ -5471,12 +5471,18 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-drag-preview {
   border: var(--pa-keyline) solid var(--pa-ink);
+  border-radius: 0;
   background: var(--pa-violet);
   color: var(--pa-violet-foreground);
   font-family: var(--heading-font-family);
   font-size: 0.8125rem;
   font-weight: 700;
   box-shadow: var(--pa-shadow-md);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 [data-custom-icon-fallback] {
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-keyboard-cursor {
@@ -5642,6 +5648,115 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     )
     button {
     transition: none;
+  }
+}
+
+/* Drag-drop authoring paint follows the course theme so the authoring canvas matches. */
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker {
+  background: var(--pa-mango);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-panel li {
+  border: var(--pa-keyline) solid var(--pa-ink);
+  border-radius: 0;
+  background: var(--pa-paper-raised);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-panel__preview {
+  color: var(--pa-ink-soft);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1
+  .sc-app-drag-drop-marker-panel__header
+  .sc-app-drag-drop-marker-label {
+  color: var(--pa-ink);
+  font-family: var(--heading-font-family);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-authoring__toolbar {
+  border: var(--pa-keyline) solid var(--pa-ink);
+  border-radius: 0;
+  background: var(--pa-paper-muted);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-toolbar__field,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-form__field,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-panel__field {
+  color: var(--pa-ink);
+  font-family: var(--heading-font-family);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-form__input,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-panel__input {
+  border: var(--pa-keyline) solid var(--pa-ink);
+  border-radius: 0;
+  background: var(--pa-paper-raised);
+  color: var(--pa-ink);
+  font-family: var(--default-font-family);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-toolbar__action,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-form__action,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-panel__action {
+  border: var(--pa-keyline) solid var(--pa-ink);
+  border-radius: 0;
+  background: var(--pa-paper-raised);
+  color: var(--pa-ink);
+  font-family: var(--heading-font-family);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.35;
+  box-shadow: 2px 2px 0 var(--pa-ink);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1
+  .sc-app-drag-drop-toolbar__action[data-intent="add"],
+.sc-course.sc-course-theme-pocket-atlas-v1
+  .sc-app-drag-drop-marker-form__action[data-intent="add"] {
+  background: var(--pa-violet);
+  color: var(--pa-violet-foreground);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-toolbar__action:disabled,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-form__action:disabled,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-panel__action:disabled {
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-authoring p[role="status"] {
+  color: var(--pa-ink-soft);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-toolbar__action:focus-visible,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-form__action:focus-visible,
+.sc-course.sc-course-theme-pocket-atlas-v1
+  .sc-app-drag-drop-marker-panel__action:focus-visible,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-form__input:focus-visible,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-app-drag-drop-marker-panel__input:focus-visible {
+  outline: 3px solid var(--pa-focus);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sc-course.sc-course-theme-pocket-atlas-v1
+    .sc-app-drag-drop-toolbar__action:hover:not(:disabled),
+  .sc-course.sc-course-theme-pocket-atlas-v1
+    .sc-app-drag-drop-marker-form__action:hover:not(:disabled),
+  .sc-course.sc-course-theme-pocket-atlas-v1
+    .sc-app-drag-drop-marker-panel__action:hover:not(:disabled) {
+    background: var(--pa-mango);
+    box-shadow: 3px 3px 0 var(--pa-ink);
   }
 }
 

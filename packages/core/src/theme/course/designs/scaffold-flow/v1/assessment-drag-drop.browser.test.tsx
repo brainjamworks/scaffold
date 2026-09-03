@@ -121,14 +121,39 @@ describe("Scaffold Flow Drag and Drop recipe", () => {
     const plain = scopedGeometry(host.querySelector<HTMLElement>('[data-themed="false"]')!);
     expect(themed).toEqual(plain);
   });
+
+  it("fills its region track without overflowing a wide image (RIZ-282)", async () => {
+    const { host } = mountInRegion("light", 717);
+    await waitForCondition(() => host.querySelector(".sc-course-drag-drop-marker") !== null);
+
+    const region = requireElement<HTMLElement>(host, '[data-testid="region"]');
+    const interaction = requireElement<HTMLElement>(host, ".sc-course-drag-drop-interaction");
+    const regionWidth = region.getBoundingClientRect().width;
+    const interactionWidth = interaction.getBoundingClientRect().width;
+    expect(regionWidth).toBeGreaterThan(0);
+    // Attempt A/D: the interaction fills its track instead of collapsing to content.
+    expect(interactionWidth).toBeGreaterThanOrEqual(regionWidth * 0.9);
+    // Attempt C/D: neither the interaction nor the region may overflow (+1 tolerates
+    // subpixel rounding between the two measurements).
+    expect(interaction.scrollWidth).toBeLessThanOrEqual(interaction.clientWidth + 1);
+    expect(region.scrollWidth).toBeLessThanOrEqual(region.clientWidth + 1);
+  });
 });
 
-function DragDropFixture() {
+function DragDropFixture({ wideImage = false }: { wideImage?: boolean }) {
   return (
     <section className="sc-course-drag-drop-interaction" data-drag-drop-presentation="inline">
       <div className="sc-course-drag-drop-interaction__layout">
         <div className="sc-course-drag-drop-stage">
           <div data-spatial-image-surface="" data-spatial-image-surface-state="ready">
+            {wideImage ? (
+              <img
+                alt="Map"
+                height={500}
+                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='944' height='500'%3E%3Crect width='944' height='500' fill='%23cbd5e1'/%3E%3C/svg%3E"
+                width={944}
+              />
+            ) : null}
             <span
               className="sc-course-drag-drop-marker"
               data-course-state="correct"
@@ -239,6 +264,32 @@ function mountDragDrop(appearance: "light" | "dark") {
         <DragDropFixture />
       </div>
     </>,
+  );
+  return { host };
+}
+
+function mountInRegion(appearance: "light" | "dark", regionWidth: number) {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  mountedRoots.push(root);
+  root.render(
+    <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance={appearance}>
+      <div
+        data-testid="region"
+        data-themed="true"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "44px minmax(0, 1fr)",
+          width: `${regionWidth}px`,
+        }}
+      >
+        <span data-testid="shell-ordinal" style={{ width: "44px" }} />
+        <div data-node="drag-drop-canvas">
+          <DragDropFixture wideImage />
+        </div>
+      </div>
+    </CourseThemeProvider>,
   );
   return { host };
 }

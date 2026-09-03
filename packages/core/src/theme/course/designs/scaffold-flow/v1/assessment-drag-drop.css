@@ -157,9 +157,23 @@
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-drag-preview {
   border-color: var(--accent-a9);
+  border-radius: var(--radius-full);
   background: var(--color-panel-solid);
   color: var(--gray-12);
   box-shadow: var(--shadow-4);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-tray__scroll-hint {
+  background: var(--gray-2);
+  color: var(--gray-11);
+  font-family: var(--default-font-family);
+  font-size: calc(0.8125rem * var(--sc-course-author-text-scale));
+  line-height: var(--line-height-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 [data-custom-icon-fallback] {
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-keyboard-cursor {
@@ -333,4 +347,155 @@
     button {
     transition: none;
   }
+}
+
+/* Drag-drop authoring paint follows the course theme so the authoring canvas matches. */
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-marker {
+  background: var(--color-panel-solid);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-marker-panel li {
+  border: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+  border-radius: var(--radius-4);
+  background: var(--gray-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-marker-panel__preview {
+  color: var(--gray-11);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-app-drag-drop-marker-panel__header
+  .sc-app-drag-drop-marker-label {
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+  font-size: calc(0.8125rem * var(--sc-course-author-text-scale));
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-authoring__toolbar {
+  border: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+  border-radius: var(--radius-4);
+  background: var(--gray-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-toolbar__field,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-marker-form__field,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-marker-panel__field {
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+  font-size: calc(0.8125rem * var(--sc-course-author-text-scale));
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-marker-form__input,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-marker-panel__input {
+  border: var(--sc-course-author-stroke-width) solid var(--gray-a7);
+  border-radius: var(--radius-3);
+  background: var(--gray-1);
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+  font-size: calc(0.875rem * var(--sc-course-author-text-scale));
+  line-height: 1.45;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-toolbar__action,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-marker-form__action,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-marker-panel__action {
+  border: var(--sc-course-author-stroke-width) solid var(--gray-a7);
+  border-radius: var(--radius-3);
+  background: var(--gray-1);
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+  font-size: calc(0.875rem * var(--sc-course-author-text-scale));
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-app-drag-drop-toolbar__action[data-intent="add"],
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-app-drag-drop-marker-form__action[data-intent="add"] {
+  border-color: var(--accent-a7);
+  color: var(--accent-11);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-toolbar__action:disabled,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-marker-form__action:disabled,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-marker-panel__action:disabled {
+  opacity: 0.55;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-authoring p[role="status"] {
+  color: var(--gray-11);
+  font-family: var(--default-font-family);
+  font-size: calc(0.8125rem * var(--sc-course-author-text-scale));
+  line-height: 1.5;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-toolbar__action:focus-visible,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-marker-form__action:focus-visible,
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-app-drag-drop-marker-panel__action:focus-visible,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-marker-form__input:focus-visible,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-app-drag-drop-marker-panel__input:focus-visible {
+  outline: 2px solid var(--accent-9);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-app-drag-drop-toolbar__action:hover:not(:disabled),
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-app-drag-drop-marker-form__action:hover:not(:disabled),
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-app-drag-drop-marker-panel__action:hover:not(:disabled) {
+    border-color: var(--gray-a9);
+    background: var(--gray-2);
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-app-drag-drop-toolbar__action[data-intent="add"]:hover:not(:disabled),
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-app-drag-drop-marker-form__action[data-intent="add"]:hover:not(:disabled) {
+    border-color: var(--accent-a8);
+    background: var(--accent-a3);
+  }
+}
+
+/* Workspace dialog paint relocated from assessment-image-hotspot.css (RIZ-287). */
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-workspace__overlay {
+  background: var(--black-a9);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-workspace {
+  border: var(--sc-course-author-stroke-width) solid var(--gray-a7);
+  border-radius: var(--radius-5);
+  background: var(--gray-1);
+  color: var(--gray-12);
+  box-shadow: var(--shadow-6);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-workspace__header {
+  border-block-end: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-workspace__title,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-workspace__description {
+  margin: 0;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-workspace__title {
+  font-family: var(--heading-font-family);
+  font-size: var(--font-size-5);
+  line-height: var(--line-height-5);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-workspace__description {
+  margin-block-start: var(--space-1);
+  color: var(--gray-11);
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-2);
 }
