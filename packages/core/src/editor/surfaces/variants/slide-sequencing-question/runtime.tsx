@@ -21,10 +21,10 @@ import { SURFACE_SEQUENCING_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/a
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
 import "./styles.css";
-import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
+import type { SurfaceRuntimeViewProps } from "../../shared/surface-view-props";
 import { AssessmentSlideSurfaceRuntimeFrame } from "../../runtime/views/AssessmentSlideSurfaceRuntimeFrame";
-import { useAssessmentSurfaceControlBinding } from "../../runtime/variants/assessment/assessment-surface-control-binding";
-import { FullSlideQuestionStage } from "../../runtime/variants/assessment/FullSlideQuestionStage";
+import { useAssessmentSurfaceControlBinding } from "../../runtime/assessment-surface-control-binding";
+import { FullSlideQuestionStage } from "../../runtime/FullSlideQuestionStage";
 
 export function SlideSequencingQuestionSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const question = surfaceSequencingQuestion(props.node);

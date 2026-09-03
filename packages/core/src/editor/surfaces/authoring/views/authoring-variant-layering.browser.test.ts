@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import "../views/AuthoringSurfaceView.css";
-import "./page-default.css";
-import "./slide-cover.css";
-import "./slide-module-cover.css";
+import "./AuthoringSurfaceView.css";
+import "../../variants/page-default/page-default.css";
+import "../../variants/slide-cover/styles.css";
+import "../../variants/slide-module-cover/styles.css";
 
 const mountedStyles: HTMLStyleElement[] = [];
 

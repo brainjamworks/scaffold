@@ -19,9 +19,9 @@ import { SURFACE_FILL_BLANKS_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
 import "./styles.css";
-import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
+import type { SurfaceRuntimeViewProps } from "../../shared/surface-view-props";
 import { AssessmentSlideSurfaceRuntimeFrame } from "../../runtime/views/AssessmentSlideSurfaceRuntimeFrame";
-import { useAssessmentSurfaceControlBinding } from "../../runtime/variants/assessment/assessment-surface-control-binding";
+import { useAssessmentSurfaceControlBinding } from "../../runtime/assessment-surface-control-binding";
 
 export function SlideFillBlanksQuestionSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const question = surfaceFillBlanksQuestion(props.node);

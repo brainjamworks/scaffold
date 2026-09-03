@@ -28,11 +28,11 @@ import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimePro
 import { CourseButton } from "@/ui/components/course/CourseActions/CourseActions";
 
 import "./styles.css";
-import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
+import type { SurfaceRuntimeViewProps } from "../../shared/surface-view-props";
 import { AssessmentSlideSurfaceRuntimeFrame } from "../../runtime/views/AssessmentSlideSurfaceRuntimeFrame";
 import { SlideQuizActiveQuestionStyle } from "./SlideQuizActiveQuestionStyle";
-import { FullSlideQuestionPresenter } from "../../runtime/variants/assessment/full-slide-question-presenter";
-import { useQuizSurfaceControlBinding } from "../../runtime/variants/assessment/quiz-surface-control-binding";
+import { FullSlideQuestionPresenter } from "../../runtime/full-slide-question-presenter";
+import { useQuizSurfaceControlBinding } from "../../runtime/quiz-surface-control-binding";
 
 export function SlideQuizSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const quizNode = requireSurfaceQuizChild(props.node);

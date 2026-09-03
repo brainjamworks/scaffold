@@ -6,8 +6,6 @@ import type { SurfaceVariantDefinition } from "../surface-variant-definition";
 
 export const SlideCoverSurfaceSettingsSchema = SurfaceSettingsSchema;
 
-export type SlideCoverSurfaceSettings = typeof SlideCoverSurfaceSettingsSchema._output;
-
 export const DEFAULT_SLIDE_COVER_SURFACE_SETTINGS =
   SlideCoverSurfaceSettingsSchema.parse(DEFAULT_SURFACE_SETTINGS);
 

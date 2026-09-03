@@ -113,18 +113,3 @@ export function isSurfaceHeaderFooterNodeType(
 ): typeName is SurfaceHeaderFooterNodeType {
   return SURFACE_HEADER_FOOTER_NODE_TYPES.includes(typeName as SurfaceHeaderFooterNodeType);
 }
-
-export function isValidSurfaceHeaderFooterNode(node: ProseMirrorNode): boolean {
-  if (!isSurfaceHeaderFooterNodeType(node.type.name)) return false;
-  if (node.childCount !== HEADER_FOOTER_SLOT_POSITIONS.length) return false;
-
-  for (let index = 0; index < HEADER_FOOTER_SLOT_POSITIONS.length; index += 1) {
-    const child = node.child(index);
-    if (child.type.name !== "surface_header_footer_slot") return false;
-    if (child.attrs["position"] !== HEADER_FOOTER_SLOT_POSITIONS[index]) {
-      return false;
-    }
-  }
-
-  return true;
-}

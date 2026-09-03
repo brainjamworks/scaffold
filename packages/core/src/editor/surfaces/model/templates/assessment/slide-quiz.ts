@@ -18,10 +18,7 @@ import { SURFACE_IMAGE_HOTSPOT_QUESTION_NODE_TYPE } from "../../assessment/surfa
 import { SURFACE_MATCHING_QUESTION_NODE_TYPE } from "../../assessment/surface-matching-question-node";
 import { SURFACE_MULTIPLE_CHOICE_QUESTION_NODE_TYPE } from "../../assessment/surface-multiple-choice-question-node";
 import { SURFACE_MULTISELECT_QUESTION_NODE_TYPE } from "../../assessment/surface-multiselect-question-node";
-import {
-  SURFACE_QUIZ_NODE_TYPE,
-  SURFACE_QUIZ_QUESTION_NODE_TYPES,
-} from "../../assessment/surface-quiz-node";
+import { SURFACE_QUIZ_NODE_TYPE } from "../../assessment/surface-quiz-node";
 import { SURFACE_SEQUENCING_QUESTION_NODE_TYPE } from "../../assessment/surface-sequencing-question-node";
 import { matchFixedSurfaceChildrenFromJSON } from "../../policies/surface-fixed-structure";
 import { createSurfaceDocumentSemantics } from "../../surface-document-semantics";
@@ -158,10 +155,6 @@ export function createQuizQuestion(nodeType: string): JSONContent {
     ...source,
     attrs: { ...source.attrs, id: createEmbeddedNodeId() },
   };
-}
-
-export function isSurfaceQuizQuestionNodeType(value: string | undefined): boolean {
-  return SURFACE_QUIZ_QUESTION_NODE_TYPES.some((nodeType) => nodeType === value);
 }
 
 function resolveSurfaceQuiz(surface: JSONContent): JSONContent {

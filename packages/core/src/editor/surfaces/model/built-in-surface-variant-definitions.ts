@@ -1,3 +1,17 @@
+/**
+ * Where a surface variant lives, by concern:
+ *
+ * - `model/templates/` holds variant *definitions* (what a variant persists:
+ *   settings schema, fixed children, catalogue entry).
+ * - `model/assessment/` holds surface-side assessment *node types* (the
+ *   ProseMirror node names a variant's fixed children use).
+ * - `variants/<id>/` holds the variant *presentation and binding*
+ *   (`authoring.tsx`, `runtime.tsx`, `binding.ts`, `styles.css`).
+ *
+ * This registry joins the three: it lists every built-in definition, while
+ * `authoring/surface-authoring-views.ts` and
+ * `runtime/surface-runtime-views.ts` list the matching views and bindings.
+ */
 import { pageDefaultSurfaceDefinition } from "./templates/page-default";
 import type { ContentIdentityRewriteRegistration } from "@/document/model/identity/clone-with-new-ids";
 import { rewriteDragDropCopiedContent } from "@/editor/blocks/assessment/drag-drop/drag-drop-copy-identity";

@@ -11,15 +11,15 @@ import { SURFACE_MULTIPLE_CHOICE_QUESTION_NODE_TYPE } from "@/editor/surfaces/mo
 import { SURFACE_MULTISELECT_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-multiselect-question-node";
 import { SURFACE_SEQUENCING_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-sequencing-question-node";
 
-import { CategoriseFullSlideQuestionPresenter } from "../../../variants/slide-categorise-question/runtime";
-import { DropdownFullSlideQuestionPresenter } from "../../../variants/slide-dropdown-question/runtime";
-import { DragDropFullSlideQuestionPresenter } from "../../../variants/slide-drag-drop-question/runtime";
-import { FillBlanksFullSlideQuestionPresenter } from "../../../variants/slide-fill-blanks-question/runtime";
-import { ImageHotspotFullSlideQuestionPresenter } from "../../../variants/slide-image-hotspot-question/runtime";
-import { MatchingFullSlideQuestionPresenter } from "../../../variants/slide-matching-question/runtime";
-import { MultipleChoiceFullSlideQuestionPresenter } from "../../../variants/slide-multiple-choice-question/runtime";
-import { MultiselectFullSlideQuestionPresenter } from "../../../variants/slide-multiselect-question/runtime";
-import { SequencingFullSlideQuestionPresenter } from "../../../variants/slide-sequencing-question/runtime";
+import { CategoriseFullSlideQuestionPresenter } from "../variants/slide-categorise-question/runtime";
+import { DropdownFullSlideQuestionPresenter } from "../variants/slide-dropdown-question/runtime";
+import { DragDropFullSlideQuestionPresenter } from "../variants/slide-drag-drop-question/runtime";
+import { FillBlanksFullSlideQuestionPresenter } from "../variants/slide-fill-blanks-question/runtime";
+import { ImageHotspotFullSlideQuestionPresenter } from "../variants/slide-image-hotspot-question/runtime";
+import { MatchingFullSlideQuestionPresenter } from "../variants/slide-matching-question/runtime";
+import { MultipleChoiceFullSlideQuestionPresenter } from "../variants/slide-multiple-choice-question/runtime";
+import { MultiselectFullSlideQuestionPresenter } from "../variants/slide-multiselect-question/runtime";
+import { SequencingFullSlideQuestionPresenter } from "../variants/slide-sequencing-question/runtime";
 
 interface FullSlideQuestionPresenterProps {
   readonly editor: Editor;

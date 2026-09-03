@@ -21,10 +21,10 @@ import { SURFACE_MULTIPLE_CHOICE_QUESTION_NODE_TYPE } from "@/editor/surfaces/mo
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
 import "../../view/assessment-selectable-choice-surface.css";
-import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
+import type { SurfaceRuntimeViewProps } from "../../shared/surface-view-props";
 import { AssessmentSlideSurfaceRuntimeFrame } from "../../runtime/views/AssessmentSlideSurfaceRuntimeFrame";
-import { useAssessmentSurfaceControlBinding } from "../../runtime/variants/assessment/assessment-surface-control-binding";
-import { FullSlideQuestionStage } from "../../runtime/variants/assessment/FullSlideQuestionStage";
+import { useAssessmentSurfaceControlBinding } from "../../runtime/assessment-surface-control-binding";
+import { FullSlideQuestionStage } from "../../runtime/FullSlideQuestionStage";
 
 export function SlideMultipleChoiceQuestionSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const question = surfaceMultipleChoiceQuestion(props.node);
