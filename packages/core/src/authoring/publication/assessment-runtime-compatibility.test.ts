@@ -11,6 +11,7 @@ import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { slideCategoriseQuestionSurfaceDefinition } from "@/editor/surfaces/model/templates/assessment/slide-categorise-question";
+import { slideDragDropQuestionSurfaceDefinition } from "@/editor/surfaces/model/templates/assessment/slide-drag-drop-question";
 import { slideSequencingQuestionSurfaceDefinition } from "@/editor/surfaces/model/templates/assessment/slide-sequencing-question";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { prepareRuntimeLearnerPublication } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
@@ -26,6 +27,7 @@ const authoringSchema = getCourseDocumentAuthoringEnvironmentState(
 const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
 const assessmentNodeTypes = [
   "categorise",
+  "drag_drop",
   "dropdown",
   "fill_blanks",
   "image_hotspot",
@@ -44,8 +46,9 @@ describe("assessment learner publication runtime compatibility", () => {
     "projects %s into private-data-free content accepted by the runtime schema",
     (nodeType) => {
       const definition = builtInBlockRegistry.getByNodeType(nodeType);
-      const authoredBlock = definition?.insert?.content() as JSONContent | undefined;
-      if (!authoredBlock) throw new Error(`${nodeType} has no insert content`);
+      const insertBlock = definition?.insert?.content() as JSONContent | undefined;
+      if (!insertBlock) throw new Error(`${nodeType} has no insert content`);
+      const authoredBlock = completeAssessmentFixture(nodeType, insertBlock);
 
       const insertDocument = createScaffoldDocumentContent({ mode: "page" });
       const surface = insertDocument.content?.[0]?.content?.[0];
@@ -166,7 +169,113 @@ describe("assessment learner publication runtime compatibility", () => {
     );
     expect(readiness.status).toBe("supported");
   });
+
+  it("reports an incomplete Drag and Drop question as unavailable content instead of throwing", () => {
+    const blockDefinition = builtInBlockRegistry.getByNodeType("drag_drop");
+    const draftBlock = blockDefinition?.insert?.content() as JSONContent | undefined;
+    if (!draftBlock) throw new Error("drag_drop has no insert content");
+    const pageDocument = createScaffoldDocumentContent({ mode: "page" });
+    const pageSurface = pageDocument.content?.[0]?.content?.[0];
+    if (!pageSurface) throw new Error("Assessment publication fixture has no surface");
+    pageSurface.content = [draftBlock];
+    assignMissingNodeIds(pageDocument);
+    const blockPublication = projectLearnerPublication(
+      {
+        status: "supported",
+        canonicalDocument: authoringSchema.nodeFromJSON(pageDocument).toJSON(),
+      },
+      builtInBlockRegistry,
+      builtInSurfaceVariantRegistry,
+    );
+    expect(blockPublication.status).toBe("unavailable-content");
+    if (blockPublication.status !== "unavailable-content") {
+      throw new Error("Expected unavailable-content for an incomplete Drag and Drop block");
+    }
+    expect(blockPublication.unavailableContent).toHaveLength(1);
+    expect(blockPublication.unavailableContent[0]).toMatchObject({
+      kind: "block",
+      capabilityId: "drag_drop",
+    });
+
+    const slideshowDocument = createScaffoldDocumentContent({
+      mode: "slideshow",
+      initialCourseSectionTitle: "Assessment",
+    });
+    const courseDocument = slideshowDocument.content?.[0];
+    if (!courseDocument) throw new Error("Assessment publication fixture has no course document");
+    const surfaceId = createEmbeddedNodeId();
+    courseDocument.content = [
+      ...(courseDocument.content ?? []).filter((node) => node.type === "courseSection"),
+      slideDragDropQuestionSurfaceDefinition.createSurface({ surfaceId }),
+    ];
+    assignMissingNodeIds(slideshowDocument);
+    const surfacePublication = projectLearnerPublication(
+      {
+        status: "supported",
+        canonicalDocument: authoringSchema.nodeFromJSON(slideshowDocument).toJSON(),
+      },
+      builtInBlockRegistry,
+      builtInSurfaceVariantRegistry,
+    );
+    expect(surfacePublication.status).toBe("unavailable-content");
+    if (surfacePublication.status !== "unavailable-content") {
+      throw new Error("Expected unavailable-content for an incomplete Drag and Drop surface");
+    }
+    expect(surfacePublication.unavailableContent).toEqual([
+      {
+        kind: "surface",
+        capabilityId: "slide-drag-drop-question",
+        stableId: surfaceId,
+        path: [],
+      },
+    ]);
+  });
 });
+
+function completeAssessmentFixture(nodeType: string, block: JSONContent): JSONContent {
+  if (nodeType !== "drag_drop") return block;
+  return {
+    ...block,
+    attrs: {
+      ...block.attrs,
+      settings: {
+        feedbackMode: "on_submit",
+        isGraded: true,
+        showAnswer: true,
+        gradingMode: "partial-credit",
+        points: 4,
+        maxAttempts: 2,
+        legend: "Place city markers",
+      },
+      assessment: {
+        correctPlacements: [
+          {
+            markerId: "marker000001",
+            geometry: { kind: "circle", centerX: 25, centerY: 60, radius: 7 },
+          },
+        ],
+        feedbackByMarkerId: {},
+        summaryFeedback: null,
+      },
+    },
+    content: (block.content ?? []).map((child) =>
+      child.type === "drag_drop_canvas"
+        ? {
+            ...child,
+            attrs: {
+              ...child.attrs,
+              data: {
+                image: { mode: "managed", mediaId: "media0000001", alt: "Map" },
+                imageAspectRatio: 2,
+                defaultMarkerVisual: { kind: "preset", preset: "dot" },
+                markers: [{ id: "marker000001", label: "London", visualOverride: null }],
+              },
+            },
+          }
+        : child,
+    ),
+  };
+}
 
 function descendantsByType(root: JSONContent, type: string): JSONContent[] {
   const matches: JSONContent[] = [];

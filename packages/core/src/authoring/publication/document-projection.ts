@@ -7,6 +7,7 @@ import {
   type AssessmentTargetContract,
 } from "@scaffold/contracts";
 
+import { isDragDropNotLearnerReady } from "@/editor/assessment/drag-drop/assessment";
 import {
   cloneJsonNodeWithoutContent,
   readAttrs,
@@ -106,14 +107,22 @@ export function projectLearnerPublication(
 ): LearnerPublicationProjection {
   if (readiness.status !== "supported") return readiness;
 
-  const projection = projectAssessmentDocument(readiness, blockDefinitions, surfaceVariants);
-  return {
-    status: "supported",
-    learnerContent: projection.learnerDocument,
-    assessmentTargets: projection.targets,
-    assessmentGroups: projection.groups,
-    warnings: projection.warnings,
-  };
+  try {
+    const projection = projectAssessmentDocument(readiness, blockDefinitions, surfaceVariants);
+    return {
+      status: "supported",
+      learnerContent: projection.learnerDocument,
+      assessmentTargets: projection.targets,
+      assessmentGroups: projection.groups,
+      warnings: projection.warnings,
+    };
+  } catch (error) {
+    if (!isDragDropNotLearnerReady(error)) throw error;
+    return {
+      status: "unavailable-content",
+      unavailableContent: [{ ...error.details, path: [] }],
+    };
+  }
 }
 
 export function projectAssessmentDocument(

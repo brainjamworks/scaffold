@@ -7,6 +7,7 @@ import {
 import type { JSONContent } from "@tiptap/core";
 
 import {
+  DragDropNotLearnerReadyError,
   projectDragDropAssessment,
   projectDragDropInteraction,
   projectDragDropLearnerNode,
@@ -45,6 +46,13 @@ function projectSurfaceDragDropTargets(surface: JSONContent) {
       `Surface "${SLIDE_DRAG_DROP_QUESTION_VARIANT_ID}" question is missing its assessment target id.`,
     );
   }
+  if (!parseDragDropAuthoredQuestion(question).ready) {
+    throw new DragDropNotLearnerReadyError({
+      kind: "surface",
+      capabilityId: SLIDE_DRAG_DROP_QUESTION_VARIANT_ID,
+      stableId: readStringAttr(surface, "id"),
+    });
+  }
   const settings = DragDropSettingsSchema.parse(readAttrs(question)["settings"] ?? {});
   return createSurfaceAssessmentTargets([
     AssessmentTargetContractSchema.parse({
@@ -69,7 +77,11 @@ function projectSurfaceDragDropTargets(surface: JSONContent) {
 function projectLearnerDragDropSurface(surface: JSONContent): JSONContent {
   const question = resolveDragDropQuestion(surface);
   if (!parseDragDropAuthoredQuestion(question).ready) {
-    throw new Error("Drag and Drop question is not learner-ready.");
+    throw new DragDropNotLearnerReadyError({
+      kind: "surface",
+      capabilityId: SLIDE_DRAG_DROP_QUESTION_VARIANT_ID,
+      stableId: readStringAttr(surface, "id"),
+    });
   }
   return {
     ...cloneJsonNodeWithoutContent(surface),
