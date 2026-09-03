@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import {
   type DragDropCanvasData,
   type DragDropMarker,
@@ -15,9 +15,22 @@ import {
   type SpatialImageSurfaceState,
 } from "@/editor/assessment/shared/spatial";
 
+import { Select, type SelectOption } from "@/ui/components/Select/Select";
+
 import "@/editor/assessment/drag-drop/DragDrop.css";
 
 export const DRAG_DROP_MARKER_PRESETS = ["cross", "pin", "dot", "flag", "check"] as const;
+
+function markerVisualOptions(includeCustom: boolean): readonly SelectOption[] {
+  return [
+    ...DRAG_DROP_MARKER_PRESETS.map(
+      (preset): SelectOption => ({ value: preset, label: preset }),
+    ),
+    ...(includeCustom ? [{ value: "custom", label: "Custom icon" } as const] : []),
+  ];
+}
+
+const USE_DEFAULT_MARKER_OPTION: SelectOption = { value: "inherit", label: "Use default" };
 
 interface DragDropAuthoringCanvasProps {
   readonly data: DragDropCanvasData;
@@ -75,6 +88,7 @@ export function DragDropAuthoringCanvas({
   onUpdateMarker,
 }: DragDropAuthoringCanvasProps) {
   const surfaceState = useRef<SpatialImageSurfaceState | null>(null);
+  const fieldLabelId = useId();
   const [showMarkerForm, setShowMarkerForm] = useState(false);
   const [label, setLabel] = useState("");
   const [visualOverride, setVisualOverride] = useState<MarkerVisual | null>(null);
@@ -165,34 +179,26 @@ export function DragDropAuthoringCanvas({
   return (
     <section className="sc-app-drag-drop-authoring" aria-label="Drag and Drop authoring">
       <header className="sc-app-drag-drop-authoring__toolbar">
-        <label className="sc-app-drag-drop-toolbar__field">
-          Default marker appearance
-          <select
-            className="sc-app-drag-drop-toolbar__select"
+        <span className="sc-app-drag-drop-toolbar__field">
+          <span id={`${fieldLabelId}-default-appearance`}>Default marker appearance</span>
+          <Select
+            aria-labelledby={`${fieldLabelId}-default-appearance`}
             value={
               data.defaultMarkerVisual.kind === "preset"
                 ? data.defaultMarkerVisual.preset
                 : "custom"
             }
-            onChange={(event) => {
-              if (event.target.value !== "custom") {
+            onChange={(next) => {
+              if (next !== "custom") {
                 onSetDefaultMarkerVisual({
                   kind: "preset",
-                  preset: event.target.value as MarkerPresetId,
+                  preset: next as MarkerPresetId,
                 });
               }
             }}
-          >
-            {DRAG_DROP_MARKER_PRESETS.map((preset) => (
-              <option key={preset} value={preset}>
-                {preset}
-              </option>
-            ))}
-            {data.defaultMarkerVisual.kind === "custom" ? (
-              <option value="custom">Custom icon</option>
-            ) : null}
-          </select>
-        </label>
+            options={markerVisualOptions(data.defaultMarkerVisual.kind === "custom")}
+          />
+        </span>
         {onRequestCustomIcon ? (
           <button
             type="button"
@@ -231,10 +237,10 @@ export function DragDropAuthoringCanvas({
               required
             />
           </label>
-          <label className="sc-app-drag-drop-marker-form__field">
-            Marker appearance
-            <select
-              className="sc-app-drag-drop-marker-form__select"
+          <span className="sc-app-drag-drop-marker-form__field">
+            <span id={`${fieldLabelId}-marker-appearance`}>Marker appearance</span>
+            <Select
+              aria-labelledby={`${fieldLabelId}-marker-appearance`}
               value={
                 visualOverride?.kind === "preset"
                   ? visualOverride.preset
@@ -242,24 +248,17 @@ export function DragDropAuthoringCanvas({
                     ? "custom"
                     : "inherit"
               }
-              onChange={(event) => {
-                const value = event.target.value;
-                if (value === "inherit") setVisualOverride(null);
-                else if (value !== "custom")
-                  setVisualOverride({ kind: "preset", preset: value as MarkerPresetId });
+              onChange={(next) => {
+                if (next === "inherit") setVisualOverride(null);
+                else if (next !== "custom")
+                  setVisualOverride({ kind: "preset", preset: next as MarkerPresetId });
               }}
-            >
-              <option value="inherit">Use default</option>
-              {DRAG_DROP_MARKER_PRESETS.map((preset) => (
-                <option key={preset} value={preset}>
-                  {preset}
-                </option>
-              ))}
-              {visualOverride?.kind === "custom" ? (
-                <option value="custom">Custom icon</option>
-              ) : null}
-            </select>
-          </label>
+              options={[
+                USE_DEFAULT_MARKER_OPTION,
+                ...markerVisualOptions(visualOverride?.kind === "custom"),
+              ]}
+            />
+          </span>
           {onRequestCustomIcon ? (
             <button
               type="button"
@@ -368,11 +367,12 @@ export function DragDropAuthoringCanvas({
                     onSetCorrectPlacement={onSetCorrectPlacement}
                     onUpdateMarker={onUpdateMarker}
                   />
-                  <label className="sc-app-drag-drop-marker-panel__field">
-                    Appearance for {marker.label}
-                    <select
-                      className="sc-app-drag-drop-marker-panel__select"
-                      aria-label={`Appearance for ${marker.label}`}
+                  <span className="sc-app-drag-drop-marker-panel__field">
+                    <span id={`${fieldLabelId}-appearance-${marker.id}`}>
+                      Appearance for {marker.label}
+                    </span>
+                    <Select
+                      aria-labelledby={`${fieldLabelId}-appearance-${marker.id}`}
                       value={
                         marker.visualOverride?.kind === "preset"
                           ? marker.visualOverride.preset
@@ -380,11 +380,10 @@ export function DragDropAuthoringCanvas({
                             ? "custom"
                             : "inherit"
                       }
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        if (value === "inherit") {
+                      onChange={(next) => {
+                        if (next === "inherit") {
                           onUpdateMarker(marker.id, { visualOverride: null });
-                        } else if (value === "custom") {
+                        } else if (next === "custom") {
                           onRequestCustomIcon?.((visual) =>
                             onUpdateMarker(marker.id, { visualOverride: visual }),
                           );
@@ -392,21 +391,17 @@ export function DragDropAuthoringCanvas({
                           onUpdateMarker(marker.id, {
                             visualOverride: {
                               kind: "preset",
-                              preset: value as MarkerPresetId,
+                              preset: next as MarkerPresetId,
                             },
                           });
                         }
                       }}
-                    >
-                      <option value="inherit">Use default</option>
-                      {DRAG_DROP_MARKER_PRESETS.map((preset) => (
-                        <option key={preset} value={preset}>
-                          {preset}
-                        </option>
-                      ))}
-                      <option value="custom">Custom icon</option>
-                    </select>
-                  </label>
+                      options={[
+                        USE_DEFAULT_MARKER_OPTION,
+                        ...markerVisualOptions(true),
+                      ]}
+                    />
+                  </span>
                   {onRequestCustomIcon ? (
                     <button
                       type="button"
