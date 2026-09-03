@@ -36,7 +36,7 @@ import { SelectableChoiceRuntimeNode } from "@/editor/blocks/assessment/shared/n
 import { multiselectBlockDefinition } from "./multiselect-definition";
 import { MultiselectAuthoringExtension } from "./multiselect-authoring-extension";
 import { MultiselectRuntimeExtension } from "./multiselect-runtime-extension";
-import { hasMultiselectResponse, projectMultiselectInteraction } from "./assessment";
+import { hasMultiselectResponse, projectMultiselectInteraction } from "@/editor/assessment/multiselect/assessment";
 
 const testCapabilities = createScaffoldApplication().capabilities;
 

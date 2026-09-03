@@ -13,7 +13,7 @@ import {
   projectMultiselectInteraction,
   projectMultiselectLearnerNode,
   projectMultiselectSettings,
-} from "@/editor/blocks/assessment/multiselect/assessment";
+} from "@/editor/assessment/multiselect/assessment";
 import {
   cloneJsonNodeWithoutContent,
   readAttrs,

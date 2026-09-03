@@ -9,9 +9,9 @@ import {
   multiselectResponseCodec,
   projectMultiselectInteraction,
   projectMultiselectSettings,
-} from "@/editor/blocks/assessment/multiselect/assessment";
-import { multiselectCourseContentFromProseMirror } from "@/editor/blocks/assessment/multiselect/multiselect-course-content";
-import { MultiselectCourseInteraction } from "@/editor/blocks/assessment/multiselect/multiselect-course-interaction";
+} from "@/editor/assessment/multiselect/assessment";
+import { multiselectCourseContentFromProseMirror } from "@/editor/assessment/multiselect/multiselect-course-content";
+import { MultiselectCourseInteraction } from "@/editor/assessment/multiselect/multiselect-course-interaction";
 import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { countAssessmentHints } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { textBetween } from "@/editor/assessment/shared/publication/projection";
@@ -23,11 +23,11 @@ import {
 import { SURFACE_MULTISELECT_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-multiselect-question-node";
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
-import "../../../view/assessment-selectable-choice-surface.css";
-import type { SurfaceRuntimeViewProps } from "../../surface-runtime-view-registry";
-import { AssessmentSlideSurfaceRuntimeFrame } from "../../views/AssessmentSlideSurfaceRuntimeFrame";
-import { useAssessmentSurfaceControlBinding } from "./assessment-surface-control-binding";
-import { FullSlideQuestionStage } from "./FullSlideQuestionStage";
+import "../../view/assessment-selectable-choice-surface.css";
+import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
+import { AssessmentSlideSurfaceRuntimeFrame } from "../../runtime/views/AssessmentSlideSurfaceRuntimeFrame";
+import { useAssessmentSurfaceControlBinding } from "../../runtime/variants/assessment/assessment-surface-control-binding";
+import { FullSlideQuestionStage } from "../../runtime/variants/assessment/FullSlideQuestionStage";
 
 export function SlideMultiselectQuestionSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const question = surfaceMultiselectQuestion(props.node);

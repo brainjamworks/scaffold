@@ -18,7 +18,7 @@ import { FillBlanksFullSlideQuestionPresenter } from "../../../variants/slide-fi
 import { ImageHotspotFullSlideQuestionPresenter } from "../../../variants/slide-image-hotspot-question/runtime";
 import { MatchingFullSlideQuestionPresenter } from "../../../variants/slide-matching-question/runtime";
 import { MultipleChoiceFullSlideQuestionPresenter } from "../../../variants/slide-multiple-choice-question/runtime";
-import { MultiselectFullSlideQuestionPresenter } from "./slide-multiselect-question";
+import { MultiselectFullSlideQuestionPresenter } from "../../../variants/slide-multiselect-question/runtime";
 import { SequencingFullSlideQuestionPresenter } from "../../../variants/slide-sequencing-question/runtime";
 
 interface FullSlideQuestionPresenterProps {

@@ -22,7 +22,7 @@ import {
   projectMultiselectInteraction,
   projectMultiselectLearnerNode,
   projectMultiselectSettings,
-} from "./assessment";
+} from "@/editor/assessment/multiselect/assessment";
 
 export const MULTISELECT_BLOCK_ID = "multiselect";
 

@@ -14,7 +14,7 @@ import { slideCategoriseQuestionSurfaceConfiguration } from "../variants/slide-c
 import { slideDropdownQuestionSurfaceConfiguration } from "../variants/slide-dropdown-question/binding";
 import { slideFillBlanksQuestionSurfaceConfiguration } from "../variants/slide-fill-blanks-question/binding";
 import { slideMultipleChoiceQuestionSurfaceConfiguration } from "../variants/slide-multiple-choice-question/binding";
-import { multiselectConfiguration } from "@/editor/blocks/assessment/multiselect/multiselect-definition";
+import { slideMultiselectQuestionSurfaceConfiguration } from "../variants/slide-multiselect-question/binding";
 import { quizConfiguration } from "@/editor/blocks/assessment/quiz/quiz-definition";
 import {
   DEFAULT_SLIDE_IMAGE_BAND_SURFACE_SETTINGS,
@@ -61,7 +61,7 @@ import { SlideFillBlanksQuestionSurfaceAuthoringView } from "../variants/slide-f
 import { SlideMatchingQuestionSurfaceAuthoringView } from "../variants/slide-matching-question/authoring";
 import { SlideImageHotspotQuestionSurfaceAuthoringView } from "../variants/slide-image-hotspot-question/authoring";
 import { SlideMultipleChoiceQuestionSurfaceAuthoringView } from "../variants/slide-multiple-choice-question/authoring";
-import { SlideMultiselectQuestionSurfaceAuthoringView } from "./variants/assessment/slide-multiselect-question";
+import { SlideMultiselectQuestionSurfaceAuthoringView } from "../variants/slide-multiselect-question/authoring";
 import { SlideQuizSurfaceAuthoringView } from "./variants/assessment/slide-quiz";
 import { SlideSequencingQuestionSurfaceAuthoringView } from "../variants/slide-sequencing-question/authoring";
 
@@ -413,10 +413,7 @@ const SPECIALISED_SURFACE_AUTHORING_VIEWS = [
   {
     variantId: "slide-multiselect-question",
     component: SlideMultiselectQuestionSurfaceAuthoringView,
-    configuration: defineAssessmentSurfaceConfiguration({
-      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-multiselect-question"),
-      questionConfiguration: multiselectConfiguration,
-    }),
+    configuration: slideMultiselectQuestionSurfaceConfiguration,
   },
   {
     variantId: "slide-dropdown-question",
