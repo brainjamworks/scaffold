@@ -13,7 +13,7 @@ import { assessmentPromptDomId } from "@/editor/assessment/shared/model/assessme
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { FillBlanksSettingsSchema } from "@scaffold/contracts";
 
-import { isFillBlanksAssessmentOwnerNodeType } from "./fill-blank-shared";
+import { isFillBlanksAssessmentOwnerNodeType } from "@/editor/assessment/fill-blanks/fill-blank-shared";
 import "./FillBlanks.css";
 
 const FILL_BLANKS_BODY_CONTENT = `${FILL_BLANK_INLINE_CONTENT}+`;

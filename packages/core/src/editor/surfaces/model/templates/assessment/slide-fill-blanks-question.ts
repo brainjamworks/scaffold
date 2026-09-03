@@ -12,7 +12,7 @@ import {
   projectFillBlanksInteraction,
   projectFillBlanksLearnerNode,
   projectFillBlanksSettings,
-} from "@/editor/blocks/assessment/fill-blanks/assessment";
+} from "@/editor/assessment/fill-blanks/assessment";
 import { assessmentControlDefinition } from "@/editor/assessment/shared/model/assessment-control-definition";
 import {
   cloneJsonNodeWithoutContent,

@@ -7,7 +7,7 @@ import { page, userEvent } from "vite-plus/test/browser/context";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { projectCourseStructure } from "@/document/model/course-structure";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { projectFillBlanksLearnerNode } from "@/editor/blocks/assessment/fill-blanks/assessment";
+import { projectFillBlanksLearnerNode } from "@/editor/assessment/fill-blanks/assessment";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";

@@ -13,7 +13,7 @@ import {
 } from "@scaffold/contracts";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
-import { createFillBlankAttrs, isFillBlanksAssessmentOwnerNodeType } from "./fill-blank-shared";
+import { createFillBlankAttrs, isFillBlanksAssessmentOwnerNodeType } from "@/editor/assessment/fill-blanks/fill-blank-shared";
 
 export function createFillBlankAssessmentEntry(selectedText = ""): FillBlankPrivateAssessmentEntry {
   return FillBlankPrivateAssessmentEntrySchema.parse({

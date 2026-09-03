@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { getControlBindingRegistryForEditor } from "@/document/control-binding";
-import { projectFillBlanksLearnerNode } from "@/editor/blocks/assessment/fill-blanks/assessment";
+import { projectFillBlanksLearnerNode } from "@/editor/assessment/fill-blanks/assessment";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import type { AssessmentPort } from "@/host/ports";
 import {

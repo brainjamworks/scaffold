@@ -7,12 +7,12 @@ import {
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { dragDropConfiguration } from "@/editor/blocks/assessment/drag-drop/drag-drop-definition";
-import { fillBlanksConfiguration } from "@/editor/blocks/assessment/fill-blanks/fill-blanks-definition";
 import { slideImageHotspotQuestionSurfaceConfiguration } from "../variants/slide-image-hotspot-question/binding";
 import { slideSequencingQuestionSurfaceConfiguration } from "../variants/slide-sequencing-question/binding";
 import { slideMatchingQuestionSurfaceConfiguration } from "../variants/slide-matching-question/binding";
 import { slideCategoriseQuestionSurfaceConfiguration } from "../variants/slide-categorise-question/binding";
 import { slideDropdownQuestionSurfaceConfiguration } from "../variants/slide-dropdown-question/binding";
+import { slideFillBlanksQuestionSurfaceConfiguration } from "../variants/slide-fill-blanks-question/binding";
 import { mcqConfiguration } from "@/editor/blocks/assessment/mcq/mcq-definition";
 import { multiselectConfiguration } from "@/editor/blocks/assessment/multiselect/multiselect-definition";
 import { quizConfiguration } from "@/editor/blocks/assessment/quiz/quiz-definition";
@@ -57,7 +57,7 @@ import { SlideModuleCoverSurfaceAuthoringView } from "./variants/slide-module-co
 import { SlideCategoriseQuestionSurfaceAuthoringView } from "../variants/slide-categorise-question/authoring";
 import { SlideDropdownQuestionSurfaceAuthoringView } from "../variants/slide-dropdown-question/authoring";
 import { SlideDragDropQuestionSurfaceAuthoringView } from "./variants/assessment/slide-drag-drop-question";
-import { SlideFillBlanksQuestionSurfaceAuthoringView } from "./variants/assessment/slide-fill-blanks-question";
+import { SlideFillBlanksQuestionSurfaceAuthoringView } from "../variants/slide-fill-blanks-question/authoring";
 import { SlideMatchingQuestionSurfaceAuthoringView } from "../variants/slide-matching-question/authoring";
 import { SlideImageHotspotQuestionSurfaceAuthoringView } from "../variants/slide-image-hotspot-question/authoring";
 import { SlideMultipleChoiceQuestionSurfaceAuthoringView } from "./variants/assessment/slide-multiple-choice-question";
@@ -437,10 +437,7 @@ const SPECIALISED_SURFACE_AUTHORING_VIEWS = [
   {
     variantId: "slide-fill-blanks-question",
     component: SlideFillBlanksQuestionSurfaceAuthoringView,
-    configuration: defineAssessmentSurfaceConfiguration({
-      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-fill-blanks-question"),
-      questionConfiguration: fillBlanksConfiguration,
-    }),
+    configuration: slideFillBlanksQuestionSurfaceConfiguration,
   },
   {
     variantId: "slide-quiz",

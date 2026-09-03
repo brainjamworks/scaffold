@@ -20,7 +20,7 @@ import {
   projectFillBlanksInteraction,
   projectFillBlanksLearnerNode,
   projectFillBlanksSettings,
-} from "./assessment";
+} from "@/editor/assessment/fill-blanks/assessment";
 import {
   applyFillBlankToEditor,
   canApplyFillBlankToEditor,

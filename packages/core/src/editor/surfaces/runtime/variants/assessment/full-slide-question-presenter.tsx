@@ -14,7 +14,7 @@ import { SURFACE_SEQUENCING_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/a
 import { CategoriseFullSlideQuestionPresenter } from "../../../variants/slide-categorise-question/runtime";
 import { DropdownFullSlideQuestionPresenter } from "../../../variants/slide-dropdown-question/runtime";
 import { DragDropFullSlideQuestionPresenter } from "./slide-drag-drop-question";
-import { FillBlanksFullSlideQuestionPresenter } from "./slide-fill-blanks-question";
+import { FillBlanksFullSlideQuestionPresenter } from "../../../variants/slide-fill-blanks-question/runtime";
 import { ImageHotspotFullSlideQuestionPresenter } from "../../../variants/slide-image-hotspot-question/runtime";
 import { MatchingFullSlideQuestionPresenter } from "../../../variants/slide-matching-question/runtime";
 import { MultipleChoiceFullSlideQuestionPresenter } from "./slide-multiple-choice-question";

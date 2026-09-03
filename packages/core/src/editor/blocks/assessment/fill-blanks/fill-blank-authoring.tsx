@@ -54,7 +54,7 @@ import {
   defaultBlankAssessment,
   FILL_BLANKS_ASSESSMENT_OWNER_NODE_TYPES,
   firstAnswer,
-} from "./fill-blank-shared";
+} from "@/editor/assessment/fill-blanks/fill-blank-shared";
 import "./FillBlanks.css";
 import "./FillBlankSettings.css";
 

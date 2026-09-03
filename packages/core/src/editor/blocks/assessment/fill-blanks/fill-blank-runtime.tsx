@@ -19,7 +19,7 @@ import {
   createFillBlankNode,
   FILL_BLANKS_ASSESSMENT_OWNER_NODE_TYPES,
   isFillBlanksAssessmentOwnerNodeType,
-} from "./fill-blank-shared";
+} from "@/editor/assessment/fill-blanks/fill-blank-shared";
 import "./FillBlanks.css";
 
 interface FillBlankAccessibilityState {

@@ -9,9 +9,9 @@ import {
 import { Button } from "@/ui/components/Button/Button";
 import { iconXs } from "@/ui/tokens/icon-sizes";
 
-import "../../../view/variants/assessment/slide-fill-blanks-question.css";
-import type { SurfaceAuthoringViewProps } from "../../surface-authoring-view-registry";
-import { AssessmentSlideSurfaceAuthoringFrame } from "../../views/AssessmentSlideSurfaceAuthoringFrame";
+import "./styles.css";
+import type { SurfaceAuthoringViewProps } from "../../authoring/surface-authoring-view-registry";
+import { AssessmentSlideSurfaceAuthoringFrame } from "../../authoring/views/AssessmentSlideSurfaceAuthoringFrame";
 
 export function SlideFillBlanksQuestionSurfaceAuthoringView(props: SurfaceAuthoringViewProps) {
   const selectionGuidanceId = useId();
