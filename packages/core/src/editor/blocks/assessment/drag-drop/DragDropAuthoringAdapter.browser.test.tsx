@@ -53,10 +53,8 @@ describe("Drag and Drop authoring adapter", () => {
 
     await waitFor(() => expect(resolve).toHaveBeenCalledWith("custom-marker-icon"));
     expect(screen.queryByRole("img", { name: "Custom marker icon unavailable" })).toBeNull();
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "Default marker appearance" }),
-      "check",
-    );
+    await user.click(screen.getByRole("combobox", { name: "Default marker appearance" }));
+    await user.click(await screen.findByRole("option", { name: "check" }));
     await waitFor(() =>
       expect(canvasDataFrom(firstEditor.getJSON()).defaultMarkerVisual).toEqual({
         kind: "preset",

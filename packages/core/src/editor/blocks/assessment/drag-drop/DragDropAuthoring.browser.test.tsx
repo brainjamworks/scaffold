@@ -43,7 +43,8 @@ describe("Drag and Drop authoring", () => {
 
     await user.click(screen.getByRole("button", { name: "Add marker" }));
     await user.type(screen.getByRole("textbox", { name: "Marker label" }), "London");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Marker appearance" }), "pin");
+    await user.click(screen.getByRole("combobox", { name: "Marker appearance" }));
+    await user.click(await screen.findByRole("option", { name: "pin" }));
     fireEvent.change(screen.getByRole("spinbutton", { name: "Tolerance radius" }), {
       target: { value: "7" },
     });
@@ -98,18 +99,18 @@ describe("Drag and Drop authoring", () => {
       onUpdateMarker,
     });
 
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "Default marker appearance" }),
-      "check",
-    );
+    await user.click(screen.getByRole("combobox", { name: "Default marker appearance" }));
+    await user.click(await screen.findByRole("option", { name: "check" }));
     expect(onSetDefaultMarkerVisual).toHaveBeenCalledWith({ kind: "preset", preset: "check" });
     await user.click(screen.getByRole("button", { name: "Choose custom default icon" }));
     expect(onSetDefaultMarkerVisual).toHaveBeenLastCalledWith(customVisual);
 
     const appearance = screen.getByRole("combobox", { name: "Appearance for London" });
-    await user.selectOptions(appearance, "inherit");
+    await user.click(appearance);
+    await user.click(await screen.findByRole("option", { name: "Use default" }));
     expect(onUpdateMarker).toHaveBeenCalledWith(marker.id, { visualOverride: null });
-    await user.selectOptions(appearance, "flag");
+    await user.click(appearance);
+    await user.click(await screen.findByRole("option", { name: "flag" }));
     expect(onUpdateMarker).toHaveBeenCalledWith(marker.id, {
       visualOverride: { kind: "preset", preset: "flag" },
     });
