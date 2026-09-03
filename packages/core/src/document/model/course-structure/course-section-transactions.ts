@@ -1,7 +1,7 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-new-ids";
-import type { BlockDuplicationLookup } from "@/document/model/identity/clone-with-new-ids";
+import type { ContentIdentityRewriteLookup } from "@/document/model/identity/clone-with-new-ids";
 import { isUnavailableContentCompatibilityRootType } from "@/document/model/establishment/unavailable-content-compatibility-root";
 
 import { resolveCourseSectionDeletion } from "./course-section-deletion";
@@ -39,9 +39,9 @@ export function buildCourseSectionCandidate(
 export function buildCourseSectionDuplicateCandidate(
   command: Extract<CourseSectionCommand, { type: "course-section.duplicate" }>,
   context: CommandBuildContext,
-  blockDuplications: BlockDuplicationLookup,
+  identityRewrites: ContentIdentityRewriteLookup,
 ): CandidateMutation | null {
-  return duplicateCourseSection(command.courseSectionId, context, blockDuplications);
+  return duplicateCourseSection(command.courseSectionId, context, identityRewrites);
 }
 
 function createCourseSection(
@@ -86,7 +86,7 @@ function deleteCourseSection(
 function duplicateCourseSection(
   courseSectionId: CourseSectionId,
   { children, createId, schema }: CommandBuildContext,
-  blockDuplications: BlockDuplicationLookup,
+  identityRewrites: ContentIdentityRewriteLookup,
 ): CandidateMutation | null {
   const sourceIndex = childIndexById(children, "courseSection", courseSectionId);
   if (sourceIndex < 0) return null;
@@ -95,7 +95,7 @@ function duplicateCourseSection(
     return null;
   const sourceJson = children.slice(sourceIndex, sourceEnd).map((node) => node.toJSON());
   const cloned = cloneJsonWithNewStableIds(sourceJson, {
-    blockDuplications,
+    identityRewrites,
     createId,
   }).map((node) => schema.nodeFromJSON(node));
   return {

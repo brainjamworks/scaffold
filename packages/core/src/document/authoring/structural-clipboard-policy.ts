@@ -11,7 +11,7 @@ import { isNodeSelection, isTextSelection } from "@/editor/selection/selection-f
 import { replaceRangeWithNodeChecked } from "@/document/model/commands/checked-transactions";
 import {
   cloneJsonWithNewStableIds,
-  type BlockDuplicationLookup,
+  type ContentIdentityRewriteLookup,
 } from "@/document/model/identity/clone-with-new-ids";
 import { isUnavailableContentCompatibilityRootType } from "@/document/model/establishment/unavailable-content-compatibility-root";
 import {
@@ -33,7 +33,7 @@ import {
 
 export interface StructuralClipboardPolicyOptions {
   readonly blockDefinitions: BlockRegistry;
-  readonly blockDuplications: BlockDuplicationLookup;
+  readonly identityRewrites: ContentIdentityRewriteLookup;
   readonly carrierLimits: StructuralFragmentCarrierLimits;
   readonly layoutDefinitions: LayoutRegistry;
   readonly surfaceVariants: SurfaceVariantRegistry;
@@ -55,7 +55,7 @@ declare module "@tiptap/core" {
 
 export function createStructuralClipboardPolicy({
   blockDefinitions,
-  blockDuplications,
+  identityRewrites,
   carrierLimits,
   layoutDefinitions,
   surfaceVariants,
@@ -144,8 +144,7 @@ export function createStructuralClipboardPolicy({
         event.preventDefault();
         if (carrier.status === "invalid") return true;
 
-        try {
-          const validated = validateStructuralFragment({
+        const validated = validateStructuralFragment({
             fragment: carrier.fragment,
             schema: view.state.schema,
             capabilities,
@@ -167,7 +166,7 @@ export function createStructuralClipboardPolicy({
           if (placement.status === "refused") return true;
 
           const repairedJson = cloneJsonWithNewStableIds(validated.value.source, {
-            blockDuplications,
+            identityRewrites,
           });
           const repaired = validateStructuralFragment({
             fragment: {
@@ -201,9 +200,6 @@ export function createStructuralClipboardPolicy({
             mutation.tr.setMeta("paste", true).setMeta("uiEvent", "paste").scrollIntoView(),
           );
           return true;
-        } catch {
-          return true;
-        }
       };
 
       const handleCapturedEvent = (

@@ -5,7 +5,7 @@ import type { Transform } from "@tiptap/pm/transform";
 
 import {
   cloneJsonWithNewStableIds,
-  type BlockDuplicationLookup,
+  type ContentIdentityRewriteLookup,
 } from "../identity/clone-with-new-ids";
 
 export interface CheckedMutationIssue {
@@ -210,8 +210,8 @@ type DuplicateNodeCheckedInput<TTransform extends Transform> = {
   tr: TTransform;
   pos: number;
 } & (
-  | { regenerateNodeIds?: false; blockDuplications?: never }
-  | { regenerateNodeIds: true; blockDuplications: BlockDuplicationLookup }
+  | { regenerateNodeIds?: false; identityRewrites?: never }
+  | { regenerateNodeIds: true; identityRewrites: ContentIdentityRewriteLookup }
 );
 
 export function duplicateNodeChecked<TTransform extends Transform>(
@@ -223,7 +223,7 @@ export function duplicateNodeChecked<TTransform extends Transform>(
 
   const sourceJson = target.node.toJSON() as JSONContent;
   const cloneJson = input.regenerateNodeIds
-    ? cloneJsonWithNewStableIds(sourceJson, { blockDuplications: input.blockDuplications })
+    ? cloneJsonWithNewStableIds(sourceJson, { identityRewrites: input.identityRewrites })
     : sourceJson;
 
   let clone: ProseMirrorNode;

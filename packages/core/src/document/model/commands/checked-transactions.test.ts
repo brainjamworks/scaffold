@@ -247,10 +247,10 @@ describe("checked transaction primitives", () => {
     expect(editor.getJSON().content).toHaveLength(1);
   });
 
-  it("requires the mounted Block lookup when regenerating duplicate identities", () => {
+  it("requires the content identity lookup when regenerating duplicate identities", () => {
     const editor = makeEditor();
     const duplication = vi.fn(({ content }) => content);
-    const blockDuplications = Object.freeze({
+    const identityRewrites = Object.freeze({
       getByNodeType: (nodeType: string) => (nodeType === "paragraph" ? duplication : undefined),
       hasNodeType: (nodeType: string) => nodeType === "paragraph",
     });
@@ -259,7 +259,7 @@ describe("checked transaction primitives", () => {
       tr: editor.state.tr,
       pos: 0,
       regenerateNodeIds: true,
-      blockDuplications,
+      identityRewrites,
     });
 
     expect(result.ok).toBe(true);
@@ -270,7 +270,7 @@ describe("checked transaction primitives", () => {
     const editor = makeEditor();
     const tr = editor.state.tr;
     const before = tr.doc.toJSON();
-    const blockDuplications = Object.freeze({
+    const identityRewrites = Object.freeze({
       getByNodeType: (nodeType: string) =>
         nodeType === "paragraph"
           ? ({ content }: { content: JSONContent }) => ({ ...content, type: "heading" })
@@ -283,9 +283,9 @@ describe("checked transaction primitives", () => {
         tr,
         pos: 0,
         regenerateNodeIds: true,
-        blockDuplications,
+        identityRewrites,
       }),
-    ).toThrow(/Block duplication operation for "paragraph" changed a node type/);
+    ).toThrow(/Content identity rewrite for "paragraph" changed a node type/);
     expect(tr.doc.toJSON()).toEqual(before);
     expect(tr.steps).toHaveLength(0);
   });
@@ -303,7 +303,7 @@ describe("checked transaction primitives", () => {
         tr,
         pos: source.pos,
         regenerateNodeIds: true,
-        blockDuplications: SEMANTIC_LIFECYCLE_APPLICATION.capabilities.blocks.duplication,
+        identityRewrites: SEMANTIC_LIFECYCLE_APPLICATION.capabilities.contentIdentity.rewrites,
       });
 
       expect(result.ok).toBe(true);

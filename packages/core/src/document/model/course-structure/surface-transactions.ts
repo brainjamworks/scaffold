@@ -1,7 +1,7 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-new-ids";
-import type { BlockDuplicationLookup } from "@/document/model/identity/clone-with-new-ids";
+import type { ContentIdentityRewriteLookup } from "@/document/model/identity/clone-with-new-ids";
 
 import {
   childIndexById,
@@ -33,9 +33,9 @@ export function buildSurfaceCandidate(
 export function buildSurfaceDuplicateCandidate(
   command: Extract<SurfaceCommand, { type: "surface.duplicate" }>,
   context: CommandBuildContext,
-  blockDuplications: BlockDuplicationLookup,
+  identityRewrites: ContentIdentityRewriteLookup,
 ): CandidateMutation | null {
-  return duplicateSurface(command.surfaceId, context, blockDuplications);
+  return duplicateSurface(command.surfaceId, context, identityRewrites);
 }
 
 function insertSurface(
@@ -58,12 +58,12 @@ function insertSurface(
 function duplicateSurface(
   surfaceId: SurfaceId,
   { children, createId, schema }: CommandBuildContext,
-  blockDuplications: BlockDuplicationLookup,
+  identityRewrites: ContentIdentityRewriteLookup,
 ): CandidateMutation | null {
   const sourceIndex = childIndexById(children, "surface", surfaceId);
   if (sourceIndex < 0) return null;
   const json = cloneJsonWithNewStableIds(children[sourceIndex]!.toJSON(), {
-    blockDuplications,
+    identityRewrites,
     createId,
   });
   const clone = schema.nodeFromJSON(json);

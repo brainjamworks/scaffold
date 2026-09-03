@@ -397,8 +397,8 @@ describe("structural clipboard in a real browser", () => {
         throw new Error("owner repair failed");
       },
     ],
-  ] as const)("refuses %s atomically", (_label, encodedFragment, duplication) => {
-    const editor = makeEditor({ duplication });
+  ] as const)("refuses %s atomically", (_label, encodedFragment, identityRewrite) => {
+    const editor = makeEditor({ identityRewrite });
     selectNode(editor, "core-block-b");
     const before = editor.getJSON();
     const dispatch = vi.spyOn(editor.view, "dispatch");
@@ -413,8 +413,8 @@ describe("structural clipboard in a real browser", () => {
   });
 
   it("refuses failed placement before cloning or mutation", () => {
-    const duplication = vi.fn();
-    const editor = makeEditor({ duplication });
+    const identityRewrite = vi.fn();
+    const editor = makeEditor({ identityRewrite });
     const destination = textRange(editor, "Target", 0, 6);
     editor.view.dispatch(
       editor.state.tr.setSelection(
@@ -431,7 +431,7 @@ describe("structural clipboard in a real browser", () => {
     expect(event.defaultPrevented).toBe(true);
     expect(editor.getJSON()).toEqual(before);
     expect(dispatch).not.toHaveBeenCalled();
-    expect(duplication).not.toHaveBeenCalled();
+    expect(identityRewrite).not.toHaveBeenCalled();
   });
 });
 
@@ -574,7 +574,7 @@ describe("qualified production structural clipboard limits in a real browser", (
 function makeEditor(
   input: {
     readonly content?: JSONContent;
-    readonly duplication?: (() => JSONContent) | undefined;
+    readonly identityRewrite?: (() => JSONContent) | undefined;
     readonly generateID?: (() => string) | undefined;
   } = {},
 ): Editor {
@@ -583,7 +583,13 @@ function makeEditor(
       { definition: coreDefinition },
       {
         definition: contributedDefinition,
-        ...(input.duplication ? { duplication: input.duplication } : {}),
+        ...(input.identityRewrite
+          ? {
+              identityRewrites: [
+                { nodeType: contributedDefinition.nodeType, rewrite: input.identityRewrite },
+              ],
+            }
+          : {}),
       },
     ],
     layoutDefinitions: layoutDefinitions.definitions,
@@ -610,7 +616,7 @@ function makeEditor(
       createScaffoldInteractionOwnerExtension(capabilities.blocks.registry),
       createStructuralClipboardPolicy({
         blockDefinitions: capabilities.blocks.registry,
-        blockDuplications: capabilities.blocks.duplication,
+        identityRewrites: capabilities.contentIdentity.rewrites,
         carrierLimits: AUTHORING_STRUCTURAL_CLIPBOARD_LIMITS,
         layoutDefinitions: capabilities.layouts.registry,
         surfaceVariants: capabilities.surfaces.registry,

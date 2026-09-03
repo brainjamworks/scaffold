@@ -8,7 +8,7 @@ import {
 import { Fragment, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { EditorState, Transaction } from "@tiptap/pm/state";
 
-import type { BlockDuplicationLookup } from "@/document/model/identity/clone-with-new-ids";
+import type { ContentIdentityRewriteLookup } from "@/document/model/identity/clone-with-new-ids";
 import { isNodeSelection } from "@/editor/selection/selection-facts";
 import {
   setNodeSelectionInTransaction,
@@ -33,7 +33,7 @@ import {
 import type { CourseSectionId, CourseStructureCommand, SurfaceId } from "./types";
 
 interface ApplyCourseStructureCommandInput {
-  readonly blockDuplications?: BlockDuplicationLookup;
+  readonly identityRewrites?: ContentIdentityRewriteLookup;
   readonly state: EditorState;
   readonly tr: Transaction;
   readonly command: CourseStructureCommand;
@@ -62,7 +62,7 @@ type LogicalSelection =
     };
 
 export function applyCourseStructureCommandToTransaction({
-  blockDuplications,
+  identityRewrites,
   state,
   tr,
   command,
@@ -79,7 +79,7 @@ export function applyCourseStructureCommandToTransaction({
     schema: state.schema,
   };
   const logicalSelection = captureLogicalSelection(state);
-  const candidate = buildCandidate(command, context, blockDuplications);
+  const candidate = buildCandidate(command, context, identityRewrites);
   if (!candidate || sameChildren(children, candidate.children)) return false;
 
   applyLocalChange({
@@ -181,19 +181,19 @@ function reconcilePresentationSurfaceTimelines(tr: Transaction): void {
 function buildCandidate(
   command: CourseStructureCommand,
   context: CommandBuildContext,
-  blockDuplications: BlockDuplicationLookup | undefined,
+  identityRewrites: ContentIdentityRewriteLookup | undefined,
 ): CandidateMutation | null {
   if (command.type === "course-section.duplicate") {
-    if (!blockDuplications) {
-      throw new Error("Course Section duplication requires the mounted Block duplication lookup.");
+    if (!identityRewrites) {
+      throw new Error("Course Section duplication requires the content identity rewrite lookup.");
     }
-    return buildCourseSectionDuplicateCandidate(command, context, blockDuplications);
+    return buildCourseSectionDuplicateCandidate(command, context, identityRewrites);
   }
   if (command.type === "surface.duplicate") {
-    if (!blockDuplications) {
-      throw new Error("Surface duplication requires the mounted Block duplication lookup.");
+    if (!identityRewrites) {
+      throw new Error("Surface duplication requires the content identity rewrite lookup.");
     }
-    return buildSurfaceDuplicateCandidate(command, context, blockDuplications);
+    return buildSurfaceDuplicateCandidate(command, context, identityRewrites);
   }
   return command.type.startsWith("course-section.")
     ? buildCourseSectionCandidate(

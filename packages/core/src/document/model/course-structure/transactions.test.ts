@@ -18,7 +18,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import {
   resolveScaffoldCapabilities,
-  type ResolvedBlockCapabilities,
+  type ResolvableBlockCapability,
 } from "@/composition/model/resolved-scaffold-capabilities";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
 import {
@@ -28,7 +28,6 @@ import {
 import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { CourseDocumentNode, DocumentNode, createCourseSectionNode } from "@/document/model/nodes";
 import { defineBlock } from "@/editor/blocks/block-definition";
-import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { isNodeSelection } from "@/editor/selection/selection-facts";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
@@ -55,10 +54,7 @@ const RULE_1 = EmbeddedDataIdSchema.parse("rule00000001");
 const RULE_2 = EmbeddedDataIdSchema.parse("rule00000002");
 
 const editors: Editor[] = [];
-const EMPTY_BLOCK_CAPABILITIES: ResolvedBlockCapabilities = Object.freeze({
-  registry: createBlockRegistry([]),
-  duplication: Object.freeze({ getByNodeType: () => undefined, hasNodeType: () => false }),
-});
+const EMPTY_BLOCK_CAPABILITIES: readonly ResolvableBlockCapability[] = [];
 const TestArrangementNode = Node.create({
   name: "testArrangement",
   group: ARRANGEMENT_CONTENT,
@@ -83,7 +79,7 @@ const surfaceVariants = createSurfaceVariantRegistry([
     id: "test-flex-slide",
     modes: ["slideshow"],
     title: "Flexible test slide",
-    description: "Course Structure Block duplication fixture.",
+    description: "Course Structure identity rewrite fixture.",
     settingsSchema: z.object({}).strict(),
     createSurface: ({ surfaceId }) => surface(surfaceId, undefined, "test-flex-slide"),
   },
@@ -615,7 +611,7 @@ describe("Course Structure Tiptap commands", () => {
   });
 
   it("lets a mounted Block rewrite private identity during Surface duplication", () => {
-    const duplication = vi.fn(({ content, nodeIdChanges }) => {
+    const rewrite = vi.fn(({ content, nodeIdChanges }) => {
       const data = content.attrs?.["data"];
       const referenceId =
         data && typeof data === "object" && "referenceId" in data ? data.referenceId : undefined;
@@ -627,16 +623,13 @@ describe("Course Structure Tiptap commands", () => {
         ? { ...content, attrs: { ...content.attrs, data: { ...data, referenceId: replacement } } }
         : content;
     });
-    const mountedBlocks = Object.freeze({
-      registry: createBlockRegistry([
-        defineBlock({ nodeType: "copy_fixture", title: "Copy fixture" }),
-      ]),
-      duplication: Object.freeze({
-        getByNodeType: (nodeType: string) =>
-          nodeType === "copy_fixture" ? duplication : undefined,
-        hasNodeType: (nodeType: string) => nodeType === "copy_fixture",
-      }),
-    });
+    const definition = defineBlock({ nodeType: "copy_fixture", title: "Copy fixture" });
+    const mountedBlocks = [
+      {
+        definition,
+        identityRewrites: [{ nodeType: definition.nodeType, rewrite }],
+      },
+    ];
     const editor = makeEditor(
       [
         section(SECTION_1, "One"),
@@ -656,11 +649,11 @@ describe("Course Structure Tiptap commands", () => {
       type: "copy_fixture",
       attrs: { id: "copyblock002", data: { referenceId: "copyblock002" } },
     });
-    expect(duplication).toHaveBeenCalledOnce();
+    expect(rewrite).toHaveBeenCalledOnce();
   });
 
   it("lets a mounted Block repair private identity during Course Section duplication", () => {
-    const duplication = vi.fn(({ content, nodeIdChanges }) => {
+    const rewrite = vi.fn(({ content, nodeIdChanges }) => {
       const data = content.attrs?.["data"];
       const referenceId =
         data && typeof data === "object" && "referenceId" in data ? data.referenceId : undefined;
@@ -672,16 +665,13 @@ describe("Course Structure Tiptap commands", () => {
         ? { ...content, attrs: { ...content.attrs, data: { ...data, referenceId: replacement } } }
         : content;
     });
-    const mountedBlocks = Object.freeze({
-      registry: createBlockRegistry([
-        defineBlock({ nodeType: "copy_fixture", title: "Copy fixture" }),
-      ]),
-      duplication: Object.freeze({
-        getByNodeType: (nodeType: string) =>
-          nodeType === "copy_fixture" ? duplication : undefined,
-        hasNodeType: (nodeType: string) => nodeType === "copy_fixture",
-      }),
-    });
+    const definition = defineBlock({ nodeType: "copy_fixture", title: "Copy fixture" });
+    const mountedBlocks = [
+      {
+        definition,
+        identityRewrites: [{ nodeType: definition.nodeType, rewrite }],
+      },
+    ];
     const editor = makeEditor(
       [
         section(SECTION_1, "One"),
@@ -708,7 +698,7 @@ describe("Course Structure Tiptap commands", () => {
       type: "copy_fixture",
       attrs: { id: "copyblock002", data: { referenceId: "copyblock002" } },
     });
-    expect(duplication).toHaveBeenCalledOnce();
+    expect(rewrite).toHaveBeenCalledOnce();
   });
 });
 
@@ -1139,16 +1129,13 @@ function makeEditor(
   children: JSONContent[],
   mode: "page" | "slideshow",
   ids: string[],
-  mountedBlocks: ResolvedBlockCapabilities = EMPTY_BLOCK_CAPABILITIES,
+  blockCapabilities: readonly ResolvableBlockCapability[] = [],
   presentationConfiguration: PresentationConfigurationV1 | null = null,
   learnerInteractionConfiguration: LearnerInteractionConfigurationV1 | null = null,
 ): Editor {
   const remainingIds = [...ids];
   const capabilities = resolveScaffoldCapabilities({
-    blockCapabilities: mountedBlocks.registry.definitions.map((definition) => {
-      const duplication = mountedBlocks.duplication.getByNodeType(definition.nodeType);
-      return duplication ? { definition, duplication } : { definition };
-    }),
+    blockCapabilities,
     layoutDefinitions: [],
     surfaceDefinitions: surfaceVariants.definitions,
   });

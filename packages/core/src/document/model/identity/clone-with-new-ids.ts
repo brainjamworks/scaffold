@@ -55,24 +55,29 @@ export interface DuplicatedContentIdentityGenerators {
   readonly createDataId: () => EmbeddedDataId;
 }
 
-export interface BlockDuplicationOperationInput {
-  /** The cloned Block JSON after generic document-node ID regeneration. */
+export interface ContentIdentityRewriteInput {
+  /** The cloned owner JSON after generic document-node ID regeneration. */
   readonly content: JSONContent;
   /** One immutable old-to-new document-node ID snapshot for the whole clone. */
   readonly nodeIdChanges: ReadonlyMap<EmbeddedNodeId, EmbeddedNodeId>;
   readonly generators: DuplicatedContentIdentityGenerators;
 }
 
-/** Purely repairs capability-private identity inside its own duplicated Block. */
-export type BlockDuplicationOperation = (input: BlockDuplicationOperationInput) => JSONContent;
+/** Purely repairs capability-private identity inside its registered content owner. */
+export type ContentIdentityRewrite = (input: ContentIdentityRewriteInput) => JSONContent;
 
-export interface BlockDuplicationLookup {
-  readonly getByNodeType: (nodeType: string) => BlockDuplicationOperation | undefined;
+export interface ContentIdentityRewriteLookup {
+  readonly getByNodeType: (nodeType: string) => ContentIdentityRewrite | undefined;
   readonly hasNodeType: (nodeType: string) => boolean;
 }
 
+export interface ContentIdentityRewriteRegistration {
+  readonly nodeType: string;
+  readonly rewrite: ContentIdentityRewrite;
+}
+
 export interface CloneJsonWithNewStableIdsOptions {
-  blockDuplications: BlockDuplicationLookup;
+  readonly identityRewrites: ContentIdentityRewriteLookup;
   createDataId?: DuplicatedContentIdentityGenerators["createDataId"];
   createId?: () => string;
 }
@@ -83,12 +88,22 @@ export function cloneJsonWithNewStableIds<T extends JSONContent | JSONContent[]>
 ): T {
   const clone = cloneJsonValue(content);
   const createId = options.createId ?? createEmbeddedNodeId;
+  const generatedNodeIds = new Set<string>();
+  const createUniqueId = () => {
+    const id = createId();
+    if (generatedNodeIds.has(id)) {
+      throw new Error(`Duplicate generated document identity "${id}".`);
+    }
+    generatedNodeIds.add(id);
+    return id;
+  };
   const nodeIdChanges = new Map<EmbeddedNodeId, EmbeddedNodeId>();
+  const { identityRewrites } = options;
 
   if (Array.isArray(clone)) {
-    clone.forEach((node) => regenerateIdsInNode(node, createId, nodeIdChanges));
+    clone.forEach((node) => regenerateIdsInNode(node, createUniqueId, nodeIdChanges));
   } else {
-    regenerateIdsInNode(clone, createId, nodeIdChanges);
+    regenerateIdsInNode(clone, createUniqueId, nodeIdChanges);
   }
 
   const immutableNodeIdChanges = immutableReadonlyMap(nodeIdChanges);
@@ -98,60 +113,55 @@ export function cloneJsonWithNewStableIds<T extends JSONContent | JSONContent[]>
 
   if (Array.isArray(clone)) {
     return clone.map((node) =>
-      applyBlockDuplicationsInsideOut(
-        node,
-        options.blockDuplications,
-        immutableNodeIdChanges,
-        generators,
-      ),
+      applyIdentityRewritesInsideOut(node, identityRewrites, immutableNodeIdChanges, generators),
     ) as T;
   }
 
-  return applyBlockDuplicationsInsideOut(
+  return applyIdentityRewritesInsideOut(
     clone,
-    options.blockDuplications,
+    identityRewrites,
     immutableNodeIdChanges,
     generators,
   ) as T;
 }
 
-function applyBlockDuplicationsInsideOut(
+function applyIdentityRewritesInsideOut(
   node: JSONContent,
-  blockDuplications: BlockDuplicationLookup,
+  identityRewrites: ContentIdentityRewriteLookup,
   nodeIdChanges: ReadonlyMap<EmbeddedNodeId, EmbeddedNodeId>,
   generators: DuplicatedContentIdentityGenerators,
 ): JSONContent {
   if (node.content) {
     node.content = node.content.map((child) =>
-      applyBlockDuplicationsInsideOut(child, blockDuplications, nodeIdChanges, generators),
+      applyIdentityRewritesInsideOut(child, identityRewrites, nodeIdChanges, generators),
     );
   }
 
-  const duplication = node.type ? blockDuplications.getByNodeType(node.type) : undefined;
-  if (!duplication) return node;
+  const rewrite = node.type ? identityRewrites.getByNodeType(node.type) : undefined;
+  if (!rewrite) return node;
 
   const beforeOperation = cloneJsonValue(node);
-  const repaired = duplication({ content: node, nodeIdChanges, generators });
-  assertBlockDuplicationBoundary(beforeOperation, repaired, blockDuplications, node.type);
+  const repaired = rewrite({ content: node, nodeIdChanges, generators });
+  assertContentIdentityRewriteBoundary(beforeOperation, repaired, identityRewrites, node.type);
   return repaired;
 }
 
-function assertBlockDuplicationBoundary(
+function assertContentIdentityRewriteBoundary(
   before: JSONContent,
   after: JSONContent,
-  blockDuplications: BlockDuplicationLookup,
+  identityRewrites: ContentIdentityRewriteLookup,
   ownerNodeType: string | undefined,
 ): void {
-  const violation = findBlockDuplicationBoundaryViolation(before, after, blockDuplications);
+  const violation = findContentIdentityRewriteBoundaryViolation(before, after, identityRewrites);
   if (!violation) return;
 
-  throw new Error(`Block duplication operation for "${ownerNodeType ?? "unknown"}" ${violation}.`);
+  throw new Error(`Content identity rewrite for "${ownerNodeType ?? "unknown"}" ${violation}.`);
 }
 
-function findBlockDuplicationBoundaryViolation(
+function findContentIdentityRewriteBoundaryViolation(
   before: JSONContent,
   after: JSONContent,
-  blockDuplications: BlockDuplicationLookup,
+  identityRewrites: ContentIdentityRewriteLookup,
 ): string | null {
   const afterRecord = asRecord(after);
   if (!afterRecord) return "returned a non-object node";
@@ -177,21 +187,49 @@ function findBlockDuplicationBoundaryViolation(
     const afterChild = afterContent.nodes[index]!;
     if (
       beforeChild.type &&
-      blockDuplications.hasNodeType(beforeChild.type) &&
+      identityRewrites.hasNodeType(beforeChild.type) &&
       !jsonValuesEqual(beforeChild, afterChild)
     ) {
-      return `changed nested mounted Block "${beforeChild.type}"`;
+      return `changed nested registered owner "${beforeChild.type}"`;
     }
 
-    const childViolation = findBlockDuplicationBoundaryViolation(
+    const childViolation = findContentIdentityRewriteBoundaryViolation(
       beforeChild,
       afterChild,
-      blockDuplications,
+      identityRewrites,
     );
     if (childViolation) return childViolation;
   }
 
   return null;
+}
+
+export function createContentIdentityRewriteLookup(
+  registrations: readonly ContentIdentityRewriteRegistration[],
+): ContentIdentityRewriteLookup {
+  const rewritesByNodeType = new Map<string, ContentIdentityRewrite>();
+  for (const registration of registrations) {
+    const firstRewrite = rewritesByNodeType.get(registration.nodeType);
+    if (firstRewrite) {
+      throw new Error(
+        `Duplicate content identity rewrite registration for "${registration.nodeType}".`,
+        {
+          cause: Object.freeze({
+            nodeType: registration.nodeType,
+            registrations: Object.freeze([
+              Object.freeze({ nodeType: registration.nodeType, rewrite: firstRewrite }),
+              Object.freeze({ nodeType: registration.nodeType, rewrite: registration.rewrite }),
+            ]),
+          }),
+        },
+      );
+    }
+    rewritesByNodeType.set(registration.nodeType, registration.rewrite);
+  }
+  return Object.freeze({
+    getByNodeType: (nodeType: string) => rewritesByNodeType.get(nodeType),
+    hasNodeType: (nodeType: string) => rewritesByNodeType.has(nodeType),
+  });
 }
 
 function sameNodeIdentity(before: JSONContent, after: JSONContent): boolean {

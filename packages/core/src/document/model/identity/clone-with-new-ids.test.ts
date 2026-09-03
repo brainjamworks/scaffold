@@ -19,35 +19,36 @@ import { createEmbeddedNodeId } from "./stable-ids";
 
 import {
   cloneJsonWithNewStableIds as cloneJsonWithNewStableIdsUsingLookup,
-  type BlockDuplicationLookup,
-  type BlockDuplicationOperation,
+  createContentIdentityRewriteLookup,
+  type ContentIdentityRewrite,
+  type ContentIdentityRewriteLookup,
   type CloneJsonWithNewStableIdsOptions,
 } from "./clone-with-new-ids";
 
 const STABLE_ID_PATTERN = /^[0-9A-Z_a-z-]{12}$/;
 const SOURCE_SURFACE_ID = createEmbeddedNodeId();
-const CORE_BLOCK_DUPLICATIONS = createScaffoldApplication().capabilities.blocks.duplication;
-const EMPTY_BLOCK_DUPLICATIONS: BlockDuplicationLookup = Object.freeze({
+const CORE_IDENTITY_REWRITES = createScaffoldApplication().capabilities.contentIdentity.rewrites;
+const EMPTY_IDENTITY_REWRITES: ContentIdentityRewriteLookup = Object.freeze({
   getByNodeType: () => undefined,
   hasNodeType: () => false,
 });
 
 function cloneJsonWithNewStableIds<T extends JSONContent | JSONContent[]>(
   content: T,
-  options: Omit<CloneJsonWithNewStableIdsOptions, "blockDuplications"> & {
-    blockDuplications?: BlockDuplicationLookup;
+  options: Omit<CloneJsonWithNewStableIdsOptions, "identityRewrites"> & {
+    identityRewrites?: ContentIdentityRewriteLookup;
   } = {},
 ): T {
   return cloneJsonWithNewStableIdsUsingLookup(content, {
-    blockDuplications: CORE_BLOCK_DUPLICATIONS,
+    identityRewrites: CORE_IDENTITY_REWRITES,
     ...options,
   });
 }
 
-function duplicationLookup(
-  operations: Readonly<Record<string, BlockDuplicationOperation>>,
+function identityRewriteLookup(
+  operations: Readonly<Record<string, ContentIdentityRewrite>>,
   mountedNodeTypes: readonly string[] = Object.keys(operations),
-): BlockDuplicationLookup {
+): ContentIdentityRewriteLookup {
   const mountedNodeTypeSet = new Set(mountedNodeTypes);
   return Object.freeze({
     getByNodeType: (nodeType: string) => operations[nodeType],
@@ -78,6 +79,115 @@ function assessmentOf(node: JSONContent | undefined): Record<string, unknown> {
 }
 
 describe("cloneJsonWithNewStableIds", () => {
+  it("rewrites nested Block and Surface owners inside-out through one neutral lookup", () => {
+    const order: string[] = [];
+    const rewrite = (owner: string): ContentIdentityRewrite =>
+      vi.fn(({ content, generators }) => {
+        order.push(owner);
+        return {
+          ...content,
+          attrs: { ...content.attrs, privateId: generators.createDataId() },
+        };
+      });
+    const identityRewrites = createContentIdentityRewriteLookup([
+      { nodeType: "block_owner", rewrite: rewrite("block") },
+      { nodeType: "surface_owner", rewrite: rewrite("surface") },
+    ]);
+    const source: JSONContent[] = [
+      {
+        type: "surface_owner",
+        attrs: { id: "surfaceold01", privateId: "privateold01" },
+        content: [{ type: "block_owner", attrs: { id: "blockold0001" } }],
+      },
+      { type: "surface_owner", attrs: { id: "surfaceold02", privateId: "privateold02" } },
+    ];
+    const dataIds = ["datanew00001", "datanew00002", "datanew00003"];
+
+    const clone = cloneJsonWithNewStableIdsUsingLookup(source, {
+      identityRewrites,
+      createDataId: () => EmbeddedDataIdSchema.parse(dataIds.shift()),
+      createId: () => createEmbeddedNodeId(),
+    });
+
+    expect(order).toEqual(["block", "surface", "surface"]);
+    expect(clone[0]?.attrs?.["privateId"]).toBe("datanew00002");
+    expect(clone[0]?.content?.[0]?.attrs?.["privateId"]).toBe("datanew00001");
+    expect(clone[1]?.attrs?.["privateId"]).toBe("datanew00003");
+  });
+
+  it("rejects duplicate owner registrations", () => {
+    const rewrite: ContentIdentityRewrite = ({ content }) => content;
+
+    expect(() =>
+      createContentIdentityRewriteLookup([
+        { nodeType: "surface_owner", rewrite },
+        { nodeType: "surface_owner", rewrite },
+      ]),
+    ).toThrow('Duplicate content identity rewrite registration for "surface_owner"');
+  });
+
+  it("snapshots a retained registration's rewrite", () => {
+    const originalRewrite: ContentIdentityRewrite = ({ content }) => ({
+      ...content,
+      attrs: { ...content.attrs, rewrite: "original" },
+    });
+    const replacementRewrite: ContentIdentityRewrite = ({ content }) => ({
+      ...content,
+      attrs: { ...content.attrs, rewrite: "replacement" },
+    });
+    const registration = { nodeType: "surface_owner", rewrite: originalRewrite };
+    const lookup = createContentIdentityRewriteLookup([registration]);
+
+    registration.rewrite = replacementRewrite;
+
+    expect(lookup.getByNodeType("surface_owner")).toBe(originalRewrite);
+  });
+
+  it("rejects duplicate generated identities without mutating the source", () => {
+    const source: JSONContent = {
+      type: "surface_owner",
+      attrs: { id: "surfaceold01" },
+      content: [{ type: "paragraph", attrs: { id: "childold0001" } }],
+    };
+    const sourceSnapshot = structuredClone(source);
+
+    expect(() =>
+      cloneJsonWithNewStableIdsUsingLookup(source, {
+        identityRewrites: createContentIdentityRewriteLookup([]),
+        createId: () => "duplicatenew" as EmbeddedNodeId,
+      }),
+    ).toThrow('Duplicate generated document identity "duplicatenew"');
+    expect(source).toEqual(sourceSnapshot);
+  });
+
+  it("leaves the source unchanged when a rewrite detects a missing reference", () => {
+    const source: JSONContent = {
+      type: "surface_owner",
+      attrs: { id: "surfaceold01", privateRef: "missingold01" },
+    };
+    const sourceSnapshot = structuredClone(source);
+    const identityRewrites = createContentIdentityRewriteLookup([
+      {
+        nodeType: "surface_owner",
+        rewrite: ({ content, nodeIdChanges }) => {
+          const reference = EmbeddedNodeIdSchema.parse(content.attrs?.["privateRef"]);
+          if (!nodeIdChanges.has(reference)) {
+            throw new Error(`Missing copied identity for "${reference}"`);
+          }
+          return content;
+        },
+      },
+    ]);
+
+    expect(() =>
+      cloneJsonWithNewStableIdsUsingLookup(source, {
+        identityRewrites,
+        createId: () => EmbeddedNodeIdSchema.parse("surfacenew01"),
+      }),
+    ).toThrow('Missing copied identity for "missingold01"');
+    expect(source).toEqual(sourceSnapshot);
+  });
+
   it("gives a contributed Block one immutable node map for private Data rewriting", () => {
     const source: JSONContent = {
       type: "copy_fixture",
@@ -141,7 +251,7 @@ describe("cloneJsonWithNewStableIds", () => {
         },
       };
     });
-    const blockDuplications = duplicationLookup({
+    const identityRewrites = identityRewriteLookup({
       copy_fixture: repairPrivateIdentity,
       copy_observer: observeCopiedContent,
     });
@@ -152,7 +262,7 @@ describe("cloneJsonWithNewStableIds", () => {
     ];
 
     const clone = cloneJsonWithNewStableIds(source, {
-      blockDuplications,
+      identityRewrites,
       createDataId: () => EmbeddedDataIdSchema.parse("datanew00001"),
       createId: () => {
         const id = allocatedNodeIds.shift();
@@ -203,7 +313,7 @@ describe("cloneJsonWithNewStableIds", () => {
     const clone = cloneJsonWithNewStableIds(
       { type: "ordinary_fixture", attrs: { id: "ordinary0001" } },
       {
-        blockDuplications: duplicationLookup({}, ["ordinary_fixture"]),
+        identityRewrites: identityRewriteLookup({}, ["ordinary_fixture"]),
         createId: () => EmbeddedNodeIdSchema.parse("ordinary0002"),
       },
     );
@@ -237,21 +347,21 @@ describe("cloneJsonWithNewStableIds", () => {
       content: [{ type: "paragraph", attrs: { id: "paraold00001" } }],
     };
     const sourceSnapshot = structuredClone(source);
-    const blockDuplications = duplicationLookup({
+    const identityRewrites = identityRewriteLookup({
       hostile_owner: ({ content }) => tamper(content),
     });
     const allocatedNodeIds = ["ownernew0001", "paranew00001"];
 
     expect(() =>
       cloneJsonWithNewStableIds(source, {
-        blockDuplications,
+        identityRewrites,
         createId: () => {
           const id = allocatedNodeIds.shift();
           if (!id) throw new Error("unexpected node identity allocation");
           return id;
         },
       }),
-    ).toThrow(/Block duplication operation/);
+    ).toThrow(/Content identity rewrite/);
     expect(source).toEqual(sourceSnapshot);
   });
 
@@ -267,7 +377,7 @@ describe("cloneJsonWithNewStableIds", () => {
       ],
     };
     const sourceSnapshot = structuredClone(source);
-    const blockDuplications = duplicationLookup(
+    const identityRewrites = identityRewriteLookup(
       {
         hostile_parent: ({ content }) => ({
           ...content,
@@ -287,14 +397,14 @@ describe("cloneJsonWithNewStableIds", () => {
 
     expect(() =>
       cloneJsonWithNewStableIds(source, {
-        blockDuplications,
+        identityRewrites,
         createId: () => {
           const id = allocatedNodeIds.shift();
           if (!id) throw new Error("unexpected node identity allocation");
           return id;
         },
       }),
-    ).toThrow(/nested mounted Block "ordinary_child"/);
+    ).toThrow(/nested registered owner "ordinary_child"/);
     expect(source).toEqual(sourceSnapshot);
   });
 
@@ -316,7 +426,7 @@ describe("cloneJsonWithNewStableIds", () => {
       attrs: { id: "ownerold0002" },
       content: [{ type: "text", text: "Original", marks: [{ type: "bold" }] }],
     };
-    const blockDuplications = duplicationLookup({
+    const identityRewrites = identityRewriteLookup({
       hostile_owner: ({ content }) => ({
         ...content,
         ...(content.content ? { content: content.content.map(tamper) } : {}),
@@ -325,10 +435,10 @@ describe("cloneJsonWithNewStableIds", () => {
 
     expect(() =>
       cloneJsonWithNewStableIds(source, {
-        blockDuplications,
+        identityRewrites,
         createId: () => "ownernew0002",
       }),
-    ).toThrow(/Block duplication operation/);
+    ).toThrow(/Content identity rewrite/);
   });
 
   it("does not discover private payload references without a mounted owner callback", () => {
@@ -346,7 +456,7 @@ describe("cloneJsonWithNewStableIds", () => {
     };
 
     const clone = cloneJsonWithNewStableIds(source, {
-      blockDuplications: EMPTY_BLOCK_DUPLICATIONS,
+      identityRewrites: EMPTY_IDENTITY_REWRITES,
       createId: () => {
         const id = allocatedNodeIds.shift();
         if (!id) throw new Error("unexpected node identity allocation");
@@ -466,7 +576,10 @@ describe("cloneJsonWithNewStableIds", () => {
   it("regenerates block and ProseMirror component ids without mutating the source", () => {
     const source: JSONContent = {
       type: "mcq",
-      attrs: { id: "block-original" },
+      attrs: {
+        id: "block-original",
+        assessment: { correctOptionId: "choice-a", feedbackByOptionId: {} },
+      },
       content: [
         {
           type: "assessment_choices_group",
@@ -698,11 +811,11 @@ describe("cloneJsonWithNewStableIds", () => {
     },
   );
 
-  it("needs no feature-specific duplication repair for approved public member IDs", () => {
+  it("needs no feature-specific identity rewrite for approved public member IDs", () => {
     expect(
       APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.map(({ ownerNodeType }) => ({
         ownerNodeType,
-        operation: CORE_BLOCK_DUPLICATIONS.getByNodeType(ownerNodeType),
+        operation: CORE_IDENTITY_REWRITES.getByNodeType(ownerNodeType),
       })),
     ).toEqual(
       APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.map(({ ownerNodeType }) => ({

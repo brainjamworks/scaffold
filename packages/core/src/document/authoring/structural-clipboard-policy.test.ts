@@ -11,7 +11,7 @@ import { z } from "zod";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
-import type { BlockDuplicationOperation } from "@/document/model/identity/clone-with-new-ids";
+import type { ContentIdentityRewrite } from "@/document/model/identity/clone-with-new-ids";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createLayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import { defineBlock } from "@/editor/blocks/block-definition";
@@ -55,7 +55,9 @@ const AccordionPanelNode = structuralContainerNode(
   "accordion_section_panel",
   "div[data-accordion-panel]",
 );
-const RegionNode = structuralContainerNode("region", "div[data-region]");
+const RegionNode = structuralContainerNode("region", "div[data-region]").extend({
+  addAttributes: () => ({ contentLayout: { default: "flow" } }),
+});
 const GridNode = structuralContainerNode("grid", "div[data-grid]", "cell+");
 const CellNode = structuralContainerNode("cell", "div[data-cell]");
 const FlashcardNode = structuralContainerNode(
@@ -188,7 +190,7 @@ const carrierLimits: StructuralFragmentCarrierLimits = {
   },
 };
 
-const contributedDuplication = vi.fn(({ content, nodeIdChanges }) => {
+const contributedIdentityRewrite = vi.fn(({ content, nodeIdChanges }) => {
   const data = content.attrs?.["data"];
   const paragraphId =
     data && typeof data === "object" && !Array.isArray(data)
@@ -400,7 +402,7 @@ describe("structural clipboard policy", () => {
       const payloadSnapshot = { ...copied };
       selectNode(editor, "core-block-b");
       generateID.mockClear();
-      contributedDuplication.mockClear();
+      contributedIdentityRewrite.mockClear();
       const dispatch = vi.spyOn(editor.view, "dispatch");
 
       const { event } = dispatchClipboard(editor, "paste", copied);
@@ -418,12 +420,12 @@ describe("structural clipboard policy", () => {
       expect(new Set(allNodeIds(editor)).size).toBe(allNodeIds(editor).length);
 
       if (sourceId === "contrib-blk1") {
-        expect(contributedDuplication).toHaveBeenCalledTimes(1);
+        expect(contributedIdentityRewrite).toHaveBeenCalledTimes(1);
         expect(insertedJson.attrs?.["data"]).toEqual({
           paragraphId: insertedJson.content?.[0]?.attrs?.["id"],
         });
       } else {
-        expect(contributedDuplication).not.toHaveBeenCalled();
+        expect(contributedIdentityRewrite).not.toHaveBeenCalled();
       }
     },
   );
@@ -648,7 +650,7 @@ describe("structural clipboard policy", () => {
       destinationId: "region000001",
       container: {
         type: "region",
-        attrs: { id: "region000001" },
+        attrs: { id: "region000001", contentLayout: "flow" },
         content: [{ type: "paragraph", attrs: { id: "target-par01" } }],
       },
     },
@@ -810,7 +812,7 @@ describe("structural clipboard policy", () => {
     const payloadSnapshot = { ...payload };
     setCursorAtEnd(editor, "dest-para001");
     generateID.mockClear();
-    contributedDuplication.mockClear();
+    contributedIdentityRewrite.mockClear();
     const dispatch = vi.spyOn(editor.view, "dispatch");
 
     const { event } = dispatchClipboard(editor, "paste", payload);
@@ -819,7 +821,7 @@ describe("structural clipboard policy", () => {
     expect(event.defaultPrevented).toBe(true);
     expect(dispatch).toHaveBeenCalledTimes(1);
     expect(generateID).not.toHaveBeenCalled();
-    expect(contributedDuplication).toHaveBeenCalledTimes(1);
+    expect(contributedIdentityRewrite).toHaveBeenCalledTimes(1);
     expect(courseDocument?.childCount).toBe(3);
     expect(courseDocument?.child(0).attrs["id"]).toBe("dest-surf001");
     expect(courseDocument?.child(2).attrs["id"]).toBe("dest-surf002");
@@ -917,32 +919,32 @@ describe("structural clipboard policy", () => {
     expect(editor.getJSON()).toEqual(before);
     expect(dispatch).not.toHaveBeenCalled();
     expect(generateID).not.toHaveBeenCalled();
-    expect(contributedDuplication).not.toHaveBeenCalled();
+    expect(contributedIdentityRewrite).not.toHaveBeenCalled();
   });
 
-  it("atomically refuses a Surface when a mounted owner repair fails", () => {
+  it("keeps the document atomic and exposes a thrown owner rewrite defect", () => {
     const generateID = vi.fn(() => createEmbeddedNodeId());
     const failedRepair = vi.fn(() => {
       throw new Error("repair failed");
     });
-    const editor = makeSurfaceEditor({ duplication: failedRepair, generateID });
+    const editor = makeSurfaceEditor({ identityRewrite: failedRepair, generateID });
     setCursorAtEnd(editor, "dest-para001");
     generateID.mockClear();
     const before = editor.getJSON();
     const dispatch = vi.spyOn(editor.view, "dispatch");
 
-    const { event } = dispatchClipboard(editor, "paste", {
-      [SCAFFOLD_STRUCTURAL_FRAGMENT_MIME]: encodeStructuralFragment({
-        rootKind: "surface",
-        content: surface(
-          "source-surf1",
-          "contributed-surface",
-          contributedBlockWithReferences(),
-        ) as StructuralFragmentContent,
+    expect(() =>
+      dispatchClipboard(editor, "paste", {
+        [SCAFFOLD_STRUCTURAL_FRAGMENT_MIME]: encodeStructuralFragment({
+          rootKind: "surface",
+          content: surface(
+            "source-surf1",
+            "contributed-surface",
+            contributedBlockWithReferences(),
+          ) as StructuralFragmentContent,
+        }),
       }),
-    });
-
-    expect(event.defaultPrevented).toBe(true);
+    ).toThrow("repair failed");
     expect(editor.getJSON()).toEqual(before);
     expect(dispatch).not.toHaveBeenCalled();
     expect(generateID).not.toHaveBeenCalled();
@@ -951,14 +953,14 @@ describe("structural clipboard policy", () => {
 
   it("revalidates repaired private attrs and refuses an invalid owner result atomically", () => {
     const generateID = vi.fn(() => createEmbeddedNodeId());
-    const invalidRepair = vi.fn(({ content }: Parameters<BlockDuplicationOperation>[0]) => ({
+    const invalidRepair = vi.fn(({ content }: Parameters<ContentIdentityRewrite>[0]) => ({
       ...content,
       attrs: {
         ...content.attrs,
         data: { paragraphId: 42 },
       },
     }));
-    const editor = makeSurfaceEditor({ duplication: invalidRepair, generateID });
+    const editor = makeSurfaceEditor({ identityRewrite: invalidRepair, generateID });
     setCursorAtEnd(editor, "dest-para001");
     generateID.mockClear();
     const before = editor.getJSON();
@@ -1273,12 +1275,18 @@ function makeEditor(
       { definition: quizOwnerDefinition },
       { definition: quizChildDefinition },
       { definition: hostBlockDefinition },
-      ...(includeContributed
-        ? [{ definition: contributedBlockDefinition, duplication: contributedDuplication }]
-        : []),
+      ...(includeContributed ? [{ definition: contributedBlockDefinition }] : []),
     ],
     layoutDefinitions: layoutDefinitions.definitions,
     surfaceDefinitions: surfaceVariants.definitions,
+    identityRewriteRegistrations: includeContributed
+      ? [
+          {
+            nodeType: contributedBlockDefinition.nodeType,
+            rewrite: contributedIdentityRewrite,
+          },
+        ]
+      : [],
   });
   const editor = new Editor({
     extensions: [
@@ -1309,7 +1317,7 @@ function makeEditor(
       createScaffoldInteractionOwnerExtension(capabilities.blocks.registry),
       createStructuralClipboardPolicy({
         blockDefinitions: capabilities.blocks.registry,
-        blockDuplications: capabilities.blocks.duplication,
+        identityRewrites: capabilities.contentIdentity.rewrites,
         carrierLimits,
         layoutDefinitions: capabilities.layouts.registry,
         surfaceVariants: capabilities.surfaces.registry,
@@ -1336,7 +1344,7 @@ function makeEditor(
 
 function makeSurfaceEditor(
   input: {
-    readonly duplication?: BlockDuplicationOperation;
+    readonly identityRewrite?: ContentIdentityRewrite;
     readonly generateID?: () => string;
     readonly includeContributed?: boolean;
     readonly mode?: "page" | "slideshow";
@@ -1350,13 +1358,26 @@ function makeSurfaceEditor(
         ? [
             {
               definition: contributedBlockDefinition,
-              duplication: input.duplication ?? contributedDuplication,
+              identityRewrites: [
+                {
+                  nodeType: contributedBlockDefinition.nodeType,
+                  rewrite: input.identityRewrite ?? contributedIdentityRewrite,
+                },
+              ],
             },
           ]
         : []),
     ],
     layoutDefinitions: layoutDefinitions.definitions,
     surfaceDefinitions: surfaceVariants.definitions,
+    identityRewriteRegistrations: includeContributed
+      ? [
+          {
+            nodeType: contributedBlockDefinition.nodeType,
+            rewrite: input.identityRewrite ?? contributedIdentityRewrite,
+          },
+        ]
+      : [],
   });
   const editor = new Editor({
     extensions: [
@@ -1374,7 +1395,7 @@ function makeSurfaceEditor(
       createCourseStructureCommandsExtension(),
       createStructuralClipboardPolicy({
         blockDefinitions: capabilities.blocks.registry,
-        blockDuplications: capabilities.blocks.duplication,
+        identityRewrites: capabilities.contentIdentity.rewrites,
         carrierLimits,
         layoutDefinitions: capabilities.layouts.registry,
         surfaceVariants: capabilities.surfaces.registry,
