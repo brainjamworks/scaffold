@@ -52,6 +52,7 @@ export interface DragDropCourseInteractionProps {
 interface DragMarkerData {
   readonly markerId: EmbeddedDataId;
   readonly label: string;
+  readonly origin: "shelf" | "canvas";
 }
 
 interface ImageDropData {
@@ -763,18 +764,22 @@ function Owner({
         setSelectedMarkerId(marker.id);
         setAnnouncement(`${marker.label} picked up.`);
       }}
+      previewOverflow="visible"
       profile="pointer"
       renderPreview={(active) => {
         const marker = content.markers.find(({ id }) => id === active.markerId);
         if (!marker)
           throw new Error(`Drag preview marker "${active.markerId}" is no longer current.`);
         return (
-          <span className="sc-course-drag-drop-drag-preview">
+          <span className="sc-course-drag-drop-drag-preview" data-origin={active.origin}>
             <MarkerVisualView marker={marker} resolvedIcons={resolvedIcons} />
-            <span>{marker.label}</span>
+            {active.origin === "shelf" ? <span>{marker.label}</span> : null}
           </span>
         );
       }}
+      resolvePreviewSize={(active) =>
+        active.origin === "canvas" ? { height: 44, width: 44 } : null
+      }
       sessionId={`drag-drop-${assessmentTargetId ?? "runtime"}`}
     >
       {children(owner)}
@@ -916,6 +921,7 @@ function Presentation({
             src={owner.imageSrc}
             alt={owner.content.image?.alt ?? ""}
             aspectRatioCssProperty="--sc-drag-drop-aspect-ratio"
+            overlayOverflow="visible"
             onImageLoad={() => owner.imageLoaded(presentation)}
             onImageError={() => owner.imageFailed(presentation)}
             surfaceProps={{
@@ -1034,7 +1040,7 @@ function TrayMarker({
   readonly selected: boolean;
 }) {
   const drag = useInteractionDragSource<DragMarkerData>({
-    data: { markerId: marker.id, label: marker.label },
+    data: { markerId: marker.id, label: marker.label, origin: "shelf" },
     disabled: dragDisabled,
     id: `drag-drop-marker:${presentation}:${marker.id}`,
     label,
@@ -1106,7 +1112,7 @@ function PlacedMarker({
     dragDisabled ? "Review position" : "Drag to reposition"
   }`;
   const drag = useInteractionDragSource<DragMarkerData>({
-    data: { markerId: marker.id, label: marker.label },
+    data: { markerId: marker.id, label: marker.label, origin: "canvas" },
     disabled: dragDisabled,
     id: `drag-drop-canvas-marker:${presentation}:${marker.id}`,
     label,

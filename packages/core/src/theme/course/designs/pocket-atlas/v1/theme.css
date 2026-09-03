@@ -5463,7 +5463,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   cursor: default;
 }
 
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker[data-selected] {
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker[data-selected] > button {
   outline-color: var(--pa-violet-deep);
 }
 

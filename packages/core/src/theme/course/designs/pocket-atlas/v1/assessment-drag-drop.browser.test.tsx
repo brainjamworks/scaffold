@@ -48,9 +48,7 @@ describe("Pocket Atlas Drag and Drop recipe", () => {
 
       const selectedStyle = getComputedStyle(selected);
       expect(selectedStyle.backgroundColor).not.toBe(restingStyle.backgroundColor);
-      expect(getComputedStyle(selected.closest(".sc-course-drag-drop-marker")!).outlineStyle).toBe(
-        "solid",
-      );
+      expect(getComputedStyle(selected).outlineStyle).toBe("solid");
 
       const correctStyle = getComputedStyle(correct);
       const incorrectStyle = getComputedStyle(incorrect);

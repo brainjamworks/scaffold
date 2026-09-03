@@ -44,9 +44,7 @@ describe("Scaffold Flow Drag and Drop recipe", () => {
       expect(restingStyle.borderTopWidth).toBe("2px");
       expect(selectedStyle.backgroundColor).not.toBe(restingStyle.backgroundColor);
       expect(selectedStyle.borderTopColor).not.toBe(restingStyle.borderTopColor);
-      expect(getComputedStyle(selected.closest(".sc-course-drag-drop-marker")!).outlineStyle).toBe(
-        "solid",
-      );
+      expect(getComputedStyle(selected).outlineStyle).toBe("solid");
 
       const correctStyle = getComputedStyle(correct);
       const incorrectStyle = getComputedStyle(incorrect);

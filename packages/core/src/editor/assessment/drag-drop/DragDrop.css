@@ -285,7 +285,8 @@
   .sc-course-drag-drop-stage {
     display: grid;
     min-width: 0;
-    overflow: hidden;
+    /* Visible: markers anchored on edge points spill past the image box. */
+    overflow: visible;
     place-items: center;
   }
 
@@ -413,10 +414,27 @@
     margin: 0;
   }
 
-  .sc-course-drag-drop-tray button[aria-pressed="true"],
-  .sc-course-drag-drop-marker[data-selected] {
+  .sc-course-drag-drop-tray button[aria-pressed="true"] {
     outline: 3px solid currentcolor;
     outline-offset: 2px;
+  }
+
+  /* The selection ring lives on the circular button so it stays circular;
+     the wrapper is a zero-size placement anchor and would draw a box. */
+  .sc-course-drag-drop-marker[data-selected] > button {
+    outline: 3px solid currentcolor;
+    outline-offset: 2px;
+  }
+
+  /* While a placed marker is being dragged, its left-behind placeholder must
+     read as a ghost, not a second marker with live controls. */
+  .sc-course-drag-drop-marker[data-interaction-drag-placeholder] {
+    opacity: 0.35;
+  }
+
+  .sc-course-drag-drop-marker[data-interaction-drag-placeholder]
+    .sc-course-drag-drop-marker__remove {
+    display: none;
   }
 
   .sc-course-drag-drop-tray__actions {
@@ -432,17 +450,20 @@
     min-height: 2.75rem;
   }
 
-  .sc-course-drag-drop-marker__remove {
-    /* The placement wrapper is a zero-size anchor at the marker centre;
-       park the button on the marker's top-right corner. */
+  /* Notification-badge on the marker's top-right corner. The compound
+     selector out-weighs the `.sc-course-drag-drop-marker > button` sizing
+     rule, which would otherwise force the badge to the 44px marker size. */
+  .sc-course-drag-drop-marker > button.sc-course-drag-drop-marker__remove {
     position: absolute;
-    left: 1.375rem;
-    top: -1.375rem;
+    left: 100%;
+    top: 0;
     transform: translate(-50%, -50%);
     z-index: 3;
     display: grid;
     width: 1.75rem;
     height: 1.75rem;
+    min-width: 0;
+    min-height: 0;
     padding: 0;
     border: 2px solid currentcolor;
     border-radius: 50%;
@@ -450,6 +471,20 @@
     cursor: pointer;
     font-size: 1rem;
     line-height: 1;
+  }
+
+  /* Near the right image edge the badge flips to the top-left corner so it
+     stays inside the stage. */
+  .sc-course-drag-drop-marker[data-edge-x="right"]
+    > button.sc-course-drag-drop-marker__remove {
+    left: 0;
+  }
+
+  /* Near the bottom edge the label sits above the marker, so the badge
+     drops to the lower corner to stay clear of it. */
+  .sc-course-drag-drop-marker[data-edge-y="bottom"]
+    > button.sc-course-drag-drop-marker__remove {
+    top: 100%;
   }
 
   .sc-course-drag-drop-source {
@@ -467,11 +502,26 @@
   .sc-course-drag-drop-drag-preview {
     display: inline-flex;
     min-height: 2.75rem;
-    max-width: 14rem;
-    padding: 0.5rem;
+    padding: 0.5rem 0.75rem;
     align-items: center;
     gap: 0.5rem;
     border: 2px solid currentcolor;
+    /* The overlay wrapper is sized from the drag source; the pill must not
+       wrap or truncate inside it. */
+    white-space: nowrap;
+    width: max-content;
+  }
+
+  /* A marker lifted off the canvas previews as the marker itself: a circle
+     the size of the placed button, glyph centred, no label pill. */
+  .sc-course-drag-drop-drag-preview[data-origin="canvas"] {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    min-height: 0;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
   }
 
   .sc-course-drag-drop-tray__scroll-hint {

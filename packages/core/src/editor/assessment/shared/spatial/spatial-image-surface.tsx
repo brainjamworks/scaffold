@@ -44,6 +44,9 @@ export interface SpatialImageSurfaceProps {
   readonly src: string | null;
   readonly alt: string;
   readonly aspectRatioCssProperty?: `--${string}` | undefined;
+  /** Overlays anchored on edge points (markers, badges, labels) need to
+      spill past the image box; authoring keeps the default clip. */
+  readonly overlayOverflow?: "hidden" | "visible" | undefined;
   readonly fitContainerRef?: RefObject<HTMLElement | null> | undefined;
   readonly fitStrategy?: SpatialImageFitStrategy | undefined;
   readonly className?: string | undefined;
@@ -68,6 +71,7 @@ export const SpatialImageSurface = forwardRef<HTMLDivElement, SpatialImageSurfac
       imageClassName,
       onImageError,
       onImageLoad,
+      overlayOverflow = "hidden",
       src,
       surfaceProps,
     },
@@ -180,7 +184,7 @@ export const SpatialImageSurface = forwardRef<HTMLDivElement, SpatialImageSurfac
         ? { [aspectRatioCssProperty]: String(state.aspectRatio) }
         : {}),
       aspectRatio: state.aspectRatio,
-      overflow: "hidden",
+      overflow: overlayOverflow,
       position: "relative",
       ...(fitSize
         ? {

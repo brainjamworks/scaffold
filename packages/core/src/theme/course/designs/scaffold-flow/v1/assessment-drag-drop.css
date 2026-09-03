@@ -126,7 +126,7 @@
   cursor: default;
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-marker[data-selected] {
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-marker[data-selected] > button {
   outline-color: var(--accent-9);
 }
 
@@ -139,7 +139,7 @@
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-marker__label {
   padding-inline: var(--space-2);
   border: var(--sc-course-author-stroke-width) solid var(--gray-a6);
-  border-radius: var(--radius-full);
+  border-radius: max(var(--radius-2), var(--radius-full));
   background: var(--color-panel-solid);
   color: var(--gray-12);
   font-size: calc(var(--font-size-1) * var(--sc-course-author-text-scale));
@@ -173,10 +173,16 @@
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-drag-preview {
   border-color: var(--accent-a9);
-  border-radius: var(--radius-full);
+  border-radius: max(var(--radius-3), var(--radius-full));
   background: var(--color-panel-solid);
   color: var(--gray-12);
   box-shadow: var(--shadow-4);
+}
+
+/* A marker lifted off the canvas previews as the marker circle itself. */
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-drag-drop-drag-preview[data-origin="canvas"] {
+  border-radius: 50%;
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-tray__scroll-hint {
