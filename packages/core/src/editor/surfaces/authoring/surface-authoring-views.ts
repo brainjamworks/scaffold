@@ -15,7 +15,7 @@ import { slideDropdownQuestionSurfaceConfiguration } from "../variants/slide-dro
 import { slideFillBlanksQuestionSurfaceConfiguration } from "../variants/slide-fill-blanks-question/binding";
 import { slideMultipleChoiceQuestionSurfaceConfiguration } from "../variants/slide-multiple-choice-question/binding";
 import { slideMultiselectQuestionSurfaceConfiguration } from "../variants/slide-multiselect-question/binding";
-import { quizConfiguration } from "@/editor/blocks/assessment/quiz/quiz-definition";
+import { slideQuizSurfaceConfiguration } from "../variants/slide-quiz/binding";
 import {
   DEFAULT_SLIDE_IMAGE_BAND_SURFACE_SETTINGS,
   SlideImageBandSurfaceSettingsSchema,
@@ -62,7 +62,7 @@ import { SlideMatchingQuestionSurfaceAuthoringView } from "../variants/slide-mat
 import { SlideImageHotspotQuestionSurfaceAuthoringView } from "../variants/slide-image-hotspot-question/authoring";
 import { SlideMultipleChoiceQuestionSurfaceAuthoringView } from "../variants/slide-multiple-choice-question/authoring";
 import { SlideMultiselectQuestionSurfaceAuthoringView } from "../variants/slide-multiselect-question/authoring";
-import { SlideQuizSurfaceAuthoringView } from "./variants/assessment/slide-quiz";
+import { SlideQuizSurfaceAuthoringView } from "../variants/slide-quiz/authoring";
 import { SlideSequencingQuestionSurfaceAuthoringView } from "../variants/slide-sequencing-question/authoring";
 
 const SURFACE_SETTINGS_DRAFT_ID = EmbeddedNodeIdSchema.parse("settings0001");
@@ -436,10 +436,7 @@ const SPECIALISED_SURFACE_AUTHORING_VIEWS = [
   {
     variantId: "slide-quiz",
     component: SlideQuizSurfaceAuthoringView,
-    configuration: defineAssessmentSurfaceConfiguration({
-      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-quiz"),
-      questionConfiguration: quizConfiguration,
-    }),
+    configuration: slideQuizSurfaceConfiguration,
   },
 ] as const satisfies readonly SurfaceAuthoringViewBinding[];
 

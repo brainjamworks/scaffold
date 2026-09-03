@@ -27,13 +27,12 @@ import {
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 import { CourseButton } from "@/ui/components/course/CourseActions/CourseActions";
 
-import type { SurfaceRuntimeViewProps } from "../../surface-runtime-view-registry";
-import { AssessmentSlideSurfaceRuntimeFrame } from "../../views/AssessmentSlideSurfaceRuntimeFrame";
-import { SlideQuizActiveQuestionStyle } from "../../../view/variants/assessment/SlideQuizActiveQuestionStyle";
-import { FullSlideQuestionPresenter } from "./full-slide-question-presenter";
-import { useQuizSurfaceControlBinding } from "./quiz-surface-control-binding";
-
-import "../../../view/variants/assessment/slide-quiz.css";
+import "./styles.css";
+import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
+import { AssessmentSlideSurfaceRuntimeFrame } from "../../runtime/views/AssessmentSlideSurfaceRuntimeFrame";
+import { SlideQuizActiveQuestionStyle } from "./SlideQuizActiveQuestionStyle";
+import { FullSlideQuestionPresenter } from "../../runtime/variants/assessment/full-slide-question-presenter";
+import { useQuizSurfaceControlBinding } from "../../runtime/variants/assessment/quiz-surface-control-binding";
 
 export function SlideQuizSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const quizNode = requireSurfaceQuizChild(props.node);

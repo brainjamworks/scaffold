@@ -18,7 +18,7 @@ import { SlideMatchingQuestionSurfaceRuntimeView } from "../variants/slide-match
 import { SlideImageHotspotQuestionSurfaceRuntimeView } from "../variants/slide-image-hotspot-question/runtime";
 import { SlideMultipleChoiceQuestionSurfaceRuntimeView } from "../variants/slide-multiple-choice-question/runtime";
 import { SlideMultiselectQuestionSurfaceRuntimeView } from "../variants/slide-multiselect-question/runtime";
-import { SlideQuizSurfaceRuntimeView } from "./variants/assessment/slide-quiz";
+import { SlideQuizSurfaceRuntimeView } from "../variants/slide-quiz/runtime";
 import { SlideSequencingQuestionSurfaceRuntimeView } from "../variants/slide-sequencing-question/runtime";
 
 const SPECIALISED_SURFACE_RUNTIME_VIEWS = [

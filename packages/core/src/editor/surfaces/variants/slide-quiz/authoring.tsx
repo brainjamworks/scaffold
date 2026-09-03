@@ -32,13 +32,12 @@ import {
   type ConfigurationNodeSettingsSheetDefinition,
 } from "@/editor/shell/settings/sheets/ConfigurationSettingsSheet";
 
-import type { SurfaceAuthoringViewProps } from "../../surface-authoring-view-registry";
-import { AssessmentSlideSurfaceAuthoringFrame } from "../../views/AssessmentSlideSurfaceAuthoringFrame";
-import { SlideQuizActiveQuestionStyle } from "../../../view/variants/assessment/SlideQuizActiveQuestionStyle";
+import "./styles.css";
+import type { SurfaceAuthoringViewProps } from "../../authoring/surface-authoring-view-registry";
+import { AssessmentSlideSurfaceAuthoringFrame } from "../../authoring/views/AssessmentSlideSurfaceAuthoringFrame";
+import { SlideQuizActiveQuestionStyle } from "./SlideQuizActiveQuestionStyle";
 import { SlideQuizAuthoringRail } from "./SlideQuizAuthoringRail";
 import { useSlideQuizAuthoringController } from "./use-slide-quiz-authoring-controller";
-
-import "../../../view/variants/assessment/slide-quiz.css";
 
 const MANAGED_QUIZ_CHILD_SETTINGS = new Set([
   "feedbackMode",
