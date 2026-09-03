@@ -12,7 +12,7 @@ import { dragDropConfiguration } from "@/editor/blocks/assessment/drag-drop/drag
 import { fillBlanksConfiguration } from "@/editor/blocks/assessment/fill-blanks/fill-blanks-definition";
 import { slideImageHotspotQuestionSurfaceConfiguration } from "../variants/slide-image-hotspot-question/binding";
 import { slideSequencingQuestionSurfaceConfiguration } from "../variants/slide-sequencing-question/binding";
-import { matchingConfiguration } from "@/editor/blocks/assessment/matching/matching-definition";
+import { slideMatchingQuestionSurfaceConfiguration } from "../variants/slide-matching-question/binding";
 import { mcqConfiguration } from "@/editor/blocks/assessment/mcq/mcq-definition";
 import { multiselectConfiguration } from "@/editor/blocks/assessment/multiselect/multiselect-definition";
 import { quizConfiguration } from "@/editor/blocks/assessment/quiz/quiz-definition";
@@ -58,7 +58,7 @@ import { SlideCategoriseQuestionSurfaceAuthoringView } from "./variants/assessme
 import { SlideDropdownQuestionSurfaceAuthoringView } from "./variants/assessment/slide-dropdown-question";
 import { SlideDragDropQuestionSurfaceAuthoringView } from "./variants/assessment/slide-drag-drop-question";
 import { SlideFillBlanksQuestionSurfaceAuthoringView } from "./variants/assessment/slide-fill-blanks-question";
-import { SlideMatchingQuestionSurfaceAuthoringView } from "./variants/assessment/slide-matching-question";
+import { SlideMatchingQuestionSurfaceAuthoringView } from "../variants/slide-matching-question/authoring";
 import { SlideImageHotspotQuestionSurfaceAuthoringView } from "../variants/slide-image-hotspot-question/authoring";
 import { SlideMultipleChoiceQuestionSurfaceAuthoringView } from "./variants/assessment/slide-multiple-choice-question";
 import { SlideMultiselectQuestionSurfaceAuthoringView } from "./variants/assessment/slide-multiselect-question";
@@ -401,10 +401,7 @@ const SPECIALISED_SURFACE_AUTHORING_VIEWS = [
   {
     variantId: "slide-matching-question",
     component: SlideMatchingQuestionSurfaceAuthoringView,
-    configuration: defineAssessmentSurfaceConfiguration({
-      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-matching-question"),
-      questionConfiguration: matchingConfiguration,
-    }),
+    configuration: slideMatchingQuestionSurfaceConfiguration,
   },
   {
     variantId: "slide-image-hotspot-question",

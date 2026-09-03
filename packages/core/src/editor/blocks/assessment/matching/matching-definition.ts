@@ -14,8 +14,8 @@ import {
   projectMatchingInteraction,
   projectMatchingLearnerNode,
   projectMatchingSettings,
-} from "./assessment";
-import { matchingPairContent } from "./matching-fields-shared";
+} from "@/editor/assessment/matching/assessment";
+import { matchingPairContent } from "@/editor/assessment/matching/matching-fields-shared";
 
 export const MATCHING_BLOCK_ID = "matching";
 

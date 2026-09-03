@@ -16,7 +16,7 @@ import { projectDragDropLearnerNode } from "@/editor/blocks/assessment/drag-drop
 import { projectDropdownLearnerNode } from "@/editor/blocks/assessment/dropdown/assessment";
 import { projectFillBlanksLearnerNode } from "@/editor/blocks/assessment/fill-blanks/assessment";
 import { projectImageHotspotLearnerNode } from "@/editor/assessment/image-hotspot/assessment";
-import { projectMatchingLearnerNode } from "@/editor/blocks/assessment/matching/assessment";
+import { projectMatchingLearnerNode } from "@/editor/assessment/matching/assessment";
 import { projectMcqLearnerNode } from "@/editor/blocks/assessment/mcq/assessment";
 import { projectMultiselectLearnerNode } from "@/editor/blocks/assessment/multiselect/assessment";
 import { projectSequencingLearnerNode } from "@/editor/assessment/sequencing/assessment";

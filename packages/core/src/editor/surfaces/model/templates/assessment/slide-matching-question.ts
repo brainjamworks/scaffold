@@ -13,8 +13,8 @@ import {
   projectMatchingInteraction,
   projectMatchingLearnerNode,
   projectMatchingSettings,
-} from "@/editor/blocks/assessment/matching/assessment";
-import { matchingPairContent } from "@/editor/blocks/assessment/matching/matching-fields-shared";
+} from "@/editor/assessment/matching/assessment";
+import { matchingPairContent } from "@/editor/assessment/matching/matching-fields-shared";
 import {
   cloneJsonNodeWithoutContent,
   readAttrs,

@@ -16,7 +16,7 @@ import { DropdownFullSlideQuestionPresenter } from "./slide-dropdown-question";
 import { DragDropFullSlideQuestionPresenter } from "./slide-drag-drop-question";
 import { FillBlanksFullSlideQuestionPresenter } from "./slide-fill-blanks-question";
 import { ImageHotspotFullSlideQuestionPresenter } from "../../../variants/slide-image-hotspot-question/runtime";
-import { MatchingFullSlideQuestionPresenter } from "./slide-matching-question";
+import { MatchingFullSlideQuestionPresenter } from "../../../variants/slide-matching-question/runtime";
 import { MultipleChoiceFullSlideQuestionPresenter } from "./slide-multiple-choice-question";
 import { MultiselectFullSlideQuestionPresenter } from "./slide-multiselect-question";
 import { SequencingFullSlideQuestionPresenter } from "../../../variants/slide-sequencing-question/runtime";

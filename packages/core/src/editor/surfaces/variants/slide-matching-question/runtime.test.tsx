@@ -7,7 +7,7 @@ import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { projectMatchingLearnerNode } from "@/editor/blocks/assessment/matching/assessment";
+import { projectMatchingLearnerNode } from "@/editor/assessment/matching/assessment";
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { getControlBindingRegistryForEditor } from "@/document/control-binding";

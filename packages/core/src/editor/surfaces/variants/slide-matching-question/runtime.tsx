@@ -6,9 +6,9 @@ import {
   matchingResponseCodec,
   projectMatchingInteraction,
   projectMatchingSettings,
-} from "@/editor/blocks/assessment/matching/assessment";
-import { matchingCourseContentFromProseMirror } from "@/editor/blocks/assessment/matching/matching-course-content";
-import { MatchingCourseInteraction } from "@/editor/blocks/assessment/matching/matching-course-interaction";
+} from "@/editor/assessment/matching/assessment";
+import { matchingCourseContentFromProseMirror } from "@/editor/assessment/matching/matching-course-content";
+import { MatchingCourseInteraction } from "@/editor/assessment/matching/matching-course-interaction";
 import { countAssessmentHints } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { textBetween } from "@/editor/assessment/shared/publication/projection";
@@ -20,11 +20,11 @@ import {
 import { SURFACE_MATCHING_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-matching-question-node";
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
-import "../../../view/variants/assessment/slide-matching-question.css";
-import { AssessmentSlideSurfaceRuntimeFrame } from "../../views/AssessmentSlideSurfaceRuntimeFrame";
-import type { SurfaceRuntimeViewProps } from "../../surface-runtime-view-registry";
-import { useAssessmentSurfaceControlBinding } from "./assessment-surface-control-binding";
-import { FullSlideQuestionStage } from "./FullSlideQuestionStage";
+import "./styles.css";
+import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
+import { AssessmentSlideSurfaceRuntimeFrame } from "../../runtime/views/AssessmentSlideSurfaceRuntimeFrame";
+import { useAssessmentSurfaceControlBinding } from "../../runtime/variants/assessment/assessment-surface-control-binding";
+import { FullSlideQuestionStage } from "../../runtime/variants/assessment/FullSlideQuestionStage";
 
 export function SlideMatchingQuestionSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const question = surfaceMatchingQuestion(props.node);

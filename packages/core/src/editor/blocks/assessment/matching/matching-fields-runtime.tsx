@@ -11,8 +11,8 @@ import { findAncestorAssessmentBlockId } from "@/editor/assessment/shared/model/
 import { isAssessmentQuestionNode } from "@/editor/blocks/assessment/shared/nodes/assessment-meta";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 
-import { matchingCourseContentFromProseMirror } from "./matching-course-content";
-import { MatchingCourseInteraction } from "./matching-course-interaction";
+import { matchingCourseContentFromProseMirror } from "@/editor/assessment/matching/matching-course-content";
+import { MatchingCourseInteraction } from "@/editor/assessment/matching/matching-course-interaction";
 import {
   answerMatchesFromReveal,
   createMatchingItemNode,
@@ -22,8 +22,8 @@ import {
   describeMatchingItemAccessibilityState,
   describeMatchingTargetAccessibilityState,
   getMatchingConnectorPath,
-} from "./matching-fields-shared";
-import "./Matching.css";
+} from "@/editor/assessment/matching/matching-fields-shared";
+import "@/editor/assessment/matching/Matching.css";
 
 export {
   answerMatchesFromReveal,

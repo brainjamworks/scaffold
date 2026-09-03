@@ -7,7 +7,7 @@ import {
 } from "@scaffold/contracts";
 
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { matchingPairContent } from "./matching-fields-shared";
+import { matchingPairContent } from "@/editor/assessment/matching/matching-fields-shared";
 
 type MatchingMoveDirection = "up" | "down";
 const SURFACE_MATCHING_QUESTION_NODE_TYPE = "surface_matching_question";

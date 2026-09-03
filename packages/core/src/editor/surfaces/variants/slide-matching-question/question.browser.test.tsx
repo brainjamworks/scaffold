@@ -9,7 +9,7 @@ import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { projectCourseStructure } from "@/document/model/course-structure";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import { projectMatchingLearnerNode } from "@/editor/blocks/assessment/matching/assessment";
+import { projectMatchingLearnerNode } from "@/editor/assessment/matching/assessment";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";

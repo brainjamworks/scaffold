@@ -14,7 +14,7 @@ import { SlideCategoriseQuestionSurfaceRuntimeView } from "./variants/assessment
 import { SlideDropdownQuestionSurfaceRuntimeView } from "./variants/assessment/slide-dropdown-question";
 import { SlideDragDropQuestionSurfaceRuntimeView } from "./variants/assessment/slide-drag-drop-question";
 import { SlideFillBlanksQuestionSurfaceRuntimeView } from "./variants/assessment/slide-fill-blanks-question";
-import { SlideMatchingQuestionSurfaceRuntimeView } from "./variants/assessment/slide-matching-question";
+import { SlideMatchingQuestionSurfaceRuntimeView } from "../variants/slide-matching-question/runtime";
 import { SlideImageHotspotQuestionSurfaceRuntimeView } from "../variants/slide-image-hotspot-question/runtime";
 import { SlideMultipleChoiceQuestionSurfaceRuntimeView } from "./variants/assessment/slide-multiple-choice-question";
 import { SlideMultiselectQuestionSurfaceRuntimeView } from "./variants/assessment/slide-multiselect-question";

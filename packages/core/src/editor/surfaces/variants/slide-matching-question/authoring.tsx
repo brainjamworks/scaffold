@@ -1,6 +1,6 @@
-import { AssessmentSlideSurfaceAuthoringFrame } from "../../views/AssessmentSlideSurfaceAuthoringFrame";
-import type { SurfaceAuthoringViewProps } from "../../surface-authoring-view-registry";
-import "../../../view/variants/assessment/slide-matching-question.css";
+import "./styles.css";
+import type { SurfaceAuthoringViewProps } from "../../authoring/surface-authoring-view-registry";
+import { AssessmentSlideSurfaceAuthoringFrame } from "../../authoring/views/AssessmentSlideSurfaceAuthoringFrame";
 
 export function SlideMatchingQuestionSurfaceAuthoringView(props: SurfaceAuthoringViewProps) {
   return (

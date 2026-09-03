@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "@/styles/globals.css";
 
-import "./assessment/matching/Matching.css";
+import "@/editor/assessment/matching/Matching.css";
 import "@/theme/course/designs/scaffold-flow/v1/assessment-matching.css";
 import "@/editor/assessment/sequencing/Sequencing.css";
 import "./assessment/categorise/Categorise.css";

@@ -2,12 +2,12 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { getMatchingConnectorPath } from "./matching-fields-shared";
+import { getMatchingConnectorPath } from "@/editor/assessment/matching/matching-fields-shared";
 import {
   createMatchingConnectorRevision,
   measureMatchingConnectorGeometry,
   sameMatchingConnectors,
-} from "./matching-connector-geometry";
+} from "@/editor/assessment/matching/matching-connector-geometry";
 
 describe("matching connector geometry", () => {
   it("converts endpoint client edges into one SVG-local geometry revision", () => {

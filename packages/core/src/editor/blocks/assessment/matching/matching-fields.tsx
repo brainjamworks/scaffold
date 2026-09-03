@@ -44,14 +44,14 @@ import {
   createMatchingPairNode,
   createMatchingPairsGroupNode,
   createMatchingTargetNode,
-} from "./matching-fields-shared";
+} from "@/editor/assessment/matching/matching-fields-shared";
 import {
   addMatchingPair,
   canDeleteMatchingPair,
   deleteMatchingPair,
   setMatchingPairFeedback,
 } from "./commands";
-import "./Matching.css";
+import "@/editor/assessment/matching/Matching.css";
 
 export {
   answerMatchesFromReveal,
@@ -63,7 +63,7 @@ export {
   matchingPairContent,
   reconcileMatchingMatches,
   resolveAuthorizedMatchingReveal,
-} from "./matching-fields-shared";
+} from "@/editor/assessment/matching/matching-fields-shared";
 
 export const MatchingItemNode = createMatchingItemNode({
   addNodeView: () => ReactNodeViewRenderer(MatchingItemNodeView),
