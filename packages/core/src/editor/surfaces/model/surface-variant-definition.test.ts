@@ -894,7 +894,18 @@ describe("surface definitions", () => {
 
   it("resolves definitions by id", () => {
     for (const definition of builtInSurfaceVariantDefinitions) {
-      expect(builtInSurfaceVariantRegistry.get(definition.id)).toMatchObject(definition);
+      const registered = builtInSurfaceVariantRegistry.get(definition.id);
+      if (definition.assessmentTargets && definition.documentSemantics) {
+        expect(registered).toMatchObject({
+          ...definition,
+          documentSemantics: {
+            ...definition.documentSemantics,
+            presentation: { actionIds: [] },
+          },
+        });
+      } else {
+        expect(registered).toMatchObject(definition);
+      }
     }
     expect(builtInSurfaceVariantRegistry.get("missing")).toBeUndefined();
   });
@@ -923,6 +934,16 @@ describe("surface definitions", () => {
       "slide-image-cover",
       "slide-image-band",
       "slide-module-cover",
+      "slide-categorise-question",
+      "slide-sequencing-question",
+      "slide-matching-question",
+      "slide-image-hotspot-question",
+      "slide-multiple-choice-question",
+      "slide-multiselect-question",
+      "slide-dropdown-question",
+      "slide-drag-drop-question",
+      "slide-fill-blanks-question",
+      "slide-quiz",
     ]);
   });
 
@@ -969,6 +990,16 @@ describe("surface definitions", () => {
       },
       { id: "slide-diptych", title: "Diptych", section: "image", order: 50 },
       { id: "slide-triptych", title: "Triptych", section: "image", order: 60 },
+      { id: "slide-categorise-question", title: "Categorise Question", section: "assessment", order: 10 },
+      { id: "slide-sequencing-question", title: "Sequencing Question", section: "assessment", order: 20 },
+      { id: "slide-matching-question", title: "Matching Question", section: "assessment", order: 30 },
+      { id: "slide-image-hotspot-question", title: "Image Hotspot Question", section: "assessment", order: 40 },
+      { id: "slide-multiple-choice-question", title: "Multiple Choice Question", section: "assessment", order: 50 },
+      { id: "slide-multiselect-question", title: "Multi-select Question", section: "assessment", order: 60 },
+      { id: "slide-dropdown-question", title: "Dropdown Question", section: "assessment", order: 70 },
+      { id: "slide-drag-drop-question", title: "Drag and Drop Question", section: "assessment", order: 75 },
+      { id: "slide-fill-blanks-question", title: "Fill in the Blanks", section: "assessment", order: 80 },
+      { id: "slide-quiz", title: "Quiz", section: "assessment", order: 90 },
     ]);
     expect(
       catalogue
@@ -1271,6 +1302,138 @@ describe("surface definitions", () => {
               ],
             },
           ],
+        },
+      },
+      {
+        id: "slide-categorise-question",
+        preview: {
+          kind: "column",
+          gap: "small",
+          proportions: [1, 2],
+          children: [
+            { kind: "slot", role: "title", emphasis: "strong" },
+            {
+              kind: "row",
+              gap: "small",
+              children: [
+                { kind: "slot", role: "panel" },
+                { kind: "slot", role: "panel" },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        id: "slide-sequencing-question",
+        preview: {
+          kind: "column",
+          gap: "small",
+          children: [
+            { kind: "slot", role: "title", emphasis: "strong" },
+            { kind: "slot", role: "panel" },
+            { kind: "slot", role: "panel" },
+            { kind: "slot", role: "panel" },
+          ],
+        },
+      },
+      {
+        id: "slide-matching-question",
+        preview: {
+          kind: "row",
+          gap: "small",
+          children: [
+            {
+              kind: "column",
+              gap: "small",
+              children: [
+                { kind: "slot", role: "title", emphasis: "strong" },
+                { kind: "slot", role: "panel" },
+                { kind: "slot", role: "panel" },
+              ],
+            },
+            {
+              kind: "column",
+              gap: "small",
+              children: [{ kind: "slot", role: "panel" }, { kind: "slot", role: "panel" }],
+            },
+          ],
+        },
+      },
+      {
+        id: "slide-image-hotspot-question",
+        preview: {
+          kind: "overlay",
+          placement: "centre",
+          base: { kind: "slot", role: "image" },
+          overlay: { kind: "slot", role: "panel" },
+        },
+      },
+      {
+        id: "slide-multiple-choice-question",
+        preview: {
+          kind: "column",
+          children: [
+            { kind: "slot", role: "title" },
+            { kind: "slot", role: "content" },
+          ],
+          proportions: [1, 3],
+        },
+      },
+      {
+        id: "slide-multiselect-question",
+        preview: {
+          kind: "column",
+          children: [
+            { kind: "slot", role: "title" },
+            { kind: "slot", role: "content" },
+          ],
+          proportions: [1, 3],
+        },
+      },
+      {
+        id: "slide-dropdown-question",
+        preview: {
+          kind: "column",
+          children: [
+            { kind: "slot", role: "title" },
+            { kind: "slot", role: "content" },
+          ],
+          proportions: [1, 3],
+        },
+      },
+      {
+        id: "slide-drag-drop-question",
+        preview: {
+          kind: "row",
+          proportions: [2, 1],
+          gap: "small",
+          children: [
+            { kind: "slot", role: "image" },
+            { kind: "slot", role: "panel" },
+          ],
+        },
+      },
+      {
+        id: "slide-fill-blanks-question",
+        preview: {
+          kind: "column",
+          children: [
+            { kind: "slot", role: "title" },
+            { kind: "slot", role: "content" },
+          ],
+          proportions: [1, 3],
+        },
+      },
+      {
+        id: "slide-quiz",
+        preview: {
+          kind: "column",
+          children: [
+            { kind: "slot", role: "title" },
+            { kind: "slot", role: "content" },
+            { kind: "slot", role: "content" },
+          ],
+          proportions: [1, 3, 1],
         },
       },
     ]);

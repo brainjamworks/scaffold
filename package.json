@@ -14,6 +14,8 @@
   },
   "type": "module",
   "scripts": {
+    "arch:surfaces": "depcruise --config .dependency-cruiser.cjs --output-type err packages/core/src/editor/surfaces",
+    "arch:test": "node --test scripts/dependency-cruiser.test.mjs",
     "chrome:shared": "bash scripts/start-shared-chrome.sh",
     "qa:capture": "node scripts/capture-functional-scenario.mjs",
     "report:xblock-css": "node scripts/report-xblock-css.mjs"
