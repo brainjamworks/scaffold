@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
-import { projectCategoriseLearnerNode } from "@/editor/blocks/assessment/categorise/assessment";
+import { projectCategoriseLearnerNode } from "@/editor/assessment/categorise/assessment";
 import { slideCategoriseQuestionSurfaceDefinition } from "@/editor/surfaces/model/templates/assessment/slide-categorise-question";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser/context";
 
 import "@/styles/globals.css";
-import "./Categorise.css";
+import "@/editor/assessment/categorise/Categorise.css";
 
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 

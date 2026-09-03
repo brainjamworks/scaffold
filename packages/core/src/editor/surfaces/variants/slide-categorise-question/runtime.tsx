@@ -6,9 +6,9 @@ import {
   categoriseResponseCodec,
   projectCategoriseInteraction,
   projectCategoriseSettings,
-} from "@/editor/blocks/assessment/categorise/assessment";
-import { categoriseCourseContentFromProseMirror } from "@/editor/blocks/assessment/categorise/categorise-course-content";
-import { CategoriseCourseInteraction } from "@/editor/blocks/assessment/categorise/categorise-course-interaction";
+} from "@/editor/assessment/categorise/assessment";
+import { categoriseCourseContentFromProseMirror } from "@/editor/assessment/categorise/categorise-course-content";
+import { CategoriseCourseInteraction } from "@/editor/assessment/categorise/categorise-course-interaction";
 import { countAssessmentHints } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { textBetween } from "@/editor/assessment/shared/publication/projection";
@@ -20,11 +20,11 @@ import {
 import { SURFACE_CATEGORISE_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-categorise-question-node";
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
-import "../../../view/variants/assessment/slide-categorise-question.css";
-import { AssessmentSlideSurfaceRuntimeFrame } from "../../views/AssessmentSlideSurfaceRuntimeFrame";
-import type { SurfaceRuntimeViewProps } from "../../surface-runtime-view-registry";
-import { useAssessmentSurfaceControlBinding } from "./assessment-surface-control-binding";
-import { FullSlideQuestionStage } from "./FullSlideQuestionStage";
+import "./styles.css";
+import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
+import { AssessmentSlideSurfaceRuntimeFrame } from "../../runtime/views/AssessmentSlideSurfaceRuntimeFrame";
+import { useAssessmentSurfaceControlBinding } from "../../runtime/variants/assessment/assessment-surface-control-binding";
+import { FullSlideQuestionStage } from "../../runtime/variants/assessment/FullSlideQuestionStage";
 
 export function SlideCategoriseQuestionSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const question = surfaceCategoriseQuestion(props.node);

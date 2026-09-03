@@ -14,7 +14,7 @@ import {
   projectCategoriseInteraction,
   projectCategoriseLearnerNode,
   projectCategoriseSettings,
-} from "./assessment";
+} from "@/editor/assessment/categorise/assessment";
 
 export const CATEGORISE_BLOCK_ID = "categorise";
 

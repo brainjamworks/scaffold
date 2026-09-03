@@ -11,7 +11,7 @@ import { page, userEvent } from "vite-plus/test/browser/context";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { projectCourseStructure } from "@/document/model/course-structure";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { projectCategoriseLearnerNode } from "@/editor/blocks/assessment/categorise/assessment";
+import { projectCategoriseLearnerNode } from "@/editor/assessment/categorise/assessment";
 import { projectDragDropLearnerNode } from "@/editor/blocks/assessment/drag-drop/assessment";
 import { projectDropdownLearnerNode } from "@/editor/blocks/assessment/dropdown/assessment";
 import { projectFillBlanksLearnerNode } from "@/editor/blocks/assessment/fill-blanks/assessment";

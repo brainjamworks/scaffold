@@ -13,7 +13,7 @@ import {
   projectCategoriseInteraction,
   projectCategoriseLearnerNode,
   projectCategoriseSettings,
-} from "@/editor/blocks/assessment/categorise/assessment";
+} from "@/editor/assessment/categorise/assessment";
 import {
   cloneJsonNodeWithoutContent,
   readAttrs,

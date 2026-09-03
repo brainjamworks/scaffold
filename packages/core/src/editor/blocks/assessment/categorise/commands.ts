@@ -14,7 +14,7 @@ import {
 } from "@/editor/movement/model/movement-intents";
 import type { MovementNodeContext } from "@/editor/movement/model/movement-policy";
 
-import { fieldContent } from "./categorise-fields-shared";
+import { fieldContent } from "@/editor/assessment/categorise/categorise-fields-shared";
 
 const SURFACE_CATEGORISE_QUESTION_NODE_TYPE = "surface_categorise_question";
 

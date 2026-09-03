@@ -69,7 +69,7 @@ import {
   createCategoriseItemsGroupNode,
   categoriseCategoryPublicLabel,
   categoriseItemPublicLabel,
-} from "./categorise-fields-shared";
+} from "@/editor/assessment/categorise/categorise-fields-shared";
 import {
   addCategoriseCategory,
   addCategoriseItem,
@@ -85,14 +85,14 @@ import {
   reassignCategoriseItem,
 } from "./commands";
 import { createCategoriseItemAuthoringReorderProjection } from "./categorise-authoring-reorder-projection";
-import "./Categorise.css";
+import "@/editor/assessment/categorise/Categorise.css";
 
 export {
   categoriseRevealFromAnswers,
   describeCategoriseCategoryAccessibilityState,
   describeCategorisePlacedItemAccessibilityState,
   describeCategoriseSourceItemAccessibilityState,
-} from "./categorise-fields-shared";
+} from "@/editor/assessment/categorise/categorise-fields-shared";
 
 export const CategoriseBinNode = createCategoriseBinNode({
   content: "categorise_bin_title categorise_items_group",

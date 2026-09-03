@@ -9,7 +9,7 @@ import {
   createCategoriseBinNode,
   createCategoriseItemBodyNode,
   createCategoriseItemNode,
-} from "@/editor/blocks/assessment/categorise/categorise-fields-shared";
+} from "@/editor/assessment/categorise/categorise-fields-shared";
 import {
   createDropdownChoiceLabelNode,
   createDropdownChoiceNode,

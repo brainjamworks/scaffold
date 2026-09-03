@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { getControlBindingRegistryForEditor } from "@/document/control-binding";
-import { projectCategoriseLearnerNode } from "@/editor/blocks/assessment/categorise/assessment";
+import { projectCategoriseLearnerNode } from "@/editor/assessment/categorise/assessment";
 import { slideCategoriseQuestionSurfaceDefinition } from "@/editor/surfaces/model/templates/assessment/slide-categorise-question";
 import {
   assessmentProblemOutcome,

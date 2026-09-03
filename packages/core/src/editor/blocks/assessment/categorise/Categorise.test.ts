@@ -53,7 +53,7 @@ import {
   projectCategoriseAssessment,
   projectCategoriseInteraction,
   projectCategoriseLearnerNode,
-} from "./assessment";
+} from "@/editor/assessment/categorise/assessment";
 import {
   describeCategoriseCategoryAccessibilityState,
   describeCategorisePlacedItemAccessibilityState,

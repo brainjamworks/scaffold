@@ -11,8 +11,8 @@ import { findAncestorAssessmentBlockId } from "@/editor/assessment/shared/model/
 import { isAssessmentQuestionNode } from "@/editor/blocks/assessment/shared/nodes/assessment-meta";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 
-import { categoriseCourseContentFromProseMirror } from "./categorise-course-content";
-import { CategoriseCourseInteraction } from "./categorise-course-interaction";
+import { categoriseCourseContentFromProseMirror } from "@/editor/assessment/categorise/categorise-course-content";
+import { CategoriseCourseInteraction } from "@/editor/assessment/categorise/categorise-course-interaction";
 import {
   categoriseRevealFromAnswers,
   createCategoriseBinNode,
@@ -24,7 +24,7 @@ import {
   describeCategoriseCategoryAccessibilityState,
   describeCategorisePlacedItemAccessibilityState,
   describeCategoriseSourceItemAccessibilityState,
-} from "./categorise-fields-shared";
+} from "@/editor/assessment/categorise/categorise-fields-shared";
 
 export {
   categoriseRevealFromAnswers,

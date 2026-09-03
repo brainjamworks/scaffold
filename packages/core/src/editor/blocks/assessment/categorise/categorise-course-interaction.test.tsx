@@ -14,8 +14,8 @@ import {
 } from "@/runtime/assessment/test-utils";
 import type { AssessmentStoreApi } from "@/runtime/assessment/types";
 
-import { categoriseResponseCodec } from "./assessment";
-import { CategoriseCourseInteraction } from "./categorise-course-interaction";
+import { categoriseResponseCodec } from "@/editor/assessment/categorise/assessment";
+import { CategoriseCourseInteraction } from "@/editor/assessment/categorise/categorise-course-interaction";
 
 const assessmentTargetId = "target000001";
 const problemId = `artifact:artifact-1/block:${assessmentTargetId}`;

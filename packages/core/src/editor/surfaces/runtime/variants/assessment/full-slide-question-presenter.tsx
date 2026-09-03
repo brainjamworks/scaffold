@@ -11,7 +11,7 @@ import { SURFACE_MULTIPLE_CHOICE_QUESTION_NODE_TYPE } from "@/editor/surfaces/mo
 import { SURFACE_MULTISELECT_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-multiselect-question-node";
 import { SURFACE_SEQUENCING_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-sequencing-question-node";
 
-import { CategoriseFullSlideQuestionPresenter } from "./slide-categorise-question";
+import { CategoriseFullSlideQuestionPresenter } from "../../../variants/slide-categorise-question/runtime";
 import { DropdownFullSlideQuestionPresenter } from "./slide-dropdown-question";
 import { DragDropFullSlideQuestionPresenter } from "./slide-drag-drop-question";
 import { FillBlanksFullSlideQuestionPresenter } from "./slide-fill-blanks-question";

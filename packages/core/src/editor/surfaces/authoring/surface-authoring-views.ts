@@ -6,13 +6,13 @@ import {
 } from "@phosphor-icons/react";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
-import { categoriseConfiguration } from "@/editor/blocks/assessment/categorise/categorise-definition";
 import { dropdownConfiguration } from "@/editor/blocks/assessment/dropdown/dropdown-definition";
 import { dragDropConfiguration } from "@/editor/blocks/assessment/drag-drop/drag-drop-definition";
 import { fillBlanksConfiguration } from "@/editor/blocks/assessment/fill-blanks/fill-blanks-definition";
 import { slideImageHotspotQuestionSurfaceConfiguration } from "../variants/slide-image-hotspot-question/binding";
 import { slideSequencingQuestionSurfaceConfiguration } from "../variants/slide-sequencing-question/binding";
 import { slideMatchingQuestionSurfaceConfiguration } from "../variants/slide-matching-question/binding";
+import { slideCategoriseQuestionSurfaceConfiguration } from "../variants/slide-categorise-question/binding";
 import { mcqConfiguration } from "@/editor/blocks/assessment/mcq/mcq-definition";
 import { multiselectConfiguration } from "@/editor/blocks/assessment/multiselect/multiselect-definition";
 import { quizConfiguration } from "@/editor/blocks/assessment/quiz/quiz-definition";
@@ -54,7 +54,7 @@ import { SlideCoverSurfaceAuthoringView } from "./variants/slide-cover";
 import { SlideImageBandSurfaceAuthoringView } from "./variants/slide-image-band";
 import { SlideImageCoverSurfaceAuthoringView } from "./variants/slide-image-cover";
 import { SlideModuleCoverSurfaceAuthoringView } from "./variants/slide-module-cover";
-import { SlideCategoriseQuestionSurfaceAuthoringView } from "./variants/assessment/slide-categorise-question";
+import { SlideCategoriseQuestionSurfaceAuthoringView } from "../variants/slide-categorise-question/authoring";
 import { SlideDropdownQuestionSurfaceAuthoringView } from "./variants/assessment/slide-dropdown-question";
 import { SlideDragDropQuestionSurfaceAuthoringView } from "./variants/assessment/slide-drag-drop-question";
 import { SlideFillBlanksQuestionSurfaceAuthoringView } from "./variants/assessment/slide-fill-blanks-question";
@@ -388,10 +388,7 @@ const SPECIALISED_SURFACE_AUTHORING_VIEWS = [
   {
     variantId: "slide-categorise-question",
     component: SlideCategoriseQuestionSurfaceAuthoringView,
-    configuration: defineAssessmentSurfaceConfiguration({
-      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-categorise-question"),
-      questionConfiguration: categoriseConfiguration,
-    }),
+    configuration: slideCategoriseQuestionSurfaceConfiguration,
   },
   {
     variantId: "slide-sequencing-question",
