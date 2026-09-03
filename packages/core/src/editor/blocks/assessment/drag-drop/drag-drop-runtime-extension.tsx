@@ -11,7 +11,10 @@ import { createDragDropCourseContent } from "@/editor/assessment/drag-drop/drag-
 import { DragDropInlineCourseWorkspace } from "@/editor/assessment/drag-drop/drag-drop-course-interaction";
 import { dragDropBlockDefinition } from "./drag-drop-definition";
 import { createDragDropNode } from "./node";
-import { isDragDropOwnerNodeType, SURFACE_DRAG_DROP_QUESTION_NODE_TYPE } from "./node";
+import {
+  isDragDropOwnerNodeType,
+  SURFACE_DRAG_DROP_QUESTION_NODE_TYPE,
+} from "@/editor/assessment/drag-drop/node-codecs";
 
 function DragDropRuntimeView(props: NodeViewProps) {
   return (
