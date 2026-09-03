@@ -13,7 +13,7 @@ import {
   projectDragDropSettings,
 } from "@/editor/assessment/drag-drop/assessment";
 import { defaultDragDropCanvasData } from "@/editor/assessment/drag-drop/drag-drop-canvas-shared";
-import { parseDragDropAuthoredQuestion } from "@/editor/blocks/assessment/drag-drop/node";
+import { parseDragDropAuthoredQuestion } from "@/editor/assessment/drag-drop/node-codecs";
 import { assessmentControlDefinition } from "@/editor/assessment/shared/model/assessment-control-definition";
 import {
   cloneJsonNodeWithoutContent,

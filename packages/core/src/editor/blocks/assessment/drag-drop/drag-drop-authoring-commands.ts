@@ -24,7 +24,7 @@ import {
 import type { ResolvedAuthoringNode } from "@/editor/prosemirror/authoring-target";
 
 import { defaultDragDropCanvasData, DRAG_DROP_CANVAS_NODE_TYPE } from "@/editor/assessment/drag-drop/drag-drop-canvas-shared";
-import { isDragDropOwnerNodeType } from "./node";
+import { isDragDropOwnerNodeType } from "@/editor/assessment/drag-drop/node-codecs";
 
 export interface DragDropAuthoringModel {
   readonly owner: ResolvedAuthoringNode;

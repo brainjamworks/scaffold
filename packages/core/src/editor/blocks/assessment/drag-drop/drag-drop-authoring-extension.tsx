@@ -34,7 +34,7 @@ import { createDragDropCanvasNode } from "@/editor/assessment/drag-drop/drag-dro
 import { dragDropBlockDefinition, dragDropConfiguration } from "./drag-drop-definition";
 import { DragDropAuthoringWorkspace } from "./DragDropAuthoringWorkspace";
 import { createDragDropNode } from "./node";
-import { isDragDropOwnerNodeType } from "./node";
+import { isDragDropOwnerNodeType } from "@/editor/assessment/drag-drop/node-codecs";
 
 export { dragDropConfiguration };
 

@@ -1,24 +1,11 @@
-import type { NodeViewProps } from "@tiptap/react";
 import type { ComponentType } from "react";
 
-import type { RegisteredSurfaceVariantDefinition } from "../model/surface-variant-definition";
 import type { SurfaceVariantRegistry } from "../model/surface-variant-registry";
-
-export interface SurfaceRuntimeViewProps extends NodeViewProps {
-  readonly definition: RegisteredSurfaceVariantDefinition;
-  readonly runtimeView: RegisteredSurfaceRuntimeView;
-  readonly isEmpty: boolean;
-  readonly variant: string;
-}
-
-export interface SurfaceRuntimeViewBinding {
-  readonly variantId: string;
-  readonly component: ComponentType<SurfaceRuntimeViewProps>;
-}
-
-export interface RegisteredSurfaceRuntimeView extends SurfaceRuntimeViewBinding {
-  readonly nodeType: "surface";
-}
+import type {
+  RegisteredSurfaceRuntimeView,
+  SurfaceRuntimeViewBinding,
+  SurfaceRuntimeViewProps,
+} from "../shared/surface-view-props";
 
 export interface SurfaceRuntimeViewMap {
   get(variantId: string): RegisteredSurfaceRuntimeView | undefined;

@@ -39,7 +39,7 @@ import * as emptyInsertionRow from "@/editor/suggestions/empty-row/EmptyInsertio
 import * as slashCommand from "@/editor/suggestions/slash/SlashCommand";
 import * as surfaceAuthoringNode from "@/editor/surfaces/authoring/nodes/surface-authoring-node";
 import * as surfaceRootSelectionPolicy from "@/editor/surfaces/authoring/surface-root-selection-policy";
-import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
+import type { SurfaceAuthoringViewProps } from "../../editor/surfaces/shared/surface-view-props";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
 import {

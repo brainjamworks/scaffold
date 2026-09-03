@@ -7,7 +7,7 @@ import { getSurfaceVariantFromAttrs } from "@/editor/surfaces/authoring/surface-
 import type { SurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 import { createSurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import type { RegisteredSurfaceVariantDefinition } from "@/editor/surfaces/model/surface-variant-definition";
-import type { RegisteredSurfaceAuthoringView } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
+import type { RegisteredSurfaceAuthoringView } from "../../shared/surface-view-props";
 
 import "../../view/region.css";
 

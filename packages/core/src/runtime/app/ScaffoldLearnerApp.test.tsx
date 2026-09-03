@@ -15,8 +15,8 @@ import {
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
-import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
+import type { SurfaceAuthoringViewProps } from "../../editor/surfaces/shared/surface-view-props";
+import type { SurfaceRuntimeViewProps } from "../../editor/surfaces/shared/surface-view-props";
 import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRuntimeFrame";
 import type {
   ScaffoldLearnerBootstrap,

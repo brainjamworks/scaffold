@@ -1,7 +1,7 @@
 import type { ReactNode, RefObject } from "react";
 
 import "../../view/assessment-slide-surface.css";
-import type { SurfaceRuntimeViewProps } from "../surface-runtime-view-registry";
+import type { SurfaceRuntimeViewProps } from "../../shared/surface-view-props";
 import { SurfaceRuntimeFrame } from "./SurfaceRuntimeFrame";
 
 interface AssessmentSlideSurfaceRuntimeFrameProps extends SurfaceRuntimeViewProps {

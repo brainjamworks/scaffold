@@ -30,9 +30,9 @@ import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions
 import { builtInBlockRuntimeBindings } from "@/editor/blocks/runtime-block-extensions";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import type { LayoutRuntimeViewProps } from "@/editor/arrangements/layout/runtime/layout-view-definition";
-import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
+import type { SurfaceAuthoringViewProps } from "../../editor/surfaces/shared/surface-view-props";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
-import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
+import type { SurfaceRuntimeViewProps } from "../../editor/surfaces/shared/surface-view-props";
 import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRuntimeFrame";
 import * as surfaceRuntimeNode from "@/editor/surfaces/runtime/nodes/surface-runtime-node";
 import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";

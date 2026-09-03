@@ -22,7 +22,7 @@ import type {
   HotspotClickRecord,
   ImageHotspotClickChangeStatus,
 } from "@/editor/assessment/shared/runtime/assessment-interaction-runtime";
-import { AssessmentRuntimePopoverShell } from "@/editor/blocks/assessment/shared/chrome/AssessmentRuntimePopoverShell";
+import { AssessmentRuntimePopoverShell } from "@/editor/assessment/shared/chrome/AssessmentRuntimePopoverShell";
 import { renderRuntimeRichTextNode } from "@/editor/rich-text/runtime/render-rich-text";
 import { useAssessmentRuntimeById } from "@/editor/assessment/shared/runtime/use-assessment-runtime";
 import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";

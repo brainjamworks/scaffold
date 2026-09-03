@@ -1,6 +1,6 @@
 import "./styles.css";
 import { SurfaceRuntimeFrame } from "../../runtime/views/SurfaceRuntimeFrame";
-import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
+import type { SurfaceRuntimeViewProps } from "../../shared/surface-view-props";
 
 export function SlideCoverSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   return (

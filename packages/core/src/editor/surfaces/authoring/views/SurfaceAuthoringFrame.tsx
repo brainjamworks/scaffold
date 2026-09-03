@@ -18,7 +18,7 @@ import {
   surfaceRegionDataAttrs,
 } from "@/editor/surfaces/model/surface-settings";
 
-import type { SurfaceAuthoringViewProps } from "../surface-authoring-view-registry";
+import type { SurfaceAuthoringViewProps } from "../../shared/surface-view-props";
 import { surfaceBackgroundDataAttrs, surfaceBackgroundStyle } from "../../view/surface-background";
 import "@/editor/rich-text/view/field-content.css";
 import "../../view/header-footer-slots.css";

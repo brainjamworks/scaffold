@@ -17,11 +17,8 @@ import {
   builtInSurfaceVariantDefinitions,
 } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { validateSurfaceVariantFactories } from "@/editor/surfaces/model/surface-variant-registry";
-import {
-  createSurfaceRuntimeViewMap,
-  type SurfaceRuntimeViewBinding,
-  type SurfaceRuntimeViewMap,
-} from "@/editor/surfaces/runtime/surface-runtime-view-registry";
+import { createSurfaceRuntimeViewMap, type SurfaceRuntimeViewMap,  } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
+import { type SurfaceRuntimeViewBinding } from "../../editor/surfaces/shared/surface-view-props";;
 import { builtInSurfaceRuntimeViewBindings } from "@/editor/surfaces/runtime/surface-runtime-views";
 
 export interface ScaffoldRuntimeBlockComposition {

@@ -10,7 +10,7 @@ import {
   ASSESSMENT_QUESTION_CONTENT,
   BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { SURFACE_DRAG_DROP_QUESTION_NODE_TYPE } from "@/editor/blocks/assessment/drag-drop/node";
+import { SURFACE_DRAG_DROP_QUESTION_NODE_TYPE } from "@/editor/assessment/drag-drop/node-codecs";
 
 import { fullSlideQuestionStageAttributes } from "./full-slide-question-stage";
 

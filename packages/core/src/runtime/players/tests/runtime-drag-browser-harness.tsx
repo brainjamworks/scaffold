@@ -6,7 +6,7 @@ import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaf
 import { projectCourseStructure } from "@/document/model/course-structure";
 import { createSurfaceRuntimeViewMap } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
 import { builtInSurfaceRuntimeViewBindings } from "@/editor/surfaces/runtime/surface-runtime-views";
-import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
+import type { SurfaceRuntimeViewProps } from "../../../editor/surfaces/shared/surface-view-props";
 import { useInteractionDragEnvironmentResolution } from "@/editor/interactions/drag/react/interaction-drag-environment";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import {

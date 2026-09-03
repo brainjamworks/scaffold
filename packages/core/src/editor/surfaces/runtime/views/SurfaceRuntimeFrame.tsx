@@ -16,7 +16,7 @@ import {
   surfaceBackgroundStyle,
   surfaceBackgroundStyleAttribute,
 } from "../../view/surface-background";
-import type { SurfaceRuntimeViewProps } from "../surface-runtime-view-registry";
+import type { SurfaceRuntimeViewProps } from "../../shared/surface-view-props";
 import "@/editor/rich-text/view/field-content.css";
 import "../../view/header-footer-slots.css";
 

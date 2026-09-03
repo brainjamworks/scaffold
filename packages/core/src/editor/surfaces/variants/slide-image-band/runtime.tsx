@@ -6,7 +6,7 @@ import {
 import { SlideImageBandImageSlot } from "../../view/variants/slide-image-band-image";
 import "./styles.css";
 import { SurfaceRuntimeFrame } from "../../runtime/views/SurfaceRuntimeFrame";
-import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
+import type { SurfaceRuntimeViewProps } from "../../shared/surface-view-props";
 
 export function SlideImageBandSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const settings = readSlideImageBandSurfaceSettings(props.node.attrs["settings"]);

@@ -1,6 +1,6 @@
 import "../../view/assessment-slide-surface.css";
 import type { ReactNode } from "react";
-import type { SurfaceAuthoringViewProps } from "../surface-authoring-view-registry";
+import type { SurfaceAuthoringViewProps } from "../../shared/surface-view-props";
 import { SurfaceAuthoringFrame } from "./SurfaceAuthoringFrame";
 
 interface AssessmentSlideSurfaceAuthoringFrameProps extends SurfaceAuthoringViewProps {

@@ -312,7 +312,7 @@ describe("Pocket Atlas Course theme", () => {
                         <span className="hljs-keyword" data-testid="syntax-keyword">
                           const
                         </span>{" "}
-                        habitat = &quot;woodland&quot;;
+                        habitat = &quot;woodland&quot;
                       </code>
                     </pre>
                   </div>

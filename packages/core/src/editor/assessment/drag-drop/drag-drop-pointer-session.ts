@@ -3,7 +3,7 @@ import type { EmbeddedDataId } from "@scaffold/contracts";
 import type {
   SpatialImagePoint,
   SpatialImageSurfaceState,
-} from "@/editor/blocks/assessment/shared/spatial";
+} from "@/editor/assessment/shared/spatial";
 
 type PointerPlacementSurface = Pick<SpatialImageSurfaceState, "pointFromClient" | "status">;
 

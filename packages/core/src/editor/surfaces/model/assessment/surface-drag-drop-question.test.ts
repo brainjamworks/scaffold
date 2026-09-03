@@ -6,7 +6,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { defaultDragDropCanvasData } from "@/editor/assessment/drag-drop/drag-drop-canvas-shared";
-import { parseDragDropAuthoredQuestion } from "@/editor/blocks/assessment/drag-drop/node";
+import { parseDragDropAuthoredQuestion } from "@/editor/assessment/drag-drop/node-codecs";
 import { builtInSurfaceVariantRegistry } from "../built-in-surface-variant-definitions";
 import { createSurfaceDragDropQuestionNode } from "./surface-drag-drop-question-node";
 

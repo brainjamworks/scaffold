@@ -1,6 +1,6 @@
 import type { SurfaceAuthoringViewBinding } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
 import type { SurfaceVariantDefinition } from "@/editor/surfaces/model/surface-variant-definition";
-import type { SurfaceRuntimeViewBinding } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
+import type { SurfaceRuntimeViewBinding } from "../../editor/surfaces/shared/surface-view-props";;
 import type { ContentIdentityRewriteRegistration } from "@/document/model/identity/clone-with-new-ids";
 
 export interface SurfaceCapability {

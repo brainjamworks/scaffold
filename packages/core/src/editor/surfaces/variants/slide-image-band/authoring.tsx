@@ -17,7 +17,7 @@ import { resolveSlideImageBandImagePick } from "@/editor/surfaces/authoring/chro
 import { SlideImageBandImageSlot } from "../../view/variants/slide-image-band-image";
 import "./styles.css";
 import { SurfaceAuthoringFrame } from "../../authoring/views/SurfaceAuthoringFrame";
-import type { SurfaceAuthoringViewProps } from "../../authoring/surface-authoring-view-registry";
+import type { SurfaceAuthoringViewProps } from "../../shared/surface-view-props";
 
 export function SlideImageBandSurfaceAuthoringView(props: SurfaceAuthoringViewProps) {
   const [pickerOpen, setPickerOpen] = useState(false);

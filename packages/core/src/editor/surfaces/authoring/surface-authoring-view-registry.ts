@@ -1,4 +1,3 @@
-import type { NodeViewProps } from "@tiptap/react";
 import type { ComponentType } from "react";
 
 import type { ConfigurationDefinition } from "@/editor/configuration/definition";
@@ -7,27 +6,15 @@ import type { QuickMenuDefinition } from "@/editor/configuration/quick-menu";
 import { deriveSettingsSheetDefinition } from "@/editor/configuration/settings-sheet-derivation";
 import type { NodeSettingsSheetDefinition } from "@/editor/configuration/settings-sheet";
 import type { SurfaceVariantRegistry } from "../model/surface-variant-registry";
-import type { RegisteredSurfaceVariantDefinition } from "../model/surface-variant-definition";
-
-export interface SurfaceAuthoringViewProps extends NodeViewProps {
-  authoringView: RegisteredSurfaceAuthoringView;
-  definition: RegisteredSurfaceVariantDefinition;
-  isEmpty: boolean;
-  variant: string;
-}
+import type {
+  RegisteredSurfaceAuthoringView,
+  SurfaceAuthoringViewProps,
+} from "../shared/surface-view-props";
 
 export interface SurfaceAuthoringViewBinding {
   readonly variantId: string;
   readonly component: ComponentType<SurfaceAuthoringViewProps>;
   readonly configuration?: ConfigurationDefinition;
-}
-
-export interface RegisteredSurfaceAuthoringView {
-  readonly variantId: string;
-  readonly component: ComponentType<SurfaceAuthoringViewProps>;
-  readonly nodeType: "surface";
-  readonly quickMenu?: QuickMenuDefinition;
-  readonly settingsSheet?: NodeSettingsSheetDefinition;
 }
 
 export interface SurfaceAuthoringViewMap {

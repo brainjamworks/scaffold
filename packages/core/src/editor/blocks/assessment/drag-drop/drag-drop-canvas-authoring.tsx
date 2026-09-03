@@ -13,7 +13,7 @@ import {
   SpatialImageSurface,
   normalizedPointToOverlayStyle,
   type SpatialImageSurfaceState,
-} from "@/editor/blocks/assessment/shared/spatial";
+} from "@/editor/assessment/shared/spatial";
 
 import "@/editor/assessment/drag-drop/DragDrop.css";
 

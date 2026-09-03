@@ -33,7 +33,7 @@ import {
 } from "@/editor/shell/settings/sheets/ConfigurationSettingsSheet";
 
 import "./styles.css";
-import type { SurfaceAuthoringViewProps } from "../../authoring/surface-authoring-view-registry";
+import type { SurfaceAuthoringViewProps } from "../../shared/surface-view-props";
 import { AssessmentSlideSurfaceAuthoringFrame } from "../../authoring/views/AssessmentSlideSurfaceAuthoringFrame";
 import { SlideQuizActiveQuestionStyle } from "./SlideQuizActiveQuestionStyle";
 import { SlideQuizAuthoringRail } from "./SlideQuizAuthoringRail";

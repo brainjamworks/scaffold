@@ -1,6 +1,6 @@
 import "./styles.css";
 import { SurfaceAuthoringFrame } from "../../authoring/views/SurfaceAuthoringFrame";
-import type { SurfaceAuthoringViewProps } from "../../authoring/surface-authoring-view-registry";
+import type { SurfaceAuthoringViewProps } from "../../shared/surface-view-props";
 import { useModuleCoverTitleFit } from "./use-module-cover-title-fit";
 
 export function SlideModuleCoverSurfaceAuthoringView(props: SurfaceAuthoringViewProps) {

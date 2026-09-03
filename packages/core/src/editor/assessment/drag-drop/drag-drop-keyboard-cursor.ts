@@ -1,6 +1,6 @@
 import type { EmbeddedDataId } from "@scaffold/contracts";
 
-import type { SpatialImagePoint } from "@/editor/blocks/assessment/shared/spatial";
+import type { SpatialImagePoint } from "@/editor/assessment/shared/spatial";
 
 export type DragDropKeyboardCursorStep = "normal" | "fine" | "coarse";
 export type DragDropKeyboardCursorDirection = "up" | "down" | "left" | "right";

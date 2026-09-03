@@ -4,7 +4,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { SurfaceAuthoringViewProps } from "../../authoring/surface-authoring-view-registry";
+import type { SurfaceAuthoringViewProps } from "../../shared/surface-view-props";
 import { SlideCategoriseQuestionSurfaceAuthoringView } from "./authoring";
 
 vi.mock("../../authoring/views/SurfaceAuthoringFrame", () => ({

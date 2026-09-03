@@ -21,7 +21,7 @@ import {
   normalizedPointToOverlayStyle,
   type SpatialImagePoint,
   type SpatialImageSurfaceState,
-} from "@/editor/blocks/assessment/shared/spatial";
+} from "@/editor/assessment/shared/spatial";
 import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
 import { useInteractionDragSource } from "@/editor/interactions/drag/react/use-interaction-drag-source";
 import { useInteractionDropTarget } from "@/editor/interactions/drag/react/use-interaction-drop-target";

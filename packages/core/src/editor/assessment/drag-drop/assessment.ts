@@ -19,7 +19,7 @@ import {
 import {
   parseDragDropAuthoredQuestion,
   parseDragDropPublicQuestion,
-} from "@/editor/blocks/assessment/drag-drop/node";
+} from "@/editor/assessment/drag-drop/node-codecs";
 
 export function projectDragDropLearnerNode(node: JSONContent): JSONContent {
   parseDragDropAuthoredQuestion(node);

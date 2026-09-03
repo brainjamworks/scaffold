@@ -17,7 +17,7 @@ import { resolveSlideImageCoverImagePick } from "@/editor/surfaces/authoring/chr
 import { SlideImageCoverImageSlot } from "../../view/variants/slide-image-cover-image";
 import "./styles.css";
 import { SurfaceAuthoringFrame } from "../../authoring/views/SurfaceAuthoringFrame";
-import type { SurfaceAuthoringViewProps } from "../../authoring/surface-authoring-view-registry";
+import type { SurfaceAuthoringViewProps } from "../../shared/surface-view-props";
 
 export function SlideImageCoverSurfaceAuthoringView(props: SurfaceAuthoringViewProps) {
   const [pickerOpen, setPickerOpen] = useState(false);

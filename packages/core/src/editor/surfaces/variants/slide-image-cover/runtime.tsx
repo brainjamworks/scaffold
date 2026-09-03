@@ -6,7 +6,7 @@ import {
 import { SlideImageCoverImageSlot } from "../../view/variants/slide-image-cover-image";
 import "./styles.css";
 import { SurfaceRuntimeFrame } from "../../runtime/views/SurfaceRuntimeFrame";
-import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
+import type { SurfaceRuntimeViewProps } from "../../shared/surface-view-props";
 
 export function SlideImageCoverSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const settings = readSlideImageCoverSurfaceSettings(props.node.attrs["settings"]);

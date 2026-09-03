@@ -7,9 +7,9 @@ import type { SurfaceVariantRegistry } from "@/editor/surfaces/model/surface-var
 import { createSurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import {
   getSurfaceVariantFromAttrs,
-  type RegisteredSurfaceRuntimeView,
   type SurfaceRuntimeViewMap,
 } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
+import { type RegisteredSurfaceRuntimeView } from "../../shared/surface-view-props";
 import { surfaceRuntimeRendererAttrs } from "@/editor/surfaces/runtime/views/SurfaceRuntimeFrame";
 
 import "../../view/region.css";
