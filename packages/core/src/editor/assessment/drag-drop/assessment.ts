@@ -16,7 +16,10 @@ import {
   redactCommonAssessmentShellNode,
 } from "@/editor/assessment/shared/publication/projection";
 
-import { parseDragDropAuthoredQuestion, parseDragDropPublicQuestion } from "./node";
+import {
+  parseDragDropAuthoredQuestion,
+  parseDragDropPublicQuestion,
+} from "@/editor/blocks/assessment/drag-drop/node";
 
 export function projectDragDropLearnerNode(node: JSONContent): JSONContent {
   parseDragDropAuthoredQuestion(node);

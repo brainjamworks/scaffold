@@ -8,12 +8,12 @@ import {
   removeDragDropPlacement,
   setDragDropPlacement,
   toDragDropContractResponse,
-} from "./drag-drop-response-codec";
+} from "@/editor/assessment/drag-drop/drag-drop-response-codec";
 import {
   projectDragDropAssessment,
   projectDragDropInteraction,
   projectDragDropLearnerNode,
-} from "./assessment";
+} from "@/editor/assessment/drag-drop/assessment";
 
 const interaction = {
   kind: "spatial-placement" as const,

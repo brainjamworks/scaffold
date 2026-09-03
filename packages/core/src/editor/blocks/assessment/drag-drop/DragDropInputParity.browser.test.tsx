@@ -19,7 +19,7 @@ import { TestInteractionDragEnvironment } from "@/editor/interactions/drag/testi
 
 import { DragDropInlineCourseWorkspace } from "./drag-drop-course-interaction";
 import type { DragDropCourseContent } from "./drag-drop-course-content";
-import { dragDropResponseCodec, toDragDropContractResponse } from "./drag-drop-response-codec";
+import { dragDropResponseCodec, toDragDropContractResponse } from "@/editor/assessment/drag-drop/drag-drop-response-codec";
 
 const assessmentTargetId = "target000001";
 const problemId = `artifact:artifact-1/block:${assessmentTargetId}`;

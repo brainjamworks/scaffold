@@ -12,7 +12,7 @@ import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaf
 import { projectCourseStructure } from "@/document/model/course-structure";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { projectCategoriseLearnerNode } from "@/editor/assessment/categorise/assessment";
-import { projectDragDropLearnerNode } from "@/editor/blocks/assessment/drag-drop/assessment";
+import { projectDragDropLearnerNode } from "@/editor/assessment/drag-drop/assessment";
 import { projectDropdownLearnerNode } from "@/editor/assessment/dropdown/assessment";
 import { projectFillBlanksLearnerNode } from "@/editor/assessment/fill-blanks/assessment";
 import { projectImageHotspotLearnerNode } from "@/editor/assessment/image-hotspot/assessment";

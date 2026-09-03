@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { projectDragDropLearnerNode } from "@/editor/blocks/assessment/drag-drop/assessment";
+import { projectDragDropLearnerNode } from "@/editor/assessment/drag-drop/assessment";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import type { MediaPort } from "@/host/ports";
 import {

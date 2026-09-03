@@ -19,7 +19,7 @@ import {
 } from "@/runtime/assessment/test-utils";
 import type { AssessmentStoreApi } from "@/runtime/assessment/types";
 
-import { dragDropResponseCodec } from "./drag-drop-response-codec";
+import { dragDropResponseCodec } from "@/editor/assessment/drag-drop/drag-drop-response-codec";
 import type { DragDropCourseContent } from "./drag-drop-course-content";
 import {
   DragDropCourseInteraction,

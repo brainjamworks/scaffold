@@ -9,10 +9,10 @@ import { useMemo } from "react";
 import {
   projectDragDropInteraction,
   projectDragDropSettings,
-} from "@/editor/blocks/assessment/drag-drop/assessment";
+} from "@/editor/assessment/drag-drop/assessment";
 import { createDragDropCourseContent } from "@/editor/blocks/assessment/drag-drop/drag-drop-course-content";
 import { DragDropCourseInteraction } from "@/editor/blocks/assessment/drag-drop/drag-drop-course-interaction";
-import { dragDropResponseCodec } from "@/editor/blocks/assessment/drag-drop/drag-drop-response-codec";
+import { dragDropResponseCodec } from "@/editor/assessment/drag-drop/drag-drop-response-codec";
 import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { countAssessmentHints } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { textBetween } from "@/editor/assessment/shared/publication/projection";

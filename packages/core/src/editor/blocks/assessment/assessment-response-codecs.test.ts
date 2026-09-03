@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import type { AssessmentCapabilityResponseDefinition, BlockDefinition } from "../block-definition";
 import { categoriseBlockDefinition } from "./categorise/categorise-definition";
 import { dropdownBlockDefinition } from "./dropdown/dropdown-definition";
-import { dragDropResponseCodec } from "./drag-drop/drag-drop-response-codec";
+import { dragDropResponseCodec } from "@/editor/assessment/drag-drop/drag-drop-response-codec";
 import { fillBlanksBlockDefinition } from "./fill-blanks/fill-blanks-definition";
 import { imageHotspotBlockDefinition } from "./image-hotspot/image-hotspot-definition";
 import { matchingBlockDefinition } from "./matching/matching-definition";

@@ -12,7 +12,7 @@ import {
 } from "@/document/model/course-structure";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import { projectDragDropLearnerNode } from "@/editor/blocks/assessment/drag-drop/assessment";
+import { projectDragDropLearnerNode } from "@/editor/assessment/drag-drop/assessment";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import type { MediaPort } from "@/host/ports";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";

@@ -11,7 +11,7 @@ import {
   projectDragDropInteraction,
   projectDragDropLearnerNode,
   projectDragDropSettings,
-} from "@/editor/blocks/assessment/drag-drop/assessment";
+} from "@/editor/assessment/drag-drop/assessment";
 import { defaultDragDropCanvasData } from "@/editor/assessment/drag-drop/drag-drop-canvas-shared";
 import { parseDragDropAuthoredQuestion } from "@/editor/blocks/assessment/drag-drop/node";
 import { assessmentControlDefinition } from "@/editor/assessment/shared/model/assessment-control-definition";
