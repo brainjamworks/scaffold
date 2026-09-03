@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import { describe, expect, it } from "vite-plus/test";
 
-import { createDragDropCanvasNode, defaultDragDropCanvasData } from "./drag-drop-canvas-shared";
+import { createDragDropCanvasNode, defaultDragDropCanvasData } from "@/editor/assessment/drag-drop/drag-drop-canvas-shared";
 import { createDragDropNode, parseDragDropAuthoredQuestion } from "./node";
 
 describe("Drag and Drop authored graph", () => {

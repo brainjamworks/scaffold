@@ -6,7 +6,7 @@ import { AssessmentRuntimeProblemContent } from "@/editor/blocks/assessment/shar
 import { createBlockRuntimeNodeView } from "@/editor/frame/runtime/create-block-runtime-node-view";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 
-import { createDragDropCanvasNode } from "./drag-drop-canvas-shared";
+import { createDragDropCanvasNode } from "@/editor/assessment/drag-drop/drag-drop-canvas-shared";
 import { createDragDropCourseContent } from "./drag-drop-course-content";
 import { DragDropInlineCourseWorkspace } from "./drag-drop-course-interaction";
 import { dragDropBlockDefinition } from "./drag-drop-definition";

@@ -16,7 +16,7 @@ import {
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
 
-import { defaultDragDropCanvasData } from "./drag-drop-canvas-shared";
+import { defaultDragDropCanvasData } from "@/editor/assessment/drag-drop/drag-drop-canvas-shared";
 
 export const DRAG_DROP_NODE_TYPE = "drag_drop";
 export const SURFACE_DRAG_DROP_QUESTION_NODE_TYPE = "surface_drag_drop_question";

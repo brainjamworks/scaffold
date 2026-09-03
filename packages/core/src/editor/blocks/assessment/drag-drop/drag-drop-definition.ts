@@ -15,7 +15,7 @@ import {
   projectDragDropLearnerNode,
   projectDragDropSettings,
 } from "./assessment";
-import { defaultDragDropCanvasData } from "./drag-drop-canvas-shared";
+import { defaultDragDropCanvasData } from "@/editor/assessment/drag-drop/drag-drop-canvas-shared";
 import { dragDropResponseCodec } from "./drag-drop-response-codec";
 
 export const DRAG_DROP_INSERT_ACTION_ID = "drag-drop";

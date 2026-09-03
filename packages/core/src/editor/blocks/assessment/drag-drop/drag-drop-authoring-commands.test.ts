@@ -29,7 +29,7 @@ import {
   setDragDropMarkerFeedbackChecked,
   updateDragDropMarkerChecked,
 } from "./drag-drop-authoring-commands";
-import { createDragDropCanvasNode, defaultDragDropCanvasData } from "./drag-drop-canvas-shared";
+import { createDragDropCanvasNode, defaultDragDropCanvasData } from "@/editor/assessment/drag-drop/drag-drop-canvas-shared";
 import { createDragDropNode } from "./node";
 
 const editors: Editor[] = [];

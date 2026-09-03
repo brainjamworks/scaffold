@@ -23,7 +23,7 @@ import {
 
 import type { ResolvedAuthoringNode } from "@/editor/prosemirror/authoring-target";
 
-import { defaultDragDropCanvasData, DRAG_DROP_CANVAS_NODE_TYPE } from "./drag-drop-canvas-shared";
+import { defaultDragDropCanvasData, DRAG_DROP_CANVAS_NODE_TYPE } from "@/editor/assessment/drag-drop/drag-drop-canvas-shared";
 import { isDragDropOwnerNodeType } from "./node";
 
 export interface DragDropAuthoringModel {

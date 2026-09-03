@@ -30,7 +30,7 @@ import {
   type DragDropAuthoringIssue,
 } from "./drag-drop-authoring-commands";
 import { DragDropAuthoringCanvas } from "./drag-drop-canvas-authoring";
-import { createDragDropCanvasNode } from "./drag-drop-canvas-shared";
+import { createDragDropCanvasNode } from "@/editor/assessment/drag-drop/drag-drop-canvas-shared";
 import { dragDropBlockDefinition, dragDropConfiguration } from "./drag-drop-definition";
 import { DragDropAuthoringWorkspace } from "./DragDropAuthoringWorkspace";
 import { createDragDropNode } from "./node";
