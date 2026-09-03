@@ -87,6 +87,9 @@ const surfaceLaneBindingAllowedOwnerPath = [
 ]
   .map((path) => `(?:${path})`)
   .join("|");
+const surfaceVariantFolderPath = "^packages/core/src/editor/surfaces/variants/";
+const surfaceVariantBlockSeamPath =
+  "^packages/core/src/editor/blocks/assessment/(?:[^/]+/[^/]*definition\\.[^/]+$|fill-blanks/commands\\.ts$)";
 const blockConstructionOwnerPath =
   "^packages/core/src/editor/blocks/(?:block-definition|block-registry|built-in-block-definitions)\\.[^/]+$";
 const auditedNeutralSelectionPath =
@@ -738,6 +741,20 @@ module.exports = {
       },
     },
     {
+      // Owner: explicit per-variant surface bindings (surfaces restructure).
+      // Each binding pairs one block definition with the shared draft helpers,
+      // so bindings never reach back into any variant folder: no sibling or
+      // view coupling can hide inside a binding.
+      name: "surface-variant-bindings-do-not-reach-variant-folders",
+      severity: "error",
+      from: {
+        path: `${surfaceVariantFolderPath}[^/]+/binding\\.ts$`,
+      },
+      to: {
+        path: surfaceVariantFolderPath,
+      },
+    },
+    {
       // Owner: the explicitly classified neutral owners in the tracked V2 architecture.
       // Tiptap/ProseMirror adaptation is intentional; React views and styles remain above these owners.
       name: "classified-neutral-owners-do-not-import-react-or-css",
@@ -1246,6 +1263,40 @@ module.exports = {
       },
       to: {
         path: "node_modules/@radix-ui/",
+      },
+    },
+    {
+      // Owner: assessment domain direction (surfaces restructure).
+      // Blocks and surfaces consume the assessment domain; it consumes
+      // neither. Domain tests may fixture real blocks. The block-definition
+      // and block-registry carve-out covers type-only threads plus one pure
+      // accessor, all scheduled to move in the content-definition split.
+      name: "assessment-domain-does-not-reach-blocks-or-surfaces",
+      severity: "error",
+      from: {
+        path: "^packages/core/src/editor/assessment/",
+        pathNot: "\\.test\\.(ts|tsx)$",
+      },
+      to: {
+        path: "^packages/core/src/editor/(?:blocks|surfaces)/",
+        pathNot: "^packages/core/src/editor/blocks/(?:block-definition|block-registry)\\.[^/]+$",
+      },
+    },
+    {
+      // Owner: assessment domain direction (surfaces restructure).
+      // Variant folders compose shared parents and domain cores, never
+      // sibling block features. Every variant file — bindings included —
+      // may use only the sanctioned seam: block definitions plus neutral
+      // fill-blanks commands. Variant tests may fixture real blocks.
+      name: "surface-variants-do-not-reach-blocks",
+      severity: "error",
+      from: {
+        path: "^packages/core/src/editor/surfaces/variants/",
+        pathNot: "\\.test\\.(ts|tsx)$",
+      },
+      to: {
+        path: "^packages/core/src/editor/blocks/",
+        pathNot: surfaceVariantBlockSeamPath,
       },
     },
   ],

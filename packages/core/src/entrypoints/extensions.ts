@@ -58,15 +58,13 @@ export type {
   SemanticPresentationDefinition,
   SemanticProjectionHelpers,
 } from "@/document/model/semantic-document";
+export type { SurfaceAuthoringViewBinding } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
 export type {
-  SurfaceAuthoringViewBinding,
   SurfaceAuthoringViewProps,
-} from "@/editor/surfaces/authoring/surface-authoring-view-registry";
-export type { SurfaceVariantDefinition } from "@/editor/surfaces/model/surface-variant-definition";
-export type {
   SurfaceRuntimeViewBinding,
   SurfaceRuntimeViewProps,
-} from "@/editor/surfaces/runtime/surface-runtime-view-registry";
+} from "@/editor/surfaces/shared/surface-view-props";
+export type { SurfaceVariantDefinition } from "@/editor/surfaces/model/surface-variant-definition";
 export {
   useLearningEventReporter,
   type LearningEventReporter,

@@ -1235,6 +1235,55 @@ test("allows only application integration to join both Surface lanes", async (t)
   );
 });
 
+test("keeps surface variant bindings on the block definition seam", async (t) => {
+  const allowedFixtureRoot = await createFixture(t, {
+    "packages/core/src/editor/blocks/assessment/example/example-definition.ts":
+      'export const exampleConfiguration = { id: "example" };\n',
+    "packages/core/src/editor/blocks/assessment/fill-blanks/commands.ts":
+      "export const fillBlankCommand = true;\n",
+    "packages/core/src/editor/surfaces/variants/slide-example-question/binding.ts": [
+      'import { exampleConfiguration } from "../../../blocks/assessment/example/example-definition";',
+      "export const bindingConfiguration = exampleConfiguration;",
+    ].join("\n"),
+    "packages/core/src/editor/surfaces/variants/slide-example-question/authoring.tsx": [
+      'import { fillBlankCommand } from "../../../blocks/assessment/fill-blanks/commands";',
+      "export const authoringCommand = fillBlankCommand;",
+    ].join("\n"),
+  });
+
+  const allowedResult = cruise(allowedFixtureRoot, "err-long", ["packages/core/src"]);
+  assert.equal(allowedResult.status, 0, allowedResult.stderr || allowedResult.stdout);
+
+  const rejectedFixtureRoot = await createFixture(t, {
+    "packages/core/src/editor/blocks/assessment/example/example-definition.ts":
+      'export const exampleConfiguration = { id: "example" };\n',
+    "packages/core/src/editor/blocks/assessment/example/example-view.tsx":
+      "export const ExampleView = true;\n",
+    "packages/core/src/editor/surfaces/variants/slide-example-question/binding.ts": [
+      'import { ExampleView } from "../../../blocks/assessment/example/example-view";',
+      'import { siblingView } from "../slide-other-question/authoring";',
+      "export const bindingViews = { ExampleView, siblingView };",
+    ].join("\n"),
+    "packages/core/src/editor/surfaces/variants/slide-other-question/authoring.tsx":
+      "export const siblingView = true;\n",
+    "packages/core/src/editor/surfaces/variants/slide-example-question/authoring.tsx": [
+      'import { ExampleView } from "../../../blocks/assessment/example/example-view";',
+      "export const authoringView = ExampleView;",
+    ].join("\n"),
+  });
+
+  const rejectedResult = cruise(rejectedFixtureRoot, "err-long", ["packages/core/src"]);
+  const output = `${rejectedResult.stdout}\n${rejectedResult.stderr}`;
+
+  assert.notEqual(rejectedResult.status, 0, output);
+  assert.match(output, /surface-variants-do-not-reach-blocks/);
+  assert.match(output, /surface-variant-bindings-do-not-reach-variant-folders/);
+  assert.match(output, /slide-example-question\/binding\.ts/);
+  assert.match(output, /slide-example-question\/authoring\.tsx/);
+  assert.match(output, /blocks\/assessment\/example\/example-view\.tsx/);
+  assert.match(output, /slide-other-question\/authoring\.tsx/);
+});
+
 test("allows named neutral adaptation and downward lane composition", async (t) => {
   const fixtureRoot = await createFixture(t, {
     "node_modules/@tiptap/core/package.json": JSON.stringify({
@@ -1622,7 +1671,8 @@ test("classifies the Presentation model as a neutral owner below authoring and r
       exports: "./index.js",
     }),
     "node_modules/react/index.js": "export interface ReactFixtureType { id: string }\n",
-    "packages/core/src/presentation/model/index.ts": "export interface VisualProgram { id: string }\n",
+    "packages/core/src/presentation/model/index.ts":
+      "export interface VisualProgram { id: string }\n",
     "packages/core/src/editor/presentation/consumer.ts": [
       'import type { VisualProgram } from "../../presentation/model/index";',
       "export type AuthoringVisualProgram = VisualProgram;",
