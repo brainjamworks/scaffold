@@ -7,55 +7,59 @@ import type {
   Score,
 } from "@scaffold/contracts";
 
-const EMPTY_RESULT: AssessmentResult = {
-  score: { scaled: 0 },
-  isCorrect: false,
-  feedback: null,
-  items: {},
-};
-
 export function gradeAssessment(
-  target: AssessmentTargetContract | null | undefined,
-  response: AssessmentResponseValue | null | undefined,
+  target: AssessmentTargetContract,
+  response: AssessmentResponseValue,
 ): AssessmentResult {
-  if (!target || !response) return EMPTY_RESULT;
+  if (!target) throw new Error("gradeAssessment target is required");
+  if (!response) throw new Error("gradeAssessment response is required");
 
   switch (target.assessment.kind) {
     case "single-select":
       if (response.kind !== "single-select" || !hasTargetKind(target, "single-select")) {
-        return EMPTY_RESULT;
+        throwIncompatibleKinds(target, response);
       }
       return gradeSingleSelect(target, response);
     case "multi-select":
       if (response.kind !== "multi-select" || !hasTargetKind(target, "multi-select")) {
-        return EMPTY_RESULT;
+        throwIncompatibleKinds(target, response);
       }
       return gradeMultiSelect(target, response);
     case "sequence":
       if (response.kind !== "sequence" || !hasTargetKind(target, "sequence")) {
-        return EMPTY_RESULT;
+        throwIncompatibleKinds(target, response);
       }
       return gradeSequence(target, response);
     case "match":
       if (response.kind !== "match" || !hasTargetKind(target, "match")) {
-        return EMPTY_RESULT;
+        throwIncompatibleKinds(target, response);
       }
       return gradeMatch(target, response);
     case "classify":
       if (response.kind !== "classify" || !hasTargetKind(target, "classify")) {
-        return EMPTY_RESULT;
+        throwIncompatibleKinds(target, response);
       }
       return gradeClassify(target, response);
     case "fill-blanks":
       if (response.kind !== "fill-blanks" || !hasTargetKind(target, "fill-blanks")) {
-        return EMPTY_RESULT;
+        throwIncompatibleKinds(target, response);
       }
       return gradeFillBlanks(target, response);
     case "spatial-hotspot":
       if (response.kind !== "spatial-hotspot" || !hasTargetKind(target, "spatial-hotspot")) {
-        return EMPTY_RESULT;
+        throwIncompatibleKinds(target, response);
       }
       return gradeSpatialHotspot(target, response);
+    case "spatial-placement":
+      if (response.kind !== "spatial-placement" || !hasTargetKind(target, "spatial-placement")) {
+        throwIncompatibleKinds(target, response);
+      }
+      return gradeSpatialPlacement(target, response);
+    default: {
+      const unsupportedKind = (target as unknown as { assessment: { kind: unknown } }).assessment
+        .kind;
+      throw new Error(`gradeAssessment unsupported assessment kind: ${String(unsupportedKind)}`);
+    }
   }
 }
 
@@ -425,6 +429,163 @@ function gradeSpatialHotspot(
   };
 }
 
+function gradeSpatialPlacement(
+  target: ExtractTarget<"spatial-placement">,
+  response: ExtractResponse<"spatial-placement">,
+): AssessmentResult {
+  const markerIds = target.interaction.markers.map((marker) => marker.id);
+  const markerIdSet = new Set(markerIds);
+  assertUniqueIds(markerIds, "interaction marker");
+
+  const correctMarkerIds = target.assessment.correctPlacements.map(
+    (placement) => placement.markerId,
+  );
+  assertUniqueIds(correctMarkerIds, "correct-placement marker");
+  assertExactMarkerGraph(markerIds, markerIdSet, correctMarkerIds);
+
+  for (const markerId of Object.keys(target.assessment.feedbackByMarkerId)) {
+    if (!markerIdSet.has(markerId)) {
+      throw new Error(`spatial-placement feedback references unknown marker: ${markerId}`);
+    }
+  }
+
+  const responseMarkerIds = response.placements.map((placement) => placement.markerId);
+  assertUniqueIds(responseMarkerIds, "response marker");
+  for (const markerId of responseMarkerIds) {
+    if (!markerIdSet.has(markerId)) {
+      throw new Error(`spatial-placement response references unknown marker: ${markerId}`);
+    }
+  }
+
+  const imageAspectRatio = target.assessment.imageAspectRatio;
+  if (imageAspectRatio !== null && (!Number.isFinite(imageAspectRatio) || imageAspectRatio <= 0)) {
+    throw new Error("spatial-placement image aspect ratio must be finite and positive");
+  }
+  if (
+    target.assessment.gradingMode !== "partial-credit" &&
+    target.assessment.gradingMode !== "all-or-nothing"
+  ) {
+    throw new Error(
+      `unsupported spatial-placement grading mode: ${String(target.assessment.gradingMode)}`,
+    );
+  }
+
+  if (markerIds.length === 0) {
+    return {
+      score: { scaled: 0 },
+      isCorrect: false,
+      feedback: summaryFeedbackFor(target),
+      items: {},
+    };
+  }
+
+  if (imageAspectRatio === null) {
+    throw new Error("spatial-placement image aspect ratio must be finite and positive");
+  }
+
+  const correctByMarkerId = new Map(
+    target.assessment.correctPlacements.map((placement) => [placement.markerId, placement]),
+  );
+  const givenByMarkerId = new Map(
+    response.placements.map((placement) => [placement.markerId, placement]),
+  );
+  const items: Record<string, AssessmentItemDetail> = {};
+  let correctCount = 0;
+
+  for (const markerId of markerIds) {
+    const correctPlacement = correctByMarkerId.get(markerId);
+    if (!correctPlacement) {
+      throw new Error(`spatial-placement answer is missing marker: ${markerId}`);
+    }
+    const { geometry } = correctPlacement;
+    assertCircle(geometry, markerId);
+
+    const learnerPlacement = givenByMarkerId.get(markerId);
+    if (learnerPlacement) {
+      assertPoint(learnerPlacement, `response marker ${markerId}`);
+    }
+    const correct =
+      learnerPlacement !== undefined &&
+      Math.hypot(
+        learnerPlacement.x - geometry.centerX,
+        (learnerPlacement.y - geometry.centerY) / imageAspectRatio,
+      ) <= geometry.radius;
+    if (correct) correctCount += 1;
+    items[markerId] = {
+      correct,
+      expected: true,
+      given: correct,
+      ...feedbackFor(target.assessment.feedbackByMarkerId, markerId),
+    };
+  }
+
+  const exactAllCorrect =
+    response.placements.length === markerIds.length && correctCount === markerIds.length;
+
+  return {
+    score:
+      target.assessment.gradingMode === "all-or-nothing"
+        ? countScore(exactAllCorrect ? 1 : 0, 1)
+        : countScore(correctCount, markerIds.length),
+    isCorrect: exactAllCorrect,
+    feedback: summaryFeedbackFor(target),
+    items,
+  };
+}
+
+function assertUniqueIds(ids: readonly string[], label: string): void {
+  const seen = new Set<string>();
+  for (const id of ids) {
+    if (seen.has(id)) {
+      throw new Error(`duplicate spatial-placement ${label} id: ${id}`);
+    }
+    seen.add(id);
+  }
+}
+
+function assertExactMarkerGraph(
+  markerIds: readonly string[],
+  markerIdSet: ReadonlySet<string>,
+  correctMarkerIds: readonly string[],
+): void {
+  for (const markerId of correctMarkerIds) {
+    if (!markerIdSet.has(markerId)) {
+      throw new Error(`spatial-placement answer references unknown marker: ${markerId}`);
+    }
+  }
+  const correctMarkerIdSet = new Set(correctMarkerIds);
+  for (const markerId of markerIds) {
+    if (!correctMarkerIdSet.has(markerId)) {
+      throw new Error(`spatial-placement answer is missing marker: ${markerId}`);
+    }
+  }
+}
+
+function assertCircle(
+  circle: { kind: "circle"; centerX: number; centerY: number; radius: number },
+  markerId: string,
+): void {
+  if (circle.kind !== "circle") {
+    throw new Error(`spatial-placement answer geometry must be a circle: ${markerId}`);
+  }
+  assertCoordinate(circle.centerX, `answer centerX for marker ${markerId}`);
+  assertCoordinate(circle.centerY, `answer centerY for marker ${markerId}`);
+  if (!Number.isFinite(circle.radius) || circle.radius <= 0) {
+    throw new Error(`spatial-placement answer radius must be finite and positive: ${markerId}`);
+  }
+}
+
+function assertPoint(point: { x: number; y: number }, label: string): void {
+  assertCoordinate(point.x, `${label} x`);
+  assertCoordinate(point.y, `${label} y`);
+}
+
+function assertCoordinate(value: number, label: string): void {
+  if (!Number.isFinite(value) || value < 0 || value > 100) {
+    throw new Error(`spatial-placement ${label} must be finite and within 0..100`);
+  }
+}
+
 function countScore(raw: number, max: number): Score {
   return { scaled: raw / max, raw, min: 0, max };
 }
@@ -445,6 +606,20 @@ function hasTargetKind<Kind extends AssessmentTargetContract["interaction"]["kin
   kind: Kind,
 ): target is ExtractTarget<Kind> {
   return target.interaction.kind === kind && target.assessment.kind === kind;
+}
+
+function throwIncompatibleKinds(
+  target: AssessmentTargetContract,
+  response: AssessmentResponseValue,
+): never {
+  if (target.interaction.kind !== target.assessment.kind) {
+    throw new Error(
+      `gradeAssessment target kind mismatch: assessment is ${target.assessment.kind}, interaction is ${target.interaction.kind}`,
+    );
+  }
+  throw new Error(
+    `gradeAssessment response kind mismatch: target is ${target.assessment.kind}, response is ${response.kind}`,
+  );
 }
 
 function normalizeBlankValue(

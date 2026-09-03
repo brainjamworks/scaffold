@@ -5,6 +5,7 @@ import {
   EmbeddedNodeIdSchema,
   AssessmentResultSchema,
   type AssessmentFeedbackContent,
+  type AssessmentResponseValue,
   type AssessmentTargetContract,
 } from "@scaffold/contracts";
 
@@ -45,6 +46,43 @@ const blankA = EmbeddedNodeIdSchema.parse("blank_000001");
 const blankB = EmbeddedNodeIdSchema.parse("blank_000002");
 const hotspotA = EmbeddedDataIdSchema.parse("hotsp_000001");
 const hotspotB = EmbeddedDataIdSchema.parse("hotsp_000002");
+const markerA = EmbeddedDataIdSchema.parse("marker_00001");
+const markerB = EmbeddedDataIdSchema.parse("marker_00002");
+const staleMarker = EmbeddedDataIdSchema.parse("marker_99999");
+
+type SpatialTarget = AssessmentTargetContract & {
+  interaction: Extract<AssessmentTargetContract["interaction"], { kind: "spatial-placement" }>;
+  assessment: Extract<AssessmentTargetContract["assessment"], { kind: "spatial-placement" }>;
+};
+
+function spatialTarget(): SpatialTarget {
+  return {
+    ...baseTarget,
+    interaction: {
+      kind: "spatial-placement",
+      markers: [
+        { id: markerA, label: "Marker A" },
+        { id: markerB, label: "Marker B" },
+      ],
+    },
+    assessment: {
+      kind: "spatial-placement",
+      gradingMode: "partial-credit",
+      imageAspectRatio: 2,
+      correctPlacements: [
+        {
+          markerId: markerA,
+          geometry: { kind: "circle", centerX: 20, centerY: 20, radius: 5 },
+        },
+        {
+          markerId: markerB,
+          geometry: { kind: "circle", centerX: 80, centerY: 80, radius: 5 },
+        },
+      ],
+      feedbackByMarkerId: {},
+    },
+  };
+}
 
 describe("@scaffold/grading primitive targets", () => {
   it("grades single-select targets", () => {
@@ -545,7 +583,300 @@ describe("@scaffold/grading primitive targets", () => {
     });
   });
 
-  it("returns a complete canonical zero result for a mismatched response", () => {
+  it("grades a spatial placement at its authored circle centre", () => {
+    const target: AssessmentTargetContract = {
+      ...baseTarget,
+      interaction: {
+        kind: "spatial-placement",
+        markers: [{ id: markerA, label: "Marker A" }],
+      },
+      assessment: {
+        kind: "spatial-placement",
+        gradingMode: "partial-credit",
+        imageAspectRatio: 1,
+        correctPlacements: [
+          {
+            markerId: markerA,
+            geometry: { kind: "circle", centerX: 50, centerY: 50, radius: 10 },
+          },
+        ],
+        feedbackByMarkerId: {},
+      },
+    };
+
+    const result = gradeAssessment(target, {
+      kind: "spatial-placement",
+      placements: [{ markerId: markerA, x: 50, y: 50 }],
+    });
+
+    expect(result).toEqual({
+      score: { scaled: 1, raw: 1, min: 0, max: 1 },
+      isCorrect: true,
+      feedback: null,
+      items: {
+        [markerA]: { correct: true, expected: true, given: true },
+      },
+    });
+    expect(AssessmentResultSchema.parse(result)).toEqual(result);
+  });
+
+  it("uses aspect-correct boundary geometry and equal partial credit for incomplete responses", () => {
+    const result = gradeAssessment(spatialTarget(), {
+      kind: "spatial-placement",
+      placements: [{ markerId: markerA, x: 20, y: 30 }],
+    });
+
+    expect(result).toEqual({
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
+      isCorrect: false,
+      feedback: null,
+      items: {
+        [markerA]: { correct: true, expected: true, given: true },
+        [markerB]: { correct: false, expected: true, given: false },
+      },
+    });
+    expect(AssessmentResultSchema.parse(result)).toEqual(result);
+  });
+
+  it("awards all-or-nothing only for exact complete all-correct coverage", () => {
+    const target = spatialTarget();
+    target.assessment.gradingMode = "all-or-nothing";
+
+    expect(
+      gradeAssessment(target, {
+        kind: "spatial-placement",
+        placements: [
+          { markerId: markerA, x: 20, y: 20 },
+          { markerId: markerB, x: 80, y: 80 },
+        ],
+      }),
+    ).toMatchObject({
+      score: { scaled: 1, raw: 1, min: 0, max: 1 },
+      isCorrect: true,
+    });
+
+    expect(
+      gradeAssessment(target, {
+        kind: "spatial-placement",
+        placements: [
+          { markerId: markerA, x: 20, y: 20 },
+          { markerId: markerB, x: 60, y: 60 },
+        ],
+      }),
+    ).toMatchObject({
+      score: { scaled: 0, raw: 0, min: 0, max: 1 },
+      isCorrect: false,
+    });
+  });
+
+  it("returns a normal zero incorrect result for an empty spatial interaction", () => {
+    const target = spatialTarget();
+    target.interaction.markers = [];
+    target.assessment.imageAspectRatio = null;
+    target.assessment.correctPlacements = [];
+    target.assessment.gradingMode = "all-or-nothing";
+
+    const result = gradeAssessment(target, {
+      kind: "spatial-placement",
+      placements: [],
+    });
+
+    expect(result).toEqual({
+      score: { scaled: 0 },
+      isCorrect: false,
+      feedback: null,
+      items: {},
+    });
+    expect(AssessmentResultSchema.parse(result)).toEqual(result);
+  });
+
+  it("preserves spatial marker and summary feedback", () => {
+    const markerFeedback = richText("Move Marker B toward the lower-right target.");
+    const summaryFeedback = richText("Review both marker positions.");
+    const target = spatialTarget();
+    target.assessment.feedbackByMarkerId = { [markerB]: markerFeedback };
+    target.assessment.summaryFeedback = summaryFeedback;
+
+    const result = gradeAssessment(target, {
+      kind: "spatial-placement",
+      placements: [
+        { markerId: markerA, x: 20, y: 20 },
+        { markerId: markerB, x: 60, y: 60 },
+      ],
+    });
+
+    expect(result.feedback).toEqual(summaryFeedback);
+    expect(result.items[markerB]).toEqual({
+      correct: false,
+      expected: true,
+      given: false,
+      feedback: markerFeedback,
+    });
+  });
+
+  it("throws for duplicate or unknown spatial response marker identities", () => {
+    const target = spatialTarget();
+
+    expect(() =>
+      gradeAssessment(target, {
+        kind: "spatial-placement",
+        placements: [
+          { markerId: markerA, x: 20, y: 20 },
+          { markerId: markerA, x: 21, y: 20 },
+        ],
+      }),
+    ).toThrow(`duplicate spatial-placement response marker id: ${markerA}`);
+
+    expect(() =>
+      gradeAssessment(target, {
+        kind: "spatial-placement",
+        placements: [{ markerId: staleMarker, x: 20, y: 20 }],
+      }),
+    ).toThrow(`spatial-placement response references unknown marker: ${staleMarker}`);
+  });
+
+  it("throws for malformed spatial target identity and answer graphs", () => {
+    const duplicateMarkers = spatialTarget();
+    duplicateMarkers.interaction.markers = [
+      { id: markerA, label: "Marker A" },
+      { id: markerA, label: "Marker A duplicate" },
+    ];
+    expect(() =>
+      gradeAssessment(duplicateMarkers, { kind: "spatial-placement", placements: [] }),
+    ).toThrow(`duplicate spatial-placement interaction marker id: ${markerA}`);
+
+    const duplicateAnswers = spatialTarget();
+    duplicateAnswers.assessment.correctPlacements = [
+      duplicateAnswers.assessment.correctPlacements[0]!,
+      duplicateAnswers.assessment.correctPlacements[0]!,
+    ];
+    expect(() =>
+      gradeAssessment(duplicateAnswers, { kind: "spatial-placement", placements: [] }),
+    ).toThrow(`duplicate spatial-placement correct-placement marker id: ${markerA}`);
+
+    const missingAnswer = spatialTarget();
+    missingAnswer.assessment.correctPlacements = [missingAnswer.assessment.correctPlacements[0]!];
+    expect(() =>
+      gradeAssessment(missingAnswer, { kind: "spatial-placement", placements: [] }),
+    ).toThrow(`spatial-placement answer is missing marker: ${markerB}`);
+
+    const unknownAnswer = spatialTarget();
+    unknownAnswer.assessment.correctPlacements = [
+      ...unknownAnswer.assessment.correctPlacements,
+      {
+        markerId: staleMarker,
+        geometry: { kind: "circle", centerX: 50, centerY: 50, radius: 5 },
+      },
+    ];
+    expect(() =>
+      gradeAssessment(unknownAnswer, { kind: "spatial-placement", placements: [] }),
+    ).toThrow(`spatial-placement answer references unknown marker: ${staleMarker}`);
+  });
+
+  it("throws for impossible spatial geometry and feedback relationships", () => {
+    const missingAspectRatio = spatialTarget();
+    missingAspectRatio.assessment.imageAspectRatio = null;
+    expect(() =>
+      gradeAssessment(missingAspectRatio, { kind: "spatial-placement", placements: [] }),
+    ).toThrow("spatial-placement image aspect ratio must be finite and positive");
+
+    const invalidEmptyAspectRatio = spatialTarget();
+    invalidEmptyAspectRatio.interaction.markers = [];
+    invalidEmptyAspectRatio.assessment.correctPlacements = [];
+    invalidEmptyAspectRatio.assessment.imageAspectRatio = 0;
+    expect(() =>
+      gradeAssessment(invalidEmptyAspectRatio, {
+        kind: "spatial-placement",
+        placements: [],
+      }),
+    ).toThrow("spatial-placement image aspect ratio must be finite and positive");
+
+    const unknownFeedback = spatialTarget();
+    unknownFeedback.assessment.feedbackByMarkerId = {
+      [staleMarker]: richText("Stale marker feedback."),
+    };
+    expect(() =>
+      gradeAssessment(unknownFeedback, { kind: "spatial-placement", placements: [] }),
+    ).toThrow(`spatial-placement feedback references unknown marker: ${staleMarker}`);
+
+    expect(() =>
+      gradeAssessment(spatialTarget(), {
+        kind: "spatial-placement",
+        placements: [{ markerId: markerA, x: Number.NaN, y: 20 }],
+      }),
+    ).toThrow(`spatial-placement response marker ${markerA} x must be finite and within 0..100`);
+  });
+
+  it("throws for a malformed spatial answer circle kind", () => {
+    const target = spatialTarget();
+    target.assessment.correctPlacements[0]!.geometry = {
+      kind: "square",
+      centerX: 20,
+      centerY: 20,
+      radius: 5,
+    } as unknown as (typeof target.assessment.correctPlacements)[number]["geometry"];
+
+    expect(() => gradeAssessment(target, { kind: "spatial-placement", placements: [] })).toThrow(
+      `spatial-placement answer geometry must be a circle: ${markerA}`,
+    );
+  });
+
+  it.each([
+    { field: "centerX" as const, value: Number.NaN },
+    { field: "centerY" as const, value: 101 },
+  ])("throws for an invalid spatial answer $field coordinate", ({ field, value }) => {
+    const target = spatialTarget();
+    target.assessment.correctPlacements[0]!.geometry[field] = value;
+
+    expect(() => gradeAssessment(target, { kind: "spatial-placement", placements: [] })).toThrow(
+      `spatial-placement answer ${field} for marker ${markerA} must be finite and within 0..100`,
+    );
+  });
+
+  it.each([0, -1, Number.POSITIVE_INFINITY, Number.NaN])(
+    "throws for an invalid spatial answer radius %s",
+    (radius) => {
+      const target = spatialTarget();
+      target.assessment.correctPlacements[0]!.geometry.radius = radius;
+
+      expect(() => gradeAssessment(target, { kind: "spatial-placement", placements: [] })).toThrow(
+        `spatial-placement answer radius must be finite and positive: ${markerA}`,
+      );
+    },
+  );
+
+  it("throws when spatial target and response kinds do not match", () => {
+    expect(() =>
+      gradeAssessment(spatialTarget(), { kind: "single-select", optionId: optionA }),
+    ).toThrow(
+      "gradeAssessment response kind mismatch: target is spatial-placement, response is single-select",
+    );
+
+    const mismatchedTarget = {
+      ...spatialTarget(),
+      interaction: {
+        kind: "spatial-hotspot",
+        hotspots: [],
+        maxSelections: null,
+      },
+    } as unknown as AssessmentTargetContract;
+    expect(() =>
+      gradeAssessment(mismatchedTarget, { kind: "spatial-placement", placements: [] }),
+    ).toThrow(
+      "gradeAssessment target kind mismatch: assessment is spatial-placement, interaction is spatial-hotspot",
+    );
+  });
+
+  it.each([null, undefined])("throws when the target is missing", (target) => {
+    expect(() =>
+      gradeAssessment(target as unknown as AssessmentTargetContract, {
+        kind: "single-select",
+        optionId: optionB,
+      }),
+    ).toThrow("gradeAssessment target is required");
+  });
+
+  it.each([null, undefined])("throws when the response is missing", (response) => {
     const target: AssessmentTargetContract = {
       ...baseTarget,
       interaction: {
@@ -559,14 +890,58 @@ describe("@scaffold/grading primitive targets", () => {
       },
     };
 
-    const result = gradeAssessment(target, { kind: "multi-select", optionIds: [optionB] });
+    expect(() => gradeAssessment(target, response as unknown as AssessmentResponseValue)).toThrow(
+      "gradeAssessment response is required",
+    );
+  });
 
-    expect(result).toEqual({
-      score: { scaled: 0 },
-      isCorrect: false,
-      feedback: null,
-      items: {},
-    });
-    expect(AssessmentResultSchema.parse(result)).toEqual(result);
+  it("throws when the target interaction and assessment kinds are incompatible", () => {
+    const target = {
+      ...baseTarget,
+      interaction: {
+        kind: "multi-select",
+        options: [{ id: optionA }, { id: optionB }],
+        maxSelections: null,
+      },
+      assessment: {
+        kind: "single-select",
+        correctOptionId: optionB,
+        feedbackByOptionId: {},
+      },
+    } as unknown as AssessmentTargetContract;
+
+    expect(() => gradeAssessment(target, { kind: "single-select", optionId: optionB })).toThrow(
+      "gradeAssessment target kind mismatch: assessment is single-select, interaction is multi-select",
+    );
+  });
+
+  it("throws when the response kind is incompatible with the target", () => {
+    const target: AssessmentTargetContract = {
+      ...baseTarget,
+      interaction: {
+        kind: "single-select",
+        options: [{ id: optionA }, { id: optionB }],
+      },
+      assessment: {
+        kind: "single-select",
+        correctOptionId: optionB,
+        feedbackByOptionId: {},
+      },
+    };
+
+    expect(() => gradeAssessment(target, { kind: "multi-select", optionIds: [optionB] })).toThrow(
+      "gradeAssessment response kind mismatch: target is single-select, response is multi-select",
+    );
+  });
+
+  it("throws with the offending unknown assessment discriminator", () => {
+    const target = {
+      ...spatialTarget(),
+      assessment: { kind: "unsupported-spatial-kind" },
+    } as unknown as AssessmentTargetContract;
+
+    expect(() => gradeAssessment(target, { kind: "spatial-placement", placements: [] })).toThrow(
+      "gradeAssessment unsupported assessment kind: unsupported-spatial-kind",
+    );
   });
 });

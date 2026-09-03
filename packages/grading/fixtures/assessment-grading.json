@@ -1060,6 +1060,641 @@
         "feedback": null,
         "items": {}
       }
+    },
+    {
+      "id": "spatial-placement-partial-credit-fully-correct",
+      "target": {
+        "schemaVersion": 2,
+        "targetId": "target_00001",
+        "blockId": "block_000001",
+        "blockType": "drag_drop",
+        "interaction": {
+          "kind": "spatial-placement",
+          "markers": [
+            { "id": "marker_00001", "label": "Marker A" },
+            { "id": "marker_00002", "label": "Marker B" }
+          ]
+        },
+        "assessment": {
+          "kind": "spatial-placement",
+          "gradingMode": "partial-credit",
+          "imageAspectRatio": 1,
+          "correctPlacements": [
+            {
+              "markerId": "marker_00001",
+              "geometry": { "kind": "circle", "centerX": 20, "centerY": 20, "radius": 5 }
+            },
+            {
+              "markerId": "marker_00002",
+              "geometry": { "kind": "circle", "centerX": 80, "centerY": 80, "radius": 5 }
+            }
+          ],
+          "feedbackByMarkerId": {}
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 2,
+          "maxAttempts": null
+        }
+      },
+      "response": {
+        "kind": "spatial-placement",
+        "placements": [
+          { "markerId": "marker_00001", "x": 20, "y": 20 },
+          { "markerId": "marker_00002", "x": 80, "y": 80 }
+        ]
+      },
+      "expected": {
+        "isCorrect": true,
+        "score": { "scaled": 1, "raw": 2, "min": 0, "max": 2 },
+        "feedback": null,
+        "items": {
+          "marker_00001": { "correct": true, "expected": true, "given": true },
+          "marker_00002": { "correct": true, "expected": true, "given": true }
+        }
+      }
+    },
+    {
+      "id": "spatial-placement-partial-credit-partial",
+      "target": {
+        "schemaVersion": 2,
+        "targetId": "target_00001",
+        "blockId": "block_000001",
+        "blockType": "drag_drop",
+        "interaction": {
+          "kind": "spatial-placement",
+          "markers": [
+            { "id": "marker_00001", "label": "Marker A" },
+            { "id": "marker_00002", "label": "Marker B" }
+          ]
+        },
+        "assessment": {
+          "kind": "spatial-placement",
+          "gradingMode": "partial-credit",
+          "imageAspectRatio": 1,
+          "correctPlacements": [
+            {
+              "markerId": "marker_00001",
+              "geometry": { "kind": "circle", "centerX": 20, "centerY": 20, "radius": 5 }
+            },
+            {
+              "markerId": "marker_00002",
+              "geometry": { "kind": "circle", "centerX": 80, "centerY": 80, "radius": 5 }
+            }
+          ],
+          "feedbackByMarkerId": {}
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 2,
+          "maxAttempts": null
+        }
+      },
+      "response": {
+        "kind": "spatial-placement",
+        "placements": [
+          { "markerId": "marker_00001", "x": 20, "y": 20 },
+          { "markerId": "marker_00002", "x": 60, "y": 60 }
+        ]
+      },
+      "expected": {
+        "isCorrect": false,
+        "score": { "scaled": 0.5, "raw": 1, "min": 0, "max": 2 },
+        "feedback": null,
+        "items": {
+          "marker_00001": { "correct": true, "expected": true, "given": true },
+          "marker_00002": { "correct": false, "expected": true, "given": false }
+        }
+      }
+    },
+    {
+      "id": "spatial-placement-partial-credit-incomplete",
+      "target": {
+        "schemaVersion": 2,
+        "targetId": "target_00001",
+        "blockId": "block_000001",
+        "blockType": "drag_drop",
+        "interaction": {
+          "kind": "spatial-placement",
+          "markers": [
+            { "id": "marker_00001", "label": "Marker A" },
+            { "id": "marker_00002", "label": "Marker B" }
+          ]
+        },
+        "assessment": {
+          "kind": "spatial-placement",
+          "gradingMode": "partial-credit",
+          "imageAspectRatio": 1,
+          "correctPlacements": [
+            {
+              "markerId": "marker_00001",
+              "geometry": { "kind": "circle", "centerX": 20, "centerY": 20, "radius": 5 }
+            },
+            {
+              "markerId": "marker_00002",
+              "geometry": { "kind": "circle", "centerX": 80, "centerY": 80, "radius": 5 }
+            }
+          ],
+          "feedbackByMarkerId": {}
+        },
+        "settings": {
+          "feedbackMode": "immediate",
+          "isGraded": true,
+          "showAnswer": false,
+          "points": 2,
+          "maxAttempts": 2
+        }
+      },
+      "response": {
+        "kind": "spatial-placement",
+        "placements": [{ "markerId": "marker_00001", "x": 20, "y": 20 }]
+      },
+      "expected": {
+        "isCorrect": false,
+        "score": { "scaled": 0.5, "raw": 1, "min": 0, "max": 2 },
+        "feedback": null,
+        "items": {
+          "marker_00001": { "correct": true, "expected": true, "given": true },
+          "marker_00002": { "correct": false, "expected": true, "given": false }
+        }
+      }
+    },
+    {
+      "id": "spatial-placement-all-or-nothing-success",
+      "target": {
+        "schemaVersion": 2,
+        "targetId": "target_00001",
+        "blockId": "block_000001",
+        "blockType": "drag_drop",
+        "interaction": {
+          "kind": "spatial-placement",
+          "markers": [
+            { "id": "marker_00001", "label": "Marker A" },
+            { "id": "marker_00002", "label": "Marker B" }
+          ]
+        },
+        "assessment": {
+          "kind": "spatial-placement",
+          "gradingMode": "all-or-nothing",
+          "imageAspectRatio": 1,
+          "correctPlacements": [
+            {
+              "markerId": "marker_00001",
+              "geometry": { "kind": "circle", "centerX": 20, "centerY": 20, "radius": 5 }
+            },
+            {
+              "markerId": "marker_00002",
+              "geometry": { "kind": "circle", "centerX": 80, "centerY": 80, "radius": 5 }
+            }
+          ],
+          "feedbackByMarkerId": {}
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 2,
+          "maxAttempts": null
+        }
+      },
+      "response": {
+        "kind": "spatial-placement",
+        "placements": [
+          { "markerId": "marker_00001", "x": 20, "y": 20 },
+          { "markerId": "marker_00002", "x": 80, "y": 80 }
+        ]
+      },
+      "expected": {
+        "isCorrect": true,
+        "score": { "scaled": 1, "raw": 1, "min": 0, "max": 1 },
+        "feedback": null,
+        "items": {
+          "marker_00001": { "correct": true, "expected": true, "given": true },
+          "marker_00002": { "correct": true, "expected": true, "given": true }
+        }
+      }
+    },
+    {
+      "id": "spatial-placement-all-or-nothing-failure",
+      "target": {
+        "schemaVersion": 2,
+        "targetId": "target_00001",
+        "blockId": "block_000001",
+        "blockType": "drag_drop",
+        "interaction": {
+          "kind": "spatial-placement",
+          "markers": [
+            { "id": "marker_00001", "label": "Marker A" },
+            { "id": "marker_00002", "label": "Marker B" }
+          ]
+        },
+        "assessment": {
+          "kind": "spatial-placement",
+          "gradingMode": "all-or-nothing",
+          "imageAspectRatio": 1,
+          "correctPlacements": [
+            {
+              "markerId": "marker_00001",
+              "geometry": { "kind": "circle", "centerX": 20, "centerY": 20, "radius": 5 }
+            },
+            {
+              "markerId": "marker_00002",
+              "geometry": { "kind": "circle", "centerX": 80, "centerY": 80, "radius": 5 }
+            }
+          ],
+          "feedbackByMarkerId": {}
+        },
+        "settings": {
+          "feedbackMode": "immediate",
+          "isGraded": true,
+          "showAnswer": false,
+          "points": 2,
+          "maxAttempts": 2
+        }
+      },
+      "response": {
+        "kind": "spatial-placement",
+        "placements": [
+          { "markerId": "marker_00001", "x": 20, "y": 20 },
+          { "markerId": "marker_00002", "x": 60, "y": 60 }
+        ]
+      },
+      "expected": {
+        "isCorrect": false,
+        "score": { "scaled": 0, "raw": 0, "min": 0, "max": 1 },
+        "feedback": null,
+        "items": {
+          "marker_00001": { "correct": true, "expected": true, "given": true },
+          "marker_00002": { "correct": false, "expected": true, "given": false }
+        }
+      }
+    },
+    {
+      "id": "spatial-placement-non-square-aspect-ratio",
+      "target": {
+        "schemaVersion": 2,
+        "targetId": "target_00001",
+        "blockId": "block_000001",
+        "blockType": "drag_drop",
+        "interaction": {
+          "kind": "spatial-placement",
+          "markers": [{ "id": "marker_00001", "label": "Marker A" }]
+        },
+        "assessment": {
+          "kind": "spatial-placement",
+          "gradingMode": "partial-credit",
+          "imageAspectRatio": 2,
+          "correctPlacements": [
+            {
+              "markerId": "marker_00001",
+              "geometry": { "kind": "circle", "centerX": 50, "centerY": 50, "radius": 5 }
+            }
+          ],
+          "feedbackByMarkerId": {}
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 1,
+          "maxAttempts": null
+        }
+      },
+      "response": {
+        "kind": "spatial-placement",
+        "placements": [{ "markerId": "marker_00001", "x": 50, "y": 58 }]
+      },
+      "expected": {
+        "isCorrect": true,
+        "score": { "scaled": 1, "raw": 1, "min": 0, "max": 1 },
+        "feedback": null,
+        "items": {
+          "marker_00001": { "correct": true, "expected": true, "given": true }
+        }
+      }
+    },
+    {
+      "id": "spatial-placement-exact-tolerance-boundary",
+      "target": {
+        "schemaVersion": 2,
+        "targetId": "target_00001",
+        "blockId": "block_000001",
+        "blockType": "drag_drop",
+        "interaction": {
+          "kind": "spatial-placement",
+          "markers": [{ "id": "marker_00001", "label": "Marker A" }]
+        },
+        "assessment": {
+          "kind": "spatial-placement",
+          "gradingMode": "partial-credit",
+          "imageAspectRatio": 1,
+          "correctPlacements": [
+            {
+              "markerId": "marker_00001",
+              "geometry": { "kind": "circle", "centerX": 50, "centerY": 50, "radius": 10 }
+            }
+          ],
+          "feedbackByMarkerId": {}
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 1,
+          "maxAttempts": null
+        }
+      },
+      "response": {
+        "kind": "spatial-placement",
+        "placements": [{ "markerId": "marker_00001", "x": 60, "y": 50 }]
+      },
+      "expected": {
+        "isCorrect": true,
+        "score": { "scaled": 1, "raw": 1, "min": 0, "max": 1 },
+        "feedback": null,
+        "items": {
+          "marker_00001": { "correct": true, "expected": true, "given": true }
+        }
+      }
+    },
+    {
+      "id": "spatial-placement-overlapping-marker-positions",
+      "target": {
+        "schemaVersion": 2,
+        "targetId": "target_00001",
+        "blockId": "block_000001",
+        "blockType": "drag_drop",
+        "interaction": {
+          "kind": "spatial-placement",
+          "markers": [
+            { "id": "marker_00001", "label": "Marker A" },
+            { "id": "marker_00002", "label": "Marker B" }
+          ]
+        },
+        "assessment": {
+          "kind": "spatial-placement",
+          "gradingMode": "partial-credit",
+          "imageAspectRatio": 1,
+          "correctPlacements": [
+            {
+              "markerId": "marker_00001",
+              "geometry": { "kind": "circle", "centerX": 50, "centerY": 50, "radius": 10 }
+            },
+            {
+              "markerId": "marker_00002",
+              "geometry": { "kind": "circle", "centerX": 55, "centerY": 50, "radius": 10 }
+            }
+          ],
+          "feedbackByMarkerId": {}
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 2,
+          "maxAttempts": null
+        }
+      },
+      "response": {
+        "kind": "spatial-placement",
+        "placements": [
+          { "markerId": "marker_00001", "x": 52, "y": 50 },
+          { "markerId": "marker_00002", "x": 52, "y": 50 }
+        ]
+      },
+      "expected": {
+        "isCorrect": true,
+        "score": { "scaled": 1, "raw": 2, "min": 0, "max": 2 },
+        "feedback": null,
+        "items": {
+          "marker_00001": { "correct": true, "expected": true, "given": true },
+          "marker_00002": { "correct": true, "expected": true, "given": true }
+        }
+      }
+    },
+    {
+      "id": "spatial-placement-feedback",
+      "target": {
+        "schemaVersion": 2,
+        "targetId": "target_00001",
+        "blockId": "block_000001",
+        "blockType": "drag_drop",
+        "interaction": {
+          "kind": "spatial-placement",
+          "markers": [{ "id": "marker_00001", "label": "Marker A" }]
+        },
+        "assessment": {
+          "kind": "spatial-placement",
+          "gradingMode": "partial-credit",
+          "imageAspectRatio": 1,
+          "correctPlacements": [
+            {
+              "markerId": "marker_00001",
+              "geometry": { "kind": "circle", "centerX": 50, "centerY": 50, "radius": 5 }
+            }
+          ],
+          "feedbackByMarkerId": {
+            "marker_00001": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "Move the marker toward the centre." }]
+              }
+            }
+          },
+          "summaryFeedback": {
+            "kind": "rich-text",
+            "document": {
+              "type": "doc",
+              "content": [{ "type": "text", "text": "Review the marker position." }]
+            }
+          }
+        },
+        "settings": {
+          "feedbackMode": "immediate",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 1,
+          "maxAttempts": 2
+        }
+      },
+      "response": {
+        "kind": "spatial-placement",
+        "placements": [{ "markerId": "marker_00001", "x": 70, "y": 70 }]
+      },
+      "expected": {
+        "isCorrect": false,
+        "score": { "scaled": 0, "raw": 0, "min": 0, "max": 1 },
+        "feedback": {
+          "kind": "rich-text",
+          "document": {
+            "type": "doc",
+            "content": [{ "type": "text", "text": "Review the marker position." }]
+          }
+        },
+        "items": {
+          "marker_00001": {
+            "correct": false,
+            "expected": true,
+            "given": false,
+            "feedback": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "Move the marker toward the centre." }]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "spatial-placement-all-or-nothing-incomplete",
+      "target": {
+        "schemaVersion": 2,
+        "targetId": "target_00001",
+        "blockId": "block_000001",
+        "blockType": "drag_drop",
+        "interaction": {
+          "kind": "spatial-placement",
+          "markers": [
+            { "id": "marker_00001", "label": "Marker A" },
+            { "id": "marker_00002", "label": "Marker B" }
+          ]
+        },
+        "assessment": {
+          "kind": "spatial-placement",
+          "gradingMode": "all-or-nothing",
+          "imageAspectRatio": 1,
+          "correctPlacements": [
+            {
+              "markerId": "marker_00001",
+              "geometry": { "kind": "circle", "centerX": 20, "centerY": 20, "radius": 5 }
+            },
+            {
+              "markerId": "marker_00002",
+              "geometry": { "kind": "circle", "centerX": 80, "centerY": 80, "radius": 5 }
+            }
+          ],
+          "feedbackByMarkerId": {}
+        },
+        "settings": {
+          "feedbackMode": "immediate",
+          "isGraded": true,
+          "showAnswer": false,
+          "points": 2,
+          "maxAttempts": 2
+        }
+      },
+      "response": {
+        "kind": "spatial-placement",
+        "placements": [{ "markerId": "marker_00001", "x": 20, "y": 20 }]
+      },
+      "expected": {
+        "isCorrect": false,
+        "score": { "scaled": 0, "raw": 0, "min": 0, "max": 1 },
+        "feedback": null,
+        "items": {
+          "marker_00001": { "correct": true, "expected": true, "given": true },
+          "marker_00002": { "correct": false, "expected": true, "given": false }
+        }
+      }
+    },
+    {
+      "id": "spatial-placement-empty-interaction",
+      "target": {
+        "schemaVersion": 2,
+        "targetId": "target_00001",
+        "blockId": "block_000001",
+        "blockType": "drag_drop",
+        "interaction": {
+          "kind": "spatial-placement",
+          "markers": []
+        },
+        "assessment": {
+          "kind": "spatial-placement",
+          "gradingMode": "partial-credit",
+          "imageAspectRatio": null,
+          "correctPlacements": [],
+          "feedbackByMarkerId": {}
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": false,
+          "showAnswer": false,
+          "points": 0,
+          "maxAttempts": null
+        }
+      },
+      "response": {
+        "kind": "spatial-placement",
+        "placements": []
+      },
+      "expected": {
+        "isCorrect": false,
+        "score": { "scaled": 0 },
+        "feedback": null,
+        "items": {}
+      }
+    },
+    {
+      "id": "spatial-placement-marker-own-circle",
+      "target": {
+        "schemaVersion": 2,
+        "targetId": "target_00001",
+        "blockId": "block_000001",
+        "blockType": "drag_drop",
+        "interaction": {
+          "kind": "spatial-placement",
+          "markers": [
+            { "id": "marker_00001", "label": "Marker A" },
+            { "id": "marker_00002", "label": "Marker B" }
+          ]
+        },
+        "assessment": {
+          "kind": "spatial-placement",
+          "gradingMode": "partial-credit",
+          "imageAspectRatio": 1,
+          "correctPlacements": [
+            {
+              "markerId": "marker_00001",
+              "geometry": { "kind": "circle", "centerX": 20, "centerY": 20, "radius": 5 }
+            },
+            {
+              "markerId": "marker_00002",
+              "geometry": { "kind": "circle", "centerX": 80, "centerY": 80, "radius": 5 }
+            }
+          ],
+          "feedbackByMarkerId": {}
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 2,
+          "maxAttempts": null
+        }
+      },
+      "response": {
+        "kind": "spatial-placement",
+        "placements": [
+          { "markerId": "marker_00001", "x": 80, "y": 80 },
+          { "markerId": "marker_00002", "x": 80, "y": 80 }
+        ]
+      },
+      "expected": {
+        "isCorrect": false,
+        "score": { "scaled": 0.5, "raw": 1, "min": 0, "max": 2 },
+        "feedback": null,
+        "items": {
+          "marker_00001": { "correct": false, "expected": true, "given": false },
+          "marker_00002": { "correct": true, "expected": true, "given": true }
+        }
+      }
     }
   ]
 }

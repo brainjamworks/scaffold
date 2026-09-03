@@ -16,7 +16,11 @@ class UnsupportedJsonSchemaKeywordError(JsonSchemaValidationError):
 SEMANTIC_MANIFEST_KEYWORD = "x-scaffold-semantics"
 SCORE_SEMANTIC_KEYWORD = "x-scaffold-semantic"
 SCORE_SEMANTIC_VERSION = "score-v1"
-SUPPORTED_SEMANTICS = {SCORE_SEMANTIC_VERSION}
+SPATIAL_PLACEMENT_SEMANTIC_VERSION = "spatial-placement-v1"
+SUPPORTED_SEMANTICS = {
+    SCORE_SEMANTIC_VERSION,
+    SPATIAL_PLACEMENT_SEMANTIC_VERSION,
+}
 MIN_SAFE_INTEGER = -9007199254740991
 MAX_SAFE_INTEGER = 9007199254740991
 
@@ -39,6 +43,7 @@ SUPPORTED_SCHEMA_KEYWORDS = {
     "items",
     "maximum",
     "minItems",
+    "minLength",
     "minimum",
     "oneOf",
     "pattern",
@@ -139,6 +144,14 @@ def _assert_supported_schema(
                     "Undeclared JSON schema semantic at %s" % schema_path,
                 )
             observed_semantics.add(semantic)
+        if keyword == "minLength" and (
+            not isinstance(schema[keyword], int)
+            or isinstance(schema[keyword], bool)
+            or schema[keyword] < 0
+        ):
+            raise JsonSchemaValidationError(
+                "%s.minLength must be a non-negative integer" % schema_path
+            )
 
     for collection_keyword in ("definitions", "properties"):
         for name, child_schema in schema.get(collection_keyword, {}).items():
@@ -311,6 +324,13 @@ def _validate(value, schema, root_schema, path):
                 "%s must be less than %s" % (path, schema["exclusiveMaximum"]),
             )
 
+    if isinstance(value, str) and "minLength" in schema:
+        minimum_length = schema["minLength"]
+        if len(value) < minimum_length:
+            unit = "character" if minimum_length == 1 else "characters"
+            raise JsonSchemaValidationError(
+                "%s must contain at least %d %s" % (path, minimum_length, unit)
+            )
     if isinstance(value, str) and "pattern" in schema:
         if re.search(schema["pattern"], value) is None:
             raise JsonSchemaValidationError("%s has an invalid format" % path)
@@ -323,6 +343,9 @@ def _validate(value, schema, root_schema, path):
 def _validate_semantic(semantic, value, path):
     if semantic == SCORE_SEMANTIC_VERSION:
         _validate_score_contract(value, path)
+        return
+    if semantic == SPATIAL_PLACEMENT_SEMANTIC_VERSION:
+        _validate_spatial_placement_contract(value, path)
         return
     raise JsonSchemaValidationError("Unsupported JSON schema semantic: %s" % semantic)
 
@@ -340,6 +363,64 @@ def _validate_score_contract(value, path):
         raise JsonSchemaValidationError("%s.min must be less than max" % path)
     if not value["min"] <= value["raw"] <= value["max"]:
         raise JsonSchemaValidationError("%s.raw must be within min and max" % path)
+
+
+def _validate_spatial_placement_contract(value, path):
+    if not isinstance(value, dict):
+        raise JsonSchemaValidationError(
+            "%s must be a spatial-placement contract" % path
+        )
+
+    if "interaction" in value:
+        marker_ids = [marker["id"] for marker in value["interaction"]["markers"]]
+        answer = value["assessment"]
+        answer_ids = [
+            placement["markerId"] for placement in answer["correctPlacements"]
+        ]
+        if len(marker_ids) != len(set(marker_ids)):
+            raise JsonSchemaValidationError(
+                "%s.interaction.markers must use unique marker ids" % path
+            )
+        if len(answer_ids) != len(set(answer_ids)):
+            raise JsonSchemaValidationError(
+                "%s.assessment.correctPlacements must use unique marker ids" % path
+            )
+        if set(marker_ids) != set(answer_ids):
+            raise JsonSchemaValidationError(
+                "%s assessment must cover every current marker exactly once" % path
+            )
+        if marker_ids and answer["imageAspectRatio"] is None:
+            raise JsonSchemaValidationError(
+                "%s.assessment.imageAspectRatio is required for current markers" % path
+            )
+        unknown_feedback = set(answer.get("feedbackByMarkerId", {})) - set(marker_ids)
+        if unknown_feedback:
+            raise JsonSchemaValidationError(
+                "%s.assessment.feedbackByMarkerId references an unknown marker" % path
+            )
+        return
+
+    if "correctPlacements" in value:
+        marker_ids = [placement["markerId"] for placement in value["correctPlacements"]]
+        if len(marker_ids) != len(set(marker_ids)):
+            raise JsonSchemaValidationError(
+                "%s.correctPlacements must use unique marker ids" % path
+            )
+        if marker_ids and value["imageAspectRatio"] is None:
+            raise JsonSchemaValidationError(
+                "%s.imageAspectRatio is required for correct placements" % path
+            )
+        return
+
+    if "placements" in value:
+        marker_ids = [placement["markerId"] for placement in value["placements"]]
+        if len(marker_ids) != len(set(marker_ids)):
+            raise JsonSchemaValidationError(
+                "%s.placements must use unique marker ids" % path
+            )
+        return
+
+    raise JsonSchemaValidationError("%s must be a spatial-placement contract" % path)
 
 
 def _semantic_manifest(bundle):

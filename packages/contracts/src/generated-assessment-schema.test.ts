@@ -6,6 +6,7 @@ import type { ZodTypeAny } from "zod";
 import scoreConformance from "../fixtures/score-transport-conformance.json" with { type: "json" };
 import assessmentJsonSchema from "../generated/assessment.schema.json";
 import {
+  AnswerRevealSchema,
   AssessmentGradeProjectionSchema,
   AssessmentGroupContractSchema,
   AssessmentLearnerSnapshotSchema,
@@ -20,8 +21,9 @@ import {
 
 const scoreSemanticKeyword = "x-scaffold-semantic";
 const scoreSemanticVersion = "score-v1";
+const spatialPlacementSemanticVersion = "spatial-placement-v1";
 const semanticManifestKeyword = "x-scaffold-semantics";
-const supportedSemantics = new Set([scoreSemanticVersion]);
+const supportedSemantics = new Set([scoreSemanticVersion, spatialPlacementSemanticVersion]);
 
 type JsonSchemaObject = Record<string, unknown>;
 
@@ -108,8 +110,17 @@ function createSemanticAjv(schema: JsonSchemaObject): Ajv {
   validator.addKeyword({
     keyword: scoreSemanticKeyword,
     schemaType: "string",
-    validate: (semantic: string, value: unknown) =>
-      semantic === scoreSemanticVersion && ScoreSchema.safeParse(value).success,
+    validate: (semantic: string, value: unknown) => {
+      if (semantic === scoreSemanticVersion) return ScoreSchema.safeParse(value).success;
+      if (semantic !== spatialPlacementSemanticVersion || !value || typeof value !== "object") {
+        return false;
+      }
+      if ("interaction" in value) return AssessmentTargetContractSchema.safeParse(value).success;
+      if ("correctPlacements" in value) {
+        return AnswerRevealSchema.safeParse({ answerKey: value }).success;
+      }
+      return AssessmentResponseValueSchema.safeParse(value).success;
+    },
   });
   validator.addSchema(schema);
   return validator;
@@ -151,7 +162,7 @@ function schemaDefinition(schema: JsonSchemaObject, definitionName: string): Jso
 
 function renamedScoreSchema(): JsonSchemaObject {
   const schema = structuredClone(assessmentJsonSchema) as unknown as JsonSchemaObject;
-  schema[semanticManifestKeyword] = [scoreSemanticVersion];
+  schema[semanticManifestKeyword] = [scoreSemanticVersion, spatialPlacementSemanticVersion];
   const definitions = schema.definitions as Record<string, JsonSchemaObject>;
   definitions.CanonicalScore = schemaDefinition(schema, "Score");
   Reflect.deleteProperty(definitions, "Score");
@@ -194,6 +205,36 @@ const target = {
     kind: "single-select",
     correctOptionId: "option_00002",
     feedbackByOptionId: {},
+  },
+  settings: {
+    feedbackMode: "on_submit",
+    isGraded: true,
+    showAnswer: true,
+    points: 1,
+    maxAttempts: null,
+  },
+};
+
+const spatialPlacementTarget = {
+  schemaVersion: 2,
+  targetId: "dragdp_00001",
+  blockId: "block_000002",
+  blockType: "drag-drop",
+  interaction: {
+    kind: "spatial-placement",
+    markers: [{ id: "marker_00001", label: "Capital" }],
+  },
+  assessment: {
+    kind: "spatial-placement",
+    gradingMode: "partial-credit",
+    imageAspectRatio: 2,
+    correctPlacements: [
+      {
+        markerId: "marker_00001",
+        geometry: { kind: "circle", centerX: 25, centerY: 75, radius: 8 },
+      },
+    ],
+    feedbackByMarkerId: {},
   },
   settings: {
     feedbackMode: "on_submit",
@@ -295,6 +336,7 @@ describe("generated assessment JSON Schema", () => {
     expect(assessmentJsonSchema.$comment).toContain("x-scaffold-semantic");
     expect((assessmentJsonSchema as unknown as JsonSchemaObject)[semanticManifestKeyword]).toEqual([
       scoreSemanticVersion,
+      spatialPlacementSemanticVersion,
     ]);
     expect(
       (assessmentJsonSchema.definitions.Score as Record<string, unknown>)["x-scaffold-semantic"],
@@ -469,6 +511,87 @@ describe("generated assessment JSON Schema", () => {
     expectRejected(AssessmentGroupContractSchema, "AssessmentGroupContract", {
       ...group,
       provider: "xblock",
+    });
+  });
+
+  it("publishes bounded spatial-placement target, response, and reveal variants", () => {
+    const response = {
+      kind: "spatial-placement",
+      placements: [{ markerId: "marker_00001", x: 25, y: 75 }],
+    };
+
+    expectAccepted(
+      AssessmentTargetContractSchema,
+      "AssessmentTargetContract",
+      spatialPlacementTarget,
+    );
+    expectAccepted(AssessmentResponseValueSchema, "AssessmentResponseValue", response);
+    expectAccepted(AnswerRevealSchema, "AnswerReveal", {
+      answerKey: spatialPlacementTarget.assessment,
+    });
+    expectRejected(AssessmentTargetContractSchema, "AssessmentTargetContract", {
+      ...spatialPlacementTarget,
+      assessment: {
+        ...spatialPlacementTarget.assessment,
+        correctPlacements: [
+          {
+            markerId: "marker_00001",
+            geometry: { kind: "circle", centerX: 25, centerY: 75, radius: 0 },
+          },
+        ],
+      },
+    });
+    expectRejected(AssessmentResponseValueSchema, "AssessmentResponseValue", {
+      kind: "spatial-placement",
+      placements: [{ markerId: "marker_00001", x: 101, y: 75 }],
+    });
+
+    const invalidTargets = [
+      {
+        ...spatialPlacementTarget,
+        interaction: {
+          ...spatialPlacementTarget.interaction,
+          markers: [{ id: "marker_00001", label: "   " }],
+        },
+      },
+      {
+        ...spatialPlacementTarget,
+        interaction: {
+          ...spatialPlacementTarget.interaction,
+          markers: [
+            ...spatialPlacementTarget.interaction.markers,
+            ...spatialPlacementTarget.interaction.markers,
+          ],
+        },
+      },
+      {
+        ...spatialPlacementTarget,
+        assessment: { ...spatialPlacementTarget.assessment, correctPlacements: [] },
+      },
+      {
+        ...spatialPlacementTarget,
+        assessment: { ...spatialPlacementTarget.assessment, imageAspectRatio: null },
+      },
+      {
+        ...spatialPlacementTarget,
+        assessment: {
+          ...spatialPlacementTarget.assessment,
+          feedbackByMarkerId: {
+            marker_99999: { kind: "rich-text", document: { type: "doc", content: [] } },
+          },
+        },
+      },
+    ];
+    for (const invalidTarget of invalidTargets) {
+      expectRejected(AssessmentTargetContractSchema, "AssessmentTargetContract", invalidTarget);
+    }
+
+    expectRejected(AssessmentResponseValueSchema, "AssessmentResponseValue", {
+      kind: "spatial-placement",
+      placements: [response.placements[0], response.placements[0]],
+    });
+    expectRejected(AnswerRevealSchema, "AnswerReveal", {
+      answerKey: { ...spatialPlacementTarget.assessment, imageAspectRatio: null },
     });
   });
 

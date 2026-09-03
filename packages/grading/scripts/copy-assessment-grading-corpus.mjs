@@ -19,6 +19,7 @@ const interactionKinds = new Set([
   "classify",
   "fill-blanks",
   "spatial-hotspot",
+  "spatial-placement",
 ]);
 
 function parseCorpus(sourceBytes) {
@@ -35,8 +36,8 @@ function parseCorpus(sourceBytes) {
   ) {
     throw new Error("The assessment grading corpus must be an object with a cases array.");
   }
-  if (corpus.cases.length < 21) {
-    throw new Error("The assessment grading corpus must contain at least 21 cases.");
+  if (corpus.cases.length !== 33) {
+    throw new Error("The assessment grading corpus must contain exactly 33 cases.");
   }
 
   const ids = new Set();

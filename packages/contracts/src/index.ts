@@ -10,6 +10,40 @@ export * from "./code-block";
 export * from "./comparison";
 export * from "./course-document";
 export * from "./dropdown";
+export {
+  DragDropCanvasDataSchema,
+  DragDropMarkerSchema,
+  DragDropPayloadSchema,
+  DragDropPrivateAssessmentSchema,
+  DragDropSettingsSchema,
+  MarkerPresetIdSchema,
+  MarkerVisualSchema,
+  SpatialPlacementAssessmentSchema,
+  SpatialPlacementCircleSchema,
+  SpatialPlacementCorrectPlacementSchema,
+  SpatialPlacementInteractionSchema,
+  SpatialPlacementMarkerSchema,
+  SpatialPlacementPlacementSchema,
+  SpatialPlacementPointSchema,
+  SpatialPlacementResponseSchema,
+} from "./drag-drop";
+export type {
+  DragDropCanvasData,
+  DragDropMarker,
+  DragDropPayload,
+  DragDropPrivateAssessment,
+  DragDropSettings,
+  MarkerPresetId,
+  MarkerVisual,
+  SpatialPlacementAssessment,
+  SpatialPlacementCircle,
+  SpatialPlacementCorrectPlacement,
+  SpatialPlacementInteraction,
+  SpatialPlacementMarker,
+  SpatialPlacementPlacement,
+  SpatialPlacementPoint,
+  SpatialPlacementResponse,
+} from "./drag-drop";
 export * from "./embed";
 export * from "./embedded-id";
 export * from "./flashcard";

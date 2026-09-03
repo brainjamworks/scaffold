@@ -65,6 +65,7 @@ class grader {
             ),
             'fill-blanks' => self::grade_fill_blanks($assessment, $response),
             'spatial-hotspot' => self::grade_hotspot($interaction, $assessment, $response),
+            'spatial-placement' => self::grade_spatial_placement($interaction, $assessment, $response),
             default => self::empty_result(),
         };
     }
@@ -451,6 +452,234 @@ class grader {
             'feedback' => self::summary_feedback($assessment),
             'items' => $items,
         ];
+    }
+
+    /**
+     * Grades spatial marker placements.
+     *
+     * @param array $interaction Interaction.
+     * @param array $assessment Assessment.
+     * @param array $response Response.
+     * @return array
+     */
+    private static function grade_spatial_placement(
+        array $interaction,
+        array $assessment,
+        array $response,
+    ): array {
+        if (($interaction['kind'] ?? null) !== 'spatial-placement') {
+            throw new \invalid_parameter_exception(
+                'spatial-placement interaction kind must match assessment: ' . ($interaction['kind'] ?? 'null'),
+            );
+        }
+
+        $markers = self::spatial_object_list($interaction['markers'] ?? null, 'interaction markers');
+        $markerids = [];
+        $markerset = [];
+        foreach ($markers as $marker) {
+            $markerid = self::spatial_marker_id($marker['id'] ?? null, 'interaction marker');
+            if (isset($markerset[$markerid])) {
+                throw new \invalid_parameter_exception(
+                    'duplicate spatial-placement interaction marker id: ' . $markerid,
+                );
+            }
+            $markerids[] = $markerid;
+            $markerset[$markerid] = true;
+        }
+        $correctbymarker = [];
+        $correctplacements = self::spatial_object_list(
+            $assessment['correctPlacements'] ?? null,
+            'correct placements',
+        );
+        foreach ($correctplacements as $placement) {
+            $markerid = self::spatial_marker_id($placement['markerId'] ?? null, 'correct-placement marker');
+            if (array_key_exists($markerid, $correctbymarker)) {
+                throw new \invalid_parameter_exception(
+                    'duplicate spatial-placement correct-placement marker id: ' . $markerid,
+                );
+            }
+            if (!isset($markerset[$markerid])) {
+                throw new \invalid_parameter_exception(
+                    'spatial-placement answer references unknown marker: ' . $markerid,
+                );
+            }
+            $correctbymarker[$markerid] = $placement;
+        }
+        foreach ($markerids as $markerid) {
+            if (!array_key_exists($markerid, $correctbymarker)) {
+                throw new \invalid_parameter_exception(
+                    'spatial-placement answer is missing marker: ' . $markerid,
+                );
+            }
+        }
+
+        $feedback = self::assoc($assessment['feedbackByMarkerId'] ?? null) ?? [];
+        foreach (array_keys($feedback) as $markerid) {
+            if (!isset($markerset[$markerid])) {
+                throw new \invalid_parameter_exception(
+                    'spatial-placement feedback references unknown marker: ' . $markerid,
+                );
+            }
+        }
+
+        $givenbymarker = [];
+        $placements = self::spatial_object_list($response['placements'] ?? null, 'response placements');
+        foreach ($placements as $placement) {
+            $markerid = self::spatial_marker_id($placement['markerId'] ?? null, 'response marker');
+            if (!isset($markerset[$markerid])) {
+                throw new \invalid_parameter_exception(
+                    'spatial-placement response references unknown marker: ' . $markerid,
+                );
+            }
+            if (array_key_exists($markerid, $givenbymarker)) {
+                throw new \invalid_parameter_exception(
+                    'duplicate spatial-placement response marker id: ' . $markerid,
+                );
+            }
+            self::assert_spatial_coordinate($placement['x'] ?? null, 'response marker ' . $markerid . ' x');
+            self::assert_spatial_coordinate($placement['y'] ?? null, 'response marker ' . $markerid . ' y');
+            $givenbymarker[$markerid] = $placement;
+        }
+
+        $aspectratio = $assessment['imageAspectRatio'] ?? null;
+        if (
+            $aspectratio !== null
+            && (!(is_int($aspectratio) || is_float($aspectratio))
+                || !is_finite((float) $aspectratio)
+                || $aspectratio <= 0)
+        ) {
+            throw new \invalid_parameter_exception(
+                'spatial-placement image aspect ratio must be finite and positive',
+            );
+        }
+        $gradingmode = $assessment['gradingMode'] ?? null;
+        if (!in_array($gradingmode, ['partial-credit', 'all-or-nothing'], true)) {
+            throw new \invalid_parameter_exception('unsupported spatial-placement grading mode');
+        }
+
+        if (!$markerids) {
+            return self::empty_result(self::summary_feedback($assessment));
+        }
+        if ($aspectratio === null) {
+            throw new \invalid_parameter_exception(
+                'spatial-placement image aspect ratio must be finite and positive',
+            );
+        }
+
+        $items = [];
+        $correctcount = 0;
+        foreach ($markerids as $markerid) {
+            $correctplacement = $correctbymarker[$markerid] ?? null;
+            $geometry = self::assoc($correctplacement['geometry'] ?? null);
+            self::assert_spatial_circle($geometry, $markerid);
+            $learner = $givenbymarker[$markerid] ?? null;
+            $correct = false;
+            if ($learner) {
+                $dx = (float) $learner['x'] - (float) $geometry['centerX'];
+                $dy = ((float) $learner['y'] - (float) $geometry['centerY']) / (float) $aspectratio;
+                $correct = hypot($dx, $dy) <= (float) $geometry['radius'];
+            }
+            if ($correct) {
+                $correctcount++;
+            }
+            $item = [
+                'correct' => $correct,
+                'expected' => true,
+                'given' => $correct,
+            ];
+            if (array_key_exists($markerid, $feedback)) {
+                $item['feedback'] = $feedback[$markerid];
+            }
+            $items[$markerid] = $item;
+        }
+
+        $total = count($items);
+        $iscorrect = count($givenbymarker) === $total && $correctcount === $total;
+        $score = $gradingmode === 'all-or-nothing'
+            ? self::count_score($iscorrect ? 1 : 0, 1)
+            : self::count_score($correctcount, $total);
+        return [
+            'isCorrect' => $iscorrect,
+            'score' => $score,
+            'feedback' => self::summary_feedback($assessment),
+            'items' => $items,
+        ];
+    }
+
+    /**
+     * Reads a required list of spatial-placement objects.
+     *
+     * @param mixed $value Value.
+     * @param string $label Label.
+     * @return array
+     */
+    private static function spatial_object_list(mixed $value, string $label): array {
+        if (!is_array($value) || !array_is_list($value)) {
+            throw new \invalid_parameter_exception('spatial-placement ' . $label . ' must be an array of objects');
+        }
+        foreach ($value as $item) {
+            if (self::assoc($item) === null) {
+                throw new \invalid_parameter_exception('spatial-placement ' . $label . ' must be an array of objects');
+            }
+        }
+        return $value;
+    }
+
+    /**
+     * Reads a required spatial-placement marker id.
+     *
+     * @param mixed $value Value.
+     * @param string $label Label.
+     * @return string
+     */
+    private static function spatial_marker_id(mixed $value, string $label): string {
+        if (!is_string($value) || trim($value) === '') {
+            throw new \invalid_parameter_exception(
+                'spatial-placement ' . $label . ' id must be a non-empty string',
+            );
+        }
+        return $value;
+    }
+
+    /**
+     * Requires a finite image-relative coordinate.
+     *
+     * @param mixed $value Value.
+     * @param string $label Label.
+     */
+    private static function assert_spatial_coordinate(mixed $value, string $label): void {
+        if (
+            !(is_int($value) || is_float($value))
+            || !is_finite((float) $value)
+            || $value < 0
+            || $value > 100
+        ) {
+            throw new \invalid_parameter_exception(
+                'spatial-placement ' . $label . ' must be finite and within 0..100',
+            );
+        }
+    }
+
+    /**
+     * Requires canonical width-based circle geometry.
+     *
+     * @param array|null $circle Circle.
+     * @param string $markerid Markerid.
+     */
+    private static function assert_spatial_circle(?array $circle, string $markerid): void {
+        if (($circle['kind'] ?? null) !== 'circle') {
+            throw new \invalid_parameter_exception(
+                'spatial-placement answer geometry must be a circle: ' . $markerid,
+            );
+        }
+        self::assert_spatial_coordinate($circle['centerX'] ?? null, 'answer centerX for marker ' . $markerid);
+        self::assert_spatial_coordinate($circle['centerY'] ?? null, 'answer centerY for marker ' . $markerid);
+        $radius = $circle['radius'] ?? null;
+        if (!(is_int($radius) || is_float($radius)) || !is_finite((float) $radius) || $radius <= 0) {
+            throw new \invalid_parameter_exception(
+                'spatial-placement answer radius must be finite and positive: ' . $markerid,
+            );
+        }
     }
 
     /**

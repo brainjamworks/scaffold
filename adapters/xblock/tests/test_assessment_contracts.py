@@ -30,6 +30,20 @@ def score_conformance_fixture():
     return json.loads(resource.read_text(encoding="utf-8"))
 
 
+def spatial_placement_contract_case():
+    validation = importlib.import_module("scaffold_xblock.validation")
+    resource = importlib.resources.files(validation).joinpath(
+        "fixtures/assessment-grading.json"
+    )
+    corpus = json.loads(resource.read_text(encoding="utf-8"))
+    case = next(
+        case
+        for case in corpus["cases"]
+        if case["id"] == "spatial-placement-partial-credit-fully-correct"
+    )
+    return deepcopy(case["target"]), deepcopy(case["response"])
+
+
 EMPTY_PROBLEM = {
     "response": None,
     "submitted": False,
@@ -155,7 +169,10 @@ class AssessmentContractResourceTest(unittest.TestCase):
             schema["$id"],
             "https://scaffold.ac/schemas/assessment.schema.json",
         )
-        self.assertEqual(schema["x-scaffold-semantics"], ["score-v1"])
+        self.assertEqual(
+            schema["x-scaffold-semantics"],
+            ["score-v1", "spatial-placement-v1"],
+        )
         self.assertEqual(
             json_schema.validate_assessment_definition(
                 "AssessmentGroupContract",
@@ -171,21 +188,62 @@ class AssessmentContractResourceTest(unittest.TestCase):
         schema["definitions"]["UnsupportedKeywordProbe"] = {
             "type": "object",
             "properties": {
-                "minLength": {"type": "string"},
+                "maxLength": {"type": "string"},
                 "definitions": {"type": "string"},
             },
-            "minLength": 1,
+            "maxLength": 1,
         }
 
         with patch.object(json_schema, "load_assessment_schema", return_value=schema):
             with self.assertRaisesRegex(
                 json_schema.UnsupportedJsonSchemaKeywordError,
-                r"definitions\.UnsupportedKeywordProbe\.minLength",
+                r"definitions\.UnsupportedKeywordProbe\.maxLength",
             ):
                 json_schema.validate_assessment_definition(
                     "UnsupportedKeywordProbe",
-                    {"minLength": "value", "definitions": "value"},
+                    {"maxLength": "value", "definitions": "value"},
                 )
+
+    def test_enforces_minimum_string_length(self):
+        json_schema = load_validation_module("json_schema")
+        schema = {
+            "definitions": {
+                "Label": {"type": "string", "minLength": 2},
+                "UntypedValue": {"minLength": 2},
+            }
+        }
+
+        self.assertEqual(
+            json_schema.validate_schema_definition(schema, "Label", "ab"),
+            "ab",
+        )
+        self.assertEqual(
+            json_schema.validate_schema_definition(schema, "UntypedValue", 1),
+            1,
+        )
+        with self.assertRaisesRegex(
+            json_schema.JsonSchemaValidationError,
+            r"marker\.label must contain at least 2 characters",
+        ):
+            json_schema.validate_schema_definition(
+                schema,
+                "Label",
+                "a",
+                "marker.label",
+            )
+
+    def test_rejects_invalid_minimum_string_length_schemas(self):
+        json_schema = load_validation_module("json_schema")
+
+        for minimum_length in (-1, True, 1.5, "2"):
+            with self.subTest(minimum_length=minimum_length):
+                schema = {
+                    "definitions": {
+                        "Label": {"type": "string", "minLength": minimum_length}
+                    }
+                }
+                with self.assertRaises(json_schema.JsonSchemaValidationError):
+                    json_schema.validate_schema_definition(schema, "Label", "value")
 
     def test_python_distributions_install_schema_and_corpus_resources(self):
         expected = {
@@ -292,6 +350,54 @@ class AssessmentArtifactSyncTest(unittest.TestCase):
 
 
 class AssessmentContractSemanticTest(unittest.TestCase):
+    def test_spatial_placement_semantics_reject_malformed_portable_graphs(self):
+        json_schema = load_validation_module("json_schema")
+        target, response = spatial_placement_contract_case()
+
+        duplicate_markers = deepcopy(target)
+        duplicate_markers["interaction"]["markers"][1]["id"] = duplicate_markers[
+            "interaction"
+        ]["markers"][0]["id"]
+        missing_answer = deepcopy(target)
+        missing_answer["assessment"]["correctPlacements"].pop()
+        missing_aspect = deepcopy(target)
+        missing_aspect["assessment"]["imageAspectRatio"] = None
+        dangling_feedback = deepcopy(target)
+        dangling_feedback["assessment"]["feedbackByMarkerId"]["marker_99999"] = {
+            "kind": "rich-text",
+            "document": {"type": "doc", "content": []},
+        }
+        blank_label = deepcopy(target)
+        blank_label["interaction"]["markers"][0]["label"] = "   "
+        duplicate_response = deepcopy(response)
+        duplicate_response["placements"][1]["markerId"] = duplicate_response[
+            "placements"
+        ][0]["markerId"]
+        invalid_reveal = {
+            "answerKey": {
+                **deepcopy(target["assessment"]),
+                "imageAspectRatio": None,
+            }
+        }
+
+        cases = [
+            ("AssessmentTargetContract", value)
+            for value in (
+                duplicate_markers,
+                missing_answer,
+                missing_aspect,
+                dangling_feedback,
+                blank_label,
+            )
+        ] + [
+            ("AssessmentResponseValue", duplicate_response),
+            ("AnswerReveal", invalid_reveal),
+        ]
+        for definition_name, value in cases:
+            with self.subTest(definition=definition_name, value=value):
+                with self.assertRaises(json_schema.JsonSchemaValidationError):
+                    json_schema.validate_assessment_definition(definition_name, value)
+
     def test_shared_score_transport_corpus_matches_root_and_nested_boundaries(self):
         json_schema = load_validation_module("json_schema")
         fixture = score_conformance_fixture()
@@ -334,7 +440,7 @@ class AssessmentContractSemanticTest(unittest.TestCase):
     def test_score_semantics_are_name_independent(self):
         json_schema = load_validation_module("json_schema")
         schema = deepcopy(json_schema.load_assessment_schema())
-        schema["x-scaffold-semantics"] = ["score-v1"]
+        schema["x-scaffold-semantics"] = ["score-v1", "spatial-placement-v1"]
         schema["definitions"]["CanonicalScore"] = schema["definitions"].pop(
             "Score"
         )

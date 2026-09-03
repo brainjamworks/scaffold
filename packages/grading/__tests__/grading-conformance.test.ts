@@ -10,7 +10,7 @@ import corpus from "../fixtures/assessment-grading.json" with { type: "json" };
 import { gradeAssessment } from "../src/index";
 
 describe("@scaffold/grading assessment conformance corpus", () => {
-  expect(corpus.cases.length).toBeGreaterThanOrEqual(21);
+  expect(corpus.cases).toHaveLength(33);
 
   for (const testCase of corpus.cases) {
     it(testCase.id, () => {

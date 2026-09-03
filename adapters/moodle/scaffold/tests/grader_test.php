@@ -129,6 +129,287 @@ final class grader_test extends \basic_testcase {
         }
     }
 
+    public function test_spatial_placement_uses_aspect_correct_boundary_geometry(): void {
+        $result = grader::grade_assessment([
+            'interaction' => [
+                'kind' => 'spatial-placement',
+                'markers' => [['id' => 'marker-1', 'label' => 'Marker 1']],
+            ],
+            'assessment' => [
+                'kind' => 'spatial-placement',
+                'gradingMode' => 'partial-credit',
+                'imageAspectRatio' => 2,
+                'correctPlacements' => [[
+                    'markerId' => 'marker-1',
+                    'geometry' => [
+                        'kind' => 'circle',
+                        'centerX' => 50,
+                        'centerY' => 50,
+                        'radius' => 5,
+                    ],
+                ]],
+                'feedbackByMarkerId' => [],
+            ],
+        ], [
+            'kind' => 'spatial-placement',
+            'placements' => [['markerId' => 'marker-1', 'x' => 50, 'y' => 60]],
+        ]);
+
+        $this->assertTrue($result['isCorrect']);
+        $this->assertSame(['scaled' => 1, 'raw' => 1, 'min' => 0, 'max' => 1], $result['score']);
+        $this->assertSame(
+            ['correct' => true, 'expected' => true, 'given' => true],
+            $result['items']['marker-1'],
+        );
+    }
+
+    public function test_spatial_placement_all_or_nothing_rejects_incomplete_coverage(): void {
+        $result = grader::grade_assessment([
+            'interaction' => [
+                'kind' => 'spatial-placement',
+                'markers' => [
+                    ['id' => 'marker-1', 'label' => 'Marker 1'],
+                    ['id' => 'marker-2', 'label' => 'Marker 2'],
+                ],
+            ],
+            'assessment' => [
+                'kind' => 'spatial-placement',
+                'gradingMode' => 'all-or-nothing',
+                'imageAspectRatio' => 1,
+                'correctPlacements' => [
+                    [
+                        'markerId' => 'marker-1',
+                        'geometry' => [
+                            'kind' => 'circle',
+                            'centerX' => 20,
+                            'centerY' => 20,
+                            'radius' => 5,
+                        ],
+                    ],
+                    [
+                        'markerId' => 'marker-2',
+                        'geometry' => [
+                            'kind' => 'circle',
+                            'centerX' => 80,
+                            'centerY' => 80,
+                            'radius' => 5,
+                        ],
+                    ],
+                ],
+                'feedbackByMarkerId' => [],
+            ],
+        ], [
+            'kind' => 'spatial-placement',
+            'placements' => [['markerId' => 'marker-1', 'x' => 20, 'y' => 20]],
+        ]);
+
+        $this->assertFalse($result['isCorrect']);
+        $this->assertSame(['scaled' => 0, 'raw' => 0, 'min' => 0, 'max' => 1], $result['score']);
+        $this->assertSame(
+            ['correct' => false, 'expected' => true, 'given' => false],
+            $result['items']['marker-2'],
+        );
+    }
+
+    public function test_empty_spatial_placement_is_zero_and_incorrect(): void {
+        $result = grader::grade_assessment([
+            'interaction' => [
+                'kind' => 'spatial-placement',
+                'markers' => [],
+            ],
+            'assessment' => [
+                'kind' => 'spatial-placement',
+                'gradingMode' => 'partial-credit',
+                'imageAspectRatio' => null,
+                'correctPlacements' => [],
+                'feedbackByMarkerId' => [],
+            ],
+        ], [
+            'kind' => 'spatial-placement',
+            'placements' => [],
+        ]);
+
+        $this->assertFalse($result['isCorrect']);
+        $this->assertSame(['scaled' => 0.0], $result['score']);
+        $this->assertInstanceOf(\stdClass::class, $result['items']);
+    }
+
+    public function test_spatial_placement_rejects_unknown_response_marker(): void {
+        $this->expectException(\invalid_parameter_exception::class);
+        $this->expectExceptionMessage('spatial-placement response references unknown marker: stale-marker');
+
+        grader::grade_assessment([
+            'interaction' => [
+                'kind' => 'spatial-placement',
+                'markers' => [['id' => 'marker-1', 'label' => 'Marker 1']],
+            ],
+            'assessment' => [
+                'kind' => 'spatial-placement',
+                'gradingMode' => 'partial-credit',
+                'imageAspectRatio' => 1,
+                'correctPlacements' => [[
+                    'markerId' => 'marker-1',
+                    'geometry' => [
+                        'kind' => 'circle',
+                        'centerX' => 50,
+                        'centerY' => 50,
+                        'radius' => 5,
+                    ],
+                ]],
+                'feedbackByMarkerId' => [],
+            ],
+        ], [
+            'kind' => 'spatial-placement',
+            'placements' => [['markerId' => 'stale-marker', 'x' => 50, 'y' => 50]],
+        ]);
+    }
+
+    public function test_spatial_placement_rejects_duplicate_response_marker(): void {
+        $this->expectException(\invalid_parameter_exception::class);
+        $this->expectExceptionMessage('duplicate spatial-placement response marker id: marker-1');
+
+        grader::grade_assessment([
+            'interaction' => [
+                'kind' => 'spatial-placement',
+                'markers' => [['id' => 'marker-1', 'label' => 'Marker 1']],
+            ],
+            'assessment' => [
+                'kind' => 'spatial-placement',
+                'gradingMode' => 'partial-credit',
+                'imageAspectRatio' => 1,
+                'correctPlacements' => [[
+                    'markerId' => 'marker-1',
+                    'geometry' => [
+                        'kind' => 'circle',
+                        'centerX' => 50,
+                        'centerY' => 50,
+                        'radius' => 5,
+                    ],
+                ]],
+                'feedbackByMarkerId' => [],
+            ],
+        ], [
+            'kind' => 'spatial-placement',
+            'placements' => [
+                ['markerId' => 'marker-1', 'x' => 50, 'y' => 50],
+                ['markerId' => 'marker-1', 'x' => 70, 'y' => 70],
+            ],
+        ]);
+    }
+
+    /**
+     * Tests malformed spatial target relationships remain observable.
+     *
+     * @param string $mutation Mutation.
+     * @param string $message Message.
+     * @dataProvider malformed_spatial_placement_target_provider
+     */
+    public function test_spatial_placement_rejects_malformed_target_relationships(
+        string $mutation,
+        string $message,
+    ): void {
+        $target = $this->spatial_placement_target();
+        match ($mutation) {
+            'duplicate markers' => $target['interaction']['markers'][1]['id'] = 'marker-1',
+            'duplicate answers' => $target['assessment']['correctPlacements'][1]['markerId'] = 'marker-1',
+            'missing answer' => array_pop($target['assessment']['correctPlacements']),
+            'unknown answer' => $target['assessment']['correctPlacements'][1]['markerId'] = 'stale-marker',
+            'unknown feedback' => $target['assessment']['feedbackByMarkerId']['stale-marker'] =
+                $this->rich_feedback('Stale feedback'),
+            'missing aspect ratio' => $target['assessment']['imageAspectRatio'] = null,
+        };
+
+        $this->expectException(\invalid_parameter_exception::class);
+        $this->expectExceptionMessage($message);
+        grader::grade_assessment($target, [
+            'kind' => 'spatial-placement',
+            'placements' => [],
+        ]);
+    }
+
+    /**
+     * Provides malformed spatial target relationships.
+     *
+     * @return array
+     */
+    public static function malformed_spatial_placement_target_provider(): array {
+        return [
+            'duplicate markers' => [
+                'duplicate markers',
+                'duplicate spatial-placement interaction marker id: marker-1',
+            ],
+            'duplicate answers' => [
+                'duplicate answers',
+                'duplicate spatial-placement correct-placement marker id: marker-1',
+            ],
+            'missing answer' => [
+                'missing answer',
+                'spatial-placement answer is missing marker: marker-2',
+            ],
+            'unknown answer' => [
+                'unknown answer',
+                'spatial-placement answer references unknown marker: stale-marker',
+            ],
+            'unknown feedback' => [
+                'unknown feedback',
+                'spatial-placement feedback references unknown marker: stale-marker',
+            ],
+            'missing aspect ratio' => [
+                'missing aspect ratio',
+                'spatial-placement image aspect ratio must be finite and positive',
+            ],
+        ];
+    }
+
+    /**
+     * Tests malformed spatial values remain observable before numeric grading.
+     *
+     * @param string $mutation Mutation.
+     * @param string $message Message.
+     * @dataProvider malformed_spatial_placement_value_provider
+     */
+    public function test_spatial_placement_rejects_malformed_values(
+        string $mutation,
+        string $message,
+    ): void {
+        $target = $this->spatial_placement_target();
+        $response = [
+            'kind' => 'spatial-placement',
+            'placements' => [['markerId' => 'marker-1', 'x' => 20, 'y' => 20]],
+        ];
+        match ($mutation) {
+            'interaction kind' => $target['interaction']['kind'] = 'spatial-hotspot',
+            'circle kind' => $target['assessment']['correctPlacements'][0]['geometry']['kind'] = 'square',
+            'learner coordinate' => $response['placements'][0]['x'] = 'twenty',
+        };
+
+        $this->expectException(\invalid_parameter_exception::class);
+        $this->expectExceptionMessage($message);
+        grader::grade_assessment($target, $response);
+    }
+
+    /**
+     * Provides malformed spatial values.
+     *
+     * @return array
+     */
+    public static function malformed_spatial_placement_value_provider(): array {
+        return [
+            'interaction kind' => [
+                'interaction kind',
+                'spatial-placement interaction kind must match assessment: spatial-hotspot',
+            ],
+            'circle kind' => [
+                'circle kind',
+                'spatial-placement answer geometry must be a circle: marker-1',
+            ],
+            'learner coordinate' => [
+                'learner coordinate',
+                'spatial-placement response marker marker-1 x must be finite and within 0..100',
+            ],
+        ];
+    }
+
     public function test_stored_result_contract_rejects_malformed_shapes(): void {
         $result = grader::grade_assessment($this->single_select_target(), [
             'kind' => 'single-select',
@@ -219,8 +500,8 @@ final class grader_test extends \basic_testcase {
         if (!($corpus instanceof \stdClass) || !is_array($corpus->cases ?? null)) {
             throw new \RuntimeException('Moodle assessment grading corpus is malformed');
         }
-        if (count($corpus->cases) !== 21) {
-            throw new \RuntimeException('Moodle assessment grading corpus must contain 21 cases');
+        if (count($corpus->cases) !== 33) {
+            throw new \RuntimeException('Moodle assessment grading corpus must contain 33 cases');
         }
 
         $cases = [];
@@ -341,6 +622,49 @@ final class grader_test extends \basic_testcase {
                 'showAnswer' => true,
                 'points' => 1,
                 'maxAttempts' => null,
+            ],
+        ];
+    }
+
+    /**
+     * Returns a spatial placement target.
+     *
+     * @return array
+     */
+    private function spatial_placement_target(): array {
+        return [
+            'interaction' => [
+                'kind' => 'spatial-placement',
+                'markers' => [
+                    ['id' => 'marker-1', 'label' => 'Marker 1'],
+                    ['id' => 'marker-2', 'label' => 'Marker 2'],
+                ],
+            ],
+            'assessment' => [
+                'kind' => 'spatial-placement',
+                'gradingMode' => 'partial-credit',
+                'imageAspectRatio' => 1,
+                'correctPlacements' => [
+                    [
+                        'markerId' => 'marker-1',
+                        'geometry' => [
+                            'kind' => 'circle',
+                            'centerX' => 20,
+                            'centerY' => 20,
+                            'radius' => 5,
+                        ],
+                    ],
+                    [
+                        'markerId' => 'marker-2',
+                        'geometry' => [
+                            'kind' => 'circle',
+                            'centerX' => 80,
+                            'centerY' => 80,
+                            'radius' => 5,
+                        ],
+                    ],
+                ],
+                'feedbackByMarkerId' => [],
             ],
         ];
     }

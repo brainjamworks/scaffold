@@ -36,6 +36,8 @@ import {
   SequenceResponseSchema,
   SingleSelectResponseSchema,
   SpatialHotspotResponseSchema,
+  SpatialPlacementAssessmentSchema,
+  SpatialPlacementResponseSchema,
   type EmbeddedDataId,
   type EmbeddedNodeId,
   type AssessmentActivityStatus,
@@ -54,11 +56,13 @@ import {
   type Score,
   type SingleSelectInteraction,
   type SpatialHotspotInteraction,
+  type SpatialPlacementInteraction,
   type QuizTimerSettings,
 } from "./index";
 
 type SingleSelectOptionId = SingleSelectInteraction["options"][number]["id"];
 type SpatialHotspotId = SpatialHotspotInteraction["hotspots"][number]["id"];
+type SpatialPlacementMarkerId = SpatialPlacementInteraction["markers"][number]["id"];
 
 describe("assessment learner snapshot contracts", () => {
   const result: AssessmentResult = {
@@ -147,6 +151,13 @@ describe("assessment learner snapshot contracts", () => {
           response: {
             kind: "spatial-hotspot",
             selections: [{ hotspotId: "hotsp_000001", x: 0.25, y: 0.75 }],
+          },
+        },
+        dragdp_00001: {
+          ...emptyProblem,
+          response: {
+            kind: "spatial-placement",
+            placements: [{ markerId: "marker_00001", x: 25, y: 75 }],
           },
         },
       },
@@ -863,7 +874,7 @@ describe("assessment target contracts", () => {
     }
   });
 
-  it("accepts all seven matching interaction and answer-key variants", () => {
+  it("accepts all eight matching interaction and answer-key variants", () => {
     const variants: Array<{
       interaction: z.input<typeof AssessmentInteractionContractSchema>;
       answerKey: z.input<typeof AssessmentAnswerKeySchema>;
@@ -967,6 +978,24 @@ describe("assessment target contracts", () => {
           feedbackByHotspotId: {},
         },
       },
+      {
+        interaction: {
+          kind: "spatial-placement",
+          markers: [{ id: "marker_00001", label: "Capital" }],
+        },
+        answerKey: {
+          kind: "spatial-placement",
+          gradingMode: "partial-credit",
+          imageAspectRatio: 2,
+          correctPlacements: [
+            {
+              markerId: "marker_00001",
+              geometry: { kind: "circle", centerX: 25, centerY: 75, radius: 8 },
+            },
+          ],
+          feedbackByMarkerId: {},
+        },
+      },
     ];
 
     for (const { interaction, answerKey } of variants) {
@@ -975,6 +1004,120 @@ describe("assessment target contracts", () => {
         targetWith(interaction, answerKey),
       );
     }
+  });
+
+  it("enforces the complete spatial-placement target graph without changing contract v2", () => {
+    expectTypeOf<SpatialPlacementMarkerId>().toEqualTypeOf<EmbeddedDataId>();
+
+    const interaction = {
+      kind: "spatial-placement" as const,
+      markers: [
+        { id: "marker_00001", label: "Capital" },
+        { id: "marker_00002", label: "Harbour" },
+      ],
+    };
+    const assessment = {
+      kind: "spatial-placement" as const,
+      gradingMode: "partial-credit" as const,
+      imageAspectRatio: 2,
+      correctPlacements: [
+        {
+          markerId: "marker_00001",
+          geometry: { kind: "circle" as const, centerX: 25, centerY: 75, radius: 8 },
+        },
+        {
+          markerId: "marker_00002",
+          geometry: { kind: "circle" as const, centerX: 75, centerY: 25, radius: 12 },
+        },
+      ],
+      feedbackByMarkerId: { marker_00001: feedback },
+      summaryFeedback: feedback,
+    };
+    const target = targetWith(interaction, assessment);
+
+    expect(SCAFFOLD_ASSESSMENT_CONTRACT_VERSION).toBe(2);
+    expect(AssessmentTargetContractSchema.parse(target)).toEqual(target);
+
+    const invalidTargets = [
+      targetWith(
+        {
+          ...interaction,
+          markers: [interaction.markers[0], { ...interaction.markers[1], id: "marker_00001" }],
+        },
+        assessment,
+      ),
+      targetWith(
+        { ...interaction, markers: [{ ...interaction.markers[0], label: "   " }] },
+        { ...assessment, correctPlacements: [assessment.correctPlacements[0]] },
+      ),
+      targetWith(interaction, {
+        ...assessment,
+        correctPlacements: [assessment.correctPlacements[0]],
+      }),
+      targetWith(interaction, {
+        ...assessment,
+        correctPlacements: [
+          ...assessment.correctPlacements,
+          {
+            markerId: "marker_00003",
+            geometry: { kind: "circle", centerX: 50, centerY: 50, radius: 10 },
+          },
+        ],
+      }),
+      targetWith(interaction, {
+        ...assessment,
+        correctPlacements: [assessment.correctPlacements[0], assessment.correctPlacements[0]],
+      }),
+      targetWith(interaction, {
+        ...assessment,
+        feedbackByMarkerId: { marker_00003: feedback },
+      }),
+      targetWith(interaction, { ...assessment, imageAspectRatio: null }),
+      targetWith(interaction, {
+        ...assessment,
+        correctPlacements: [
+          {
+            ...assessment.correctPlacements[0],
+            geometry: { kind: "circle", centerX: 25, centerY: 75, radius: 0 },
+          },
+          assessment.correctPlacements[1],
+        ],
+      }),
+      targetWith(interaction, {
+        kind: "spatial-hotspot",
+        gradingMode: "partial-credit",
+        correctHotspotIds: [],
+        feedbackByHotspotId: {},
+      }),
+    ];
+
+    for (const invalidTarget of invalidTargets) {
+      expect(AssessmentTargetContractSchema.safeParse(invalidTarget).success).toBe(false);
+    }
+  });
+
+  it("applies the spatial-placement aspect-ratio refinement at both answer-key boundaries", () => {
+    const invalidAnswerKey = {
+      kind: "spatial-placement" as const,
+      gradingMode: "partial-credit" as const,
+      imageAspectRatio: null,
+      correctPlacements: [
+        {
+          markerId: "marker_00001",
+          geometry: { kind: "circle" as const, centerX: 25, centerY: 75, radius: 8 },
+        },
+      ],
+      feedbackByMarkerId: {},
+    };
+    const directResult = SpatialPlacementAssessmentSchema.safeParse(invalidAnswerKey);
+    const unionResult = AssessmentAnswerKeySchema.safeParse(invalidAnswerKey);
+
+    expect(directResult.success).toBe(false);
+    expect(unionResult.success).toBe(false);
+    if (directResult.success || unionResult.success) {
+      throw new Error("Expected the spatial-placement aspect-ratio refinement to fail");
+    }
+    expect(unionResult.error.issues).toEqual(directResult.error.issues);
   });
 
   it("accepts every private answer variant with authored rich-text feedback", () => {
@@ -1028,6 +1171,19 @@ describe("assessment target contracts", () => {
         correctHotspotIds: ["hotsp_000001"],
         feedbackByHotspotId: { hotsp_000001: feedback },
         missFeedback: feedback,
+        summaryFeedback: feedback,
+      },
+      {
+        kind: "spatial-placement",
+        gradingMode: "partial-credit",
+        imageAspectRatio: 2,
+        correctPlacements: [
+          {
+            markerId: "marker_00001",
+            geometry: { kind: "circle", centerX: 25, centerY: 75, radius: 8 },
+          },
+        ],
+        feedbackByMarkerId: { marker_00001: feedback },
         summaryFeedback: feedback,
       },
     ];
@@ -1098,6 +1254,20 @@ describe("assessment target contracts", () => {
       gradingMode: "all-or-nothing",
       correctHotspotIds: [],
       feedbackByHotspotId: {},
+    });
+    expect(
+      AssessmentAnswerKeySchema.parse({
+        kind: "spatial-placement",
+        gradingMode: "partial-credit",
+        imageAspectRatio: null,
+        correctPlacements: [],
+      }),
+    ).toEqual({
+      kind: "spatial-placement",
+      gradingMode: "partial-credit",
+      imageAspectRatio: null,
+      correctPlacements: [],
+      feedbackByMarkerId: {},
     });
   });
 
@@ -1366,9 +1536,22 @@ describe("assessment answer reveal contracts", () => {
       missFeedback: feedback,
       summaryFeedback: feedback,
     },
+    {
+      kind: "spatial-placement",
+      gradingMode: "all-or-nothing",
+      imageAspectRatio: 2,
+      correctPlacements: [
+        {
+          markerId: "marker_00001",
+          geometry: { kind: "circle", centerX: 25, centerY: 75, radius: 8 },
+        },
+      ],
+      feedbackByMarkerId: { marker_00001: feedback },
+      summaryFeedback: feedback,
+    },
   ];
 
-  it("accepts all seven answer-bearing variants and their rich feedback", () => {
+  it("accepts all eight answer-bearing variants and their rich feedback", () => {
     for (const answerKey of answerKeys) {
       const reveal = AnswerRevealSchema.parse({ answerKey });
 
@@ -1396,6 +1579,12 @@ describe("assessment answer reveal contracts", () => {
         kind: "spatial-hotspot",
         gradingMode: "weighted",
         correctHotspotIds: ["hotsp_000001"],
+      },
+      {
+        kind: "spatial-placement",
+        gradingMode: "partial-credit",
+        imageAspectRatio: 2,
+        correctPlacements: [{ markerId: "marker_00001" }],
       },
     ];
 
@@ -1607,7 +1796,7 @@ describe("assessment group contracts", () => {
 });
 
 describe("assessment response value contracts", () => {
-  it("exports and accepts all seven provider-neutral response variants", () => {
+  it("exports and accepts all eight provider-neutral response variants", () => {
     const responses: Array<z.input<typeof AssessmentResponseValueSchema>> = [
       { kind: "single-select", optionId: "option_00002" },
       { kind: "multi-select", optionIds: ["option_00001", "option_00003"] },
@@ -1622,6 +1811,10 @@ describe("assessment response value contracts", () => {
         kind: "spatial-hotspot",
         selections: [{ hotspotId: "hotsp_000001", x: -0.25, y: 1.5 }],
       },
+      {
+        kind: "spatial-placement",
+        placements: [{ markerId: "marker_00001", x: 25, y: 75 }],
+      },
     ];
 
     expect(SingleSelectResponseSchema.parse(responses[0])).toEqual(responses[0]);
@@ -1631,6 +1824,7 @@ describe("assessment response value contracts", () => {
     expect(ClassifyResponseSchema.parse(responses[4])).toEqual(responses[4]);
     expect(FillBlanksResponseSchema.parse(responses[5])).toEqual(responses[5]);
     expect(SpatialHotspotResponseSchema.parse(responses[6])).toEqual(responses[6]);
+    expect(SpatialPlacementResponseSchema.parse(responses[7])).toEqual(responses[7]);
 
     for (const response of responses) {
       expect(AssessmentResponseValueSchema.parse(response)).toEqual(response);
@@ -1648,6 +1842,11 @@ describe("assessment response value contracts", () => {
       { kind: "fill-blanks", blanks: [{ blankId: "blank_000001", value: "" }] },
       { kind: "spatial-hotspot", selections: [] },
       { kind: "spatial-hotspot", selections: [{ hotspotId: null, x: -1, y: 2 }] },
+      { kind: "spatial-placement", placements: [] },
+      {
+        kind: "spatial-placement",
+        placements: [{ markerId: "marker_00001", x: 25, y: 75 }],
+      },
     ];
 
     for (const draft of drafts) {
@@ -1676,6 +1875,7 @@ describe("assessment response value contracts", () => {
       { kind: "classify", placements: [{ itemId: "item_0000001", categoryId: "" }] },
       { kind: "fill-blanks", blanks: [{ blankId: "   ", value: "" }] },
       { kind: "spatial-hotspot", selections: [{ hotspotId: "\t", x: 0, y: 0 }] },
+      { kind: "spatial-placement", placements: [{ markerId: "\t", x: 25, y: 75 }] },
     ];
 
     for (const response of responses) {
@@ -1692,6 +1892,7 @@ describe("assessment response value contracts", () => {
       { kind: "fill-blanks", blanks: [{ blankId: "blank_000001", value: null }] },
       { kind: "spatial-hotspot", selections: [{ hotspotId: null, x: 0 }] },
       { kind: "spatial-hotspot", selections: [{ hotspotId: null, x: "0", y: 0 }] },
+      { kind: "spatial-placement", placements: [{ markerId: "marker_00001", x: 25 }] },
     ];
 
     for (const response of responses) {
@@ -1721,6 +1922,31 @@ describe("assessment response value contracts", () => {
     ).toBe(true);
   });
 
+  it("requires bounded unique spatial-placement response entries", () => {
+    const placement = { markerId: "marker_00001", x: 25, y: 75 };
+
+    expect(
+      AssessmentResponseValueSchema.safeParse({
+        kind: "spatial-placement",
+        placements: [placement],
+      }).success,
+    ).toBe(true);
+    for (const placements of [
+      [placement, placement],
+      [{ ...placement, x: -1 }],
+      [{ ...placement, y: 101 }],
+      [{ ...placement, x: Number.NaN }],
+      [{ ...placement, y: Infinity }],
+    ]) {
+      expect(
+        AssessmentResponseValueSchema.safeParse({
+          kind: "spatial-placement",
+          placements,
+        }).success,
+      ).toBe(false);
+    }
+  });
+
   it("rejects raw block-local and unrelated top-level response fields", () => {
     const responses: Array<z.input<typeof AssessmentResponseValueSchema>> = [
       { kind: "single-select", optionId: "option_00001" },
@@ -1733,6 +1959,7 @@ describe("assessment response value contracts", () => {
       },
       { kind: "fill-blanks", blanks: [{ blankId: "blank_000001", value: "answer" }] },
       { kind: "spatial-hotspot", selections: [{ hotspotId: null, x: 0, y: 0 }] },
+      { kind: "spatial-placement", placements: [{ markerId: "marker_00001", x: 25, y: 75 }] },
     ];
 
     for (const response of responses) {
@@ -1777,6 +2004,10 @@ describe("assessment response value contracts", () => {
         kind: "spatial-hotspot",
         selections: [{ hotspotId: null, x: 0, y: 0, id: "click_000001" }],
       },
+      {
+        kind: "spatial-placement",
+        placements: [{ markerId: "marker_00001", x: 25, y: 75, correct: true }],
+      },
     ]) {
       expect(AssessmentResponseValueSchema.safeParse(response).success).toBe(false);
     }
@@ -1803,6 +2034,7 @@ describe("assessment response value contracts", () => {
       },
       { kind: "fill-blanks", blanks: [{ blankId: "blank_000001", value: "" }] },
       { kind: "spatial-hotspot", selections: [{ hotspotId: null, x: 0.4, y: 0.6 }] },
+      { kind: "spatial-placement", placements: [{ markerId: "marker_00001", x: 25, y: 75 }] },
     ];
 
     for (const response of responses) {

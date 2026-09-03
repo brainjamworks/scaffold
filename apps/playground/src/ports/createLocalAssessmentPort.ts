@@ -97,7 +97,9 @@ function gradeFromLocalDocument(
   args: AssessmentCheckRequest | AssessmentSubmitRequest,
 ): AssessmentResult {
   const entry = findLocalTarget(source, args);
-  if (!entry) return { isCorrect: false, score: { scaled: 0 }, feedback: null, items: {} };
+  if (!entry) {
+    throw new Error(`local assessment target not found: ${args.targetId}`);
+  }
   return toAssessmentResult(gradeAssessment(entry, args.response));
 }
 
@@ -122,7 +124,9 @@ function gradeQuizResponse(
   response: AssessmentResponseValue,
 ): AssessmentResult {
   const target = targetById(source, targetId);
-  if (!target) return { isCorrect: false, score: { scaled: 0 }, feedback: null, items: {} };
+  if (!target) {
+    throw new Error(`local assessment target not found: ${targetId}`);
+  }
   return toAssessmentResult(gradeAssessment(target, response));
 }
 

@@ -1,5 +1,5 @@
 {
-  "$comment": "This bundle is generated from the strict version 2 Zod assessment contracts. Full canonical Score validation requires the declared x-scaffold-semantic score-v1 extension; standalone Draft-07 validation enforces structure and safe-integer bounds but cannot compare raw, min, and max. Numeric validation begins after host JSON decoding and uses the decoded value, not its original lexical spelling.",
+  "$comment": "This bundle is generated from the strict version 2 Zod assessment contracts. Full canonical Score and spatial-placement graph validation requires the declared x-scaffold-semantic extensions; standalone Draft-07 validation cannot express their cross-field and cross-record invariants. Numeric validation begins after host JSON decoding and uses the decoded value, not its original lexical spelling.",
   "$id": "https://scaffold.ac/schemas/assessment.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
@@ -319,6 +319,89 @@
               },
               "required": ["kind", "gradingMode", "correctHotspotIds"],
               "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "correctPlacements": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "geometry": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "centerX": {
+                            "maximum": 100,
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          "centerY": {
+                            "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/7/properties/correctPlacements/items/properties/geometry/properties/centerX"
+                          },
+                          "kind": {
+                            "const": "circle",
+                            "type": "string"
+                          },
+                          "radius": {
+                            "exclusiveMinimum": 0,
+                            "type": "number"
+                          }
+                        },
+                        "required": ["kind", "centerX", "centerY", "radius"],
+                        "type": "object"
+                      },
+                      "markerId": {
+                        "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/6/properties/correctHotspotIds/items"
+                      }
+                    },
+                    "required": ["markerId", "geometry"],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "feedbackByMarkerId": {
+                  "additionalProperties": {
+                    "$ref": "#/definitions/AssessmentFeedbackContent"
+                  },
+                  "default": {},
+                  "propertyNames": {
+                    "pattern": "^[0-9A-Z_a-z-]{12}$"
+                  },
+                  "type": "object"
+                },
+                "gradingMode": {
+                  "enum": ["partial-credit", "all-or-nothing"],
+                  "type": "string"
+                },
+                "imageAspectRatio": {
+                  "anyOf": [
+                    {
+                      "exclusiveMinimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "kind": {
+                  "const": "spatial-placement",
+                  "type": "string"
+                },
+                "summaryFeedback": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/AssessmentFeedbackContent"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["kind", "gradingMode", "imageAspectRatio", "correctPlacements"],
+              "type": "object",
+              "x-scaffold-semantic": "spatial-placement-v1"
             }
           ]
         }
@@ -860,6 +943,37 @@
           },
           "required": ["kind", "selections"],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "spatial-placement",
+              "type": "string"
+            },
+            "placements": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "markerId": {
+                    "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/6/properties/correctHotspotIds/items"
+                  },
+                  "x": {
+                    "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/7/properties/correctPlacements/items/properties/geometry/properties/centerX"
+                  },
+                  "y": {
+                    "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/7/properties/correctPlacements/items/properties/geometry/properties/centerX"
+                  }
+                },
+                "required": ["x", "y", "markerId"],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": ["kind", "placements"],
+          "type": "object",
+          "x-scaffold-semantic": "spatial-placement-v1"
         }
       ]
     },
@@ -1369,6 +1483,68 @@
             "assessment"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "assessment": {
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/7"
+            },
+            "blockId": {
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
+            },
+            "blockType": {
+              "$ref": "#/definitions/AssessmentLearnerSnapshot/properties/artifactId"
+            },
+            "interaction": {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "spatial-placement",
+                  "type": "string"
+                },
+                "markers": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/6/properties/correctHotspotIds/items"
+                      },
+                      "label": {
+                        "pattern": "\\S",
+                        "type": "string"
+                      }
+                    },
+                    "required": ["id", "label"],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": ["kind", "markers"],
+              "type": "object"
+            },
+            "schemaVersion": {
+              "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/schemaVersion"
+            },
+            "settings": {
+              "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/settings"
+            },
+            "targetId": {
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "targetId",
+            "blockId",
+            "blockType",
+            "settings",
+            "interaction",
+            "assessment"
+          ],
+          "type": "object",
+          "x-scaffold-semantic": "spatial-placement-v1"
         }
       ]
     },
@@ -1783,5 +1959,5 @@
     }
   },
   "title": "Scaffold assessment contracts",
-  "x-scaffold-semantics": ["score-v1"]
+  "x-scaffold-semantics": ["score-v1", "spatial-placement-v1"]
 }

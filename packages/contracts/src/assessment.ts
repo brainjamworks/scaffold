@@ -1,6 +1,13 @@
 import { z } from "zod";
 
 import { AssessmentFeedbackContentSchema } from "./assessment-feedback";
+import {
+  refineSpatialPlacementAssessment,
+  SpatialPlacementAssessmentSchema,
+  SpatialPlacementAssessmentUnionMemberSchema,
+  SpatialPlacementInteractionSchema,
+  SpatialPlacementResponseSchema,
+} from "./drag-drop";
 import { EmbeddedDataIdSchema, EmbeddedNodeIdSchema, type EmbeddedId } from "./embedded-id";
 
 export const SCAFFOLD_ASSESSMENT_CONTRACT_VERSION = 2;
@@ -46,6 +53,7 @@ export const AssessmentInteractionKindSchema = z.enum([
   "classify",
   "fill-blanks",
   "spatial-hotspot",
+  "spatial-placement",
 ]);
 export type AssessmentInteractionKind = z.infer<typeof AssessmentInteractionKindSchema>;
 
@@ -128,6 +136,7 @@ const AssessmentInteractionContractValueSchema = z.discriminatedUnion("kind", [
   ClassifyInteractionSchema,
   FillBlanksInteractionSchema,
   SpatialHotspotInteractionSchema,
+  SpatialPlacementInteractionSchema,
 ]);
 export const AssessmentInteractionContractSchema: z.ZodType<
   StructuralAssessmentIds<z.infer<typeof AssessmentInteractionContractValueSchema>>,
@@ -245,15 +254,22 @@ export const SpatialHotspotAssessmentSchema = z
   .strict();
 export type SpatialHotspotAssessment = z.infer<typeof SpatialHotspotAssessmentSchema>;
 
-const AssessmentAnswerKeyValueSchema = z.discriminatedUnion("kind", [
-  SingleSelectAssessmentSchema,
-  MultiSelectAssessmentSchema,
-  SequenceAssessmentSchema,
-  MatchAssessmentSchema,
-  ClassifyAssessmentSchema,
-  FillBlanksAssessmentSchema,
-  SpatialHotspotAssessmentSchema,
-]);
+const AssessmentAnswerKeyValueSchema = z
+  .discriminatedUnion("kind", [
+    SingleSelectAssessmentSchema,
+    MultiSelectAssessmentSchema,
+    SequenceAssessmentSchema,
+    MatchAssessmentSchema,
+    ClassifyAssessmentSchema,
+    FillBlanksAssessmentSchema,
+    SpatialHotspotAssessmentSchema,
+    SpatialPlacementAssessmentUnionMemberSchema,
+  ])
+  .superRefine((assessment, context) => {
+    if (assessment.kind === "spatial-placement") {
+      refineSpatialPlacementAssessment(assessment, context);
+    }
+  });
 export const AssessmentAnswerKeySchema: z.ZodType<
   StructuralAssessmentIds<z.infer<typeof AssessmentAnswerKeyValueSchema>>,
   z.ZodTypeDef,
@@ -324,6 +340,10 @@ const AssessmentTargetContractVariantSchema = z.union([
   AssessmentTargetContractBaseSchema.extend({
     interaction: SpatialHotspotInteractionSchema,
     assessment: SpatialHotspotAssessmentSchema,
+  }).strict(),
+  AssessmentTargetContractBaseSchema.extend({
+    interaction: SpatialPlacementInteractionSchema,
+    assessment: SpatialPlacementAssessmentSchema,
   }).strict(),
 ]);
 
@@ -584,6 +604,51 @@ const AssessmentTargetContractValueSchema = AssessmentTargetContractVariantSchem
         );
         break;
       }
+      case "spatial-placement": {
+        if (target.assessment.kind !== "spatial-placement") return;
+        const markerIds = target.interaction.markers.map((marker) => marker.id);
+        const owners = new Set<string>(markerIds);
+        const correctMarkerIds = target.assessment.correctPlacements.map(
+          (placement) => placement.markerId,
+        );
+        const correctOwners = new Set<string>(correctMarkerIds);
+        addDuplicateIdentityIssue(markerIds, context, ["interaction", "markers"], "Marker IDs");
+        addDuplicateIdentityIssue(
+          correctMarkerIds,
+          context,
+          ["assessment", "correctPlacements"],
+          "Correct-placement marker IDs",
+        );
+        addDanglingReferenceIssues(
+          owners,
+          correctMarkerIds,
+          context,
+          ["assessment", "correctPlacements"],
+          "Correct-placement marker IDs",
+        );
+        if (markerIds.some((markerId) => !correctOwners.has(markerId))) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["assessment", "correctPlacements"],
+            message: "Correct placements must cover every interaction marker",
+          });
+        }
+        addDanglingReferenceIssues(
+          owners,
+          Object.keys(target.assessment.feedbackByMarkerId),
+          context,
+          ["assessment", "feedbackByMarkerId"],
+          "Marker feedback keys",
+        );
+        if (markerIds.length > 0 && target.assessment.imageAspectRatio === null) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["assessment", "imageAspectRatio"],
+            message: "Image aspect ratio is required when an interaction marker exists",
+          });
+        }
+        break;
+      }
     }
   },
 );
@@ -741,6 +806,7 @@ const AssessmentResponseValueContractSchema = z.discriminatedUnion("kind", [
   ClassifyResponseSchema,
   FillBlanksResponseSchema,
   SpatialHotspotResponseSchema,
+  SpatialPlacementResponseSchema,
 ]);
 export const AssessmentResponseValueSchema: z.ZodType<
   StructuralAssessmentIds<z.infer<typeof AssessmentResponseValueContractSchema>>,

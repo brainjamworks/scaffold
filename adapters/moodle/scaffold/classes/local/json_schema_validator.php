@@ -33,6 +33,8 @@ class json_schema_validator {
     private const SCORE_SEMANTIC_KEYWORD = 'x-scaffold-semantic';
     /** Supported canonical Score semantic version. */
     private const SCORE_SEMANTIC_VERSION = 'score-v1';
+    /** Supported spatial-placement graph semantic version. */
+    private const SPATIAL_PLACEMENT_SEMANTIC_VERSION = 'spatial-placement-v1';
     /** Smallest integer represented exactly by every supported JSON number runtime. */
     private const MIN_SAFE_INTEGER = -9007199254740991;
     /** Largest integer represented exactly by every supported JSON number runtime. */
@@ -281,7 +283,14 @@ class json_schema_validator {
                     'JSON schema semantic markers must be declared on an applicable child schema',
                 );
             }
-            if (!is_string($constraint) || $constraint !== self::SCORE_SEMANTIC_VERSION) {
+            if (
+                !is_string($constraint)
+                || !in_array(
+                    $constraint,
+                    [self::SCORE_SEMANTIC_VERSION, self::SPATIAL_PLACEMENT_SEMANTIC_VERSION],
+                    true,
+                )
+            ) {
                 throw new \invalid_parameter_exception($path . ' declares an unsupported JSON schema semantic');
             }
             if (!isset($this->declaredsemantics[$constraint])) {
@@ -544,8 +553,98 @@ class json_schema_validator {
             $this->validate_score_contract($value, $path);
             return;
         }
+        if ($semantic === self::SPATIAL_PLACEMENT_SEMANTIC_VERSION) {
+            $this->validate_spatial_placement_contract($value, $path);
+            return;
+        }
 
         throw new \invalid_parameter_exception('Unsupported JSON schema semantic: ' . $semantic);
+    }
+
+    /**
+     * Validates cross-record spatial-placement invariants omitted by Draft-07.
+     *
+     * @param mixed $value Value.
+     * @param string $path Value path.
+     */
+    private function validate_spatial_placement_contract(mixed $value, string $path): void {
+        $properties = $this->object_properties($value);
+        if ($properties === null) {
+            throw new \invalid_parameter_exception($path . ' must be a spatial-placement contract');
+        }
+
+        if (array_key_exists('interaction', $properties)) {
+            $interaction = $this->object_properties($properties['interaction']);
+            $assessment = $this->object_properties($properties['assessment']);
+            $markerids = array_map(
+                fn($marker) => $this->object_properties($marker)['id'],
+                $interaction['markers'],
+            );
+            $answerids = array_map(
+                fn($placement) => $this->object_properties($placement)['markerId'],
+                $assessment['correctPlacements'],
+            );
+            if (count($markerids) !== count(array_unique($markerids))) {
+                throw new \invalid_parameter_exception($path . '.interaction.markers must use unique marker ids');
+            }
+            if (count($answerids) !== count(array_unique($answerids))) {
+                throw new \invalid_parameter_exception(
+                    $path . '.assessment.correctPlacements must use unique marker ids',
+                );
+            }
+            $sortedmarkerids = $markerids;
+            $sortedanswerids = $answerids;
+            sort($sortedmarkerids);
+            sort($sortedanswerids);
+            if ($sortedmarkerids !== $sortedanswerids) {
+                throw new \invalid_parameter_exception(
+                    $path . ' assessment must cover every current marker exactly once',
+                );
+            }
+            if ($markerids !== [] && $assessment['imageAspectRatio'] === null) {
+                throw new \invalid_parameter_exception(
+                    $path . '.assessment.imageAspectRatio is required for current markers',
+                );
+            }
+            $feedback = $this->object_properties($assessment['feedbackByMarkerId'] ?? new \stdClass()) ?? [];
+            foreach (array_keys($feedback) as $markerid) {
+                if (!in_array($markerid, $markerids, true)) {
+                    throw new \invalid_parameter_exception(
+                        $path . '.assessment.feedbackByMarkerId references an unknown marker',
+                    );
+                }
+            }
+            return;
+        }
+
+        if (array_key_exists('correctPlacements', $properties)) {
+            $markerids = array_map(
+                fn($placement) => $this->object_properties($placement)['markerId'],
+                $properties['correctPlacements'],
+            );
+            if (count($markerids) !== count(array_unique($markerids))) {
+                throw new \invalid_parameter_exception($path . '.correctPlacements must use unique marker ids');
+            }
+            if ($markerids !== [] && $properties['imageAspectRatio'] === null) {
+                throw new \invalid_parameter_exception(
+                    $path . '.imageAspectRatio is required for correct placements',
+                );
+            }
+            return;
+        }
+
+        if (array_key_exists('placements', $properties)) {
+            $markerids = array_map(
+                fn($placement) => $this->object_properties($placement)['markerId'],
+                $properties['placements'],
+            );
+            if (count($markerids) !== count(array_unique($markerids))) {
+                throw new \invalid_parameter_exception($path . '.placements must use unique marker ids');
+            }
+            return;
+        }
+
+        throw new \invalid_parameter_exception($path . ' must be a spatial-placement contract');
     }
 
     /**
@@ -567,7 +666,11 @@ class json_schema_validator {
         foreach ($manifest as $semantic) {
             if (
                 !is_string($semantic)
-                || $semantic !== self::SCORE_SEMANTIC_VERSION
+                || !in_array(
+                    $semantic,
+                    [self::SCORE_SEMANTIC_VERSION, self::SPATIAL_PLACEMENT_SEMANTIC_VERSION],
+                    true,
+                )
                 || isset($declared[$semantic])
             ) {
                 throw new \invalid_parameter_exception('JSON schema semantic manifest is malformed or unsupported');

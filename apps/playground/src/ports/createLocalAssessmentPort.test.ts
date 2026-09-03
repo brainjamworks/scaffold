@@ -55,6 +55,20 @@ describe("createLocalAssessmentPort quiz runtime", () => {
     ).rejects.toThrow();
   });
 
+  it("rejects standalone grading when the projected target is missing", async () => {
+    const port = createLocalAssessmentPortFromProjection(() => quizAssessmentProjection());
+
+    await expect(
+      port.check!({
+        problemId: `artifact:${LOCAL_ARTIFACT_ID}/block:target_99999`,
+        targetId: "target_99999",
+        interactionKind: "single-select",
+        response: { kind: "single-select", optionId: OPTION_ONE_ID },
+        expectedAttemptNumber: 0,
+      }),
+    ).rejects.toThrow("local assessment target not found: target_99999");
+  });
+
   it("returns exact canonical zero, partial, and full standalone results", async () => {
     const port = createLocalAssessmentPortFromProjection(() => ({
       assessmentGroups: [],
@@ -204,6 +218,25 @@ describe("createLocalAssessmentPort quiz runtime", () => {
         },
       },
     });
+  });
+
+  it("rejects quiz grading when a grouped target is absent from the projection", async () => {
+    const projection = quizAssessmentProjection();
+    projection.assessmentTargets = projection.assessmentTargets.filter(
+      (target) => target.targetId !== QUIZ_TARGET_ONE_ID,
+    );
+    const port = createLocalAssessmentPortFromProjection(projectionSource(projection));
+    const started = await port.quiz?.startAttempt({ groupId: RUNTIME_QUIZ_GROUP_ID });
+
+    await expect(
+      port.quiz?.finishAttempt({
+        attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
+        groupId: RUNTIME_QUIZ_GROUP_ID,
+        responsesByTargetId: {
+          [QUIZ_TARGET_ONE_ID]: { kind: "single-select", optionId: OPTION_ONE_ID },
+        },
+      }),
+    ).rejects.toThrow(`local assessment target not found: ${QUIZ_TARGET_ONE_ID}`);
   });
 
   it("passes an after-quiz attempt at the exact passing score", async () => {

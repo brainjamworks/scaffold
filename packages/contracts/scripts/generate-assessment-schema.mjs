@@ -25,8 +25,9 @@ const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const generatedPath = resolve(packageRoot, "generated/assessment.schema.json");
 const packagedPath = resolve(packageRoot, "dist/schemas/assessment.schema.json");
 const semanticManifestKeyword = "x-scaffold-semantics";
-const scoreSemanticKeyword = "x-scaffold-semantic";
+const semanticKeyword = "x-scaffold-semantic";
 const scoreSemanticVersion = "score-v1";
+const spatialPlacementSemanticVersion = "spatial-placement-v1";
 
 const definitions = {
   AnswerReveal: AnswerRevealSchema,
@@ -113,16 +114,32 @@ function generateSchema() {
   if (scoreDefinition === null || typeof scoreDefinition !== "object") {
     throw new Error("Generated assessment schema is missing the canonical Score definition.");
   }
-  scoreDefinition[scoreSemanticKeyword] = scoreSemanticVersion;
+  scoreDefinition[semanticKeyword] = scoreSemanticVersion;
+
+  const spatialSchemas = [
+    converted.definitions?.AssessmentTargetContract?.anyOf?.find(
+      (branch) => branch?.properties?.interaction?.properties?.kind?.const === "spatial-placement",
+    ),
+    converted.definitions?.AssessmentResponseValue?.anyOf?.find(
+      (branch) => branch?.properties?.kind?.const === "spatial-placement",
+    ),
+    converted.definitions?.AnswerReveal?.properties?.answerKey?.anyOf?.find(
+      (branch) => branch?.properties?.kind?.const === "spatial-placement",
+    ),
+  ];
+  if (spatialSchemas.some((schema) => schema === undefined)) {
+    throw new Error("Generated assessment schema is missing a spatial-placement contract branch.");
+  }
+  for (const schema of spatialSchemas) schema[semanticKeyword] = spatialPlacementSemanticVersion;
 
   return sortJson({
     $schema: "http://json-schema.org/draft-07/schema#",
     $id: "https://scaffold.ac/schemas/assessment.schema.json",
     title: "Scaffold assessment contracts",
     $comment:
-      "This bundle is generated from the strict version 2 Zod assessment contracts. Full canonical Score validation requires the declared x-scaffold-semantic score-v1 extension; standalone Draft-07 validation enforces structure and safe-integer bounds but cannot compare raw, min, and max. Numeric validation begins after host JSON decoding and uses the decoded value, not its original lexical spelling.",
+      "This bundle is generated from the strict version 2 Zod assessment contracts. Full canonical Score and spatial-placement graph validation requires the declared x-scaffold-semantic extensions; standalone Draft-07 validation cannot express their cross-field and cross-record invariants. Numeric validation begins after host JSON decoding and uses the decoded value, not its original lexical spelling.",
     definitions: converted.definitions,
-    [semanticManifestKeyword]: [scoreSemanticVersion],
+    [semanticManifestKeyword]: [scoreSemanticVersion, spatialPlacementSemanticVersion],
   });
 }
 

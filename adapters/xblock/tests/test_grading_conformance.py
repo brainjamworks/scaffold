@@ -5,6 +5,7 @@ import subprocess
 import sys
 import types
 import unittest
+from copy import deepcopy
 from pathlib import Path
 
 from adapters.xblock.tests.artifact_test_support import copied_artifact_workspace
@@ -31,6 +32,16 @@ def load_scaffold_module(module_name):
     return importlib.import_module("scaffold_xblock.%s" % module_name)
 
 
+def spatial_placement_case():
+    corpus = json.loads(VENDORED_CORPUS.read_text(encoding="utf-8"))
+    case = next(
+        case
+        for case in corpus["cases"]
+        if case["id"] == "spatial-placement-partial-credit-fully-correct"
+    )
+    return deepcopy(case["target"]), deepcopy(case["response"])
+
+
 class GradingConformanceTest(unittest.TestCase):
     def test_every_vendored_corpus_case_matches_the_native_grader(self):
         validation_package = load_scaffold_module("validation")
@@ -42,13 +53,89 @@ class GradingConformanceTest(unittest.TestCase):
         )
         corpus = json.loads(corpus_text)
 
-        self.assertEqual(len(corpus["cases"]), 21)
+        self.assertEqual(len(corpus["cases"]), 33)
         for case in corpus["cases"]:
             with self.subTest(case=case["id"]):
                 self.assertEqual(
                     grading.grade_assessment(case["target"], case["response"]),
                     case["expected"],
                 )
+
+
+class SpatialPlacementDefectTest(unittest.TestCase):
+    def test_omitted_marker_feedback_uses_the_contract_default(self):
+        grading = load_scaffold_module("grading")
+        target, response = spatial_placement_case()
+        expected = grading.grade_assessment(target, response)
+        del target["assessment"]["feedbackByMarkerId"]
+
+        self.assertEqual(grading.grade_assessment(target, response), expected)
+
+    def test_unknown_response_marker_remains_observable(self):
+        grading = load_scaffold_module("grading")
+        target, response = spatial_placement_case()
+        response["placements"][0]["markerId"] = "marker_99999"
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "spatial-placement response references unknown marker: marker_99999",
+        ):
+            grading.grade_assessment(target, response)
+
+    def test_duplicate_response_marker_remains_observable(self):
+        grading = load_scaffold_module("grading")
+        target, response = spatial_placement_case()
+        response["placements"][1]["markerId"] = response["placements"][0]["markerId"]
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "duplicate spatial-placement response marker id: marker_00001",
+        ):
+            grading.grade_assessment(target, response)
+
+    def test_mismatched_interaction_kind_remains_observable(self):
+        grading = load_scaffold_module("grading")
+        target, response = spatial_placement_case()
+        target["interaction"]["kind"] = "spatial-hotspot"
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "spatial-placement interaction kind must match assessment: spatial-hotspot",
+        ):
+            grading.grade_assessment(target, response)
+
+    def test_malformed_answer_graph_remains_observable(self):
+        grading = load_scaffold_module("grading")
+        target, response = spatial_placement_case()
+        target["assessment"]["correctPlacements"].pop()
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "spatial-placement answer is missing marker: marker_00002",
+        ):
+            grading.grade_assessment(target, response)
+
+    def test_malformed_circle_geometry_remains_observable(self):
+        grading = load_scaffold_module("grading")
+        target, response = spatial_placement_case()
+        target["assessment"]["correctPlacements"][0]["geometry"]["kind"] = "square"
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "spatial-placement answer geometry must be a circle: marker_00001",
+        ):
+            grading.grade_assessment(target, response)
+
+    def test_missing_required_aspect_ratio_remains_observable(self):
+        grading = load_scaffold_module("grading")
+        target, response = spatial_placement_case()
+        target["assessment"]["imageAspectRatio"] = None
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "spatial-placement image aspect ratio must be finite and positive",
+        ):
+            grading.grade_assessment(target, response)
 
 
 class GradingCorpusArtifactTest(unittest.TestCase):

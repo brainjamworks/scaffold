@@ -33,6 +33,50 @@ use mod_scaffold\local\json_schema_validator;
  * @covers \mod_scaffold\local\json_schema_validator
  */
 final class assessment_contract_test extends \advanced_testcase {
+    public function test_spatial_placement_semantics_reject_malformed_portable_graphs(): void {
+        $fixture = $this->decode(
+            file_get_contents(__DIR__ . '/fixtures/assessment-grading.json'),
+        );
+        $case = null;
+        foreach ($fixture->cases as $candidate) {
+            if ($candidate->id === 'spatial-placement-partial-credit-fully-correct') {
+                $case = $candidate;
+                break;
+            }
+        }
+        $this->assertNotNull($case);
+        $validator = new json_schema_validator();
+
+        $duplicatemarkers = $this->copy($case->target);
+        $duplicatemarkers->interaction->markers[1]->id = $duplicatemarkers->interaction->markers[0]->id;
+        $missinganswer = $this->copy($case->target);
+        array_pop($missinganswer->assessment->correctPlacements);
+        $missingaspect = $this->copy($case->target);
+        $missingaspect->assessment->imageAspectRatio = null;
+        $danglingfeedback = $this->copy($case->target);
+        $danglingfeedback->assessment->feedbackByMarkerId->{'marker_99999'} = $this->decode(
+            '{"kind":"rich-text","document":{"type":"doc","content":[]}}',
+        );
+        $blanklabel = $this->copy($case->target);
+        $blanklabel->interaction->markers[0]->label = '   ';
+        $duplicateresponse = $this->copy($case->response);
+        $duplicateresponse->placements[1]->markerId = $duplicateresponse->placements[0]->markerId;
+        $invalidreveal = (object) ['answerKey' => $this->copy($case->target->assessment)];
+        $invalidreveal->answerKey->imageAspectRatio = null;
+
+        foreach ([
+            ['AssessmentTargetContract', $duplicatemarkers],
+            ['AssessmentTargetContract', $missinganswer],
+            ['AssessmentTargetContract', $missingaspect],
+            ['AssessmentTargetContract', $danglingfeedback],
+            ['AssessmentTargetContract', $blanklabel],
+            ['AssessmentResponseValue', $duplicateresponse],
+            ['AnswerReveal', $invalidreveal],
+        ] as [$definition, $value]) {
+            $this->assert_contract_rejected($definition, $value, $validator);
+        }
+    }
+
     public function test_score_boundary_accepts_only_the_canonical_shapes(): void {
         $validator = new json_schema_validator();
         foreach ([
@@ -100,7 +144,7 @@ final class assessment_contract_test extends \advanced_testcase {
         $schema = $this->decode(
             file_get_contents(dirname(__DIR__) . '/schemas/assessment.schema.json'),
         );
-        $schema->{'x-scaffold-semantics'} = ['score-v1'];
+        $schema->{'x-scaffold-semantics'} = ['score-v1', 'spatial-placement-v1'];
         $schema->definitions->CanonicalScore = $schema->definitions->Score;
         unset($schema->definitions->Score);
         $this->replace_refs($schema, '#/definitions/Score', '#/definitions/CanonicalScore');

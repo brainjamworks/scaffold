@@ -1,3 +1,4 @@
+from math import hypot, isfinite
 from urllib.parse import unquote
 
 
@@ -118,6 +119,8 @@ def grade_assessment(target, response):
         return grade_fill_blanks_target(assessment, response)
     if kind == "spatial-hotspot":
         return grade_hotspot_target(interaction, assessment, response)
+    if kind == "spatial-placement":
+        return grade_spatial_placement_target(interaction, assessment, response)
     return empty_grade_result()
 
 
@@ -383,3 +386,164 @@ def grade_hotspot_target(interaction, assessment, response):
         "feedback": summary_feedback(assessment),
         "items": items,
     }
+
+
+def grade_spatial_placement_target(interaction, assessment, response):
+    if interaction.get("kind") != "spatial-placement":
+        raise ValueError(
+            "spatial-placement interaction kind must match assessment: %s"
+            % interaction.get("kind")
+        )
+
+    markers = spatial_object_list(interaction.get("markers"), "interaction markers")
+    marker_ids = []
+    marker_id_set = set()
+    for marker in markers:
+        marker_id = spatial_marker_id(marker.get("id"), "interaction marker")
+        if marker_id in marker_id_set:
+            raise ValueError(
+                "duplicate spatial-placement interaction marker id: %s" % marker_id
+            )
+        marker_ids.append(marker_id)
+        marker_id_set.add(marker_id)
+
+    correct_placements = spatial_object_list(
+        assessment.get("correctPlacements"),
+        "correct placements",
+    )
+    correct_by_marker_id = {}
+    for placement in correct_placements:
+        marker_id = spatial_marker_id(
+            placement.get("markerId"),
+            "correct-placement marker",
+        )
+        if marker_id in correct_by_marker_id:
+            raise ValueError(
+                "duplicate spatial-placement correct-placement marker id: %s"
+                % marker_id
+            )
+        if marker_id not in marker_id_set:
+            raise ValueError(
+                "spatial-placement answer references unknown marker: %s" % marker_id
+            )
+        correct_by_marker_id[marker_id] = placement
+    for marker_id in marker_ids:
+        if marker_id not in correct_by_marker_id:
+            raise ValueError(
+                "spatial-placement answer is missing marker: %s" % marker_id
+            )
+
+    feedback = assessment.get("feedbackByMarkerId", {})
+    if not isinstance(feedback, dict):
+        raise ValueError("spatial-placement marker feedback must be an object")
+    for marker_id in feedback:
+        if marker_id not in marker_id_set:
+            raise ValueError(
+                "spatial-placement feedback references unknown marker: %s" % marker_id
+            )
+
+    given_by_marker_id = {}
+    placements = spatial_object_list(response.get("placements"), "response placements")
+    for placement in placements:
+        marker_id = spatial_marker_id(placement.get("markerId"), "response marker")
+        if marker_id not in marker_id_set:
+            raise ValueError(
+                "spatial-placement response references unknown marker: %s" % marker_id
+            )
+        if marker_id in given_by_marker_id:
+            raise ValueError(
+                "duplicate spatial-placement response marker id: %s" % marker_id
+            )
+        assert_spatial_coordinate(placement.get("x"), "response marker %s x" % marker_id)
+        assert_spatial_coordinate(placement.get("y"), "response marker %s y" % marker_id)
+        given_by_marker_id[marker_id] = placement
+
+    aspect_ratio = assessment.get("imageAspectRatio")
+    if aspect_ratio is not None and not spatial_positive_number(aspect_ratio):
+        raise ValueError(
+            "spatial-placement image aspect ratio must be finite and positive"
+        )
+    grading_mode = assessment.get("gradingMode")
+    if grading_mode not in ("partial-credit", "all-or-nothing"):
+        raise ValueError(
+            "unsupported spatial-placement grading mode: %s" % grading_mode
+        )
+
+    if not marker_ids:
+        return empty_grade_result(summary_feedback(assessment))
+    if aspect_ratio is None:
+        raise ValueError(
+            "spatial-placement image aspect ratio must be finite and positive"
+        )
+
+    items = {}
+    correct_count = 0
+    for marker_id in marker_ids:
+        geometry = correct_by_marker_id[marker_id].get("geometry")
+        assert_spatial_circle(geometry, marker_id)
+        learner = given_by_marker_id.get(marker_id)
+        correct = False
+        if learner is not None:
+            dx = learner["x"] - geometry["centerX"]
+            dy = (learner["y"] - geometry["centerY"]) / aspect_ratio
+            correct = hypot(dx, dy) <= geometry["radius"]
+        if correct:
+            correct_count += 1
+        item = {"correct": correct, "expected": True, "given": correct}
+        if marker_id in feedback:
+            item["feedback"] = feedback[marker_id]
+        items[marker_id] = item
+
+    total = len(marker_ids)
+    exact_all_correct = len(given_by_marker_id) == total and correct_count == total
+    return {
+        "isCorrect": exact_all_correct,
+        "score": count_score(1 if exact_all_correct else 0, 1)
+        if grading_mode == "all-or-nothing"
+        else count_score(correct_count, total),
+        "feedback": summary_feedback(assessment),
+        "items": items,
+    }
+
+
+def spatial_object_list(value, label):
+    if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+        raise ValueError("spatial-placement %s must be an array of objects" % label)
+    return value
+
+
+def spatial_marker_id(value, label):
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("spatial-placement %s id must be a non-empty string" % label)
+    return value
+
+
+def spatial_positive_number(value):
+    return type(value) in (int, float) and isfinite(value) and value > 0
+
+
+def assert_spatial_coordinate(value, label):
+    if type(value) not in (int, float) or not isfinite(value) or value < 0 or value > 100:
+        raise ValueError(
+            "spatial-placement %s must be finite and within 0..100" % label
+        )
+
+
+def assert_spatial_circle(circle, marker_id):
+    if not isinstance(circle, dict) or circle.get("kind") != "circle":
+        raise ValueError(
+            "spatial-placement answer geometry must be a circle: %s" % marker_id
+        )
+    assert_spatial_coordinate(
+        circle.get("centerX"),
+        "answer centerX for marker %s" % marker_id,
+    )
+    assert_spatial_coordinate(
+        circle.get("centerY"),
+        "answer centerY for marker %s" % marker_id,
+    )
+    if not spatial_positive_number(circle.get("radius")):
+        raise ValueError(
+            "spatial-placement answer radius must be finite and positive: %s"
+            % marker_id
+        )
