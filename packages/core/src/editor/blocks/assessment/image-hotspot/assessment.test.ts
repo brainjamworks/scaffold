@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { ZodError } from "zod";
 
-import { projectImageHotspotAssessment } from "./assessment";
+import { projectImageHotspotAssessment } from "@/editor/assessment/image-hotspot/assessment";
 
 describe("image-hotspot assessment projection", () => {
   it("rejects dangling assessment references against the complete authored payload", () => {

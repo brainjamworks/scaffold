@@ -4,7 +4,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useEffect, useRef } from "react";
 
 import { tryGetControlBindingRegistryForEditor } from "@/document/control-binding";
-import { createAssessmentControlBinding } from "@/editor/blocks/assessment/shared/runtime/assessment-control-binding";
+import { createAssessmentControlBinding } from "@/editor/assessment/shared/runtime/assessment-control-binding";
 import type { AssessmentProblemId, AssessmentStoreApi } from "@/runtime/assessment/types";
 
 interface UseAssessmentSurfaceControlBindingInput {

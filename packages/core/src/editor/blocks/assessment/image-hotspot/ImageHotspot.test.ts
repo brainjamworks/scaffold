@@ -53,7 +53,7 @@ import { AssessmentInstructionsNode } from "@/editor/blocks/assessment/shared/no
 import { AssessmentPromptNode } from "@/editor/blocks/assessment/shared/nodes/assessment-prompt";
 import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared/nodes/assessment-summary-feedback";
 import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import type { RichTextBubbleMenuProps } from "@/editor/shell/bubbles/rich-text/RichTextBubbleMenu";
@@ -74,8 +74,8 @@ import {
   describeImageHotspotMarkerAccessibilityState,
   describeImageHotspotRevealedHotspotAccessibilityState,
   describeImageHotspotSurfaceAccessibilityState,
-} from "./image-hotspot-canvas-runtime";
-import { patchHotspotInCanvasData } from "./image-hotspot-canvas-shared";
+} from "@/editor/assessment/image-hotspot/course-interaction";
+import { patchHotspotInCanvasData } from "@/editor/assessment/image-hotspot/image-hotspot-canvas-shared";
 import { ImageHotspotAuthoringExtension } from "./image-hotspot-authoring-extension";
 import { ImageHotspotRuntimeExtension } from "./image-hotspot-runtime-extension";
 

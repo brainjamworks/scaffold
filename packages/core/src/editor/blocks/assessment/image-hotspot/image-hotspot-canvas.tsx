@@ -89,7 +89,7 @@ import type { ImageBlockAttrs } from "@scaffold/contracts";
 import { iconMd, iconSm } from "@/ui/tokens/icon-sizes";
 import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
 
-import { ImageHotspotCanvasSurface } from "./image-hotspot-canvas-surface";
+import { ImageHotspotCanvasSurface } from "@/editor/assessment/image-hotspot/image-hotspot-canvas-surface";
 import {
   addImageHotspotChecked,
   patchImageHotspotChecked,
@@ -107,10 +107,10 @@ import {
   eventToPercent,
   findHitHotspot,
   patchHotspotInCanvasData,
-} from "./image-hotspot-canvas-shared";
+} from "@/editor/assessment/image-hotspot/image-hotspot-canvas-shared";
 import { ImageHotspotAuthoringWorkspace } from "./ImageHotspotAuthoringWorkspace";
 
-import "./ImageHotspot.css";
+import "@/editor/assessment/image-hotspot/ImageHotspot.css";
 
 function edgeSafeMarkerStyle(x: number, y: number) {
   return {

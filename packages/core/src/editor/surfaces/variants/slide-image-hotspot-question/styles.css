@@ -1,0 +1,93 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  [data-full-slide-question-family="image-hotspot"] [data-slot="assessment-prompt"] {
+    max-block-size: 7rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .sc-assessment-slide-surface-runtime-view
+    [data-full-slide-question-family="image-hotspot"]
+    [data-slot="assessment-prompt"][data-assessment-prompt-empty="true"] {
+    display: none;
+  }
+
+  [data-full-slide-question-family="image-hotspot"] [data-assessment-interaction-content] {
+    display: grid;
+    box-sizing: border-box;
+    block-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+    max-block-size: 100%;
+    overflow: hidden;
+    padding: clamp(0.75rem, 2cqw, 1.25rem) clamp(1rem, 5cqw, 3rem);
+  }
+
+  [data-full-slide-question-family="image-hotspot"] [data-surface-owned-image-hotspot-canvas] {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    min-inline-size: 0;
+    min-block-size: 0;
+  }
+
+  .sc-assessment-slide-surface-runtime-view
+    [data-full-slide-question-family="image-hotspot"]
+    [data-surface-owned-image-hotspot-canvas] {
+    display: none;
+  }
+
+  .sc-assessment-slide-surface-authoring-view
+    [data-full-slide-question-family="image-hotspot"]
+    [data-surface-owned-image-hotspot-canvas] {
+    display: grid;
+    block-size: 100%;
+    overflow: hidden;
+    padding: clamp(0.75rem, 2cqw, 1.25rem) clamp(1rem, 5cqw, 3rem);
+  }
+
+  .sc-course-image-hotspot-shell--full-slide,
+  .sc-course-image-hotspot-fit-stage[data-image-hotspot-presentation="full-slide"] {
+    block-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+    max-block-size: 100%;
+  }
+
+  .sc-course-image-hotspot-shell--full-slide {
+    position: relative;
+    display: grid;
+    overflow: hidden;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .sc-course-image-hotspot-fit-stage[data-image-hotspot-presentation="full-slide"] {
+    box-sizing: border-box;
+    grid-row: 1;
+    overflow: hidden;
+    padding: clamp(0.75rem, 2.5cqw, 1.5rem);
+  }
+
+  .sc-course-image-hotspot-shell--full-slide .sc-course-image-hotspot-canvas {
+    max-inline-size: 100%;
+    max-block-size: 100%;
+  }
+
+  .sc-course-image-hotspot-shell--full-slide .sc-course-image-hotspot-runtime-toolbar {
+    position: absolute;
+    z-index: 5;
+    inset-block-start: clamp(1rem, 3cqw, 1.75rem);
+    inset-inline-start: clamp(1rem, 3cqw, 1.75rem);
+    pointer-events: none;
+  }
+
+  .sc-assessment-slide-surface-authoring-view
+    [data-full-slide-question-family="image-hotspot"]
+    .sc-app-image-hotspot-empty {
+    align-self: center;
+    justify-self: center;
+    inline-size: min(100%, 28rem);
+  }
+}

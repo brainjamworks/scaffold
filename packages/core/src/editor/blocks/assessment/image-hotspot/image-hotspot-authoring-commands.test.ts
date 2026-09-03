@@ -28,7 +28,7 @@ import {
   setImageHotspotFeedbackChecked,
   toggleImageHotspotCorrectChecked,
 } from "./image-hotspot-authoring-commands";
-import { createImageHotspotCanvasNode } from "./image-hotspot-canvas-shared";
+import { createImageHotspotCanvasNode } from "@/editor/assessment/image-hotspot/image-hotspot-canvas-shared";
 import { createImageHotspotNode } from "./node";
 
 const canvasData: ImageHotspotCanvasData = ImageHotspotCanvasDataSchema.parse({

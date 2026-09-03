@@ -6,6 +6,16 @@ import {
 } from "@phosphor-icons/react";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
+import { categoriseConfiguration } from "@/editor/blocks/assessment/categorise/categorise-definition";
+import { dropdownConfiguration } from "@/editor/blocks/assessment/dropdown/dropdown-definition";
+import { dragDropConfiguration } from "@/editor/blocks/assessment/drag-drop/drag-drop-definition";
+import { fillBlanksConfiguration } from "@/editor/blocks/assessment/fill-blanks/fill-blanks-definition";
+import { slideImageHotspotQuestionSurfaceConfiguration } from "../variants/slide-image-hotspot-question/binding";
+import { matchingConfiguration } from "@/editor/blocks/assessment/matching/matching-definition";
+import { mcqConfiguration } from "@/editor/blocks/assessment/mcq/mcq-definition";
+import { multiselectConfiguration } from "@/editor/blocks/assessment/multiselect/multiselect-definition";
+import { quizConfiguration } from "@/editor/blocks/assessment/quiz/quiz-definition";
+import { sequencingConfiguration } from "@/editor/blocks/assessment/sequencing/sequencing-definition";
 import {
   DEFAULT_SLIDE_IMAGE_BAND_SURFACE_SETTINGS,
   SlideImageBandSurfaceSettingsSchema,
@@ -37,6 +47,7 @@ import {
   createSurfaceAuthoringViewMap,
   type SurfaceAuthoringViewBinding,
 } from "./surface-authoring-view-registry";
+import { defineAssessmentSurfaceConfiguration } from "./assessment-surface-configuration";
 import { PageDefaultSurfaceAuthoringView } from "./variants/page-default";
 import { SlideCompositionSurfaceAuthoringView } from "./variants/slide-composition";
 import { SlideCoverSurfaceAuthoringView } from "./variants/slide-cover";
@@ -45,11 +56,13 @@ import { SlideImageCoverSurfaceAuthoringView } from "./variants/slide-image-cove
 import { SlideModuleCoverSurfaceAuthoringView } from "./variants/slide-module-cover";
 import { SlideCategoriseQuestionSurfaceAuthoringView } from "./variants/assessment/slide-categorise-question";
 import { SlideDropdownQuestionSurfaceAuthoringView } from "./variants/assessment/slide-dropdown-question";
+import { SlideDragDropQuestionSurfaceAuthoringView } from "./variants/assessment/slide-drag-drop-question";
 import { SlideFillBlanksQuestionSurfaceAuthoringView } from "./variants/assessment/slide-fill-blanks-question";
 import { SlideMatchingQuestionSurfaceAuthoringView } from "./variants/assessment/slide-matching-question";
-import { SlideImageHotspotQuestionSurfaceAuthoringView } from "./variants/assessment/slide-image-hotspot-question";
+import { SlideImageHotspotQuestionSurfaceAuthoringView } from "../variants/slide-image-hotspot-question/authoring";
 import { SlideMultipleChoiceQuestionSurfaceAuthoringView } from "./variants/assessment/slide-multiple-choice-question";
 import { SlideMultiselectQuestionSurfaceAuthoringView } from "./variants/assessment/slide-multiselect-question";
+import { SlideQuizSurfaceAuthoringView } from "./variants/assessment/slide-quiz";
 import { SlideSequencingQuestionSurfaceAuthoringView } from "./variants/assessment/slide-sequencing-question";
 
 const SURFACE_SETTINGS_DRAFT_ID = EmbeddedNodeIdSchema.parse("settings0001");
@@ -375,68 +388,87 @@ const SPECIALISED_SURFACE_AUTHORING_VIEWS = [
   {
     variantId: "slide-categorise-question",
     component: SlideCategoriseQuestionSurfaceAuthoringView,
-    configuration: defineSurfaceSettingsConfiguration({
-      title: "Question slide settings",
-      description: "Configure presentation settings for this question slide.",
+    configuration: defineAssessmentSurfaceConfiguration({
+      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-categorise-question"),
+      questionConfiguration: categoriseConfiguration,
     }),
   },
   {
     variantId: "slide-sequencing-question",
     component: SlideSequencingQuestionSurfaceAuthoringView,
-    configuration: defineSurfaceSettingsConfiguration({
-      title: "Question slide settings",
-      description: "Configure presentation settings for this question slide.",
+    configuration: defineAssessmentSurfaceConfiguration({
+      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-sequencing-question"),
+      questionConfiguration: sequencingConfiguration,
     }),
   },
   {
     variantId: "slide-matching-question",
     component: SlideMatchingQuestionSurfaceAuthoringView,
-    configuration: defineSurfaceSettingsConfiguration({
-      title: "Question slide settings",
-      description: "Configure presentation settings for this question slide.",
+    configuration: defineAssessmentSurfaceConfiguration({
+      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-matching-question"),
+      questionConfiguration: matchingConfiguration,
     }),
   },
   {
     variantId: "slide-image-hotspot-question",
     component: SlideImageHotspotQuestionSurfaceAuthoringView,
-    configuration: defineSurfaceSettingsConfiguration({
-      title: "Question slide settings",
-      description: "Configure presentation settings for this question slide.",
-    }),
+    configuration: slideImageHotspotQuestionSurfaceConfiguration,
   },
   {
     variantId: "slide-multiple-choice-question",
     component: SlideMultipleChoiceQuestionSurfaceAuthoringView,
-    configuration: defineSurfaceSettingsConfiguration({
-      title: "Question slide settings",
-      description: "Configure presentation settings for this question slide.",
+    configuration: defineAssessmentSurfaceConfiguration({
+      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-multiple-choice-question"),
+      questionConfiguration: mcqConfiguration,
     }),
   },
   {
     variantId: "slide-multiselect-question",
     component: SlideMultiselectQuestionSurfaceAuthoringView,
-    configuration: defineSurfaceSettingsConfiguration({
-      title: "Question slide settings",
-      description: "Configure presentation settings for this question slide.",
+    configuration: defineAssessmentSurfaceConfiguration({
+      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-multiselect-question"),
+      questionConfiguration: multiselectConfiguration,
     }),
   },
   {
     variantId: "slide-dropdown-question",
     component: SlideDropdownQuestionSurfaceAuthoringView,
-    configuration: defineSurfaceSettingsConfiguration({
-      title: "Question slide settings",
-      description: "Configure presentation settings for this question slide.",
+    configuration: defineAssessmentSurfaceConfiguration({
+      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-dropdown-question"),
+      questionConfiguration: dropdownConfiguration,
+    }),
+  },
+  {
+    variantId: "slide-drag-drop-question",
+    component: SlideDragDropQuestionSurfaceAuthoringView,
+    configuration: defineAssessmentSurfaceConfiguration({
+      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-drag-drop-question"),
+      questionConfiguration: dragDropConfiguration,
     }),
   },
   {
     variantId: "slide-fill-blanks-question",
     component: SlideFillBlanksQuestionSurfaceAuthoringView,
-    configuration: defineSurfaceSettingsConfiguration({
-      title: "Question slide settings",
-      description: "Configure presentation settings for this question slide.",
+    configuration: defineAssessmentSurfaceConfiguration({
+      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-fill-blanks-question"),
+      questionConfiguration: fillBlanksConfiguration,
+    }),
+  },
+  {
+    variantId: "slide-quiz",
+    component: SlideQuizSurfaceAuthoringView,
+    configuration: defineAssessmentSurfaceConfiguration({
+      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-quiz"),
+      questionConfiguration: quizConfiguration,
     }),
   },
 ] as const satisfies readonly SurfaceAuthoringViewBinding[];
+
+function requireBuiltInSurfaceDefinition(variantId: string) {
+  const definition = builtInSurfaceVariantRegistry.get(variantId);
+  if (!definition) throw new Error(`Surface variant "${variantId}" is not registered.`);
+  return definition;
+}
 
 const SPECIALISED_SURFACE_AUTHORING_VIEWS_BY_ID: ReadonlyMap<string, SurfaceAuthoringViewBinding> =
   new Map(SPECIALISED_SURFACE_AUTHORING_VIEWS.map((binding) => [binding.variantId, binding]));

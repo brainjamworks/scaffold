@@ -14,7 +14,7 @@ import {
   type ImageHotspotPrivateAssessment,
 } from "@scaffold/contracts";
 
-import { IMAGE_HOTSPOT_CANVAS_NODE_TYPE } from "./image-hotspot-canvas-shared";
+import { IMAGE_HOTSPOT_CANVAS_NODE_TYPE } from "@/editor/assessment/image-hotspot/image-hotspot-canvas-shared";
 
 const IMAGE_HOTSPOT_NODE_TYPE = "image_hotspot";
 const SURFACE_IMAGE_HOTSPOT_QUESTION_NODE_TYPE = "surface_image_hotspot_question";

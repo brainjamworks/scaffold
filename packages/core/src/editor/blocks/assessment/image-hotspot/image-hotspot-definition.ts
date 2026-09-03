@@ -1,7 +1,7 @@
 import { TargetIcon as Target } from "@phosphor-icons/react";
 
 import { assessmentShellPlaceholders } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
-import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
+import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import type { ConfigurationControlDescriptor } from "@/editor/configuration/definition";
@@ -18,11 +18,11 @@ import {
   projectImageHotspotInteraction,
   projectImageHotspotLearnerNode,
   projectImageHotspotSettings,
-} from "./assessment";
+} from "@/editor/assessment/image-hotspot/assessment";
 
 export const IMAGE_HOTSPOT_INSERT_ACTION_ID = "image-hotspot";
 
-const imageHotspotConfiguration = createAssessmentConfiguration({
+export const imageHotspotConfiguration = createAssessmentConfiguration({
   schema: ImageHotspotSettingsSchema,
   title: "Image hotspot settings",
   defaultOpenSections: ["scoring"],
