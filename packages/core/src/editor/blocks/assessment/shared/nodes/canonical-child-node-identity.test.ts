@@ -15,7 +15,7 @@ import {
   createDropdownChoiceNode,
 } from "@/editor/blocks/assessment/dropdown/dropdown-choice-shared";
 import { createFillBlankNode } from "@/editor/blocks/assessment/fill-blanks/fill-blank-shared";
-import { createSequencingItemNode } from "@/editor/blocks/assessment/sequencing/sequencing-fields-shared";
+import { createSequencingItemNode } from "@/editor/assessment/sequencing/sequencing-fields-shared";
 import {
   SelectableChoiceBodyNode,
   createSelectableChoiceNode,

@@ -13,7 +13,7 @@ import {
   projectSequencingInteraction,
   projectSequencingLearnerNode,
   projectSequencingSettings,
-} from "@/editor/blocks/assessment/sequencing/assessment";
+} from "@/editor/assessment/sequencing/assessment";
 import {
   cloneJsonNodeWithoutContent,
   readAttrs,

@@ -14,7 +14,7 @@ import {
   projectSequencingInteraction,
   projectSequencingLearnerNode,
   projectSequencingSettings,
-} from "./assessment";
+} from "@/editor/assessment/sequencing/assessment";
 
 export const SEQUENCING_BLOCK_ID = "sequencing";
 

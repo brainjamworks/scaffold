@@ -46,10 +46,10 @@ import {
   createSequencingItemNode,
   createSequencingItemsGroupNode,
   sequencingReorderLabel,
-} from "./sequencing-fields-shared";
+} from "@/editor/assessment/sequencing/sequencing-fields-shared";
 import { createSequencingAuthoringReorderProjection } from "./sequencing-authoring-reorder-projection";
 import { addSequencingItem, deleteSequencingItem } from "./commands";
-import "./Sequencing.css";
+import "@/editor/assessment/sequencing/Sequencing.css";
 
 export {
   describeSequencingItemAccessibilityState,
@@ -59,7 +59,7 @@ export {
   revealedSequenceAssessment,
   revealedSequenceOrder,
   resolveAuthorizedSequenceOrder,
-} from "./sequencing-fields-shared";
+} from "@/editor/assessment/sequencing/sequencing-fields-shared";
 
 export const SequencingItemNode = createSequencingItemNode({
   addNodeView: () => ReactNodeViewRenderer(SequencingItemNodeView),

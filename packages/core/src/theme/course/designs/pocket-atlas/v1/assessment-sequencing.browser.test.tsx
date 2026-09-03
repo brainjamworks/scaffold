@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser/context";
 
 import "@/styles/globals.css";
-import "@/editor/blocks/assessment/sequencing/Sequencing.css";
-import "@/editor/surfaces/view/variants/assessment/slide-sequencing-question.css";
+import "@/editor/assessment/sequencing/Sequencing.css";
+import "@/editor/surfaces/variants/slide-sequencing-question/styles.css";
 import "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow.css";
 
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";

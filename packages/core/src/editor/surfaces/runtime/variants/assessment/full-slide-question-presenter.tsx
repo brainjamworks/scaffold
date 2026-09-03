@@ -19,7 +19,7 @@ import { ImageHotspotFullSlideQuestionPresenter } from "../../../variants/slide-
 import { MatchingFullSlideQuestionPresenter } from "./slide-matching-question";
 import { MultipleChoiceFullSlideQuestionPresenter } from "./slide-multiple-choice-question";
 import { MultiselectFullSlideQuestionPresenter } from "./slide-multiselect-question";
-import { SequencingFullSlideQuestionPresenter } from "./slide-sequencing-question";
+import { SequencingFullSlideQuestionPresenter } from "../../../variants/slide-sequencing-question/runtime";
 
 interface FullSlideQuestionPresenterProps {
   readonly editor: Editor;

@@ -4,7 +4,7 @@ import "@/styles/globals.css";
 
 import "./assessment/matching/Matching.css";
 import "@/theme/course/designs/scaffold-flow/v1/assessment-matching.css";
-import "./assessment/sequencing/Sequencing.css";
+import "@/editor/assessment/sequencing/Sequencing.css";
 import "./assessment/categorise/Categorise.css";
 import "./assessment/dropdown/Dropdown.css";
 import "@/editor/assessment/image-hotspot/ImageHotspot.css";

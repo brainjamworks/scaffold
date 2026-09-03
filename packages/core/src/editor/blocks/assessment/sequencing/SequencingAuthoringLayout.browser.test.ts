@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "@/editor/movement/view/movement-handles.css";
 import "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow.css";
-import "./Sequencing.css";
+import "@/editor/assessment/sequencing/Sequencing.css";
 
 afterEach(() => {
   document.body.replaceChildren();

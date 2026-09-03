@@ -6,9 +6,9 @@ import {
   projectSequencingInteraction,
   projectSequencingSettings,
   sequencingResponseCodec,
-} from "@/editor/blocks/assessment/sequencing/assessment";
-import { sequencingCourseContentFromProseMirror } from "@/editor/blocks/assessment/sequencing/sequencing-course-content";
-import { SequencingCourseInteraction } from "@/editor/blocks/assessment/sequencing/sequencing-course-interaction";
+} from "@/editor/assessment/sequencing/assessment";
+import { sequencingCourseContentFromProseMirror } from "@/editor/assessment/sequencing/sequencing-course-content";
+import { SequencingCourseInteraction } from "@/editor/assessment/sequencing/sequencing-course-interaction";
 import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { countAssessmentHints } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { textBetween } from "@/editor/assessment/shared/publication/projection";
@@ -20,11 +20,11 @@ import {
 import { SURFACE_SEQUENCING_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-sequencing-question-node";
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
-import "../../../view/variants/assessment/slide-sequencing-question.css";
-import { AssessmentSlideSurfaceRuntimeFrame } from "../../views/AssessmentSlideSurfaceRuntimeFrame";
-import type { SurfaceRuntimeViewProps } from "../../surface-runtime-view-registry";
-import { useAssessmentSurfaceControlBinding } from "./assessment-surface-control-binding";
-import { FullSlideQuestionStage } from "./FullSlideQuestionStage";
+import "./styles.css";
+import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
+import { AssessmentSlideSurfaceRuntimeFrame } from "../../runtime/views/AssessmentSlideSurfaceRuntimeFrame";
+import { useAssessmentSurfaceControlBinding } from "../../runtime/variants/assessment/assessment-surface-control-binding";
+import { FullSlideQuestionStage } from "../../runtime/variants/assessment/FullSlideQuestionStage";
 
 export function SlideSequencingQuestionSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const question = surfaceSequencingQuestion(props.node);

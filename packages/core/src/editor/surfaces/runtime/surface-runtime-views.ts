@@ -19,7 +19,7 @@ import { SlideImageHotspotQuestionSurfaceRuntimeView } from "../variants/slide-i
 import { SlideMultipleChoiceQuestionSurfaceRuntimeView } from "./variants/assessment/slide-multiple-choice-question";
 import { SlideMultiselectQuestionSurfaceRuntimeView } from "./variants/assessment/slide-multiselect-question";
 import { SlideQuizSurfaceRuntimeView } from "./variants/assessment/slide-quiz";
-import { SlideSequencingQuestionSurfaceRuntimeView } from "./variants/assessment/slide-sequencing-question";
+import { SlideSequencingQuestionSurfaceRuntimeView } from "../variants/slide-sequencing-question/runtime";
 
 const SPECIALISED_SURFACE_RUNTIME_VIEWS = [
   {

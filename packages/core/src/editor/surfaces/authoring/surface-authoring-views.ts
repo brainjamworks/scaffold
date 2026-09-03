@@ -11,11 +11,11 @@ import { dropdownConfiguration } from "@/editor/blocks/assessment/dropdown/dropd
 import { dragDropConfiguration } from "@/editor/blocks/assessment/drag-drop/drag-drop-definition";
 import { fillBlanksConfiguration } from "@/editor/blocks/assessment/fill-blanks/fill-blanks-definition";
 import { slideImageHotspotQuestionSurfaceConfiguration } from "../variants/slide-image-hotspot-question/binding";
+import { slideSequencingQuestionSurfaceConfiguration } from "../variants/slide-sequencing-question/binding";
 import { matchingConfiguration } from "@/editor/blocks/assessment/matching/matching-definition";
 import { mcqConfiguration } from "@/editor/blocks/assessment/mcq/mcq-definition";
 import { multiselectConfiguration } from "@/editor/blocks/assessment/multiselect/multiselect-definition";
 import { quizConfiguration } from "@/editor/blocks/assessment/quiz/quiz-definition";
-import { sequencingConfiguration } from "@/editor/blocks/assessment/sequencing/sequencing-definition";
 import {
   DEFAULT_SLIDE_IMAGE_BAND_SURFACE_SETTINGS,
   SlideImageBandSurfaceSettingsSchema,
@@ -63,7 +63,7 @@ import { SlideImageHotspotQuestionSurfaceAuthoringView } from "../variants/slide
 import { SlideMultipleChoiceQuestionSurfaceAuthoringView } from "./variants/assessment/slide-multiple-choice-question";
 import { SlideMultiselectQuestionSurfaceAuthoringView } from "./variants/assessment/slide-multiselect-question";
 import { SlideQuizSurfaceAuthoringView } from "./variants/assessment/slide-quiz";
-import { SlideSequencingQuestionSurfaceAuthoringView } from "./variants/assessment/slide-sequencing-question";
+import { SlideSequencingQuestionSurfaceAuthoringView } from "../variants/slide-sequencing-question/authoring";
 
 const SURFACE_SETTINGS_DRAFT_ID = EmbeddedNodeIdSchema.parse("settings0001");
 
@@ -396,10 +396,7 @@ const SPECIALISED_SURFACE_AUTHORING_VIEWS = [
   {
     variantId: "slide-sequencing-question",
     component: SlideSequencingQuestionSurfaceAuthoringView,
-    configuration: defineAssessmentSurfaceConfiguration({
-      surfaceDefinition: requireBuiltInSurfaceDefinition("slide-sequencing-question"),
-      questionConfiguration: sequencingConfiguration,
-    }),
+    configuration: slideSequencingQuestionSurfaceConfiguration,
   },
   {
     variantId: "slide-matching-question",

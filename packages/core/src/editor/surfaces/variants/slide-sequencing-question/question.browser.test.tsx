@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
-import { projectSequencingLearnerNode } from "@/editor/blocks/assessment/sequencing/assessment";
+import { projectSequencingLearnerNode } from "@/editor/assessment/sequencing/assessment";
 import { TestInteractionDragEnvironment } from "@/editor/interactions/drag/testing/TestInteractionDragEnvironment";
 import { slideSequencingQuestionSurfaceDefinition } from "@/editor/surfaces/model/templates/assessment/slide-sequencing-question";
 import { createScaffoldDocumentContent } from "@/format/artifact";

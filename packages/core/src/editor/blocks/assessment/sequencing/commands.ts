@@ -9,7 +9,7 @@ import {
 
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { isAssessmentQuestionNode } from "@/editor/blocks/assessment/shared/nodes/assessment-meta";
-import { itemContent } from "./sequencing-fields-shared";
+import { itemContent } from "@/editor/assessment/sequencing/sequencing-fields-shared";
 
 interface SequencingBlockLocation {
   node: ProseMirrorNode;

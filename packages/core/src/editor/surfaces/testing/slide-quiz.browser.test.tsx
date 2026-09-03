@@ -19,7 +19,7 @@ import { projectImageHotspotLearnerNode } from "@/editor/assessment/image-hotspo
 import { projectMatchingLearnerNode } from "@/editor/blocks/assessment/matching/assessment";
 import { projectMcqLearnerNode } from "@/editor/blocks/assessment/mcq/assessment";
 import { projectMultiselectLearnerNode } from "@/editor/blocks/assessment/multiselect/assessment";
-import { projectSequencingLearnerNode } from "@/editor/blocks/assessment/sequencing/assessment";
+import { projectSequencingLearnerNode } from "@/editor/assessment/sequencing/assessment";
 import { SURFACE_CATEGORISE_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-categorise-question-node";
 import { SURFACE_DRAG_DROP_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-drag-drop-question-node";
 import { SURFACE_DROPDOWN_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-dropdown-question-node";

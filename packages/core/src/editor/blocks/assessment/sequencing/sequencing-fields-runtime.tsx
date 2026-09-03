@@ -11,12 +11,12 @@ import { findAncestorAssessmentBlockId } from "@/editor/assessment/shared/model/
 import { isAssessmentQuestionNode } from "@/editor/blocks/assessment/shared/nodes/assessment-meta";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 
-import { sequencingCourseContentFromProseMirror } from "./sequencing-course-content";
-import { SequencingCourseInteraction } from "./sequencing-course-interaction";
+import { sequencingCourseContentFromProseMirror } from "@/editor/assessment/sequencing/sequencing-course-content";
+import { SequencingCourseInteraction } from "@/editor/assessment/sequencing/sequencing-course-interaction";
 import {
   createSequencingItemNode,
   createSequencingItemsGroupNode,
-} from "./sequencing-fields-shared";
+} from "@/editor/assessment/sequencing/sequencing-fields-shared";
 
 export const SequencingItemRuntimeNode = createSequencingItemNode();
 
