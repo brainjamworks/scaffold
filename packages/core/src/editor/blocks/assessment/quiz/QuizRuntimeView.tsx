@@ -23,9 +23,9 @@ import {
   QuizRuntimeStart,
   QuizTimer,
   QuizTimesUpOverlay,
-} from "./QuizRuntime";
-import { useActiveQuestionScrollReset } from "./use-active-question-scroll-reset";
-import { useQuizRuntimeController } from "./use-quiz-runtime-controller";
+} from "@/editor/assessment/quiz/QuizRuntime";
+import { useActiveQuestionScrollReset } from "@/editor/assessment/quiz/use-active-question-scroll-reset";
+import { useQuizRuntimeController } from "@/editor/assessment/quiz/use-quiz-runtime-controller";
 import { getQuizStartSummary } from "@/editor/assessment/quiz/quiz-shared";
 
 import "./Quiz.css";

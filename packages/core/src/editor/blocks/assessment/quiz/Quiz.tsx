@@ -4,11 +4,11 @@ import { cn } from "@/lib/cn";
 
 import { QuizEmptyStage } from "./QuizEmptyStage";
 import { QuizHeader } from "./QuizHeader";
-import { QuizActiveStageStyle } from "./QuizRuntime";
+import { QuizActiveStageStyle } from "@/editor/assessment/quiz/QuizRuntime";
 import { QuizStageMeta } from "./QuizStageMeta";
 import { QuizStrip } from "./QuizStrip";
 import { resolveActiveQuestionQuickActions } from "./quick-actions";
-import { useActiveQuestionScrollReset } from "./use-active-question-scroll-reset";
+import { useActiveQuestionScrollReset } from "@/editor/assessment/quiz/use-active-question-scroll-reset";
 import { useQuizAuthoringController } from "./use-quiz-authoring-controller";
 
 import "./Quiz.css";

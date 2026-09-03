@@ -20,7 +20,7 @@ import {
 } from "@/runtime/players/slideshow/surface-exit-environment";
 import { SurfaceExitEnvironmentProvider } from "@/runtime/players/slideshow/SurfaceExitEnvironmentProvider";
 
-import { useQuizSurfaceExitGuard } from "./use-quiz-surface-exit-guard";
+import { useQuizSurfaceExitGuard } from "@/editor/assessment/quiz/use-quiz-surface-exit-guard";
 
 const QUIZ_ID = "quiz00000001" as EmbeddedNodeId;
 const QUESTION_ID = "quest0000001" as EmbeddedNodeId;

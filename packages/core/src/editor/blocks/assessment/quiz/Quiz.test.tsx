@@ -119,7 +119,7 @@ import { QuizNode } from "./node";
 import { QuizAuthoringExtension, QuizRuntimeExtension } from "./index";
 import { getQuizChildBlock } from "./quiz-authoring";
 import { quizBlockDefinition } from "./quiz-definition";
-import { QuizTimer } from "./QuizRuntime";
+import { QuizTimer } from "@/editor/assessment/quiz/QuizRuntime";
 import { useQuizAuthoringController } from "./use-quiz-authoring-controller";
 
 const blockInsertCatalog = createInsertCatalog(createBlockInsertActions([quizBlockDefinition]));

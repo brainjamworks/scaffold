@@ -62,10 +62,10 @@ vi.mock("../../renderer/CourseDocumentRuntimeRenderer", async (importOriginal) =
   };
 });
 
-vi.mock("@/editor/blocks/assessment/quiz/use-quiz-surface-exit-guard", async (importOriginal) => {
+vi.mock("@/editor/assessment/quiz/use-quiz-surface-exit-guard", async (importOriginal) => {
   const actual =
     await importOriginal<
-      typeof import("@/editor/blocks/assessment/quiz/use-quiz-surface-exit-guard")
+      typeof import("@/editor/assessment/quiz/use-quiz-surface-exit-guard")
     >();
 
   return {
