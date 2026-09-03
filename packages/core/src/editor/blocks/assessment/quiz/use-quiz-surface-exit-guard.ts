@@ -24,6 +24,14 @@ interface UseQuizSurfaceExitGuardInput {
   readonly store: AssessmentStoreApi | null;
 }
 
+interface UseKnownQuizSurfaceExitGuardInput {
+  readonly enabled: boolean;
+  readonly groupId: AssessmentGroupId | null;
+  readonly requireMounted: () => void;
+  readonly store: AssessmentStoreApi | null;
+  readonly surfaceId: SurfaceId;
+}
+
 const allowedSnapshot = Object.freeze({ status: "allowed" } as const);
 
 /** Adapts one mounted Quiz attempt to the owning player's Surface exit lifecycle. */
@@ -73,6 +81,43 @@ export function useQuizSurfaceExitGuard({
 
     return availability.environment.registerGuard(guard);
   }, [availability, editor, enabled, getPos, groupId, resolveSurfaceScope, store]);
+}
+
+/** Registers the same Quiz blocker when the Surface adapter already owns the placement identity. */
+export function useKnownQuizSurfaceExitGuard({
+  enabled,
+  groupId,
+  requireMounted,
+  store,
+  surfaceId,
+}: UseKnownQuizSurfaceExitGuardInput): void {
+  const availability = useSurfaceExitEnvironmentAvailability();
+
+  useLayoutEffect(() => {
+    if (availability.status !== "available" || !enabled || !groupId || !store) return;
+    const registration = store.getState().quizRegistrations[groupId];
+    if (!registration || registration.targetIds.length === 0) return;
+    assertRegistrationIdentity(registration, groupId);
+    requireMounted();
+
+    const guard = createQuizSurfaceExitGuard({
+      groupId,
+      requireCurrentSurface: () => {
+        requireMounted();
+        const current = store.getState().quizRegistrations[groupId];
+        if (!current || current.targetIds.length === 0) {
+          throw new Error(
+            `Quiz Surface Exit Guard owner "${groupId}" has no current registration.`,
+          );
+        }
+        assertRegistrationIdentity(current, groupId);
+      },
+      store,
+      surfaceId,
+    });
+
+    return availability.environment.registerGuard(guard);
+  }, [availability, enabled, groupId, requireMounted, store, surfaceId]);
 }
 
 function createQuizSurfaceExitGuard({

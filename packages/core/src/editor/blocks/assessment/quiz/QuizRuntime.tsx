@@ -6,10 +6,11 @@ import {
   TimerIcon as Timer,
 } from "@phosphor-icons/react";
 import type { Score } from "@scaffold/contracts";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { AssessmentRequestState } from "@/runtime/assessment/types";
 import { CourseButton } from "@/ui/components/course/CourseActions/CourseActions";
+import type { QuizStartSummary } from "./quiz-shared";
 
 /**
  * Learner-facing runtime surfaces of a quiz attempt. Five small shapes,
@@ -42,17 +43,14 @@ export function QuizRuntimeIncomplete() {
 
 export function QuizRuntimeStart({
   canStart,
-  reviewTiming,
+  summary,
   onStart,
 }: {
   canStart: boolean;
-  reviewTiming: "after_quiz" | "after_each_answer";
+  summary: QuizStartSummary;
   onStart: () => void;
 }) {
-  const description =
-    reviewTiming === "after_each_answer"
-      ? "Answers are submitted one question at a time."
-      : "Answers are submitted at the end of the quiz.";
+  const commitmentFacts = [summary.timeLimit, summary.passingRequirement].filter(Boolean);
 
   return (
     <div
@@ -60,18 +58,25 @@ export function QuizRuntimeStart({
       contentEditable={false}
       data-testid="quiz-runtime-start"
     >
-      <h3 className="sc-course-quiz__runtime-title">Ready to begin?</h3>
-      <p className="sc-course-quiz__runtime-meta">{description}</p>
-      <CourseButton
-        type="button"
-        size="large"
-        emphasis="strong"
-        className="sc-course-quiz__primary-action"
-        disabled={!canStart}
-        onClick={onStart}
-      >
-        Start quiz
-      </CourseButton>
+      <div className="sc-course-quiz__runtime-start-copy">
+        <h3 className="sc-course-quiz__runtime-title">Ready to begin?</h3>
+        {commitmentFacts.length > 0 ? (
+          <p className="sc-course-quiz__runtime-meta">{commitmentFacts.join(" · ")}</p>
+        ) : null}
+        <p className="sc-course-quiz__runtime-meta">{summary.submissionCadence}</p>
+      </div>
+      <div className="sc-course-quiz__runtime-start-actions">
+        <CourseButton
+          type="button"
+          size="large"
+          emphasis="strong"
+          className="sc-course-quiz__primary-action"
+          disabled={!canStart}
+          onClick={onStart}
+        >
+          Start quiz
+        </CourseButton>
+      </div>
     </div>
   );
 }
@@ -263,10 +268,12 @@ export function QuizAnswerReviewContext({
 
 export function QuizAnswerReviewControls({
   activeIndex,
+  support,
   total,
   onNavigate,
 }: {
   activeIndex: number;
+  support?: ReactNode;
   total: number;
   onNavigate: (index: number) => void;
 }) {
@@ -279,6 +286,7 @@ export function QuizAnswerReviewControls({
       contentEditable={false}
       data-testid="quiz-answer-review-controls"
     >
+      {support}
       <div className="sc-course-quiz__runtime-nav">
         <CourseButton
           type="button"

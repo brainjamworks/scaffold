@@ -26,7 +26,7 @@ function childByType(node: PMNode, typeName: string): PMNode | null {
 }
 
 function fieldHtml(serializer: DOMSerializer, node: PMNode | null): string {
-  return node ? serializeStaticRichTextHtml(serializer, node.content) : "";
+  return node?.textContent.trim() ? serializeStaticRichTextHtml(serializer, node.content) : "";
 }
 
 function projectionsFromGroup(node: PMNode, serializer: DOMSerializer): MatchingProjectionPair[] {

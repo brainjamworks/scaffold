@@ -2,9 +2,11 @@ import {
   ArrowLineLeftIcon as ArrowLineLeft,
   ArrowLineRightIcon as ArrowLineRight,
   CaretDownIcon as CaretDown,
+  CaretLeftIcon as CaretLeft,
+  CaretRightIcon as CaretRight,
   DotsSixVerticalIcon as DotsSixVertical,
 } from "@phosphor-icons/react";
-import { useId, useState } from "react";
+import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 
 import { EditorFloatingPopover as EditorFloating } from "@/editor/interactions/floating/EditorFloatingPopover";
 import type { InteractionDragEvent } from "@/editor/interactions/drag/model/interaction-drag-event";
@@ -36,6 +38,8 @@ export function QuizStrip({
   childKeys,
   childTypes,
   items,
+  questionKeysNeedingSetup = [],
+  showScrollControls = false,
   onAdd,
   onMove,
   onReorder,
@@ -45,12 +49,65 @@ export function QuizStrip({
   childKeys: string[];
   childTypes: string[];
   items: readonly InsertAction[];
+  questionKeysNeedingSetup?: readonly string[];
+  showScrollControls?: boolean;
   onAdd: (item: InsertAction) => void;
   onMove: (childKey: string, index: number, direction: "up" | "down") => void;
   onReorder: (sourceKey: string, targetKey: string) => void;
   onSelect: (childKey: string) => void;
 }) {
   const sessionId = useId();
+  const scrollViewportRef = useRef<HTMLDivElement>(null);
+  const [scrollState, setScrollState] = useState({ canEarlier: false, canLater: false });
+  const needsSetup = new Set(questionKeysNeedingSetup);
+  const updateScrollState = useCallback(() => {
+    const viewport = scrollViewportRef.current;
+    if (!viewport) return;
+    const maxScrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+    setScrollState({
+      canEarlier: viewport.scrollLeft > 2,
+      canLater: viewport.scrollLeft < maxScrollLeft - 2,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!showScrollControls) return;
+    const viewport = scrollViewportRef.current;
+    if (!viewport) return;
+    viewport.addEventListener("scroll", updateScrollState, { passive: true });
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateScrollState);
+    observer?.observe(viewport);
+    updateScrollState();
+    return () => {
+      viewport.removeEventListener("scroll", updateScrollState);
+      observer?.disconnect();
+    };
+  }, [childKeys.length, showScrollControls, updateScrollState]);
+
+  useLayoutEffect(() => {
+    if (!showScrollControls || !activeChildKey) return;
+    const viewport = scrollViewportRef.current;
+    const active = viewport?.querySelector<HTMLElement>(
+      `[data-quiz-question-id="${CSS.escape(activeChildKey)}"]`,
+    );
+    if (!viewport || !active) return;
+    const activeStart = active.offsetLeft;
+    const activeEnd = activeStart + active.offsetWidth;
+    if (activeStart < viewport.scrollLeft) viewport.scrollLeft = activeStart;
+    if (activeEnd > viewport.scrollLeft + viewport.clientWidth) {
+      viewport.scrollLeft = activeEnd - viewport.clientWidth;
+    }
+    updateScrollState();
+  }, [activeChildKey, showScrollControls, updateScrollState]);
+
+  const scrollQuestions = (direction: "earlier" | "later") => {
+    const viewport = scrollViewportRef.current;
+    if (!viewport) return;
+    const amount = Math.max(1, Math.floor(viewport.clientWidth * 0.75));
+    viewport.scrollBy({ left: direction === "earlier" ? -amount : amount, behavior: "auto" });
+    updateScrollState();
+  };
   const handleDragEnd = (event: InteractionDragEvent<QuizStripDragData, QuizStripDragData>) => {
     const targetIndex = event.active.sortable?.index ?? -1;
     const targetKey = childKeys[targetIndex] ?? null;
@@ -75,15 +132,24 @@ export function QuizStrip({
       <div
         className="sc-app-quiz__strip"
         contentEditable={false}
+        data-quiz-scroll-controls={showScrollControls ? "true" : undefined}
         data-testid="quiz-stage-selector"
       >
-        <div className="sc-app-quiz__strip-sortable-items">
+        {showScrollControls ? (
+          <QuizStripScrollButton
+            direction="earlier"
+            disabled={!scrollState.canEarlier}
+            onClick={() => scrollQuestions("earlier")}
+          />
+        ) : null}
+        <div ref={scrollViewportRef} className="sc-app-quiz__strip-sortable-items">
           {childKeys.map((childKey, index) => (
             <QuizStripPill
               key={childKey}
               activeChildKey={activeChildKey}
               childKey={childKey}
               index={index}
+              needsSetup={needsSetup.has(childKey)}
               total={childKeys.length}
               type={childTypes[index]}
               onMove={onMove}
@@ -91,6 +157,13 @@ export function QuizStrip({
             />
           ))}
         </div>
+        {showScrollControls ? (
+          <QuizStripScrollButton
+            direction="later"
+            disabled={!scrollState.canLater}
+            onClick={() => scrollQuestions("later")}
+          />
+        ) : null}
         {items.length > 0 ? <QuizStripAdd items={items} onAdd={onAdd} /> : null}
       </div>
     </InteractionDragSession>
@@ -109,6 +182,7 @@ function QuizStripPill({
   activeChildKey,
   childKey,
   index,
+  needsSetup,
   total,
   type,
   onMove,
@@ -117,6 +191,7 @@ function QuizStripPill({
   activeChildKey: string | null;
   childKey: string;
   index: number;
+  needsSetup: boolean;
   total: number;
   type: string | undefined;
   onMove: (childKey: string, index: number, direction: "up" | "down") => void;
@@ -139,6 +214,7 @@ function QuizStripPill({
         className="sc-app-quiz__strip-pill"
         data-active={isActive ? "true" : undefined}
         data-dragging={sortable.isDragging ? "true" : undefined}
+        data-quiz-question-needs-setup={needsSetup ? "true" : undefined}
         data-quiz-question-id={childKey}
       >
         <InteractionDragActivationArea
@@ -156,14 +232,13 @@ function QuizStripPill({
         <button
           type="button"
           aria-current={isActive ? "true" : undefined}
-          aria-label={`Question ${index + 1}`}
+          aria-label={`Question ${index + 1}${needsSetup ? ", needs setup" : ""}`}
           className="sc-app-quiz__strip-button"
           onClick={() => onSelect(childKey)}
         >
           <span className="sc-app-quiz__strip-number">Q{index + 1}</span>
-          {type ? (
-            <span className="sc-app-quiz__strip-type">{questionTypeTag(type)}</span>
-          ) : null}
+          {type ? <span className="sc-app-quiz__strip-type">{questionTypeTag(type)}</span> : null}
+          {needsSetup ? <span className="sc-app-quiz__strip-setup">Setup</span> : null}
         </button>
         <DropdownMenu.Trigger asChild>
           <button
@@ -211,6 +286,30 @@ function QuizStripPill({
         </DropdownMenu.Portal>
       )}
     </DropdownMenu.Root>
+  );
+}
+
+function QuizStripScrollButton({
+  direction,
+  disabled,
+  onClick,
+}: {
+  direction: "earlier" | "later";
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const Icon = direction === "earlier" ? CaretLeft : CaretRight;
+  const label = `Scroll to ${direction} questions`;
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      className="sc-app-quiz__strip-scroll"
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <Icon size={iconXs} weight="bold" aria-hidden />
+    </button>
   );
 }
 

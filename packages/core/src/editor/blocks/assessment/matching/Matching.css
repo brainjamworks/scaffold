@@ -31,6 +31,7 @@
   }
 
   .sc-course-matching__scroll {
+    flex: 1 1 auto;
     container: sc-course-matching-lane / inline-size;
   }
 

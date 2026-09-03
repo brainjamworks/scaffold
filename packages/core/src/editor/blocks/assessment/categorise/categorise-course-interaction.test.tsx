@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { useMemo } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
+import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { useAssessmentProblemFacade } from "@/runtime/assessment/runtime-facade";
 import {
   createAssessmentRuntimeTestRoot,

@@ -5,7 +5,7 @@ import {
   assessmentShellPlaceholders,
   selectableChoicePlaceholders,
 } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
-import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
+import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import {
@@ -79,7 +79,7 @@ const baseMultiselectConfiguration = createAssessmentConfiguration({
   ] satisfies ConfigurationControlDescriptor[],
 });
 
-const multiselectConfiguration = defineConfiguration({
+export const multiselectConfiguration = defineConfiguration({
   ...baseMultiselectConfiguration,
   apply: applyMultiselectSettings,
 });

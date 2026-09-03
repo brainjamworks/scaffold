@@ -106,7 +106,7 @@ import { assessmentProblemOutcome, assessmentQuizOutcome } from "@/runtime/asses
 import type { AssessmentRegistrationInput, AssessmentStoreApi } from "@/runtime/assessment/types";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
-import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
+import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { CalloutAuthoringExtension } from "@/editor/blocks/presentation/callout";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { McqAuthoringExtension, McqRuntimeExtension } from "../mcq";
@@ -114,6 +114,7 @@ import { DropdownAuthoringExtension } from "../dropdown/dropdown-authoring-exten
 import { DropdownRuntimeExtension } from "../dropdown/dropdown-runtime-extension";
 import { FillBlanksAuthoringExtension } from "../fill-blanks/fill-blanks-authoring-extension";
 import { FillBlanksRuntimeExtension } from "../fill-blanks/fill-blanks-runtime-extension";
+import { DragDropAuthoringExtension } from "../drag-drop";
 import { QuizNode } from "./node";
 import { QuizAuthoringExtension, QuizRuntimeExtension } from "./index";
 import { getQuizChildBlock } from "./quiz-authoring";
@@ -438,10 +439,9 @@ const testAssessmentCapability = defineAssessmentCapability({
   },
 });
 
-const testAssessmentQuestionDuplication: NonNullable<BlockCapability["duplication"]> = ({
-  content,
-  nodeIdChanges,
-}) => {
+const testAssessmentQuestionIdentityRewrite: NonNullable<
+  BlockCapability["identityRewrites"]
+>[number]["rewrite"] = ({ content, nodeIdChanges }) => {
   const sourceRef = EmbeddedNodeIdSchema.safeParse(content.attrs?.["sourceRef"]);
   return {
     ...content,
@@ -495,7 +495,7 @@ const testAssessmentQuestionDefinition = defineBlock({
 const testAssessmentQuestionCapability = blockCapability(
   testAssessmentQuestionDefinition,
   TestAssessmentQuestionNode,
-  testAssessmentQuestionDuplication,
+  testAssessmentQuestionIdentityRewrite,
 );
 const quizFixturePack = defineScaffoldExtensionPack({
   id: "quiz-test-fixture",
@@ -784,6 +784,7 @@ describe("quiz block skeleton", () => {
       content: quizMcqDocument("quiz-bounded-review", {
         placement: "region",
         questionIds: ["questn_00001", "questn_00002"],
+        reviewDetail: "full_review",
       }),
     });
 
@@ -827,6 +828,7 @@ describe("quiz block skeleton", () => {
       content: quizMcqDocument("quiz-flow-review", {
         placement: "flow",
         questionIds: ["questn_00001", "questn_00002"],
+        reviewDetail: "full_review",
       }),
     });
 
@@ -1011,12 +1013,23 @@ describe("quiz block skeleton", () => {
   it("shows a start state for a valid runtime quiz before the attempt starts", async () => {
     const editor = createQuizEditor({
       editable: false,
-      content: runtimeQuizDocument("quiz-start"),
+      content: runtimeQuizDocument("quiz-start", {
+        passingScore: 0.75,
+        reviewTiming: "after_each_answer",
+        timer: { enabled: true, durationSeconds: 120 },
+      }),
     });
 
     renderWithRuntime(editor);
 
-    expect(await screen.findByRole("button", { name: "Start quiz" })).toBeInTheDocument();
+    const start = await screen.findByTestId("quiz-runtime-start");
+    expect(within(start).getByRole("button", { name: "Start quiz" })).toBeInTheDocument();
+    expect(screen.getByText("2 points")).toBeInTheDocument();
+    expect(start.querySelector(".sc-course-quiz__runtime-start-copy")).not.toBeNull();
+    expect(start.querySelector(".sc-course-quiz__runtime-start-actions")).not.toBeNull();
+    expect(start).toHaveTextContent("2-minute time limit");
+    expect(start).toHaveTextContent("Pass mark 75%");
+    expect(start).toHaveTextContent("Submit each answer before continuing.");
     expect(screen.queryByTestId("quiz-runtime-incomplete")).toBeNull();
     const quizShell = screen
       .getByTestId("quiz-stage-viewport")
@@ -1054,6 +1067,7 @@ describe("quiz block skeleton", () => {
       expect(quizShell?.getAttribute("data-quiz-status")).toBe("in_progress");
       expect(quizShell?.getAttribute("data-active-question-id")).toBe("questn_00001");
     });
+    expect(document.activeElement).toBe(screen.getByTestId("quiz-stage-viewport"));
     editor.destroy();
   });
 
@@ -2108,7 +2122,7 @@ describe("quiz block skeleton", () => {
     editor.destroy();
   });
 
-  it("allows staged result-only review after completion without answer reveal", async () => {
+  it("keeps result-only completion on the summary without answer-review controls", async () => {
     seedAssessmentStore({
       quizzes: {
         "quiz-result-only-review": {
@@ -2129,26 +2143,20 @@ describe("quiz block skeleton", () => {
 
     renderWithRuntime(editor);
 
-    await screen.findByTestId("quiz-answer-review-controls");
+    expect(await screen.findByTestId("quiz-completion-summary")).toHaveTextContent("2 / 2");
+    expect(screen.queryByTestId("quiz-answer-review-context")).toBeNull();
+    expect(screen.queryByTestId("quiz-answer-review-controls")).toBeNull();
     expect(
       screen
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]")
         ?.getAttribute("data-active-question-id"),
-    ).toBe("questn_00001");
-
-    fireEvent.click(screen.getByRole("button", { name: "Next question" }));
-    expect(
-      screen
-        .getByTestId("quiz-stage-viewport")
-        .closest("[data-quiz-view-id]")
-        ?.getAttribute("data-active-question-id"),
-    ).toBe("questn_00002");
+    ).toBeNull();
 
     editor.destroy();
   });
 
-  it("does not expose child answer reveal controls in result-only quiz review", async () => {
+  it("does not enter child answer review for a result-only quiz", async () => {
     hydrateCompletedQuizMcqReview("quiz-result-only-child-review", {
       answerReviewAuthorized: true,
       reviewDetail: "result_only",
@@ -2162,9 +2170,9 @@ describe("quiz block skeleton", () => {
 
     renderWithRuntime(editor);
 
-    await screen.findByTestId("quiz-answer-review-controls");
+    await screen.findByText("Quiz complete");
+    expect(screen.queryByTestId("quiz-answer-review-controls")).toBeNull();
     expect(answerRevealButtonLabel()).toBeNull();
-    expect(choiceDescription("choice_00001")).toBe("Submitted answer, incorrect");
     expect(choiceDescription("choice_00002")).toBeNull();
 
     editor.destroy();
@@ -2196,7 +2204,7 @@ describe("quiz block skeleton", () => {
     editor.destroy();
   });
 
-  it("reveals child answers in full quiz review without exposing standalone controls", async () => {
+  it("toggles between the submitted and correct answer in full quiz review", async () => {
     hydrateCompletedQuizMcqReview("quiz-full-child-review", {
       answerReviewAuthorized: true,
       reviewDetail: "full_review",
@@ -2210,10 +2218,26 @@ describe("quiz block skeleton", () => {
 
     renderWithRuntime(editor);
 
-    await screen.findByTestId("quiz-answer-review-controls");
-    expect(answerRevealButtonLabel()).toBeNull();
+    const reviewControls = await screen.findByTestId("quiz-answer-review-controls");
+    const showAnswer = within(reviewControls).getByRole("button", { name: "Show answer" });
+    expect(showAnswer).toHaveAttribute("aria-pressed", "false");
+    expect(showAnswer).toHaveTextContent("Show answer");
     expect(choiceDescription("choice_00001")).toBe("Submitted answer, incorrect");
-    expect(choiceDescription("choice_00002")).toBe("Correct answer");
+    expect(choiceDescription("choice_00002")).toBeNull();
+
+    fireEvent.click(showAnswer);
+
+    await waitFor(() => expect(showAnswer).toHaveAttribute("aria-pressed", "true"));
+    expect(showAnswer).toHaveTextContent("Answer revealed");
+    expect(choiceDescription("choice_00001")).toBeNull();
+    expect(choiceDescription("choice_00002")).toBe("Selected answer, correct");
+
+    fireEvent.click(showAnswer);
+
+    await waitFor(() => expect(showAnswer).toHaveAttribute("aria-pressed", "false"));
+    expect(showAnswer).toHaveTextContent("Show answer");
+    expect(choiceDescription("choice_00001")).toBe("Submitted answer, incorrect");
+    expect(choiceDescription("choice_00002")).toBeNull();
 
     editor.destroy();
   });
@@ -2231,11 +2255,18 @@ describe("quiz block skeleton", () => {
 
     renderWithRuntime(editor);
 
-    await screen.findByTestId("quiz-answer-review-controls");
+    const reviewControls = await screen.findByTestId("quiz-answer-review-controls");
     const input = screen.getByRole("textbox", { name: "Blank 1 of 1, city" });
-    expect(input).toHaveValue("Paris");
+    const showAnswer = within(reviewControls).getByRole("button", { name: "Show answer" });
+    expect(showAnswer).toHaveAttribute("aria-pressed", "false");
+    expect(input).toHaveValue("London");
     expect(input).toHaveAttribute("readonly");
     expect(screen.queryByText("Correct answer: Paris")).toBeNull();
+
+    fireEvent.click(showAnswer);
+
+    await waitFor(() => expect(showAnswer).toHaveAttribute("aria-pressed", "true"));
+    expect(input).toHaveValue("Paris");
     expect(assessmentProblem("artifact:artifact-1/block:fillquest001")?.response).toEqual({
       kind: "fill-blanks",
       blanks: [{ blankId: "blank_000001", value: "London" }],
@@ -2243,6 +2274,10 @@ describe("quiz block skeleton", () => {
     expect(screen.queryByText("Private authored answer")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Show feedback for blank 1 of 1" }));
     expect(await screen.findByText("Authorized host feedback")).toBeInTheDocument();
+
+    fireEvent.click(showAnswer);
+
+    await waitFor(() => expect(input).toHaveValue("London"));
 
     editor.destroy();
   });
@@ -2262,7 +2297,7 @@ describe("quiz block skeleton", () => {
     editor.destroy();
   });
 
-  it("keeps Fill expected answers and private feedback hidden in result-only review", async () => {
+  it("keeps Fill details out of result-only completion", async () => {
     hydrateCompletedQuizFillReview("quiz-result-only-fill-review", {
       answerReviewAuthorized: true,
     });
@@ -2275,8 +2310,8 @@ describe("quiz block skeleton", () => {
 
     renderWithRuntime(editor);
 
-    await screen.findByTestId("quiz-answer-review-controls");
-    expect(screen.getByDisplayValue("London")).toBeInTheDocument();
+    await screen.findByText("Quiz complete");
+    expect(screen.queryByTestId("quiz-answer-review-controls")).toBeNull();
     expect(screen.queryByText("Correct answer: Paris")).toBeNull();
     expect(screen.queryByRole("button", { name: "Show feedback" })).toBeNull();
     expect(screen.queryByText("Private authored answer")).toBeNull();
@@ -2530,6 +2565,27 @@ describe("quiz block skeleton", () => {
     expect(screen.queryByRole("button", { name: /Multiple choice/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Quiz" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Callout" })).toBeNull();
+
+    editor.destroy();
+  });
+
+  it("discovers and inserts Drag and Drop through its ordinary assessment capability", async () => {
+    const editor = createQuizEditor({
+      editable: true,
+      content: { type: "doc", content: [{ type: "quiz" }] },
+      blockExtensions: [TestAssessmentQuestionNode, DragDropAuthoringExtension],
+    });
+
+    renderEditor(editor);
+    await screen.findByTestId("quiz-add-question-stage");
+
+    const addDragDrop = screen.getByRole("button", { name: /Drag and Drop/ });
+    fireEvent.click(addDragDrop);
+
+    const question = editor.getJSON().content?.[0]?.content?.[0];
+    expect(question?.type).toBe("drag_drop");
+    expect(builtInBlockRegistry.assessmentNodeTypes).toContain("drag_drop");
+    expect(builtInBlockRegistry.getByNodeType("drag_drop")?.capabilities?.assessment).toBeDefined();
 
     editor.destroy();
   });
@@ -3531,13 +3587,15 @@ function createDisposableQuizEditor({
 function blockCapability(
   definition: BlockCapability["definition"],
   extension: AnyExtension,
-  duplication?: BlockCapability["duplication"],
+  identityRewrite?: NonNullable<BlockCapability["identityRewrites"]>[number]["rewrite"],
 ): BlockCapability {
   return {
     definition,
     authoringExtension: extension,
     runtimeExtension: extension,
-    ...(duplication ? { duplication } : {}),
+    ...(identityRewrite
+      ? { identityRewrites: [{ nodeType: definition.nodeType, rewrite: identityRewrite }] }
+      : {}),
   };
 }
 
@@ -3596,16 +3654,18 @@ function quizMcqDocument(
   {
     placement,
     questionIds,
+    reviewDetail = "result_only",
   }: {
     placement: QuizTestPlacement;
     questionIds: string[];
+    reviewDetail?: QuizSettings["reviewDetail"];
   },
 ): JSONContent {
   const quiz: JSONContent = {
     type: "quiz",
     attrs: {
       id: quizId,
-      settings: quizSettings(),
+      settings: { ...quizSettings(), reviewDetail },
     },
     content: questionIds.map(mcqQuestion),
   };
@@ -4111,9 +4171,7 @@ function choiceDescription(choiceId: string): string | null {
 function answerRevealButtonLabel(): string | null {
   return (
     document.body
-      .querySelector<HTMLButtonElement>(
-        'button[aria-label="Show correct answer"], button[aria-label="Correct answer revealed"]',
-      )
+      .querySelector<HTMLButtonElement>('button[aria-label="Show answer"]')
       ?.getAttribute("aria-label") ?? null
   );
 }

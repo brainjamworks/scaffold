@@ -32,7 +32,7 @@ import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
 import { currentNodeViewPos, safeGetPos } from "@/editor/prosemirror/position/node-view-position";
-import { assessmentPromptDomId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { assessmentPromptDomId } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { isAssessmentQuestionNode } from "@/editor/blocks/assessment/shared/nodes/assessment-meta";
 import {
   isScaffoldRichTextDocumentEmpty,

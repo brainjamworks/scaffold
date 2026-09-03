@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import type { AssessmentCapabilityResponseDefinition, BlockDefinition } from "../block-definition";
 import { categoriseBlockDefinition } from "./categorise/categorise-definition";
 import { dropdownBlockDefinition } from "./dropdown/dropdown-definition";
+import { dragDropResponseCodec } from "./drag-drop/drag-drop-response-codec";
 import { fillBlanksBlockDefinition } from "./fill-blanks/fill-blanks-definition";
 import { imageHotspotBlockDefinition } from "./image-hotspot/image-hotspot-definition";
 import { matchingBlockDefinition } from "./matching/matching-definition";
@@ -18,6 +19,7 @@ interface CodecCase {
   wrongContractResponse: AssessmentResponseValue;
   duplicateLocalResponse?: unknown;
   duplicateContractResponse?: AssessmentResponseValue;
+  interaction?: Parameters<AssessmentCapabilityResponseDefinition["toContractResponse"]>[1];
 }
 
 function responseCodec(definition: BlockDefinition): AssessmentCapabilityResponseDefinition {
@@ -27,6 +29,35 @@ function responseCodec(definition: BlockDefinition): AssessmentCapabilityRespons
 }
 
 const codecCases: CodecCase[] = [
+  {
+    name: "drag-drop",
+    codec: dragDropResponseCodec,
+    interaction: {
+      kind: "spatial-placement",
+      markers: [
+        { id: "marker000001", label: "London" },
+        { id: "marker000002", label: "Paris" },
+      ],
+    },
+    localResponses: [
+      { placements: {} },
+      { placements: { marker000001: { x: 25, y: 60 } } },
+      {
+        placements: {
+          marker000001: { x: 25, y: 60 },
+          marker000002: { x: 75, y: 30 },
+        },
+      },
+    ],
+    wrongContractResponse: { kind: "single-select", optionId: "marker000001" },
+    duplicateContractResponse: {
+      kind: "spatial-placement",
+      placements: [
+        { markerId: "marker000001", x: 25, y: 60 },
+        { markerId: "marker000001", x: 30, y: 65 },
+      ],
+    },
+  },
   {
     name: "mcq",
     codec: responseCodec(mcqBlockDefinition),
@@ -168,33 +199,33 @@ describe("assessment response codecs", () => {
 
   it.each(codecCases)(
     "$name round-trips empty, partial, and complete local response state",
-    ({ codec, localResponses }) => {
+    ({ codec, interaction, localResponses }) => {
       for (const localResponse of localResponses) {
-        const canonical = codec.toContractResponse(localResponse);
+        const canonical = codec.toContractResponse(localResponse, interaction);
         expect(AssessmentResponseValueSchema.parse(canonical)).toEqual(canonical);
 
-        const restored = codec.fromContractResponse(canonical);
+        const restored = codec.fromContractResponse(canonical, interaction);
         expect(codec.schema.parse(restored)).toEqual(restored);
-        expect(codec.toContractResponse(restored)).toEqual(canonical);
+        expect(codec.toContractResponse(restored, interaction)).toEqual(canonical);
       }
     },
   );
 
   it.each(codecCases)(
     "$name rejects malformed local state and the wrong canonical interaction",
-    ({ codec, localResponses, wrongContractResponse }) => {
+    ({ codec, interaction, localResponses, wrongContractResponse }) => {
       expect(() =>
-        codec.toContractResponse({ ...Object(localResponses[2]), unrelated: true }),
+        codec.toContractResponse({ ...Object(localResponses[2]), unrelated: true }, interaction),
       ).toThrow();
-      expect(() => codec.fromContractResponse(wrongContractResponse)).toThrow();
+      expect(() => codec.fromContractResponse(wrongContractResponse, interaction)).toThrow();
     },
   );
 
   it.each(codecCases.filter((entry) => entry.duplicateContractResponse))(
     "$name rejects duplicate canonical response identities",
-    ({ codec, duplicateContractResponse }) => {
+    ({ codec, duplicateContractResponse, interaction }) => {
       if (!duplicateContractResponse) throw new Error("Expected duplicate response fixture");
-      expect(() => codec.fromContractResponse(duplicateContractResponse)).toThrow();
+      expect(() => codec.fromContractResponse(duplicateContractResponse, interaction)).toThrow();
     },
   );
 

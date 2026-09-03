@@ -40,7 +40,7 @@ import { AssessmentInstructionsNode } from "@/editor/blocks/assessment/shared/no
 import { AssessmentPromptNode } from "@/editor/blocks/assessment/shared/nodes/assessment-prompt";
 import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared/nodes/assessment-summary-feedback";
 import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 
 import { sequencingBlockDefinition } from "./sequencing-definition";
@@ -281,11 +281,11 @@ describe("composite sequencing node", () => {
   it("describes sequencing runtime accessibility states", () => {
     expect(
       describeSequencingItemAccessibilityState({
+        answerView: "submitted",
         canReorder: true,
         correct: null,
         hasFeedback: false,
         position: 1,
-        revealed: false,
         submitted: false,
         total: 3,
       }),
@@ -293,11 +293,11 @@ describe("composite sequencing node", () => {
 
     expect(
       describeSequencingItemAccessibilityState({
+        answerView: "submitted",
         canReorder: false,
         correct: false,
         hasFeedback: false,
         position: 1,
-        revealed: false,
         submitted: true,
         total: 3,
       }),
@@ -305,15 +305,15 @@ describe("composite sequencing node", () => {
 
     expect(
       describeSequencingItemAccessibilityState({
+        answerView: "correct",
         canReorder: false,
-        correct: true,
-        hasFeedback: true,
-        position: 2,
-        revealed: true,
+        correct: null,
+        hasFeedback: false,
+        position: 3,
         submitted: true,
         total: 3,
       }),
-    ).toBe("Position 2 of 3. Revealed correct position. Feedback available");
+    ).toBe("Position 3 of 3. Correct answer");
   });
 
   it("persists author feedback for the selected sequencing item", async () => {
@@ -987,7 +987,7 @@ describe("composite sequencing node", () => {
     editor.destroy();
   });
 
-  it("describes revealed sequencing correct order from the port payload", async () => {
+  it("toggles between submitted and correct sequence orders", async () => {
     const editor = makeEditor(false);
     const problemId = "artifact:artifact-1/block:seq-1";
     editor.commands.setContent(sequencingRuntimeDoc());
@@ -1035,18 +1035,35 @@ describe("composite sequencing node", () => {
     fireEvent.click(screen.getByText("Submit"));
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Show correct answer" })).toBeInstanceOf(
+      expect(screen.getByRole("button", { name: "Show answer" })).toBeInstanceOf(
         HTMLButtonElement,
       );
     });
-    fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("listitem", { name: "Alpha" }).textContent).toContain("Alpha");
-      expect(screen.getByRole("listitem", { name: "Beta" }).textContent).toContain("Beta");
-      expect(sequencingItemDescription(2)).toBe(
-        "Position 2 of 3. Revealed correct position. Feedback available",
+      expect(screen.getByRole("button", { name: "Show answer" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
       );
+      const items = screen.getAllByRole("listitem");
+      expect(items.map((item) => item.getAttribute("aria-label"))).toEqual([
+        "Alpha",
+        "Beta",
+        "Gamma",
+      ]);
+      expect(sequencingItemDescription(2)).toBe("Position 2 of 3. Correct answer");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    await waitFor(() => {
+      const items = screen.getAllByRole("listitem");
+      expect(items.map((item) => item.getAttribute("aria-label"))).toEqual([
+        "Gamma",
+        "Alpha",
+        "Beta",
+      ]);
+      expect(sequencingItemDescription(2)).toBe("Position 2 of 3. Submitted position, incorrect");
     });
 
     editor.destroy();
@@ -1086,7 +1103,6 @@ describe("sequencing display order", () => {
     expect(
       getSequencingDisplayOrder({
         isEditable: false,
-        answerKeyVisible: false,
         docOrderIds: ["seqitm_00001", "seqitm_00002", "seqitm_00003"],
         responseOrder: ["seqitm_00003", "seqitm_00001", "seqitm_00002"],
       }),
@@ -1097,21 +1113,8 @@ describe("sequencing display order", () => {
     expect(
       getSequencingDisplayOrder({
         isEditable: false,
-        answerKeyVisible: false,
         docOrderIds: ["seqitm_00001", "seqitm_00002", "seqitm_00003"],
         responseOrder: ["seqitm_00003", "seqitm_00001"],
-      }),
-    ).toEqual(["seqitm_00001", "seqitm_00002", "seqitm_00003"]);
-  });
-
-  it("uses revealed answer order when the answer is revealed", () => {
-    expect(
-      getSequencingDisplayOrder({
-        isEditable: false,
-        answerKeyVisible: true,
-        docOrderIds: ["seqitm_00003", "seqitm_00001", "seqitm_00002"],
-        answerOrderIds: ["seqitm_00001", "seqitm_00002", "seqitm_00003"],
-        responseOrder: ["seqitm_00003", "seqitm_00001", "seqitm_00002"],
       }),
     ).toEqual(["seqitm_00001", "seqitm_00002", "seqitm_00003"]);
   });

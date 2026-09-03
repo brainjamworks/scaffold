@@ -1,5 +1,6 @@
 import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import type { QuizAttemptStatus } from "@scaffold/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { resolveAssessmentSurfaceScope } from "@/runtime/assessment/assessment-scope";
@@ -26,6 +27,29 @@ export function useQuizRuntimeController({
   getPos: () => number | undefined;
   node: ProseMirrorNode;
 }) {
+  const controller = useQuizRuntimeStateController({ node });
+  const assessmentStore = useAssessmentStoreApi();
+  useQuizControlBinding({
+    editor,
+    enabled: !controller.isEmpty && controller.quizFacadeStatus === "registered",
+    getPos,
+    groupId: controller.groupId,
+    node,
+    store: assessmentStore,
+  });
+  useQuizSurfaceExitGuard({
+    editor,
+    enabled: !controller.isEmpty && controller.groupId !== null,
+    getPos,
+    groupId: controller.groupId,
+    resolveSurfaceScope: resolveAssessmentSurfaceScope,
+    store: assessmentStore,
+  });
+  return controller;
+}
+
+/** Shared Quiz attempt/navigation behavior consumed by Block and Surface adapters. */
+export function useQuizRuntimeStateController({ node }: { node: ProseMirrorNode }) {
   const quizSummary = useMemo(() => getQuizSummary(node), [node]);
   const { childCount, childKeys, isEmpty, quizViewId, settings } = quizSummary;
   const [runtimeActiveChildId, setRuntimeActiveChildId] = useState<string | null>(null);
@@ -38,33 +62,16 @@ export function useQuizRuntimeController({
     [childKeys, quizViewId, settings],
   );
   const quizFacade = useAssessmentQuizFacade(quizRegistration, !isEmpty);
-  const assessmentStore = useAssessmentStoreApi();
-  useQuizControlBinding({
-    editor,
-    enabled: !isEmpty && quizFacade.status === "registered",
-    getPos,
-    groupId: quizFacade.groupId,
-    node,
-    store: assessmentStore,
-  });
-  useQuizSurfaceExitGuard({
-    editor,
-    enabled: !isEmpty && quizFacade.groupId !== null,
-    getPos,
-    groupId: quizFacade.groupId,
-    resolveSurfaceScope: resolveAssessmentSurfaceScope,
-    store: assessmentStore,
-  });
   const quiz = quizFacade.attempt;
   const request = quizFacade.request;
   const pendingOperation = request?.status === "pending" ? request.operation : null;
   const problems = quizFacade.problemsByTargetId;
-  const runtimeStatus = quiz?.status ?? "not_started";
+  const runtimeStatus: QuizAttemptStatus | "not_started" = quiz?.status ?? "not_started";
   const canRequestFullReview =
     runtimeStatus === "completed" && settings.reviewDetail === "full_review";
   const canShowCompletedReview =
     runtimeStatus === "completed" &&
-    settings.reviewDetail !== "none" &&
+    settings.reviewDetail === "full_review" &&
     Boolean(quiz?.answerReviewAuthorized);
   const localRuntimeTargetId =
     reviewPauseChildId ??
@@ -238,10 +245,12 @@ export function useQuizRuntimeController({
     childCount,
     childKeys,
     childTypes: quizSummary.childTypes,
+    groupId: quizFacade.groupId,
     isEmpty,
     learnerControls,
     quiz,
     quizViewId,
+    quizFacadeStatus: quizFacade.status,
     request,
     pendingOperation,
     runtimeStatus,

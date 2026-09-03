@@ -15,11 +15,11 @@ export interface RevealedSequenceAssessment {
 export type ReorderPlacement = "before" | "after";
 
 interface SequencingItemAccessibilityState {
+  answerView: "correct" | "submitted";
   canReorder: boolean;
   correct: boolean | null;
   hasFeedback: boolean;
   position: number;
-  revealed: boolean;
   submitted: boolean;
   total: number;
 }
@@ -65,18 +65,18 @@ export function deterministicShuffle<T>(input: readonly T[], seed: string): T[] 
 }
 
 export function describeSequencingItemAccessibilityState({
+  answerView,
   canReorder,
   correct,
   hasFeedback,
   position,
-  revealed,
   submitted,
   total,
 }: SequencingItemAccessibilityState): string {
   const parts = [`Position ${position} of ${total}`];
 
-  if (revealed) {
-    parts.push("Revealed correct position");
+  if (answerView === "correct") {
+    parts.push("Correct answer");
   } else if (submitted && correct === true) {
     parts.push("Submitted position, correct");
   } else if (submitted && correct === false) {
@@ -85,7 +85,7 @@ export function describeSequencingItemAccessibilityState({
     parts.push(canReorder ? "Reorderable" : "Reordering locked");
   }
 
-  if (hasFeedback && (revealed || correct !== null)) {
+  if (hasFeedback && correct !== null) {
     parts.push("Feedback available");
   }
 
@@ -94,21 +94,14 @@ export function describeSequencingItemAccessibilityState({
 
 export function getSequencingDisplayOrder({
   isEditable,
-  answerKeyVisible,
   docOrderIds,
-  answerOrderIds,
   responseOrder,
 }: {
   isEditable: boolean;
-  answerKeyVisible: boolean;
   docOrderIds: readonly string[];
-  answerOrderIds?: readonly string[];
   responseOrder: readonly string[];
 }): readonly string[] {
   if (isEditable) return docOrderIds;
-  if (answerKeyVisible) {
-    return answerOrderIds && hasSameIds(answerOrderIds, docOrderIds) ? answerOrderIds : docOrderIds;
-  }
   return hasSameIds(responseOrder, docOrderIds) ? responseOrder : docOrderIds;
 }
 

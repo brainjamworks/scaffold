@@ -8,7 +8,7 @@ import { AssessmentFeedbackContentSchema } from "@scaffold/contracts";
 import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
-import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
+import { useAssessmentRuntimeById } from "@/editor/assessment/shared/runtime/use-assessment-runtime";
 import { InteractionDragActivationArea } from "@/editor/interactions/drag/react/InteractionDragActivationArea";
 import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
 import { useInteractionDragSource } from "@/editor/interactions/drag/react/use-interaction-drag-source";
@@ -17,6 +17,7 @@ import * as Popover from "@/ui/components/Popover/Popover";
 import { CoursePopoverSurface } from "@/ui/components/course/CoursePopoverSurface/CoursePopoverSurface";
 import { zIndex } from "@/ui/overlays/z-index";
 import { iconSm } from "@/ui/tokens/icon-sizes";
+import type { AssessmentAnswerView } from "@/runtime/assessment/types";
 
 import type {
   CategoriseCategoryProjection,
@@ -30,6 +31,7 @@ import {
   describeCategorisePlacedItemAccessibilityState,
   describeCategoriseSourceItemAccessibilityState,
   deterministicShuffle,
+  resolveAuthorizedCategoriseReveal,
 } from "./categorise-fields-shared";
 import "./Categorise.css";
 
@@ -91,11 +93,23 @@ export function CategoriseCourseInteraction({
     submitted || (runtimeProblem?.state.feedbackMode === "immediate" && feedbackResult !== null);
   const interactionLocked = submitted || hasRevealPayload || (runtimeProblem?.exhausted ?? false);
   const reveal = categoriseRevealFromAnswers(runtimeProblem?.state.revealedAnswer?.answers);
-  const displayPlacements =
-    answerKeyVisible && reveal !== null
-      ? reveal.placements
-      : (problem?.placements ?? EMPTY_PLACEMENTS);
+  const submittedPlacements = problem?.placements ?? EMPTY_PLACEMENTS;
   const showFeedback = hasFeedback || answerKeyVisible;
+  const authorizedReveal = resolveAuthorizedCategoriseReveal({
+    answerKeyVisible,
+    categoryIds: categories.map((category) => category.id),
+    itemIds: items.map((item) => item.id),
+    reveal,
+    resultItems: feedbackResult?.items ?? null,
+  });
+  const canShowCorrectAnswer =
+    authorizedReveal !== null &&
+    items.some((item) => submittedPlacements[item.id] !== authorizedReveal.placements[item.id]);
+  const answerView = runtimeProblem?.answerView ?? "submitted";
+  const displayPlacements =
+    answerView === "correct" && authorizedReveal
+      ? authorizedReveal.placements
+      : submittedPlacements;
   const orderedItems = deterministicShuffle(
     items,
     `${shuffleScopeId ?? "categorise"}|${items.map((item) => item.id).join("|")}`,
@@ -216,6 +230,7 @@ export function CategoriseCourseInteraction({
         data-bounded-scroll={presentation === "inline" ? "" : undefined}
         data-category-count={categories.length}
         data-categorise-presentation={presentation}
+        data-assessment-answer-view={answerView}
         className="sc-course-categorise__scroll"
       >
         <InteractionDragSession<CategoriseDragData, CategoriseDropData>
@@ -234,10 +249,19 @@ export function CategoriseCourseInteraction({
           )}
           sessionId={`categorise-${assessmentTargetId ?? "runtime"}`}
         >
-          <div className="sc-course-categorise__source" data-source-mode="current-item">
+          <div
+            className="sc-course-categorise__source"
+            data-empty={currentItem ? undefined : ""}
+            data-review-mode={canShowCorrectAnswer ? "" : undefined}
+            data-source-mode="current-item"
+          >
             <div className="sc-course-categorise__source-heading">
               <div className="sc-course-categorise__source-label">
-                {currentItem ? "Sort this item" : "No items to sort"}
+                {canShowCorrectAnswer
+                  ? "Review arrangement"
+                  : currentItem
+                    ? "Sort this item"
+                    : "No items to sort"}
               </div>
               {currentItem ? (
                 <span role="status" aria-live="polite" className="sc-sr-only">
@@ -274,33 +298,35 @@ export function CategoriseCourseInteraction({
                 </div>
               ) : null}
             </div>
-            <div
-              data-item-transition={departingItem ? departingItem.direction : undefined}
-              className="sc-course-categorise__source-grid"
-            >
-              {departingItem && currentItem && currentItemElement ? (
-                <div
-                  key={`${departingItem.item.id}-${currentItem.id}`}
-                  data-item-carousel-track=""
-                  data-item-transition={departingItem.direction}
-                  className="sc-course-categorise__source-track"
-                  onTransitionEnd={(event) => {
-                    if (event.target === event.currentTarget) setDepartingItem(null);
-                  }}
-                >
-                  {departingItem.direction === "forward"
-                    ? departingItemElement
-                    : currentItemElement}
-                  {departingItem.direction === "forward"
-                    ? currentItemElement
-                    : departingItemElement}
-                </div>
-              ) : currentItemElement ? (
-                currentItemElement
-              ) : (
-                <span className="sc-course-categorise__source-empty">All items placed</span>
-              )}
-            </div>
+            {!canShowCorrectAnswer ? (
+              <div
+                data-item-transition={departingItem ? departingItem.direction : undefined}
+                className="sc-course-categorise__source-grid"
+              >
+                {departingItem && currentItem && currentItemElement ? (
+                  <div
+                    key={`${departingItem.item.id}-${currentItem.id}`}
+                    data-item-carousel-track=""
+                    data-item-transition={departingItem.direction}
+                    className="sc-course-categorise__source-track"
+                    onTransitionEnd={(event) => {
+                      if (event.target === event.currentTarget) setDepartingItem(null);
+                    }}
+                  >
+                    {departingItem.direction === "forward"
+                      ? departingItemElement
+                      : currentItemElement}
+                    {departingItem.direction === "forward"
+                      ? currentItemElement
+                      : departingItemElement}
+                  </div>
+                ) : currentItemElement ? (
+                  currentItemElement
+                ) : (
+                  <span className="sc-course-categorise__source-empty">All items placed</span>
+                )}
+              </div>
+            ) : null}
           </div>
 
           <div className="sc-course-categorise__bin-grid">
@@ -309,7 +335,7 @@ export function CategoriseCourseInteraction({
               return (
                 <CategoriseRuntimeCategory
                   key={category.id}
-                  answerKeyVisible={answerKeyVisible}
+                  answerView={answerView}
                   category={category}
                   feedbackResultItems={feedbackResult?.items ?? null}
                   hoveredCategoryId={hoveredCategoryId}
@@ -317,7 +343,7 @@ export function CategoriseCourseInteraction({
                   interactionLocked={interactionLocked}
                   items={placed}
                   reviewOpen={openReviewCategoryId === category.id}
-                  reveal={reveal}
+                  revealFeedbackByItemId={reveal?.feedbackByItemId ?? null}
                   selectedItemId={selectedForPlacement}
                   selectedItemLabel={selectedItemLabel}
                   showPreview={presentation === "full-slide"}
@@ -415,7 +441,7 @@ function CategoriseRuntimeCurrentItem({
 }
 
 function CategoriseRuntimeCategory({
-  answerKeyVisible,
+  answerView,
   category,
   feedbackResultItems,
   hoveredCategoryId,
@@ -426,14 +452,14 @@ function CategoriseRuntimeCategory({
   onRemovePlacement,
   onReviewOpenChange,
   reviewOpen,
-  reveal,
+  revealFeedbackByItemId,
   selectedItemId,
   selectedItemLabel,
   showPreview,
   showFeedback,
   submitted,
 }: {
-  answerKeyVisible: boolean;
+  answerView: AssessmentAnswerView;
   category: CategoriseCategoryProjection;
   feedbackResultItems: CategoriseFeedbackResultItems | null;
   hoveredCategoryId: string | null;
@@ -444,7 +470,7 @@ function CategoriseRuntimeCategory({
   onRemovePlacement: (itemId: string) => void;
   onReviewOpenChange: (open: boolean) => void;
   reviewOpen: boolean;
-  reveal: ReturnType<typeof categoriseRevealFromAnswers>;
+  revealFeedbackByItemId: CategoriseRevealFeedback | null;
   selectedItemId: string | null;
   selectedItemLabel: string | null;
   showPreview: boolean;
@@ -525,11 +551,10 @@ function CategoriseRuntimeCategory({
                 {items.map((item) => (
                   <CategoriseRuntimePlacedItem
                     key={item.id}
-                    answerKeyVisible={answerKeyVisible}
-                    categoryId={category.id}
+                    answerView={answerView}
                     feedbackResultItems={feedbackResultItems}
                     item={item}
-                    reveal={reveal}
+                    revealFeedbackByItemId={revealFeedbackByItemId}
                     showFeedback={showFeedback}
                     submitted={submitted}
                     interactionLocked={interactionLocked}
@@ -555,9 +580,13 @@ function CategoriseRuntimeCategory({
           data-empty={items.length === 0 ? "" : undefined}
         >
           {items.slice(0, 2).map((item) => (
-            <span key={item.id} className="sc-course-categorise__category-preview-item">
-              {renderStaticHtml(item.html, item.label || "Item")}
-            </span>
+            <CategoriseRuntimePreviewItem
+              key={item.id}
+              answerView={answerView}
+              detail={feedbackResultItems?.[item.id] ?? null}
+              item={item}
+              showFeedback={answerView === "submitted" && showFeedback}
+            />
           ))}
           {items.length > 2 && (
             <span className="sc-course-categorise__category-preview-more">
@@ -574,42 +603,36 @@ function CategoriseRuntimeCategory({
 }
 
 function CategoriseRuntimePlacedItem({
-  answerKeyVisible,
-  categoryId,
+  answerView,
   feedbackResultItems,
   interactionLocked,
   item,
   onRemovePlacement,
-  reveal,
+  revealFeedbackByItemId,
   showFeedback,
   submitted,
 }: {
-  answerKeyVisible: boolean;
-  categoryId: string;
+  answerView: AssessmentAnswerView;
   feedbackResultItems: CategoriseFeedbackResultItems | null;
   interactionLocked: boolean;
   item: CategoriseItemProjection;
   onRemovePlacement: (itemId: string) => void;
-  reveal: ReturnType<typeof categoriseRevealFromAnswers>;
+  revealFeedbackByItemId: CategoriseRevealFeedback | null;
   showFeedback: boolean;
   submitted: boolean;
 }) {
   const detail = feedbackResultItems?.[item.id] ?? null;
   const correct =
-    answerKeyVisible && reveal !== null
-      ? reveal.placements[item.id] === categoryId
-      : showFeedback && detail
-        ? detail.correct
-        : null;
+    answerView === "correct" ? true : showFeedback && detail ? detail.correct : null;
   const feedback =
-    answerKeyVisible && reveal?.feedbackByItemId[item.id] !== undefined
-      ? reveal.feedbackByItemId[item.id]
+    revealFeedbackByItemId?.[item.id] !== undefined
+      ? revealFeedbackByItemId[item.id]
       : detail?.feedback;
   const parsedFeedback = AssessmentFeedbackContentSchema.safeParse(feedback);
   const placedItemDescription = describeCategorisePlacedItemAccessibilityState({
+    answerView,
     correct,
-    hasFeedback: showFeedback && parsedFeedback.success,
-    revealed: answerKeyVisible,
+    hasFeedback: answerView === "submitted" && showFeedback && parsedFeedback.success,
     submitted,
   });
   const placedItemDescriptionId = useId();
@@ -620,9 +643,7 @@ function CategoriseRuntimePlacedItem({
       aria-label={`Placed ${item.label || "item"}`}
       aria-describedby={placedItemDescriptionId}
       data-placed-item-id={item.id}
-      data-course-state={
-        showFeedback && correct !== null ? (correct ? "correct" : "incorrect") : undefined
-      }
+      data-course-state={correct === null ? undefined : correct ? "correct" : "incorrect"}
       className="sc-course-categorise__placed-item"
     >
       <div className="sc-course-categorise__placed-item-row">
@@ -645,7 +666,7 @@ function CategoriseRuntimePlacedItem({
           </InteractionDragActivationArea>
         )}
       </div>
-      {showFeedback && parsedFeedback.success && (
+      {answerView === "submitted" && showFeedback && parsedFeedback.success && (
         <RichFeedbackRuntimePopover feedback={parsedFeedback.data} />
       )}
       <span id={placedItemDescriptionId} className="sc-sr-only">
@@ -654,6 +675,34 @@ function CategoriseRuntimePlacedItem({
     </div>
   );
 }
+
+function CategoriseRuntimePreviewItem({
+  answerView,
+  detail,
+  item,
+  showFeedback,
+}: {
+  answerView: AssessmentAnswerView;
+  detail: CategoriseFeedbackResultItems[string] | null;
+  item: CategoriseItemProjection;
+  showFeedback: boolean;
+}) {
+  const correct =
+    answerView === "correct" ? true : showFeedback && detail ? detail.correct : null;
+
+  return (
+    <span
+      className="sc-course-categorise__category-preview-item"
+      data-course-state={correct === null ? undefined : correct ? "correct" : "incorrect"}
+    >
+      {renderStaticHtml(item.html, item.label || "Item")}
+    </span>
+  );
+}
+
+type CategoriseRevealFeedback = NonNullable<
+  ReturnType<typeof categoriseRevealFromAnswers>
+>["feedbackByItemId"];
 
 function renderStaticHtml(html: string, fallback: string) {
   if (!html) return fallback;

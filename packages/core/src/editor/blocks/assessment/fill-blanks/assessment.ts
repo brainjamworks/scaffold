@@ -16,7 +16,7 @@ import {
 
 const EmbeddedNodeRecordKeySchema = EmbeddedNodeIdSchema.unwrap().unwrap();
 
-import type { AssessmentBlockAdapter } from "@/editor/blocks/assessment/shared/model/assessment-block-adapter";
+import type { AssessmentBlockAdapter } from "@/editor/assessment/shared/model/assessment-block-adapter";
 import type { AssessmentCapabilityResponseDefinition } from "@/editor/blocks/block-definition";
 import {
   cloneJsonNodeWithoutContent,
@@ -27,7 +27,7 @@ import {
   readOptionalString,
   redactCommonAssessmentShellNode,
   walkDescendants,
-} from "@/editor/blocks/assessment/shared/publication/projection";
+} from "@/editor/assessment/shared/publication/projection";
 
 export const FillBlanksResponseSchema = z
   .object({

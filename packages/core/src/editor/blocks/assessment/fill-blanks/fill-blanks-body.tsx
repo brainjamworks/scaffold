@@ -9,7 +9,7 @@ import {
 import type { ReactNode } from "react";
 
 import { FILL_BLANK_INLINE_CONTENT } from "@/document/model/content-model/content-groups";
-import { assessmentPromptDomId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { assessmentPromptDomId } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { FillBlanksSettingsSchema } from "@scaffold/contracts";
 

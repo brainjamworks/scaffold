@@ -2,7 +2,7 @@ import { ListBulletsIcon as ListBullets } from "@phosphor-icons/react";
 import { CategorisePrivateAssessmentSchema, CategoriseSettingsSchema } from "@scaffold/contracts";
 
 import { assessmentShellPlaceholders } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
-import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
+import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import type { ConfigurationControlDescriptor } from "@/editor/configuration/definition";
@@ -18,7 +18,7 @@ import {
 
 export const CATEGORISE_BLOCK_ID = "categorise";
 
-const categoriseConfiguration = createAssessmentConfiguration({
+export const categoriseConfiguration = createAssessmentConfiguration({
   schema: CategoriseSettingsSchema,
   title: "Categorise settings",
   defaultOpenSections: ["scoring"],

@@ -38,11 +38,12 @@ import { AssessmentInstructionsNode } from "@/editor/blocks/assessment/shared/no
 import { AssessmentPromptNode } from "@/editor/blocks/assessment/shared/nodes/assessment-prompt";
 import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared/nodes/assessment-summary-feedback";
 import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { InteractionProvider } from "@/editor/interactions/targets/facade/interaction-provider";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { getInteractionFacadeStoreForEditor } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-storage";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { SurfaceCategoriseQuestionNode } from "@/editor/surfaces/model/assessment/surface-categorise-question-node";
 
 import "./categorise-definition";
 import { CategoriseAuthoringExtension } from "./categorise-authoring-extension";
@@ -58,6 +59,7 @@ import {
   describeCategorisePlacedItemAccessibilityState,
   describeCategoriseSourceItemAccessibilityState,
 } from "./categorise-fields";
+import { deleteCategoriseItem, reassignCategoriseItem } from "./commands";
 
 const canonicalAssessmentResult = { feedback: null, items: {} };
 const categoriseTestCapabilities = resolveScaffoldCapabilities({
@@ -90,6 +92,7 @@ function makeEditor(editable = true) {
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([categoriseBlockDefinition.nodeType]),
       BoundedRegionTestNode,
+      SurfaceCategoriseQuestionNode,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       AssessmentTitleNode,
       AssessmentInstructionsNode,
@@ -112,6 +115,7 @@ function createDisposableCategoriseEditor(content: JSONContent) {
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([categoriseBlockDefinition.nodeType]),
       BoundedRegionTestNode,
+      SurfaceCategoriseQuestionNode,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       AssessmentTitleNode,
       AssessmentInstructionsNode,
@@ -322,6 +326,25 @@ function categoriseBlock(attrs: Record<string, unknown> = {}): JSONContent {
   };
 }
 
+function surfaceCategoriseDoc(): JSONContent {
+  const doc = categoriseDoc() as JSONContent;
+  const categorise = doc.content?.[0];
+  if (!categorise) throw new Error("Expected categorise fixture block");
+  return {
+    ...doc,
+    content: [{ ...categorise, type: "surface_categorise_question" }],
+  };
+}
+
+function nodePositionById(editor: Editor, typeName: string, id: string): number {
+  let position: number | null = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name === typeName && node.attrs["id"] === id) position = pos;
+  });
+  if (position === null) throw new Error(`Expected ${typeName} with id ${id}`);
+  return position;
+}
+
 function categoriseDocWithItemFeedback(itemId: string, feedback: string) {
   const doc = categoriseDoc() as JSONContent;
   const block = doc.content?.[0] as JSONContent | undefined;
@@ -380,6 +403,32 @@ beforeEach(() => {
 });
 
 describe("composite categorise node", () => {
+  it("reassigns an item owned by a Categorise assessment Surface", () => {
+    const editor = makeEditor();
+    editor.commands.setContent(surfaceCategoriseDoc());
+    const salmonPos = nodePositionById(editor, "categorise_item", "salmon_00001");
+
+    expect(reassignCategoriseItem(editor, salmonPos, "birds_000001")).toBe(true);
+    expect(categoriseItemIdsInBin(editor.getJSON(), "birds_000001")).toEqual([
+      "eagle_000001",
+      "salmon_00001",
+    ]);
+
+    editor.destroy();
+  });
+
+  it("deletes a Surface-owned item and its private feedback", () => {
+    const editor = makeEditor();
+    editor.commands.setContent(surfaceCategoriseDoc());
+    const salmonPos = nodePositionById(editor, "categorise_item", "salmon_00001");
+
+    expect(deleteCategoriseItem(editor, salmonPos)).toBe(true);
+    const surface = editor.getJSON().content?.[0];
+    expect(surface?.attrs?.["assessment"]?.feedbackByItemId).not.toHaveProperty("salmon_00001");
+
+    editor.destroy();
+  });
+
   it("describes categorise runtime accessibility states", () => {
     expect(
       describeCategoriseSourceItemAccessibilityState({
@@ -397,21 +446,21 @@ describe("composite categorise node", () => {
 
     expect(
       describeCategorisePlacedItemAccessibilityState({
+        answerView: "submitted",
         correct: false,
         hasFeedback: false,
-        revealed: false,
         submitted: true,
       }),
     ).toBe("Placed item. Submitted placement, incorrect");
 
     expect(
       describeCategorisePlacedItemAccessibilityState({
-        correct: true,
-        hasFeedback: true,
-        revealed: true,
+        answerView: "correct",
+        correct: null,
+        hasFeedback: false,
         submitted: true,
       }),
-    ).toBe("Placed item. Revealed correct placement. Feedback available");
+    ).toBe("Placed item. Correct placement");
   });
 
   it("declares fill placement for bounded containers", () => {
@@ -1378,7 +1427,7 @@ describe("composite categorise node", () => {
     editor.destroy();
   });
 
-  it("describes revealed categorise correct placement from the port payload", async () => {
+  it("toggles between submitted and correct categorise arrangements", async () => {
     const editor = makeEditor(false);
     editor.commands.setContent(learnerCategoriseDoc({ showAnswer: true }));
     const problemId = "artifact:artifact-1/block:categorise-1";
@@ -1399,75 +1448,13 @@ describe("composite categorise node", () => {
       revealAnswer: async () => ({
         answerKey: {
           kind: "classify",
-          correctPlacements: [{ itemId: "salmon_00001", categoryId: "birds_000001" }],
+          correctPlacements: [
+            { itemId: "salmon_00001", categoryId: "birds_000001" },
+            { itemId: "eagle_000001", categoryId: "birds_000001" },
+          ],
           feedbackByItemId: {
             salmon_00001: richFeedback("Port feedback"),
           },
-        },
-      }),
-    };
-
-    renderRuntimeEditor(editor, assessmentPort);
-
-    await waitFor(() => {
-      expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
-    });
-
-    setAssessmentResponseField(assessmentStore, problemId, "placements", {
-      salmon_00001: "fish__000001",
-      eagle_000001: "birds_000001",
-    });
-
-    const reviewFish = await waitFor(() =>
-      screen.getByRole("button", { name: "Review Fish, 1 item" }),
-    );
-    fireEvent.click(reviewFish);
-    await waitFor(() => {
-      expect(describedText('[data-placed-item-id="salmon_00001"]')).toBe("Placed item");
-    });
-    fireEvent.click(screen.getByText("Submit"));
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Show correct answer" })).toBeInstanceOf(
-        HTMLButtonElement,
-      );
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
-    fireEvent.click(screen.getByRole("button", { name: "Review Birds, 1 item" }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("dialog", { name: "Items in Birds" })).toHaveTextContent("Salmon");
-      expect(describedText('[data-placed-item-id="salmon_00001"]')).toBe(
-        "Placed item. Revealed correct placement. Feedback available",
-      );
-    });
-
-    editor.destroy();
-  });
-
-  it("reveals placements from port payload instead of authored correctBinId attrs", async () => {
-    const editor = makeEditor(false);
-    editor.commands.setContent(learnerCategoriseDoc({ showAnswer: true }));
-    const problemId = "artifact:artifact-1/block:categorise-1";
-    const assessmentPort: AssessmentPort = {
-      type: "runtime",
-      submit: async (args) =>
-        assessmentProblemOutcome(
-          {
-            ...canonicalAssessmentResult,
-            isCorrect: false,
-            score: { scaled: 0 },
-            items: {
-              salmon_00001: { correct: false, expected: "birds_000001", given: "fish__000001" },
-            },
-          },
-          { response: args.response },
-        ),
-      revealAnswer: async () => ({
-        answerKey: {
-          kind: "classify",
-          correctPlacements: [{ itemId: "salmon_00001", categoryId: "birds_000001" }],
-          feedbackByItemId: {},
         },
       }),
     };
@@ -1489,17 +1476,43 @@ describe("composite categorise node", () => {
     fireEvent.click(screen.getByText("Submit"));
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Show correct answer" })).toBeInstanceOf(
+      expect(screen.getByRole("button", { name: "Show answer" })).toBeInstanceOf(
         HTMLButtonElement,
       );
     });
-    fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
-    fireEvent.click(screen.getByRole("button", { name: "Review Birds, 1 item" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    await waitFor(() => {
+      expect(assessmentStore?.getState().transient.revealedAnswers[problemId]).toBeDefined();
+      expect(screen.getByRole("button", { name: "Show answer" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      expect(screen.getByRole("button", { name: "Review Birds, 2 items" })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review Birds, 2 items" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("dialog", { name: "Items in Birds" })).toHaveTextContent("Salmon");
-      expect(screen.queryByRole("dialog", { name: "Items in Fish" })).toBeNull();
+      const salmon = document.querySelector('[data-placed-item-id="salmon_00001"]');
+      expect(salmon).toHaveTextContent("Salmon");
+      expect(describedText('[data-placed-item-id="salmon_00001"]')).toBe(
+        "Placed item. Correct placement",
+      );
+      expect(salmon).toHaveAttribute("data-course-state", "correct");
     });
+
+    fireEvent.click(screen.getByRole("button", { name: "Review Birds, 2 items" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Show answer" })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+      expect(screen.getByRole("button", { name: "Review Fish, 1 item" })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Review Fish, 1 item" }));
+    expect(describedText('[data-placed-item-id="salmon_00001"]')).toBe(
+      "Placed item. Submitted placement, incorrect. Feedback available",
+    );
 
     editor.destroy();
   });

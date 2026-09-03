@@ -350,7 +350,10 @@ function readMatchingPairFeedback(
   pairPos: number,
   itemId: string,
 ): AssessmentFeedbackContent | null {
-  const parent = resolveAssessmentAttrParent(editor, pairPos, ["matching"]);
+  const parent = resolveAssessmentAttrParent(editor, pairPos, [
+    "matching",
+    "surface_matching_question",
+  ]);
   if (!parent || !itemId) return null;
   const assessment = MatchingPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
   return assessment.feedbackByItemId[itemId] ?? null;

@@ -7,7 +7,7 @@ import {
 } from "@tiptap/react";
 import { useMemo } from "react";
 
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/assessment/shared/model/assessment-prosemirror";
 
 import {
   createDropdownChoiceLabelNode,

@@ -10,7 +10,7 @@ import { emptyQuizSettings } from "./quiz-shared";
 
 export const QUIZ_BLOCK_ID = "quiz";
 
-const quizConfiguration = defineConfiguration({
+export const quizConfiguration = defineConfiguration({
   attr: "settings",
   schema: QuizSettingsSchema,
   createInitialDraft: emptyQuizSettings,

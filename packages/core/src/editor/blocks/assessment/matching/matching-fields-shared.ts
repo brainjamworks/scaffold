@@ -30,10 +30,10 @@ interface MatchingItemAccessibilityState {
 
 interface MatchingTargetAccessibilityState {
   activeDrop: boolean;
+  answerView: "correct" | "submitted";
   correct: boolean | null;
   hasFeedback: boolean;
   matchedItemLabel: string | null;
-  revealed: boolean;
   submitted: boolean;
 }
 
@@ -143,10 +143,10 @@ export function describeMatchingItemAccessibilityState({
 
 export function describeMatchingTargetAccessibilityState({
   activeDrop,
+  answerView,
   correct,
   hasFeedback,
   matchedItemLabel,
-  revealed,
   submitted,
 }: MatchingTargetAccessibilityState): string {
   const parts: string[] = [];
@@ -159,15 +159,15 @@ export function describeMatchingTargetAccessibilityState({
     parts.push("No item matched");
   }
 
-  if (revealed && matchedItemLabel !== null) {
-    parts.push("Revealed correct match");
+  if (answerView === "correct" && matchedItemLabel !== null) {
+    parts.push("Correct match");
   } else if (submitted && correct === true) {
     parts.push("Submitted match, correct");
   } else if (submitted && correct === false) {
     parts.push("Submitted match, incorrect");
   }
 
-  if (hasFeedback && (revealed || correct !== null)) {
+  if (hasFeedback && correct !== null) {
     parts.push("Feedback available");
   }
 

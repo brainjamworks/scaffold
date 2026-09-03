@@ -32,7 +32,7 @@ export function QuizHeader({
             <>
               <span className="sc-course-quiz__brand-sep">·</span>
               <span className="sc-course-quiz__brand-points">
-                {points} {points === 1 ? "pt" : "pts"}
+                {points} {points === 1 ? "point" : "points"}
               </span>
             </>
           ) : null}

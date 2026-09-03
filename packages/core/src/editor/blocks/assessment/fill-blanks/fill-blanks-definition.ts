@@ -1,7 +1,7 @@
 import { BracketsCurlyIcon as BracketsCurly } from "@phosphor-icons/react";
 
 import { assessmentShellPlaceholders } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
-import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
+import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import type { ConfigurationControlDescriptor } from "@/editor/configuration/definition";
@@ -29,7 +29,7 @@ import {
 
 export const FILL_BLANKS_INSERT_ACTION_ID = "fill-blanks";
 
-const fillBlanksConfiguration = createAssessmentConfiguration({
+export const fillBlanksConfiguration = createAssessmentConfiguration({
   schema: FillBlanksSettingsSchema,
   title: "Fill in the blanks settings",
   defaultOpenSections: ["scoring"],

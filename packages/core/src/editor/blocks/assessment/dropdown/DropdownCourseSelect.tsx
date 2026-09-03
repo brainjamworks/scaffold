@@ -7,7 +7,7 @@ import {
 import type { ReactNode } from "react";
 import { useId } from "react";
 
-import type { ChoiceState } from "@/editor/blocks/assessment/shared/runtime/types";
+import type { ChoiceState } from "@/editor/assessment/shared/runtime/types";
 import * as Select from "@/ui/components/Select/SelectMenu";
 import * as VisuallyHidden from "@/ui/components/VisuallyHidden/VisuallyHidden";
 import { zIndex } from "@/ui/overlays/z-index";
@@ -21,14 +21,8 @@ export interface DropdownCourseOption {
   content: ReactNode;
 }
 
-interface DropdownCorrectAnswer {
-  content: ReactNode;
-  feedbackControl?: ReactNode;
-}
-
 interface DropdownCourseSelectProps {
   accessibilityDescription?: string | null;
-  correctAnswer?: DropdownCorrectAnswer | null;
   disabled: boolean;
   feedbackControl?: ReactNode;
   immediateAnnouncement?: string | null;
@@ -46,7 +40,6 @@ interface DropdownCourseSelectProps {
 /** Course-owned visible composition for Dropdown's distinct Select interaction. */
 export function DropdownCourseSelect({
   accessibilityDescription,
-  correctAnswer,
   disabled,
   feedbackControl,
   immediateAnnouncement,
@@ -122,7 +115,10 @@ export function DropdownCourseSelect({
           </Select.Portal>
         </Select.Root>
 
-        <span className="sc-course-dropdown-select__status">
+        <span
+          className="sc-course-dropdown-select__status"
+          data-assessment-result-state={courseState ?? undefined}
+        >
           {state === "correct" || state === "missed" ? (
             <span className="sc-course-dropdown-select__side-icon">
               <CheckCircle size={iconMd} weight="fill" aria-hidden />
@@ -140,18 +136,6 @@ export function DropdownCourseSelect({
           <VisuallyHidden.Root id={descriptionId}>{accessibilityDescription}</VisuallyHidden.Root>
         ) : null}
       </div>
-
-      {correctAnswer ? (
-        <div className="sc-course-dropdown-select__correct-answer" data-course-state="correct">
-          <span className="sc-course-dropdown-select__correct-label">Correct answer:</span>
-          <span className="sc-course-dropdown-select__correct-value">{correctAnswer.content}</span>
-          {correctAnswer.feedbackControl ? (
-            <span className="sc-course-dropdown-select__feedback">
-              {correctAnswer.feedbackControl}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
 
       {immediateAnnouncement ? (
         <VisuallyHidden.Root role="status" aria-live="polite" aria-atomic="true">

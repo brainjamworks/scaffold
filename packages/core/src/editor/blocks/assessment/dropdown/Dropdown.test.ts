@@ -1038,9 +1038,12 @@ describe("composite dropdown node", () => {
     fireEvent.click(screen.getByText("Show answer"));
 
     await waitFor(() => {
-      expect(
-        document.body.querySelector(".sc-course-dropdown-select__correct-value")?.textContent,
-      ).toContain("Beta");
+      expect(screen.getByRole("combobox", { name: "Pick a term" }).textContent).toContain("Beta");
+      expect(dropdownDescription()).toBe("Selected answer, correct");
+    });
+
+    fireEvent.click(screen.getByText("Show answer"));
+    await waitFor(() => {
       expect(screen.getByRole("combobox", { name: "Pick a term" }).textContent).toContain("Alpha");
       expect(dropdownDescription()).toBe("Submitted answer, incorrect");
     });

@@ -10,7 +10,7 @@ import type { AssessmentItemDetail } from "@scaffold/contracts";
 import { AssessmentFeedbackContentSchema } from "@scaffold/contracts";
 
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
-import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
+import { useAssessmentRuntimeById } from "@/editor/assessment/shared/runtime/use-assessment-runtime";
 import { observeInteractionGeometry } from "@/editor/interactions/drag/dom/observe-interaction-geometry";
 import { InteractionDragActivationArea } from "@/editor/interactions/drag/react/InteractionDragActivationArea";
 import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
@@ -27,6 +27,7 @@ import {
   getMatchingConnectorPath,
   matchedItemId,
   matchingRevealFromAnswers,
+  resolveAuthorizedMatchingReveal,
   type MatchingConnector,
 } from "./matching-fields-shared";
 import {
@@ -90,7 +91,6 @@ export function MatchingCourseInteraction({
   const answerKeyVisible = runtimeProblem?.answerKeyVisible ?? false;
   const hasRevealPayload = (runtimeProblem?.state.revealedAnswer ?? null) !== null;
   const reveal = matchingRevealFromAnswers(runtimeProblem?.state.revealedAnswer?.answers);
-  const revealedMatches = reveal?.matches ?? {};
   const submitted = runtimeProblem?.state.submitted ?? false;
   const feedbackResult = runtimeProblem?.feedbackResult ?? null;
   const feedbackItems = feedbackResult?.items ?? EMPTY_FEEDBACK_ITEMS;
@@ -99,8 +99,16 @@ export function MatchingCourseInteraction({
     answerKeyVisible ||
     (runtimeProblem?.state.feedbackMode === "immediate" && feedbackResult !== null);
   const interactionLocked = submitted || hasRevealPayload || (runtimeProblem?.exhausted ?? false);
+  const authorizedReveal = resolveAuthorizedMatchingReveal({
+    answerKeyVisible,
+    answers: runtimeProblem?.state.revealedAnswer?.answers,
+    feedbackItems,
+    itemIds: pairs.map((pair) => pair.itemId),
+    targetIds: pairs.map((pair) => pair.targetId),
+  });
+  const answerView = runtimeProblem?.answerView ?? "submitted";
   const displayMatches =
-    answerKeyVisible && Object.keys(revealedMatches).length > 0 ? revealedMatches : responseMatches;
+    answerView === "correct" && authorizedReveal ? authorizedReveal.matches : responseMatches;
   const connectorRevision = createMatchingConnectorRevision(displayMatches, feedbackItems);
   const inline = presentation === "inline";
 
@@ -123,12 +131,19 @@ export function MatchingCourseInteraction({
     const connections: MatchingConnectorConnection[] = Object.entries(displayMatches).map(
       ([itemId, targetId]) => {
         const feedbackItem = feedbackItems[itemId] ?? null;
+        const expectedTargetId = authorizedReveal?.matches[itemId] ?? null;
         const state =
-          answerKeyVisible || (showFeedback && feedbackItem?.correct === true)
-            ? "correct"
-            : showFeedback && feedbackItem?.correct === false
-              ? "incorrect"
-              : "default";
+          answerView === "correct"
+            ? "default"
+            : showFeedback && feedbackItem?.correct === true
+              ? "correct"
+              : showFeedback && feedbackItem?.correct === false
+                ? "incorrect"
+                : expectedTargetId
+                  ? expectedTargetId === targetId
+                    ? "correct"
+                    : "incorrect"
+                  : "default";
         return { itemId, targetId, state };
       },
     );
@@ -147,7 +162,8 @@ export function MatchingCourseInteraction({
       ownerDocument: container.ownerDocument,
     });
   }, [
-    answerKeyVisible,
+    answerView,
+    authorizedReveal,
     connectorCoordinateSpace,
     connectorRevision,
     displayMatches,
@@ -216,12 +232,17 @@ export function MatchingCourseInteraction({
     const matched = matchedItemId(displayMatches, target.targetId);
     const matchedPair = matched ? (pairByItemId.get(matched) ?? null) : null;
     const feedbackItem = matchedPair ? (feedbackItems[matchedPair.itemId] ?? null) : null;
+    const expectedTargetId = matchedPair
+      ? (authorizedReveal?.matches[matchedPair.itemId] ?? null)
+      : null;
     const correct =
-      answerKeyVisible && matchedPair
-        ? true
+      answerView === "correct"
+        ? null
         : showFeedback && feedbackItem
           ? feedbackItem.correct
-          : null;
+          : expectedTargetId
+            ? expectedTargetId === target.targetId
+            : null;
     const feedback =
       answerKeyVisible && reveal?.feedbackByItemId[matchedPair?.itemId ?? ""] !== undefined
         ? reveal.feedbackByItemId[matchedPair?.itemId ?? ""]
@@ -237,10 +258,10 @@ export function MatchingCourseInteraction({
         count={orderedTargets.length}
         description={describeMatchingTargetAccessibilityState({
           activeDrop,
+          answerView,
           correct,
-          hasFeedback: showFeedback && matchedFeedback.success,
+          hasFeedback: answerView === "submitted" && showFeedback && matchedFeedback.success,
           matchedItemLabel: matchedPair?.itemLabel ?? null,
-          revealed: answerKeyVisible,
           submitted,
         })}
         index={idx}
@@ -279,7 +300,6 @@ export function MatchingCourseInteraction({
                 size={iconMd}
                 weight="fill"
                 className="sc-course-matching__state-cue"
-                data-course-state="correct"
                 aria-hidden
               />
             )}
@@ -288,11 +308,10 @@ export function MatchingCourseInteraction({
                 size={iconMd}
                 weight="fill"
                 className="sc-course-matching__state-cue"
-                data-course-state="incorrect"
                 aria-hidden
               />
             )}
-            {matchedFeedback.success && showFeedback && (
+            {matchedFeedback.success && answerView === "submitted" && showFeedback && (
               <RichFeedbackRuntimePopover feedback={matchedFeedback.data} />
             )}
           </div>
@@ -308,6 +327,7 @@ export function MatchingCourseInteraction({
   return (
     <div
       {...(inline ? { "data-bounded-scroll-frame": "" } : {})}
+      data-assessment-answer-view={answerView}
       data-matching-presentation={presentation}
       data-slot="matching-pairs-group"
       className="sc-course-matching__group"

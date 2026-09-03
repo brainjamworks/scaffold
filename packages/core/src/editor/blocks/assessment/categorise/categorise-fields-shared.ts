@@ -38,9 +38,9 @@ interface CategoriseCategoryAccessibilityState {
 }
 
 interface CategorisePlacedItemAccessibilityState {
+  answerView: "correct" | "submitted";
   correct: boolean | null;
   hasFeedback: boolean;
-  revealed: boolean;
   submitted: boolean;
 }
 
@@ -70,7 +70,7 @@ export function categoriseContentNode(node: PMNode): PMNode | null {
 }
 
 export function fieldHtml(serializer: DOMSerializer, node: PMNode | null): string {
-  return node ? serializeStaticRichTextHtml(serializer, node.content) : "";
+  return node?.textContent.trim() ? serializeStaticRichTextHtml(serializer, node.content) : "";
 }
 
 export function categoriesFromContent(
@@ -233,22 +233,22 @@ export function describeCategoriseCategoryAccessibilityState({
 }
 
 export function describeCategorisePlacedItemAccessibilityState({
+  answerView,
   correct,
   hasFeedback,
-  revealed,
   submitted,
 }: CategorisePlacedItemAccessibilityState): string {
   const parts = ["Placed item"];
 
-  if (revealed) {
-    parts.push("Revealed correct placement");
+  if (answerView === "correct") {
+    parts.push("Correct placement");
   } else if (submitted && correct === true) {
     parts.push("Submitted placement, correct");
   } else if (submitted && correct === false) {
     parts.push("Submitted placement, incorrect");
   }
 
-  if (hasFeedback && (revealed || correct !== null)) {
+  if (hasFeedback && correct !== null) {
     parts.push("Feedback available");
   }
 

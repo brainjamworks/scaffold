@@ -2,7 +2,7 @@ import { CardsIcon as Cards } from "@phosphor-icons/react";
 import { MatchingPrivateAssessmentSchema, MatchingSettingsSchema } from "@scaffold/contracts";
 
 import { assessmentShellPlaceholders } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
-import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
+import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import type { ConfigurationControlDescriptor } from "@/editor/configuration/definition";
@@ -19,7 +19,7 @@ import { matchingPairContent } from "./matching-fields-shared";
 
 export const MATCHING_BLOCK_ID = "matching";
 
-const matchingConfiguration = createAssessmentConfiguration({
+export const matchingConfiguration = createAssessmentConfiguration({
   schema: MatchingSettingsSchema,
   title: "Matching settings",
   defaultOpenSections: ["scoring"],

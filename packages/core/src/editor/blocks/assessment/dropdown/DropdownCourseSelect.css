@@ -30,8 +30,7 @@
   }
 
   .sc-course-dropdown-select__value,
-  .sc-course-dropdown-select__option-content,
-  .sc-course-dropdown-select__correct-value {
+  .sc-course-dropdown-select__option-content {
     min-width: 0;
     overflow-wrap: anywhere;
   }
@@ -89,13 +88,4 @@
     inset-inline-end: 0;
   }
 
-  .sc-course-dropdown-select__correct-answer {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-  }
-
-  .sc-course-dropdown-select__correct-value {
-    flex: 1 1 auto;
-  }
 }

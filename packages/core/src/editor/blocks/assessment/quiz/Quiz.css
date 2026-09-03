@@ -97,6 +97,30 @@
       [data-authoring-frame="block"],
       [data-runtime-frame="block"]
     )[data-bounded-placement="fill"]
+    > .sc-course-quiz[data-quiz-status="not_started"]
+    > .sc-course-quiz__container
+    > .sc-course-quiz__runtime-card {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  :where(
+      [data-authoring-frame="block"],
+      [data-runtime-frame="block"]
+    )[data-bounded-placement="fill"]
+    > .sc-course-quiz[data-quiz-status="not_started"]
+    > .sc-course-quiz__container
+    > .sc-course-quiz__runtime-card
+    > .sc-course-quiz__runtime-start-copy {
+    align-self: center;
+  }
+
+  :where(
+      [data-authoring-frame="block"],
+      [data-runtime-frame="block"]
+    )[data-bounded-placement="fill"]
     > .sc-course-quiz
     > .sc-course-quiz__container
     > .sc-course-quiz__runtime-controls {
@@ -237,6 +261,19 @@
   .sc-course-quiz__timesup {
     display: flex;
     flex-direction: column;
+  }
+
+  .sc-course-quiz__runtime-start-copy {
+    box-sizing: border-box;
+    display: flex;
+    min-inline-size: 0;
+    flex-direction: column;
+  }
+
+  .sc-course-quiz__runtime-start-actions {
+    display: flex;
+    min-inline-size: 0;
+    align-items: center;
   }
 
   .sc-app-quiz__strip-menu-item,

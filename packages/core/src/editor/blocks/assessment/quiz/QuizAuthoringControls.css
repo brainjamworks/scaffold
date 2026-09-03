@@ -1,6 +1,46 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-overlays {
+  .sc-app-slide-quiz__authoring-rail {
+    border-block-end: 1px solid var(--sc-app-color-border);
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-primary);
+    font-family: var(--font-ui);
+  }
+
+  .sc-app-slide-quiz__authoring-rail > :is(.sc-app-quiz__strip, .sc-app-quiz__stage-meta) {
+    border-block-end: 0;
+  }
+
+  .sc-app-slide-quiz__summary-icon {
+    color: var(--sc-app-color-primary);
+  }
+
+  .sc-app-slide-quiz__summary-meta {
+    color: var(--sc-app-color-text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+  }
+
+  .sc-app-slide-quiz__summary-setup,
+  .sc-app-quiz__strip-setup {
+    color: var(--sc-app-color-warning);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1rem;
+    white-space: nowrap;
+  }
+
+  .sc-app-slide-quiz__summary-setup {
+    margin-inline-start: 0.25rem;
+  }
+
+  .sc-app-quiz__strip-setup {
+    padding-inline: 0.25rem;
+    border: 1px solid color-mix(in oklch, var(--sc-app-color-warning) 42%, transparent);
+    border-radius: var(--sc-app-radius-control);
+  }
+
   .sc-app-quiz__strip {
     gap: 0.5rem;
     padding: 0.75rem 1rem;
@@ -12,6 +52,26 @@
 
   .sc-app-quiz__strip-sortable-items {
     gap: 0.5rem;
+  }
+
+  .sc-app-quiz__strip-scroll {
+    box-sizing: border-box;
+    inline-size: 2.75rem;
+    min-inline-size: 2.75rem;
+    block-size: 2.75rem;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: var(--sc-app-radius-control);
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-secondary);
+    cursor: pointer;
+  }
+
+  .sc-app-quiz__strip-scroll:disabled {
+    color: var(--sc-app-color-text-muted);
+    cursor: default;
+    opacity: 0.45;
   }
 
   .sc-app-quiz__strip-pill {
@@ -354,6 +414,7 @@
   :is(
     .sc-app-quiz__strip-button,
     .sc-app-quiz__strip-pill-kebab,
+    .sc-app-quiz__strip-scroll,
     .sc-app-quiz__empty-card,
     .sc-app-quiz__add-option
   ):focus-visible {
@@ -370,6 +431,7 @@
     :is(
       .sc-app-quiz__strip-pill,
       .sc-app-quiz__strip-pill-kebab,
+      .sc-app-quiz__strip-scroll,
       .sc-app-quiz__empty-card,
       .sc-app-quiz__add-option
     ) {
@@ -395,6 +457,7 @@
     :is(
       .sc-app-quiz__strip-button,
       .sc-app-quiz__strip-pill-kebab,
+      .sc-app-quiz__strip-scroll,
       .sc-app-quiz__stage-action,
       .sc-app-quiz__empty-card,
       .sc-app-quiz__add-option

@@ -42,8 +42,9 @@ import { AssessmentInstructionsNode } from "@/editor/blocks/assessment/shared/no
 import { AssessmentPromptNode } from "@/editor/blocks/assessment/shared/nodes/assessment-prompt";
 import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared/nodes/assessment-summary-feedback";
 import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { SurfaceMatchingQuestionNode } from "@/editor/surfaces/model/assessment/surface-matching-question-node";
 
 import { matchingBlockDefinition } from "./matching-definition";
 import {
@@ -87,6 +88,7 @@ function makeEditor(editable = true) {
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([matchingBlockDefinition.nodeType]),
       BoundedRegionTestNode,
+      SurfaceMatchingQuestionNode,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       AssessmentTitleNode,
       AssessmentInstructionsNode,
@@ -108,6 +110,7 @@ function createDisposableMatchingEditor(content: JSONContent) {
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([matchingBlockDefinition.nodeType]),
       BoundedRegionTestNode,
+      SurfaceMatchingQuestionNode,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       AssessmentTitleNode,
       AssessmentInstructionsNode,
@@ -287,6 +290,16 @@ function matchingBlock(attrs: Record<string, unknown> = {}): JSONContent {
   return block;
 }
 
+function surfaceMatchingDoc(): JSONContent {
+  const doc = matchingDoc() as JSONContent;
+  const matching = doc.content?.[0];
+  if (!matching) throw new Error("Expected matching fixture block");
+  return {
+    ...doc,
+    content: [{ ...matching, type: "surface_matching_question" }],
+  };
+}
+
 function matchingRuntimeDoc(attrs: Record<string, unknown> = {}): JSONContent {
   const baseContent = matchingDoc().content?.[0]?.content ?? [];
   return {
@@ -323,6 +336,28 @@ function describedText(selector: string): string | null {
 }
 
 describe("composite matching node", () => {
+  it("reads item feedback through a Matching assessment Surface", async () => {
+    const editor = makeEditor();
+    const user = userEvent.setup();
+    editor.commands.setContent(surfaceMatchingDoc());
+
+    renderAssessmentEditor(editor);
+
+    const firstPair = await waitFor(() => {
+      const element = document.body.querySelector<HTMLElement>(
+        '[data-node="matching-pair"][data-item-id="item__000001"]',
+      );
+      expect(element).toBeInstanceOf(HTMLElement);
+      return element as HTMLElement;
+    });
+    await user.click(
+      within(firstPair).getByRole("button", { name: "Edit feedback for item ‘Term 1’" }),
+    );
+    expect(await screen.findByLabelText("Feedback editor")).toHaveTextContent("Good term match");
+
+    editor.destroy();
+  });
+
   it("declares bounded fill placement", () => {
     expect(matchingBlockDefinition.boundedPlacement).toBe("fill");
   });
@@ -357,10 +392,10 @@ describe("composite matching node", () => {
     expect(
       describeMatchingTargetAccessibilityState({
         activeDrop: false,
+        answerView: "submitted",
         correct: false,
         hasFeedback: false,
         matchedItemLabel: "France",
-        revealed: false,
         submitted: true,
       }),
     ).toBe("Matched with ‘France’. Submitted match, incorrect");
@@ -368,13 +403,13 @@ describe("composite matching node", () => {
     expect(
       describeMatchingTargetAccessibilityState({
         activeDrop: false,
-        correct: true,
-        hasFeedback: true,
+        answerView: "correct",
+        correct: null,
+        hasFeedback: false,
         matchedItemLabel: "France",
-        revealed: true,
         submitted: true,
       }),
-    ).toBe("Matched with ‘France’. Revealed correct match. Feedback available");
+    ).toBe("Matched with ‘France’. Correct match");
   });
 
   it("persists author feedback for the selected matching item", async () => {
@@ -1094,7 +1129,7 @@ describe("composite matching node", () => {
     editor.destroy();
   });
 
-  it("describes revealed matching correct pair from the port payload", async () => {
+  it("toggles between submitted and correct matching arrangements", async () => {
     const editor = makeEditor(false);
     const problemId = "artifact:artifact-1/block:matching-1";
     editor.commands.setContent(matchingRuntimeDoc());
@@ -1147,21 +1182,37 @@ describe("composite matching node", () => {
     fireEvent.click(screen.getByText("Submit"));
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Show correct answer" })).toBeInstanceOf(
+      expect(screen.getByRole("button", { name: "Show answer" })).toBeInstanceOf(
         HTMLButtonElement,
       );
     });
-    fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
 
     await waitFor(() => {
-      expect(document.body.querySelector('[data-target-id="target_00001"]')?.textContent).toContain(
-        "Term 1",
+      expect(screen.getByRole("button", { name: "Show answer" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
       );
+      expect(
+        document.body.querySelector<HTMLElement>('[data-target-id="target_00001"]')?.textContent,
+      ).toContain("Term 1");
       expect(
         describedText(
           '[data-target-id="target_00001"][data-matching-drop-target] .sc-course-matching__place-action',
         ),
-      ).toBe("Matched with ‘Term 1’. Revealed correct match. Feedback available");
+      ).toBe("Matched with ‘Term 1’. Correct match");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    await waitFor(() => {
+      expect(
+        document.body.querySelector<HTMLElement>('[data-target-id="target_00002"]')?.textContent,
+      ).toContain("Term 1");
+      expect(
+        describedText(
+          '[data-target-id="target_00002"][data-matching-drop-target] .sc-course-matching__place-action',
+        ),
+      ).toBe("Matched with ‘Term 1’. Submitted match, incorrect. Feedback available");
     });
 
     editor.destroy();

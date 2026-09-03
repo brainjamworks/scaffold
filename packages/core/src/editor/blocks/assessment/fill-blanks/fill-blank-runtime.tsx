@@ -7,9 +7,9 @@ import {
 import { useId, useMemo } from "react";
 
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
-import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
-import { assessmentResponseName } from "@/editor/blocks/assessment/shared/runtime/assessment-response-name";
+import { findAncestorAssessmentBlockId } from "@/editor/assessment/shared/model/assessment-prosemirror";
+import { useAssessmentRuntimeById } from "@/editor/assessment/shared/runtime/use-assessment-runtime";
+import { assessmentResponseName } from "@/editor/assessment/shared/runtime/assessment-response-name";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { AssessmentFeedbackContentSchema, FillBlanksAssessmentSchema } from "@scaffold/contracts";
 import type { FillBlankAttrs } from "@scaffold/contracts";
@@ -23,24 +23,24 @@ import {
 import "./FillBlanks.css";
 
 interface FillBlankAccessibilityState {
+  answerView: "submitted" | "correct";
   hasFeedback: boolean;
-  revealed: boolean;
   state: "correct" | "incorrect" | null;
   submitted: boolean;
   value: string;
 }
 
 export function describeFillBlankAccessibilityState({
+  answerView,
   hasFeedback,
-  revealed,
   state,
   submitted,
   value,
 }: FillBlankAccessibilityState): string | null {
   const parts: string[] = [];
 
-  if (revealed) {
-    parts.push("Revealed answer, correct");
+  if (answerView === "correct") {
+    parts.push("Correct answer");
   } else if (state === "correct") {
     parts.push(submitted ? "Submitted answer, correct" : "Entered answer, correct");
   } else if (state === "incorrect") {
@@ -49,7 +49,7 @@ export function describeFillBlankAccessibilityState({
     parts.push(submitted ? "Submitted answer" : "Entered answer");
   }
 
-  if (hasFeedback && (revealed || state !== null)) {
+  if (hasFeedback && state !== null) {
     parts.push("Feedback available");
   }
 
@@ -96,6 +96,7 @@ function RuntimeFillBlank({
   const runtimeProblem = assessment?.problem ?? null;
   const submitted = runtimeProblem?.state.submitted ?? false;
   const answerKeyVisible = runtimeProblem?.answerKeyVisible ?? false;
+  const answerView = runtimeProblem?.answerView ?? "submitted";
   const feedbackResult = runtimeProblem?.feedbackResult ?? null;
   const detail = feedbackResult?.items?.[blank.id] ?? null;
   const showFeedback =
@@ -112,24 +113,24 @@ function RuntimeFillBlank({
   const expectedAnswer = answerKeyVisible
     ? (reveal?.value ?? expectedBlankAnswer(detail?.expected))
     : null;
-  const revealed = expectedAnswer !== null;
-  const displayedValue = revealed ? expectedAnswer : givenValue;
-  const state = revealed
-    ? "correct"
-    : showFeedback && detail
-      ? detail.correct
-        ? "correct"
-        : "incorrect"
-      : null;
-  const widthBasis = blank.placeholder.trim() || "Answer";
+  const displayedValue = answerView === "correct" && expectedAnswer ? expectedAnswer : givenValue;
+  const state =
+    answerView === "correct" && expectedAnswer
+      ? "correct"
+      : showFeedback && detail
+        ? detail.correct
+          ? "correct"
+          : "incorrect"
+        : null;
+  const widthBasis = displayedValue || blank.placeholder.trim() || "Answer";
 
   const hasFeedback = showFeedback && parsedFeedback.success;
   const accessibilityDescription = describeFillBlankAccessibilityState({
+    answerView,
     hasFeedback,
-    revealed,
     state,
     submitted,
-    value: givenValue,
+    value: displayedValue,
   });
   const generatedDescriptionId = useId();
   const descriptionId = accessibilityDescription ? generatedDescriptionId : undefined;
@@ -169,7 +170,7 @@ function RuntimeFillBlank({
         aria-describedby={descriptionId}
         className="sc-course-fill-blank__input"
         data-course-state={state ?? "neutral"}
-        data-review={answerKeyVisible ? "answer-key" : submitted ? "submitted" : "active"}
+        data-review={answerView === "correct" ? "answer-key" : submitted ? "submitted" : "active"}
         style={{
           width: `${Math.max(16, Math.min(24, widthBasis.length + 4))}ch`,
         }}

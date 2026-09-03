@@ -159,7 +159,7 @@ export function duplicateQuizQuestion({
   const source = node.child(index);
   const sourceJson = source.toJSON() as JSONContent;
   const cloneJson = cloneJsonWithNewStableIds(sourceJson, {
-    blockDuplications: getScaffoldCapabilitiesForEditor(editor).blocks.duplication,
+    identityRewrites: getScaffoldCapabilitiesForEditor(editor).contentIdentity.rewrites,
   });
   const duplicatedId = cloneJson.attrs?.["id"];
   if (typeof duplicatedId !== "string") return null;

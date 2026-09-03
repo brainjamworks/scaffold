@@ -16,7 +16,9 @@ import type { MovementNodeContext } from "@/editor/movement/model/movement-polic
 
 import { fieldContent } from "./categorise-fields-shared";
 
-interface CategoriseBlockLocation {
+const SURFACE_CATEGORISE_QUESTION_NODE_TYPE = "surface_categorise_question";
+
+interface CategoriseOwnerLocation {
   readonly node: ProseMirrorNode;
   readonly pos: number;
 }
@@ -68,7 +70,7 @@ export function canDeleteCategoriseCategory(editor: Editor, categoryPos: number)
   if (!location) return false;
   const $category = editor.state.doc.resolve(categoryPos);
   if ($category.parent.type.name !== "categorise_bins_group") return false;
-  const itemCount = countCategoriseItems(findCategoriseBlock(editor.state.doc, categoryPos)?.node);
+  const itemCount = countCategoriseItems(findCategoriseOwner(editor.state.doc, categoryPos)?.node);
   return $category.parent.childCount > 2 && itemCount - location.itemsGroup.childCount >= 1;
 }
 
@@ -86,7 +88,7 @@ export function deleteCategoriseCategory(editor: Editor, categoryPos: number): b
 export function canDeleteCategoriseItem(editor: Editor, itemPos: number): boolean {
   const item = editor.state.doc.nodeAt(itemPos);
   if (!item || item.type.name !== "categorise_item") return false;
-  const block = findCategoriseBlock(editor.state.doc, itemPos);
+  const block = findCategoriseOwner(editor.state.doc, itemPos);
   return countCategoriseItems(block?.node) > 1;
 }
 
@@ -108,7 +110,7 @@ export function reassignCategoriseItem(
 ): boolean {
   const item = editor.state.doc.nodeAt(itemPos);
   if (!item || item.type.name !== "categorise_item" || !targetCategoryId.trim()) return false;
-  const block = findCategoriseBlock(editor.state.doc, itemPos);
+  const block = findCategoriseOwner(editor.state.doc, itemPos);
   if (!block) return false;
   const sourceCategory = categoryContaining(block, itemPos);
   const targetCategory = categoriesIn(block).find(
@@ -135,8 +137,8 @@ export function canTargetCategoriseItemMovement(
   if (target.nodeType.name !== "categorise_item" && target.nodeType.name !== "categorise_bin") {
     return false;
   }
-  const sourceOwner = movementAncestor(source, "categorise");
-  const targetOwner = movementAncestor(target, "categorise");
+  const sourceOwner = movementCategoriseOwner(source);
+  const targetOwner = movementCategoriseOwner(target);
   return Boolean(
     sourceOwner &&
     targetOwner &&
@@ -217,7 +219,7 @@ function buildCategoriseItemMovementTransaction(
   if (!categoriseItemMovementIsApplicable(editor.state.doc, sourcePos, intent)) return null;
   const sourceNode = editor.state.doc.nodeAt(sourcePos);
   if (!sourceNode || sourceNode.type.name !== "categorise_item") return null;
-  const sourceBlock = findCategoriseBlock(editor.state.doc, sourcePos);
+  const sourceBlock = findCategoriseOwner(editor.state.doc, sourcePos);
   const target = categoriseItemMovementTarget(editor.state.doc, intent);
   if (!sourceBlock || !target || sourceBlock.pos !== target.block.pos) return null;
   if (target.targetPos === sourcePos) return null;
@@ -254,7 +256,7 @@ function categoriseItemMovementIsApplicable(
     return false;
   }
   const sourceNode = doc.nodeAt(sourcePos);
-  const sourceBlock = findCategoriseBlock(doc, sourcePos);
+  const sourceBlock = findCategoriseOwner(doc, sourcePos);
   const target = categoriseItemMovementTarget(doc, intent);
   if (
     !sourceNode ||
@@ -286,7 +288,7 @@ function categoriseItemMovementTarget(
   doc: ProseMirrorNode,
   intent: AnyMovementIntent,
 ): Readonly<{
-  block: CategoriseBlockLocation;
+  block: CategoriseOwnerLocation;
   category: CategoryLocation;
   targetNode: ProseMirrorNode;
   targetPos: number;
@@ -300,7 +302,7 @@ function categoriseItemMovementTarget(
   const targetPos = intent.target.pos;
   const targetNode = doc.nodeAt(targetPos);
   if (!targetNode) return null;
-  const block = findCategoriseBlock(doc, targetPos);
+  const block = findCategoriseOwner(doc, targetPos);
   if (!block) return null;
   const category =
     targetNode.type.name === "categorise_bin"
@@ -334,9 +336,9 @@ function movementCategory(context: MovementNodeContext): Readonly<{ index: numbe
  * as every visible Categorise document mutation, including neutral contained category movement.
  */
 export function synchronizeCategoriseAssessmentsInTransaction(tr: Transaction): Transaction {
-  const blocks: CategoriseBlockLocation[] = [];
+  const blocks: CategoriseOwnerLocation[] = [];
   tr.doc.descendants((node, pos) => {
-    if (node.type.name !== "categorise") return true;
+    if (!isCategoriseAssessmentOwner(node)) return true;
     blocks.push({ node, pos });
     return false;
   });
@@ -348,7 +350,7 @@ export function synchronizeCategoriseAssessmentsInTransaction(tr: Transaction): 
   return tr;
 }
 
-function repairCategoryIds(tr: Transaction, block: CategoriseBlockLocation): void {
+function repairCategoryIds(tr: Transaction, block: CategoriseOwnerLocation): void {
   const seen = new Set<string>();
   for (const category of categoriesIn(block)) {
     const originalId = stringId(category.node);
@@ -362,7 +364,7 @@ function repairCategoryIds(tr: Transaction, block: CategoriseBlockLocation): voi
   }
 }
 
-function repairItemIdsAndFeedback(tr: Transaction, block: CategoriseBlockLocation): void {
+function repairItemIdsAndFeedback(tr: Transaction, block: CategoriseOwnerLocation): void {
   const assessment = CategorisePrivateAssessmentSchema.parse(block.node.attrs["assessment"] ?? {});
   const feedbackByItemId: Record<string, AssessmentFeedbackContent> = {};
   const seen = new Set<string>();
@@ -391,14 +393,14 @@ function repairItemIdsAndFeedback(tr: Transaction, block: CategoriseBlockLocatio
     feedbackIds.some((id) => feedbackByItemId[id] !== assessment.feedbackByItemId[id]);
   if (!feedbackChanged) return;
   const currentBlock = tr.doc.nodeAt(block.pos);
-  if (!currentBlock || currentBlock.type.name !== "categorise") return;
+  if (!currentBlock || !isCategoriseAssessmentOwner(currentBlock)) return;
   tr.setNodeMarkup(block.pos, undefined, {
     ...currentBlock.attrs,
     assessment: { ...assessment, feedbackByItemId },
   });
 }
 
-function categoriesIn(block: CategoriseBlockLocation): CategoryLocation[] {
+function categoriesIn(block: CategoriseOwnerLocation): CategoryLocation[] {
   const out: CategoryLocation[] = [];
   block.node.descendants((node, offset) => {
     if (node.type.name !== "categorise_bin") return true;
@@ -424,12 +426,12 @@ function categoriesIn(block: CategoriseBlockLocation): CategoryLocation[] {
 }
 
 function categoryAt(doc: ProseMirrorNode, pos: number): CategoryLocation | null {
-  const block = findCategoriseBlock(doc, pos);
+  const block = findCategoriseOwner(doc, pos);
   return block ? (categoriesIn(block).find((category) => category.pos === pos) ?? null) : null;
 }
 
 function categoryContaining(
-  block: CategoriseBlockLocation,
+  block: CategoriseOwnerLocation,
   itemPos: number,
 ): CategoryLocation | null {
   return (
@@ -441,17 +443,30 @@ function categoryContaining(
   );
 }
 
-function findCategoriseBlock(doc: ProseMirrorNode, pos: number): CategoriseBlockLocation | null {
+function findCategoriseOwner(doc: ProseMirrorNode, pos: number): CategoriseOwnerLocation | null {
   try {
     const $pos = doc.resolve(pos);
     for (let depth = $pos.depth; depth > 0; depth -= 1) {
       const node = $pos.node(depth);
-      if (node.type.name === "categorise") return { node, pos: $pos.before(depth) };
+      if (isCategoriseAssessmentOwner(node)) return { node, pos: $pos.before(depth) };
     }
   } catch {
     return null;
   }
   return null;
+}
+
+function isCategoriseAssessmentOwner(node: ProseMirrorNode): boolean {
+  return (
+    node.type.name === "categorise" || node.type.name === SURFACE_CATEGORISE_QUESTION_NODE_TYPE
+  );
+}
+
+function movementCategoriseOwner(context: MovementNodeContext) {
+  return (
+    movementAncestor(context, "categorise") ??
+    movementAncestor(context, SURFACE_CATEGORISE_QUESTION_NODE_TYPE)
+  );
 }
 
 function countCategoriseItems(block: ProseMirrorNode | undefined): number {

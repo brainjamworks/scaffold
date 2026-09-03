@@ -1,6 +1,11 @@
 import { NodeViewContent, type NodeViewProps } from "@tiptap/react";
 
 import { cn } from "@/lib/cn";
+import { ShowAnswerButton } from "../shared/chrome/ShowAnswerButton";
+import {
+  shouldShowAnswerToggle,
+  useAssessmentRuntimeById,
+} from "../shared/runtime/use-assessment-runtime";
 
 import { QuizHeader } from "./QuizHeader";
 import {
@@ -21,6 +26,7 @@ import {
 } from "./QuizRuntime";
 import { useActiveQuestionScrollReset } from "./use-active-question-scroll-reset";
 import { useQuizRuntimeController } from "./use-quiz-runtime-controller";
+import { getQuizStartSummary } from "./quiz-shared";
 
 import "./Quiz.css";
 
@@ -30,6 +36,7 @@ export function QuizRuntimeView(props: NodeViewProps) {
     getPos: props.getPos,
     node: props.node,
   });
+  const activeProblem = useAssessmentRuntimeById(quiz.activeChildKey)?.problem ?? null;
 
   const effectiveRuntimeStatus = quiz.runtimeStatus ?? "not_started";
   const showRuntimeIncomplete = quiz.isEmpty;
@@ -67,7 +74,12 @@ export function QuizRuntimeView(props: NodeViewProps) {
     effectiveRuntimeStatus === "not_started" ||
     effectiveRuntimeStatus === "expired" ||
     (effectiveRuntimeStatus === "completed" && !quiz.canReviewAnswers);
-  const quizRootRef = useActiveQuestionScrollReset(quiz.activeChildKey);
+  const quizRootRef = useActiveQuestionScrollReset(quiz.activeChildKey, effectiveRuntimeStatus);
+  const startSummary = getQuizStartSummary({
+    childCount: quiz.childCount,
+    settings: quiz.settings,
+    totalPoints: quiz.totalPoints,
+  });
 
   return (
     <section
@@ -108,7 +120,7 @@ export function QuizRuntimeView(props: NodeViewProps) {
         {showRuntimeStart ? (
           <QuizRuntimeStart
             canStart={quiz.canStart}
-            reviewTiming={quiz.settings.reviewTiming}
+            summary={startSummary}
             onStart={quiz.actions.start}
           />
         ) : null}
@@ -145,8 +157,10 @@ export function QuizRuntimeView(props: NodeViewProps) {
 
         <NodeViewContent
           className={cn("sc-course-quiz__stage", hideStage && "sc-course-quiz__stage--hidden")}
+          data-quiz-question-stage=""
           data-slot="quiz-content"
           data-testid="quiz-stage-viewport"
+          tabIndex={-1}
         />
 
         {showReviewableControls ? (
@@ -189,6 +203,14 @@ export function QuizRuntimeView(props: NodeViewProps) {
         {showAnswerReview ? (
           <QuizAnswerReviewControls
             activeIndex={quiz.activeChildIndex}
+            support={
+              shouldShowAnswerToggle(activeProblem) ? (
+                <ShowAnswerButton
+                  pressed={activeProblem?.answerView === "correct"}
+                  onClick={() => void activeProblem?.toggleAnswerView()}
+                />
+              ) : null
+            }
             total={quiz.childKeys.length}
             onNavigate={quiz.actions.navigateRuntime}
           />

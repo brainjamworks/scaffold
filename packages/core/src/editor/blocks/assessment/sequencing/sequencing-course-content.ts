@@ -21,10 +21,11 @@ export function sequencingCourseContentFromProseMirror(
     if (child.type.name !== "sequencing_item") return;
     const id = String(child.attrs["id"] ?? "");
     if (!id) return;
+    const label = child.textBetween(0, child.content.size, " ", " ").replace(/\s+/g, " ").trim();
     items.push({
       id,
-      html: serializeStaticRichTextHtml(serializer, child.content),
-      label: child.textBetween(0, child.content.size, " ", " ").replace(/\s+/g, " ").trim(),
+      html: label ? serializeStaticRichTextHtml(serializer, child.content) : "",
+      label,
     });
   });
   return { items };

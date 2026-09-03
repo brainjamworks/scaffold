@@ -1,8 +1,8 @@
 import { AssessmentFeedbackContentSchema } from "@scaffold/contracts";
 
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
-import { assessmentPromptDomId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
-import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
+import { assessmentPromptDomId } from "@/editor/assessment/shared/model/assessment-prosemirror";
+import { useAssessmentRuntimeById } from "@/editor/assessment/shared/runtime/use-assessment-runtime";
 
 import {
   describeDropdownAccessibilityState,
@@ -27,8 +27,9 @@ export function DropdownCourseInteraction({
 }: DropdownCourseInteractionProps) {
   const assessment = useAssessmentRuntimeById(assessmentTargetId, "single-select");
   const dropdown = assessment?.interaction.kind === "single-select" ? assessment.interaction : null;
-  const selectedId = dropdown?.selectedIds[0] ?? "";
   const problem = assessment?.problem ?? null;
+  const answerView = problem?.answerView ?? "submitted";
+  const selectedId = dropdown?.displaySelectedIds[0] ?? "";
   const answerKeyVisible = problem?.answerKeyVisible ?? false;
   const selectedChoice = content.choices.find((choice) => choice.id === selectedId) ?? null;
   const state = selectedChoice && dropdown ? dropdown.stateFor(selectedChoice.id) : null;
@@ -50,17 +51,8 @@ export function DropdownCourseInteraction({
     hasFeedback: showFeedback && selectedFeedback.success,
     selected: selectedChoice !== null,
     state: state as DropdownChoiceState,
-    submitted: problem?.state.submitted ?? false,
+    submitted: answerView === "submitted" && (problem?.state.submitted ?? false),
   });
-  const correctChoiceId = answerKeyVisible
-    ? (dropdown?.revealedSelectedId ??
-      content.choices.find((choice) => dropdown?.stateFor(choice.id) === "missed")?.id ??
-      (state === "correct" ? selectedId : null))
-    : null;
-  const correctChoice = content.choices.find((choice) => choice.id === correctChoiceId) ?? null;
-  const correctFeedback = AssessmentFeedbackContentSchema.safeParse(
-    correctChoice ? assessment?.feedback.items?.[correctChoice.id]?.feedback : null,
-  );
   const immediateResult =
     problem?.state.feedbackMode === "immediate" ? (problem.feedbackResult ?? null) : null;
   const immediateAnnouncement = immediateResult
@@ -79,20 +71,6 @@ export function DropdownCourseInteraction({
       <div className="sc-course-dropdown-interaction__focal">
         <DropdownCourseSelect
           accessibilityDescription={accessibilityDescription}
-          correctAnswer={
-            correctChoice
-              ? {
-                  content: renderChoiceContent(correctChoice),
-                  ...(correctChoice.id !== selectedChoice?.id && correctFeedback.success
-                    ? {
-                        feedbackControl: (
-                          <RichFeedbackRuntimePopover feedback={correctFeedback.data} />
-                        ),
-                      }
-                    : {}),
-                }
-              : null
-          }
           disabled={locked}
           feedbackControl={
             showFeedback && selectedFeedback.success ? (

@@ -47,7 +47,7 @@ import {
   authoringChromeAttributes,
 } from "@/editor/interactions/dom/authoring-chrome";
 import { currentNodeViewPos, safeGetPos } from "@/editor/prosemirror/position/node-view-position";
-import { assessmentPromptDomId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { assessmentPromptDomId } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import {
   isScaffoldRichTextDocumentEmpty,
   toTiptapRichTextDocument,
@@ -656,7 +656,7 @@ function authoringCategoriseGroup(props: NodeViewProps): {
   const resolved = props.editor.state.doc.resolve(pos);
   for (let depth = resolved.depth; depth >= 0; depth -= 1) {
     const node = resolved.node(depth);
-    if (node.type.name !== "categorise") continue;
+    if (!isCategoriseAssessmentOwnerType(node.type.name)) continue;
     const id = node.attrs["id"];
     const settings = CategoriseSettingsSchema.safeParse(node.attrs["settings"] ?? {});
     return {
@@ -679,7 +679,7 @@ function readCategoriseCategoryOptions(
     if (node.type.name === "categorise_bin") {
       currentCategoryId = String(node.attrs["id"] ?? "");
     }
-    if (node.type.name === "categorise") {
+    if (isCategoriseAssessmentOwnerType(node.type.name)) {
       categorise = node;
       break;
     }
@@ -762,7 +762,10 @@ function readCategoriseItemAssessment(
 ): {
   feedback: AssessmentFeedbackContent | null;
 } {
-  const parent = resolveAssessmentAttrParent(editor, itemPos, ["categorise"]);
+  const parent = resolveAssessmentAttrParent(editor, itemPos, [
+    "categorise",
+    "surface_categorise_question",
+  ]);
   if (!parent || !itemId) return { feedback: null };
   const assessment = CategorisePrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
   return {
@@ -777,11 +780,18 @@ function setCategoriseItemFeedback(
   feedback: AssessmentFeedbackContent | null,
 ) {
   if (!editor.isEditable || itemPos === null || !itemId) return;
-  const parent = resolveAssessmentAttrParent(editor, itemPos, ["categorise"]);
+  const parent = resolveAssessmentAttrParent(editor, itemPos, [
+    "categorise",
+    "surface_categorise_question",
+  ]);
   if (!parent) return;
   const assessment = CategorisePrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
   setAssessmentAttr(editor, parent, {
     ...assessment,
     feedbackByItemId: nextAssessmentFeedbackRecord(assessment.feedbackByItemId, itemId, feedback),
   });
+}
+
+function isCategoriseAssessmentOwnerType(typeName: string): boolean {
+  return typeName === "categorise" || typeName === "surface_categorise_question";
 }

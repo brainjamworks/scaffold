@@ -28,7 +28,7 @@ import { AssessmentInstructionsNode } from "@/editor/blocks/assessment/shared/no
 import { AssessmentPromptNode } from "@/editor/blocks/assessment/shared/nodes/assessment-prompt";
 import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared/nodes/assessment-summary-feedback";
 import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import type { RichTextBubbleMenuProps } from "@/editor/shell/bubbles/rich-text/RichTextBubbleMenu";
@@ -421,8 +421,8 @@ describe("composite fill_blanks node", () => {
   it("describes fill blank runtime accessibility states", () => {
     expect(
       describeFillBlankAccessibilityState({
+        answerView: "submitted",
         hasFeedback: false,
-        revealed: false,
         state: null,
         submitted: false,
         value: "London",
@@ -431,8 +431,8 @@ describe("composite fill_blanks node", () => {
 
     expect(
       describeFillBlankAccessibilityState({
+        answerView: "submitted",
         hasFeedback: false,
-        revealed: false,
         state: "incorrect",
         submitted: true,
         value: "London",
@@ -441,13 +441,13 @@ describe("composite fill_blanks node", () => {
 
     expect(
       describeFillBlankAccessibilityState({
+        answerView: "correct",
         hasFeedback: true,
-        revealed: true,
         state: "correct",
         submitted: true,
         value: "Paris",
       }),
-    ).toBe("Revealed answer, correct. Feedback available");
+    ).toBe("Correct answer. Feedback available");
   });
 
   it("round-trips attrs and inline blanks", () => {
@@ -612,7 +612,7 @@ describe("composite fill_blanks node", () => {
     editor.destroy();
   });
 
-  it("reveals accepted blank answers and feedback from port payload", async () => {
+  it("toggles the blank between the submitted and correct answer", async () => {
     const editor = makeEditor({ runtime: true });
     editor.commands.setContent(
       runtimeFillBlanksDoc({
@@ -670,16 +670,27 @@ describe("composite fill_blanks node", () => {
     fireEvent.click(screen.getByText("Submit"));
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Show correct answer" })).toBeInstanceOf(
+      expect(screen.getByRole("button", { name: "Show answer" })).toBeInstanceOf(
         HTMLButtonElement,
       );
     });
-    fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue("Paris")).toBeInstanceOf(HTMLInputElement);
-      expect(blankDescription()).toBe("Revealed answer, correct. Feedback available");
+      const correctAnswer = screen.getByDisplayValue("Paris");
+      expect(correctAnswer).toHaveAttribute("data-course-state", "correct");
+      expect(screen.queryByDisplayValue("London")).toBeNull();
+      expect(blankDescription()).toBe("Correct answer. Feedback available");
       expect(screen.queryByDisplayValue("Berlin")).toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("London")).toHaveAttribute(
+        "data-course-state",
+        "incorrect",
+      );
+      expect(screen.queryByDisplayValue("Paris")).toBeNull();
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Show feedback for blank 1 of 1" }));

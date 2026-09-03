@@ -3,7 +3,7 @@ import { AssessmentFeedbackContentSchema } from "@scaffold/contracts";
 import { useEffect, useId, useMemo } from "react";
 
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
-import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
+import { useAssessmentRuntimeById } from "@/editor/assessment/shared/runtime/use-assessment-runtime";
 import type { InteractionDragEvent } from "@/editor/interactions/drag/model/interaction-drag-event";
 import { InteractionDragActivationArea } from "@/editor/interactions/drag/react/InteractionDragActivationArea";
 import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
@@ -17,6 +17,7 @@ import {
   getSequencingDisplayOrder,
   getSequencingReorderedOrder,
   revealedSequenceAssessment,
+  resolveAuthorizedSequenceOrder,
 } from "./sequencing-fields-shared";
 import "./Sequencing.css";
 
@@ -72,13 +73,19 @@ export function SequencingCourseInteraction({
   const revealedAssessment = revealedSequenceAssessment(
     runtimeProblem?.state.revealedAnswer?.answers,
   );
-  const effectiveOrder = getSequencingDisplayOrder({
-    isEditable: false,
+  const expectedOrder = resolveAuthorizedSequenceOrder({
     answerKeyVisible,
+    currentItemIds: docOrderIds,
+    revealedOrderIds: revealedAssessment.correctOrder,
+    resultItems: itemPositionCorrect,
+  });
+  const submittedOrder = getSequencingDisplayOrder({
+    isEditable: false,
     docOrderIds,
-    answerOrderIds: revealedAssessment.correctOrder,
     responseOrder,
   });
+  const answerView = runtimeProblem?.answerView ?? "submitted";
+  const effectiveOrder = answerView === "correct" ? expectedOrder : submittedOrder;
   const itemById = new Map(items.map((item) => [item.id, item]));
   const orderedItems = effectiveOrder
     .map((id) => itemById.get(id))
@@ -109,6 +116,7 @@ export function SequencingCourseInteraction({
     <div
       data-sequencing-density={orderedItems.length >= 6 ? "compact" : "comfortable"}
       data-sequencing-presentation={presentation}
+      data-assessment-answer-view={answerView}
       className="sc-course-sequencing__group"
     >
       <div
@@ -136,7 +144,11 @@ export function SequencingCourseInteraction({
           <ul className="sc-course-sequencing__list">
             {orderedItems.map((item, index) => {
               const detail = itemPositionCorrect?.[item.id] ?? null;
-              const correct = detail?.correct ?? null;
+              const expectedIndex = expectedOrder.indexOf(item.id);
+              const submittedCorrect =
+                detail?.correct ??
+                (answerKeyVisible && expectedIndex >= 0 ? expectedIndex === index : null);
+              const correct = answerView === "correct" ? null : submittedCorrect;
               const feedback =
                 answerKeyVisible && revealedAssessment.feedbackByItemId[item.id] !== undefined
                   ? revealedAssessment.feedbackByItemId[item.id]
@@ -146,11 +158,12 @@ export function SequencingCourseInteraction({
                 <SequencingRuntimeItem
                   key={item.id}
                   accessibilityDescription={describeSequencingItemAccessibilityState({
+                    answerView,
                     canReorder,
                     correct,
-                    hasFeedback: showFeedback && parsedFeedback.success,
+                    hasFeedback:
+                      answerView === "submitted" && showFeedback && parsedFeedback.success,
                     position: index + 1,
-                    revealed: answerKeyVisible,
                     submitted,
                     total: orderedItems.length,
                   })}
@@ -159,7 +172,7 @@ export function SequencingCourseInteraction({
                   feedback={parsedFeedback.success ? parsedFeedback.data : null}
                   index={index}
                   item={item}
-                  showFeedback={showFeedback}
+                  showFeedback={answerView === "submitted" && showFeedback}
                   total={orderedItems.length}
                 />
               );

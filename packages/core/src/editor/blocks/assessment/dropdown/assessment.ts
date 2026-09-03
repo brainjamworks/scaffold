@@ -13,7 +13,7 @@ import {
   type AssessmentTargetSettings,
 } from "@scaffold/contracts";
 
-import type { AssessmentBlockAdapter } from "@/editor/blocks/assessment/shared/model/assessment-block-adapter";
+import type { AssessmentBlockAdapter } from "@/editor/assessment/shared/model/assessment-block-adapter";
 import type { AssessmentCapabilityResponseDefinition } from "@/editor/blocks/block-definition";
 import {
   childByType,
@@ -26,7 +26,7 @@ import {
   readContent,
   readOptionalString,
   redactCommonAssessmentShellNode,
-} from "@/editor/blocks/assessment/shared/publication/projection";
+} from "@/editor/assessment/shared/publication/projection";
 
 export const DropdownResponseSchema = z
   .object({

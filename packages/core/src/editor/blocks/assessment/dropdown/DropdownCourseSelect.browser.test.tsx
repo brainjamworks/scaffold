@@ -113,7 +113,6 @@ describe("Dropdown Course surface geometry", () => {
           <div className="sc-course-dropdown" data-editable="false">
             <div data-slot="dropdown-choices-group">
               <DropdownCourseSelect
-                correctAnswer={{ content: "Ask the learner to explain the next step clearly." }}
                 disabled={false}
                 label="Response"
                 onValueChange={() => undefined}
@@ -155,16 +154,11 @@ describe("Dropdown Course surface geometry", () => {
 
     const content = requireElement<HTMLElement>(host, ".sc-course-dropdown-select__content");
     const item = requireElement<HTMLElement>(content, ".sc-course-dropdown-select__item");
-    const correctAnswer = requireElement<HTMLElement>(
-      host,
-      ".sc-course-dropdown-select__correct-answer",
-    );
     const group = requireElement<HTMLElement>(host, '[data-slot="dropdown-choices-group"]');
 
     expect(getComputedStyle(trigger).borderRadius).toBe("9px");
     expect(getComputedStyle(content).borderRadius).toBe("9px");
     expect(getComputedStyle(item).borderRadius).toBe("6px");
-    expect(getComputedStyle(correctAnswer).borderRadius).toBe("6px");
     expect(getComputedStyle(group).borderRadius).toBe("9px");
     expect(item.getBoundingClientRect().height).toBeGreaterThan(44);
     expect(item.scrollWidth).toBeLessThanOrEqual(item.clientWidth + 1);
@@ -197,7 +191,6 @@ describe("Dropdown Course surface geometry", () => {
     root.render(
       <OverlayBoundary container={host} collisionBoundary={host} kind="contained">
         <DropdownCourseSelect
-          correctAnswer={{ content: "Ask the learner to explain the next step clearly." }}
           disabled={false}
           label="Response"
           onValueChange={() => undefined}
@@ -229,10 +222,6 @@ describe("Dropdown Course surface geometry", () => {
     const item = requireElement<HTMLElement>(content, ".sc-course-dropdown-select__item");
     const highlighted = requireElement<HTMLElement>(content, "[data-highlighted]");
     const sideIcon = requireElement<HTMLElement>(host, ".sc-course-dropdown-select__side-icon");
-    const correctAnswer = requireElement<HTMLElement>(
-      host,
-      ".sc-course-dropdown-select__correct-answer",
-    );
 
     expect(trigger.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
     expect(Number.parseFloat(getComputedStyle(trigger).paddingInlineStart)).toBeGreaterThan(0);
@@ -240,9 +229,6 @@ describe("Dropdown Course surface geometry", () => {
     expect(item.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
     expect(getComputedStyle(highlighted).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
     expect(sideIcon.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
-    expect(correctAnswer.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
-    expect(Number.parseFloat(getComputedStyle(correctAnswer).gap)).toBeGreaterThan(0);
-    expect(getComputedStyle(correctAnswer).flexWrap).toBe("wrap");
   });
 });
 

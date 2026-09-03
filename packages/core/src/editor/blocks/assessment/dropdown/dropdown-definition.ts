@@ -2,7 +2,7 @@ import { CaretDownIcon as CaretDown } from "@phosphor-icons/react";
 import { DropdownPrivateAssessmentSchema, DropdownSettingsSchema } from "@scaffold/contracts";
 
 import { assessmentShellPlaceholders } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
-import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
+import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import type { ConfigurationControlDescriptor } from "@/editor/configuration/definition";
@@ -19,7 +19,7 @@ import { dropdownChoiceLabelContent } from "./dropdown-choice-shared";
 
 export const DROPDOWN_BLOCK_ID = "dropdown";
 
-const dropdownConfiguration = createAssessmentConfiguration({
+export const dropdownConfiguration = createAssessmentConfiguration({
   schema: DropdownSettingsSchema,
   title: "Dropdown settings",
   defaultOpenSections: ["scoring"],
