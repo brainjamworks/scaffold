@@ -4,10 +4,10 @@ import { cleanup, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { SurfaceAuthoringViewProps } from "../../surface-authoring-view-registry";
-import { SlideCategoriseQuestionSurfaceAuthoringView } from "../../../variants/slide-categorise-question/authoring";
+import type { SurfaceAuthoringViewProps } from "../../authoring/surface-authoring-view-registry";
+import { SlideCategoriseQuestionSurfaceAuthoringView } from "./authoring";
 
-vi.mock("../../views/SurfaceAuthoringFrame", () => ({
+vi.mock("../../authoring/views/SurfaceAuthoringFrame", () => ({
   SurfaceAuthoringFrame: ({
     children,
     className,
