@@ -1,0 +1,382 @@
+// @vitest-environment happy-dom
+
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import type { ComponentProps } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import type {
+  DragDropCanvasData,
+  DragDropPrivateAssessment,
+  MarkerVisual,
+} from "@scaffold/contracts";
+
+import { DragDropAuthoringCanvas } from "./drag-drop-canvas-authoring";
+import {
+  decodeImage,
+  dragDropConfiguration,
+  expectedAuthoringIssue,
+  managedCustomIconIds,
+  resolveDragDropCustomIconSources,
+} from "./drag-drop-authoring-extension";
+
+const TEST_IMAGE_SRC =
+  "data:image/gif;base64,R0lGODlhAgABAPAAAP///wAAACH5BAAAAAAALAAAAAACAAEAAAICBAoAOw==";
+
+class ResizeObserverStub implements ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+beforeEach(() => vi.stubGlobal("ResizeObserver", ResizeObserverStub));
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+describe("Drag and Drop authoring", () => {
+  it("keeps marker creation local until a correct placement commits it", async () => {
+    const user = userEvent.setup();
+    const onCreateMarker = vi.fn();
+    const { container } = renderCanvas({ onCreateMarker });
+    await prepareImage(container);
+
+    await user.click(screen.getByRole("button", { name: "Add marker" }));
+    await user.type(screen.getByRole("textbox", { name: "Marker label" }), "London");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Marker appearance" }), "pin");
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Tolerance radius" }), {
+      target: { value: "7" },
+    });
+    await user.click(screen.getByRole("button", { name: "Place marker" }));
+
+    expect(onCreateMarker).not.toHaveBeenCalled();
+    expect(screen.getByText("Select the correct position for London.")).toBeTruthy();
+
+    spatialSurface(container).getBoundingClientRect = imageRect;
+    fireEvent.click(spatialSurface(container), { clientX: 300, clientY: 150 });
+    expect(onCreateMarker).toHaveBeenCalledWith(
+      { label: "London", visualOverride: { kind: "preset", preset: "pin" } },
+      { kind: "circle", centerX: 50, centerY: 50, radius: 7 },
+    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add marker" })).toHaveFocus());
+  });
+
+  it("cancels pending marker creation without a mutation", async () => {
+    const user = userEvent.setup();
+    const onCreateMarker = vi.fn();
+    renderCanvas({ onCreateMarker });
+
+    await user.click(screen.getByRole("button", { name: "Add marker" }));
+    await user.type(screen.getByRole("textbox", { name: "Marker label" }), "Paris");
+    await user.click(screen.getByRole("button", { name: "Cancel marker" }));
+
+    expect(onCreateMarker).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox", { name: "Marker label" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Add marker" })).toHaveFocus();
+  });
+
+  it("edits default and existing marker appearances with presets, inheritance and managed icons", async () => {
+    const user = userEvent.setup();
+    const marker = {
+      id: "marker000001" as never,
+      label: "London",
+      visualOverride: { kind: "preset", preset: "pin" } as const,
+    };
+    const onSetDefaultMarkerVisual = vi.fn();
+    const onUpdateMarker = vi.fn();
+    const customVisual = {
+      kind: "custom",
+      source: { mode: "managed", mediaId: "custom-icon" },
+    } as const satisfies MarkerVisual;
+    const onRequestCustomIcon = vi.fn((apply: (visual: typeof customVisual) => void) =>
+      apply(customVisual),
+    );
+    renderCanvas({
+      markers: [marker],
+      onRequestCustomIcon,
+      onSetDefaultMarkerVisual,
+      onUpdateMarker,
+    });
+
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Default marker appearance" }),
+      "check",
+    );
+    expect(onSetDefaultMarkerVisual).toHaveBeenCalledWith({ kind: "preset", preset: "check" });
+    await user.click(screen.getByRole("button", { name: "Choose custom default icon" }));
+    expect(onSetDefaultMarkerVisual).toHaveBeenLastCalledWith(customVisual);
+
+    const appearance = screen.getByRole("combobox", { name: "Appearance for London" });
+    await user.selectOptions(appearance, "inherit");
+    expect(onUpdateMarker).toHaveBeenCalledWith(marker.id, { visualOverride: null });
+    await user.selectOptions(appearance, "flag");
+    expect(onUpdateMarker).toHaveBeenCalledWith(marker.id, {
+      visualOverride: { kind: "preset", preset: "flag" },
+    });
+    await user.click(screen.getByRole("button", { name: "Choose custom icon for London" }));
+    expect(onUpdateMarker).toHaveBeenLastCalledWith(marker.id, { visualOverride: customVisual });
+  });
+
+  it("keeps required existing marker fields transient until a valid commit", () => {
+    const marker = { id: "marker000001" as never, label: "London", visualOverride: null };
+    const onUpdateMarker = vi.fn();
+    const onSetCorrectPlacement = vi.fn();
+    renderCanvas({ markers: [marker], onSetCorrectPlacement, onUpdateMarker });
+
+    const label = screen.getByRole("textbox", { name: "Label for London" });
+    fireEvent.change(label, { target: { value: "" } });
+    expect(onUpdateMarker).not.toHaveBeenCalled();
+    fireEvent.blur(label);
+    expect(label).toHaveValue("London");
+    fireEvent.change(label, { target: { value: "Greater London" } });
+    fireEvent.keyDown(label, { key: "Enter" });
+    expect(onUpdateMarker).toHaveBeenCalledWith(marker.id, { label: "Greater London" });
+
+    const radius = screen.getByRole("spinbutton", { name: "Tolerance radius for London" });
+    fireEvent.change(radius, { target: { value: "" } });
+    expect(onSetCorrectPlacement).not.toHaveBeenCalled();
+    fireEvent.blur(radius);
+    expect(radius).toHaveValue(4);
+    fireEvent.change(radius, { target: { value: "6.5" } });
+    fireEvent.keyDown(radius, { key: "Enter" });
+    expect(onSetCorrectPlacement).toHaveBeenCalledWith(marker.id, {
+      kind: "circle",
+      centerX: 0,
+      centerY: 50,
+      radius: 6.5,
+    });
+  });
+
+  it("shows setup recovery before a background is ready", async () => {
+    const user = userEvent.setup();
+    const onRequestBackground = vi.fn();
+    render(
+      <DragDropAuthoringCanvas
+        data={{ ...canvasData([]), image: null, imageAspectRatio: null }}
+        assessment={assessment([])}
+        imageSrc={null}
+        onRequestBackground={onRequestBackground}
+        onCreateMarker={vi.fn()}
+        onUpdateMarker={vi.fn()}
+        onReorderMarkers={vi.fn()}
+        onSetCorrectPlacement={vi.fn()}
+        onSetDefaultMarkerVisual={vi.fn()}
+        onDeleteMarker={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Add a background image before creating markers.")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Choose background image" }));
+    expect(onRequestBackground).toHaveBeenCalledOnce();
+  });
+
+  it("keeps a dense marker set manageable and custom-icon failures labelled", async () => {
+    const user = userEvent.setup();
+    const markers = Array.from({ length: 12 }, (_, index) => ({
+      id: `marker${String(index + 1).padStart(6, "0")}` as never,
+      label: `Marker ${index + 1}`,
+      visualOverride:
+        index === 0
+          ? ({ kind: "custom", source: { mode: "managed", mediaId: "missing-icon" } } as const)
+          : null,
+    }));
+    const onReorderMarkers = vi.fn();
+    const onDeleteMarker = vi.fn();
+    renderCanvas({ markers, onReorderMarkers, onDeleteMarker });
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(12);
+    expect(screen.getByText("Marker 1")).toBeTruthy();
+    expect(screen.getAllByTestId("custom-marker-fallback")).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: "Move Marker 2 up" }));
+    expect(onReorderMarkers).toHaveBeenCalledWith([
+      markers[1]!.id,
+      markers[0]!.id,
+      ...markers.slice(2).map(({ id }) => id),
+    ]);
+    await user.click(screen.getByRole("button", { name: "Delete Marker 1" }));
+    expect(onDeleteMarker).toHaveBeenCalledWith(markers[0]!.id);
+  });
+
+  it("rehydrates each persisted managed custom icon after a fresh mount", async () => {
+    const markers = [
+      {
+        id: "marker000001" as never,
+        label: "London",
+        visualOverride: {
+          kind: "custom" as const,
+          source: { mode: "managed" as const, mediaId: "marker-icon" },
+        },
+      },
+      {
+        id: "marker000002" as never,
+        label: "Paris",
+        visualOverride: {
+          kind: "custom" as const,
+          source: { mode: "managed" as const, mediaId: "missing-icon" },
+        },
+      },
+    ];
+    const data: DragDropCanvasData = {
+      ...canvasData(markers),
+      defaultMarkerVisual: {
+        kind: "custom",
+        source: { mode: "managed", mediaId: "marker-icon" },
+      },
+    };
+    const resolve = vi.fn(async (mediaId: string) => {
+      if (mediaId === "missing-icon") throw new Error("not found");
+      return "data:image/png;base64,custom-icon";
+    });
+    const media = {
+      resolve,
+      upload: async () => {
+        throw new Error("Upload is not used while resolving persisted icons.");
+      },
+    };
+
+    const mediaIds = managedCustomIconIds(data);
+    const firstMount = await resolveDragDropCustomIconSources(mediaIds, media);
+    const remount = await resolveDragDropCustomIconSources(mediaIds, media);
+
+    expect(mediaIds).toEqual(["marker-icon", "missing-icon"]);
+    expect(firstMount).toEqual({ "marker-icon": "data:image/png;base64,custom-icon" });
+    expect(remount).toEqual(firstMount);
+    expect(resolve).toHaveBeenCalledTimes(4);
+  });
+
+  it("reports an unreadable selected raster as an expected decode failure", async () => {
+    await expect(decodeImage("data:image/png;base64,broken")).rejects.toThrow(
+      /could not be decoded/i,
+    );
+  });
+
+  it("preserves reason-specific checked outcomes and rejects foreign invariant defects", () => {
+    const issue = {
+      code: "missing_authoring_target",
+      message: "The authoring target no longer exists.",
+    };
+    expect(expectedAuthoringIssue(issue)).toBe(issue);
+    expect(() =>
+      expectedAuthoringIssue({ code: "foreign_owner_issue", message: "Wrong mutation owner." }),
+    ).toThrow(/unexpected Drag and Drop authoring issue/i);
+  });
+
+  it("contains the authoring stage and scrolls a dense marker panel in place", () => {
+    const markers = Array.from({ length: 12 }, (_, index) => ({
+      id: `marker${String(index + 1).padStart(6, "0")}` as never,
+      label: `Marker ${index + 1}`,
+      visualOverride: null,
+    }));
+    const { container } = renderCanvas({ markers });
+
+    const layout = container.querySelector<HTMLElement>(".sc-app-drag-drop-authoring__layout");
+    const stage = container.querySelector<HTMLElement>(".sc-app-drag-drop-stage");
+    const panel = container.querySelector<HTMLElement>(".sc-app-drag-drop-marker-panel");
+    expect(layout).not.toBeNull();
+    expect(getComputedStyle(layout!).display).toBe("grid");
+    expect(getComputedStyle(stage!).overflow).toBe("hidden");
+    expect(getComputedStyle(panel!).overflow).toBe("auto");
+    expect(screen.getAllByRole("listitem")).toHaveLength(12);
+  });
+
+  it("defines the standard assessment settings and sheet-owned attempt control", () => {
+    expect(dragDropConfiguration.controls.map((control) => control.name)).toEqual(
+      expect.arrayContaining([
+        "feedbackMode",
+        "isGraded",
+        "showAnswer",
+        "gradingMode",
+        "points",
+        "maxAttempts",
+        "legend",
+      ]),
+    );
+    expect(
+      dragDropConfiguration.controls.find((control) => control.name === "maxAttempts")?.placement,
+    ).toEqual({ sheet: { section: "attempts" } });
+  });
+});
+
+function renderCanvas({
+  markers = [],
+  onCreateMarker = vi.fn(),
+  onReorderMarkers = vi.fn(),
+  onDeleteMarker = vi.fn(),
+  onRequestCustomIcon,
+  onSetCorrectPlacement = vi.fn(),
+  onSetDefaultMarkerVisual = vi.fn(),
+  onUpdateMarker = vi.fn(),
+}: {
+  markers?: DragDropCanvasData["markers"];
+  onCreateMarker?: DragDropAuthoringCanvasProps["onCreateMarker"];
+  onReorderMarkers?: DragDropAuthoringCanvasProps["onReorderMarkers"];
+  onDeleteMarker?: DragDropAuthoringCanvasProps["onDeleteMarker"];
+  onRequestCustomIcon?: DragDropAuthoringCanvasProps["onRequestCustomIcon"];
+  onSetCorrectPlacement?: DragDropAuthoringCanvasProps["onSetCorrectPlacement"];
+  onSetDefaultMarkerVisual?: DragDropAuthoringCanvasProps["onSetDefaultMarkerVisual"];
+  onUpdateMarker?: DragDropAuthoringCanvasProps["onUpdateMarker"];
+} = {}) {
+  return render(
+    <DragDropAuthoringCanvas
+      data={canvasData(markers)}
+      assessment={assessment(markers)}
+      imageSrc={TEST_IMAGE_SRC}
+      onRequestBackground={vi.fn()}
+      onCreateMarker={onCreateMarker}
+      onUpdateMarker={onUpdateMarker}
+      onReorderMarkers={onReorderMarkers}
+      onSetCorrectPlacement={onSetCorrectPlacement}
+      onDeleteMarker={onDeleteMarker}
+      onSetDefaultMarkerVisual={onSetDefaultMarkerVisual}
+      {...(onRequestCustomIcon ? { onRequestCustomIcon } : {})}
+    />,
+  );
+}
+
+function canvasData(markers: DragDropCanvasData["markers"]): DragDropCanvasData {
+  return {
+    image: { mode: "managed", mediaId: "background", alt: "Map" },
+    imageAspectRatio: 2,
+    defaultMarkerVisual: { kind: "preset", preset: "dot" },
+    markers,
+  };
+}
+
+function assessment(markers: DragDropCanvasData["markers"]): DragDropPrivateAssessment {
+  return {
+    correctPlacements: markers.map(({ id }, index) => ({
+      markerId: id,
+      geometry: { kind: "circle", centerX: index * 5, centerY: 50, radius: 4 },
+    })),
+    feedbackByMarkerId: {},
+    summaryFeedback: null,
+  };
+}
+
+async function prepareImage(container: HTMLElement) {
+  await waitFor(() => {
+    expect(spatialSurface(container).dataset.spatialImageSurfaceState).toBe("ready");
+  });
+  spatialSurface(container).getBoundingClientRect = imageRect;
+}
+
+function imageRect() {
+  return {
+    bottom: 250,
+    height: 200,
+    left: 100,
+    right: 500,
+    top: 50,
+    width: 400,
+    x: 100,
+    y: 50,
+    toJSON: () => ({}),
+  } as DOMRect;
+}
+
+function spatialSurface(container: HTMLElement) {
+  const surface = container.querySelector<HTMLElement>("[data-spatial-image-surface]");
+  if (!surface) throw new Error("Expected spatial image surface");
+  return surface;
+}
+type DragDropAuthoringCanvasProps = ComponentProps<typeof DragDropAuthoringCanvas>;

@@ -1,0 +1,563 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-app-drag-drop-setup,
+  .sc-app-drag-drop-authoring {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    gap: 0.75rem;
+    container-type: inline-size;
+    container-name: drag-drop-authoring;
+  }
+
+  .sc-app-drag-drop-setup p {
+    margin: 0;
+  }
+
+  .sc-app-drag-drop-actions,
+  .sc-app-drag-drop-authoring__toolbar,
+  .sc-app-drag-drop-marker-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 0.5rem;
+  }
+
+  .sc-app-drag-drop-authoring__layout {
+    display: grid;
+    min-width: 0;
+    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);
+  }
+
+  .sc-app-drag-drop-stage {
+    display: grid;
+    min-width: 0;
+    min-height: 16rem;
+    overflow: hidden;
+    place-items: center;
+  }
+
+  .sc-app-drag-drop-stage [data-spatial-image-surface] {
+    position: relative;
+    aspect-ratio: var(--sc-drag-drop-aspect-ratio);
+  }
+
+  .sc-app-drag-drop-correct-placement {
+    position: absolute;
+    transform: translate(-50%, -50%);
+  }
+
+  .sc-app-drag-drop-tolerance {
+    position: absolute;
+    width: calc(var(--sc-drag-drop-radius) * 2);
+    aspect-ratio: 1;
+    border: 2px dashed currentcolor;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .sc-app-drag-drop-marker {
+    position: absolute;
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 2px solid currentcolor;
+    border-radius: 50%;
+    background: Canvas;
+    place-items: center;
+    transform: translate(-50%, -50%);
+  }
+
+  .sc-app-drag-drop-marker img {
+    width: 1.75rem;
+    height: 1.75rem;
+    object-fit: contain;
+  }
+
+  .sc-app-drag-drop-marker-panel {
+    min-width: 0;
+    max-height: 32rem;
+    overflow: auto;
+  }
+
+  .sc-app-drag-drop-marker-panel ol {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    gap: 0.5rem;
+    list-style: none;
+  }
+
+  .sc-app-drag-drop-marker-panel li {
+    display: grid;
+    min-width: 0;
+    padding: 0.75rem;
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: var(--sc-app-radius-surface);
+    background: var(--sc-app-color-background);
+    gap: 0.5rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sc-app-drag-drop-marker-panel__header {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .sc-app-drag-drop-marker-panel__preview {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex: 0 0 auto;
+    place-items: center;
+    color: var(--sc-app-color-text-secondary);
+  }
+
+  .sc-app-drag-drop-marker-panel__preview img {
+    width: 1.75rem;
+    height: 1.75rem;
+    object-fit: contain;
+  }
+
+  .sc-app-drag-drop-marker-panel__header .sc-app-drag-drop-marker-label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: var(--sc-app-color-text-primary);
+    font-family: var(--sc-app-font-family);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .sc-app-drag-drop-marker-panel__actions {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .sc-app-drag-drop-authoring__toolbar {
+    padding: 0.75rem;
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: var(--sc-app-radius-surface);
+    background: var(--sc-app-color-background);
+  }
+
+  .sc-app-drag-drop-toolbar__field,
+  .sc-app-drag-drop-marker-form__field,
+  .sc-app-drag-drop-marker-panel__field {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+    color: var(--sc-app-color-text-primary);
+    font-family: var(--sc-app-font-family);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .sc-app-drag-drop-toolbar__select,
+  .sc-app-drag-drop-marker-form__select,
+  .sc-app-drag-drop-marker-panel__select,
+  .sc-app-drag-drop-marker-form__input,
+  .sc-app-drag-drop-marker-panel__input {
+    min-width: 0;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: var(--sc-app-radius-control);
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-primary);
+    font-family: var(--sc-app-font-family);
+    font-size: 0.875rem;
+    line-height: 1.45;
+  }
+
+  .sc-app-drag-drop-toolbar__action,
+  .sc-app-drag-drop-marker-form__action,
+  .sc-app-drag-drop-marker-panel__action {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: var(--sc-app-radius-control);
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-primary);
+    font-family: var(--sc-app-font-family);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.35;
+    cursor: pointer;
+  }
+
+  .sc-app-drag-drop-toolbar__action[data-intent="add"],
+  .sc-app-drag-drop-marker-form__action[data-intent="add"] {
+    border-color: var(--sc-app-color-primary);
+    color: var(--sc-app-color-primary);
+  }
+
+  .sc-app-drag-drop-toolbar__action:disabled,
+  .sc-app-drag-drop-marker-form__action:disabled,
+  .sc-app-drag-drop-marker-panel__action:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .sc-app-drag-drop-authoring p[role="status"] {
+    margin: 0;
+    color: var(--sc-app-color-text-secondary);
+    font-family: var(--sc-app-font-family);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .sc-app-drag-drop-toolbar__action:hover:not(:disabled),
+    .sc-app-drag-drop-marker-form__action:hover:not(:disabled),
+    .sc-app-drag-drop-marker-panel__action:hover:not(:disabled) {
+      background: var(--sc-app-color-primary-muted);
+      color: var(--sc-app-color-primary);
+    }
+  }
+
+  .sc-app-drag-drop-toolbar__action:focus-visible,
+  .sc-app-drag-drop-marker-form__action:focus-visible,
+  .sc-app-drag-drop-marker-panel__action:focus-visible,
+  .sc-app-drag-drop-toolbar__select:focus-visible,
+  .sc-app-drag-drop-marker-form__select:focus-visible,
+  .sc-app-drag-drop-marker-panel__select:focus-visible,
+  .sc-app-drag-drop-marker-form__input:focus-visible,
+  .sc-app-drag-drop-marker-panel__input:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+  }
+
+  @media (forced-colors: active) {
+    .sc-app-drag-drop-authoring__toolbar,
+    .sc-app-drag-drop-marker-panel li,
+    .sc-app-drag-drop-toolbar__select,
+    .sc-app-drag-drop-marker-form__select,
+    .sc-app-drag-drop-marker-panel__select,
+    .sc-app-drag-drop-marker-form__input,
+    .sc-app-drag-drop-marker-panel__input,
+    .sc-app-drag-drop-toolbar__action,
+    .sc-app-drag-drop-marker-form__action,
+    .sc-app-drag-drop-marker-panel__action {
+      border-color: CanvasText;
+    }
+
+    .sc-app-drag-drop-toolbar__action:focus-visible,
+    .sc-app-drag-drop-marker-form__action:focus-visible,
+    .sc-app-drag-drop-marker-panel__action:focus-visible,
+    .sc-app-drag-drop-toolbar__select:focus-visible,
+    .sc-app-drag-drop-marker-form__select:focus-visible,
+    .sc-app-drag-drop-marker-panel__select:focus-visible,
+    .sc-app-drag-drop-marker-form__input:focus-visible,
+    .sc-app-drag-drop-marker-panel__input:focus-visible {
+      outline-color: Highlight;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-app-drag-drop-toolbar__action,
+    .sc-app-drag-drop-marker-form__action,
+    .sc-app-drag-drop-marker-panel__action {
+      transition: none;
+    }
+  }
+
+  @media (max-width: 44rem) {
+    .sc-app-drag-drop-authoring__layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @container drag-drop-authoring (max-width: 44rem) {
+    .sc-app-drag-drop-authoring__layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .sc-course-drag-drop-interaction {
+    display: grid;
+    min-width: 0;
+    gap: 0.75rem;
+    container-type: inline-size;
+    container-name: drag-drop-interaction;
+  }
+
+  .sc-course-drag-drop-interaction > p {
+    margin: 0;
+  }
+
+  .sc-course-drag-drop-interaction__layout {
+    display: grid;
+    min-width: 0;
+    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1fr) minmax(12rem, 16rem);
+  }
+
+  .sc-course-drag-drop-stage {
+    display: grid;
+    min-width: 0;
+    overflow: hidden;
+    place-items: center;
+  }
+
+  .sc-course-drag-drop-stage[data-drag-active] [data-spatial-image-surface] {
+    outline: 2px dashed currentcolor;
+    outline-offset: 0.25rem;
+  }
+
+  .sc-course-drag-drop-stage[data-drop-active] [data-spatial-image-surface] {
+    outline-style: solid;
+  }
+
+  .sc-course-drag-drop-stage [data-spatial-image-surface] {
+    position: relative;
+    aspect-ratio: var(--sc-drag-drop-aspect-ratio);
+  }
+
+  .sc-course-drag-drop-marker {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    transform: translate(-50%, -50%);
+  }
+
+  .sc-course-drag-drop-keyboard-cursor {
+    position: absolute;
+    left: clamp(1.875rem, var(--sc-drag-drop-keyboard-cursor-x), calc(100% - 1.875rem));
+    top: clamp(1.875rem, var(--sc-drag-drop-keyboard-cursor-y), calc(100% - 1.875rem));
+    z-index: 100;
+    display: grid;
+    box-sizing: border-box;
+    width: 3rem;
+    height: 3rem;
+    padding: 0.25rem;
+    border: 4px double currentcolor;
+    border-radius: 50%;
+    background: Canvas;
+    color: CanvasText;
+    outline: 3px solid currentcolor;
+    outline-offset: 3px;
+    place-items: center;
+    transform: translate(-50%, -50%);
+    transition:
+      left 120ms ease-out,
+      top 120ms ease-out;
+  }
+
+  .sc-course-drag-drop-marker > button,
+  .sc-course-drag-drop-source > button {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  .sc-course-drag-drop-marker > button {
+    display: grid;
+    padding: 0.25rem;
+    border: 2px solid currentcolor;
+    border-radius: 50%;
+    background: Canvas;
+    place-items: center;
+  }
+
+  .sc-course-drag-drop-marker[data-course-state="correct"] > button {
+    border-style: double;
+    border-width: 4px;
+  }
+
+  .sc-course-drag-drop-marker[data-course-state="incorrect"] > button {
+    border-style: dashed;
+  }
+
+  .sc-course-drag-drop-marker img {
+    width: 1.5rem;
+    height: 1.5rem;
+    object-fit: contain;
+  }
+
+  .sc-course-drag-drop-marker__label {
+    position: absolute;
+    top: 100%;
+    width: max-content;
+    max-width: min(10rem, 45vw);
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+
+  .sc-course-drag-drop-marker[data-edge-x="left"] .sc-course-drag-drop-marker__label {
+    left: 50%;
+    text-align: left;
+  }
+
+  .sc-course-drag-drop-marker[data-edge-x="middle"] .sc-course-drag-drop-marker__label {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .sc-course-drag-drop-marker[data-edge-x="right"] .sc-course-drag-drop-marker__label {
+    right: 50%;
+    text-align: right;
+  }
+
+  .sc-course-drag-drop-marker[data-edge-y="bottom"] .sc-course-drag-drop-marker__label {
+    top: auto;
+    bottom: 100%;
+  }
+
+  .sc-course-drag-drop-tray,
+  .sc-course-drag-drop-tray__unplaced,
+  .sc-course-drag-drop-tray__placed {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 0.5rem;
+  }
+
+  .sc-course-drag-drop-tray {
+    min-height: 0;
+    max-height: 32rem;
+    overflow: auto;
+    overscroll-behavior: contain;
+    align-self: start;
+  }
+
+  .sc-course-drag-drop-tray h3,
+  .sc-course-drag-drop-tray p {
+    margin: 0;
+  }
+
+  .sc-course-drag-drop-tray button[aria-pressed="true"],
+  .sc-course-drag-drop-marker[data-selected] {
+    outline: 3px solid currentcolor;
+    outline-offset: 2px;
+  }
+
+  .sc-course-drag-drop-tray__placed > div,
+  .sc-course-drag-drop-tray__navigation,
+  .sc-course-drag-drop-tray__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .sc-course-drag-drop-tray__placed > div > button,
+  .sc-course-drag-drop-tray__placed > button,
+  .sc-course-drag-drop-tray__navigation button,
+  .sc-course-drag-drop-tray__actions button,
+  .sc-course-drag-drop-stage div[role="alert"] button {
+    min-height: 2.75rem;
+  }
+
+  .sc-course-drag-drop-source {
+    display: inline-flex;
+    min-width: 0;
+  }
+
+  .sc-course-drag-drop-source > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .sc-course-drag-drop-drag-preview {
+    display: inline-flex;
+    min-height: 2.75rem;
+    max-width: 14rem;
+    padding: 0.5rem;
+    align-items: center;
+    gap: 0.5rem;
+    border: 2px solid currentcolor;
+    border-radius: 999px;
+    background: Canvas;
+  }
+
+  .sc-course-drag-drop-tray__scroll-hint {
+    position: sticky;
+    bottom: 0;
+    padding-block: 0.25rem;
+    background: Canvas;
+  }
+
+  .sc-course-drag-drop-workspace__portal {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .sc-course-drag-drop-workspace__overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: auto;
+  }
+
+  .sc-course-drag-drop-workspace {
+    position: fixed;
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    gap: 1rem;
+    inset: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+      max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+    pointer-events: auto;
+  }
+
+  .sc-course-drag-drop-workspace__header {
+    display: flex;
+    padding: 1rem;
+    align-items: start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .sc-course-drag-drop-workspace__header h2,
+  .sc-course-drag-drop-workspace__header p {
+    margin: 0;
+  }
+
+  .sc-course-drag-drop-workspace > .sc-course-drag-drop-interaction {
+    min-height: 0;
+    padding: 1rem;
+    overflow: auto;
+  }
+
+  .sc-course-drag-drop-interaction[data-drag-drop-presentation="expanded"]
+    .sc-course-drag-drop-interaction__layout {
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) minmax(14rem, 20rem);
+  }
+
+  .sc-course-drag-drop-interaction[data-drag-drop-presentation="expanded"]
+    .sc-course-drag-drop-tray {
+    max-height: min(70vh, 48rem);
+  }
+
+  @media (max-width: 44rem) {
+    .sc-course-drag-drop-interaction__layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @container drag-drop-interaction (max-width: 44rem) {
+    .sc-course-drag-drop-interaction__layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-course-drag-drop-keyboard-cursor {
+      transition: none;
+    }
+  }
+}
