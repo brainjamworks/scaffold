@@ -94,6 +94,8 @@ function assessmentDefinitionForKind(
       return { ...description, interaction: { kind, blanks: [] } };
     case "spatial-hotspot":
       return { ...description, interaction: { kind, hotspots: [], maxSelections: null } };
+    case "spatial-placement":
+      return { ...description, interaction: { kind, markers: [] } };
   }
 }
 
@@ -161,6 +163,7 @@ describe("Learning Event catalogue vocabulary", () => {
     expect(LEARNING_EVENT_EXTENSIONS).toStrictEqual({
       assessmentAttemptNumber: "https://scaffold.ac/xapi/extensions/assessment-attempt-number",
       assessmentInteractionKind: "https://scaffold.ac/xapi/extensions/assessment-interaction-kind",
+      spatialPlacementMarkers: "https://scaffold.ac/xapi/extensions/spatial-placement-markers",
       quizAttemptId: "https://scaffold.ac/xapi/extensions/quiz-attempt-id",
       learnerActivityKind: "https://scaffold.ac/xapi/extensions/learner-activity-kind",
       learnerActivityEvent: "https://scaffold.ac/xapi/extensions/learner-activity-event",
@@ -197,6 +200,7 @@ describe("Learning Event catalogue vocabulary", () => {
     ["classify", "matching"],
     ["fill-blanks", "other"],
     ["spatial-hotspot", "other"],
+    ["spatial-placement", "other"],
   ] satisfies readonly (readonly [AssessmentInteractionKind, string])[])(
     "maps %s to the %s Learning Event interaction type",
     (interactionKind, interactionType) => {
@@ -293,6 +297,27 @@ describe("Learning Event catalogue vocabulary", () => {
       },
       expected: { interactionType: "other" },
     },
+    {
+      interaction: {
+        kind: "spatial-placement",
+        markers: [
+          { id: "marker_00002", label: "Second marker" },
+          { id: "marker_00001", label: "First marker" },
+        ],
+      },
+      expected: {
+        interactionType: "other",
+        extensions: {
+          [LEARNING_EVENT_EXTENSIONS.assessmentInteractionKind]: "spatial-placement",
+          [LEARNING_EVENT_EXTENSIONS.spatialPlacementMarkers]: {
+            markers: [
+              { id: "marker_00001", label: "First marker" },
+              { id: "marker_00002", label: "Second marker" },
+            ],
+          },
+        },
+      },
+    },
   ] satisfies readonly {
     readonly interaction: AssessmentInteractionContract;
     readonly expected: Partial<LearningEventActivityDefinition>;
@@ -313,7 +338,11 @@ describe("Learning Event catalogue vocabulary", () => {
         ...expected,
       });
       expect(definition).not.toHaveProperty("correctResponsesPattern");
-      if (interaction.kind === "fill-blanks" || interaction.kind === "spatial-hotspot") {
+      if (
+        interaction.kind === "fill-blanks" ||
+        interaction.kind === "spatial-hotspot" ||
+        interaction.kind === "spatial-placement"
+      ) {
         expect(definition).not.toHaveProperty("choices");
         expect(definition).not.toHaveProperty("source");
         expect(definition).not.toHaveProperty("target");
@@ -697,6 +726,15 @@ describe("Learning Event assessment response encoding", () => {
       encodedResponse:
         '{"selections":[{"hotspotId":null,"x":0,"y":0.75},{"hotspotId":"hotspot00001","x":0.5,"y":0.25}]}',
     },
+    {
+      interactionKind: "spatial-placement",
+      response: {
+        kind: "spatial-placement",
+        placements: [{ markerId: "marker_00002", x: 87.125, y: 14.75 }],
+      },
+      interactionType: "other",
+      encodedResponse: '{"placements":[{"markerId":"marker_00002","x":87.125,"y":14.75}]}',
+    },
   ] satisfies readonly {
     readonly interactionKind: AssessmentInteractionKind;
     readonly response: AssessmentResponseValue;
@@ -709,6 +747,30 @@ describe("Learning Event assessment response encoding", () => {
     });
   });
 
+  it("encodes complete spatial placements independently of array insertion order", () => {
+    const first = { markerId: "marker_00001", x: 12.5, y: 73.25 };
+    const second = { markerId: "marker_00002", x: 87.125, y: 14.75 };
+
+    const ordered = encodeAssessmentResponse("spatial-placement", {
+      kind: "spatial-placement",
+      placements: [first, second],
+    });
+    const reversed = encodeAssessmentResponse("spatial-placement", {
+      kind: "spatial-placement",
+      placements: [second, first],
+    });
+
+    expect(reversed).toStrictEqual(ordered);
+    expect(reversed).toStrictEqual({
+      interactionType: "other",
+      response:
+        '{"placements":[{"markerId":"marker_00001","x":12.5,"y":73.25},{"markerId":"marker_00002","x":87.125,"y":14.75}]}',
+    });
+    expect(reversed.response).not.toMatch(
+      /correctPlacements|centerX|centerY|radius|imageAspectRatio|feedback|answer|media/iu,
+    );
+  });
+
   it.each([
     ["single-select", null],
     ["single-select", { kind: "single-select", optionId: null }],
@@ -718,6 +780,7 @@ describe("Learning Event assessment response encoding", () => {
     ["classify", { kind: "classify", placements: [] }],
     ["fill-blanks", { kind: "fill-blanks", blanks: [{ blankId: "blank0000001", value: "  " }] }],
     ["spatial-hotspot", { kind: "spatial-hotspot", selections: [] }],
+    ["spatial-placement", { kind: "spatial-placement", placements: [] }],
   ] satisfies readonly (readonly [AssessmentInteractionKind, AssessmentResponseValue | null])[])(
     "omits an absent %s response",
     (interactionKind, response) => {

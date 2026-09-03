@@ -1,11 +1,13 @@
 import type { SurfaceAuthoringViewBinding } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
 import type { SurfaceVariantDefinition } from "@/editor/surfaces/model/surface-variant-definition";
 import type { SurfaceRuntimeViewBinding } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
+import type { ContentIdentityRewriteRegistration } from "@/document/model/identity/clone-with-new-ids";
 
 export interface SurfaceCapability {
   readonly definition: SurfaceVariantDefinition;
   readonly authoringView: SurfaceAuthoringViewBinding;
   readonly runtimeView: SurfaceRuntimeViewBinding;
+  readonly identityRewrites?: readonly ContentIdentityRewriteRegistration[];
 }
 
 export function createSurfaceCapabilitiesFromBindings(input: {
@@ -68,6 +70,16 @@ export function validateSurfaceCapability(capability: SurfaceCapability): void {
   }
   if (typeof capability.runtimeView.component !== "function") {
     throw new Error(`Surface capability "${id}" runtimeView.component must be callable.`);
+  }
+  for (const registration of capability.identityRewrites ?? []) {
+    if (typeof registration.nodeType !== "string" || registration.nodeType.length === 0) {
+      throw new Error(`Surface capability "${id}" identity rewrite needs a node type.`);
+    }
+    if (typeof registration.rewrite !== "function") {
+      throw new Error(
+        `Surface capability "${id}" identity rewrite for "${registration.nodeType}" must be callable.`,
+      );
+    }
   }
 }
 

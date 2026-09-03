@@ -22,7 +22,10 @@ import { builtInBlockAuthoringBindings } from "@/editor/blocks/authoring-block-e
 import { builtInBlockCapabilityRegistrations } from "@/editor/blocks/built-in-block-definitions";
 import { builtInBlockRuntimeBindings } from "@/editor/blocks/runtime-block-extensions";
 import { builtInSurfaceAuthoringViewBindings } from "@/editor/surfaces/authoring/surface-authoring-views";
-import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import {
+  builtInSurfaceCapabilityRegistrations,
+  builtInSurfaceVariantDefinitions,
+} from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { validateSurfaceVariantFactories } from "@/editor/surfaces/model/surface-variant-registry";
 import { builtInSurfaceRuntimeViewBindings } from "@/editor/surfaces/runtime/surface-runtime-views";
 import { isExtensionPackName } from "@/lib/code-defined-identifiers";
@@ -129,6 +132,9 @@ export function createScaffoldApplication(
     blockCapabilities,
     layoutDefinitions: layoutCapabilities.map((capability) => capability.definition),
     surfaceDefinitions: surfaceCapabilities.map((capability) => capability.definition),
+    identityRewriteRegistrations: surfaceCapabilities.flatMap(
+      (capability) => capability.identityRewrites ?? [],
+    ),
   });
   validateSurfaceVariantFactories(capabilities.surfaces.registry);
   validateUniqueBlockExtensionNames(blockCapabilities, "authoring");
@@ -171,16 +177,35 @@ function createBuiltInLayoutCapabilities(): readonly LayoutCapability[] {
 }
 
 function createBuiltInSurfaceCapabilities(): readonly SurfaceCapability[] {
-  return createSurfaceCapabilitiesFromBindings({
+  const capabilities = createSurfaceCapabilitiesFromBindings({
     owner: "Core",
     definitions: builtInSurfaceVariantDefinitions,
     authoringBindings: builtInSurfaceAuthoringViewBindings,
     runtimeBindings: builtInSurfaceRuntimeViewBindings,
   });
+  const registrationsByVariantId = new Map(
+    builtInSurfaceCapabilityRegistrations.map((registration) => [
+      registration.definition.id,
+      registration,
+    ]),
+  );
+  return Object.freeze(
+    capabilities.map((capability) => {
+      const identityRewrites = registrationsByVariantId.get(
+        capability.definition.id,
+      )?.identityRewrites;
+      return identityRewrites ? Object.freeze({ ...capability, identityRewrites }) : capability;
+    }),
+  );
 }
 
 function freezeBlockCapabilityShell(capability: BlockCapability): BlockCapability {
-  return Object.freeze({ ...capability });
+  return Object.freeze({
+    ...capability,
+    ...(capability.identityRewrites
+      ? { identityRewrites: Object.freeze([...capability.identityRewrites]) }
+      : {}),
+  });
 }
 
 function freezeLayoutCapabilityShell(capability: LayoutCapability): LayoutCapability {
@@ -188,7 +213,12 @@ function freezeLayoutCapabilityShell(capability: LayoutCapability): LayoutCapabi
 }
 
 function freezeSurfaceCapabilityShell(capability: SurfaceCapability): SurfaceCapability {
-  return Object.freeze({ ...capability });
+  return Object.freeze({
+    ...capability,
+    ...(capability.identityRewrites
+      ? { identityRewrites: Object.freeze([...capability.identityRewrites]) }
+      : {}),
+  });
 }
 
 function requireBuiltInAuthoringView(id: string): LayoutViewRegistration {

@@ -20,6 +20,7 @@ import type {
   AssessmentRegistrationConfig,
   AssessmentRegistrationInput,
   AssessmentRequestState,
+  AssessmentAnswerView,
 } from "./types";
 
 export type AssessmentFacadeStatus = "unsafe-identity" | "missing-registration" | "registered";
@@ -31,6 +32,7 @@ export interface AssessmentProblemFacadeActions {
   readonly reset: () => boolean;
   readonly revealHint: () => Promise<boolean>;
   readonly revealAnswer: () => Promise<AnswerReveal | null>;
+  readonly setAnswerView: (view: AssessmentAnswerView) => boolean;
 }
 
 export interface AssessmentProblemFacade {
@@ -46,6 +48,7 @@ export interface AssessmentProblemFacade {
   readonly responseReady: boolean;
   readonly request: AssessmentRequestState | null;
   readonly revealedAnswer: AnswerReveal | null;
+  readonly answerView: AssessmentAnswerView;
   readonly quiz: AssessmentProblemQuizContext | null;
   readonly actions: AssessmentProblemFacadeActions;
 }
@@ -142,6 +145,9 @@ export function useAssessmentProblemFacadeById(
   const revealedAnswer = useAssessmentStoreSelector((state) =>
     problemId ? state.transient.revealedAnswers[problemId] : undefined,
   );
+  const answerView = useAssessmentStoreSelector((state) =>
+    problemId ? state.transient.answerViews[problemId] : undefined,
+  );
   const quizRegistrations = useAssessmentStoreSelector((state) => state.quizRegistrations);
   const quizAttempts = useAssessmentStoreSelector((state) => state.durable.quizzes);
   const setLocalResponse = useAssessmentStoreSelector((state) => state.setLocalResponse);
@@ -150,6 +156,7 @@ export function useAssessmentProblemFacadeById(
   const reset = useAssessmentStoreSelector((state) => state.reset);
   const revealHint = useAssessmentStoreSelector((state) => state.revealHint);
   const revealAnswer = useAssessmentStoreSelector((state) => state.revealAnswer);
+  const setAnswerView = useAssessmentStoreSelector((state) => state.setAnswerView);
 
   if (
     registration &&
@@ -184,6 +191,7 @@ export function useAssessmentProblemFacadeById(
       reset: () => (identity ? reset(identity) : false),
       revealHint: () => (identity ? revealHint(identity) : Promise.resolve(false)),
       revealAnswer: () => (identity ? revealAnswer(identity) : Promise.resolve(null)),
+      setAnswerView: (view) => (identity ? setAnswerView(identity, view) : false),
     };
   }, [
     authoredBlockId,
@@ -193,6 +201,7 @@ export function useAssessmentProblemFacadeById(
     revealAnswer,
     revealHint,
     setLocalResponse,
+    setAnswerView,
     submit,
   ]);
 
@@ -209,6 +218,7 @@ export function useAssessmentProblemFacadeById(
     responseReady,
     request: request ?? null,
     revealedAnswer: revealedAnswer ?? null,
+    answerView: answerView ?? "submitted",
     quiz,
     actions,
   };

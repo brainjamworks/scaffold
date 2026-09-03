@@ -5,9 +5,10 @@ import {
 } from "@/editor/arrangements/layout/model/layout-registry";
 import type { BlockDefinition } from "@/editor/blocks/block-definition";
 import { createBlockRegistry, type BlockRegistry } from "@/editor/blocks/block-registry";
-import type {
-  BlockDuplicationLookup,
-  BlockDuplicationOperation,
+import {
+  createContentIdentityRewriteLookup,
+  type ContentIdentityRewriteLookup,
+  type ContentIdentityRewriteRegistration,
 } from "@/document/model/identity/clone-with-new-ids";
 import type { SurfaceVariantDefinition } from "@/editor/surfaces/model/surface-variant-definition";
 import {
@@ -20,7 +21,6 @@ import { createSemanticDefinitionLookup } from "./semantic-definition-lookup";
 
 export interface ResolvedBlockCapabilities {
   readonly registry: BlockRegistry;
-  readonly duplication: BlockDuplicationLookup;
 }
 
 export interface ResolvedLayoutCapabilities {
@@ -35,28 +35,32 @@ export interface ResolvedScaffoldCapabilities {
   readonly blocks: ResolvedBlockCapabilities;
   readonly layouts: ResolvedLayoutCapabilities;
   readonly surfaces: ResolvedSurfaceCapabilities;
+  readonly contentIdentity: {
+    readonly rewrites: ContentIdentityRewriteLookup;
+  };
   readonly documentSemantics: SemanticDefinitionLookup;
 }
 
 export interface ResolvableBlockCapability {
   readonly definition: BlockDefinition;
-  readonly duplication?: BlockDuplicationOperation;
+  readonly identityRewrites?: readonly ContentIdentityRewriteRegistration[];
 }
 
 export interface ResolveScaffoldCapabilitiesInput {
   readonly blockCapabilities: readonly ResolvableBlockCapability[];
   readonly layoutDefinitions: readonly LayoutDefinition[];
   readonly surfaceDefinitions: readonly SurfaceVariantDefinition[];
+  readonly identityRewriteRegistrations?: readonly ContentIdentityRewriteRegistration[];
 }
 
 export function resolveScaffoldCapabilities({
   blockCapabilities,
   layoutDefinitions,
   surfaceDefinitions,
+  identityRewriteRegistrations = [],
 }: ResolveScaffoldCapabilitiesInput): ResolvedScaffoldCapabilities {
   const blocks = Object.freeze({
     registry: createBlockRegistry(blockCapabilities.map((capability) => capability.definition)),
-    duplication: createBlockDuplicationLookup(blockCapabilities),
   });
   const layouts = Object.freeze({
     registry: createLayoutRegistry(layoutDefinitions),
@@ -64,34 +68,22 @@ export function resolveScaffoldCapabilities({
   const surfaces = Object.freeze({
     registry: createSurfaceVariantRegistry(surfaceDefinitions),
   });
+  const contentIdentity = Object.freeze({
+    rewrites: createContentIdentityRewriteLookup([
+      ...blockCapabilities.flatMap((capability) => capability.identityRewrites ?? []),
+      ...identityRewriteRegistrations,
+    ]),
+  });
 
   return Object.freeze({
     blocks,
     layouts,
     surfaces,
+    contentIdentity,
     documentSemantics: createSemanticDefinitionLookup({
       blocks: blocks.registry,
       layouts: layouts.registry,
       surfaces: surfaces.registry,
     }),
-  });
-}
-
-function createBlockDuplicationLookup(
-  capabilities: readonly ResolvableBlockCapability[],
-): BlockDuplicationLookup {
-  const operationsByNodeType = new Map<string, BlockDuplicationOperation>();
-  const mountedNodeTypes = new Set<string>();
-
-  for (const capability of capabilities) {
-    mountedNodeTypes.add(capability.definition.nodeType);
-    if (capability.duplication) {
-      operationsByNodeType.set(capability.definition.nodeType, capability.duplication);
-    }
-  }
-
-  return Object.freeze({
-    getByNodeType: (nodeType: string) => operationsByNodeType.get(nodeType),
-    hasNodeType: (nodeType: string) => mountedNodeTypes.has(nodeType),
   });
 }

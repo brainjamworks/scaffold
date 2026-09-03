@@ -545,10 +545,16 @@ export function createAssessmentStore({
           problems: { ...state.durable.problems, ...outcome.problems },
           quizzes: { ...state.durable.quizzes, [groupId]: outcome.quizAttempt },
         };
-        if (!clearRequest) return { durable };
+        const answerViews = { ...state.transient.answerViews };
+        if (operation === "quiz-start") {
+          for (const problemId of Object.keys(outcome.problems)) delete answerViews[problemId];
+        }
+        const transient =
+          operation === "quiz-start" ? { ...state.transient, answerViews } : state.transient;
+        if (!clearRequest) return { durable, transient };
         const requests = { ...state.requests };
         delete requests[groupId];
-        return { durable, requests };
+        return { durable, requests, transient };
       });
       if (committed && operation) {
         recordQuizOutcome(
@@ -595,7 +601,7 @@ export function createAssessmentStore({
       registrations: {},
       quizRegistrations: {},
       requests: {},
-      transient: { responseReady: {}, revealedAnswers: {} },
+      transient: { responseReady: {}, revealedAnswers: {}, answerViews: {} },
       register: (registration) => {
         const next = storedRegistration(normalizedArtifactId, registration);
         const current = get().registrations[next.problemId];
@@ -690,10 +696,12 @@ export function createAssessmentStore({
           delete responseReady[problemId];
           const revealedAnswers = { ...state.transient.revealedAnswers };
           delete revealedAnswers[problemId];
+          const answerViews = { ...state.transient.answerViews };
+          delete answerViews[problemId];
           return {
             registrations,
             requests,
-            transient: { responseReady, revealedAnswers },
+            transient: { responseReady, revealedAnswers, answerViews },
           };
         });
         return true;
@@ -760,6 +768,8 @@ export function createAssessmentStore({
             delete requests[problemId];
             const revealedAnswers = { ...state.transient.revealedAnswers };
             delete revealedAnswers[problemId];
+            const answerViews = { ...state.transient.answerViews };
+            delete answerViews[problemId];
             return {
               durable: {
                 ...state.durable,
@@ -775,11 +785,13 @@ export function createAssessmentStore({
               },
               requests,
               transient: {
+                ...state.transient,
                 responseReady: {
                   ...state.transient.responseReady,
                   [problemId]: registration.response.hasResponse(parsedLocalResponse.data),
                 },
                 revealedAnswers,
+                answerViews,
               },
             };
           });
@@ -950,6 +962,8 @@ export function createAssessmentStore({
           delete responseReady[problemId];
           const revealedAnswers = { ...state.transient.revealedAnswers };
           delete revealedAnswers[problemId];
+          const answerViews = { ...state.transient.answerViews };
+          delete answerViews[problemId];
           return {
             durable: {
               ...state.durable,
@@ -966,7 +980,7 @@ export function createAssessmentStore({
               },
             },
             requests,
-            transient: { responseReady, revealedAnswers },
+            transient: { responseReady, revealedAnswers, answerViews },
           };
         });
         return true;
@@ -1098,6 +1112,26 @@ export function createAssessmentStore({
           failCurrentRequest(problemId, requestId, error);
           return null;
         }
+      },
+      setAnswerView: (identity, view) => {
+        const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.authoredBlockId);
+        const registration = get().registrations[problemId];
+        if (!registration) return false;
+        try {
+          assertRegistrationIdentity(registration, {
+            ...identity,
+            targetId: identity.targetId.trim(),
+          });
+        } catch {
+          return false;
+        }
+        set((state) => {
+          const answerViews = { ...state.transient.answerViews };
+          if (view === "submitted") delete answerViews[problemId];
+          else answerViews[problemId] = view;
+          return { transient: { ...state.transient, answerViews } };
+        });
+        return true;
       },
       startQuizAttempt: async (identity) => {
         const groupId = scopeAssessmentGroupId(normalizedArtifactId, identity.groupId);

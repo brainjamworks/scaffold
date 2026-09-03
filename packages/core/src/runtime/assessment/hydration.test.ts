@@ -229,6 +229,7 @@ describe("assessment snapshot hydration", () => {
       transient: {
         responseReady: { [existingProblemId]: true },
         revealedAnswers: {},
+        answerViews: {},
       },
     });
     const before = serializedMutableState(store);
@@ -278,6 +279,7 @@ describe("assessment snapshot hydration", () => {
             },
           }),
         },
+        answerViews: { [problemId]: "correct" },
       },
     });
 
@@ -286,6 +288,7 @@ describe("assessment snapshot hydration", () => {
     expect(projected).toEqual(snapshot());
     expect(projected.problems["target_00001"]).not.toHaveProperty("responseReady");
     expect(projected.problems["target_00001"]).not.toHaveProperty("revealedAnswer");
+    expect(projected).not.toHaveProperty("answerViews");
     expect(projected.quizzes["quiz__000001"]).not.toHaveProperty("groupId");
     expect(projected).not.toHaveProperty("registrations");
     expect(projected).not.toHaveProperty("requests");

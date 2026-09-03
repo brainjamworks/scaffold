@@ -12,7 +12,7 @@ import {
   readAttrs,
   readContent,
   readStringAttr,
-} from "@/editor/blocks/assessment/shared/publication/projection";
+} from "@/editor/assessment/shared/publication/projection";
 import {
   type BlockAssessmentCapabilityDefinition,
   type BlockDefinition,
@@ -23,6 +23,8 @@ import {
 } from "@/editor/blocks/assessment/shared/publication/assessment-target";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-variant-registry";
+import { SURFACE_QUIZ_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-quiz-node";
+import { matchFixedSurfaceChildrenFromJSON } from "@/editor/surfaces/model/policies/surface-fixed-structure";
 import type { RequiresScaffoldPlusResult } from "@/host/contracts/product-access";
 import type {
   LearnerProjectionReadinessResult,
@@ -125,6 +127,7 @@ export function projectAssessmentDocument(
     readiness.canonicalDocument,
     targets,
     blockDefinitions,
+    surfaceVariants,
   );
   return {
     learnerDocument: learner.document,
@@ -204,6 +207,7 @@ function projectAssessmentGroups(
   authorDocument: JSONContent,
   targets: AssessmentTargetContract[],
   blockDefinitions: BlockDefinitionLookup,
+  surfaceVariants: SurfaceVariantLookup,
 ): AssessmentGroupProjection {
   const targetIds = new Set(targets.map((target) => target.targetId));
   const groups: AssessmentGroupContract[] = [];
@@ -249,7 +253,66 @@ function projectAssessmentGroups(
     );
   });
 
+  collectSurfaceQuizzes(authorDocument, surfaceVariants).forEach((quiz) => {
+    if (!quiz.groupId) {
+      throw new Error(`Surface Quiz on "${quiz.surfaceId}" is missing its stable group id.`);
+    }
+    const children = readContent(quiz.node);
+    if (children.length === 0) return;
+    const childIds = children.map((child) => readStringAttr(child, "id"));
+    if (
+      childIds.some((id) => id.length === 0) ||
+      new Set(childIds).size !== childIds.length ||
+      childIds.some((id) => !targetIds.has(id))
+    ) {
+      throw new Error(`Surface Quiz "${quiz.groupId}" has invalid assessment membership.`);
+    }
+    groups.push(
+      AssessmentGroupContractSchema.parse({
+        schemaVersion: SCAFFOLD_ASSESSMENT_CONTRACT_VERSION,
+        kind: "quiz",
+        groupId: quiz.groupId,
+        targetIds: childIds,
+        settings: QuizSettingsSchema.parse(readAttrs(quiz.node)["settings"] ?? {}),
+      }),
+    );
+  });
+
   return { groups, warnings };
+}
+
+interface VisitedSurfaceQuiz {
+  readonly node: JSONContent;
+  readonly groupId: string;
+  readonly surfaceId: string;
+}
+
+function collectSurfaceQuizzes(
+  root: JSONContent,
+  surfaceVariants: SurfaceVariantLookup,
+): VisitedSurfaceQuiz[] {
+  const quizzes: VisitedSurfaceQuiz[] = [];
+
+  function walk(node: JSONContent) {
+    if (node.type === "surface") {
+      const variantId = readStringAttr(node, "variant");
+      if (variantId === "slide-quiz" && surfaceVariants.get(variantId)) {
+        const surfaceId = readStringAttr(node, "id");
+        const match = matchFixedSurfaceChildrenFromJSON(node, [{ type: SURFACE_QUIZ_NODE_TYPE }]);
+        if (!surfaceId || !match.exact) {
+          throw new Error('Surface "slide-quiz" has malformed private Quiz content.');
+        }
+        const quiz = match.children[0]!;
+        quizzes.push({ node: quiz, groupId: readStringAttr(quiz, "id"), surfaceId });
+        return;
+      }
+    }
+
+    for (const child of readContent(node)) walk(child);
+  }
+
+  walk(root);
+  return quizzes;
 }
 
 interface VisitedQuizBlock {

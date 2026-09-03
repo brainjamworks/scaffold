@@ -24,6 +24,7 @@ export type AuthoredAssessmentTargetId = string;
 export type AuthoredAssessmentGroupId = string;
 export type AssessmentGroupId = `artifact:${string}/group:${string}`;
 export type AssessmentScopedId = AssessmentProblemId | AssessmentGroupId;
+export type AssessmentAnswerView = "submitted" | "correct";
 
 export interface AssessmentDurableState {
   readonly problems: Readonly<Record<AssessmentProblemId, AssessmentProblemSnapshot>>;
@@ -33,6 +34,7 @@ export interface AssessmentDurableState {
 export interface AssessmentTransientState {
   readonly responseReady: Readonly<Record<AssessmentProblemId, boolean>>;
   readonly revealedAnswers: Readonly<Record<AssessmentProblemId, AnswerReveal>>;
+  readonly answerViews: Readonly<Record<AssessmentProblemId, AssessmentAnswerView>>;
 }
 
 export type AssessmentRequestOperation =
@@ -145,6 +147,10 @@ export interface AssessmentStore {
   readonly reset: (identity: AssessmentRegistrationIdentity) => boolean;
   readonly revealHint: (identity: AssessmentRegistrationIdentity) => Promise<boolean>;
   readonly revealAnswer: (identity: AssessmentRegistrationIdentity) => Promise<AnswerReveal | null>;
+  readonly setAnswerView: (
+    identity: AssessmentRegistrationIdentity,
+    view: AssessmentAnswerView,
+  ) => boolean;
   readonly startQuizAttempt: (
     identity: AssessmentQuizRegistrationIdentity,
   ) => Promise<QuizAttemptState | null>;

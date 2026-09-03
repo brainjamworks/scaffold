@@ -43,11 +43,13 @@ import {
 import { createSurfaceRuntimeNode } from "@/editor/surfaces/runtime/nodes/surface-runtime-node";
 import { SurfaceCategoriseQuestionNode } from "@/editor/surfaces/model/assessment/surface-categorise-question-node";
 import { SurfaceDropdownQuestionNode } from "@/editor/surfaces/model/assessment/surface-dropdown-question-node";
+import { SurfaceDragDropQuestionNode } from "@/editor/surfaces/model/assessment/surface-drag-drop-question-node";
 import { SurfaceFillBlanksQuestionNode } from "@/editor/surfaces/model/assessment/surface-fill-blanks-question-node";
 import { SurfaceMatchingQuestionNode } from "@/editor/surfaces/model/assessment/surface-matching-question-node";
 import { SurfaceImageHotspotQuestionNode } from "@/editor/surfaces/model/assessment/surface-image-hotspot-question-node";
 import { SurfaceMultipleChoiceQuestionNode } from "@/editor/surfaces/model/assessment/surface-multiple-choice-question-node";
 import { SurfaceMultiselectQuestionNode } from "@/editor/surfaces/model/assessment/surface-multiselect-question-node";
+import { SurfaceQuizNode } from "@/editor/surfaces/model/assessment/surface-quiz-node";
 import { SurfaceSequencingQuestionNode } from "@/editor/surfaces/model/assessment/surface-sequencing-question-node";
 import {
   ContentLayoutProjectionExtension,
@@ -105,7 +107,9 @@ export function createCourseDocumentRuntimeExtensions({
     SurfaceMultipleChoiceQuestionNode,
     SurfaceMultiselectQuestionNode,
     SurfaceDropdownQuestionNode,
+    SurfaceDragDropQuestionNode,
     SurfaceFillBlanksQuestionNode,
+    SurfaceQuizNode,
     ...createCourseDocumentBaseExtensions({
       assessmentActionsGroupNode: AssessmentActionsGroupRuntimeNode,
       assessmentChoicesGroupNode: AssessmentChoicesGroupRuntimeNode,
@@ -328,7 +332,9 @@ export function createPresentationContentLayoutPortForEditor(
       const priorDoc = editor.state.doc;
       const transaction = clearContentLayoutProjectionMeta(editor.state.tr);
       if (transaction.docChanged) {
-        throw new Error("Clearing Presentation content-layout projection attempted to mutate the document.");
+        throw new Error(
+          "Clearing Presentation content-layout projection attempted to mutate the document.",
+        );
       }
       editor.view.dispatch(transaction);
       if (editor.state.doc !== priorDoc) {

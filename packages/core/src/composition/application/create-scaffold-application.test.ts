@@ -8,6 +8,7 @@ import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
+import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-new-ids";
 
 import type { BlockCapability } from "./block-capability";
 import {
@@ -64,9 +65,10 @@ describe("createScaffoldApplication", () => {
       "blocks",
       "layouts",
       "surfaces",
+      "contentIdentity",
       "documentSemantics",
     ]);
-    expect(Object.keys(application.capabilities.blocks)).toEqual(["registry", "duplication"]);
+    expect(Object.keys(application.capabilities.blocks)).toEqual(["registry"]);
     expect(Object.keys(application.capabilities.layouts)).toEqual(["registry"]);
     expect(Object.keys(application.capabilities.surfaces)).toEqual(["registry"]);
     expect(application.authoring.capabilities.blocks.registry).toBe(
@@ -268,11 +270,11 @@ describe("createScaffoldApplication", () => {
     ).toHaveLength(1);
   });
 
-  it("derives one immutable Core-plus-host Block duplication lookup from mounted capabilities", () => {
-    const duplication = vi.fn(({ content }) => content);
+  it("composes a Block identity rewrite into the immutable application lookup", () => {
+    const rewrite = vi.fn(({ content }) => content);
     const hostBlock = {
       ...testBlockCapability("host_duplication_owner"),
-      duplication,
+      identityRewrites: [{ nodeType: "host_duplication_owner", rewrite }],
     } satisfies BlockCapability;
     const hostApplication = createScaffoldApplication({
       packs: [
@@ -284,24 +286,119 @@ describe("createScaffoldApplication", () => {
     });
     const coreApplication = createScaffoldApplication();
 
-    expect(hostApplication.capabilities.blocks.duplication.getByNodeType("mcq")).toBeTypeOf(
+    expect(hostApplication.capabilities.contentIdentity.rewrites.getByNodeType("mcq")).toBeTypeOf(
       "function",
     );
-    expect(hostApplication.capabilities.blocks.duplication.hasNodeType("callout")).toBe(true);
     expect(
-      hostApplication.capabilities.blocks.duplication.hasNodeType(hostBlock.definition.nodeType),
+      hostApplication.capabilities.contentIdentity.rewrites.hasNodeType(
+        hostBlock.definition.nodeType,
+      ),
     ).toBe(true);
     expect(
-      hostApplication.capabilities.blocks.duplication.getByNodeType(hostBlock.definition.nodeType),
-    ).toBe(duplication);
+      hostApplication.capabilities.contentIdentity.rewrites.getByNodeType(
+        hostBlock.definition.nodeType,
+      ),
+    ).toBe(rewrite);
     expect(
-      coreApplication.capabilities.blocks.duplication.getByNodeType(hostBlock.definition.nodeType),
+      coreApplication.capabilities.contentIdentity.rewrites.getByNodeType(
+        hostBlock.definition.nodeType,
+      ),
     ).toBeUndefined();
+    expect(Object.isFrozen(hostApplication.capabilities.contentIdentity)).toBe(true);
+    expect(Object.isFrozen(hostApplication.capabilities.contentIdentity.rewrites)).toBe(true);
+    expect(rewrite).not.toHaveBeenCalled();
+  });
+
+  it("composes a Surface identity rewrite without a Block registry dependency", () => {
+    const rewrite = vi.fn(({ content }) => content);
+    const hostSurface = {
+      ...testSurfaceCapability("host-identity-surface"),
+      identityRewrites: [{ nodeType: "host_surface_content", rewrite }],
+    } satisfies SurfaceCapability;
+
+    const application = createScaffoldApplication({
+      packs: [defineScaffoldExtensionPack({ id: "host-surface-identity", surfaces: [hostSurface] })],
+    });
+
     expect(
-      coreApplication.capabilities.blocks.duplication.hasNodeType(hostBlock.definition.nodeType),
-    ).toBe(false);
-    expect(Object.isFrozen(hostApplication.capabilities.blocks.duplication)).toBe(true);
-    expect(duplication).not.toHaveBeenCalled();
+      application.capabilities.contentIdentity.rewrites.getByNodeType("host_surface_content"),
+    ).toBe(rewrite);
+    expect(rewrite).not.toHaveBeenCalled();
+  });
+
+  it("uses one combined Block-plus-Surface lookup for an inside-out copy", () => {
+    const blockRewrite = vi.fn(({ content }) => ({ ...content, attrs: { owner: "block" } }));
+    const surfaceRewrite = vi.fn(({ content }) => ({ ...content, attrs: { owner: "surface" } }));
+    const block = {
+      ...testBlockCapability("host_identity_block"),
+      identityRewrites: [{ nodeType: "host_identity_block", rewrite: blockRewrite }],
+    } satisfies BlockCapability;
+    const surface = {
+      ...testSurfaceCapability("host-identity-surface"),
+      identityRewrites: [{ nodeType: "host_surface_content", rewrite: surfaceRewrite }],
+    } satisfies SurfaceCapability;
+    const application = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "host-combined-identity",
+          blocks: [block],
+          surfaces: [surface],
+        }),
+      ],
+    });
+
+    const copied = cloneJsonWithNewStableIds(
+      {
+        type: "host_identity_block",
+        content: [{ type: "host_surface_content" }],
+      },
+      { identityRewrites: application.capabilities.contentIdentity.rewrites },
+    );
+
+    expect(copied).toEqual({
+      type: "host_identity_block",
+      attrs: { owner: "block" },
+      content: [{ type: "host_surface_content", attrs: { owner: "surface" } }],
+    });
+    expect(surfaceRewrite).toHaveBeenCalledBefore(blockRewrite);
+  });
+
+  it("rejects conflicting Block and Surface owners with both registrations as evidence", () => {
+    const blockRegistration = {
+      nodeType: "shared_identity_owner",
+      rewrite: vi.fn(({ content }) => content),
+    };
+    const surfaceRegistration = {
+      nodeType: "shared_identity_owner",
+      rewrite: vi.fn(({ content }) => content),
+    };
+    const block = {
+      ...testBlockCapability("host_identity_block"),
+      identityRewrites: [blockRegistration],
+    } satisfies BlockCapability;
+    const surface = {
+      ...testSurfaceCapability("host-identity-surface"),
+      identityRewrites: [surfaceRegistration],
+    } satisfies SurfaceCapability;
+    const pack = defineScaffoldExtensionPack({
+      id: "host-conflicting-identity",
+      blocks: [block],
+      surfaces: [surface],
+    });
+
+    try {
+      createScaffoldApplication({ packs: [pack] });
+      throw new Error("Expected conflicting identity registrations to throw.");
+    } catch (error) {
+      expect(error).toMatchObject({
+        message:
+          'Duplicate content identity rewrite registration for "shared_identity_owner".',
+        cause: {
+          nodeType: "shared_identity_owner",
+          registrations: [blockRegistration, surfaceRegistration],
+        },
+      });
+    }
   });
 
   it("shares one exact Core-plus-host semantic lookup across both composition lanes", () => {

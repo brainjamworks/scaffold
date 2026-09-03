@@ -175,6 +175,7 @@ export function SlideshowPlayer({
       activeSurfaceId: initialActiveSurfaceId,
     }),
   );
+  const pendingSurfaceExitEnvironmentDisposal = useRef<ReturnType<typeof setTimeout> | null>(null);
   const surfaceExitEnvironment = surfaceExitEnvironmentOwner.environment;
   const activeSurfaceIdRef = useRef(activeSurfaceId);
   const commitSurfaceChange = useCallback(
@@ -365,12 +366,19 @@ export function SlideshowPlayer({
     onActiveSurfaceChange?.(navigation.activeSurfaceId);
   }, [navigation.activeSurfaceId, onActiveSurfaceChange]);
 
-  useEffect(
-    () => () => {
-      surfaceExitEnvironmentOwner.dispose();
-    },
-    [surfaceExitEnvironmentOwner],
-  );
+  useEffect(() => {
+    if (pendingSurfaceExitEnvironmentDisposal.current !== null) {
+      clearTimeout(pendingSurfaceExitEnvironmentDisposal.current);
+      pendingSurfaceExitEnvironmentDisposal.current = null;
+    }
+
+    return () => {
+      pendingSurfaceExitEnvironmentDisposal.current = setTimeout(() => {
+        pendingSurfaceExitEnvironmentDisposal.current = null;
+        surfaceExitEnvironmentOwner.dispose();
+      }, 0);
+    };
+  }, [surfaceExitEnvironmentOwner]);
 
   useLayoutEffect(() => {
     const previous = previousContentInteraction.current;

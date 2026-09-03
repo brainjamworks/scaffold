@@ -227,6 +227,18 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     }
   });
 
+  it("mounts the inline Drag and Drop runtime owner and canvas exactly once", () => {
+    const schema = getSchema(
+      createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition }),
+    );
+
+    expect(schema.nodes["drag_drop"]).toBeDefined();
+    expect(schema.nodes["drag_drop_canvas"]).toBeDefined();
+    expect(
+      builtInBlockRuntimeBindings.filter(({ nodeType }) => nodeType === "drag_drop"),
+    ).toHaveLength(1);
+  });
+
   it("mounts the private Surface Categorise question owner in runtime", () => {
     const schema = getSchema(
       createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition }),

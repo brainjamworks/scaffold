@@ -13,7 +13,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
-import type { ReactNode } from "react";
+import { StrictMode, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
@@ -476,7 +476,38 @@ describe("SlideshowPlayer", () => {
 
     unmount();
 
-    expect(() => environment.getSnapshot()).toThrow("Surface Exit Environment has been disposed");
+    await waitFor(() =>
+      expect(() => environment.getSnapshot()).toThrow("Surface Exit Environment has been disposed"),
+    );
+  });
+
+  it("keeps the Surface Exit Environment available across a Strict Mode effect reconnect", async () => {
+    const { unmount } = render(
+      <StrictMode>
+        <TestSlideshowPlayer
+          composition={runtimeComposition}
+          initialContent={slideshowDocumentContent([
+            { id: "slide_000001", text: "Strict Mode environment slide" },
+          ])}
+        />
+      </StrictMode>,
+    );
+
+    await waitFor(() =>
+      expect(surfaceExitEnvironmentProbe.availability).toMatchObject({ status: "available" }),
+    );
+    const environment = surfaceExitEnvironmentFromRenderer();
+
+    expect(environment.getSnapshot()).toMatchObject({
+      status: "allowed",
+      surfaceId: "slide_000001",
+    });
+
+    unmount();
+
+    await waitFor(() =>
+      expect(() => environment.getSnapshot()).toThrow("Surface Exit Environment has been disposed"),
+    );
   });
 
   it("keeps the active Surface setter behind one request commit callback", () => {

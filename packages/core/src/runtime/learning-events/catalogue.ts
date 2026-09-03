@@ -60,6 +60,7 @@ export const LEARNING_EVENT_ACTIVITY_TYPES = Object.freeze({
 export const LEARNING_EVENT_EXTENSIONS = Object.freeze({
   assessmentAttemptNumber: "https://scaffold.ac/xapi/extensions/assessment-attempt-number",
   assessmentInteractionKind: "https://scaffold.ac/xapi/extensions/assessment-interaction-kind",
+  spatialPlacementMarkers: "https://scaffold.ac/xapi/extensions/spatial-placement-markers",
   quizAttemptId: "https://scaffold.ac/xapi/extensions/quiz-attempt-id",
   learnerActivityKind: "https://scaffold.ac/xapi/extensions/learner-activity-kind",
   learnerActivityEvent: "https://scaffold.ac/xapi/extensions/learner-activity-event",
@@ -261,6 +262,7 @@ function interactionType(kind: AssessmentInteractionKind): LearningEventInteract
       return "matching";
     case "fill-blanks":
     case "spatial-hotspot":
+    case "spatial-placement":
       return "other";
     default:
       throw new Error(`Unsupported assessment interaction kind: ${String(kind)}`);
@@ -338,6 +340,19 @@ export function buildAssessmentActivityDefinition(
     case "fill-blanks":
     case "spatial-hotspot":
       return base;
+    case "spatial-placement": {
+      const markers = input.interaction.markers
+        .map(({ id, label }) => ({ sortId: encodedComponentId(id), id, label }))
+        .sort((left, right) => ordinalCompare(left.sortId, right.sortId))
+        .map(({ id, label }) => ({ id, label }));
+      return {
+        ...base,
+        extensions: {
+          ...base.extensions,
+          [LEARNING_EVENT_EXTENSIONS.spatialPlacementMarkers]: { markers },
+        },
+      };
+    }
     default:
       throw new Error(`Unsupported assessment interaction kind: ${String(input.interaction)}`);
   }
@@ -442,6 +457,19 @@ export function encodeAssessmentResponse(
               })),
             }),
           };
+    case "spatial-placement": {
+      if (parsed.placements.length === 0) return encoded;
+      const placements = parsed.placements
+        .map(({ markerId, x, y }) => ({
+          sortId: encodedComponentId(markerId),
+          markerId,
+          x,
+          y,
+        }))
+        .sort((left, right) => ordinalCompare(left.sortId, right.sortId))
+        .map(({ markerId, x, y }) => ({ markerId, x, y }));
+      return { ...encoded, response: JSON.stringify({ placements }) };
+    }
     default:
       throw new Error(`Unsupported assessment response kind: ${String(parsed)}`);
   }

@@ -21,7 +21,10 @@ import {
   type SurfaceAuthoringViewMap,
 } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
 import { builtInSurfaceAuthoringViewBindings } from "@/editor/surfaces/authoring/surface-authoring-views";
-import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import {
+  builtInSurfaceIdentityRewriteRegistrations,
+  builtInSurfaceVariantDefinitions,
+} from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { validateSurfaceVariantFactories } from "@/editor/surfaces/model/surface-variant-registry";
 
 import { createScaffoldAuthoringCatalogues } from "./scaffold-authoring-catalogues";
@@ -79,6 +82,7 @@ export function createScaffoldAuthoringComposition(
 export function createCoreScaffoldAuthoringComposition(): ScaffoldAuthoringComposition {
   const capabilities = resolveScaffoldCapabilities({
     blockCapabilities: builtInBlockCapabilityRegistrations,
+    identityRewriteRegistrations: builtInSurfaceIdentityRewriteRegistrations,
     layoutDefinitions: builtInLayoutDefinitions,
     surfaceDefinitions: builtInSurfaceVariantDefinitions,
   });

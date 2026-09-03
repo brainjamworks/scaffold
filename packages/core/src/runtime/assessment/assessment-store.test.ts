@@ -1238,6 +1238,7 @@ describe("createAssessmentStore", () => {
       transient: {
         responseReady: { [problemId]: true },
         revealedAnswers: {},
+        answerViews: {},
       },
     });
 
@@ -2780,7 +2781,11 @@ describe("createAssessmentStore", () => {
     await expect(store.getState().revealAnswer(identity)).resolves.toMatchObject({
       answerKey: { kind: "single-select", correctOptionId: "option_00002" },
     });
+    expect(store.getState().setAnswerView(identity, "correct")).toBe(true);
     expect(store.getState().reset(identity)).toBe(true);
+    expect(store.getState().transient.answerViews).not.toHaveProperty(
+      scopeAssessmentProblemId("artifact-one", "block_000001"),
+    );
 
     expect(sessionDouble.record).not.toHaveBeenCalled();
   });
@@ -3106,6 +3111,12 @@ describe("createAssessmentStore", () => {
       status: "error",
       error: "denied",
     });
+
+    expect(store.getState().setAnswerView(identity, "correct")).toBe(true);
+    expect(store.getState().transient.answerViews[problemId]).toBe("correct");
+    expect(store.getState().setLocalResponse(identity, { choice: "option_00002" })).toBe(true);
+    expect(store.getState().transient.answerViews).not.toHaveProperty(problemId);
+    expect(store.getState().transient.revealedAnswers).not.toHaveProperty(problemId);
   });
 
   it("rejects missing and interaction-kind-mismatched problem actions without mutation", async () => {
@@ -3671,6 +3682,7 @@ describe("createAssessmentStore", () => {
       "revealAnswer",
       "revealHint",
       "revealQuizAnswers",
+      "setAnswerView",
       "setLocalResponse",
       "startQuizAttempt",
       "submit",

@@ -3,6 +3,7 @@ import { flattenExtensions, type AnyExtension } from "@tiptap/core";
 import type { BlockAuthoringBinding } from "@/editor/blocks/authoring-block-extensions";
 import type { BlockRuntimeBinding } from "@/editor/blocks/runtime-block-extensions";
 import type { ResolvableBlockCapability } from "@/composition/model/resolved-scaffold-capabilities";
+import type { ContentIdentityRewriteRegistration } from "@/document/model/identity/clone-with-new-ids";
 
 export interface BlockCapability extends ResolvableBlockCapability {
   readonly authoringExtension: AnyExtension;
@@ -57,12 +58,27 @@ export function validateBlockCapability(capability: BlockCapability): void {
   if (!capability.runtimeExtension) {
     throw new Error(`Block capability "${nodeType}" is missing its runtime extension bundle.`);
   }
-  if (capability.duplication !== undefined && typeof capability.duplication !== "function") {
-    throw new Error(`Block capability "${nodeType}" duplication operation must be callable.`);
+  for (const registration of capability.identityRewrites ?? []) {
+    validateIdentityRewriteRegistration("Block", nodeType, registration);
   }
 
   validateBundleRoot(nodeType, "authoring", capability.authoringExtension);
   validateBundleRoot(nodeType, "runtime", capability.runtimeExtension);
+}
+
+function validateIdentityRewriteRegistration(
+  capabilityKind: "Block",
+  capabilityId: string,
+  registration: ContentIdentityRewriteRegistration,
+): void {
+  if (typeof registration.nodeType !== "string" || registration.nodeType.length === 0) {
+    throw new Error(`${capabilityKind} capability "${capabilityId}" identity rewrite needs a node type.`);
+  }
+  if (typeof registration.rewrite !== "function") {
+    throw new Error(
+      `${capabilityKind} capability "${capabilityId}" identity rewrite for "${registration.nodeType}" must be callable.`,
+    );
+  }
 }
 
 export function validateUniqueBlockExtensionNames(

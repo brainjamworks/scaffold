@@ -406,18 +406,20 @@ describe("createScaffoldApplication", () => {
     },
   );
 
-  it("rejects a Block capability whose duplication operation is not callable", () => {
-    const nodeType = "malformed_duplication";
+  it("rejects a Block capability whose identity rewrite is not callable", () => {
+    const nodeType = "malformed_identity_rewrite";
     const capability = testBlockCapability(nodeType, {
-      duplication: "not callable" as unknown as NonNullable<BlockCapability["duplication"]>,
+      identityRewrites: [
+        { nodeType, rewrite: "not callable" },
+      ] as unknown as NonNullable<BlockCapability["identityRewrites"]>,
     });
     const pack = defineScaffoldExtensionPack({
-      id: "malformed-duplication-host",
+      id: "malformed-identity-rewrite-host",
       blocks: [capability],
     });
 
     expect(() => createScaffoldApplication({ packs: [pack] })).toThrow(
-      `Block capability "${nodeType}" duplication operation must be callable.`,
+      `Block capability "${nodeType}" identity rewrite for "${nodeType}" must be callable.`,
     );
   });
 

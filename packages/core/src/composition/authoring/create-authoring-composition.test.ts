@@ -252,6 +252,21 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(missingBlockNames).toEqual([]);
   });
 
+  it("mounts the inline Drag and Drop authoring owner and canvas exactly once", () => {
+    const schema = getSchema(
+      createCourseDocumentAuthoringExtensions({
+        editable: true,
+        composition: coreAuthoringComposition,
+      }),
+    );
+
+    expect(schema.nodes["drag_drop"]).toBeDefined();
+    expect(schema.nodes["drag_drop_canvas"]).toBeDefined();
+    expect(
+      builtInBlockAuthoringBindings.filter(({ nodeType }) => nodeType === "drag_drop"),
+    ).toHaveLength(1);
+  });
+
   it("mounts the private Surface Categorise question owner in authoring", () => {
     const schema = getSchema(
       createCourseDocumentAuthoringExtensions({
@@ -516,7 +531,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(createPolicy).toHaveBeenCalledOnce();
     expect(createPolicy).toHaveBeenCalledWith({
       blockDefinitions: application.capabilities.blocks.registry,
-      blockDuplications: application.capabilities.blocks.duplication,
+      identityRewrites: application.capabilities.contentIdentity.rewrites,
       carrierLimits: {
         maxCarrierBytes: 2_000_000,
         fragmentDecodeLimits: {

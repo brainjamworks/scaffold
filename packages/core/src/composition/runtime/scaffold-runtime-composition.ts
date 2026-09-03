@@ -12,7 +12,10 @@ import {
 } from "@/editor/arrangements/layout/runtime/layout-view-registry";
 import { builtInBlockCapabilityRegistrations } from "@/editor/blocks/built-in-block-definitions";
 import { builtInBlockRuntimeBindings } from "@/editor/blocks/runtime-block-extensions";
-import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import {
+  builtInSurfaceIdentityRewriteRegistrations,
+  builtInSurfaceVariantDefinitions,
+} from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { validateSurfaceVariantFactories } from "@/editor/surfaces/model/surface-variant-registry";
 import {
   createSurfaceRuntimeViewMap,
@@ -68,6 +71,7 @@ export function createScaffoldRuntimeComposition(
 export function createCoreScaffoldRuntimeComposition(): ScaffoldRuntimeComposition {
   const capabilities = resolveScaffoldCapabilities({
     blockCapabilities: builtInBlockCapabilityRegistrations,
+    identityRewriteRegistrations: builtInSurfaceIdentityRewriteRegistrations,
     layoutDefinitions: builtInLayoutDefinitions,
     surfaceDefinitions: builtInSurfaceVariantDefinitions,
   });

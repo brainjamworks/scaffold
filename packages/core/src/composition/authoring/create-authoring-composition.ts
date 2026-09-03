@@ -41,11 +41,13 @@ import { createSurfaceAuthoringNode } from "@/editor/surfaces/authoring/nodes/su
 import { RegionAuthoringNode } from "@/editor/surfaces/authoring/nodes/region-authoring-node";
 import { SurfaceCategoriseQuestionNode } from "@/editor/surfaces/model/assessment/surface-categorise-question-node";
 import { SurfaceDropdownQuestionNode } from "@/editor/surfaces/model/assessment/surface-dropdown-question-node";
+import { SurfaceDragDropQuestionNode } from "@/editor/surfaces/model/assessment/surface-drag-drop-question-node";
 import { SurfaceFillBlanksQuestionNode } from "@/editor/surfaces/model/assessment/surface-fill-blanks-question-node";
 import { SurfaceMatchingQuestionNode } from "@/editor/surfaces/model/assessment/surface-matching-question-node";
 import { SurfaceImageHotspotQuestionNode } from "@/editor/surfaces/model/assessment/surface-image-hotspot-question-node";
 import { SurfaceMultipleChoiceQuestionNode } from "@/editor/surfaces/model/assessment/surface-multiple-choice-question-node";
 import { SurfaceMultiselectQuestionNode } from "@/editor/surfaces/model/assessment/surface-multiselect-question-node";
+import { SurfaceQuizNode } from "@/editor/surfaces/model/assessment/surface-quiz-node";
 import { SurfaceSequencingQuestionNode } from "@/editor/surfaces/model/assessment/surface-sequencing-question-node";
 import { ContentLayoutAuthoringExtension } from "@/editor/content-layout/prosemirror/content-layout-authoring-extension";
 import { ContentLayoutProjectionExtension } from "@/editor/content-layout/prosemirror/content-layout-projection-extension";
@@ -194,13 +196,15 @@ export function createCourseDocumentAuthoringExtensions({
     SurfaceMultipleChoiceQuestionNode,
     SurfaceMultiselectQuestionNode,
     SurfaceDropdownQuestionNode,
+    SurfaceDragDropQuestionNode,
     SurfaceFillBlanksQuestionNode,
+    SurfaceQuizNode,
     createScaffoldInteractionOwnerExtension(blockRegistry, {
       resolveStructuralActivationPlacement: resolveContentLayoutStructuralActivationPlacement,
     }),
     createStructuralClipboardPolicy({
       blockDefinitions: blockRegistry,
-      blockDuplications: composition.capabilities.blocks.duplication,
+      identityRewrites: composition.capabilities.contentIdentity.rewrites,
       carrierLimits: AUTHORING_STRUCTURAL_CLIPBOARD_LIMITS,
       layoutDefinitions: layoutRegistry,
       surfaceVariants: surfaceRegistry,
