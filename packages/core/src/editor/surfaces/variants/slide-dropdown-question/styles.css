@@ -1,0 +1,140 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  [data-full-slide-question-family="dropdown"] [data-slot="assessment-prompt"] {
+    max-block-size: 7rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  [data-full-slide-question-family="dropdown"] [data-assessment-interaction-content],
+  .sc-assessment-slide-surface-authoring-view
+    [data-full-slide-question-family="dropdown"]
+    [data-slot="dropdown-choices-group"] {
+    box-sizing: border-box;
+    inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+    align-self: stretch;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    overflow: hidden;
+    padding: clamp(1rem, 3cqw, 2rem) clamp(1rem, 6.25cqw, 4rem);
+  }
+
+  [data-full-slide-question-family="dropdown"] [data-assessment-interaction-content] {
+    display: grid;
+    block-size: 100%;
+    max-block-size: 100%;
+  }
+
+  [data-dropdown-presentation="full-slide"] .sc-course-dropdown-interaction__content,
+  .sc-course-dropdown-interaction[data-dropdown-presentation="full-slide"] {
+    box-sizing: border-box;
+    inline-size: 100%;
+    block-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+  }
+
+  .sc-course-dropdown-interaction[data-dropdown-presentation="full-slide"] {
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+
+  [data-dropdown-presentation="full-slide"] .sc-course-dropdown-interaction__focal {
+    box-sizing: border-box;
+    display: grid;
+    inline-size: min(100%, 48rem);
+    max-block-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+    align-content: center;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.25rem;
+    scrollbar-gutter: stable;
+  }
+
+  [data-dropdown-presentation="full-slide"] .sc-course-dropdown-select {
+    --sc-dropdown-slide-status-reserve: 6.125rem;
+
+    inline-size: 100%;
+    max-inline-size: none;
+  }
+
+  [data-dropdown-presentation="full-slide"] .sc-course-dropdown-select__label {
+    margin-inline: var(--sc-dropdown-slide-status-reserve);
+  }
+
+  [data-dropdown-presentation="full-slide"] .sc-course-dropdown-select__row {
+    position: relative;
+    padding-inline: var(--sc-dropdown-slide-status-reserve);
+  }
+
+  [data-dropdown-presentation="full-slide"] .sc-course-dropdown-select__status {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    inline-size: var(--sc-dropdown-slide-status-reserve);
+    gap: 0.625rem;
+  }
+
+  [data-dropdown-presentation="full-slide"] .sc-course-dropdown-select__trigger {
+    min-block-size: max(3.5rem, calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1)));
+  }
+
+  [data-dropdown-presentation="full-slide"] .sc-course-dropdown-select__value {
+    display: block;
+    min-inline-size: 0;
+  }
+
+  .sc-assessment-slide-surface-authoring-view
+    [data-full-slide-question-family="dropdown"]
+    [data-slot="dropdown-choices-group"] {
+    display: flex;
+    block-size: 100%;
+    max-block-size: 100%;
+  }
+
+  .sc-assessment-slide-surface-authoring-view
+    [data-full-slide-question-family="dropdown"]
+    [data-slot="dropdown-choices-group"]
+    > .react-renderer,
+  .sc-assessment-slide-surface-authoring-view
+    [data-full-slide-question-family="dropdown"]
+    [data-slot="dropdown-choices-group"]
+    .sc-course-dropdown-choices-group {
+    display: flex;
+    inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 0;
+  }
+
+  .sc-assessment-slide-surface-authoring-view
+    [data-full-slide-question-family="dropdown"]
+    .sc-app-assessment-choices-scroll--authoring {
+    min-block-size: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  @container (max-width: 42rem) {
+    [data-full-slide-question-family="dropdown"] [data-assessment-interaction-content],
+    .sc-assessment-slide-surface-authoring-view
+      [data-full-slide-question-family="dropdown"]
+      [data-slot="dropdown-choices-group"] {
+      padding-inline: 1rem;
+    }
+
+    [data-dropdown-presentation="full-slide"] .sc-course-dropdown-interaction__focal {
+      inline-size: 100%;
+    }
+  }
+}

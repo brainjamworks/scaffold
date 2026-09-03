@@ -52,14 +52,14 @@ import {
   createDropdownChoicesGroupNode,
   dropdownChoiceLabelContent,
   type DropdownChoiceAttrs,
-} from "./dropdown-choice-shared";
+} from "@/editor/assessment/dropdown/dropdown-choice-shared";
 
 import "./Dropdown.css";
 
 export {
   describeDropdownAccessibilityState,
   dropdownChoiceLabelContent,
-} from "./dropdown-choice-shared";
+} from "@/editor/assessment/dropdown/dropdown-choice-shared";
 
 function dropdownChoiceAttrsFromNode(attrs: NodeViewProps["node"]["attrs"]): DropdownChoiceAttrs {
   return {

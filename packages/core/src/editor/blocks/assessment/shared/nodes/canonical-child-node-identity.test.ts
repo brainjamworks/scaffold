@@ -13,7 +13,7 @@ import {
 import {
   createDropdownChoiceLabelNode,
   createDropdownChoiceNode,
-} from "@/editor/blocks/assessment/dropdown/dropdown-choice-shared";
+} from "@/editor/assessment/dropdown/dropdown-choice-shared";
 import { createFillBlankNode } from "@/editor/blocks/assessment/fill-blanks/fill-blank-shared";
 import { createSequencingItemNode } from "@/editor/assessment/sequencing/sequencing-fields-shared";
 import {

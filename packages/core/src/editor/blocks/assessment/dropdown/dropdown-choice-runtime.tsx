@@ -13,9 +13,9 @@ import {
   createDropdownChoiceLabelNode,
   createDropdownChoiceNode,
   createDropdownChoicesGroupNode,
-} from "./dropdown-choice-shared";
-import { dropdownCourseContentFromProseMirror } from "./dropdown-course-content";
-import { DropdownCourseInteraction } from "./dropdown-course-interaction";
+} from "@/editor/assessment/dropdown/dropdown-choice-shared";
+import { dropdownCourseContentFromProseMirror } from "@/editor/assessment/dropdown/dropdown-course-content";
+import { DropdownCourseInteraction } from "@/editor/assessment/dropdown/dropdown-course-interaction";
 
 import "./Dropdown.css";
 

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
 
 import "@/styles/globals.css";
-import "@/editor/surfaces/view/variants/assessment/slide-dropdown-question.css";
+import "@/editor/surfaces/variants/slide-dropdown-question/styles.css";
 import "@/theme/course/designs/pocket-atlas/v1/theme.css";
 import "@/theme/course/designs/scaffold-flow/v1/theme.css";
 

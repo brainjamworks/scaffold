@@ -12,7 +12,7 @@ import { SURFACE_MULTISELECT_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/
 import { SURFACE_SEQUENCING_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-sequencing-question-node";
 
 import { CategoriseFullSlideQuestionPresenter } from "../../../variants/slide-categorise-question/runtime";
-import { DropdownFullSlideQuestionPresenter } from "./slide-dropdown-question";
+import { DropdownFullSlideQuestionPresenter } from "../../../variants/slide-dropdown-question/runtime";
 import { DragDropFullSlideQuestionPresenter } from "./slide-drag-drop-question";
 import { FillBlanksFullSlideQuestionPresenter } from "./slide-fill-blanks-question";
 import { ImageHotspotFullSlideQuestionPresenter } from "../../../variants/slide-image-hotspot-question/runtime";

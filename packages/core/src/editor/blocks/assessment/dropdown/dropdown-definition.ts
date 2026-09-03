@@ -14,8 +14,8 @@ import {
   projectDropdownInteraction,
   projectDropdownLearnerNode,
   projectDropdownSettings,
-} from "./assessment";
-import { dropdownChoiceLabelContent } from "./dropdown-choice-shared";
+} from "@/editor/assessment/dropdown/assessment";
+import { dropdownChoiceLabelContent } from "@/editor/assessment/dropdown/dropdown-choice-shared";
 
 export const DROPDOWN_BLOCK_ID = "dropdown";
 

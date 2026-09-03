@@ -13,7 +13,7 @@ import {
   projectDropdownInteraction,
   projectDropdownLearnerNode,
   projectDropdownSettings,
-} from "@/editor/blocks/assessment/dropdown/assessment";
+} from "@/editor/assessment/dropdown/assessment";
 import {
   cloneJsonNodeWithoutContent,
   readAttrs,
