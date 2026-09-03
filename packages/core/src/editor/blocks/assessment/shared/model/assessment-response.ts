@@ -1,2 +1,4 @@
-/** Local response state consumed by assessment block projections and runtime state. */
-export type ProblemResponse = Record<string, unknown>;
+/**
+ * @deprecated Import from `@/editor/assessment/shared/model/assessment-response` instead.
+ */
+export * from "@/editor/assessment/shared/model/assessment-response";

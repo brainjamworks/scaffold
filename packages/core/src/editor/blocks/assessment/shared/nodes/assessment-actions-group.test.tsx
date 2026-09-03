@@ -217,9 +217,7 @@ describe("assessment_actions_group", () => {
 
     await waitFor(() => {
       const group = actionGroup();
-      expect(within(group).getByRole("button", { name: "Add hint" })).toHaveClass(
-        "sc-button",
-      );
+      expect(within(group).getByRole("button", { name: "Add hint" })).toHaveClass("sc-button");
       expect(within(group).getByRole("button", { name: "Add hint" })).not.toHaveClass(
         "sc-app-block-add",
       );
@@ -466,7 +464,7 @@ describe("assessment_actions_group", () => {
     expect(within(dialog).getByText("Use elimination.")).toBeInstanceOf(HTMLElement);
   });
 
-  it("replaces runtime Show answer with a visible announced terminal status after reveal", async () => {
+  it("toggles between the submitted and correct answer views after reveal", async () => {
     const user = userEvent.setup();
     const editor = makeRuntimeMcqEditor();
     const port = revealableIncorrectRuntimePort();
@@ -477,23 +475,33 @@ describe("assessment_actions_group", () => {
 
     expect(
       within(actionGroup()).getByRole("button", {
-        name: "Show correct answer",
+        name: "Show answer",
       }),
     ).toBeInstanceOf(HTMLButtonElement);
     expect(
       within(actionGroup())
-        .getByRole("button", { name: "Show correct answer" })
+        .getByRole("button", { name: "Show answer" })
         .closest(".sc-assessment-control-layout__feature-control--show-answer"),
     ).toBeInstanceOf(HTMLElement);
 
-    await user.click(within(actionGroup()).getByRole("button", { name: "Show correct answer" }));
+    const showAnswer = within(actionGroup()).getByRole("button", { name: "Show answer" });
+    expect(showAnswer).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(showAnswer);
 
     await waitFor(() => {
-      expect(within(actionGroup()).getByRole("status", { name: "Answer revealed" })).toBeVisible();
+      expect(within(actionGroup()).getByRole("button", { name: "Show answer" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
     });
-    expect(
-      within(actionGroup()).queryByRole("button", { name: "Correct answer revealed" }),
-    ).toBeNull();
+
+    await user.click(within(actionGroup()).getByRole("button", { name: "Show answer" }));
+
+    expect(within(actionGroup()).getByRole("button", { name: "Show answer" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 });
 

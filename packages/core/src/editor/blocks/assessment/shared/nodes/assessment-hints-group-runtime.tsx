@@ -7,8 +7,8 @@ import {
 } from "@tiptap/react";
 
 import { Hints } from "@/editor/blocks/assessment/shared/chrome/Hints";
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
-import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
+import { findAncestorAssessmentBlockId } from "@/editor/assessment/shared/model/assessment-prosemirror";
+import { useAssessmentRuntimeById } from "@/editor/assessment/shared/runtime/use-assessment-runtime";
 import { isAssessmentQuestionNode } from "./assessment-meta";
 
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";

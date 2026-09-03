@@ -2,7 +2,7 @@ import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tip
 import { DOMSerializer } from "@tiptap/pm/model";
 import { useMemo } from "react";
 
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { isAssessmentQuestionNode } from "./assessment-meta";
 import { SelectableChoiceAttrsSchema, type SelectableChoiceAttrs } from "@/schemas/shared";
 

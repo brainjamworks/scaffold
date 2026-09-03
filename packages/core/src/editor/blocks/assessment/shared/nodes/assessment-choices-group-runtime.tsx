@@ -9,8 +9,8 @@ import {
 import {
   assessmentPromptDomId,
   findAncestorAssessmentBlockId,
-} from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
-import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
+} from "@/editor/assessment/shared/model/assessment-prosemirror";
+import { useAssessmentRuntimeById } from "@/editor/assessment/shared/runtime/use-assessment-runtime";
 import { isAssessmentQuestionNode } from "./assessment-meta";
 
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";

@@ -11,8 +11,11 @@ import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { AssessmentControlLayout } from "../chrome/AssessmentControlLayout";
 import { RuntimeAssessmentControls } from "../chrome/AssessmentControls";
 import { ShowAnswerButton } from "../chrome/ShowAnswerButton";
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
-import { useAssessmentRuntimeById } from "../runtime/use-assessment-runtime";
+import { findAncestorAssessmentBlockId } from "@/editor/assessment/shared/model/assessment-prosemirror";
+import {
+  shouldShowAnswerToggle,
+  useAssessmentRuntimeById,
+} from "../runtime/use-assessment-runtime";
 import { isAssessmentQuestionNode } from "./assessment-meta";
 
 export const AssessmentActionsGroupRuntimeNode = Node.create({
@@ -49,9 +52,7 @@ function AssessmentActionsGroupRuntimeNodeView(props: NodeViewProps) {
     isAssessmentQuestionNode,
   );
   const problem = useAssessmentRuntimeById(authoredBlockId)?.problem ?? null;
-  const submitted = problem?.state.submitted ?? false;
-  const result = problem?.officialResult ?? problem?.feedbackResult ?? null;
-  const showShowAnswerHelper = Boolean(problem?.canRevealAnswer) && submitted && !result?.isCorrect;
+  const showShowAnswerHelper = shouldShowAnswerToggle(problem);
 
   return (
     <NodeViewWrapper data-slot="assessment-actions-group">
@@ -64,8 +65,8 @@ function AssessmentActionsGroupRuntimeNodeView(props: NodeViewProps) {
                 contentEditable={false}
               >
                 <ShowAnswerButton
-                  onClick={() => void problem?.revealAnswer()}
-                  revealed={problem?.answerKeyVisible ?? false}
+                  onClick={() => void problem?.toggleAnswerView()}
+                  pressed={problem?.answerView === "correct"}
                 />
               </span>
             ) : null}

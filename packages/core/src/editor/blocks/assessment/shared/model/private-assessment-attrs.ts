@@ -24,7 +24,9 @@ export const ASSESSMENT_ATTR_NODE_TYPES = [
   "sequencing",
   "surface_sequencing_question",
   "matching",
+  "surface_matching_question",
   "categorise",
+  "surface_categorise_question",
   "image_hotspot",
   "surface_image_hotspot_question",
 ] as const;

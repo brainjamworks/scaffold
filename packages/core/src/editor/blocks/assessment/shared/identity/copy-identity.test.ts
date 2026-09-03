@@ -2,7 +2,7 @@ import type { JSONContent } from "@tiptap/core";
 import { EmbeddedDataIdSchema, EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { BlockDuplicationOperation } from "@/document/model/identity/clone-with-new-ids";
+import type { ContentIdentityRewrite } from "@/document/model/identity/clone-with-new-ids";
 import {
   rewriteCategoriseCopiedContent,
   rewriteDropdownCopiedContent,
@@ -18,7 +18,7 @@ const previousChildId = EmbeddedNodeIdSchema.parse("childold0001");
 const nextChildId = EmbeddedNodeIdSchema.parse("childnew0001");
 
 function rewriteAssessment(
-  callback: BlockDuplicationOperation,
+  callback: ContentIdentityRewrite,
   nodeType: string,
   assessment: Record<string, unknown>,
 ) {
@@ -211,4 +211,154 @@ describe("assessment copy identity", () => {
     });
     expect(content).toEqual(snapshot);
   });
+
+  it.each([
+    [
+      "MCQ",
+      rewriteMcqCopiedContent,
+      "mcq",
+      { correctOptionId: previousChildId, feedbackByOptionId: {} },
+    ],
+    [
+      "Multiselect",
+      rewriteMultiselectCopiedContent,
+      "multiselect",
+      { correctOptionIds: [previousChildId], feedbackByOptionId: {} },
+    ],
+    [
+      "Dropdown",
+      rewriteDropdownCopiedContent,
+      "dropdown",
+      { correctOptionId: previousChildId, feedbackByOptionId: {} },
+    ],
+    [
+      "Fill Blank",
+      rewriteFillBlanksCopiedContent,
+      "fill_blanks",
+      { blanksById: { [previousChildId]: {} } },
+    ],
+    [
+      "Sequencing",
+      rewriteSequencingCopiedContent,
+      "sequencing",
+      { correctOrder: [previousChildId], feedbackByItemId: {} },
+    ],
+    [
+      "Matching",
+      rewriteMatchingCopiedContent,
+      "matching",
+      { feedbackByItemId: { [previousChildId]: {} } },
+    ],
+    [
+      "Categorise",
+      rewriteCategoriseCopiedContent,
+      "categorise",
+      { feedbackByItemId: { [previousChildId]: {} } },
+    ],
+  ] as const)(
+    "throws when %s private references have no copied identity",
+    (_, rewrite, type, assessment) => {
+      const content: JSONContent = { type, attrs: { assessment } };
+      const snapshot = structuredClone(content);
+
+      expect(() =>
+        rewrite({
+          content,
+          nodeIdChanges: new Map(),
+          generators: {
+            createDataId: () => EmbeddedDataIdSchema.parse("unuseddata01"),
+          },
+        }),
+      ).toThrow(`Missing copied identity for "${previousChildId}"`);
+      expect(content).toEqual(snapshot);
+    },
+  );
+
+  it.each([
+    ["MCQ", rewriteMcqCopiedContent, "mcq"],
+    ["Multiselect", rewriteMultiselectCopiedContent, "multiselect"],
+    ["Dropdown", rewriteDropdownCopiedContent, "dropdown"],
+    ["Fill Blank", rewriteFillBlanksCopiedContent, "fill_blanks"],
+    ["Sequencing", rewriteSequencingCopiedContent, "sequencing"],
+    ["Matching", rewriteMatchingCopiedContent, "matching"],
+    ["Categorise", rewriteCategoriseCopiedContent, "categorise"],
+  ] as const)("throws when %s private assessment data is malformed", (_, rewrite, type) => {
+    const content: JSONContent = { type, attrs: { assessment: null } };
+    const snapshot = structuredClone(content);
+
+    expect(() =>
+      rewrite({
+        content,
+        nodeIdChanges: new Map(),
+        generators: {
+          createDataId: () => EmbeddedDataIdSchema.parse("unuseddata01"),
+        },
+      }),
+    ).toThrow(`Malformed ${type} private assessment graph`);
+    expect(content).toEqual(snapshot);
+  });
+
+  it("throws when Image Hotspot private references have no copied identity", () => {
+    const hotspotId = EmbeddedDataIdSchema.parse("hotspotold01");
+    const missingHotspotId = EmbeddedDataIdSchema.parse("hotspotold02");
+    const content: JSONContent = {
+      type: "image_hotspot",
+      attrs: {
+        assessment: {
+          correctHotspotIds: [missingHotspotId],
+          feedbackByHotspotId: {},
+        },
+      },
+      content: [
+        {
+          type: "image_hotspot_canvas",
+          attrs: { data: { hotspots: [{ id: hotspotId }] } },
+        },
+      ],
+    };
+    const snapshot = structuredClone(content);
+
+    expect(() =>
+      rewriteImageHotspotCopiedContent({
+        content,
+        nodeIdChanges: new Map(),
+        generators: { createDataId: () => EmbeddedDataIdSchema.parse("hotspotnew01") },
+      }),
+    ).toThrow(`Missing copied identity for "${missingHotspotId}"`);
+    expect(content).toEqual(snapshot);
+  });
+
+  it.each([
+    ["assessment", null, { hotspots: [{ id: "hotspotold01" }] }],
+    ["canvas", { correctHotspotIds: [], feedbackByHotspotId: {} }, null],
+    [
+      "hotspot owner",
+      { correctHotspotIds: [], feedbackByHotspotId: {} },
+      { hotspots: [{ id: 42 }] },
+    ],
+  ])(
+    "throws when the Image Hotspot %s private identity graph is malformed",
+    (_, assessment, data) => {
+      const content: JSONContent = {
+        type: "image_hotspot",
+        attrs: { assessment },
+        content: [
+          {
+            type: "image_hotspot_canvas",
+            attrs: { data },
+          },
+        ],
+      };
+      const snapshot = structuredClone(content);
+
+      expect(() =>
+        rewriteImageHotspotCopiedContent({
+          content,
+          nodeIdChanges: new Map(),
+          generators: { createDataId: () => EmbeddedDataIdSchema.parse("hotspotnew01") },
+        }),
+      ).toThrow("Malformed image_hotspot private");
+      expect(content).toEqual(snapshot);
+    },
+  );
 });

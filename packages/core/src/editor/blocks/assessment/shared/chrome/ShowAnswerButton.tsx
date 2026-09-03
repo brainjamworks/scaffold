@@ -1,20 +1,20 @@
 import { AssessmentSupportButton } from "@/ui/components/course/AssessmentSupportButton/AssessmentSupportButton";
-import { AssessmentSupportStatus } from "@/ui/components/course/AssessmentSupportStatus/AssessmentSupportStatus";
 
 interface ShowAnswerButtonProps {
-  revealed: boolean;
+  pressed: boolean;
   onClick: () => void;
 }
 
 /** Keeps answer reveal feature state independent inside the support zone. */
-export function ShowAnswerButton({ revealed, onClick }: ShowAnswerButtonProps) {
-  if (revealed) {
-    return <AssessmentSupportStatus status="answer-revealed" />;
-  }
-
+export function ShowAnswerButton({ pressed, onClick }: ShowAnswerButtonProps) {
   return (
-    <AssessmentSupportButton intent="answer" aria-label="Show correct answer" onClick={onClick}>
-      Show answer
+    <AssessmentSupportButton
+      intent="answer"
+      aria-label="Show answer"
+      aria-pressed={pressed}
+      onClick={onClick}
+    >
+      {pressed ? "Answer revealed" : "Show answer"}
     </AssessmentSupportButton>
   );
 }

@@ -4,8 +4,8 @@ import { InfoIcon as Info } from "@phosphor-icons/react";
 
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
 import { readAssessmentFeedbackContent } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
-import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
+import { findAncestorAssessmentBlockId } from "@/editor/assessment/shared/model/assessment-prosemirror";
+import { useAssessmentRuntimeById } from "@/editor/assessment/shared/runtime/use-assessment-runtime";
 import { isAssessmentQuestionNode } from "./assessment-meta";
 import { isScaffoldRichTextDocumentEmpty } from "@/schemas/rich-text";
 import { iconSm } from "@/ui/tokens/icon-sizes";

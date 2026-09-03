@@ -1,0 +1,59 @@
+import type { Editor } from "@tiptap/core";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+
+import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
+
+export type AssessmentAncestorMatcher = readonly string[] | ((node: ProseMirrorNode) => boolean);
+
+export function assessmentPromptDomId(authoredBlockId: string | null): string | undefined {
+  const id = authoredBlockId?.trim();
+  if (!id) return undefined;
+  return `sc-assessment-prompt-${encodeURIComponent(id).replaceAll("%", "-")}`;
+}
+
+export function countAssessmentHints(node: ProseMirrorNode): number {
+  let total = 0;
+  node.forEach((child) => {
+    if (child.type.name === "assessment_hints_group") {
+      total += child.childCount;
+      return;
+    }
+    total += countAssessmentHints(child);
+  });
+  return total;
+}
+
+export function findAncestorAssessmentBlockId(
+  editor: Editor,
+  childPos: number | undefined,
+  matcher: AssessmentAncestorMatcher,
+): string | null {
+  if (!isValidEditorDocPos(editor, childPos)) return null;
+
+  const resolved = editor.state.doc.resolve(childPos);
+  for (let depth = resolved.depth; depth >= 0; depth -= 1) {
+    const node = resolved.node(depth);
+    const matches =
+      typeof matcher === "function" ? matcher(node) : matcher.includes(node.type.name);
+    if (!matches) continue;
+
+    const id = node.attrs["id"];
+    return typeof id === "string" && id.trim() ? id : null;
+  }
+
+  return null;
+}
+
+export function isInsideAssessmentContainer(
+  editor: Editor,
+  nodePos: number | undefined,
+  containerType: string,
+): boolean {
+  if (!isValidEditorDocPos(editor, nodePos)) return false;
+
+  const resolved = editor.state.doc.resolve(nodePos);
+  for (let depth = resolved.depth; depth >= 0; depth -= 1) {
+    if (resolved.node(depth).type.name === containerType) return true;
+  }
+  return false;
+}

@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import type { EmbeddedDataId, EmbeddedNodeId } from "@scaffold/contracts";
 
-import type { BlockDuplicationOperation } from "@/document/model/identity/clone-with-new-ids";
+import type { ContentIdentityRewrite } from "@/document/model/identity/clone-with-new-ids";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -9,41 +9,68 @@ function asRecord(value: unknown): JsonRecord | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : null;
 }
 
-function rewriteMappedString<TId extends string>(
+function rewriteRequiredMappedString<TId extends string>(
   value: unknown,
   changes: ReadonlyMap<TId, TId>,
-): unknown {
-  return typeof value === "string" ? (changes.get(value as TId) ?? value) : value;
+  owner: string,
+  field: string,
+  options: { nullable?: boolean } = {},
+): TId | null {
+  if (value === null && options.nullable) return null;
+  if (typeof value !== "string") {
+    throw new Error(`Malformed ${owner} private assessment graph at "${field}".`);
+  }
+
+  const rewritten = changes.get(value as TId);
+  if (!rewritten) {
+    throw new Error(`Missing copied identity for "${value}" in ${owner} "${field}".`);
+  }
+  return rewritten;
 }
 
-function rewriteRecordKeys<TId extends string>(
+function rewriteRequiredRecordKeys<TId extends string>(
   value: unknown,
   changes: ReadonlyMap<TId, TId>,
-): unknown {
+  owner: string,
+  field: string,
+): JsonRecord {
+  if (value === undefined) return {};
   const record = asRecord(value);
-  if (!record) return value;
+  if (!record) {
+    throw new Error(`Malformed ${owner} private assessment graph at "${field}".`);
+  }
 
   return Object.fromEntries(
-    Object.entries(record).map(([key, entry]) => [rewriteMappedString(key, changes), entry]),
+    Object.entries(record).map(([key, entry]) => [
+      rewriteRequiredMappedString(key, changes, owner, field),
+      entry,
+    ]),
   );
 }
 
-function rewriteNodeIdArray(
+function rewriteRequiredNodeIdArray(
   value: unknown,
   nodeIdChanges: ReadonlyMap<EmbeddedNodeId, EmbeddedNodeId>,
-): unknown {
-  return Array.isArray(value)
-    ? value.map((entry) => rewriteMappedString(entry, nodeIdChanges))
-    : value;
+  owner: string,
+  field: string,
+): EmbeddedNodeId[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new Error(`Malformed ${owner} private assessment graph at "${field}".`);
+  }
+  return value.map((entry) => rewriteRequiredMappedString(entry, nodeIdChanges, owner, field));
 }
 
 function rewriteAssessment(
-  content: Parameters<BlockDuplicationOperation>[0]["content"],
+  content: Parameters<ContentIdentityRewrite>[0]["content"],
+  owner: string,
   rewrite: (assessment: JsonRecord) => JsonRecord,
 ) {
   const attrs = asRecord(content.attrs);
   const assessment = asRecord(attrs?.["assessment"]);
-  if (!attrs || !assessment) return content;
+  if (!attrs || !assessment) {
+    throw new Error(`Malformed ${owner} private assessment graph.`);
+  }
 
   return {
     ...content,
@@ -54,97 +81,179 @@ function rewriteAssessment(
   };
 }
 
-export const rewriteMcqCopiedContent: BlockDuplicationOperation = ({ content, nodeIdChanges }) =>
-  rewriteAssessment(content, (assessment) => ({
+export const rewriteMcqCopiedContent: ContentIdentityRewrite = ({ content, nodeIdChanges }) =>
+  rewriteAssessment(content, "mcq", (assessment) => ({
     ...assessment,
-    correctOptionId: rewriteMappedString(assessment["correctOptionId"], nodeIdChanges),
-    feedbackByOptionId: rewriteRecordKeys(assessment["feedbackByOptionId"], nodeIdChanges),
+    correctOptionId:
+      assessment["correctOptionId"] === undefined
+        ? null
+        : rewriteRequiredMappedString(
+            assessment["correctOptionId"],
+            nodeIdChanges,
+            "mcq",
+            "correctOptionId",
+            { nullable: true },
+          ),
+    feedbackByOptionId: rewriteRequiredRecordKeys(
+      assessment["feedbackByOptionId"],
+      nodeIdChanges,
+      "mcq",
+      "feedbackByOptionId",
+    ),
   }));
 
-export const rewriteMultiselectCopiedContent: BlockDuplicationOperation = ({
+export const rewriteMultiselectCopiedContent: ContentIdentityRewrite = ({
   content,
   nodeIdChanges,
 }) =>
-  rewriteAssessment(content, (assessment) => ({
+  rewriteAssessment(content, "multiselect", (assessment) => ({
     ...assessment,
-    correctOptionIds: rewriteNodeIdArray(assessment["correctOptionIds"], nodeIdChanges),
-    feedbackByOptionId: rewriteRecordKeys(assessment["feedbackByOptionId"], nodeIdChanges),
+    correctOptionIds: rewriteRequiredNodeIdArray(
+      assessment["correctOptionIds"],
+      nodeIdChanges,
+      "multiselect",
+      "correctOptionIds",
+    ),
+    feedbackByOptionId: rewriteRequiredRecordKeys(
+      assessment["feedbackByOptionId"],
+      nodeIdChanges,
+      "multiselect",
+      "feedbackByOptionId",
+    ),
   }));
 
-export const rewriteDropdownCopiedContent: BlockDuplicationOperation = ({
+export const rewriteDropdownCopiedContent: ContentIdentityRewrite = ({ content, nodeIdChanges }) =>
+  rewriteAssessment(content, "dropdown", (assessment) => ({
+    ...assessment,
+    correctOptionId:
+      assessment["correctOptionId"] === undefined
+        ? null
+        : rewriteRequiredMappedString(
+            assessment["correctOptionId"],
+            nodeIdChanges,
+            "dropdown",
+            "correctOptionId",
+            { nullable: true },
+          ),
+    feedbackByOptionId: rewriteRequiredRecordKeys(
+      assessment["feedbackByOptionId"],
+      nodeIdChanges,
+      "dropdown",
+      "feedbackByOptionId",
+    ),
+  }));
+
+export const rewriteFillBlanksCopiedContent: ContentIdentityRewrite = ({
   content,
   nodeIdChanges,
 }) =>
-  rewriteAssessment(content, (assessment) => ({
+  rewriteAssessment(content, "fill_blanks", (assessment) => ({
     ...assessment,
-    correctOptionId: rewriteMappedString(assessment["correctOptionId"], nodeIdChanges),
-    feedbackByOptionId: rewriteRecordKeys(assessment["feedbackByOptionId"], nodeIdChanges),
+    blanksById: rewriteRequiredRecordKeys(
+      assessment["blanksById"],
+      nodeIdChanges,
+      "fill_blanks",
+      "blanksById",
+    ),
   }));
 
-export const rewriteFillBlanksCopiedContent: BlockDuplicationOperation = ({
+export const rewriteSequencingCopiedContent: ContentIdentityRewrite = ({
   content,
   nodeIdChanges,
 }) =>
-  rewriteAssessment(content, (assessment) => ({
+  rewriteAssessment(content, "sequencing", (assessment) => ({
     ...assessment,
-    blanksById: rewriteRecordKeys(assessment["blanksById"], nodeIdChanges),
+    correctOrder: rewriteRequiredNodeIdArray(
+      assessment["correctOrder"],
+      nodeIdChanges,
+      "sequencing",
+      "correctOrder",
+    ),
+    feedbackByItemId: rewriteRequiredRecordKeys(
+      assessment["feedbackByItemId"],
+      nodeIdChanges,
+      "sequencing",
+      "feedbackByItemId",
+    ),
   }));
 
-export const rewriteSequencingCopiedContent: BlockDuplicationOperation = ({
+export const rewriteMatchingCopiedContent: ContentIdentityRewrite = ({ content, nodeIdChanges }) =>
+  rewriteAssessment(content, "matching", (assessment) => ({
+    ...assessment,
+    feedbackByItemId: rewriteRequiredRecordKeys(
+      assessment["feedbackByItemId"],
+      nodeIdChanges,
+      "matching",
+      "feedbackByItemId",
+    ),
+  }));
+
+export const rewriteCategoriseCopiedContent: ContentIdentityRewrite = ({
   content,
   nodeIdChanges,
 }) =>
-  rewriteAssessment(content, (assessment) => ({
+  rewriteAssessment(content, "categorise", (assessment) => ({
     ...assessment,
-    correctOrder: rewriteNodeIdArray(assessment["correctOrder"], nodeIdChanges),
-    feedbackByItemId: rewriteRecordKeys(assessment["feedbackByItemId"], nodeIdChanges),
+    feedbackByItemId: rewriteRequiredRecordKeys(
+      assessment["feedbackByItemId"],
+      nodeIdChanges,
+      "categorise",
+      "feedbackByItemId",
+    ),
   }));
 
-export const rewriteMatchingCopiedContent: BlockDuplicationOperation = ({
-  content,
-  nodeIdChanges,
-}) =>
-  rewriteAssessment(content, (assessment) => ({
-    ...assessment,
-    feedbackByItemId: rewriteRecordKeys(assessment["feedbackByItemId"], nodeIdChanges),
-  }));
-
-export const rewriteCategoriseCopiedContent: BlockDuplicationOperation = ({
-  content,
-  nodeIdChanges,
-}) =>
-  rewriteAssessment(content, (assessment) => ({
-    ...assessment,
-    feedbackByItemId: rewriteRecordKeys(assessment["feedbackByItemId"], nodeIdChanges),
-  }));
-
-export const rewriteImageHotspotCopiedContent: BlockDuplicationOperation = ({
+export const rewriteImageHotspotCopiedContent: ContentIdentityRewrite = ({
   content,
   generators,
 }) => {
   const hotspotIdChanges = new Map<EmbeddedDataId, EmbeddedDataId>();
+  const rewriteState = { canvasCount: 0, generatedIds: new Set<EmbeddedDataId>() };
   const rewrittenContent = rewriteHotspotCanvases(
     content,
     hotspotIdChanges,
     generators.createDataId,
+    rewriteState,
   );
+  if (rewriteState.canvasCount !== 1) {
+    throw new Error("Malformed image_hotspot private identity graph: expected one canvas.");
+  }
 
-  return rewriteAssessment(rewrittenContent, (assessment) => ({
+  return rewriteAssessment(rewrittenContent, "image_hotspot", (assessment) => ({
     ...assessment,
-    correctHotspotIds: Array.isArray(assessment["correctHotspotIds"])
-      ? assessment["correctHotspotIds"].map((id) => rewriteMappedString(id, hotspotIdChanges))
-      : assessment["correctHotspotIds"],
-    feedbackByHotspotId: rewriteRecordKeys(assessment["feedbackByHotspotId"], hotspotIdChanges),
+    correctHotspotIds: rewriteRequiredDataIdArray(
+      assessment["correctHotspotIds"],
+      hotspotIdChanges,
+      "correctHotspotIds",
+    ),
+    feedbackByHotspotId: rewriteRequiredRecordKeys(
+      assessment["feedbackByHotspotId"],
+      hotspotIdChanges,
+      "image_hotspot",
+      "feedbackByHotspotId",
+    ),
   }));
 };
+
+function rewriteRequiredDataIdArray(
+  value: unknown,
+  changes: ReadonlyMap<EmbeddedDataId, EmbeddedDataId>,
+  field: string,
+): EmbeddedDataId[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new Error(`Malformed image_hotspot private assessment graph at "${field}".`);
+  }
+  return value.map((entry) => rewriteRequiredMappedString(entry, changes, "image_hotspot", field));
+}
 
 function rewriteHotspotCanvases(
   node: JSONContent,
   hotspotIdChanges: Map<EmbeddedDataId, EmbeddedDataId>,
   createDataId: () => EmbeddedDataId,
+  state: { canvasCount: number; generatedIds: Set<EmbeddedDataId> },
 ): JSONContent {
   const content = node.content?.map((child) =>
-    rewriteHotspotCanvases(child, hotspotIdChanges, createDataId),
+    rewriteHotspotCanvases(child, hotspotIdChanges, createDataId, state),
   );
   if (node.type !== "image_hotspot_canvas") {
     return content ? { ...node, content } : node;
@@ -154,8 +263,9 @@ function rewriteHotspotCanvases(
   const data = asRecord(attrs?.["data"]);
   const hotspots = data?.["hotspots"];
   if (!attrs || !data || !Array.isArray(hotspots)) {
-    return content ? { ...node, content } : node;
+    throw new Error("Malformed image_hotspot private identity graph at canvas data.");
   }
+  state.canvasCount += 1;
 
   return {
     ...node,
@@ -167,9 +277,18 @@ function rewriteHotspotCanvases(
         hotspots: hotspots.map((hotspot) => {
           const record = asRecord(hotspot);
           const previousId = record?.["id"];
-          if (!record || typeof previousId !== "string") return hotspot;
+          if (!record || typeof previousId !== "string") {
+            throw new Error("Malformed image_hotspot private identity graph at hotspot id.");
+          }
+          if (hotspotIdChanges.has(previousId as EmbeddedDataId)) {
+            throw new Error(`Duplicate image_hotspot private identity "${previousId}".`);
+          }
 
           const nextId = createDataId();
+          if (state.generatedIds.has(nextId)) {
+            throw new Error(`Duplicate generated image_hotspot private identity "${nextId}".`);
+          }
+          state.generatedIds.add(nextId);
           hotspotIdChanges.set(previousId as EmbeddedDataId, nextId);
           return { ...record, id: nextId };
         }),

@@ -14,7 +14,7 @@ import {
 import {
   assessmentPromptDomId,
   findAncestorAssessmentBlockId,
-} from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+} from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
 import { isAssessmentQuestionNode } from "./assessment-meta";

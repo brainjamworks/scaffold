@@ -1,0 +1,535 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-app-image-hotspot-empty {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    gap: 0.5rem;
+  }
+
+  .sc-app-image-hotspot-empty__description {
+    margin: 0;
+    color: var(--sc-app-color-text-secondary);
+    font-family: var(--sc-app-font-family);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  .sc-course-image-hotspot,
+  .sc-course-image-hotspot-shell,
+  .sc-course-image-hotspot-fit-stage,
+  .sc-course-image-hotspot-canvas,
+  .sc-course-image-hotspot-runtime-missing {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sc-course-image-hotspot-fit-stage {
+    position: relative;
+    display: grid;
+    box-sizing: border-box;
+    overflow: hidden;
+    place-items: center;
+  }
+
+  .sc-course-image-hotspot-fit-stage[data-image-hotspot-presentation="compact"] {
+    block-size: min(32rem, 70dvh);
+  }
+
+  .sc-course-image-hotspot-canvas {
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: var(--sc-course-image-hotspot-aspect-ratio);
+    user-select: none;
+  }
+
+  .sc-course-image-hotspot-canvas--authoring {
+    touch-action: none;
+  }
+
+  .sc-course-image-hotspot-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+  }
+
+  .sc-course-image-hotspot-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .sc-app-image-hotspot__canvas-toolbar,
+  .sc-course-image-hotspot__canvas-toolbar {
+    position: absolute;
+    z-index: 4;
+    inset-block-start: 0;
+    inset-inline-end: 0;
+    display: flex;
+  }
+
+  .sc-course-image-hotspot__icon-action {
+    box-sizing: border-box;
+    display: inline-flex;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .sc-app-image-hotspot-author-marker,
+  .sc-course-image-hotspot-marker {
+    position: absolute;
+    z-index: 2;
+    width: 44px;
+    height: 44px;
+    left: clamp(1.375rem, var(--sc-image-hotspot-marker-x), calc(100% - 1.375rem));
+    top: clamp(1.375rem, var(--sc-image-hotspot-marker-y), calc(100% - 1.375rem));
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+  }
+
+  .sc-app-image-hotspot-author-marker {
+    touch-action: none;
+  }
+
+  .sc-app-image-hotspot-author-marker[data-hotspot-selected="true"] {
+    z-index: 3;
+  }
+
+  .sc-course-image-hotspot-marker {
+    touch-action: manipulation;
+  }
+
+  .sc-course-image-hotspot__revealed-region {
+    fill: none;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .sc-course-image-hotspot__keyboard-cursor {
+    position: absolute;
+    z-index: 3;
+    width: 1.5rem;
+    height: 1.5rem;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .sc-course-image-hotspot__keyboard-cursor::before,
+  .sc-course-image-hotspot__keyboard-cursor::after {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    background: currentcolor;
+    content: "";
+    transform: translate(-50%, -50%);
+  }
+
+  .sc-course-image-hotspot__keyboard-cursor::before {
+    width: 0.75rem;
+    height: 2px;
+  }
+
+  .sc-course-image-hotspot__keyboard-cursor::after {
+    width: 2px;
+    height: 0.75rem;
+  }
+
+  .sc-course-image-hotspot-canvas:focus-visible > .sc-course-image-hotspot__keyboard-cursor {
+    opacity: 1;
+  }
+
+  .sc-app-image-hotspot-author-marker__number,
+  .sc-app-image-hotspot-author-marker__edit {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .sc-app-image-hotspot-author-marker__edit {
+    inset: auto 0 0 auto;
+    transform: none;
+  }
+
+  .sc-course-image-hotspot-shell--expanded {
+    display: grid;
+    height: 100%;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .sc-course-image-hotspot-runtime-workspace__body {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .sc-course-image-hotspot-workspace__portal {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .sc-course-image-hotspot-workspace__overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: auto;
+  }
+
+  .sc-course-image-hotspot-workspace {
+    position: fixed;
+    inset: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+      max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    grid-template-rows: auto minmax(0, 1fr);
+    pointer-events: auto;
+  }
+
+  .sc-course-image-hotspot-workspace__header {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sc-course-image-hotspot-workspace__heading {
+    min-width: 0;
+  }
+
+  .sc-course-image-hotspot-shell--expanded .sc-course-image-hotspot-canvas {
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .sc-app-image-hotspot-workspace__canvas {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    padding: 1rem;
+    place-items: center;
+  }
+
+  .sc-app-image-hotspot-workspace__canvas .sc-course-image-hotspot-canvas {
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .sc-app-image-hotspot-editor,
+  .sc-app-image-hotspot-editor__geometry-grid,
+  .sc-app-image-hotspot-workspace__definition-fields {
+    display: grid;
+    min-width: 0;
+    gap: 0.75rem;
+  }
+
+  .sc-app-image-hotspot-editor__header,
+  .sc-app-image-hotspot-workspace__item-select {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .sc-app-image-hotspot-editor__header {
+    justify-content: space-between;
+  }
+
+  .sc-app-image-hotspot-editor__geometry {
+    min-width: 0;
+    margin: 0;
+    padding: 0.75rem;
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: var(--sc-app-radius-control);
+  }
+
+  .sc-app-image-hotspot-editor__geometry-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .sc-app-image-hotspot-editor__field {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+  }
+
+  .sc-app-image-hotspot-workspace__definition-fields {
+    padding: 1rem;
+    border-bottom: 1px solid var(--sc-app-color-border);
+  }
+
+  .sc-app-image-hotspot-workspace__row-summary {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .sc-app-image-hotspot-workspace__row-editor {
+    margin-block-start: 0.75rem;
+    padding-block-start: 0.75rem;
+    border-block-start: 1px solid var(--sc-app-color-border);
+  }
+
+  .sc-app-image-hotspot-workspace__miss-feedback {
+    padding: 1rem;
+    border-top: 1px solid var(--sc-app-color-border);
+  }
+
+  .sc-app-image-hotspot__canvas-toolbar {
+    gap: 0.25rem;
+    margin: 0.5rem;
+    padding: 0.25rem;
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: var(--sc-app-radius-surface);
+    background: var(--sc-app-color-background);
+  }
+
+  .sc-app-image-hotspot__icon-action {
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    border-radius: var(--sc-app-radius-control);
+    color: var(--sc-app-color-text-secondary);
+  }
+
+  .sc-app-image-hotspot__icon-action[data-intent="add"] {
+    color: var(--sc-app-color-primary);
+  }
+
+  .sc-app-image-hotspot-author-marker {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--sc-app-color-text-primary);
+    cursor: move;
+  }
+
+  .sc-app-image-hotspot-author-marker__number,
+  .sc-app-image-hotspot-author-marker__edit {
+    z-index: 1;
+  }
+
+  .sc-app-image-hotspot-author-marker__number {
+    display: inline-flex;
+    width: 1.5rem;
+    height: 1.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-family: var(--sc-app-font-family);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .sc-app-image-hotspot-author-marker__edit {
+    display: inline-flex;
+    width: 1rem;
+    height: 1rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: 50%;
+    background: var(--sc-app-color-background);
+  }
+
+  .sc-app-image-hotspot__author-region-shape {
+    fill: color-mix(in oklch, var(--sc-app-color-primary) 18%, transparent);
+    stroke: var(--sc-app-color-primary);
+    stroke-width: 2px;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .sc-app-image-hotspot__author-region[data-course-state="correct"]
+    .sc-app-image-hotspot__author-region-shape {
+    fill: var(--sc-app-color-success-background);
+    stroke: var(--sc-app-color-success);
+  }
+
+  .sc-app-image-hotspot__author-region[data-hotspot-state="selected"]
+    .sc-app-image-hotspot__author-region-shape {
+    stroke-width: 4px;
+  }
+
+  .sc-app-image-hotspot__author-resize-handle {
+    position: absolute;
+    z-index: 4;
+    width: 44px;
+    height: 44px;
+    left: var(--sc-image-hotspot-resize-handle-x);
+    top: var(--sc-image-hotspot-resize-handle-y);
+    display: block;
+    transform: translate(-50%, -50%);
+    cursor: ew-resize;
+    touch-action: none;
+  }
+
+  .sc-app-image-hotspot__author-resize-handle::before {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    box-sizing: border-box;
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--sc-app-color-primary);
+    border-radius: 0;
+    background: var(--sc-app-color-background);
+    content: "";
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .sc-app-image-hotspot__author-region-preview {
+    fill: color-mix(in oklch, var(--sc-app-color-primary) 12%, transparent);
+    stroke: var(--sc-app-color-primary);
+    stroke-width: 2px;
+    stroke-dasharray: 7 5;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .sc-app-image-hotspot-editor__title,
+  .sc-app-image-hotspot-editor__label,
+  .sc-app-image-hotspot-editor__geometry legend {
+    color: var(--sc-app-color-text-primary);
+    font-family: var(--sc-app-font-family);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .sc-app-image-hotspot-editor__geometry legend {
+    padding-inline: 0.25rem;
+  }
+
+  .sc-app-image-hotspot-editor__correct-toggle {
+    justify-self: start;
+    border-radius: var(--sc-app-radius-control);
+  }
+
+  .sc-app-image-hotspot-editor__correct-toggle[data-course-state="correct"] {
+    border-color: var(--sc-app-color-success);
+    background: var(--sc-app-color-success-background);
+    color: var(--sc-app-color-success-text);
+  }
+
+  .sc-app-image-hotspot-editor__correct-icon {
+    color: var(--sc-app-color-success);
+  }
+
+  .sc-app-image-hotspot__icon-action:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+  }
+
+  .sc-app-image-hotspot-author-marker:focus-visible {
+    outline: none;
+  }
+
+  .sc-app-image-hotspot-author-marker:focus-visible .sc-app-image-hotspot-author-marker__number {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .sc-app-image-hotspot__icon-action:hover:not(:disabled) {
+      background: var(--sc-app-color-primary-muted);
+      color: var(--sc-app-color-primary);
+    }
+
+    .sc-app-image-hotspot-author-marker:hover .sc-app-image-hotspot-author-marker__number {
+      color: var(--sc-app-color-primary);
+    }
+
+    .sc-app-image-hotspot__author-resize-handle:hover::before {
+      background: var(--sc-app-color-primary-muted);
+    }
+  }
+
+  @media (max-width: 48rem) {
+    .sc-course-image-hotspot-workspace {
+      inset: max(0.5rem, env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-right))
+        max(0.5rem, env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left));
+    }
+  }
+
+  @media (forced-colors: active) {
+    .sc-app-image-hotspot__canvas-toolbar,
+    .sc-app-image-hotspot-editor__geometry {
+      border-color: CanvasText;
+    }
+
+    .sc-app-image-hotspot__author-region-shape,
+    .sc-app-image-hotspot__author-region-preview {
+      fill: transparent;
+      stroke: CanvasText;
+    }
+
+    .sc-app-image-hotspot__author-resize-handle::before {
+      border-color: CanvasText;
+      background: Canvas;
+    }
+
+    .sc-app-image-hotspot__icon-action:focus-visible,
+    .sc-app-image-hotspot-author-marker:focus-visible .sc-app-image-hotspot-author-marker__number {
+      outline-color: Highlight;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-app-image-hotspot__icon-action {
+      transition: none;
+    }
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-course-image-hotspot
+    [data-node="image-hotspot-canvas"] {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    align-items: center;
+    justify-items: stretch;
+    overflow: hidden;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-course-image-hotspot
+    [data-node="image-hotspot-canvas"]
+    > .sc-course-image-hotspot-shell {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    align-items: stretch;
+    justify-items: stretch;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-course-image-hotspot
+    .sc-course-image-hotspot-fit-stage {
+    justify-items: center;
+  }
+
+  @media (max-width: 48rem) {
+    .sc-app-image-hotspot-editor__geometry-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+}

@@ -11,10 +11,10 @@ import {
   textContentExpression,
 } from "@/document/model/content-model/content-groups";
 import { HintItem } from "@/editor/blocks/assessment/shared/chrome/HintItem";
-import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
+import { useAssessmentRuntimeById } from "@/editor/assessment/shared/runtime/use-assessment-runtime";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/assessment/shared/model/assessment-prosemirror";
 
 import { isAssessmentQuestionNode } from "./assessment-meta";
 

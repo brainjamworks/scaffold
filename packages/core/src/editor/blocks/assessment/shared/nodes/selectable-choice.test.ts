@@ -519,7 +519,7 @@ describe("runtime selectable choice bounded scrolling", () => {
     });
 
     lane!.scrollTop = 0;
-    fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
 
     await waitFor(() => {
       expect(lane?.scrollTop).toBe(172);
@@ -663,7 +663,7 @@ describe("runtime selectable choice bounded scrolling", () => {
     ).toBeInTheDocument();
 
     lane!.scrollTop = 0;
-    fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
 
     await waitFor(() => {
       expect(lane?.scrollTop).toBe(168);
@@ -671,8 +671,8 @@ describe("runtime selectable choice bounded scrolling", () => {
     expect(
       screen.getByRole("checkbox", {
         name: "Delta",
-        checked: false,
-        description: /correct answer/i,
+        checked: true,
+        description: /selected answer, correct/i,
       }),
     ).toBeInTheDocument();
 
@@ -1023,7 +1023,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
     });
 
     fireEvent.click(screen.getByText("Alpha"));
-    expect(screen.queryByRole("button", { name: "Show correct answer" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show answer" })).toBeNull();
 
     await waitFor(() => {
       expect(
@@ -1053,10 +1053,10 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
         }),
       ).toBeNull();
     });
-    expect(screen.getByRole("button", { name: "Show correct answer" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show answer" })).toBeInTheDocument();
     expect(
       screen
-        .getByRole("button", { name: "Show correct answer" })
+        .getByRole("button", { name: "Show answer" })
         .closest('[data-slot="assessment-controls"]'),
     ).toBeInstanceOf(HTMLElement);
 
@@ -1073,18 +1073,27 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
       expect(within(dialog).getByText("Review Alpha.")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
 
     await waitFor(() => {
       expect(
         screen.getByRole("radio", {
           name: "Beta",
-          checked: false,
-          description: /correct answer/i,
+          checked: true,
+          description: /selected answer, correct/i,
         }),
       ).toBeInTheDocument();
-      expect(screen.getByRole("status", { name: "Answer revealed" })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Show correct answer" })).toBeNull();
+      expect(screen.getByRole("radio", { name: "Alpha", checked: false })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Show answer" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    await waitFor(() => {
+      expect(screen.getByRole("radio", { name: "Alpha", checked: true })).toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "Beta", checked: false })).toBeInTheDocument();
     });
 
     editor.destroy();
@@ -1374,7 +1383,7 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
 
     fireEvent.click(screen.getByText("Alpha"));
     fireEvent.click(screen.getByText("Beta"));
-    expect(screen.queryByRole("button", { name: "Show correct answer" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show answer" })).toBeNull();
 
     await waitFor(() => {
       expect(
@@ -1417,20 +1426,30 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
         }),
       ).toBeNull();
     });
-    expect(screen.getByRole("button", { name: "Show correct answer" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show answer" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
 
     await waitFor(() => {
       expect(
         screen.getByRole("checkbox", {
           name: "Gamma",
-          checked: false,
-          description: /correct answer/i,
+          checked: true,
+          description: /selected answer, correct/i,
         }),
       ).toBeInTheDocument();
-      expect(screen.getByRole("status", { name: "Answer revealed" })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Show correct answer" })).toBeNull();
+      expect(screen.getByRole("checkbox", { name: "Alpha", checked: false })).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "Beta", checked: true })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Show answer" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
+    await waitFor(() => {
+      expect(screen.getByRole("checkbox", { name: "Alpha", checked: true })).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "Gamma", checked: false })).toBeInTheDocument();
     });
 
     editor.destroy();

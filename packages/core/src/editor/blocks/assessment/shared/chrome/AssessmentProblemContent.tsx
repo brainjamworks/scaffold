@@ -1,6 +1,6 @@
 import { NodeViewContent, type NodeViewProps } from "@tiptap/react";
 
-import { isInsideAssessmentContainer } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { isInsideAssessmentContainer } from "@/editor/assessment/shared/model/assessment-prosemirror";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { AssessmentShell } from "@/ui/components/course/AssessmentShell/AssessmentShell";
 

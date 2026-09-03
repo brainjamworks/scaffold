@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import type { BlockDefinition } from "../../../block-definition";
-import { categoriseBlockDefinition } from "../../categorise/categorise-definition";
-import { dropdownBlockDefinition } from "../../dropdown/dropdown-definition";
-import { fillBlanksBlockDefinition } from "../../fill-blanks/fill-blanks-definition";
-import { imageHotspotBlockDefinition } from "../../image-hotspot/image-hotspot-definition";
-import { matchingBlockDefinition } from "../../matching/matching-definition";
-import { mcqBlockDefinition } from "../../mcq/mcq-definition";
-import { multiselectBlockDefinition } from "../../multiselect/multiselect-definition";
-import { quizBlockDefinition } from "../../quiz/quiz-definition";
-import { sequencingBlockDefinition } from "../../sequencing/sequencing-definition";
+import type { BlockDefinition } from "@/editor/blocks/block-definition";
+import { categoriseBlockDefinition } from "@/editor/blocks/assessment/categorise/categorise-definition";
+import { dropdownBlockDefinition } from "@/editor/blocks/assessment/dropdown/dropdown-definition";
+import { fillBlanksBlockDefinition } from "@/editor/blocks/assessment/fill-blanks/fill-blanks-definition";
+import { imageHotspotBlockDefinition } from "@/editor/blocks/assessment/image-hotspot/image-hotspot-definition";
+import { matchingBlockDefinition } from "@/editor/blocks/assessment/matching/matching-definition";
+import { mcqBlockDefinition } from "@/editor/blocks/assessment/mcq/mcq-definition";
+import { multiselectBlockDefinition } from "@/editor/blocks/assessment/multiselect/multiselect-definition";
+import { quizBlockDefinition } from "@/editor/blocks/assessment/quiz/quiz-definition";
+import { sequencingBlockDefinition } from "@/editor/blocks/assessment/sequencing/sequencing-definition";
 
 const expectedControl = {
   owner: {

@@ -24,16 +24,19 @@ import type {
 } from "@/host/ports";
 import type { AssessmentLearningEventDefinition } from "@/runtime/learning-events/catalogue";
 
-import { AssessmentChoicesGroupNode } from "../nodes/assessment-choices-group";
-import { AssessmentActionsGroupNode } from "../nodes/assessment-actions-group";
-import { AssessmentHintNode } from "../nodes/assessment-hint";
-import { AssessmentHintsGroupNode } from "../nodes/assessment-hints-group";
-import { AssessmentInstructionsNode } from "../nodes/assessment-instructions";
-import { AssessmentPromptNode } from "../nodes/assessment-prompt";
-import { AssessmentSummaryFeedbackNode } from "../nodes/assessment-summary-feedback";
-import { AssessmentTitleNode } from "../nodes/assessment-title";
+import { AssessmentChoicesGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-choices-group";
+import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
+import { AssessmentHintNode } from "@/editor/blocks/assessment/shared/nodes/assessment-hint";
+import { AssessmentHintsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-hints-group";
+import { AssessmentInstructionsNode } from "@/editor/blocks/assessment/shared/nodes/assessment-instructions";
+import { AssessmentPromptNode } from "@/editor/blocks/assessment/shared/nodes/assessment-prompt";
+import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared/nodes/assessment-summary-feedback";
+import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
-import { SelectableChoiceBodyNode, SelectableChoiceNode } from "../nodes/selectable-choice";
+import {
+  SelectableChoiceBodyNode,
+  SelectableChoiceNode,
+} from "@/editor/blocks/assessment/shared/nodes/selectable-choice";
 import {
   useAssessmentRuntime,
   useAssessmentRuntimeById,
@@ -45,7 +48,7 @@ import { imageHotspotBlockDefinition } from "@/editor/blocks/assessment/image-ho
 import { mcqBlockDefinition } from "@/editor/blocks/assessment/mcq/mcq-definition";
 import { McqNode } from "@/editor/blocks/assessment/mcq/node";
 import { mcqResponseCodec } from "@/editor/blocks/assessment/mcq/assessment";
-import { imageHotspotResponseCodec } from "@/editor/blocks/assessment/image-hotspot/assessment";
+import { imageHotspotResponseCodec } from "@/editor/assessment/image-hotspot/assessment";
 import { InlineIconNode } from "@/editor/rich-text/inline-icon/model/InlineIconNode";
 import { MathInlineNode } from "@/editor/rich-text/math/authoring/MathInlineNodeView";
 import { MathBlockNode } from "@/editor/rich-text/math/model/MathBlock";
@@ -559,6 +562,9 @@ function ChoiceDisclosureProbe({
       <button type="button" onClick={() => void runtime.actions.revealAnswer()}>
         reveal
       </button>
+      <button type="button" onClick={() => void runtime.problem?.toggleAnswerView()}>
+        show answer
+      </button>
     </>
   );
 }
@@ -1023,7 +1029,7 @@ describe("useAssessmentRuntime", () => {
     });
   });
 
-  it("does not disclose unselected correct choices before explicit reveal in on-submit mode", async () => {
+  it("keeps submitted choices visible until the learner switches to the correct answer", async () => {
     const user = userEvent.setup();
     const setup = makeEditor();
     const assessmentPort: AssessmentPort = {
@@ -1074,7 +1080,22 @@ describe("useAssessmentRuntime", () => {
     await user.click(screen.getByText("reveal"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("state-b").textContent).toBe("missed");
+      expect(screen.getByTestId("state-a").textContent).toBe("incorrect");
+      expect(screen.getByTestId("state-b").textContent).toBe("none");
+    });
+
+    await user.click(screen.getByText("show answer"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("state-a").textContent).toBe("none");
+      expect(screen.getByTestId("state-b").textContent).toBe("correct");
+    });
+
+    await user.click(screen.getByText("show answer"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("state-a").textContent).toBe("incorrect");
+      expect(screen.getByTestId("state-b").textContent).toBe("none");
     });
   });
 

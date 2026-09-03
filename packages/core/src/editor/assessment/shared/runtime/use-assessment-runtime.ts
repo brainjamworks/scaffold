@@ -1,0 +1,647 @@
+import type { Editor } from "@tiptap/core";
+import type { Node as PMNode } from "@tiptap/pm/model";
+import { useMemo } from "react";
+import { AssessmentInteractionContractSchema } from "@scaffold/contracts";
+import type {
+  AssessmentAnswerKey,
+  AssessmentInteractionKind,
+  AssessmentItemDetail,
+  AssessmentProblemSnapshot,
+  AssessmentResponseValue,
+  AssessmentResult,
+  AssessmentTargetSettings,
+} from "@scaffold/contracts";
+import type { AssessmentAnswerView } from "@/runtime/assessment/types";
+
+import {
+  getBlockAttrSchema,
+  type BlockAssessmentCapabilityDefinition,
+  type BlockDefinition,
+} from "@/editor/blocks/block-definition";
+import { countAssessmentHints } from "@/editor/assessment/shared/model/assessment-prosemirror";
+import { textBetween } from "@/editor/assessment/shared/publication/projection";
+import type { AssessmentExperienceConfig } from "../model/assessment-capability";
+import type { ProblemResponse } from "../model/assessment-response";
+import {
+  createPendingAssessmentInteractionRuntime,
+  useAssessmentInteractionRuntime,
+  type AssessmentInteractionRuntime,
+} from "./assessment-interaction-runtime";
+import {
+  useAssessmentProblemFacadeById,
+  type AssessmentProblemFacade,
+} from "@/runtime/assessment/runtime-facade";
+import type { AssessmentProblemId } from "@/runtime/assessment/types";
+import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
+import {
+  useAssessmentBlockSetup,
+  useAssessmentTargetSetup,
+  type AssessmentBlockSetupConfig,
+} from "./use-assessment-block-setup";
+import { assessmentResponseName } from "./assessment-response-name";
+import { useAssessmentControlBinding } from "./assessment-control-binding";
+
+export type ChoiceMode = "single" | "multiple";
+
+export interface AnswerReveal {
+  answers: AssessmentAnswerKey;
+}
+
+export interface ProblemState extends AssessmentBlockSetupConfig {
+  kind: AssessmentInteractionKind;
+  choiceMode: ChoiceMode | null;
+  maxSelect: number | null;
+  responseName: string;
+  legend: string;
+  placeholder: string;
+  response: ProblemResponse;
+  submitted: boolean;
+  attemptNumber: number;
+  hintsShown: number;
+  checkResult: AssessmentResult | null;
+  submissionResult: AssessmentResult | null;
+  revealedAnswer: AnswerReveal | null;
+}
+
+export interface ProblemScope {
+  state: ProblemState;
+  context: "standalone" | "quiz";
+  exhausted: boolean;
+  /**
+   * One interaction lock contract for both behavior and native control state.
+   * Review keeps feedback actions reachable while response controls leave the tab order.
+   */
+  interactionLocked: boolean;
+  canRetry: boolean;
+  hasMoreHints: boolean;
+  hasResponse: boolean;
+  answerKeyVisible: boolean;
+  answerView: AssessmentAnswerView;
+  canRevealAnswer: boolean;
+  feedbackResult: AssessmentResult | null;
+  officialResult: AssessmentResult | null;
+  check: () => Promise<AssessmentResult | null>;
+  submit: () => Promise<AssessmentResult | null>;
+  reset: () => void;
+  revealHint: () => void;
+  revealAnswer: () => Promise<AnswerReveal | null>;
+  toggleAnswerView: () => Promise<boolean>;
+}
+
+export function shouldShowAnswerToggle(problem: ProblemScope | null | undefined): boolean {
+  const result = problem?.officialResult ?? problem?.feedbackResult ?? null;
+
+  return Boolean(
+    problem?.state.submitted &&
+    !result?.isCorrect &&
+    (problem.answerKeyVisible || problem.canRevealAnswer),
+  );
+}
+
+type SafeSchema<T> = {
+  parse(value: unknown): T;
+  safeParse(value: unknown): { success: true; data: T } | { success: false; error: unknown };
+};
+
+interface RuntimeAssessmentSettings {
+  feedbackMode: "immediate" | "on_submit";
+  isGraded: boolean;
+  showAnswer: boolean;
+  points: number;
+  maxAttempts: number | null;
+  maxSelect?: number | null;
+}
+
+interface UseAssessmentRuntimeArgs {
+  definition: BlockDefinition;
+  editor: Editor;
+  getPos?: () => number | undefined;
+  node: PMNode;
+}
+
+interface UseAssessmentRuntimeForTargetArgs {
+  assessmentTargetId: string;
+  config: AssessmentRuntimeProblemConfig;
+}
+
+export interface AssessmentRuntimeProblemConfig extends AssessmentBlockSetupConfig {
+  kind: AssessmentInteractionKind;
+  choiceMode: ChoiceMode | null;
+  maxSelect: number | null;
+  responseName: string;
+  legend: string;
+  placeholder: string;
+  currentOptionIds: readonly string[];
+  experience: AssessmentExperienceConfig;
+}
+
+export interface AssessmentRuntimeController<
+  K extends AssessmentInteractionKind = AssessmentInteractionKind,
+> {
+  problemId: AssessmentProblemId | null;
+  problem: ProblemScope | null;
+  hasUnsafeIdentity: boolean;
+  problemConfig: AssessmentRuntimeProblemConfig;
+  experience: BlockAssessmentCapabilityDefinition["experience"];
+  interaction: AssessmentInteractionRuntime<K>;
+  response: {
+    value: ProblemResponse;
+    setValue: (response: ProblemResponse) => void;
+    projected: AssessmentResponseValue;
+    durable: AssessmentResponseValue | null;
+    hasValue: boolean;
+  };
+  actions: {
+    check: () => Promise<AssessmentResult | null>;
+    submit: () => Promise<AssessmentResult | null>;
+    reset: () => void;
+    revealHint: () => void;
+    revealAnswer: () => Promise<AnswerReveal | null>;
+  };
+  feedback: {
+    summary: AssessmentResult | null;
+    items: Record<string, AssessmentItemDetail> | null;
+  };
+}
+
+interface AssessmentRuntimeDefinition {
+  assessment: BlockAssessmentCapabilityDefinition;
+  settingsSchema: SafeSchema<RuntimeAssessmentSettings>;
+}
+
+const EMPTY_PROBLEM_RESPONSE: ProblemResponse = {};
+const EMPTY_PROJECTED_RESPONSE: AssessmentResponseValue = {
+  kind: "single-select",
+  optionId: null,
+};
+
+export function useAssessmentRuntime({
+  definition: blockDefinition,
+  editor,
+  getPos,
+  node,
+}: UseAssessmentRuntimeArgs): AssessmentRuntimeController {
+  const nodeTypeName = node.type.name;
+  const definition = useMemo(
+    () => assessmentRuntimeDefinitionForBlock(blockDefinition, nodeTypeName),
+    [blockDefinition, nodeTypeName],
+  );
+  const config = useMemo(() => createRuntimeProblemConfig(node, definition), [definition, node]);
+
+  const setup = useAssessmentBlockSetup({
+    config,
+    editor,
+    ...(getPos ? { getPos } : {}),
+    node,
+  });
+  const runtime = useAssessmentRuntimeFacade({
+    facade: setup.facade,
+    fallbackConfig: config,
+    hasUnsafeIdentity: setup.hasUnsafeIdentity,
+    problemId: setup.problemId,
+  });
+  const store = useAssessmentStoreApi();
+  useAssessmentControlBinding({
+    editor,
+    enabled: Boolean(getPos) && runtime?.problem?.context === "standalone",
+    getPos: getPos ?? (() => undefined),
+    node,
+    problemId: runtime?.problemId ?? null,
+    store,
+  });
+
+  if (!runtime) {
+    throw new Error("Assessment runtime could not build a parent runtime facade.");
+  }
+
+  return runtime;
+}
+
+export function useAssessmentRuntimeForTarget({
+  assessmentTargetId,
+  config,
+}: UseAssessmentRuntimeForTargetArgs): AssessmentRuntimeController {
+  if (config.targetId !== assessmentTargetId) {
+    throw new Error(
+      `Assessment runtime target "${assessmentTargetId}" does not match config target "${config.targetId}".`,
+    );
+  }
+
+  const setup = useAssessmentTargetSetup({
+    authoredBlockId: assessmentTargetId,
+    config,
+  });
+  const runtime = useAssessmentRuntimeFacade({
+    facade: setup.facade,
+    fallbackConfig: config,
+    hasUnsafeIdentity: setup.hasUnsafeIdentity,
+    problemId: setup.problemId,
+  });
+
+  if (!runtime) {
+    throw new Error("Assessment runtime could not build a target runtime facade.");
+  }
+
+  return runtime;
+}
+
+export function useAssessmentRuntimeById(
+  authoredBlockId: string | null | undefined,
+): AssessmentRuntimeController | null;
+export function useAssessmentRuntimeById<K extends AssessmentInteractionKind>(
+  authoredBlockId: string | null | undefined,
+  expectedKind: K,
+): AssessmentRuntimeController<K> | null;
+export function useAssessmentRuntimeById<K extends AssessmentInteractionKind>(
+  authoredBlockId: string | null | undefined,
+  expectedKind?: K,
+): AssessmentRuntimeController<K> | null {
+  const facade = useAssessmentProblemFacadeById(authoredBlockId, expectedKind);
+  const runtime = useAssessmentRuntimeFacade<K>({
+    facade,
+    ...(expectedKind === undefined ? {} : { expectedKind }),
+    hasUnsafeIdentity: false,
+    problemId: facade.problemId,
+  });
+
+  return authoredBlockId ? runtime : null;
+}
+
+function useAssessmentRuntimeFacade<
+  K extends AssessmentInteractionKind = AssessmentInteractionKind,
+>({
+  facade,
+  expectedKind,
+  fallbackConfig,
+  hasUnsafeIdentity,
+  problemId,
+}: {
+  facade: AssessmentProblemFacade;
+  expectedKind?: K;
+  fallbackConfig?: AssessmentRuntimeProblemConfig;
+  hasUnsafeIdentity: boolean;
+  problemId: AssessmentProblemId | null;
+}): AssessmentRuntimeController<K> | null {
+  const problemConfig = fallbackConfig ?? runtimeProblemConfigFromFacade(facade);
+  const problem = useMemo(
+    () => (problemConfig ? problemScopeFromFacade(facade, problemConfig) : null),
+    [facade, problemConfig],
+  );
+  const interaction = useAssessmentInteractionRuntime(facade, problem, expectedKind);
+  const fallbackInteraction = useMemo(
+    () => (fallbackConfig ? createPendingAssessmentInteractionRuntime(fallbackConfig.kind) : null),
+    [fallbackConfig],
+  );
+  const runtimeInteraction = (interaction ??
+    fallbackInteraction) as AssessmentInteractionRuntime<K> | null;
+
+  const responseValue = problem?.state.response ?? EMPTY_PROBLEM_RESPONSE;
+  const responseCodec = problemConfig?.responseCodec;
+  const projected = useMemo(
+    () => responseCodec?.toContractResponse(responseValue) ?? EMPTY_PROJECTED_RESPONSE,
+    [responseCodec, responseValue],
+  );
+  const durableResponse = facade.problem?.response ?? null;
+  const feedbackSummary = problem?.officialResult ?? problem?.feedbackResult ?? null;
+
+  return useMemo<AssessmentRuntimeController<K> | null>(() => {
+    if (!problemConfig || !runtimeInteraction) return null;
+
+    return {
+      problemId,
+      problem,
+      hasUnsafeIdentity,
+      problemConfig,
+      experience: problem?.state.experience ?? problemConfig.experience,
+      interaction: runtimeInteraction,
+      response: {
+        value: responseValue,
+        setValue: (response: ProblemResponse) => {
+          facade.actions.setLocalResponse(response);
+        },
+        projected,
+        durable: durableResponse,
+        hasValue: responseCodec?.hasResponse(responseValue) ?? false,
+      },
+      actions: {
+        check: () => problem?.check() ?? Promise.resolve(null),
+        submit: () => problem?.submit() ?? Promise.resolve(null),
+        reset: () => problem?.reset(),
+        revealHint: () => problem?.revealHint(),
+        revealAnswer: () => problem?.revealAnswer() ?? Promise.resolve(null),
+      },
+      feedback: {
+        summary: feedbackSummary,
+        items: feedbackSummary?.items ?? null,
+      },
+    };
+  }, [
+    feedbackSummary,
+    facade.actions,
+    durableResponse,
+    hasUnsafeIdentity,
+    problem,
+    problemConfig,
+    problemId,
+    projected,
+    responseValue,
+    responseCodec,
+    runtimeInteraction,
+  ]);
+}
+
+function problemScopeFromFacade(
+  facade: AssessmentProblemFacade,
+  config: AssessmentRuntimeProblemConfig,
+): ProblemScope | null {
+  if (facade.status !== "registered") return null;
+  const snapshot: AssessmentProblemSnapshot = facade.problem ?? {
+    response: null,
+    submitted: false,
+    attemptNumber: 0,
+    hintsShown: 0,
+    checkResult: null,
+    submissionResult: null,
+  };
+  const response = isProblemResponse(facade.localResponse)
+    ? facade.localResponse
+    : EMPTY_PROBLEM_RESPONSE;
+  const revealedAnswer = facade.revealedAnswer
+    ? { answers: facade.revealedAnswer.answerKey }
+    : null;
+  const context = facade.quiz ? "quiz" : "standalone";
+  const effectiveFeedbackMode = facade.quiz ? "on_submit" : config.feedbackMode;
+  const effectiveMaxAttempts = facade.quiz
+    ? facade.quiz.registration.settings.attemptsPerQuestion
+    : config.maxAttempts;
+  const state: ProblemState = {
+    ...config,
+    feedbackMode: effectiveFeedbackMode,
+    maxAttempts: effectiveMaxAttempts,
+    response,
+    submitted: snapshot.submitted,
+    attemptNumber: snapshot.attemptNumber,
+    hintsShown: snapshot.hintsShown,
+    checkResult: snapshot.checkResult,
+    submissionResult: snapshot.submissionResult,
+    revealedAnswer,
+  };
+  const exhausted = effectiveMaxAttempts !== null && snapshot.attemptNumber >= effectiveMaxAttempts;
+  const interactionLocked = snapshot.submitted || exhausted || revealedAnswer !== null;
+  const rawFeedbackResult = snapshot.checkResult ?? snapshot.submissionResult;
+  const reviewPolicy = quizReviewPolicy(facade);
+  const feedbackResult = reviewResultForPolicy(rawFeedbackResult, reviewPolicy);
+  const officialResult = reviewResultForPolicy(snapshot.submissionResult, reviewPolicy);
+  const answerKeyVisible =
+    reviewPolicy.correctAnswersVisible &&
+    ((effectiveFeedbackMode === "immediate" && rawFeedbackResult !== null) ||
+      (config.showAnswerEnabled && revealedAnswer !== null) ||
+      Boolean(facade.quiz?.attempt?.answerReviewAuthorized && rawFeedbackResult));
+  const answerView = answerKeyVisible ? facade.answerView : "submitted";
+
+  return {
+    state,
+    context,
+    exhausted,
+    interactionLocked,
+    canRetry: snapshot.submitted && !exhausted && snapshot.submissionResult?.isCorrect !== true,
+    hasMoreHints: reviewPolicy.hintsVisible && snapshot.hintsShown < config.hintsTotal,
+    hasResponse: facade.responseReady,
+    answerKeyVisible,
+    answerView,
+    canRevealAnswer:
+      reviewPolicy.correctAnswersVisible &&
+      config.experience.showAnswer &&
+      config.showAnswerEnabled,
+    feedbackResult,
+    officialResult,
+    check: facade.actions.check,
+    submit: facade.actions.submit,
+    reset: () => {
+      const retainedSpatialResponse =
+        config.kind === "spatial-placement" && snapshot.submitted && !exhausted ? response : null;
+      const reset = facade.actions.reset();
+      if (reset && retainedSpatialResponse) {
+        facade.actions.setLocalResponse(retainedSpatialResponse);
+      }
+    },
+    revealHint: () => {
+      void facade.actions.revealHint();
+    },
+    revealAnswer: async () => {
+      const reveal = await facade.actions.revealAnswer();
+      return reveal ? { answers: reveal.answerKey } : null;
+    },
+    toggleAnswerView: async () => {
+      if (answerView === "correct") return facade.actions.setAnswerView("submitted");
+      if (!answerKeyVisible) {
+        const reveal = await facade.actions.revealAnswer();
+        if (!reveal) return false;
+      }
+      return facade.actions.setAnswerView("correct");
+    },
+  };
+}
+
+interface QuizReviewPolicy {
+  resultVisible: boolean;
+  authoredReviewVisible: boolean;
+  correctAnswersVisible: boolean;
+  hintsVisible: boolean;
+}
+
+const STANDALONE_REVIEW_POLICY: QuizReviewPolicy = {
+  resultVisible: true,
+  authoredReviewVisible: true,
+  correctAnswersVisible: true,
+  hintsVisible: true,
+};
+
+const HIDDEN_REVIEW_POLICY: QuizReviewPolicy = {
+  resultVisible: false,
+  authoredReviewVisible: false,
+  correctAnswersVisible: false,
+  hintsVisible: false,
+};
+
+function quizReviewPolicy(facade: AssessmentProblemFacade): QuizReviewPolicy {
+  const quiz = facade.quiz;
+  if (!quiz) return STANDALONE_REVIEW_POLICY;
+  if (!quiz.attempt?.answerReviewAuthorized) return HIDDEN_REVIEW_POLICY;
+  if (quiz.registration.settings.reviewDetail === "none") return HIDDEN_REVIEW_POLICY;
+  if (quiz.registration.settings.reviewDetail === "result_only") {
+    return {
+      resultVisible: true,
+      authoredReviewVisible: false,
+      correctAnswersVisible: false,
+      hintsVisible: false,
+    };
+  }
+  return STANDALONE_REVIEW_POLICY;
+}
+
+function reviewResultForPolicy(
+  result: AssessmentResult | null,
+  policy: QuizReviewPolicy,
+): AssessmentResult | null {
+  if (!result || !policy.resultVisible) return null;
+  if (policy.authoredReviewVisible && policy.correctAnswersVisible) return result;
+  return {
+    isCorrect: result.isCorrect,
+    score: result.score,
+    feedback: policy.authoredReviewVisible ? result.feedback : null,
+    items: {},
+  };
+}
+
+function isProblemResponse(value: unknown): value is ProblemResponse {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function runtimeProblemConfigFromFacade(
+  facade: AssessmentProblemFacade,
+): AssessmentRuntimeProblemConfig | undefined {
+  const config = facade.config;
+  const capability = facade.capability;
+  const interactionKind = facade.interactionKind;
+  const targetId = facade.targetId;
+  if (!config || !capability || !interactionKind || !targetId) return undefined;
+  const settings = config.settings;
+  return {
+    kind: interactionKind,
+    targetId,
+    interactionKind,
+    learningEventDefinition: config.learningEventDefinition,
+    choiceMode: choiceModeForInteraction(interactionKind),
+    feedbackMode: settings.feedbackMode,
+    maxAttempts: settings.maxAttempts,
+    maxSelect: settings.maxSelections ?? null,
+    currentOptionIds:
+      config.learningEventDefinition.interaction.kind === "single-select" ||
+      config.learningEventDefinition.interaction.kind === "multi-select"
+        ? config.learningEventDefinition.interaction.options.map((option) => option.id)
+        : [],
+    responseName: assessmentResponseName(facade.authoredBlockId),
+    legend: settings.legend ?? settings.label ?? "",
+    placeholder: settings.placeholder ?? "",
+    showAnswerEnabled: settings.showAnswer,
+    experience: config.experience,
+    hintsTotal: config.hintsTotal,
+    points: settings.points,
+    isGraded: settings.isGraded,
+    responseCodec: capability,
+  };
+}
+
+function assessmentRuntimeDefinitionForBlock(
+  definition: BlockDefinition,
+  nodeTypeName: string,
+): AssessmentRuntimeDefinition {
+  if (definition.nodeType !== nodeTypeName) {
+    throw new Error(
+      `Assessment runtime received definition for "${definition.nodeType}", but the runtime node is "${nodeTypeName}".`,
+    );
+  }
+  const assessment = definition?.capabilities?.assessment;
+  if (!assessment) {
+    throw new Error(
+      `Assessment runtime requested for "${nodeTypeName}", but no assessment capability is registered.`,
+    );
+  }
+  const settingsSchema = getBlockAttrSchema(definition, "settings");
+  if (!settingsSchema) {
+    throw new Error(
+      `Assessment runtime requested for "${nodeTypeName}", but no settings attr schema is registered.`,
+    );
+  }
+  return {
+    assessment,
+    settingsSchema: settingsSchema as SafeSchema<RuntimeAssessmentSettings>,
+  };
+}
+
+function createRuntimeProblemConfig(
+  node: PMNode,
+  definition: AssessmentRuntimeDefinition,
+): AssessmentRuntimeProblemConfig {
+  const { assessment, settingsSchema } = definition;
+  const settings = parseWithDefault<RuntimeAssessmentSettings>(
+    settingsSchema,
+    node.attrs["settings"],
+  );
+  const settingsProjection = assessment.projection.projectSettings?.(settings) as
+    | Partial<AssessmentTargetSettings>
+    | undefined;
+  const blockId = String(node.attrs["id"] ?? "");
+  const kind = assessment.interactionKind;
+  const interaction = AssessmentInteractionContractSchema.parse(
+    assessment.projection.projectInteraction(node.toJSON(), settings),
+  );
+  if (interaction.kind !== kind) {
+    throw new Error(
+      `Assessment interaction projection kind "${interaction.kind}" does not match registered kind "${kind}".`,
+    );
+  }
+  const responseCodec = {
+    ...assessment.response,
+    toContractResponse: (response: unknown) =>
+      assessment.response.toContractResponse(response, interaction),
+    fromContractResponse: (response: AssessmentResponseValue) =>
+      assessment.response.fromContractResponse(response, interaction),
+    hasResponse: (response: unknown) => assessment.response.hasResponse(response, interaction),
+  };
+  const activityDescription = assessmentActivityDescription(node);
+  const learningEventDefinition = {
+    ...(activityDescription === undefined ? {} : { activityDescription }),
+    interaction,
+  };
+
+  return {
+    kind,
+    targetId: blockId,
+    interactionKind: kind,
+    learningEventDefinition,
+    choiceMode: choiceModeForInteraction(kind),
+    feedbackMode: settings.feedbackMode,
+    maxAttempts: settings.maxAttempts,
+    maxSelect: settingsProjection?.maxSelections ?? settings.maxSelect ?? null,
+    currentOptionIds:
+      interaction.kind === "single-select" || interaction.kind === "multi-select"
+        ? interaction.options.map((option) => option.id)
+        : [],
+    responseName: assessmentResponseName(blockId),
+    legend: settingsProjection?.legend ?? settingsProjection?.label ?? "",
+    placeholder: settingsProjection?.placeholder ?? "",
+    showAnswerEnabled: settings.showAnswer,
+    experience: assessment.experience,
+    hintsTotal: countAssessmentHints(node),
+    points: settings.points,
+    isGraded: settings.isGraded,
+    responseCodec,
+  };
+}
+
+function assessmentActivityDescription(node: PMNode): string | undefined {
+  let prompt: PMNode | null = null;
+  for (let index = 0; index < node.childCount; index += 1) {
+    const child = node.child(index);
+    if (child.type.name !== "assessment_prompt") continue;
+    prompt = child;
+    break;
+  }
+  if (!prompt) return undefined;
+
+  const description = textBetween(prompt.toJSON()).trim();
+  return description || undefined;
+}
+
+function choiceModeForInteraction(kind: AssessmentInteractionKind): ChoiceMode | null {
+  if (kind === "single-select") return "single";
+  if (kind === "multi-select") return "multiple";
+  return null;
+}
+
+function parseWithDefault<T>(schema: SafeSchema<T>, value: unknown): T {
+  const parsed = schema.safeParse(value);
+  return parsed.success ? parsed.data : schema.parse({});
+}

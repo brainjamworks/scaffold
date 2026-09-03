@@ -1,4 +1,5 @@
-import { assessmentPromptDomId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { assessmentPromptDomId } from "@/editor/assessment/shared/model/assessment-prosemirror";
+import { BoundedScrollHint } from "@/editor/bounded-containers/view/bounded-scroll";
 
 import { describeMultiSelectLimitState } from "./assessment-interaction-runtime";
 import { SelectableChoiceCourseOption } from "./SelectableChoiceCourseOption";
@@ -41,6 +42,7 @@ export function SelectableChoiceCourseInteraction({
 
   return (
     <div
+      {...(presentation === "full-slide" ? { "data-bounded-scroll-frame": "" } : {})}
       data-selectable-choice-presentation={presentation}
       {...(interactionKind === "single-select"
         ? { "data-mcq-presentation": presentation }
@@ -48,6 +50,7 @@ export function SelectableChoiceCourseInteraction({
       className={`sc-course-selectable-choice-interaction ${familyClass}`}
     >
       <div
+        {...(presentation === "full-slide" ? { "data-bounded-scroll": "" } : {})}
         data-selectable-choice-scroll=""
         {...(interactionKind === "single-select" ? { "data-mcq-choice-scroll": "" } : {})}
         className={`sc-course-selectable-choice-interaction__viewport ${familyClass}__viewport`}
@@ -108,6 +111,7 @@ export function SelectableChoiceCourseInteraction({
           </div>
         </fieldset>
       </div>
+      {presentation === "full-slide" ? <BoundedScrollHint /> : null}
     </div>
   );
 }

@@ -66,6 +66,7 @@ export function SelectableChoiceCourseOption({
   const checked = choice ? choice.isSelected(choiceId) : false;
   const submitted = assessment?.problem?.state.submitted ?? false;
   const answerKeyVisible = assessment?.problem?.answerKeyVisible ?? false;
+  const answerView = assessment?.problem?.answerView ?? "submitted";
   const runtimeReady = Boolean(assessment?.problem);
   const interactionLocked = assessment?.problem?.interactionLocked ?? false;
   const limitUnavailable =
@@ -79,11 +80,11 @@ export function SelectableChoiceCourseOption({
         })
       : null;
   const inputType = choice?.inputType ?? "radio";
-  const revealTarget = answerKeyVisible && (state === "correct" || state === "missed");
+  const revealTarget = answerView === "correct" && checked;
   const submitTarget = submitted && checked;
 
   useScrollRuntimeChoiceIntoView({
-    answerKeyVisible,
+    answerView,
     revealTarget,
     rowRef,
     runtimeReady,
@@ -110,7 +111,7 @@ export function SelectableChoiceCourseOption({
         feedbackControl={feedbackControl}
         state={state}
         checked={checked}
-        submitted={submitted}
+        submitted={answerView === "submitted" && submitted}
         disabled={disabled}
         {...(disabledReason ? { disabledReason } : {})}
         onSelect={() => {
@@ -163,30 +164,30 @@ export function resolveAssessmentChoiceScrollTop({
 }
 
 function useScrollRuntimeChoiceIntoView({
-  answerKeyVisible,
+  answerView,
   revealTarget,
   rowRef,
   runtimeReady,
   submitted,
   submitTarget,
 }: {
-  answerKeyVisible: boolean;
+  answerView: "submitted" | "correct";
   revealTarget: boolean;
   rowRef: RefObject<HTMLElement | null>;
   runtimeReady: boolean;
   submitted: boolean;
   submitTarget: boolean;
 }) {
-  const previousStateRef = useRef({ answerKeyVisible, runtimeReady, submitted });
+  const previousStateRef = useRef({ answerView, runtimeReady, submitted });
 
   useEffect(() => {
     const previous = previousStateRef.current;
-    previousStateRef.current = { answerKeyVisible, runtimeReady, submitted };
+    previousStateRef.current = { answerView, runtimeReady, submitted };
     if (!runtimeReady || !previous.runtimeReady) return undefined;
 
     const shouldScrollSubmittedAnswer = !previous.submitted && submitted && submitTarget;
     const shouldScrollRevealedAnswer =
-      !previous.answerKeyVisible && answerKeyVisible && revealTarget;
+      previous.answerView !== "correct" && answerView === "correct" && revealTarget;
     if (!shouldScrollSubmittedAnswer && !shouldScrollRevealedAnswer) return undefined;
     const targetAttribute = shouldScrollSubmittedAnswer
       ? SUBMIT_SCROLL_TARGET_ATTR
@@ -196,7 +197,7 @@ function useScrollRuntimeChoiceIntoView({
       if (element) scrollChoiceTargetSetIntoLane(element, targetAttribute);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [answerKeyVisible, revealTarget, rowRef, runtimeReady, submitted, submitTarget]);
+  }, [answerView, revealTarget, rowRef, runtimeReady, submitted, submitTarget]);
 }
 
 function scrollChoiceTargetSetIntoLane(element: HTMLElement, targetAttribute: string): boolean {
