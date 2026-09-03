@@ -8,6 +8,7 @@ import {
 } from "@scaffold/contracts";
 
 import { isDragDropNotLearnerReady } from "@/editor/assessment/drag-drop/assessment";
+import { QUESTION_TYPE_TAGS } from "@/editor/assessment/quiz/question-type-tags";
 import {
   cloneJsonNodeWithoutContent,
   readAttrs,
@@ -34,6 +35,32 @@ import type {
 } from "@/document/model/establishment";
 
 export type AssessmentBlockNodeType = string;
+
+export interface MisplacedSurfaceQuestionDetails {
+  readonly kind: "surface";
+  readonly capabilityId: string;
+  readonly stableId: string;
+}
+
+export class MisplacedSurfaceQuestionError extends Error {
+  readonly details: MisplacedSurfaceQuestionDetails;
+
+  constructor(details: MisplacedSurfaceQuestionDetails) {
+    super(`Surface assessment question "${details.capabilityId}" is outside a Surface variant.`);
+    this.name = "MisplacedSurfaceQuestionError";
+    this.details = details;
+  }
+}
+
+export function isMisplacedSurfaceQuestion(error: unknown): error is MisplacedSurfaceQuestionError {
+  return error instanceof MisplacedSurfaceQuestionError;
+}
+
+const SURFACE_ASSESSMENT_QUESTION_NODE_TYPES: ReadonlySet<string> = new Set(
+  Object.keys(QUESTION_TYPE_TAGS).filter(
+    (nodeType) => nodeType.startsWith("surface_") && nodeType.endsWith("_question"),
+  ),
+);
 
 export type AssessmentProjectionWarningCode = "missing-block-id" | "invalid-assessment-group";
 
@@ -117,11 +144,13 @@ export function projectLearnerPublication(
       warnings: projection.warnings,
     };
   } catch (error) {
-    if (!isDragDropNotLearnerReady(error)) throw error;
-    return {
-      status: "unavailable-content",
-      unavailableContent: [{ ...error.details, path: [] }],
-    };
+    if (isDragDropNotLearnerReady(error) || isMisplacedSurfaceQuestion(error)) {
+      return {
+        status: "unavailable-content",
+        unavailableContent: [{ ...error.details, path: [] }],
+      };
+    }
+    throw error;
   }
 }
 
@@ -161,7 +190,7 @@ export function projectLearnerDocument(
     if (!block.blockId) warnings.push(missingBlockIdWarning(block));
   });
   return {
-    document: redactLearnerNode(authorDocument, blockDefinitions, surfaceVariants),
+    document: redactLearnerNode(authorDocument, blockDefinitions, surfaceVariants, false),
     warnings,
   };
 }
@@ -425,6 +454,7 @@ function redactLearnerNode(
   node: JSONContent,
   blockDefinitions: BlockDefinitionLookup,
   surfaceVariants: SurfaceVariantLookup,
+  insideSurface: boolean,
 ): JSONContent {
   const registered = assessmentDefinitionForNode(node, blockDefinitions);
   if (registered) {
@@ -440,17 +470,31 @@ function redactLearnerNode(
         capability.projectLearnerSurface(node),
         blockDefinitions,
         surfaceVariants,
+        true,
       );
     }
   }
 
-  return redactLearnerChildren(node, blockDefinitions, surfaceVariants);
+  if (
+    !insideSurface &&
+    node.type !== undefined &&
+    SURFACE_ASSESSMENT_QUESTION_NODE_TYPES.has(node.type)
+  ) {
+    throw new MisplacedSurfaceQuestionError({
+      kind: "surface",
+      capabilityId: node.type,
+      stableId: readStringAttr(node, "id"),
+    });
+  }
+
+  return redactLearnerChildren(node, blockDefinitions, surfaceVariants, insideSurface);
 }
 
 function redactLearnerChildren(
   node: JSONContent,
   blockDefinitions: BlockDefinitionLookup,
   surfaceVariants: SurfaceVariantLookup,
+  insideSurface: boolean,
 ): JSONContent {
   return {
     ...cloneJsonNodeWithoutContent(node),
@@ -458,7 +502,7 @@ function redactLearnerChildren(
       ? {
           content: readContent(node)
             .filter((child) => !isOmittableEmptyQuiz(child, blockDefinitions))
-            .map((child) => redactLearnerNode(child, blockDefinitions, surfaceVariants)),
+            .map((child) => redactLearnerNode(child, blockDefinitions, surfaceVariants, insideSurface)),
         }
       : {}),
   };

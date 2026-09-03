@@ -13,6 +13,8 @@ import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import { mcqResponseCodec } from "@/editor/assessment/mcq/assessment";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { slideCategoriseQuestionSurfaceDefinition } from "@/editor/surfaces/model/templates/assessment/slide-categorise-question";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 import {
   projectLearnerPublication,
@@ -1212,6 +1214,68 @@ describe("authoring publication document projection", () => {
       ],
     });
     expect(repeated.targets[0]).toEqual(first.targets[0]);
+  });
+
+  it("reports a surface question nested outside a Surface variant as unavailable content", () => {
+    const nested: JSONContent = {
+      type: "doc",
+      content: [
+        {
+          type: "surface",
+          attrs: { id: "surface00999", variant: "unregistered-variant" },
+          content: [
+            {
+              type: "region",
+              attrs: { id: "region00999" },
+              content: [
+                {
+                  type: "surface_categorise_question",
+                  attrs: { id: "target00999" },
+                  content: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const publication = projectLearnerPublication(
+      supported(nested),
+      builtInBlockRegistry,
+      builtInSurfaceVariantRegistry,
+    );
+    expect(publication).toEqual({
+      status: "unavailable-content",
+      unavailableContent: [
+        {
+          kind: "surface",
+          capabilityId: "surface_categorise_question",
+          stableId: "target00999",
+          path: [],
+        },
+      ],
+    });
+  });
+
+  it("still projects a surface question owned by its Surface variant", () => {
+    const fresh = slideCategoriseQuestionSurfaceDefinition.createSurface({
+      surfaceId: createEmbeddedNodeId(),
+    });
+    const question = fresh.content?.[0];
+    if (!question) throw new Error("Expected Surface Categorise question.");
+    const surface = {
+      ...fresh,
+      content: [{ ...question, attrs: { ...question.attrs, id: createEmbeddedNodeId() } }],
+    };
+    const publication = projectLearnerPublication(
+      supported({ type: "doc", content: [surface] }),
+      builtInBlockRegistry,
+      builtInSurfaceVariantRegistry,
+    );
+    expect(publication.status).toBe("supported");
+    if (publication.status !== "supported") throw new Error("Expected supported publication");
+    expect(JSON.stringify(publication.learnerContent)).not.toContain('"assessment":');
   });
 });
 
