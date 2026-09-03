@@ -12,7 +12,7 @@ import {
   getQuizChildInteractionTarget,
   moveQuizQuestion,
   reorderQuizQuestion,
-} from "./quiz-authoring";
+} from "@/editor/assessment/quiz/quiz-authoring";
 import { getQuizSummary } from "@/editor/assessment/quiz/quiz-shared";
 
 export function useQuizAuthoringController({

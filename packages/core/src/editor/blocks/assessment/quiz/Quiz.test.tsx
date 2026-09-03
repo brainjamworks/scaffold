@@ -117,7 +117,7 @@ import { FillBlanksRuntimeExtension } from "../fill-blanks/fill-blanks-runtime-e
 import { DragDropAuthoringExtension } from "../drag-drop";
 import { QuizNode } from "./node";
 import { QuizAuthoringExtension, QuizRuntimeExtension } from "./index";
-import { getQuizChildBlock } from "./quiz-authoring";
+import { getQuizChildBlock } from "@/editor/assessment/quiz/quiz-authoring";
 import { quizBlockDefinition } from "./quiz-definition";
 import { QuizTimer } from "@/editor/assessment/quiz/QuizRuntime";
 import { useQuizAuthoringController } from "./use-quiz-authoring-controller";

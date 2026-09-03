@@ -10,7 +10,7 @@ import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/styles/globals.css";
 
-import { QuizStrip } from "./QuizStrip";
+import { QuizStrip } from "@/editor/assessment/quiz/QuizStrip";
 import "./Quiz.css";
 import "./QuizAuthoringControls.css";
 

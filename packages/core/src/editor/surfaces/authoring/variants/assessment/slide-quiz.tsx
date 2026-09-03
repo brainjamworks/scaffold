@@ -13,8 +13,8 @@ import { imageHotspotConfiguration } from "@/editor/blocks/assessment/image-hots
 import { matchingConfiguration } from "@/editor/blocks/assessment/matching/matching-definition";
 import { mcqConfiguration } from "@/editor/blocks/assessment/mcq/mcq-definition";
 import { multiselectConfiguration } from "@/editor/blocks/assessment/multiselect/multiselect-definition";
-import { QuizEmptyStage } from "@/editor/blocks/assessment/quiz/QuizEmptyStage";
-import type { ResolvedQuickAction } from "@/editor/blocks/assessment/quiz/quick-actions";
+import { QuizEmptyStage } from "@/editor/assessment/quiz/QuizEmptyStage";
+import type { ResolvedQuickAction } from "@/editor/assessment/quiz/quick-actions";
 import { sequencingConfiguration } from "@/editor/blocks/assessment/sequencing/sequencing-definition";
 import { deriveSettingsSheetDefinition } from "@/editor/configuration/settings-sheet-derivation";
 import type { ConfigurationDefinition } from "@/editor/configuration/definition";

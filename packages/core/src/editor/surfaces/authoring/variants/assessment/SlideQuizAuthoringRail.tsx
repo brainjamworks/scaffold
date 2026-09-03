@@ -1,9 +1,9 @@
 import { ListChecksIcon as ListChecks } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/core";
 
-import { QuizStageMeta } from "@/editor/blocks/assessment/quiz/QuizStageMeta";
-import { QuizStrip } from "@/editor/blocks/assessment/quiz/QuizStrip";
-import type { ResolvedQuickAction } from "@/editor/blocks/assessment/quiz/quick-actions";
+import { QuizStageMeta } from "@/editor/assessment/quiz/QuizStageMeta";
+import { QuizStrip } from "@/editor/assessment/quiz/QuizStrip";
+import type { ResolvedQuickAction } from "@/editor/assessment/quiz/quick-actions";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 

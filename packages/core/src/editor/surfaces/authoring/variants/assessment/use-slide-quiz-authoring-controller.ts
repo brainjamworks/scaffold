@@ -9,7 +9,7 @@ import {
   getQuizAssessmentCatalogItems,
   moveQuizQuestion,
   reorderQuizQuestion,
-} from "@/editor/blocks/assessment/quiz/quiz-authoring";
+} from "@/editor/assessment/quiz/quiz-authoring";
 import { getQuizSummary } from "@/editor/assessment/quiz/quiz-shared";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import { SURFACE_CATEGORISE_QUESTION_NODE_TYPE } from "@/editor/surfaces/model/assessment/surface-categorise-question-node";

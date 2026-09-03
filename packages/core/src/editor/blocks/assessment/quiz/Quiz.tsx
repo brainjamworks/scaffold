@@ -2,12 +2,12 @@ import { NodeViewContent, type NodeViewProps } from "@tiptap/react";
 
 import { cn } from "@/lib/cn";
 
-import { QuizEmptyStage } from "./QuizEmptyStage";
+import { QuizEmptyStage } from "@/editor/assessment/quiz/QuizEmptyStage";
 import { QuizHeader } from "./QuizHeader";
 import { QuizActiveStageStyle } from "@/editor/assessment/quiz/QuizRuntime";
-import { QuizStageMeta } from "./QuizStageMeta";
-import { QuizStrip } from "./QuizStrip";
-import { resolveActiveQuestionQuickActions } from "./quick-actions";
+import { QuizStageMeta } from "@/editor/assessment/quiz/QuizStageMeta";
+import { QuizStrip } from "@/editor/assessment/quiz/QuizStrip";
+import { resolveActiveQuestionQuickActions } from "@/editor/assessment/quiz/quick-actions";
 import { useActiveQuestionScrollReset } from "@/editor/assessment/quiz/use-active-question-scroll-reset";
 import { useQuizAuthoringController } from "./use-quiz-authoring-controller";
 
