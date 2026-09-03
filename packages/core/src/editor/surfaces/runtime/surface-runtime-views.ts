@@ -6,10 +6,10 @@ import {
 } from "./surface-runtime-view-registry";
 import { PageDefaultSurfaceRuntimeView } from "./variants/page-default";
 import { SlideCompositionSurfaceRuntimeView } from "./variants/slide-composition";
-import { SlideCoverSurfaceRuntimeView } from "./variants/slide-cover";
-import { SlideImageBandSurfaceRuntimeView } from "./variants/slide-image-band";
-import { SlideImageCoverSurfaceRuntimeView } from "./variants/slide-image-cover";
-import { SlideModuleCoverSurfaceRuntimeView } from "./variants/slide-module-cover";
+import { SlideCoverSurfaceRuntimeView } from "../variants/slide-cover/runtime";
+import { SlideImageBandSurfaceRuntimeView } from "../variants/slide-image-band/runtime";
+import { SlideImageCoverSurfaceRuntimeView } from "../variants/slide-image-cover/runtime";
+import { SlideModuleCoverSurfaceRuntimeView } from "../variants/slide-module-cover/runtime";
 import { SlideCategoriseQuestionSurfaceRuntimeView } from "../variants/slide-categorise-question/runtime";
 import { SlideDropdownQuestionSurfaceRuntimeView } from "../variants/slide-dropdown-question/runtime";
 import { SlideDragDropQuestionSurfaceRuntimeView } from "../variants/slide-drag-drop-question/runtime";

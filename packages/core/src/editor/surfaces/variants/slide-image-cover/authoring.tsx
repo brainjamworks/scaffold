@@ -7,30 +7,30 @@ import {
 import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
 import { MediaReplaceButton } from "@/ui/components/app/MediaReplaceButton/MediaReplaceButton";
 import {
-  readSlideImageBandSurfaceSettings,
-  slideImageBandDataAttrs,
-  writeSlideImageBandImageSettings,
-} from "@/editor/surfaces/model/templates/slide-image-band";
+  readSlideImageCoverSurfaceSettings,
+  slideImageCoverDataAttrs,
+  writeSlideImageCoverImageSettings,
+} from "@/editor/surfaces/model/templates/slide-image-cover";
 import { setSurfaceSettingsChecked } from "@/editor/surfaces/authoring/commands/surface-settings-command";
-import { resolveSlideImageBandImagePick } from "@/editor/surfaces/authoring/chrome/surface-image-pick";
+import { resolveSlideImageCoverImagePick } from "@/editor/surfaces/authoring/chrome/surface-image-pick";
 
-import { SlideImageBandImageSlot } from "../../view/variants/slide-image-band-image";
-import { SurfaceAuthoringFrame } from "../views/SurfaceAuthoringFrame";
-import type { SurfaceAuthoringViewProps } from "../surface-authoring-view-registry";
-import "../../view/variants/slide-image-band.css";
+import { SlideImageCoverImageSlot } from "../../view/variants/slide-image-cover-image";
+import "./styles.css";
+import { SurfaceAuthoringFrame } from "../../authoring/views/SurfaceAuthoringFrame";
+import type { SurfaceAuthoringViewProps } from "../../authoring/surface-authoring-view-registry";
 
-export function SlideImageBandSurfaceAuthoringView(props: SurfaceAuthoringViewProps) {
+export function SlideImageCoverSurfaceAuthoringView(props: SurfaceAuthoringViewProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
-  const settings = readSlideImageBandSurfaceSettings(props.node.attrs["settings"]);
+  const settings = readSlideImageCoverSurfaceSettings(props.node.attrs["settings"]);
 
   const handlePickerResolved = (result: FilePickerResult) => {
-    const image = resolveSlideImageBandImagePick(result);
+    const image = resolveSlideImageCoverImagePick(result);
     if (!image) return;
     const checked = setSurfaceSettingsChecked({
       editor: props.editor,
       surfaceId: props.node.attrs["id"],
       schema: props.definition.settingsSchema,
-      value: writeSlideImageBandImageSettings(props.node.attrs["settings"], image),
+      value: writeSlideImageCoverImageSettings(props.node.attrs["settings"], image),
     });
     if (!checked.ok) return;
     setPickerOpen(false);
@@ -39,16 +39,16 @@ export function SlideImageBandSurfaceAuthoringView(props: SurfaceAuthoringViewPr
   return (
     <SurfaceAuthoringFrame
       {...props}
-      attributes={slideImageBandDataAttrs(props.node.attrs["settings"])}
-      className="sc-slide-image-band-surface-view sc-slide-image-band-surface-authoring-view"
+      attributes={slideImageCoverDataAttrs(props.node.attrs["settings"])}
+      className="sc-slide-image-cover-surface-view sc-slide-image-cover-surface-authoring-view"
     >
-      <SlideImageBandImageSlot
+      <SlideImageCoverImageSlot
         emptyAction={
           props.editor.isEditable ? (
             <MediaEmptyAction
-              className="sc-slide-image-band-image__empty"
-              aria-label="Choose band image"
-              label="Choose band image"
+              className="sc-slide-image-cover-image__empty"
+              aria-label="Choose cover image"
+              label="Choose cover image"
               onClick={() => setPickerOpen(true)}
             />
           ) : null
@@ -57,7 +57,7 @@ export function SlideImageBandSurfaceAuthoringView(props: SurfaceAuthoringViewPr
         replaceAction={
           props.editor.isEditable ? (
             <MediaReplaceButton
-              aria-label="Replace band image"
+              aria-label="Replace cover image"
               onClick={() => setPickerOpen(true)}
             />
           ) : null
@@ -69,7 +69,7 @@ export function SlideImageBandSurfaceAuthoringView(props: SurfaceAuthoringViewPr
         kind="media"
         allowedMediaTypes={["image"]}
         defaultMediaType="image"
-        title={settings.image.imageUrl ? "Replace band image" : "Choose band image"}
+        title={settings.image.imageUrl ? "Replace cover image" : "Choose cover image"}
         onResolved={handlePickerResolved}
       />
     </SurfaceAuthoringFrame>

@@ -30,10 +30,10 @@ import {
 } from "../surface-runtime-view-registry";
 import { PageDefaultSurfaceRuntimeView } from "../variants/page-default";
 import { SlideCompositionSurfaceRuntimeView } from "../variants/slide-composition";
-import { SlideCoverSurfaceRuntimeView } from "../variants/slide-cover";
-import { SlideImageBandSurfaceRuntimeView } from "../variants/slide-image-band";
-import { SlideImageCoverSurfaceRuntimeView } from "../variants/slide-image-cover";
-import { SlideModuleCoverSurfaceRuntimeView } from "../variants/slide-module-cover";
+import { SlideCoverSurfaceRuntimeView } from "../../variants/slide-cover/runtime";
+import { SlideImageBandSurfaceRuntimeView } from "../../variants/slide-image-band/runtime";
+import { SlideImageCoverSurfaceRuntimeView } from "../../variants/slide-image-cover/runtime";
+import { SlideModuleCoverSurfaceRuntimeView } from "../../variants/slide-module-cover/runtime";
 import { SurfaceRuntimeFrame } from "../views/SurfaceRuntimeFrame";
 import { createSurfaceRuntimeNode, resolveSurfaceRuntimeNodeView } from "./surface-runtime-node";
 import { RegionNode } from "../../model/nodes/region-node";

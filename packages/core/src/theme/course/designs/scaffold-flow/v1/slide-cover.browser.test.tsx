@@ -2,9 +2,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { AuthoringSurfaceView } from "@/editor/surfaces/authoring/views/AuthoringSurfaceView";
-import "@/editor/surfaces/authoring/variants/slide-cover.css";
 import { RuntimeSurfaceView } from "@/editor/surfaces/runtime/views/RuntimeSurfaceView";
-import "@/editor/surfaces/view/variants/slide-cover.css";
+import "@/editor/surfaces/variants/slide-cover/styles.css";
 import "@/styles/globals.css";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";

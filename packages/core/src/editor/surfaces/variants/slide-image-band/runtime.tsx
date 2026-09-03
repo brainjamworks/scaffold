@@ -4,9 +4,9 @@ import {
 } from "@/editor/surfaces/model/templates/slide-image-band";
 
 import { SlideImageBandImageSlot } from "../../view/variants/slide-image-band-image";
-import "../../view/variants/slide-image-band.css";
-import { SurfaceRuntimeFrame } from "../views/SurfaceRuntimeFrame";
-import type { SurfaceRuntimeViewProps } from "../surface-runtime-view-registry";
+import "./styles.css";
+import { SurfaceRuntimeFrame } from "../../runtime/views/SurfaceRuntimeFrame";
+import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
 
 export function SlideImageBandSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const settings = readSlideImageBandSurfaceSettings(props.node.attrs["settings"]);

@@ -8,10 +8,10 @@ import "@/theme/course/designs/scaffold-flow/v1/theme.css";
 
 import "../authoring/views/AuthoringSurfaceView.css";
 import "../runtime/views/RuntimeSurfaceView.css";
-import "../view/variants/slide-image-band.css";
-import "../view/variants/slide-image-cover.css";
+import "../variants/slide-image-band/styles.css";
+import "../variants/slide-image-cover/styles.css";
 import "../view/variants/slide-layout.css";
-import "../view/variants/slide-module-cover.css";
+import "../variants/slide-module-cover/styles.css";
 import "../view/variants/surface-owned-image-slot.css";
 
 const mountedStyles: HTMLStyleElement[] = [];

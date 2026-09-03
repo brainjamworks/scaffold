@@ -1,7 +1,6 @@
-import { SurfaceAuthoringFrame } from "../views/SurfaceAuthoringFrame";
-import type { SurfaceAuthoringViewProps } from "../surface-authoring-view-registry";
-import "../../view/variants/slide-cover.css";
-import "./slide-cover.css";
+import "./styles.css";
+import { SurfaceAuthoringFrame } from "../../authoring/views/SurfaceAuthoringFrame";
+import type { SurfaceAuthoringViewProps } from "../../authoring/surface-authoring-view-registry";
 
 export function SlideCoverSurfaceAuthoringView(props: SurfaceAuthoringViewProps) {
   return (

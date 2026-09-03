@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "@/styles/globals.css";
 import "@/editor/rich-text/view/text-alignment.css";
-import "../view/variants/slide-cover.css";
-import "../view/variants/slide-image-band.css";
-import "../view/variants/slide-image-cover.css";
+import "../variants/slide-cover/styles.css";
+import "../variants/slide-image-band/styles.css";
+import "../variants/slide-image-cover/styles.css";
 
 type Renderer = "authoring" | "runtime";
 type VerticalPosition = "top" | "middle" | "bottom";

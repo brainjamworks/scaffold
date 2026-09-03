@@ -1,8 +1,7 @@
-import { SurfaceAuthoringFrame } from "../views/SurfaceAuthoringFrame";
-import type { SurfaceAuthoringViewProps } from "../surface-authoring-view-registry";
-import "../../view/variants/slide-module-cover.css";
-import { useModuleCoverTitleFit } from "../../view/use-module-cover-title-fit";
-import "./slide-module-cover.css";
+import "./styles.css";
+import { SurfaceAuthoringFrame } from "../../authoring/views/SurfaceAuthoringFrame";
+import type { SurfaceAuthoringViewProps } from "../../authoring/surface-authoring-view-registry";
+import { useModuleCoverTitleFit } from "./use-module-cover-title-fit";
 
 export function SlideModuleCoverSurfaceAuthoringView(props: SurfaceAuthoringViewProps) {
   const surfaceRef = useModuleCoverTitleFit();

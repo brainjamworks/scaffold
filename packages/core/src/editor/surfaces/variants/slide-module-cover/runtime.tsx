@@ -1,7 +1,7 @@
-import "../../view/variants/slide-module-cover.css";
-import { useModuleCoverTitleFit } from "../../view/use-module-cover-title-fit";
-import { SurfaceRuntimeFrame } from "../views/SurfaceRuntimeFrame";
-import type { SurfaceRuntimeViewProps } from "../surface-runtime-view-registry";
+import "./styles.css";
+import { useModuleCoverTitleFit } from "./use-module-cover-title-fit";
+import { SurfaceRuntimeFrame } from "../../runtime/views/SurfaceRuntimeFrame";
+import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
 
 export function SlideModuleCoverSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const surfaceRef = useModuleCoverTitleFit();

@@ -39,10 +39,10 @@ import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 
 import { PageDefaultSurfaceAuthoringView } from "../variants/page-default";
 import { SlideCompositionSurfaceAuthoringView } from "../variants/slide-composition";
-import { SlideCoverSurfaceAuthoringView } from "../variants/slide-cover";
-import { SlideImageBandSurfaceAuthoringView } from "../variants/slide-image-band";
-import { SlideImageCoverSurfaceAuthoringView } from "../variants/slide-image-cover";
-import { SlideModuleCoverSurfaceAuthoringView } from "../variants/slide-module-cover";
+import { SlideCoverSurfaceAuthoringView } from "../../variants/slide-cover/authoring";
+import { SlideImageBandSurfaceAuthoringView } from "../../variants/slide-image-band/authoring";
+import { SlideImageCoverSurfaceAuthoringView } from "../../variants/slide-image-cover/authoring";
+import { SlideModuleCoverSurfaceAuthoringView } from "../../variants/slide-module-cover/authoring";
 import {
   createSurfaceAuthoringViewMap,
   type SurfaceAuthoringViewMap,

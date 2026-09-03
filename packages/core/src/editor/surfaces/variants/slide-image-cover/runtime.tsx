@@ -4,9 +4,9 @@ import {
 } from "@/editor/surfaces/model/templates/slide-image-cover";
 
 import { SlideImageCoverImageSlot } from "../../view/variants/slide-image-cover-image";
-import "../../view/variants/slide-image-cover.css";
-import { SurfaceRuntimeFrame } from "../views/SurfaceRuntimeFrame";
-import type { SurfaceRuntimeViewProps } from "../surface-runtime-view-registry";
+import "./styles.css";
+import { SurfaceRuntimeFrame } from "../../runtime/views/SurfaceRuntimeFrame";
+import type { SurfaceRuntimeViewProps } from "../../runtime/surface-runtime-view-registry";
 
 export function SlideImageCoverSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
   const settings = readSlideImageCoverSurfaceSettings(props.node.attrs["settings"]);
