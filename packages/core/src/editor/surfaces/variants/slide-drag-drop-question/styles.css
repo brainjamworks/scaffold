@@ -23,12 +23,6 @@
     padding: clamp(0.75rem, 2cqw, 1.25rem) clamp(1rem, 4cqw, 2.5rem);
   }
 
-  .sc-slide-drag-drop-question-surface-runtime-view
-    [data-surface-content]
-    [data-node="surface_drag_drop_question"] {
-    display: none;
-  }
-
   .sc-slide-drag-drop-question-surface-authoring-view [data-node="drag-drop-canvas"] {
     box-sizing: border-box;
     display: grid;
