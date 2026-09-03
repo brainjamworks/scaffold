@@ -2,6 +2,7 @@ import type { AnyExtension } from "@tiptap/core";
 
 import { CategoriseRuntimeExtension } from "./assessment/categorise/categorise-runtime-extension";
 import { DropdownRuntimeExtension } from "./assessment/dropdown/dropdown-runtime-extension";
+import { DragDropRuntimeExtension } from "./assessment/drag-drop/drag-drop-runtime-extension";
 import { FillBlanksRuntimeExtension } from "./assessment/fill-blanks/fill-blanks-runtime-extension";
 import { ImageHotspotRuntimeExtension } from "./assessment/image-hotspot/image-hotspot-runtime-extension";
 import { MatchingRuntimeExtension } from "./assessment/matching/matching-runtime-extension";
@@ -49,6 +50,7 @@ export const builtInBlockRuntimeBindings: readonly BlockRuntimeBinding[] = Objec
     { nodeType: "flashcard", extension: FlashcardRuntimeExtension },
     { nodeType: "categorise", extension: CategoriseRuntimeExtension },
     { nodeType: "dropdown", extension: DropdownRuntimeExtension },
+    { nodeType: "drag_drop", extension: DragDropRuntimeExtension },
     { nodeType: "fill_blanks", extension: FillBlanksRuntimeExtension },
     { nodeType: "image_hotspot", extension: ImageHotspotRuntimeExtension },
     { nodeType: "matching", extension: MatchingRuntimeExtension },

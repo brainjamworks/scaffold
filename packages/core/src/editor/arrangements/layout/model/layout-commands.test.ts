@@ -86,7 +86,7 @@ const testLayoutRegistry = createLayoutRegistry([
   missingIdsLayoutDefinition,
   placeholderLayoutDefinition,
 ]);
-const EMPTY_BLOCK_DUPLICATIONS = Object.freeze({
+const EMPTY_IDENTITY_REWRITES = Object.freeze({
   getByNodeType: () => undefined,
   hasNodeType: (nodeType: string) => nodeType === "test_block",
 });
@@ -762,7 +762,7 @@ describe("layout section reorder commands", () => {
     ]);
 
     expect(
-      duplicateLayoutAt(editor, nodePos(editor, "layout", "layout-a"), EMPTY_BLOCK_DUPLICATIONS),
+      duplicateLayoutAt(editor, nodePos(editor, "layout", "layout-a"), EMPTY_IDENTITY_REWRITES),
     ).toBe(true);
 
     const children = surfaceChildren(editor);
@@ -788,7 +788,7 @@ describe("layout section reorder commands", () => {
       duplicateLayoutSectionAt(
         editor,
         nodePos(editor, "section", "section-a"),
-        EMPTY_BLOCK_DUPLICATIONS,
+        EMPTY_IDENTITY_REWRITES,
       ),
     ).toBe(true);
 
@@ -812,7 +812,7 @@ describe("layout section reorder commands", () => {
         ]),
       ]),
     ]);
-    const duplication = vi.fn(({ content, nodeIdChanges }) => ({
+    const rewrite = vi.fn(({ content, nodeIdChanges }) => ({
       ...content,
       attrs: {
         ...content.attrs,
@@ -822,16 +822,16 @@ describe("layout section reorder commands", () => {
         },
       },
     }));
-    const blockDuplications = Object.freeze({
-      getByNodeType: (nodeType: string) => (nodeType === "test_block" ? duplication : undefined),
+    const identityRewrites = Object.freeze({
+      getByNodeType: (nodeType: string) => (nodeType === "test_block" ? rewrite : undefined),
       hasNodeType: (nodeType: string) => nodeType === "test_block",
     });
 
-    expect(duplicateLayoutAt(editor, nodePos(editor, "layout"), blockDuplications)).toBe(true);
+    expect(duplicateLayoutAt(editor, nodePos(editor, "layout"), identityRewrites)).toBe(true);
 
     const layouts = surfaceChildren(editor).filter((node) => node.type === "layout");
     const clonedBlock = layouts[1]?.content?.[0]?.content?.[0];
-    expect(duplication).toHaveBeenCalledOnce();
+    expect(rewrite).toHaveBeenCalledOnce();
     expect(clonedBlock?.attrs?.["id"]).not.toBe("block-a");
     expect(clonedBlock?.attrs?.["data"]).toEqual({
       nodeRef: clonedBlock?.attrs?.["id"],
@@ -853,26 +853,47 @@ describe("layout section reorder commands", () => {
         section("section-b", [block("b")]),
       ]),
     ]);
-    const duplication = vi.fn(({ content, nodeIdChanges }) => ({
+    const rewrite = vi.fn(({ content, nodeIdChanges }) => ({
       ...content,
       attrs: {
         ...content.attrs,
         data: { nodeRef: nodeIdChanges.get(content.attrs?.["data"]?.nodeRef) },
       },
     }));
-    const blockDuplications = Object.freeze({
-      getByNodeType: (nodeType: string) => (nodeType === "test_block" ? duplication : undefined),
+    const identityRewrites = Object.freeze({
+      getByNodeType: (nodeType: string) => (nodeType === "test_block" ? rewrite : undefined),
       hasNodeType: (nodeType: string) => nodeType === "test_block",
     });
 
     expect(
-      duplicateLayoutSectionAt(editor, nodePos(editor, "section", "section-a"), blockDuplications),
+      duplicateLayoutSectionAt(editor, nodePos(editor, "section", "section-a"), identityRewrites),
     ).toBe(true);
 
     const clonedBlock = layoutAt(editor).content?.[1]?.content?.[0];
-    expect(duplication).toHaveBeenCalledOnce();
+    expect(rewrite).toHaveBeenCalledOnce();
     expect(clonedBlock?.attrs?.["id"]).not.toBe("block-a");
     expect(clonedBlock?.attrs?.["data"]?.nodeRef).toBe(clonedBlock?.attrs?.["id"]);
+
+    editor.destroy();
+  });
+
+  it("exposes an identity rewrite invariant without mutating the editor", () => {
+    const editor = makeCourseEditor([
+      layout([section("section-a", [block("block-a")])]),
+    ]);
+    const before = editor.getJSON();
+    const identityRewrites = Object.freeze({
+      getByNodeType: (nodeType: string) =>
+        nodeType === "test_block"
+          ? ({ content }: { content: JSONContent }) => ({ ...content, type: "paragraph" })
+          : undefined,
+      hasNodeType: (nodeType: string) => nodeType === "test_block",
+    });
+
+    expect(() =>
+      duplicateLayoutAt(editor, nodePos(editor, "layout"), identityRewrites),
+    ).toThrow(/Content identity rewrite for "test_block" changed a node type/);
+    expect(editor.getJSON()).toEqual(before);
 
     editor.destroy();
   });

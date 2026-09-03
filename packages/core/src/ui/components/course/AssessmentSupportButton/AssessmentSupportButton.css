@@ -12,10 +12,15 @@
 
 @layer sc-components {
   .sc-course-assessment-support-button {
+    --sc-course-assessment-control-min-height: max(
+      2.75rem,
+      calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1))
+    );
+
     box-sizing: border-box;
     max-width: 100%;
     min-width: 0;
-    min-height: 2.75rem;
+    min-height: var(--sc-course-assessment-control-min-height);
   }
 
   .sc-course-assessment-support-button__icon,

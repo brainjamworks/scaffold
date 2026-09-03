@@ -43,13 +43,12 @@ const editors: Editor[] = [];
 const coreCapabilities = Object.freeze({
   blocks: Object.freeze({
     registry: builtInBlockRegistry,
-    duplication: Object.freeze({
-      getByNodeType: () => undefined,
-      hasNodeType: (nodeType: string) => builtInBlockRegistry.getByNodeType(nodeType) !== undefined,
-    }),
   }),
   layouts: Object.freeze({ registry: builtInLayoutRegistry }),
   surfaces: Object.freeze({ registry: builtInSurfaceVariantRegistry }),
+  contentIdentity: Object.freeze({
+    rewrites: Object.freeze({ getByNodeType: () => undefined, hasNodeType: () => false }),
+  }),
   documentSemantics: createSemanticDefinitionLookup({
     blocks: builtInBlockRegistry,
     layouts: builtInLayoutRegistry,

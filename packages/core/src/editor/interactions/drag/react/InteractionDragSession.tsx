@@ -9,6 +9,7 @@ import { RestrictToHorizontalAxis, RestrictToVerticalAxis } from "@dnd-kit/abstr
 import { closestCenter, pointerIntersection } from "@dnd-kit/collision";
 import {
   Accessibility,
+  DragDropManager,
   Draggable,
   KeyboardSensor,
   type KeyboardSensorOptions,
@@ -19,7 +20,6 @@ import {
   DragDropProvider,
   DragOverlay,
   type CollisionEvent,
-  type DragDropManager,
   type DragEndEvent,
   type DragMoveEvent,
   type DragOverEvent,
@@ -113,6 +113,7 @@ export interface InteractionDragSessionProps<ActiveData, OverData> {
   readonly canDrop?: (active: ActiveData, over: OverData) => boolean;
   readonly children: ReactNode;
   readonly collisionPolicy: InteractionCollisionPolicy;
+  readonly disabled?: boolean;
   readonly labels: DragAccessibilityLabels;
   readonly onCancel?: (reason: DragCancellationReason) => void;
   readonly onEnd: (event: InteractionDragEvent<ActiveData, OverData>) => void;
@@ -206,6 +207,7 @@ export function InteractionDragSession<ActiveData, OverData>({
   canDrop,
   children,
   collisionPolicy,
+  disabled = false,
   labels,
   onCancel,
   onEnd,
@@ -226,6 +228,29 @@ export function InteractionDragSession<ActiveData, OverData>({
   const callbacksRef = useRef({ onCancel, onEnd, onMove, onStart });
   callbacksRef.current = { onCancel, onEnd, onMove, onStart };
   const reducedMotion = useReducedMotion(environment?.ownerWindow ?? null);
+  const sensors = useInteractionSensors(profile);
+  const modifiers = useInteractionModifiers(profile);
+  const accessibilityContainer =
+    environment?.overlayHost ?? (typeof document === "undefined" ? null : document.body);
+  const plugins = useInteractionPlugins(
+    accessibilityMode,
+    accessibilityContainer,
+    labels,
+    sessionId,
+  );
+  const managerRef = useRef<DragDropManager | null>(null);
+  if (!managerRef.current) {
+    const manager = new DragDropManager({ modifiers, plugins, sensors });
+    const destroy = manager.destroy.bind(manager);
+    let destroyScheduled = false;
+    manager.destroy = () => {
+      if (destroyScheduled) return;
+      destroyScheduled = true;
+      // dnd-kit invokes this from insertion-effect cleanup; destruction publishes registry updates.
+      queueMicrotask(destroy);
+    };
+    managerRef.current = manager;
+  }
 
   const releaseActiveSession = useCallback(() => {
     const activeSession = activeSessionRef.current;
@@ -265,6 +290,10 @@ export function InteractionDragSession<ActiveData, OverData>({
       cancelActiveSession("environment-lost");
     }
   }, [cancelActiveSession, environment]);
+
+  useEffect(() => {
+    if (disabled) cancelActiveSession("source-removed");
+  }, [cancelActiveSession, disabled]);
 
   useLayoutEffect(
     () => () => {
@@ -501,25 +530,15 @@ export function InteractionDragSession<ActiveData, OverData>({
     () => ({
       accessibilityMode,
       collisionDetector,
-      enabled: environment !== null,
+      enabled: environment !== null && !disabled,
       reducedMotion,
       sourceRemoved,
     }),
-    [accessibilityMode, collisionDetector, environment, reducedMotion, sourceRemoved],
+    [accessibilityMode, collisionDetector, disabled, environment, reducedMotion, sourceRemoved],
   );
-  const sensors = useInteractionSensors(profile);
-  const modifiers = useInteractionModifiers(profile);
-  const accessibilityContainer =
-    environment?.overlayHost ?? (typeof document === "undefined" ? null : document.body);
-  const plugins = useInteractionPlugins(
-    accessibilityMode,
-    accessibilityContainer,
-    labels,
-    sessionId,
-  );
-
   return (
     <DragDropProvider
+      manager={managerRef.current}
       modifiers={modifiers}
       plugins={plugins}
       sensors={sensors}

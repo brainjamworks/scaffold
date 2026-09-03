@@ -1,5 +1,6 @@
 import { Theme } from "@radix-ui/themes";
 import { createRoot, type Root } from "react-dom/client";
+import type { CSSProperties } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "@/styles/globals.css";
@@ -7,7 +8,6 @@ import "@/theme/course/designs/pocket-atlas/v1/theme.css";
 import "@/theme/course/designs/scaffold-flow/v1/theme.css";
 
 import { AssessmentSupportButton } from "../AssessmentSupportButton/AssessmentSupportButton";
-import { AssessmentSupportStatus } from "../AssessmentSupportStatus/AssessmentSupportStatus";
 import { AssessmentSubmissionControl } from "./AssessmentSubmissionControl";
 
 let root: Root | null = null;
@@ -52,9 +52,9 @@ describe("assessment Course control geometry", () => {
         ".sc-course-assessment-submission-control__button",
       );
 
-      expect(support.getBoundingClientRect().height).toBe(44);
-      expect(adjacentSupport.getBoundingClientRect().height).toBe(44);
-      expect(submission.getBoundingClientRect().height).toBe(44);
+      expect(support.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+      expect(adjacentSupport.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+      expect(submission.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
       expect(getComputedStyle(support).boxSizing).toBe("border-box");
       expect(getComputedStyle(support).marginLeft).toBe("0px");
       expect(adjacentSupport.getBoundingClientRect().left).toBeGreaterThanOrEqual(
@@ -63,14 +63,51 @@ describe("assessment Course control geometry", () => {
     },
   );
 
-  it("keeps terminal statuses rounded under a non-full Course radius", async () => {
+  it.each(["sc-course-theme-scaffold-flow-v1", "sc-course-theme-pocket-atlas-v1"] as const)(
+    "preserves 44px support and submit targets after slideshow scaling in %s",
+    async (themeClass) => {
+      host = document.createElement("div");
+      document.body.append(host);
+      root = createRoot(host);
+      const scaledCanvasStyle = {
+        "--sc-slideshow-canvas-inverse-scale": 2.56,
+        transform: "scale(0.390625)",
+        transformOrigin: "top left",
+      } as CSSProperties;
+      root.render(
+        <Theme asChild radius="large">
+          <section className={`sc-course ${themeClass}`} style={scaledCanvasStyle}>
+            <AssessmentSupportButton intent="hint">Show a hint</AssessmentSupportButton>
+            <AssessmentSubmissionControl state="submit" disabled onAction={() => {}} />
+          </section>
+        </Theme>,
+      );
+
+      await waitForCondition(() =>
+        host?.querySelector(".sc-course-assessment-submission-control__button"),
+      );
+
+      const support = requireElement<HTMLElement>(host, ".sc-course-assessment-support-button");
+      const submission = requireElement<HTMLElement>(
+        host,
+        ".sc-course-assessment-submission-control__button",
+      );
+
+      expect(support.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+      expect(submission.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    },
+  );
+
+  it("keeps the answer toggle and terminal status rounded under a non-full Course radius", async () => {
     host = document.createElement("div");
     document.body.append(host);
     root = createRoot(host);
     root.render(
       <Theme asChild radius="large">
         <section className="sc-course sc-course-theme-scaffold-flow-v1">
-          <AssessmentSupportStatus status="answer-revealed" />
+          <AssessmentSupportButton intent="answer" aria-pressed="true">
+            Show answer
+          </AssessmentSupportButton>
           <AssessmentSubmissionControl state="correct" />
         </section>
       </Theme>,
@@ -80,7 +117,7 @@ describe("assessment Course control geometry", () => {
       host?.querySelector(".sc-course-assessment-submission-control__status"),
     );
 
-    const support = requireElement<HTMLElement>(host, ".sc-course-assessment-support-status");
+    const support = requireElement<HTMLElement>(host, ".sc-course-assessment-support-button");
     const submission = requireElement<HTMLElement>(
       host,
       ".sc-course-assessment-submission-control__status",

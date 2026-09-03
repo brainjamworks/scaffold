@@ -391,14 +391,12 @@ function makeEditor(presentation: "carousel" | "vertical", includeSecondTimeline
   const capabilities = Object.freeze({
     blocks: Object.freeze({
       registry: builtInBlockRegistry,
-      duplication: Object.freeze({
-        getByNodeType: () => undefined,
-        hasNodeType: (nodeType: string) =>
-          builtInBlockRegistry.getByNodeType(nodeType) !== undefined,
-      }),
     }),
     layouts: Object.freeze({ registry: builtInLayoutRegistry }),
     surfaces: Object.freeze({ registry: builtInSurfaceVariantRegistry }),
+    contentIdentity: Object.freeze({
+      rewrites: Object.freeze({ getByNodeType: () => undefined, hasNodeType: () => false }),
+    }),
     documentSemantics: semantics,
   });
   const editor = new Editor({

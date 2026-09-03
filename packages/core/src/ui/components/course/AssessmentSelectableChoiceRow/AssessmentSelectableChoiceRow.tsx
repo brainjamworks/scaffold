@@ -2,7 +2,7 @@ import { CheckIcon as Check, XIcon as X } from "@phosphor-icons/react";
 import { useId, type ReactNode } from "react";
 
 import { describeChoiceAccessibilityState } from "@/editor/blocks/assessment/shared/chrome/choice-accessibility";
-import type { ChoiceState } from "@/editor/blocks/assessment/shared/runtime/types";
+import type { ChoiceState } from "@/editor/assessment/shared/runtime/types";
 import { cn } from "@/lib/cn";
 import { iconXs } from "@/ui/tokens/icon-sizes";
 

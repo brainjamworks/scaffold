@@ -84,13 +84,13 @@ export function LayoutMenuBubbleContent({
   const duplicateLabel = snapshot.kind === "layout" ? "Duplicate layout" : "Duplicate section";
   const deleteLabel = snapshot.kind === "layout" ? "Delete layout" : "Delete section";
   const duplicateTarget = () => {
-    const blockDuplications = getScaffoldCapabilitiesForEditor(editor).blocks.duplication;
+    const identityRewrites = getScaffoldCapabilitiesForEditor(editor).contentIdentity.rewrites;
     if (snapshot.kind === "layout") {
-      duplicateLayoutAt(editor, snapshot.layoutPos, blockDuplications);
+      duplicateLayoutAt(editor, snapshot.layoutPos, identityRewrites);
       return;
     }
 
-    duplicateLayoutSectionAt(editor, snapshot.sectionPos, blockDuplications);
+    duplicateLayoutSectionAt(editor, snapshot.sectionPos, identityRewrites);
   };
   const deleteTarget = () => {
     const deleted =
@@ -122,7 +122,10 @@ export function LayoutMenuBubbleContent({
           pos={pos}
           targetId={targetId}
           attr={quickMenu.attr}
-          {...(quickMenu.schema ? { schema: quickMenu.schema } : {})}
+          schema={quickMenu.schema}
+          {...(quickMenu.editSchema ? { editSchema: quickMenu.editSchema } : {})}
+          {...(quickMenu.read ? { read: quickMenu.read } : {})}
+          {...(quickMenu.apply ? { apply: quickMenu.apply } : {})}
           controls={quickMenu.controls}
         />
       ) : null}

@@ -7,7 +7,7 @@ import { isActiveBoundedContainerAtPosition } from "@/editor/bounded-containers/
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import {
   cloneJsonWithNewStableIds,
-  type BlockDuplicationLookup,
+  type ContentIdentityRewriteLookup,
 } from "@/document/model/identity/clone-with-new-ids";
 import { isValidDocPos } from "@/editor/prosemirror/position/document-position";
 import {
@@ -92,16 +92,15 @@ export function appendLayoutSectionAt(
 export function duplicateLayoutAt(
   editor: Editor,
   layoutPos: number,
-  blockDuplications: BlockDuplicationLookup,
+  identityRewrites: ContentIdentityRewriteLookup,
 ): boolean {
   if (!isValidDocPos(editor.state.doc, layoutPos)) return false;
   const layout = editor.state.doc.nodeAt(layoutPos);
   if (!layout || layout.type.name !== "layout") return false;
 
+  const cloneJson = cloneJsonWithNewStableIds(layout.toJSON(), { identityRewrites });
   try {
-    const clone = editor.state.schema.nodeFromJSON(
-      cloneJsonWithNewStableIds(layout.toJSON(), { blockDuplications }),
-    );
+    const clone = editor.state.schema.nodeFromJSON(cloneJson);
     const insertPos = layoutPos + layout.nodeSize;
     const tr = editor.state.tr.insert(insertPos, clone);
     if (!setNodeSelectionInTransaction(tr, insertPos)) return false;
@@ -127,16 +126,15 @@ export function deleteLayoutAt(editor: Editor, layoutPos: number): boolean {
 export function duplicateLayoutSectionAt(
   editor: Editor,
   sectionPos: number,
-  blockDuplications: BlockDuplicationLookup,
+  identityRewrites: ContentIdentityRewriteLookup,
 ): boolean {
   if (!isValidDocPos(editor.state.doc, sectionPos)) return false;
   const section = editor.state.doc.nodeAt(sectionPos);
   if (!section || section.type.name !== "section") return false;
 
+  const cloneJson = cloneJsonWithNewStableIds(section.toJSON(), { identityRewrites });
   try {
-    const clone = editor.state.schema.nodeFromJSON(
-      cloneJsonWithNewStableIds(section.toJSON(), { blockDuplications }),
-    );
+    const clone = editor.state.schema.nodeFromJSON(cloneJson);
     const insertPos = sectionPos + section.nodeSize;
     const tr = editor.state.tr.insert(insertPos, clone);
     if (!setNodeSelectionInTransaction(tr, insertPos)) return false;

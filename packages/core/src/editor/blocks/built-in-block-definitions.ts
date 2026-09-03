@@ -1,6 +1,11 @@
 import { categoriseBlockDefinition } from "./assessment/categorise/categorise-definition";
-import type { BlockDuplicationOperation } from "@/document/model/identity/clone-with-new-ids";
+import type {
+  ContentIdentityRewrite,
+  ContentIdentityRewriteRegistration,
+} from "@/document/model/identity/clone-with-new-ids";
 import { dropdownBlockDefinition } from "./assessment/dropdown/dropdown-definition";
+import { dragDropBlockDefinition } from "./assessment/drag-drop/drag-drop-definition";
+import { rewriteDragDropCopiedContent } from "./assessment/drag-drop/drag-drop-copy-identity";
 import { fillBlanksBlockDefinition } from "./assessment/fill-blanks/fill-blanks-definition";
 import { imageHotspotBlockDefinition } from "./assessment/image-hotspot/image-hotspot-definition";
 import { matchingBlockDefinition } from "./assessment/matching/matching-definition";
@@ -50,7 +55,17 @@ import { createBlockRegistry } from "./block-registry";
 
 interface BuiltInBlockCapabilityRegistration {
   readonly definition: BlockDefinition;
-  readonly duplication?: BlockDuplicationOperation;
+  readonly identityRewrites?: readonly ContentIdentityRewriteRegistration[];
+}
+
+function withIdentityRewrite(
+  definition: BlockDefinition,
+  rewrite: ContentIdentityRewrite,
+): BuiltInBlockCapabilityRegistration {
+  return {
+    definition,
+    identityRewrites: Object.freeze([Object.freeze({ nodeType: definition.nodeType, rewrite })]),
+  };
 }
 
 export const builtInBlockCapabilityRegistrations: readonly BuiltInBlockCapabilityRegistration[] =
@@ -60,23 +75,21 @@ export const builtInBlockCapabilityRegistrations: readonly BuiltInBlockCapabilit
       { definition: calloutBlockDefinition },
       { definition: comparisonBlockDefinition },
       { definition: flashcardBlockDefinition },
-      { definition: categoriseBlockDefinition, duplication: rewriteCategoriseCopiedContent },
-      { definition: dropdownBlockDefinition, duplication: rewriteDropdownCopiedContent },
-      { definition: fillBlanksBlockDefinition, duplication: rewriteFillBlanksCopiedContent },
-      {
-        definition: imageHotspotBlockDefinition,
-        duplication: rewriteImageHotspotCopiedContent,
-      },
-      { definition: matchingBlockDefinition, duplication: rewriteMatchingCopiedContent },
-      { definition: mcqBlockDefinition, duplication: rewriteMcqCopiedContent },
-      { definition: multiselectBlockDefinition, duplication: rewriteMultiselectCopiedContent },
+      withIdentityRewrite(categoriseBlockDefinition, rewriteCategoriseCopiedContent),
+      withIdentityRewrite(dropdownBlockDefinition, rewriteDropdownCopiedContent),
+      withIdentityRewrite(dragDropBlockDefinition, rewriteDragDropCopiedContent),
+      withIdentityRewrite(fillBlanksBlockDefinition, rewriteFillBlanksCopiedContent),
+      withIdentityRewrite(imageHotspotBlockDefinition, rewriteImageHotspotCopiedContent),
+      withIdentityRewrite(matchingBlockDefinition, rewriteMatchingCopiedContent),
+      withIdentityRewrite(mcqBlockDefinition, rewriteMcqCopiedContent),
+      withIdentityRewrite(multiselectBlockDefinition, rewriteMultiselectCopiedContent),
       { definition: quizBlockDefinition },
-      { definition: sequencingBlockDefinition, duplication: rewriteSequencingCopiedContent },
+      withIdentityRewrite(sequencingBlockDefinition, rewriteSequencingCopiedContent),
       { definition: annotatedFigureDefinition },
       { definition: galleryDefinition },
       { definition: textWrapImageDefinition },
       { definition: audioBlockDefinition },
-      { definition: chartBlockDefinition, duplication: rewriteChartCopiedContent },
+      withIdentityRewrite(chartBlockDefinition, rewriteChartCopiedContent),
       { definition: imageBlockDefinition },
       { definition: embedBlockDefinition },
       { definition: pdfEmbedBlockDefinition },

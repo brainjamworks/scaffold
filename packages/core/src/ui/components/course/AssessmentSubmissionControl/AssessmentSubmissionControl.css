@@ -2,15 +2,20 @@
 
 @layer sc-components {
   .sc-course-assessment-submission-control {
+    --sc-course-assessment-control-min-height: max(
+      2.75rem,
+      calc(44.5px * var(--sc-slideshow-canvas-inverse-scale, 1))
+    );
+
     display: inline-flex;
     max-width: 100%;
     min-width: 0;
-    min-height: 2.75rem;
+    min-height: var(--sc-course-assessment-control-min-height);
     align-items: center;
   }
 
   .sc-course-assessment-submission-control__button {
-    min-height: 2.75rem;
+    min-height: var(--sc-course-assessment-control-min-height);
   }
 
   .sc-course-assessment-submission-control__status {

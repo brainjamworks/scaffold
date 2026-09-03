@@ -2,6 +2,7 @@ import type { AnyExtension } from "@tiptap/core";
 
 import { CategoriseAuthoringExtension } from "./assessment/categorise/categorise-authoring-extension";
 import { DropdownAuthoringExtension } from "./assessment/dropdown/dropdown-authoring-extension";
+import { DragDropAuthoringExtension } from "./assessment/drag-drop/drag-drop-authoring-extension";
 import { FillBlanksAuthoringExtension } from "./assessment/fill-blanks/fill-blanks-authoring-extension";
 import { ImageHotspotAuthoringExtension } from "./assessment/image-hotspot/image-hotspot-authoring-extension";
 import { MatchingAuthoringExtension } from "./assessment/matching/matching-authoring-extension";
@@ -49,6 +50,7 @@ export const builtInBlockAuthoringBindings: readonly BlockAuthoringBinding[] = O
     { nodeType: "flashcard", extension: FlashcardAuthoringExtension },
     { nodeType: "categorise", extension: CategoriseAuthoringExtension },
     { nodeType: "dropdown", extension: DropdownAuthoringExtension },
+    { nodeType: "drag_drop", extension: DragDropAuthoringExtension },
     { nodeType: "fill_blanks", extension: FillBlanksAuthoringExtension },
     { nodeType: "image_hotspot", extension: ImageHotspotAuthoringExtension },
     { nodeType: "matching", extension: MatchingAuthoringExtension },

@@ -129,13 +129,12 @@ const testSurfaceVariants = createSurfaceVariantRegistry([
 const testCapabilities = Object.freeze({
   blocks: Object.freeze({
     registry: testBlockRegistry,
-    duplication: Object.freeze({
-      getByNodeType: () => undefined,
-      hasNodeType: (nodeType: string) => testBlockRegistry.getByNodeType(nodeType) !== undefined,
-    }),
   }),
   layouts: Object.freeze({ registry: builtInLayoutRegistry }),
   surfaces: Object.freeze({ registry: testSurfaceVariants }),
+  contentIdentity: Object.freeze({
+    rewrites: Object.freeze({ getByNodeType: () => undefined, hasNodeType: () => false }),
+  }),
   documentSemantics: createSemanticDefinitionLookup({
     blocks: testBlockRegistry,
     layouts: builtInLayoutRegistry,

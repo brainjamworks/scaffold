@@ -1,6 +1,6 @@
 import type { EmbeddedDataId } from "@scaffold/contracts";
 
-import type { BlockDuplicationOperation } from "@/document/model/identity/clone-with-new-ids";
+import type { ContentIdentityRewrite } from "@/document/model/identity/clone-with-new-ids";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -29,7 +29,7 @@ function rewriteColumnReferences(
   );
 }
 
-export const rewriteChartCopiedContent: BlockDuplicationOperation = ({ content, generators }) => {
+export const rewriteChartCopiedContent: ContentIdentityRewrite = ({ content, generators }) => {
   const attrs = asRecord(content.attrs);
   const chart = asRecord(attrs?.["data"]);
   const table = asRecord(chart?.["data"]);

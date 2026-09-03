@@ -8,9 +8,9 @@ import { chartBlockDefinition } from "./chart-definition";
 
 describe("Chart copy identity", () => {
   it("is explicitly registered by the mounted Chart capability", () => {
-    const blockDuplications = createScaffoldApplication().capabilities.blocks.duplication;
+    const identityRewrites = createScaffoldApplication().capabilities.contentIdentity.rewrites;
 
-    expect(blockDuplications.getByNodeType(chartBlockDefinition.nodeType)).toBe(
+    expect(identityRewrites.getByNodeType(chartBlockDefinition.nodeType)).toBe(
       rewriteChartCopiedContent,
     );
     expect(chartBlockDefinition).not.toHaveProperty("rewriteCopiedContent");
