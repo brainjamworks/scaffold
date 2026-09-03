@@ -50,6 +50,23 @@ describe("Drag and Drop authoring", () => {
     );
   });
 
+  it("draws the acceptance zone by dragging on empty canvas", async () => {
+    const onCreateMarker = vi.fn(() => "marker000010" as never);
+    const { container } = renderCanvas({ onCreateMarker });
+    await prepareImage(container);
+
+    const surface = spatialSurface(container);
+    // Press at image centre (300,150 -> 50%,50%), drag 80px right (-> 20% of width).
+    fireEvent.pointerDown(surface, { button: 0, clientX: 300, clientY: 150, pointerId: 1 });
+    fireEvent.pointerMove(surface, { clientX: 380, clientY: 150, pointerId: 1 });
+    fireEvent.pointerUp(surface, { clientX: 380, clientY: 150, pointerId: 1 });
+
+    expect(onCreateMarker).toHaveBeenCalledWith(
+      { label: "Marker 1", visualOverride: null },
+      { kind: "circle", centerX: 50, centerY: 50, radius: 20 },
+    );
+  });
+
   it("moves a marker by dragging it past the threshold and commits on release", async () => {
     const marker = { id: "marker000001" as never, label: "London", visualOverride: null };
     const onSetCorrectPlacement = vi.fn();

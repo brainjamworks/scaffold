@@ -110,6 +110,7 @@ type PointerInteraction =
       startClient: Readonly<{ x: number; y: number }>;
       startPoint: Readonly<{ x: number; y: number }>;
     }>
+  | Readonly<{ mode: "drawing"; center: Readonly<{ x: number; y: number }> }>
   | Readonly<{ mode: "moving"; markerId: EmbeddedDataId }>
   | Readonly<{ mode: "resizing"; markerId: EmbeddedDataId }>;
 
@@ -152,6 +153,10 @@ export function DragDropAuthoringCanvas({
     markerId: EmbeddedDataId;
     geometry: SpatialPlacementCircle;
   }> | null>(null);
+  const [drawPreview, setDrawPreview] = useState<Readonly<{
+    center: Readonly<{ x: number; y: number }>;
+    radius: number;
+  }> | null>(null);
   const [announcementState, setAnnouncementState] = useState("");
   const announce = onAnnounce ?? setAnnouncementState;
   const interaction = useRef<PointerInteraction>({ mode: "idle" });
@@ -160,7 +165,9 @@ export function DragDropAuthoringCanvas({
 
   const editable = isExpanded || canEditInline;
   const isInteracting =
-    interaction.current.mode === "moving" || interaction.current.mode === "resizing";
+    interaction.current.mode === "moving" ||
+    interaction.current.mode === "resizing" ||
+    interaction.current.mode === "drawing";
 
   useEffect(() => {
     if (!isExpanded) return;
@@ -217,7 +224,20 @@ export function DragDropAuthoringCanvas({
   const markerName = (marker: DragDropMarker, index: number) =>
     marker.label.trim() || `Marker ${index + 1}`;
 
-  const createMarkerAt = (point: Readonly<{ x: number; y: number }>) => {
+  const drawRadius = (
+    center: Readonly<{ x: number; y: number }>,
+    point: Readonly<{ x: number; y: number }>,
+  ) => {
+    const aspect = surfaceState.current?.aspectRatio ?? 1;
+    const dx = point.x - center.x;
+    const dy = (point.y - center.y) / (aspect || 1);
+    return Math.min(MAX_MARKER_RADIUS, Math.max(MIN_MARKER_RADIUS, Math.hypot(dx, dy)));
+  };
+
+  const createMarkerAt = (
+    point: Readonly<{ x: number; y: number }>,
+    radius: number = DEFAULT_MARKER_RADIUS,
+  ) => {
     const label = `Marker ${data.markers.length + 1}`;
     const id = onCreateMarker(
       { label, visualOverride: null },
@@ -225,7 +245,7 @@ export function DragDropAuthoringCanvas({
         kind: "circle",
         centerX: point.x,
         centerY: point.y,
-        radius: DEFAULT_MARKER_RADIUS,
+        radius,
       },
     );
     if (id) {
@@ -295,13 +315,25 @@ export function DragDropAuthoringCanvas({
       const dx = event.clientX - current.startClient.x;
       const dy = event.clientY - current.startClient.y;
       if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
-      if (!current.markerId) return;
+      if (!current.markerId) {
+        // Empty-canvas drag draws the acceptance zone in one motion.
+        interaction.current = { mode: "drawing", center: current.startPoint };
+        setDrawPreview({
+          center: current.startPoint,
+          radius: drawRadius(current.startPoint, point),
+        });
+        return;
+      }
       interaction.current = { mode: "moving", markerId: current.markerId };
       setSelectedId(current.markerId);
       setDraftPlacement({
         markerId: current.markerId,
         geometry: { ...placementFor(current.markerId), centerX: point.x, centerY: point.y },
       });
+      return;
+    }
+    if (current.mode === "drawing") {
+      setDrawPreview({ center: current.center, radius: drawRadius(current.center, point) });
       return;
     }
     if (current.mode === "moving") {
@@ -326,6 +358,13 @@ export function DragDropAuthoringCanvas({
     const current = interaction.current;
     interaction.current = { mode: "idle" };
     if (current.mode === "idle") return;
+    if (current.mode === "drawing") {
+      suppressSurfaceClickRef.current = true;
+      const preview = drawPreview;
+      setDrawPreview(null);
+      if (preview) createMarkerAt(preview.center, preview.radius);
+      return;
+    }
     if (current.mode === "moving" || current.mode === "resizing") {
       suppressSurfaceClickRef.current = true;
       commitDraftPlacement();
@@ -383,6 +422,20 @@ export function DragDropAuthoringCanvas({
         return (
           <>
             {canvasToolbar}
+            {drawPreview ? (
+              <div
+                className="sc-app-drag-drop-correct-placement"
+                data-drawing=""
+                style={placementStyle({
+                  kind: "circle",
+                  centerX: drawPreview.center.x,
+                  centerY: drawPreview.center.y,
+                  radius: drawPreview.radius,
+                })}
+              >
+                <span className="sc-app-drag-drop-tolerance" aria-hidden />
+              </div>
+            ) : null}
             {placements.map((placement) => {
           const index = data.markers.findIndex((marker) => marker.id === placement.markerId);
           const marker = data.markers[index];
