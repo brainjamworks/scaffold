@@ -13,7 +13,7 @@ import {
   moveQuizQuestion,
   reorderQuizQuestion,
 } from "./quiz-authoring";
-import { getQuizSummary } from "./quiz-shared";
+import { getQuizSummary } from "@/editor/assessment/quiz/quiz-shared";
 
 export function useQuizAuthoringController({
   editor,

@@ -5,7 +5,7 @@ import {
   ASSESSMENT_QUESTION_CONTENT,
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { emptyQuizSettings } from "./quiz-shared";
+import { emptyQuizSettings } from "@/editor/assessment/quiz/quiz-shared";
 
 export interface QuizNodeOptions {
   addNodeView?: () => NodeViewRenderer;

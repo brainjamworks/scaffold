@@ -27,7 +27,7 @@ import type { InsertCatalog } from "@/editor/insertion/insert-catalog";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import type { ScaffoldBlockContext } from "@/editor/selection/block-context";
 
-import { getQuizChildKeys as getSharedQuizChildKeys } from "./quiz-shared";
+import { getQuizChildKeys as getSharedQuizChildKeys } from "@/editor/assessment/quiz/quiz-shared";
 
 export function getQuizAssessmentCatalogItems(editor: Editor): readonly InsertAction[] {
   const { blockDefinitions, catalog } = getQuizAuthoringInputs(editor);

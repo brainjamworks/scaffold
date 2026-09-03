@@ -26,7 +26,7 @@ import {
 } from "./QuizRuntime";
 import { useActiveQuestionScrollReset } from "./use-active-question-scroll-reset";
 import { useQuizRuntimeController } from "./use-quiz-runtime-controller";
-import { getQuizStartSummary } from "./quiz-shared";
+import { getQuizStartSummary } from "@/editor/assessment/quiz/quiz-shared";
 
 import "./Quiz.css";
 

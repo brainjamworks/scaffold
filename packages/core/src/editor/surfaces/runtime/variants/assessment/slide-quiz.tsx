@@ -16,7 +16,7 @@ import {
   QuizTimer,
   QuizTimesUpOverlay,
 } from "@/editor/blocks/assessment/quiz/QuizRuntime";
-import { getQuizStartSummary } from "@/editor/blocks/assessment/quiz/quiz-shared";
+import { getQuizStartSummary } from "@/editor/assessment/quiz/quiz-shared";
 import { useActiveQuestionScrollReset } from "@/editor/blocks/assessment/quiz/use-active-question-scroll-reset";
 import { useQuizRuntimeStateController } from "@/editor/blocks/assessment/quiz/use-quiz-runtime-controller";
 import { useKnownQuizSurfaceExitGuard } from "@/editor/blocks/assessment/quiz/use-quiz-surface-exit-guard";

@@ -10,7 +10,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { AssessmentRequestState } from "@/runtime/assessment/types";
 import { CourseButton } from "@/ui/components/course/CourseActions/CourseActions";
-import type { QuizStartSummary } from "./quiz-shared";
+import type { QuizStartSummary } from "@/editor/assessment/quiz/quiz-shared";
 
 /**
  * Learner-facing runtime surfaces of a quiz attempt. Five small shapes,

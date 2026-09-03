@@ -25,7 +25,7 @@ import type {
 } from "@/runtime/assessment/types";
 
 import { quizControlDefinition } from "./quiz-control-definition";
-import { createQuizControlBinding, useQuizControlBinding } from "./quiz-control-binding";
+import { createQuizControlBinding, useQuizControlBinding } from "@/editor/assessment/quiz/quiz-control-binding";
 
 const OWNER_ID = "quiz00000001" as EmbeddedNodeId;
 const CHILD_ID = "quest0000001";

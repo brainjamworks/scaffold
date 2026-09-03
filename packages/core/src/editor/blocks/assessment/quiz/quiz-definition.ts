@@ -6,7 +6,7 @@ import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { quizControlDefinition } from "./quiz-control-definition";
-import { emptyQuizSettings } from "./quiz-shared";
+import { emptyQuizSettings } from "@/editor/assessment/quiz/quiz-shared";
 
 export const QUIZ_BLOCK_ID = "quiz";
 

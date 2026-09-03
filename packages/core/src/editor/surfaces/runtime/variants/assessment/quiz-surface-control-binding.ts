@@ -3,7 +3,7 @@ import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useEffect, useRef } from "react";
 
-import { createQuizControlBinding } from "@/editor/blocks/assessment/quiz/quiz-control-binding";
+import { createQuizControlBinding } from "@/editor/assessment/quiz/quiz-control-binding";
 import { requireSurfaceQuizChild } from "@/editor/surfaces/model/assessment/surface-quiz-node";
 import { tryGetControlBindingRegistryForEditor } from "@/document/control-binding";
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";

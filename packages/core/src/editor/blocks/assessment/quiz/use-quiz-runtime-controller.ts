@@ -7,8 +7,8 @@ import { resolveAssessmentSurfaceScope } from "@/runtime/assessment/assessment-s
 import { useAssessmentQuizFacade } from "@/runtime/assessment/runtime-facade";
 import { useAssessmentStoreApi } from "@/runtime/assessment/AssessmentRuntimeProvider";
 
-import { useQuizControlBinding } from "./quiz-control-binding";
-import { getQuizSummary } from "./quiz-shared";
+import { useQuizControlBinding } from "@/editor/assessment/quiz/quiz-control-binding";
+import { getQuizSummary } from "@/editor/assessment/quiz/quiz-shared";
 import { useQuizSurfaceExitGuard } from "./use-quiz-surface-exit-guard";
 import {
   deriveQuizLearnerViewModel,
@@ -16,7 +16,7 @@ import {
   problemForQuizTarget,
   responseFingerprint,
   runtimeQuizActiveChildKey,
-} from "./quiz-runtime-policy";
+} from "@/editor/assessment/quiz/quiz-runtime-policy";
 
 export function useQuizRuntimeController({
   editor,
