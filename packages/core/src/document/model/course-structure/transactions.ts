@@ -81,6 +81,7 @@ export function applyCourseStructureCommandToTransaction({
   const logicalSelection = captureLogicalSelection(state);
   const candidate = buildCandidate(command, context, identityRewrites);
   if (!candidate || sameChildren(children, candidate.children)) return false;
+  if (resolveCourseStructureRefusal(candidate.children)) return false;
 
   applyLocalChange({
     tr,
@@ -98,6 +99,24 @@ export function applyCourseStructureCommandToTransaction({
       : logicalSelection,
   );
   return true;
+}
+
+/** Why a Course Structure command is refused before it touches the document. */
+export type CourseStructureRefusalReason = "last-surface";
+
+/**
+ * A Course Document must always keep at least one Surface: the Presentation
+ * and Learner Interaction contracts both require a non-empty `surfaces` array,
+ * so a command that would empty the document is refused here rather than left
+ * to blow up inside the reconcilers as an unhandled schema exception.
+ *
+ * This inspects the candidate children the command already produced, so no
+ * transaction is dry-run and no exception is used as control flow.
+ */
+export function resolveCourseStructureRefusal(
+  children: readonly ProseMirrorNode[],
+): CourseStructureRefusalReason | null {
+  return children.some(isCourseSurfaceRoot) ? null : "last-surface";
 }
 
 function reconcileLearnerInteractionSurfaceGroups(tr: Transaction): void {
