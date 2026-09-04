@@ -1,6 +1,8 @@
 import {
+  createContext,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -20,6 +22,19 @@ export interface EditorBottomPanelTab {
   readonly label: string;
   readonly content: ReactNode;
 }
+
+/**
+ * Portal targets owned by the panel header. The active tab's content portals
+ * its toolbar controls into `headerActions` and transient errors into
+ * `status`; both are null until the header mounts. Null context means the
+ * content renders standalone and must render inline instead.
+ */
+export interface BottomPanelSlots {
+  readonly headerActions: HTMLDivElement | null;
+  readonly status: HTMLDivElement | null;
+}
+
+export const BottomPanelSlotsContext = createContext<BottomPanelSlots | null>(null);
 
 export interface EditorBottomPanelProps {
   readonly tabs: ReadonlyArray<EditorBottomPanelTab>;
@@ -69,6 +84,12 @@ export function EditorBottomPanel({
   const [heightPx, setHeightPx] = useState(initialHeightPx);
   const [availableHeightPx, setAvailableHeightPx] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [headerActionsElement, setHeaderActionsElement] = useState<HTMLDivElement | null>(null);
+  const [statusElement, setStatusElement] = useState<HTMLDivElement | null>(null);
+  const slots = useMemo<BottomPanelSlots>(
+    () => ({ headerActions: headerActionsElement, status: statusElement }),
+    [headerActionsElement, statusElement],
+  );
   const maximumHeightPx =
     availableHeightPx === null
       ? BOTTOM_WORKSPACE_MAX_HEIGHT_PX
@@ -239,7 +260,10 @@ export function EditorBottomPanel({
             </button>
           ))}
         </div>
-        <div className="sc-editor-bottom-panel-header-actions" />
+        <div
+          className="sc-editor-bottom-panel-header-actions"
+          ref={setHeaderActionsElement}
+        />
         <IconButton
           size="sm"
           className="sc-editor-bottom-panel-close"
@@ -249,6 +273,7 @@ export function EditorBottomPanel({
           <X size={iconXs} aria-hidden />
         </IconButton>
       </div>
+      <div className="sc-editor-bottom-panel-status" ref={setStatusElement} />
       <div
         id={contentId}
         className="sc-editor-bottom-panel-scroll sc-editor-bottom-workspace-scroll"
@@ -257,14 +282,16 @@ export function EditorBottomPanel({
         hidden={collapsed}
       >
         {activeTab ? (
-          <div
-            id={tabpanelId}
-            className="sc-editor-bottom-panel-tabpanel"
-            role="tabpanel"
-            aria-labelledby={`${contentId}-tab-${activeTab.id}`}
-          >
-            {activeTab.content}
-          </div>
+          <BottomPanelSlotsContext.Provider value={slots}>
+            <div
+              id={tabpanelId}
+              className="sc-editor-bottom-panel-tabpanel"
+              role="tabpanel"
+              aria-labelledby={`${contentId}-tab-${activeTab.id}`}
+            >
+              {activeTab.content}
+            </div>
+          </BottomPanelSlotsContext.Provider>
         ) : null}
       </div>
     </section>

@@ -55,9 +55,13 @@
 
   .sc-editor-bottom-panel-header {
     display: flex;
+    height: 2.25rem;
+    min-height: 2.25rem;
+    max-height: 2.25rem;
     flex: none;
-    align-items: stretch;
+    align-items: center;
     gap: 0.25rem;
+    overflow: hidden;
     border-bottom: 1px solid var(--color-border);
     padding: 0 0.75rem;
     background: var(--color-background);
@@ -66,13 +70,29 @@
 
   .sc-editor-bottom-panel-tablist {
     display: flex;
+    align-self: stretch;
     align-items: stretch;
     gap: 0.25rem;
   }
 
   .sc-editor-bottom-panel-header-actions {
+    display: flex;
     min-width: 0;
     flex: 1 1 auto;
+    align-items: center;
+    gap: 0.25rem;
+    overflow: hidden;
+  }
+
+  .sc-editor-bottom-panel-status:empty {
+    display: none;
+  }
+
+  .sc-editor-bottom-panel-status {
+    flex: none;
+    border-bottom: 1px solid var(--color-border);
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
   }
 
   .sc-editor-bottom-panel-close {

@@ -25,13 +25,24 @@ const mockState = vi.hoisted(() => ({
 
 vi.mock("@/editor/learner-interaction/workspace", async (importOriginal) => {
   const actual = await importOriginal();
+  const { createElement, useContext } = await import("react");
+  const { createPortal } = await import("react-dom");
+  const { BottomPanelSlotsContext } = await import(
+    "@/editor/shell/chrome/EditorBottomPanel"
+  );
   return {
     ...actual,
     LearnerInteractionWorkspace: (props: {
       controller: LearnerInteractionWorkspaceController;
     }) => {
       mockState.interactionControllers.push(props.controller);
-      return <div data-testid="interactions-workspace-stub" />;
+      const slots = useContext(BottomPanelSlotsContext);
+      const marker = createElement("span", null, "Interactions header marker");
+      return createElement(
+        "div",
+        { "data-testid": "interactions-workspace-stub" },
+        slots?.headerActions ? createPortal(marker, slots.headerActions) : marker,
+      );
     },
   };
 });
@@ -39,15 +50,23 @@ vi.mock("@/editor/learner-interaction/workspace", async (importOriginal) => {
 vi.mock("@/editor/presentation/timeline", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("@/editor/presentation/timeline")>();
-  const { createElement } = await import("react");
+  const { createElement, useContext } = await import("react");
+  const { createPortal } = await import("react-dom");
+  const { BottomPanelSlotsContext } = await import(
+    "@/editor/shell/chrome/EditorBottomPanel"
+  );
   return {
     ...actual,
-    PresentationTimeline: () =>
-      createElement(
+    PresentationTimeline: () => {
+      const slots = useContext(BottomPanelSlotsContext);
+      const marker = createElement("span", null, "Timeline header marker");
+      return createElement(
         "section",
         { "data-testid": "presentation-timeline" },
+        slots?.headerActions ? createPortal(marker, slots.headerActions) : marker,
         createElement("h2", null, "Timeline"),
-      ),
+      );
+    },
   };
 });
 
@@ -176,6 +195,19 @@ describe("SurfaceWorkspacesPanel", () => {
       "aria-selected",
       "true",
     );
+  });
+
+  it("shows the active workspace's header actions in the panel header", () => {
+    setup();
+
+    const actions = document.querySelector(".sc-editor-bottom-panel-header-actions");
+    if (!actions) throw new Error("expected panel header actions slot");
+    expect(actions).toHaveTextContent("Timeline header marker");
+    expect(actions).not.toHaveTextContent("Interactions header marker");
+
+    fireEvent.click(screen.getByRole("tab", { name: "Interactions" }));
+    expect(actions).toHaveTextContent("Interactions header marker");
+    expect(actions).not.toHaveTextContent("Timeline header marker");
   });
 
   it("marks the Interactions content root with the projected surface id", () => {

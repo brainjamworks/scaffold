@@ -1,9 +1,30 @@
 // @vitest-environment happy-dom
 
 import { fireEvent, render, screen } from "@testing-library/react";
+import { createElement, useContext } from "react";
+import { createPortal } from "react-dom";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { EditorBottomPanel, type EditorBottomPanelProps } from "./EditorBottomPanel";
+import {
+  BottomPanelSlotsContext,
+  EditorBottomPanel,
+  type EditorBottomPanelProps,
+} from "./EditorBottomPanel";
+
+function SlotProbe({ marker, alert }: { marker: string; alert?: string }) {
+  const slots = useContext(BottomPanelSlotsContext);
+  if (!slots) return createElement("span", null, `${marker} standalone`);
+  return createElement(
+    "span",
+    null,
+    slots.headerActions
+      ? createPortal(createElement("span", null, marker), slots.headerActions)
+      : null,
+    alert && slots.status
+      ? createPortal(createElement("p", { role: "alert" }, alert), slots.status)
+      : null,
+  );
+}
 
 const TABS: EditorBottomPanelProps["tabs"] = [
   { id: "timeline", label: "Timeline", content: <div>Timeline content</div> },
@@ -60,6 +81,75 @@ describe("EditorBottomPanel", () => {
       "aria-selected",
       "true",
     );
+  });
+
+  it("portals the active tab's content into the header actions slot", () => {
+    render(
+      <EditorBottomPanel
+        tabs={[
+          {
+            id: "timeline",
+            label: "Timeline",
+            content: <SlotProbe marker="timeline marker" />,
+          },
+          {
+            id: "interactions",
+            label: "Interactions",
+            content: <SlotProbe marker="interactions marker" />,
+          },
+        ]}
+        activeTabId="interactions"
+        onTabChange={vi.fn()}
+        onClose={vi.fn()}
+        tabsLabel="Surface workspace"
+      />,
+    );
+
+    const actions = document.querySelector(".sc-editor-bottom-panel-header-actions");
+    expect(actions).toHaveTextContent("interactions marker");
+    expect(actions).not.toHaveTextContent("timeline marker");
+    expect(actions).not.toHaveTextContent("standalone");
+  });
+
+  it("portals transient alerts into the status slot and leaves it empty when unused", () => {
+    const { rerender } = render(
+      <EditorBottomPanel
+        tabs={[
+          {
+            id: "timeline",
+            label: "Timeline",
+            content: <SlotProbe marker="timeline marker" alert="Timeline broke" />,
+          },
+        ]}
+        activeTabId="timeline"
+        onTabChange={vi.fn()}
+        onClose={vi.fn()}
+        tabsLabel="Surface workspace"
+      />,
+    );
+    const status = document.querySelector(".sc-editor-bottom-panel-status");
+
+    expect(status).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Timeline broke");
+    expect(status).toContainElement(screen.getByRole("alert"));
+
+    rerender(
+      <EditorBottomPanel
+        tabs={[
+          {
+            id: "timeline",
+            label: "Timeline",
+            content: <SlotProbe marker="timeline marker" />,
+          },
+        ]}
+        activeTabId="timeline"
+        onTabChange={vi.fn()}
+        onClose={vi.fn()}
+        tabsLabel="Surface workspace"
+      />,
+    );
+    expect(status).toBeEmptyDOMElement();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("requests close from the close button", () => {

@@ -7,6 +7,7 @@ import {
 } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/core";
 import {
+  useContext,
   useEffect,
   useCallback,
   useMemo,
@@ -20,6 +21,7 @@ import {
   type UIEvent,
   type WheelEvent,
 } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/ui/components/Button/Button";
 import { IconButton } from "@/ui/components/IconButton/IconButton";
@@ -37,6 +39,7 @@ import type {
   PresentationPreviewSeekError,
 } from "@/presentation/model";
 import type { PresentationPreviewController } from "../preview/presentation-preview-controller";
+import { BottomPanelSlotsContext } from "@/editor/shell/chrome/EditorBottomPanel";
 
 import {
   PresentationActionEditor,
@@ -312,6 +315,83 @@ export function PresentationTimeline({
     event.currentTarget.releasePointerCapture(event.pointerId);
   }
 
+  const slots = useContext(BottomPanelSlotsContext);
+  const headerActions = (
+    <>
+      {preview ? (
+        <IconButton
+          size="sm"
+          aria-label={currentSurfaceIsPlaying ? "Pause preview" : "Play preview"}
+          onClick={togglePreviewPlayback}
+        >
+          {currentSurfaceIsPlaying ? (
+            <Pause size={iconXs} aria-hidden />
+          ) : (
+            <Play size={iconXs} aria-hidden />
+          )}
+        </IconButton>
+      ) : null}
+      <span className="sc-presentation-timeline-time-readout" aria-hidden="true">
+        {formatTime(playheadMs)} / {formatTime(durationMs)}
+      </span>
+      {editor ? (
+        <form
+          key={`${projection.surfaceId}:${durationMs}`}
+          className="sc-presentation-timeline-duration-control"
+          onSubmit={setSurfaceDuration}
+        >
+          <label>
+            <span>Duration</span>
+            <input
+              aria-label="Surface duration (ms)"
+              name="surfaceDurationMs"
+              type="number"
+              min={0}
+              step={1}
+              defaultValue={durationMs}
+            />
+          </label>
+          <Button aria-label="Set duration" size="sm" type="submit">
+            Set
+          </Button>
+        </form>
+      ) : null}
+      {editor ? (
+        <PresentationNarrationControls
+          editor={editor}
+          surfaceId={projection.surfaceId}
+          narration={projection.narration}
+        />
+      ) : null}
+      <div className="sc-presentation-timeline-zoom-controls">
+        <Button size="sm" variant="ghost" onClick={fitTimeline}>
+          Fit timeline
+        </Button>
+        <IconButton size="sm" aria-label="Zoom out" onClick={() => zoomAtCentre(0.8)}>
+          <Minus size={iconXs} />
+        </IconButton>
+        <IconButton size="sm" aria-label="Zoom in" onClick={() => zoomAtCentre(1.25)}>
+          <Plus size={iconXs} />
+        </IconButton>
+      </div>
+    </>
+  );
+  const statusContent =
+    authoringError || previewError ? (
+      <>
+        {authoringError ? (
+          <p className="sc-presentation-timeline-authoring-error" role="alert">
+            {presentPresentationAuthoringCommandError(authoringError)}
+          </p>
+        ) : null}
+        {previewError ? (
+          <p className="sc-presentation-timeline-authoring-error" role="alert">
+            {presentPresentationPreviewError(previewError)}
+          </p>
+        ) : null}
+      </>
+    ) : null;
+
   function handlePlayheadKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
     const stepMs = event.shiftKey ? 1_000 : 100;
     let nextTimeMs: number;
@@ -338,65 +418,13 @@ export function PresentationTimeline({
 
   return (
     <section className="sc-presentation-timeline" aria-label={ariaLabel}>
-      <header className="sc-presentation-timeline-toolbar">
-        <h2>Timeline</h2>
-        {preview ? (
-          <IconButton
-            size="sm"
-            aria-label={currentSurfaceIsPlaying ? "Pause preview" : "Play preview"}
-            onClick={togglePreviewPlayback}
-          >
-            {currentSurfaceIsPlaying ? (
-              <Pause size={iconXs} aria-hidden />
-            ) : (
-              <Play size={iconXs} aria-hidden />
-            )}
-          </IconButton>
-        ) : null}
-        <span className="sc-presentation-timeline-time-readout" aria-hidden="true">
-          {formatTime(playheadMs)} / {formatTime(durationMs)}
-        </span>
-        {editor ? (
-          <form
-            key={`${projection.surfaceId}:${durationMs}`}
-            className="sc-presentation-timeline-duration-control"
-            onSubmit={setSurfaceDuration}
-          >
-            <label>
-              <span>Duration</span>
-              <input
-                aria-label="Surface duration (ms)"
-                name="surfaceDurationMs"
-                type="number"
-                min={0}
-                step={1}
-                defaultValue={durationMs}
-              />
-            </label>
-            <Button aria-label="Set duration" size="sm" type="submit">
-              Set
-            </Button>
-          </form>
-        ) : null}
-        {editor ? (
-          <PresentationNarrationControls
-            editor={editor}
-            surfaceId={projection.surfaceId}
-            narration={projection.narration}
-          />
-        ) : null}
-        <div className="sc-presentation-timeline-zoom-controls">
-          <Button size="sm" variant="ghost" onClick={fitTimeline}>
-            Fit timeline
-          </Button>
-          <IconButton size="sm" aria-label="Zoom out" onClick={() => zoomAtCentre(0.8)}>
-            <Minus size={iconXs} />
-          </IconButton>
-          <IconButton size="sm" aria-label="Zoom in" onClick={() => zoomAtCentre(1.25)}>
-            <Plus size={iconXs} />
-          </IconButton>
-        </div>
-      </header>
+      {slots ? (
+        slots.headerActions ? (
+          createPortal(headerActions, slots.headerActions)
+        ) : null
+      ) : (
+        <header className="sc-presentation-timeline-toolbar">{headerActions}</header>
+      )}
       <div className="sc-presentation-timeline-ruler-row">
         <div className="sc-presentation-timeline-gutter-heading">Targets</div>
         <div
@@ -537,16 +565,9 @@ export function PresentationTimeline({
       {editor && snapshot.selectedTargetId ? (
         <PresentationActionEditor editor={editor} controller={controller} projection={projection} />
       ) : null}
-      {authoringError ? (
-        <p className="sc-presentation-timeline-authoring-error" role="alert">
-          {presentPresentationAuthoringCommandError(authoringError)}
-        </p>
-      ) : null}
-      {previewError ? (
-        <p className="sc-presentation-timeline-authoring-error" role="alert">
-          {presentPresentationPreviewError(previewError)}
-        </p>
-      ) : null}
+      {statusContent && slots?.status
+        ? createPortal(statusContent, slots.status)
+        : statusContent}
     </section>
   );
 }

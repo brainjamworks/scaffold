@@ -33,12 +33,10 @@
     justify-content: flex-start;
   }
 
-  .sc-learner-interactions-header :is(h2, h3, p),
   .sc-learner-interactions-editor :is(h3, p) {
     margin: 0;
   }
 
-  .sc-learner-interactions-header h2,
   .sc-learner-interactions-editor h3 {
     font-size: 0.75rem;
     font-weight: 700;
@@ -46,7 +44,6 @@
     text-transform: uppercase;
   }
 
-  .sc-learner-interactions-header p,
   .sc-learner-interactions-editor-empty,
   .sc-learner-interactions [role="status"] {
     color: var(--color-text-muted);

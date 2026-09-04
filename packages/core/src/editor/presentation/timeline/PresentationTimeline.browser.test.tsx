@@ -17,6 +17,7 @@ import type {
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { EditorBottomPanel } from "@/editor/shell/chrome/EditorBottomPanel";
 import { EditorShell } from "@/editor/shell/chrome/EditorShell";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 
@@ -434,13 +435,27 @@ function mountTimeline(
         dock={<aside style={{ width: 160 }}>Agent</aside>}
         stage={<main>Stage</main>}
         bottomWorkspace={
-          <PresentationTimeline
-            controller={controller}
-            {...(previewController
-              ? { preview: { controller: previewController, document: previewDocument } }
-              : {})}
-            projection={projection(durationMs, 14, withFeedbackAction)}
-            {...(editor ? { editor } : {})}
+          <EditorBottomPanel
+            tabsLabel="Surface workspace"
+            activeTabId="timeline"
+            onTabChange={() => undefined}
+            onClose={() => undefined}
+            tabs={[
+              {
+                id: "timeline",
+                label: "Timeline",
+                content: (
+                  <PresentationTimeline
+                    controller={controller}
+                    {...(previewController
+                      ? { preview: { controller: previewController, document: previewDocument } }
+                      : {})}
+                    projection={projection(durationMs, 14, withFeedbackAction)}
+                    {...(editor ? { editor } : {})}
+                  />
+                ),
+              },
+            ]}
           />
         }
       />,

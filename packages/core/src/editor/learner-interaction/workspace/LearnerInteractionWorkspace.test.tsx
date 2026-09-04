@@ -10,7 +10,10 @@ import {
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Result } from "better-result";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
+
+import { EditorBottomPanel } from "@/editor/shell/chrome/EditorBottomPanel";
 
 import type {
   LearnerInteractionAuthoringCommandError,
@@ -69,7 +72,58 @@ const DIRECT_SAVE_ERRORS: readonly {
   },
 ];
 
+function renderInPanel(node: ReactNode) {
+  return (
+    <EditorBottomPanel
+      tabs={[{ id: "interactions", label: "Interactions", content: node }]}
+      activeTabId="interactions"
+      onTabChange={() => undefined}
+      onClose={() => undefined}
+      tabsLabel="Surface workspace"
+    />
+  );
+}
+
 describe("LearnerInteractionWorkspace", () => {
+  it("renders header actions inline with an Interactions landmark and no heading", () => {
+    renderWorkspace(projection());
+
+    const section = screen.getByRole("region", { name: "Interactions" });
+    expect(section).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Interactions" })).toBeNull();
+    expect(screen.queryByText("Rules for the selected Surface.")).toBeNull();
+    expect(
+      within(section).getByRole("button", { name: "Preview interactions" }),
+    ).toBeInTheDocument();
+    expect(within(section).getByRole("button", { name: "Add rule" })).toBeInTheDocument();
+  });
+
+  it("portals header actions into the panel header and drops its own header element", () => {
+    renderWorkspace(projection(), {}, renderInPanel);
+
+    const actions = document.querySelector(".sc-editor-bottom-panel-header-actions");
+    if (!actions) throw new Error("expected panel header actions slot");
+    expect(
+      within(actions).getByRole("button", { name: "Preview interactions" }),
+    ).toBeInTheDocument();
+    expect(within(actions).getByRole("button", { name: "Add rule" })).toBeInTheDocument();
+    expect(document.querySelector(".sc-learner-interactions-header")).toBeNull();
+    expect(
+      screen.getByRole("region", { name: "Interactions" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the capability-empty status in the body, out of the status slot", () => {
+    renderWorkspace({ ...projection(), capabilityState: "empty", rules: [] }, {}, renderInPanel);
+
+    const tabpanel = screen.getByRole("tabpanel");
+    expect(
+      within(tabpanel).getByText("This Surface has no learner interaction capabilities."),
+    ).toBeInTheDocument();
+    const status = document.querySelector(".sc-editor-bottom-panel-status");
+    expect(status).toBeEmptyDOMElement();
+  });
+
   it("edits the complete bounded When, If and ordered Then grammar in one transient draft", async () => {
     const user = userEvent.setup();
     const harness = renderWorkspace(projection());
@@ -348,6 +402,7 @@ function renderWorkspace(
     readonly saveResult?: LearnerInteractionAuthoringCommandResult<LearnerInteractionRuleId>;
     readonly setEnabledResult?: LearnerInteractionAuthoringCommandResult;
   } = {},
+  wrap: (node: ReactNode) => ReactNode = (node) => node,
 ) {
   const saveDraft = vi.fn(
     (
@@ -374,15 +429,17 @@ function renderWorkspace(
   const previewDocument = {} as ScaffoldDocumentContent;
   const preview = createPreviewHarness();
   render(
-    <LearnerInteractionWorkspace
-      controller={controller}
-      projection={value}
-      previewController={preview.controller}
-      previewDocument={previewDocument}
-      onSetRuleEnabled={onSetRuleEnabled}
-      onReorderRule={onReorderRule}
-      onRemoveRule={onRemoveRule}
-    />,
+    wrap(
+      <LearnerInteractionWorkspace
+        controller={controller}
+        projection={value}
+        previewController={preview.controller}
+        previewDocument={previewDocument}
+        onSetRuleEnabled={onSetRuleEnabled}
+        onReorderRule={onReorderRule}
+        onRemoveRule={onRemoveRule}
+      />,
+    ),
   );
   return {
     controller,

@@ -2,9 +2,11 @@
 
 import type { EmbeddedDataId, EmbeddedNodeId, TimelineActionV1 } from "@scaffold/contracts";
 import { Result } from "better-result";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
+
+import { EditorBottomPanel } from "@/editor/shell/chrome/EditorBottomPanel";
 
 import type {
   SemanticNavigationOptions,
@@ -40,7 +42,15 @@ describe("PresentationTimeline", () => {
       <PresentationTimeline controller={controller} projection={projection()} />,
     );
 
-    expect(screen.getByRole("heading", { name: "Timeline" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Presentation timeline" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Timeline" })).toBeNull();
+    expect(
+      within(screen.getByRole("region", { name: "Presentation timeline" })).getByRole("button", {
+        name: "Fit timeline",
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("slider", { name: "Timeline playhead" })).toHaveAttribute(
       "aria-valuemax",
       "10000",
@@ -61,6 +71,61 @@ describe("PresentationTimeline", () => {
       "false",
     );
 
+    controller.destroy();
+  });
+
+  it("portals toolbar controls and transient errors into the panel slots", async () => {
+    const user = userEvent.setup();
+    const controller = createController(new FakeSemanticSelection(TARGET_A_ID));
+    const port = new FailingPlayPort();
+    const previewController = new PresentationPreviewController({ port });
+    const input: PresentationPreviewDocument = {
+      document: { type: "doc" },
+      surfaceId: SURFACE_ID,
+    };
+    render(
+      <EditorBottomPanel
+        tabs={[
+          {
+            id: "timeline",
+            label: "Timeline",
+            content: (
+              <PresentationTimeline
+                controller={controller}
+                preview={{ controller: previewController, document: input }}
+                projection={projection()}
+              />
+            ),
+          },
+        ]}
+        activeTabId="timeline"
+        onTabChange={() => undefined}
+        onClose={() => undefined}
+        tabsLabel="Surface workspace"
+      />,
+    );
+
+    const actions = document.querySelector(".sc-editor-bottom-panel-header-actions");
+    if (!actions) throw new Error("expected panel header actions slot");
+    expect(
+      within(actions).getByRole("button", { name: "Play preview" }),
+    ).toBeInTheDocument();
+    expect(within(actions).getByRole("button", { name: "Fit timeline" })).toBeInTheDocument();
+    expect(within(actions).getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
+    expect(
+      document.querySelector(".sc-presentation-timeline-toolbar"),
+    ).toBeNull();
+
+    await user.click(within(actions).getByRole("button", { name: "Play preview" }));
+    const alert = await screen.findByRole("alert");
+    const status = document.querySelector(".sc-editor-bottom-panel-status");
+    expect(status).toContainElement(alert);
+    expect(alert).toHaveTextContent("Preview is still preparing. Try again.");
+    const header = document.querySelector(".sc-editor-bottom-panel-header");
+    if (!header) throw new Error("expected panel header row");
+    expect(within(header).queryByRole("alert")).toBeNull();
+
+    previewController.dispose();
     controller.destroy();
   });
 
@@ -599,6 +664,13 @@ class FakePreviewPort implements PresentationPreviewPort {
   private requireReady() {
     if (this.#snapshot.status !== "ready") throw new Error("Expected ready preview.");
     return this.#snapshot;
+  }
+}
+
+class FailingPlayPort extends FakePreviewPort {
+  override play() {
+    this.playCalls += 1;
+    return Result.err({ reason: "preview-not-ready" as const });
   }
 }
 

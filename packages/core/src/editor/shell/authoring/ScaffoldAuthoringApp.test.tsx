@@ -974,7 +974,7 @@ describe("ScaffoldAuthoringApp Surface workspaces", () => {
     expect(screen.queryByRole("heading", { name: "Interactions" })).toBeNull();
 
     await user.click(screen.getByRole("tab", { name: "Interactions" }));
-    expect(screen.getByRole("heading", { name: "Interactions" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Interactions" })).toBeInTheDocument();
     expect(screen.queryByTestId("presentation-timeline")).toBeNull();
     expect(
       document.querySelector(`[data-interaction-surface-id="${firstSurfaceId}"]`),
@@ -986,7 +986,7 @@ describe("ScaffoldAuthoringApp Surface workspaces", () => {
     await user.click(screen.getByRole("tab", { name: "Timeline" }));
     expect(screen.getByRole("alertdialog", { name: "Unsaved rule changes" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Cancel change" }));
-    expect(screen.getByRole("heading", { name: "Interactions" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Interactions" })).toBeInTheDocument();
 
     semanticController.publish(secondSurfaceId);
     expect(
@@ -1220,7 +1220,7 @@ describe("ScaffoldAuthoringApp StrictMode lifecycle", () => {
     );
 
     await user.click(await screen.findByRole("tab", { name: "Interactions" }));
-    expect(screen.getByRole("heading", { name: "Interactions" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Interactions" })).toBeInTheDocument();
   });
 });
 

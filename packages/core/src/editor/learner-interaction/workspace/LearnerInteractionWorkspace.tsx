@@ -1,5 +1,6 @@
 import type { LearnerInteractionRuleId, ScaffoldDocumentContent } from "@scaffold/contracts";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 
 import {
   validateLearnerInteractionRuleDraft,
@@ -22,6 +23,8 @@ import type {
 } from "./learner-interaction-workspace-controller";
 import { LearnerInteractionRuleEditor } from "./LearnerInteractionRuleEditor";
 import { AppDialog } from "@/ui/components/app/AppDialog/AppDialog";
+import { Button } from "@/ui/components/Button/Button";
+import { BottomPanelSlotsContext } from "@/editor/shell/chrome/EditorBottomPanel";
 import "./LearnerInteractionWorkspace.css";
 
 export interface LearnerInteractionWorkspaceProps {
@@ -109,54 +112,72 @@ export function LearnerInteractionWorkspace({
     });
   };
 
-  return (
-    <section className="sc-learner-interactions" aria-labelledby="learner-interactions-heading">
-      <header className="sc-learner-interactions-header">
-        <div>
-          <h2 id="learner-interactions-heading">Interactions</h2>
-          <p>Rules for the selected Surface.</p>
-        </div>
-        <div>
-          {previewSnapshot.status === "idle" || previewSnapshot.status === "error" ? (
-            <button
-              type="button"
-              disabled={previewDisabled}
-              onClick={() => {
-                void previewController.loadCurrentDocument({
-                  document: previewDocument,
-                  surfaceId: projection.surfaceId,
-                });
-              }}
-            >
-              Preview interactions
-            </button>
-          ) : (
-            <button
-              type="button"
-              aria-label="Close interactions preview"
-              onClick={() => previewController.close()}
-            >
-              {previewSnapshot.status === "loading" ? "Cancel preview" : "Close preview"}
-            </button>
-          )}
-          <button
-            type="button"
-            disabled={projection.capabilityState === "empty"}
-            onClick={() =>
-              controller.requestContextChange({ kind: "rule", ruleId: null }, () =>
-                controller.startNewRule(),
-              )
-            }
-          >
-            Add rule
-          </button>
-        </div>
-      </header>
+  const slots = useContext(BottomPanelSlotsContext);
+  const headerActions = (
+    <>
+      {previewSnapshot.status === "idle" || previewSnapshot.status === "error" ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={previewDisabled}
+          onClick={() => {
+            void previewController.loadCurrentDocument({
+              document: previewDocument,
+              surfaceId: projection.surfaceId,
+            });
+          }}
+        >
+          Preview interactions
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-label="Close interactions preview"
+          onClick={() => previewController.close()}
+        >
+          {previewSnapshot.status === "loading" ? "Cancel preview" : "Close preview"}
+        </Button>
+      )}
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={projection.capabilityState === "empty"}
+        onClick={() =>
+          controller.requestContextChange({ kind: "rule", ruleId: null }, () =>
+            controller.startNewRule(),
+          )
+        }
+      >
+        Add rule
+      </Button>
+    </>
+  );
+  const statusContent =
+    previewSnapshot.status === "loading" || previewSnapshot.status === "error" ? (
+      <>
+        {previewSnapshot.status === "loading" ? <p role="status">Preparing preview…</p> : null}
+        {previewSnapshot.status === "error" ? (
+          <p role="alert">{previewErrorCopy(previewSnapshot.error)}</p>
+        ) : null}
+      </>
+    ) : null;
 
-      {previewSnapshot.status === "loading" ? <p role="status">Preparing preview…</p> : null}
-      {previewSnapshot.status === "error" ? (
-        <p role="alert">{previewErrorCopy(previewSnapshot.error)}</p>
-      ) : null}
+  return (
+    <section className="sc-learner-interactions" aria-label="Interactions">
+      {slots ? (
+        slots.headerActions ? (
+          createPortal(headerActions, slots.headerActions)
+        ) : null
+      ) : (
+        <header className="sc-learner-interactions-header">
+          <div>{headerActions}</div>
+        </header>
+      )}
+
+      {statusContent && slots?.status
+        ? createPortal(statusContent, slots.status)
+        : statusContent}
 
       {projectedReport ? (
         <section aria-label="Latest interaction turn">
