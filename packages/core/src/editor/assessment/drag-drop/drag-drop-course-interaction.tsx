@@ -127,13 +127,20 @@ interface OwnerState {
 export function DragDropInlineCourseWorkspace({
   assessmentTargetId,
   content,
-}: Pick<DragDropCourseInteractionProps, "assessmentTargetId" | "content">) {
+  presentation = "inline",
+}: Pick<DragDropCourseInteractionProps, "assessmentTargetId" | "content"> & {
+  readonly presentation?: Exclude<DragDropPresentation, "expanded">;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <Owner assessmentTargetId={assessmentTargetId} content={content}>
       {(owner) => (
         <DragDropCourseWorkspace.Root open={open} onOpenChange={setOpen}>
-          <Presentation owner={owner} presentation="inline" onRequestExpand={() => setOpen(true)} />
+          <Presentation
+            owner={owner}
+            presentation={presentation}
+            onRequestExpand={() => setOpen(true)}
+          />
           {open ? (
             <DragDropCourseWorkspace.Content
               title="Answer Drag and Drop"
@@ -1004,7 +1011,7 @@ function Presentation({
               );
             }}
           </SpatialImageSurface>
-          {presentation === "inline" && onRequestExpand ? (
+          {presentation !== "expanded" && onRequestExpand ? (
             <div
               role="toolbar"
               aria-label="Drag and Drop view tools"

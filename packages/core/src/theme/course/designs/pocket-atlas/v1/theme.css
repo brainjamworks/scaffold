@@ -5455,7 +5455,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   border-color: var(--pa-ink);
   border-radius: 0;
   background: var(--pa-mango);
-  color: var(--pa-ink);
+  /* Dark ink in both modes: dark-mode --pa-ink is pale and vanishes on the
+     mango fill (1.27:1); the highlight foreground stays dark on mango. */
+  color: var(--pa-stat-highlight-foreground);
   box-shadow: 2px 2px 0 var(--pa-ink);
   cursor: grab;
   transition:

@@ -11,7 +11,7 @@ import {
   projectDragDropSettings,
 } from "@/editor/assessment/drag-drop/assessment";
 import { createDragDropCourseContent } from "@/editor/assessment/drag-drop/drag-drop-course-content";
-import { DragDropCourseInteraction } from "@/editor/assessment/drag-drop/drag-drop-course-interaction";
+import { DragDropInlineCourseWorkspace } from "@/editor/assessment/drag-drop/drag-drop-course-interaction";
 import { dragDropResponseCodec } from "@/editor/assessment/drag-drop/drag-drop-response-codec";
 import { pageAssessmentExperience } from "@/editor/assessment/shared/model/assessment-capability";
 import { countAssessmentHints } from "@/editor/assessment/shared/model/assessment-prosemirror";
@@ -97,7 +97,7 @@ export function DragDropFullSlideQuestionPresenter({
         data-slot="drag-drop-content"
         data-surface-drag-drop-interaction=""
       >
-        <DragDropCourseInteraction
+        <DragDropInlineCourseWorkspace
           assessmentTargetId={assessmentTargetId}
           content={content}
           presentation="full-slide"

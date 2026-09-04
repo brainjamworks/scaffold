@@ -120,7 +120,8 @@
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-attempt-counter {
   min-height: var(--space-6);
-  color: var(--gray-10);
+  /* gray-11, not gray-10: 12px medium text needs the 4.5:1 step. */
+  color: var(--gray-11);
   font-family: var(--default-font-family);
   font-size: var(--font-size-1);
   font-weight: var(--font-weight-medium);

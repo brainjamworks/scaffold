@@ -511,13 +511,14 @@
     min-height: 2.75rem;
   }
 
-  /* Notification-badge on the marker's top-right corner. The compound
-     selector out-weighs the `.sc-course-drag-drop-marker > button` sizing
-     rule, which would otherwise force the badge to the 44px marker size. */
+  /* Badge just off the marker's top-right corner — far enough out that it
+     clears the selection ring instead of drawing a second ring over it. The
+     compound selector out-weighs the `.sc-course-drag-drop-marker > button`
+     sizing rule, which would otherwise force the badge to the marker size. */
   .sc-course-drag-drop-marker > button.sc-course-drag-drop-marker__remove {
     position: absolute;
-    left: 100%;
-    top: 0;
+    left: calc(100% + 0.5rem);
+    top: -0.5rem;
     transform: translate(-50%, -50%);
     z-index: 3;
     display: grid;
@@ -538,14 +539,14 @@
      stays inside the stage. */
   .sc-course-drag-drop-marker[data-edge-x="right"]
     > button.sc-course-drag-drop-marker__remove {
-    left: 0;
+    left: -0.5rem;
   }
 
   /* Near the bottom edge the label sits above the marker, so the badge
      drops to the lower corner to stay clear of it. */
   .sc-course-drag-drop-marker[data-edge-y="bottom"]
     > button.sc-course-drag-drop-marker__remove {
-    top: 100%;
+    top: calc(100% + 0.5rem);
   }
 
   .sc-course-drag-drop-source {

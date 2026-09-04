@@ -19,7 +19,9 @@
     block-size: 100%;
     min-inline-size: 0;
     min-block-size: 0;
-    overflow: hidden;
+    /* Visible: edge-placed markers legitimately spill past the image box
+       into the slide padding; the slide canvas is the outer clip. */
+    overflow: visible;
     padding: clamp(0.75rem, 2cqw, 1.25rem) clamp(1rem, 4cqw, 2.5rem);
   }
 
@@ -44,7 +46,7 @@
     block-size: 100%;
     min-inline-size: 0;
     min-block-size: 0;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"]
