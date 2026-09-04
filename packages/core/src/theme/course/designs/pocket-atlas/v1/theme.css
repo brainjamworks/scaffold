@@ -4826,6 +4826,17 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   color: var(--sc-course-state-correct-text);
 }
 
+/* Giving up (Show answer) is the quiet keyline secondary; persisting
+   (Try again / Submit) keeps the filled cartridge — mirrors Flow's
+   text-link vs primary hierarchy. */
+.sc-course.sc-course-theme-pocket-atlas-v1
+  .sc-course-assessment-support-button[data-assessment-support-intent="answer"]:not(
+    [aria-pressed="true"]
+  ) {
+  background: var(--pa-paper-raised);
+  color: var(--pa-ink);
+}
+
 .sc-course.sc-course-theme-pocket-atlas-v1
   .sc-course-assessment-support-button[data-assessment-support-intent="answer"][aria-pressed="true"] {
   background: var(--pa-mango);
@@ -5474,7 +5485,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   outline-color: var(--pa-violet-deep);
 }
 
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker[data-selected] > button {
+/* Selection fill only while no verdict is on the marker — verdict paint
+   wins; selection during review reads as the outline ring alone. */
+.sc-course.sc-course-theme-pocket-atlas-v1
+  .sc-course-drag-drop-marker[data-selected]:not([data-course-state])
+  > button {
   background: var(--pa-violet);
   color: var(--pa-violet-foreground);
   box-shadow: 3px 3px 0 var(--pa-ink);
@@ -6791,11 +6806,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
    learner's original answer and connector stay in ink. */
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-reveal__zone {
   stroke: var(--pa-mint);
-}
-
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-reveal__connector,
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-reveal__origin {
-  stroke: var(--pa-ink);
 }
 
 @media (prefers-reduced-motion: no-preference) {

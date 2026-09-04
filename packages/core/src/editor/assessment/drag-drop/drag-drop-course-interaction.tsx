@@ -194,6 +194,7 @@ function Owner({
   const activeDragMarker = useRef<DragDropCourseMarker | null>(null);
   const focusSequence = useRef(0);
   const keyboardCursorRef = useRef<DragDropKeyboardCursorState>(createIdleDragDropKeyboardCursor());
+  const wasSubmitted = useRef(false);
   const keyboardPresentationRef = useRef<DragDropPresentation | null>(null);
   const keyboardFocusOrigin = useRef<HTMLElement | null>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<EmbeddedDataId | null>(null);
@@ -300,12 +301,7 @@ function Owner({
       ? SpatialPlacementAssessmentSchema.parse(problem.state.revealedAnswer.answers)
       : null;
   const displayPlacements: Readonly<Record<string, SpatialImagePoint>> = revealed
-    ? Object.fromEntries(
-        revealed.correctPlacements.map(({ geometry, markerId }) => [
-          markerId,
-          { x: geometry.centerX, y: geometry.centerY },
-        ]),
-      )
+    ? fanCoincidentPlacements(revealed.correctPlacements, revealed.imageAspectRatio ?? 1)
     : placements;
   const displayMarkers = revealed ? content.markers : placed;
   const selectedMarker = selectedMarkerId
@@ -333,7 +329,14 @@ function Owner({
     activeDragMarker.current = null;
   }, [locked, setKeyboardCursor, setKeyboardPresentation]);
   useEffect(() => {
-    if (!problem?.state.submitted) return;
+    if (!problem?.state.submitted) {
+      // Leaving the submitted state (Try again / reset) must retire the
+      // verdict announcement, or the status line reads stale.
+      if (wasSubmitted.current) setAnnouncement("Markers are editable again.");
+      wasSubmitted.current = false;
+      return;
+    }
+    wasSubmitted.current = true;
     setAnnouncement(
       problem.answerView === "correct"
         ? "Answer revealed. Correct marker positions shown."
@@ -814,6 +817,7 @@ function Presentation({
   const instructionsId = useId();
   const statusId = useId();
   const sectionRef = useRef<HTMLElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const drop = useInteractionDropTarget<ImageDropData>({
     data: { presentation },
     disabled: owner.locked || !owner.readyPresentations.has(presentation),
@@ -880,7 +884,11 @@ function Presentation({
         {owner.placed.length} of {owner.content.markers.length} markers placed.
       </p>
       <div className="sc-course-drag-drop-interaction__layout">
-        <aside className="sc-course-drag-drop-tray" aria-label="Markers">
+        <aside
+          className="sc-course-drag-drop-tray"
+          aria-label="Markers"
+          data-idle={owner.locked && owner.unplaced.length === 0 ? "" : undefined}
+        >
           <div className="sc-course-drag-drop-tray__unplaced">
             <h3>Markers to place</h3>
             {owner.unplaced.length === 0 ? <p>All markers placed.</p> : null}
@@ -911,16 +919,17 @@ function Presentation({
               Reset
             </button>
           </div>
-          {owner.placed.length > 0 ? (
-            <ul className="sc-sr-only" aria-label="Placed markers">
-              {owner.placed.map((marker) => (
-                <li key={marker.id}>{accessibleMarkerLabel(owner.content, marker)} placed.</li>
-              ))}
-            </ul>
-          ) : null}
         </aside>
+        {owner.placed.length > 0 ? (
+          <ul className="sc-sr-only" aria-label="Placed markers">
+            {owner.placed.map((marker) => (
+              <li key={marker.id}>{accessibleMarkerLabel(owner.content, marker)} placed.</li>
+            ))}
+          </ul>
+        ) : null}
 
         <div
+          ref={stageRef}
           className="sc-course-drag-drop-stage"
           data-drop-active={drop.isDropTarget || undefined}
           data-drag-active={owner.activeDragMarkerId ? "" : undefined}
@@ -930,6 +939,9 @@ function Presentation({
             src={owner.imageSrc}
             alt={owner.content.image?.alt ?? ""}
             aspectRatioCssProperty="--sc-drag-drop-aspect-ratio"
+            // The stage is height-definite in these presentations; contain-fit
+            // the image to it so expanding actually scales the canvas up.
+            fitContainerRef={presentation === "inline" ? undefined : stageRef}
             overlayOverflow="visible"
             onImageLoad={() => owner.imageLoaded(presentation)}
             onImageError={() => owner.imageFailed(presentation)}
@@ -994,6 +1006,28 @@ function Presentation({
                       />
                     );
                   })}
+                  {presentation !== "expanded" && onRequestExpand && state.status === "ready" ? (
+                    <div
+                      role="toolbar"
+                      aria-label="Drag and Drop view tools"
+                      className="sc-course-drag-drop__canvas-toolbar"
+                    >
+                      <button
+                        type="button"
+                        aria-label="Answer in expanded workspace"
+                        className="sc-course-drag-drop__icon-action"
+                        title="Answer in expanded workspace"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onRequestExpand();
+                        }}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
+                      >
+                        <ArrowsOut size={iconSm} aria-hidden />
+                      </button>
+                    </div>
+                  ) : null}
                   {owner.keyboardCursor.kind === "positioning" && keyboardMarker && ready ? (
                     <KeyboardCursor
                       describedBy={instructionsId}
@@ -1011,28 +1045,6 @@ function Presentation({
               );
             }}
           </SpatialImageSurface>
-          {presentation !== "expanded" && onRequestExpand ? (
-            <div
-              role="toolbar"
-              aria-label="Drag and Drop view tools"
-              className="sc-course-drag-drop__canvas-toolbar"
-            >
-              <button
-                type="button"
-                aria-label="Answer in expanded workspace"
-                className="sc-course-drag-drop__icon-action"
-                title="Answer in expanded workspace"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onRequestExpand();
-                }}
-                onMouseDown={(event) => event.stopPropagation()}
-                onPointerDown={(event) => event.stopPropagation()}
-              >
-                <ArrowsOut size={iconSm} aria-hidden />
-              </button>
-            </div>
-          ) : null}
           {owner.mediaUnavailable ? (
             <div role="alert">
               <p>The background image is unavailable.</p>
@@ -1050,6 +1062,39 @@ function Presentation({
       </div>
     </section>
   );
+}
+
+/* Several correct placements can legitimately share one centre; stacked
+   markers there z-fight into garbage. Fan coincident markers around their
+   shared centre (visual only — zones and grading are untouched). */
+function fanCoincidentPlacements(
+  placements: SpatialPlacementAssessment["correctPlacements"],
+  aspectRatio: number,
+): Readonly<Record<string, SpatialImagePoint>> {
+  const groups = new Map<string, typeof placements>();
+  for (const placement of placements) {
+    const key = `${placement.geometry.centerX.toFixed(1)}:${placement.geometry.centerY.toFixed(1)}`;
+    groups.set(key, [...(groups.get(key) ?? []), placement]);
+  }
+  const result: Record<string, SpatialImagePoint> = {};
+  for (const group of groups.values()) {
+    group.forEach(({ geometry, markerId }, index) => {
+      if (group.length === 1) {
+        result[markerId] = { x: geometry.centerX, y: geometry.centerY };
+        return;
+      }
+      const angle = -Math.PI / 2 + (index * 2 * Math.PI) / group.length;
+      const radius = Math.min(3, geometry.radius * 0.6);
+      result[markerId] = {
+        x: Math.min(100, Math.max(0, geometry.centerX + radius * Math.cos(angle))),
+        y: Math.min(
+          100,
+          Math.max(0, geometry.centerY + radius * Math.sin(angle) * (aspectRatio || 1)),
+        ),
+      };
+    });
+  }
+  return result;
 }
 
 function RevealOverlay({
@@ -1083,24 +1128,40 @@ function RevealOverlay({
         return (
           <g key={markerId} className="sc-course-drag-drop-reveal__item">
             {missed ? (
-              <line
-                className="sc-course-drag-drop-reveal__connector"
-                vectorEffect="non-scaling-stroke"
-                x1={learner.x}
-                y1={learner.y}
-                x2={geometry.centerX}
-                y2={geometry.centerY}
-              />
-            ) : null}
-            {missed ? (
-              <ellipse
-                className="sc-course-drag-drop-reveal__origin"
-                cx={learner.x}
-                cy={learner.y}
-                rx={1.1}
-                ry={1.1 * aspect}
-                vectorEffect="non-scaling-stroke"
-              />
+              <>
+                <line
+                  className="sc-course-drag-drop-reveal__connector-casing"
+                  vectorEffect="non-scaling-stroke"
+                  x1={learner.x}
+                  y1={learner.y}
+                  x2={geometry.centerX}
+                  y2={geometry.centerY}
+                />
+                <line
+                  className="sc-course-drag-drop-reveal__connector"
+                  vectorEffect="non-scaling-stroke"
+                  x1={learner.x}
+                  y1={learner.y}
+                  x2={geometry.centerX}
+                  y2={geometry.centerY}
+                />
+                <ellipse
+                  className="sc-course-drag-drop-reveal__origin-casing"
+                  cx={learner.x}
+                  cy={learner.y}
+                  rx={1.1}
+                  ry={1.1 * aspect}
+                  vectorEffect="non-scaling-stroke"
+                />
+                <ellipse
+                  className="sc-course-drag-drop-reveal__origin"
+                  cx={learner.x}
+                  cy={learner.y}
+                  rx={1.1}
+                  ry={1.1 * aspect}
+                  vectorEffect="non-scaling-stroke"
+                />
+              </>
             ) : null}
             <ellipse
               className="sc-course-drag-drop-reveal__zone"

@@ -130,7 +130,11 @@
   outline-color: var(--accent-9);
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-marker[data-selected] > button {
+/* Selection fill only while no verdict is on the marker — verdict paint
+   wins; selection during review reads as the outline ring alone. */
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-drag-drop-marker[data-selected]:not([data-course-state])
+  > button {
   border-color: var(--accent-a9);
   background: var(--accent-a2);
   color: var(--accent-11);
@@ -233,11 +237,6 @@
    the learner's original answer and its connector recede into the gray ramp. */
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-reveal__zone {
   stroke: var(--sc-course-state-correct-indicator);
-}
-
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-reveal__connector,
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-reveal__origin {
-  stroke: var(--gray-a8);
 }
 
 @media (prefers-reduced-motion: no-preference) {

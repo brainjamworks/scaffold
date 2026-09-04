@@ -336,29 +336,44 @@
   }
 
   /* Answer reveal: acceptance zones, plus a connector from where the
-     learner's answer was to each missed zone. Geometry only — themes paint. */
+     learner's answer was to each missed zone. Ornaments clip to the image
+     box — a region beyond the image edge cannot receive answers, and rings
+     must not spill over sibling chrome. */
   .sc-course-drag-drop-reveal {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
-    overflow: visible;
+    overflow: hidden;
     pointer-events: none;
   }
 
-  .sc-course-drag-drop-reveal__zone,
-  .sc-course-drag-drop-reveal__origin {
+  .sc-course-drag-drop-reveal__zone {
     fill: none;
     stroke: currentcolor;
     stroke-width: 2px;
-  }
-
-  .sc-course-drag-drop-reveal__zone {
     stroke-dasharray: 6 4;
   }
 
+  /* Connector and origin draw OVER THE LEARNER'S IMAGE, whose luminance is
+     independent of the app colour mode — so their paint is literal (dark
+     core on a light casing, legible on any imagery), not theme tokens. */
+  .sc-course-drag-drop-reveal__connector-casing,
+  .sc-course-drag-drop-reveal__origin-casing {
+    fill: none;
+    stroke: rgb(255 255 255 / 0.85);
+    stroke-width: 4.5px;
+    stroke-linecap: round;
+  }
+
+  .sc-course-drag-drop-reveal__origin {
+    fill: none;
+    stroke: rgb(30 33 44 / 0.85);
+    stroke-width: 2px;
+  }
+
   .sc-course-drag-drop-reveal__connector {
-    stroke: currentcolor;
+    stroke: rgb(30 33 44 / 0.85);
     stroke-width: 2px;
     stroke-dasharray: 2 5;
     stroke-linecap: round;
@@ -369,6 +384,11 @@
     .sc-course-drag-drop-reveal__origin,
     .sc-course-drag-drop-reveal__connector {
       stroke: Highlight;
+    }
+
+    .sc-course-drag-drop-reveal__connector-casing,
+    .sc-course-drag-drop-reveal__origin-casing {
+      stroke: Canvas;
     }
   }
 
@@ -449,6 +469,17 @@
   .sc-course-drag-drop-marker[data-edge-y="bottom"] .sc-course-drag-drop-marker__label {
     top: auto;
     bottom: 100%;
+  }
+
+  /* Once the attempt locks with everything placed, the shelf is dead
+     chrome ("All markers placed" + a disabled Reset) — collapse it and
+     hand its row to the stage. */
+  .sc-course-drag-drop-tray[data-idle] {
+    display: none;
+  }
+
+  .sc-course-drag-drop-tray[data-idle] ~ .sc-course-drag-drop-stage {
+    grid-row: 2;
   }
 
   /* The tray is a horizontal shelf above the stage: unplaced markers
@@ -542,11 +573,18 @@
     left: -0.5rem;
   }
 
-  /* Near the bottom edge the label sits above the marker, so the badge
-     drops to the lower corner to stay clear of it. */
+  /* Near the bottom edge the label sits above the marker and the stage
+     boundary clips below, so the badge moves to the side at mid-height —
+     clear of the label, never clipped. */
   .sc-course-drag-drop-marker[data-edge-y="bottom"]
     > button.sc-course-drag-drop-marker__remove {
-    top: calc(100% + 0.5rem);
+    left: calc(100% + 0.75rem);
+    top: 50%;
+  }
+
+  .sc-course-drag-drop-marker[data-edge-y="bottom"][data-edge-x="right"]
+    > button.sc-course-drag-drop-marker__remove {
+    left: -0.75rem;
   }
 
   .sc-course-drag-drop-source {
@@ -610,6 +648,9 @@
     min-width: 0;
     min-height: 0;
     overflow: auto;
+    /* Header and footer take their size; the interaction gets the rest, so
+       the expanded canvas can actually scale the image to the dialog. */
+    grid-template-rows: auto minmax(0, 1fr) auto;
     gap: 1rem;
     inset: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
       max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
@@ -639,6 +680,7 @@
 
   .sc-course-drag-drop-workspace > .sc-course-drag-drop-interaction {
     min-height: 0;
+    block-size: 100%;
     padding: 1rem;
     overflow: auto;
   }
