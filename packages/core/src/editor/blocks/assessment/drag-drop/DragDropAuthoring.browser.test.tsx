@@ -35,19 +35,18 @@ afterEach(() => {
 });
 
 describe("Drag and Drop authoring", () => {
-  it("places a new marker with a settled click on empty canvas", async () => {
+  it("treats a settled click on empty canvas as a deselect, not a creation", async () => {
     const onCreateMarker = vi.fn(() => "marker000009" as never);
     const { container } = renderCanvas({ onCreateMarker });
     await prepareImage(container);
 
     const surface = spatialSurface(container);
+    // Hotspot idiom: a press that never grows past the minimum draw radius
+    // creates nothing.
     fireEvent.pointerDown(surface, { button: 0, clientX: 300, clientY: 150, pointerId: 1 });
     fireEvent.pointerUp(surface, { clientX: 300, clientY: 150, pointerId: 1 });
 
-    expect(onCreateMarker).toHaveBeenCalledWith(
-      { label: "Marker 1", visualOverride: null },
-      { kind: "circle", centerX: 50, centerY: 50, radius: 8 },
-    );
+    expect(onCreateMarker).not.toHaveBeenCalled();
   });
 
   it("draws the acceptance zone by dragging on empty canvas", async () => {

@@ -2,9 +2,11 @@
 
 @layer sc-components {
   [data-full-slide-question-family="drag-drop"] [data-slot="assessment-prompt"] {
-    max-block-size: 6rem;
-    overflow: auto;
+    max-block-size: 7rem;
+    overflow-x: hidden;
+    overflow-y: auto;
     overscroll-behavior: contain;
+    scrollbar-gutter: stable;
   }
 
   .sc-assessment-slide-surface-runtime-view
@@ -22,22 +24,21 @@
     /* Visible: edge-placed markers legitimately spill past the image box
        into the slide padding; the slide canvas is the outer clip. */
     overflow: visible;
-    padding: clamp(0.75rem, 2cqw, 1.25rem) clamp(1rem, 4cqw, 2.5rem);
+    padding: clamp(0.75rem, 2cqw, 1.25rem) clamp(1rem, 5cqw, 3rem);
   }
 
+  /* Fill and fit like the image-hotspot slide canvas: 100% of the slide,
+     never scrolling — the surface contain-fits the remaining box. */
   .sc-slide-drag-drop-question-surface-authoring-view [data-node="drag-drop-canvas"] {
     box-sizing: border-box;
     display: grid;
+    block-size: 100%;
     min-inline-size: 0;
     min-block-size: 0;
     grid-column: 1 / -1;
     grid-row: 3;
-    overflow: auto;
-    padding: clamp(0.75rem, 2cqw, 1.25rem) clamp(1rem, 4cqw, 2.5rem);
-  }
-
-  .sc-slide-drag-drop-question-surface-authoring-view .sc-app-drag-drop-stage {
-    min-block-size: 18rem;
+    overflow: hidden;
+    padding: clamp(0.75rem, 2cqw, 1.25rem) clamp(1rem, 5cqw, 3rem);
   }
 
   .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"] {

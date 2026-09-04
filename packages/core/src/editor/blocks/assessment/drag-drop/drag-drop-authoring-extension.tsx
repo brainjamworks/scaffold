@@ -326,7 +326,7 @@ function DragDropCanvasAuthoringView(props: NodeViewProps) {
         />
         <DragDropAuthoringWorkspace.Content
           title="Edit Drag and Drop markers"
-          description={`${data.markers.length} marker${data.markers.length === 1 ? "" : "s"}. Click the image to place markers; drag them to move.`}
+          description={`${data.markers.length} marker${data.markers.length === 1 ? "" : "s"}. Drag on the image to draw marker zones; drag markers to move.`}
           toolbar={
             <DragDropAuthoringWorkspace.ToolbarGroup aria-label="Image actions">
               <DragDropAuthoringWorkspace.ToolbarAction

@@ -52,6 +52,9 @@ const PRESET_LABELS: Record<MarkerPresetId, string> = {
 
 const DEFAULT_MARKER_RADIUS = 8;
 const MIN_MARKER_RADIUS = 1;
+/* A draw released below this radius is treated as a click (creates nothing),
+   matching the image-hotspot canvas. */
+const MIN_DRAW_RADIUS = 2;
 const MAX_MARKER_RADIUS = 50;
 const DRAG_THRESHOLD_PX = 4;
 
@@ -116,7 +119,7 @@ type PointerInteraction =
 
 /**
  * Canvas-first Drag and Drop authoring, mirroring the image-hotspot
- * architecture: direct manipulation on the image (click to place, drag
+ * architecture: direct manipulation on the image (drag to draw a zone, drag
  * to move, drag the ring handle to set tolerance), a floating icon
  * toolbar inline, and a MediaWorkspace canvas + inspector sidebar in
  * the expanded presentation. Marker details live in the inspector, on
@@ -231,7 +234,9 @@ export function DragDropAuthoringCanvas({
     const aspect = surfaceState.current?.aspectRatio ?? 1;
     const dx = point.x - center.x;
     const dy = (point.y - center.y) / (aspect || 1);
-    return Math.min(MAX_MARKER_RADIUS, Math.max(MIN_MARKER_RADIUS, Math.hypot(dx, dy)));
+    // Unclamped below the draw minimum: the preview grows from 0 and the
+    // release decides whether it is a real zone or a discarded click.
+    return Math.min(MAX_MARKER_RADIUS, Math.hypot(dx, dy));
   };
 
   const createMarkerAt = (
@@ -298,12 +303,21 @@ export function DragDropAuthoringCanvas({
       return;
     }
     const markerId = (markerElement?.dataset["authoringMarkerId"] ?? null) as EmbeddedDataId | null;
-    interaction.current = {
-      mode: "pressing",
-      markerId,
-      startClient: { x: event.clientX, y: event.clientY },
-      startPoint: point,
-    };
+    if (markerId || armedRepositionId) {
+      interaction.current = {
+        mode: "pressing",
+        markerId,
+        startClient: { x: event.clientX, y: event.clientY },
+        startPoint: point,
+      };
+      return;
+    }
+    // Empty canvas → start drawing a new zone immediately, hotspot-style:
+    // the ring grows from radius 0 under the pointer, and a release below
+    // the minimum draw radius (a plain click) creates nothing.
+    setSelectedId(null);
+    interaction.current = { mode: "drawing", center: point };
+    setDrawPreview({ center: point, radius: 0 });
   };
 
   const onSurfacePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -312,18 +326,10 @@ export function DragDropAuthoringCanvas({
     const point = surfaceState.current?.pointFromClient({ x: event.clientX, y: event.clientY });
     if (!point) return;
     if (current.mode === "pressing") {
+      if (!current.markerId) return;
       const dx = event.clientX - current.startClient.x;
       const dy = event.clientY - current.startClient.y;
       if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
-      if (!current.markerId) {
-        // Empty-canvas drag draws the acceptance zone in one motion.
-        interaction.current = { mode: "drawing", center: current.startPoint };
-        setDrawPreview({
-          center: current.startPoint,
-          radius: drawRadius(current.startPoint, point),
-        });
-        return;
-      }
       interaction.current = { mode: "moving", markerId: current.markerId };
       setSelectedId(current.markerId);
       setDraftPlacement({
@@ -362,7 +368,11 @@ export function DragDropAuthoringCanvas({
       suppressSurfaceClickRef.current = true;
       const preview = drawPreview;
       setDrawPreview(null);
-      if (preview) createMarkerAt(preview.center, preview.radius);
+      // Below the draw minimum the press was a click — it deselected on the
+      // way down and creates nothing, exactly like the hotspot canvas.
+      if (preview && preview.radius >= MIN_DRAW_RADIUS) {
+        createMarkerAt(preview.center, Math.max(preview.radius, MIN_MARKER_RADIUS));
+      }
       return;
     }
     if (current.mode === "moving" || current.mode === "resizing") {
@@ -388,9 +398,7 @@ export function DragDropAuthoringCanvas({
       });
       announce(`Marker ${markerNumber(armedRepositionId)} repositioned.`);
       setArmedRepositionId(null);
-      return;
     }
-    createMarkerAt(point);
   };
 
   const canvasSurface = (
@@ -403,7 +411,7 @@ export function DragDropAuthoringCanvas({
         role: "group",
         tabIndex: armedRepositionId ? 0 : -1,
         "aria-label": editable
-          ? "Correct marker placement image. Click to place a marker; drag markers to move them."
+          ? "Correct marker placement image. Drag on empty space to draw a marker zone; drag markers to move them."
           : "Correct marker placement preview",
         ...(editable
           ? {
@@ -587,7 +595,7 @@ export function DragDropAuthoringCanvas({
       >
         <MediaWorkspace.SidebarHeader
           title="Markers"
-          description="Click the image to place a marker. Select a row to edit its details."
+          description="Drag on the image to draw a marker zone. Select a row to edit its details."
           count={data.markers.length}
           countLabel={`${data.markers.length} total markers`}
         />
@@ -692,7 +700,7 @@ export function DragDropAuthoringCanvas({
         ) : (
           <MediaWorkspace.Empty className="sc-app-drag-drop-workspace__empty">
             <strong>No markers yet</strong>
-            <span>Click anywhere on the image to place the first marker.</span>
+            <span>Drag anywhere on the image to draw the first marker zone.</span>
             <MediaEmptyAction
               aria-label="Add first marker"
               icon={<Plus size={iconSm} aria-hidden />}
@@ -740,7 +748,7 @@ function DragDropEmptyState({
       <p className="sc-app-drag-drop-empty__description">
         {mediaError
           ? "Retry the image or choose a replacement before placing markers."
-          : "Upload an image, then click it to place each marker learners will drag into position."}
+          : "Upload an image, then drag on it to draw each marker zone learners will aim for."}
       </p>
       {mediaError && onRetryBackground ? (
         <button type="button" className="sc-app-drag-drop-empty__retry" onClick={onRequestBackground}>

@@ -6,6 +6,10 @@
     display: grid;
     width: 100%;
     min-width: 0;
+    /* As a grid item of a height-definite slot (the slide canvas), the shell
+       must be allowed to shrink below its content so the stage contain-fits
+       the remaining box instead of forcing a scroll. */
+    min-block-size: 0;
     grid-template-columns: minmax(0, 1fr);
   }
 
