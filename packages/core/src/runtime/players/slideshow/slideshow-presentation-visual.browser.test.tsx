@@ -72,11 +72,13 @@ describe("Slideshow Presentation visual playback", () => {
     expect(target).toHaveAttribute("aria-hidden", "true");
     expect(target).toHaveAttribute("inert");
     expect(canvas).toHaveAttribute("data-content-interaction", "inert");
-    await waitForCondition(() => buttonByName("Next slide").disabled === false);
+    await waitForCondition(() => buttonByNameOrNull("Play presentation")?.disabled === false);
     await waitForCondition(() => buttonByNameOrNull("Enter fullscreen"));
+    // Surface navigation stays out of Presentation transport; Next unlocks only on completion.
+    expect(buttonByName("Next slide").disabled).toBe(true);
 
-    buttonByName("Next slide").click();
-    expect(session.getSnapshot().phase).toBe("playing");
+    buttonByName("Play presentation").click();
+    await waitForCondition(() => session.getSnapshot().phase === "playing");
     session.pause();
     expect(session.getSnapshot().phase).toBe("paused");
 

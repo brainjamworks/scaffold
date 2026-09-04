@@ -129,6 +129,13 @@ describe("Quiz Surface exit integration", () => {
                     atMs: 50,
                   },
                 ],
+                visualProgram: {
+                  surfaceId: QUIZ_SURFACE_ID as SurfaceId,
+                  durationMs: 50,
+                  targetById: new Map(),
+                  segments: [],
+                  sequenceContainers: [],
+                },
               },
             },
           }
@@ -150,17 +157,21 @@ describe("Quiz Surface exit integration", () => {
     await waitFor(() => expect(surfaceExitEnvironment().getSnapshot().status).toBe("blocked"));
     const next = buttonByName("Next slide");
 
-    await waitFor(() => expect(next).not.toBeDisabled());
-    expect(next).not.toHaveAttribute("aria-describedby");
+    // Presentation transport is separate from Surface navigation, so Next stays out of it
+    // until the Presentation completes (see "separate presentation controls from navigation").
+    expect(next).toBeDisabled();
+    await user.click(await screen.findByRole("button", { name: "Play presentation" }));
+
+    const continueControl = await screen.findByRole("button", { name: "Continue presentation" });
+    expect(continueControl).toBeEnabled();
+    expect(next).toBeDisabled();
+    await user.click(continueControl);
+
+    // The Presentation ran to completion; only the Quiz guard now holds the Surface.
+    await waitFor(() => expect(next).toHaveAttribute("aria-describedby"));
+    expect(next).toBeDisabled();
     await user.click(next);
 
-    await waitFor(() => expect(next).toBeDisabled());
-    await waitFor(() => expect(next).not.toBeDisabled());
-    expect(next).not.toHaveAttribute("aria-describedby");
-    await user.click(next);
-
-    await waitFor(() => expect(next).toBeDisabled());
-    expect(next).toHaveAttribute("aria-describedby");
     expect(surfaceById(QUIZ_SURFACE_ID)).toHaveAttribute("data-runtime-surface-visible", "true");
     expect(onActiveSurfaceChange).toHaveBeenLastCalledWith(QUIZ_SURFACE_ID);
   });

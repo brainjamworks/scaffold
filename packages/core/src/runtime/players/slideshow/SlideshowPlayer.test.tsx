@@ -635,6 +635,13 @@ describe("SlideshowPlayer", () => {
                     durationMs: 0,
                     cues: Object.freeze([]),
                     waits: Object.freeze([]),
+                    visualProgram: Object.freeze({
+                      surfaceId,
+                      durationMs: 0,
+                      targetById: new Map(),
+                      segments: Object.freeze([]),
+                      sequenceContainers: Object.freeze([]),
+                    }),
                   }),
                 }),
               })
