@@ -73,6 +73,17 @@
     height: 1.5rem;
   }
 
+  .sc-presentation-narration-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    margin-inline-start: 0.75rem;
+  }
+
+  .sc-presentation-narration-controls .sc-button {
+    height: 1.5rem;
+  }
+
   .sc-presentation-timeline-zoom-controls {
     display: flex;
     align-items: center;

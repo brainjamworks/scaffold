@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 describe("ContentAuthorHost", () => {
-  it("threads a neutral bottom workspace into the central Stage column", () => {
+  it("threads a neutral bottom workspace into the shell centre column below the Stage", () => {
     const content = createScaffoldDocumentContent({ mode: "page" });
 
     render(
@@ -34,9 +34,9 @@ describe("ContentAuthorHost", () => {
       />,
     );
 
-    const workspace = screen.getByRole("region", { name: "Bottom workspace" });
-    expect(workspace).toHaveTextContent("Timeline shell content");
-    expect(workspace.closest(".sc-editor-stage-column")).not.toBeNull();
+    const workspace = screen.getByText("Timeline shell content");
+    expect(workspace.closest(".sc-editor-stage-column")).toBeNull();
+    expect(workspace.closest(".sc-editor-centre")).not.toBeNull();
   });
 
   it("shows a neutral Stage preview without disposing the authoring editor or bottom workspace", async () => {

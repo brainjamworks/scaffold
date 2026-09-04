@@ -1,5 +1,9 @@
-import { GearSixIcon as Gear } from "@phosphor-icons/react";
-import type { SurfacePresentationNarrationV1 } from "@scaffold/contracts";
+import {
+  CursorClickIcon as CursorClick,
+  FilmStripIcon as FilmStrip,
+  GearSixIcon as Gear,
+} from "@phosphor-icons/react";
+import { EmbeddedNodeIdSchema, type SurfacePresentationNarrationV1 } from "@scaffold/contracts";
 import type { Editor } from "@tiptap/react";
 
 import { ConfigurationMenuControls } from "@/editor/shell/bubbles/interaction/menu-controls/ConfigurationMenuControls";
@@ -23,13 +27,10 @@ import type {
   StructuralInteractionBubbleRenderer,
   StructuralInteractionBubbleRendererBinding,
 } from "@/editor/interactions/interaction-bubble";
+import { useSurfaceWorkspaceRequest } from "@/editor/shell/workspaces/surface-workspace-request";
 
 import { CopySurface, DeleteSurface, DuplicateSurface } from "./actions";
-import {
-  SurfaceNarrationMenuSection,
-  readCourseMode,
-  resolveSurfacePresentation,
-} from "./surface-narration-controls";
+import { readCourseMode, resolveSurfacePresentation } from "./surface-presentation-snapshot";
 
 import type {
   SurfaceAuthoringChrome,
@@ -64,13 +65,16 @@ export function SurfaceMenuBubbleContent({
 }: SurfaceMenuBubbleContentProps) {
   const commands = useInteractionCommands();
   const settingsOwnerTarget = useInteractionSnapshot().owners.settingsOwner.target;
+  const workspaceRequest = useSurfaceWorkspaceRequest();
   if (!snapshot) return null;
 
   const quickMenu = snapshot.authoringChrome?.quickMenu;
   const settingsSheet = resolveSurfaceSettingsSheet(snapshot);
   const hasDefaultActions = Boolean(snapshot.defaultActions);
   const hasQuickMenu = Boolean(quickMenu?.controls.length);
-  const hasPresentationControls = Boolean(snapshot.presentation && snapshot.surfaceId);
+  const hasPresentationControls = Boolean(
+    snapshot.presentation && snapshot.surfaceId && workspaceRequest,
+  );
   const settingsSheetOpen = Boolean(
     settingsOwnerTarget && sameInteractionTarget(settingsOwnerTarget, descriptor.target),
   );
@@ -99,11 +103,11 @@ export function SurfaceMenuBubbleContent({
         </>
       ) : null}
       {hasDefaultActions && hasPresentationControls ? <MenuSeparator /> : null}
-      {hasPresentationControls && snapshot.presentation && snapshot.surfaceId ? (
-        <SurfaceNarrationMenuSection
-          editor={editor}
-          presentation={snapshot.presentation}
-          surfaceId={snapshot.surfaceId}
+      {hasPresentationControls && workspaceRequest && snapshot.surfaceId ? (
+        <SurfaceWorkspaceMenuSection
+          onOpen={(workspace) =>
+            workspaceRequest.open(workspace, EmbeddedNodeIdSchema.parse(snapshot.surfaceId))
+          }
         />
       ) : null}
       {(hasDefaultActions || hasPresentationControls) && hasQuickMenu ? <MenuSeparator /> : null}
@@ -134,6 +138,23 @@ export function SurfaceMenuBubbleContent({
           }}
         />
       ) : null}
+    </>
+  );
+}
+
+function SurfaceWorkspaceMenuSection({
+  onOpen,
+}: {
+  readonly onOpen: (workspace: "timeline" | "interactions") => void;
+}) {
+  return (
+    <>
+      <MenuIconButton icon={FilmStrip} label="Open timeline" onClick={() => onOpen("timeline")} />
+      <MenuIconButton
+        icon={CursorClick}
+        label="Open interactions"
+        onClick={() => onOpen("interactions")}
+      />
     </>
   );
 }

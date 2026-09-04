@@ -42,6 +42,7 @@ import {
   PresentationActionEditor,
   presentPresentationAuthoringCommandError,
 } from "./PresentationActionEditor";
+import { PresentationNarrationControls } from "../narration/PresentationNarrationControls";
 import { PresentationNarrationLane } from "./PresentationNarrationLane";
 import type { PresentationTimelineController } from "./presentation-timeline-controller";
 import type {
@@ -376,6 +377,13 @@ export function PresentationTimeline({
               Set
             </Button>
           </form>
+        ) : null}
+        {editor ? (
+          <PresentationNarrationControls
+            editor={editor}
+            surfaceId={projection.surfaceId}
+            narration={projection.narration}
+          />
         ) : null}
         <div className="sc-presentation-timeline-zoom-controls">
           <Button size="sm" variant="ghost" onClick={fitTimeline}>

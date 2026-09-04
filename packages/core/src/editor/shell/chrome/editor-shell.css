@@ -2,10 +2,9 @@
 
 @layer sc-components {
   .sc-editor-shell {
-    --sc-editor-header-height: 53px;
     --sc-editor-rail-slot-width: 62px;
-    --sc-editor-rail-sticky-top: var(--sc-editor-header-height);
-    --sc-editor-rail-available-height: calc(100dvh - var(--sc-editor-header-height));
+    --sc-editor-rail-sticky-top: var(--sc-editor-header-height, 53px);
+    --sc-editor-rail-available-height: calc(100dvh - var(--sc-editor-header-height, 53px));
 
     display: flex;
     min-height: 100%;
@@ -30,6 +29,28 @@
     justify-content: center;
   }
 
+  .sc-editor-centre {
+    --sc-editor-rail-available-height: calc(
+      100dvh - var(--sc-editor-header-height, 53px) - var(--sc-editor-bottom-workspace-height, 0px)
+    );
+
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    flex: 1 1 0%;
+    flex-direction: column;
+  }
+
+  .sc-editor-centre-row {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  .sc-editor-bottom-panel-slot {
+    display: contents;
+  }
+
   .sc-editor-stage-column {
     display: flex;
     min-width: 0;
@@ -45,61 +66,10 @@
     flex: 1 1 auto;
   }
 
-  .sc-editor-bottom-workspace {
-    box-sizing: border-box;
-    display: flex;
-    width: 100%;
-    min-width: 0;
-    min-height: 0;
-    height: var(--sc-editor-bottom-workspace-height);
-    max-height: calc(100% - 160px);
-    flex: 0 0 var(--sc-editor-bottom-workspace-height);
-    flex-direction: column;
-    overflow: hidden;
-    border-top: 1px solid var(--sc-color-border, #d9dce3);
-    background: var(--sc-color-surface, #fff);
-  }
-
-  .sc-editor-bottom-workspace-resize-handle {
-    position: relative;
-    width: 100%;
-    height: 28px;
-    min-height: 28px;
-    flex: 0 0 28px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    cursor: ns-resize;
-    touch-action: none;
-  }
-
-  .sc-editor-bottom-workspace-resize-handle::before {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 32px;
-    height: 3px;
-    border-radius: 999px;
-    background: currentcolor;
-    content: "";
-    opacity: 0.32;
-    transform: translate(-50%, -50%);
-  }
-
-  .sc-editor-bottom-workspace-resize-handle:focus-visible {
-    outline: 2px solid var(--sc-color-focus, Highlight);
-    outline-offset: -2px;
-  }
-
-  .sc-editor-bottom-workspace-scroll {
-    min-width: 0;
-    min-height: 0;
-    flex: 1 1 auto;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-gutter: stable;
+  /* In the page scroll model the window scrolls, so pin the bar to the viewport bottom. */
+  .sc-editor-shell[data-scroll-model="page"] .sc-editor-bottom-workspace {
+    position: sticky;
+    bottom: 0;
   }
 
   .sc-editor-dock-slot {

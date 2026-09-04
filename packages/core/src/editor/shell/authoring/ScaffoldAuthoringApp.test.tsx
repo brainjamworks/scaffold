@@ -9,7 +9,6 @@ import {
   ScaffoldArtifactSchema,
   type EmbeddedNodeId,
 } from "@scaffold/contracts";
-import { Result } from "better-result";
 import { StrictMode, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
@@ -28,7 +27,7 @@ import type { PresentationPreviewDocument } from "@/presentation/model";
 import type { SemanticDocumentController } from "@/document/authoring/semantic-document/semantic-document-controller";
 import type { SemanticNavigationResult } from "@/document/authoring/semantic-document";
 import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
-import type { SemanticItem, SemanticLocation } from "@/document/model/semantic-document";
+import { FakeWorkspaceSemanticController } from "@/editor/shell/workspaces/testing/fake-workspace-semantic-controller";
 import { type CourseDocumentAuthoringMount } from "@/document/authoring/prepared-authoring-mount";
 import type {
   ArtifactSavePayload,
@@ -62,6 +61,7 @@ const mocks = vi.hoisted(() => {
     contentAuthorHostProps: [] as Array<Record<string, unknown>>,
     contentAuthorHostRenderCount: 0,
     renderBottomWorkspace: false,
+    autoOpenWorkspace: true,
     stubLearnerInteractionSave: false,
     learnerInteractionSaves: [] as Array<Record<string, unknown>>,
     savedBundles: [] as Array<ArtifactSavePayload>,
@@ -169,6 +169,9 @@ vi.mock("@/editor/shell/outline/DocumentOutlineHost", async () => {
 vi.mock("./ContentAuthorHost", async () => {
   const React = await import("react");
   const { createElement, useEffect } = React;
+  const { useSurfaceWorkspaceRequest } = await import(
+    "@/editor/shell/workspaces/surface-workspace-request"
+  );
 
   return {
     ContentAuthorHost: ({
@@ -224,12 +227,34 @@ vi.mock("./ContentAuthorHost", async () => {
       useEffect(() => {
         onEditorReady?.(mocks.fakeEditor);
       }, [onEditorReady]);
+      const workspaceRequest = useSurfaceWorkspaceRequest();
+      useEffect(() => {
+        if (mocks.autoOpenWorkspace) {
+          workspaceRequest?.open("timeline", "workspace001" as never);
+        }
+      }, [workspaceRequest]);
 
       return createElement(
         "section",
         { "data-testid": "content-author-host" },
         authoringNavigatorDock?.(mocks.fakeEditor),
         stagePreview,
+        createElement(
+          "button",
+          {
+            type: "button",
+            onClick: () => workspaceRequest?.open("timeline", "workspace001" as never),
+          },
+          "Request timeline workspace",
+        ),
+        createElement(
+          "button",
+          {
+            type: "button",
+            onClick: () => workspaceRequest?.open("interactions", "workspace001" as never),
+          },
+          "Request interactions workspace",
+        ),
         mocks.renderBottomWorkspace ? bottomWorkspace : null,
         rightRail?.(mocks.fakeEditor),
         agentOpen
@@ -448,6 +473,7 @@ afterEach(() => {
   mocks.contentAuthorHostProps.length = 0;
   mocks.contentAuthorHostRenderCount = 0;
   mocks.renderBottomWorkspace = false;
+  mocks.autoOpenWorkspace = true;
   mocks.stubLearnerInteractionSave = false;
   mocks.learnerInteractionSaves.length = 0;
   mocks.savedBundles.length = 0;
@@ -590,132 +616,6 @@ function currentLearnerInteractionPreviewController(): LearnerInteractionPreview
     throw new Error("expected the mounted Learner Interaction preview controller");
   }
   return workspace.props.learnerInteractionPreviewController;
-}
-
-class FakeWorkspaceSemanticController {
-  readonly selectCalls: EmbeddedNodeId[] = [];
-  readonly #selectionResults: Array<SemanticNavigationResult | Promise<SemanticNavigationResult>> =
-    [];
-  readonly #listeners = new Set<() => void>();
-  #snapshot: ReturnType<SemanticDocumentController["getSnapshot"]>;
-
-  constructor(
-    surfaceIds: readonly EmbeddedNodeId[],
-    options: {
-      readonly courseSectionId?: EmbeddedNodeId;
-      readonly selectedId?: EmbeddedNodeId | null;
-    } = {},
-  ) {
-    const items: SemanticItem[] = surfaceIds.map((id, index) => ({
-      id,
-      kind: "surface" as const,
-      nodeType: "surface",
-      definitionId: index === 0 ? "slide-content" : "slide-cover",
-      label: `Slide ${index + 1}`,
-      summary: null,
-      presentation: { actionIds: [], disabledReason: null },
-      presentationContainer: null,
-      children: [],
-    }));
-    const courseSection: SemanticItem | null = options.courseSectionId
-      ? {
-          id: options.courseSectionId,
-          kind: "course-section" as const,
-          nodeType: "courseSection",
-          definitionId: null,
-          label: "Section 1",
-          summary: null,
-          presentation: { actionIds: [], disabledReason: null },
-          presentationContainer: null,
-          children: items,
-        }
-      : null;
-    const itemById = new Map<EmbeddedNodeId, SemanticItem>(items.map((item) => [item.id, item]));
-    const parentById = new Map<EmbeddedNodeId, EmbeddedNodeId | null>(
-      items.map((item) => [item.id, courseSection?.id ?? null]),
-    );
-    const locationById = new Map<EmbeddedNodeId, SemanticLocation>(
-      items.map((item, index) => [
-        item.id,
-        {
-          id: item.id,
-          nodeType: "surface",
-          from: index + 2,
-          to: index + 3,
-          selectionTarget: { kind: "node" as const, pos: index + 2 },
-          surfaceId: item.id,
-          authoringAnchorId: item.id,
-          activationPath: [],
-        },
-      ]),
-    );
-    if (courseSection) {
-      itemById.set(courseSection.id, courseSection);
-      parentById.set(courseSection.id, null);
-      locationById.set(courseSection.id, {
-        id: courseSection.id,
-        nodeType: "courseSection",
-        from: 1,
-        to: 2,
-        selectionTarget: { kind: "node", pos: 1 },
-        surfaceId: null,
-        authoringAnchorId: null,
-        activationPath: [],
-      });
-    }
-    const semantics = {
-      revision: 0,
-      mode: "slideshow" as const,
-      roots: courseSection ? [courseSection] : items,
-      itemById,
-      parentById,
-      locationById,
-      diagnostics: [],
-    };
-    const selectedId =
-      options.selectedId === undefined ? (surfaceIds[0] ?? null) : options.selectedId;
-    this.#snapshot = Object.freeze({
-      semantics,
-      selectedId,
-      selectionOrigin: selectedId ? ("editor" as const) : null,
-    });
-  }
-
-  readonly getSnapshot = () => this.#snapshot;
-  readonly subscribe = (listener: () => void) => {
-    this.#listeners.add(listener);
-    return () => this.#listeners.delete(listener);
-  };
-  readonly getControlCapabilityCatalogue = () => ({
-    resolve: (targetId: EmbeddedNodeId) =>
-      Result.ok({
-        ownerId: targetId,
-        targetId,
-        capabilities: {
-          events: [{ type: "activated", label: "Activated" }],
-          commands: [{ type: "activate", label: "Activate" }],
-        },
-      }),
-  });
-  readonly select = async (id: EmbeddedNodeId): Promise<SemanticNavigationResult> => {
-    this.selectCalls.push(id);
-    const result = await (this.#selectionResults.shift() ?? ({ kind: "reached", id } as const));
-    if (result.kind === "reached") this.publish(result.id, "presentation-timeline");
-    if (result.kind === "reached-owner") this.publish(result.ownerId, "presentation-timeline");
-    return result;
-  };
-
-  queueSelectionResult(result: SemanticNavigationResult | Promise<SemanticNavigationResult>) {
-    this.#selectionResults.push(result);
-  }
-
-  publish(
-    id: EmbeddedNodeId,
-    selectionOrigin: "component" | "presentation-timeline" = "component",
-  ) {
-    this.#snapshot = Object.freeze({ ...this.#snapshot, selectedId: id, selectionOrigin });
-    for (const listener of this.#listeners) listener();
-  }
 }
 
 function slideshowDocumentWithSurfaces(
@@ -914,6 +814,57 @@ async function createDirtyInteractionDraft(
 }
 
 describe("ScaffoldAuthoringApp Surface workspaces", () => {
+  it("opens the Surface workspace only on request and closes it from the panel", async () => {
+    mocks.autoOpenWorkspace = false;
+    const user = userEvent.setup();
+    const firstSurfaceId = EmbeddedNodeIdSchema.parse("workspace001");
+    const secondSurfaceId = EmbeddedNodeIdSchema.parse("workspace002");
+    const content = slideshowDocumentWithSurfaces(firstSurfaceId, secondSurfaceId);
+    mocks.authorJSON = content;
+    mocks.fakeEditor.state.doc.firstChild.attrs = content.content?.[0]?.attrs ?? {};
+    mocks.renderBottomWorkspace = true;
+    const semanticController = new FakeWorkspaceSemanticController([
+      firstSurfaceId,
+      secondSurfaceId,
+    ]);
+    vi.spyOn(semanticDocumentPluginKey, "getState").mockReturnValue(
+      semanticController as unknown as SemanticDocumentController,
+    );
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-workspace-on-request",
+          title: "Workspace on request",
+          mode: "slideshow",
+          content,
+        }}
+        services={{ artifactPersistence: { saveArtifact: vi.fn(async () => ({})) }, media: null }}
+      />,
+    );
+
+    await screen.findByTestId("content-author-host");
+    expect(screen.queryByRole("tablist", { name: "Surface workspace" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Request interactions workspace" }));
+    expect(await screen.findByRole("tab", { name: "Interactions" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Request timeline workspace" }));
+    expect(await screen.findByRole("tab", { name: "Timeline" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Close workspace" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("tablist", { name: "Surface workspace" })).toBeNull();
+    });
+  });
+
   it("omits the Surface workspace for a Slideshow with no Surfaces", async () => {
     const content = slideshowDocument("removedsurf1");
     const courseDocument = content.content?.[0];
@@ -1173,7 +1124,7 @@ describe("ScaffoldAuthoringApp Surface workspaces", () => {
       const selection = createDeferred<SemanticNavigationResult>();
       semanticController.queueSelectionResult(selection.promise);
       const observedSurfaceIds: Array<string | null> = [];
-      const workspace = document.querySelector<HTMLElement>(".sc-surface-workspaces");
+      const workspace = document.querySelector<HTMLElement>(".sc-editor-bottom-panel");
       if (!workspace) throw new Error("expected Surface workspace");
       const observer = new MutationObserver(() => {
         observedSurfaceIds.push(workspace.getAttribute("data-interaction-surface-id"));

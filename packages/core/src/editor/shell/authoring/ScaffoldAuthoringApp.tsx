@@ -10,11 +10,9 @@ import {
   Suspense,
   useCallback,
   useEffect,
-  useId,
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import {
@@ -41,16 +39,8 @@ import {
   checkLearnerProjectionReadiness,
   type UnavailableContentRef,
 } from "@/document/model/establishment";
-import {
-  projectCourseStructure,
-  type ProjectedSlideshowCourseStructure,
-} from "@/document/model/course-structure";
-import { resolveSemanticTargetSurfaceId } from "@/document/model/semantic-document";
-import {
-  getSemanticDocumentControllerForEditor,
-  useSemanticDocumentControllerSnapshot,
-  type SemanticNavigationResult,
-} from "@/document/authoring/semantic-document";
+import { projectCourseStructure } from "@/document/model/course-structure";
+import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document";
 import {
   compilePresentation,
   type CompiledSurfacePresentationTimeline,
@@ -61,27 +51,11 @@ import {
   PresentationPreviewController,
   PresentationPreviewPortOwner,
 } from "@/editor/presentation/preview";
-import {
-  PresentationTimeline,
-  PresentationTimelineController,
-  projectPresentationTimeline,
-} from "@/editor/presentation/timeline";
-import {
-  projectLearnerInteractionAuthoring,
-  removeLearnerInteractionRule,
-  reorderLearnerInteractionRule,
-  saveLearnerInteractionRule,
-  setLearnerInteractionRuleEnabled,
-} from "@/editor/learner-interaction/model";
+
 import {
   LearnerInteractionPreviewController,
   LearnerInteractionPreviewPortOwner,
 } from "@/editor/learner-interaction/preview";
-import {
-  LearnerInteractionWorkspace,
-  LearnerInteractionWorkspaceController,
-  type LearnerInteractionWorkspaceSnapshot,
-} from "@/editor/learner-interaction/workspace";
 import {
   compileLearnerInteractions,
   type CompiledSurfaceLearnerInteractionProgram,
@@ -110,6 +84,13 @@ import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/Scaffo
 import { canonicalizeDocumentTitle, Header } from "@/editor/shell/chrome/Header";
 import { AuthoringPublishAction } from "@/editor/shell/chrome/AuthoringPublishAction";
 import { AuthoringColorModeButton } from "@/editor/shell/chrome/AuthoringColorModeButton";
+import { createShellLayoutStore } from "@/editor/shell/layout/shell-layout-store";
+import {
+  ShellLayoutProvider,
+  useShellLayout,
+} from "@/editor/shell/layout/ShellLayoutProvider";
+import { SurfaceWorkspacesPanel } from "@/editor/shell/workspaces/SurfaceWorkspacesPanel";
+import { useMeasuredHeaderHeight } from "@/editor/shell/chrome/use-measured-header-height";
 import { Toolbar } from "@/editor/shell/chrome/Toolbar";
 import type { EditorShellScrollModel } from "@/editor/shell/chrome/EditorShell";
 import { DocumentOutlineHost } from "@/editor/shell/outline/DocumentOutlineHost";
@@ -317,7 +298,37 @@ interface ScaffoldAuthoringAppSessionContentProps extends ScaffoldAuthoringAppEn
   readonly toggleApplicationColorMode: () => void;
 }
 
-function ScaffoldAuthoringAppSessionContent({
+function ScaffoldAuthoringAppSessionContent(props: ScaffoldAuthoringAppSessionContentProps) {
+  const { agentOpen = false, onAgentOpenChange } = props;
+  const [store] = useState(() =>
+    createShellLayoutStore({ rightDock: agentOpen ? "agent" : null }),
+  );
+  const agentOpenRef = useRef(agentOpen);
+  agentOpenRef.current = agentOpen;
+  useEffect(() => {
+    if (!onAgentOpenChange) return;
+    const wanted = agentOpen ? "agent" : null;
+    if (store.getState().rightDock !== wanted) {
+      store.getState().setRightDock(wanted);
+    }
+  }, [store, agentOpen, onAgentOpenChange]);
+  useEffect(() => {
+    if (!onAgentOpenChange) return;
+    return store.subscribe((state) => {
+      const open = state.rightDock === "agent";
+      if (open !== agentOpenRef.current) {
+        onAgentOpenChange(open);
+      }
+    });
+  }, [store, onAgentOpenChange]);
+  return (
+    <ShellLayoutProvider store={store}>
+      <ScaffoldAuthoringAppSessionLayout {...props} />
+    </ShellLayoutProvider>
+  );
+}
+
+function ScaffoldAuthoringAppSessionLayout({
   application,
   applicationColorMode,
   applicationElement,
@@ -326,8 +337,6 @@ function ScaffoldAuthoringAppSessionContent({
   productAccess,
   services,
   hostHeaderActions,
-  agentOpen = false,
-  onAgentOpenChange,
   onAgentClose,
   enablePreview = true,
   onPreviewChange,
@@ -381,8 +390,15 @@ function ScaffoldAuthoringAppSessionContent({
   const title = titleState.source === artifactStateSource ? titleState.value : initialTitle;
   const [editor, setEditor] = useState<TiptapEditor | null>(null);
   const [preview, setPreview] = useState(false);
-  const [outlineOpen, setOutlineOpen] = useState(false);
-  const [uncontrolledAgentOpen, setUncontrolledAgentOpen] = useState(agentOpen);
+  const outlineOpen = useShellLayout((state) => state.leftDock) === "outline";
+  const resolvedAgentOpen = useShellLayout((state) => state.rightDock) === "agent";
+  const surfaceWorkspaceRequest = useShellLayout((state) => state.bottomPanel);
+  const toggleLeftDock = useShellLayout((state) => state.toggleLeftDock);
+  const toggleRightDock = useShellLayout((state) => state.toggleRightDock);
+  const setLeftDock = useShellLayout((state) => state.setLeftDock);
+  const setRightDock = useShellLayout((state) => state.setRightDock);
+  const closeSurfaceWorkspace = useShellLayout((state) => state.closeBottomPanel);
+  const enterPreviewLayout = useShellLayout((state) => state.enterPreview);
   const [previewContent, setPreviewContent] = useState<ScaffoldLearnerPreviewContent | null>(null);
   const [previewServices, setPreviewServices] = useState<ScaffoldPreviewHostServices | null>(null);
   const presentationPreviewGenerationRef = useRef(0);
@@ -413,6 +429,9 @@ function ScaffoldAuthoringAppSessionContent({
   const publishInFlightRef = useRef(false);
   const publicationNotificationIdRef = useRef<AppNotificationId | null>(null);
   const outlineToggleRef = useRef<HTMLButtonElement | null>(null);
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const mainRef = useRef<HTMLElement | null>(null);
+  useMeasuredHeaderHeight(headerRef, mainRef);
   const hydratingRef = useRef(true);
   const latestEditorRef = useRef<TiptapEditor | null>(null);
   const autosaveTimeoutRef = useRef<number | null>(null);
@@ -474,7 +493,6 @@ function ScaffoldAuthoringAppSessionContent({
   const titleRef = useRef(title);
   titleRef.current = title;
   const resolvedArtifactId = readyArtifact?.id ?? artifact.id ?? null;
-  const resolvedAgentOpen = onAgentOpenChange ? agentOpen : uncontrolledAgentOpen;
   const providerPorts = useMemo(
     () => ({
       media: services.media ?? null,
@@ -766,13 +784,14 @@ function ScaffoldAuthoringAppSessionContent({
       nextContent: ScaffoldLearnerPreviewContent | null,
       nextServices: ScaffoldPreviewHostServices | null,
     ) => {
+      if (nextPreview) enterPreviewLayout();
       setPreview(nextPreview);
       setPreviewContent(nextContent);
       setPreviewServices(nextServices);
       onPreviewChange?.(nextPreview);
       onPreviewContentChange?.(nextContent);
     },
-    [onPreviewChange, onPreviewContentChange],
+    [enterPreviewLayout, onPreviewChange, onPreviewContentChange],
   );
   const closeLearnerInteractionPreviewRef = useRef<() => void>(() => undefined);
   const closeLearnerInteractionPreviewSessionRef = useRef<() => void>(() => undefined);
@@ -1455,30 +1474,19 @@ function ScaffoldAuthoringAppSessionContent({
     services.learnerPublication,
   ]);
 
-  const setResolvedAgentOpen = useCallback(
-    (open: boolean) => {
-      if (onAgentOpenChange) {
-        onAgentOpenChange(open);
-        return;
-      }
-      setUncontrolledAgentOpen(open);
-    },
-    [onAgentOpenChange],
-  );
-
   const handleAgentToggle = useCallback(() => {
-    setResolvedAgentOpen(!resolvedAgentOpen);
-  }, [resolvedAgentOpen, setResolvedAgentOpen]);
+    toggleRightDock("agent");
+  }, [toggleRightDock]);
 
   const handleAgentClose = useCallback(() => {
-    setResolvedAgentOpen(false);
+    setRightDock(null);
     onAgentClose?.();
-  }, [onAgentClose, setResolvedAgentOpen]);
+  }, [onAgentClose, setRightDock]);
 
   const handleOutlineClose = useCallback(() => {
-    setOutlineOpen(false);
+    setLeftDock(null);
     requestAnimationFrame(() => outlineToggleRef.current?.focus());
-  }, []);
+  }, [setLeftDock]);
 
   const renderAuthoringNavigatorDock = useCallback(
     (editorInstance: TiptapEditor) => (
@@ -1550,7 +1558,7 @@ function ScaffoldAuthoringAppSessionContent({
           <button
             ref={outlineToggleRef}
             type="button"
-            onClick={() => setOutlineOpen((open) => !open)}
+            onClick={() => toggleLeftDock("outline")}
             aria-pressed={outlineOpen}
             aria-label={outlineOpen ? "Hide Document Outline" : "Show Document Outline"}
             title="Toggle Document Outline"
@@ -1697,24 +1705,26 @@ function ScaffoldAuthoringAppSessionContent({
 
   return (
     <OverlayBoundary container={applicationElement} kind="viewport">
-      <Header
-        title={title}
-        onTitleChange={(nextTitle) => {
-          setTitleForCurrentArtifact(nextTitle);
-          titleRef.current = nextTitle;
-          if (!readyArtifact) return;
-          publicationLifecycleRef.current.generation += 1;
-          publicationNotificationIdRef.current = null;
-          setPublishActionState(null);
-          refreshPublicationLifecycleView();
-          scheduleAutosave();
-        }}
-        brandSurface={applicationColorMode}
-        saveState={saveState}
-        actions={appHeaderActions}
-      />
+      <div ref={headerRef}>
+        <Header
+          title={title}
+          onTitleChange={(nextTitle) => {
+            setTitleForCurrentArtifact(nextTitle);
+            titleRef.current = nextTitle;
+            if (!readyArtifact) return;
+            publicationLifecycleRef.current.generation += 1;
+            publicationNotificationIdRef.current = null;
+            setPublishActionState(null);
+            refreshPublicationLifecycleView();
+            scheduleAutosave();
+          }}
+          brandSurface={applicationColorMode}
+          saveState={saveState}
+          actions={appHeaderActions}
+        />
+      </div>
 
-      <main className={cn("sc-scaffold-authoring-main", mainClassName)}>
+      <main ref={mainRef} className={cn("sc-scaffold-authoring-main", mainClassName)}>
         <div
           className={cn("sc-scaffold-authoring-workspace", workspaceClassName)}
           data-preview-mode={activePreviewContent?.bootstrap.mode}
@@ -1743,17 +1753,20 @@ function ScaffoldAuthoringAppSessionContent({
                 {...(stagePreview ? { stagePreview } : {})}
                 {...(editor &&
                 readyArtifact.mode === "slideshow" &&
+                surfaceWorkspaceRequest &&
                 presentationPreviewSession &&
                 learnerInteractionPreviewSession
                   ? {
                       bottomWorkspace: (
-                        <SlideshowSurfaceWorkspaces
+                        <SurfaceWorkspacesPanel
                           key={surfaceWorkspaceSessionRef.current.key}
                           editor={editor}
                           previewController={presentationPreviewSession.controller}
                           learnerInteractionPreviewController={
                             learnerInteractionPreviewSession.controller
                           }
+                          request={surfaceWorkspaceRequest}
+                          onClose={closeSurfaceWorkspace}
                         />
                       ),
                     }
@@ -1784,45 +1797,6 @@ function ScaffoldAuthoringUnavailable({
   );
 }
 
-export function SlideshowSurfaceWorkspaces({
-  editor,
-  previewController,
-  learnerInteractionPreviewController,
-}: SlideshowSurfaceWorkspacesProps) {
-  const semanticController = getSemanticDocumentControllerForEditor(editor);
-  const semanticSnapshot = useSemanticDocumentControllerSnapshot(editor);
-  const documentRevision = semanticSnapshot.semantics.revision;
-  const document = useMemo(() => {
-    void documentRevision;
-    return ScaffoldDocumentContentSchema.parse(editor.getJSON());
-  }, [documentRevision, editor]);
-  const courseStructure = projectCourseStructure(document);
-  if (!courseStructure || courseStructure.kind !== "slideshow") {
-    throw new Error("Learner Interaction authoring requires a valid Slideshow Course Document.");
-  }
-  const requestedSurfaceId = resolvePresentationSurfaceId(semanticSnapshot, courseStructure);
-  if (!requestedSurfaceId) return null;
-
-  return (
-    <ResolvedSlideshowSurfaceWorkspaces
-      editor={editor}
-      previewController={previewController}
-      learnerInteractionPreviewController={learnerInteractionPreviewController}
-      semanticController={semanticController}
-      semanticSnapshot={semanticSnapshot}
-      document={document}
-      courseStructure={courseStructure}
-      requestedSurfaceId={requestedSurfaceId}
-    />
-  );
-}
-
-interface SlideshowSurfaceWorkspacesProps {
-  readonly editor: TiptapEditor;
-  readonly previewController: PresentationPreviewController;
-  readonly learnerInteractionPreviewController: LearnerInteractionPreviewController;
-}
-
 interface PresentationPreviewSession {
   readonly source: unknown;
   readonly owner: PresentationPreviewPortOwner;
@@ -1833,442 +1807,6 @@ interface LearnerInteractionPreviewSession {
   readonly source: unknown;
   readonly owner: LearnerInteractionPreviewPortOwner;
   readonly controller: LearnerInteractionPreviewController;
-}
-
-function ResolvedSlideshowSurfaceWorkspaces({
-  editor,
-  previewController,
-  learnerInteractionPreviewController,
-  semanticController,
-  semanticSnapshot,
-  document,
-  courseStructure,
-  requestedSurfaceId,
-}: SlideshowSurfaceWorkspacesProps & {
-  readonly semanticController: ReturnType<typeof getSemanticDocumentControllerForEditor>;
-  readonly semanticSnapshot: ReturnType<typeof useSemanticDocumentControllerSnapshot>;
-  readonly document: ReturnType<typeof ScaffoldDocumentContentSchema.parse>;
-  readonly courseStructure: ProjectedSlideshowCourseStructure;
-  readonly requestedSurfaceId: EmbeddedNodeId;
-}) {
-  const [workspace, setWorkspace] = useState<"timeline" | "interactions">("timeline");
-  const [, refreshInteractionSurface] = useState(0);
-  const interactionSurfaceIdRef = useRef(requestedSurfaceId);
-  const pendingSurfaceChangeRef = useRef<PendingInteractionSurfaceChange | null>(null);
-  const [interactionController, setInteractionController] =
-    useState<LearnerInteractionWorkspaceController | null>(null);
-  useEffect(() => {
-    const created = new LearnerInteractionWorkspaceController({
-      saveDraft: (draft) =>
-        saveLearnerInteractionRule({
-          editor,
-          surfaceId: interactionSurfaceIdRef.current,
-          draft,
-        }),
-      closePreview: () => {
-        if (previewController.getSnapshot().status !== "idle") previewController.close();
-        if (learnerInteractionPreviewController.getSnapshot().status !== "idle") {
-          learnerInteractionPreviewController.close();
-        }
-      },
-    });
-    setInteractionController(created);
-    return () => created.dispose();
-  }, [editor, learnerInteractionPreviewController, previewController]);
-  const subscribeToInteraction = useCallback(
-    (listener: () => void) =>
-      interactionController?.subscribe(listener) ?? (() => undefined),
-    [interactionController],
-  );
-  const getInteractionSnapshot = useCallback(
-    (): LearnerInteractionWorkspaceSnapshot =>
-      interactionController?.getSnapshot() ?? IDLE_LEARNER_INTERACTION_WORKSPACE_SNAPSHOT,
-    [interactionController],
-  );
-  const interactionSnapshot = useSyncExternalStore(
-    subscribeToInteraction,
-    getInteractionSnapshot,
-    getInteractionSnapshot,
-  );
-  void interactionSnapshot;
-  if (workspace !== "interactions") interactionSurfaceIdRef.current = requestedSurfaceId;
-  const courseDocument = (document as JSONContent).content?.[0];
-  if (courseDocument?.type !== "courseDocument") {
-    throw new Error("Learner Interaction authoring requires a Course Document root.");
-  }
-  const interactionSurfaceId = interactionSurfaceIdRef.current;
-  const projectedSurfaceId =
-    courseStructure.surfaceById[interactionSurfaceId] &&
-    semanticSnapshot.semantics.itemById.has(interactionSurfaceId)
-      ? interactionSurfaceId
-      : requestedSurfaceId;
-  const presentationValue = courseDocument.attrs?.["presentation"];
-  const configuration =
-    presentationValue === null || presentationValue === undefined
-      ? null
-      : PresentationConfigurationV1Schema.parse(presentationValue);
-  const presentationProjection = projectPresentationTimeline(
-    projectedSurfaceId,
-    semanticSnapshot.semantics,
-    configuration,
-  );
-  const learnerInteractionValue = courseDocument.attrs?.["learnerInteractions"];
-  const learnerInteractionConfiguration =
-    learnerInteractionValue === null || learnerInteractionValue === undefined
-      ? null
-      : LearnerInteractionConfigurationV1Schema.parse(learnerInteractionValue);
-  const learnerInteractionProjection = projectLearnerInteractionAuthoring({
-    configuration: learnerInteractionConfiguration,
-    surfaceId: projectedSurfaceId,
-    courseStructure,
-    semanticSnapshot: semanticSnapshot.semantics,
-    controlCapabilities: semanticController.getControlCapabilityCatalogue(),
-  });
-  useEffect(() => {
-    if (
-      !interactionController ||
-      workspace !== "interactions" ||
-      requestedSurfaceId === interactionSurfaceIdRef.current
-    ) {
-      return;
-    }
-    const outgoingSurfaceId = interactionSurfaceIdRef.current;
-    if (!semanticSnapshot.semantics.itemById.has(outgoingSurfaceId)) {
-      pendingSurfaceChangeRef.current = null;
-      interactionSurfaceIdRef.current = requestedSurfaceId;
-      interactionController.replaceArtifact();
-      return;
-    }
-    const pending = pendingSurfaceChangeRef.current;
-    if (pending) {
-      if (pending.phase === "decision") {
-        void restoreInteractionSurface(semanticController, courseStructure, outgoingSurfaceId);
-      }
-      return;
-    }
-    const requestedTargetId = semanticSnapshot.selectedId ?? requestedSurfaceId;
-    const change: PendingInteractionSurfaceChange = {
-      phase: "decision",
-      requestedSurfaceId,
-      requestedTargetId,
-    };
-    pendingSurfaceChangeRef.current = change;
-    const result = interactionController.requestContextChange(
-      { kind: "surface", surfaceId: requestedSurfaceId },
-      () => {
-        void applyInteractionSurfaceChange(
-          semanticController,
-          interactionController,
-          interactionSurfaceIdRef,
-          pendingSurfaceChangeRef,
-          change,
-          courseStructure,
-          refreshInteractionSurface,
-        );
-      },
-    );
-    if (result === "decision-required") {
-      void restoreInteractionSurface(semanticController, courseStructure, outgoingSurfaceId);
-    }
-  }, [
-    courseStructure,
-    interactionController,
-    requestedSurfaceId,
-    semanticController,
-    semanticSnapshot.selectedId,
-    semanticSnapshot.semantics,
-    workspace,
-  ]);
-
-  const resolveInteractionContextChange = (decision: "save" | "discard" | "cancel") => {
-    if (!interactionController) return;
-    const pending = interactionController.getSnapshot().pendingContextChange;
-    if (decision !== "cancel" || pending?.kind !== "surface") {
-      interactionController.resolveContextChange(decision);
-      return;
-    }
-    void cancelInteractionSurfaceChange(
-      semanticController,
-      interactionController,
-      interactionSurfaceIdRef,
-      pendingSurfaceChangeRef,
-      courseStructure,
-    );
-  };
-
-  const workspaceTabsId = useId();
-  const requestWorkspace = (nextWorkspace: "timeline" | "interactions") => {
-    if (nextWorkspace === workspace || !interactionController) return;
-    interactionController.requestContextChange(
-      { kind: "workspace", workspace: nextWorkspace },
-      () => {
-        if (
-          nextWorkspace !== "interactions" &&
-          learnerInteractionPreviewController.getSnapshot().status !== "idle"
-        ) {
-          learnerInteractionPreviewController.close();
-        }
-        setWorkspace(nextWorkspace);
-      },
-    );
-  };
-
-  return (
-    <section
-      className="sc-surface-workspaces"
-      data-interaction-surface-id={workspace === "interactions" ? projectedSurfaceId : undefined}
-    >
-      <div className="sc-surface-workspace-selector" role="tablist" aria-label="Surface workspace">
-        <button
-          id={`${workspaceTabsId}-timeline-tab`}
-          type="button"
-          role="tab"
-          aria-selected={workspace === "timeline"}
-          aria-controls={`${workspaceTabsId}-panel`}
-          onClick={() => requestWorkspace("timeline")}
-        >
-          Timeline
-        </button>
-        <button
-          id={`${workspaceTabsId}-interactions-tab`}
-          type="button"
-          role="tab"
-          aria-selected={workspace === "interactions"}
-          aria-controls={`${workspaceTabsId}-panel`}
-          onClick={() => requestWorkspace("interactions")}
-        >
-          Interactions
-        </button>
-      </div>
-      <div
-        id={`${workspaceTabsId}-panel`}
-        className="sc-surface-workspace-content"
-        role="tabpanel"
-        aria-labelledby={`${workspaceTabsId}-${workspace}-tab`}
-      >
-        {workspace === "timeline" ? (
-          <PresentationTimelineAuthoringWorkspace
-            editor={editor}
-            previewController={previewController}
-            semanticController={semanticController}
-            surfaceId={projectedSurfaceId}
-            document={document}
-            projection={presentationProjection}
-          />
-        ) : interactionController ? (
-          <LearnerInteractionWorkspace
-            controller={interactionController}
-            projection={learnerInteractionProjection}
-            previewController={learnerInteractionPreviewController}
-            previewDocument={document}
-            onResolveContextChange={resolveInteractionContextChange}
-            onSetRuleEnabled={(ruleId, isEnabled) =>
-              setLearnerInteractionRuleEnabled({
-                editor,
-                surfaceId: projectedSurfaceId,
-                ruleId,
-                isEnabled,
-              })
-            }
-            onReorderRule={(ruleId, direction) =>
-              reorderLearnerInteractionRule({
-                editor,
-                surfaceId: projectedSurfaceId,
-                ruleId,
-                direction,
-              })
-            }
-            onRemoveRule={(ruleId) =>
-              removeLearnerInteractionRule({ editor, surfaceId: projectedSurfaceId, ruleId })
-            }
-          />
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
-const IDLE_LEARNER_INTERACTION_WORKSPACE_SNAPSHOT: LearnerInteractionWorkspaceSnapshot =
-  Object.freeze({
-    status: "idle",
-    draft: null,
-    baseline: null,
-    pendingContextChange: null,
-    saveError: null,
-  });
-
-interface PendingInteractionSurfaceChange {
-  phase: "decision" | "applying";
-  readonly requestedSurfaceId: EmbeddedNodeId;
-  readonly requestedTargetId: EmbeddedNodeId;
-}
-
-type WorkspaceSemanticController = ReturnType<typeof getSemanticDocumentControllerForEditor>;
-
-async function restoreInteractionSurface(
-  semanticController: WorkspaceSemanticController,
-  courseStructure: ProjectedSlideshowCourseStructure,
-  surfaceId: EmbeddedNodeId,
-): Promise<boolean> {
-  return selectInteractionSurfaceTarget(semanticController, courseStructure, surfaceId, surfaceId);
-}
-
-async function applyInteractionSurfaceChange(
-  semanticController: WorkspaceSemanticController,
-  interactionController: LearnerInteractionWorkspaceController,
-  interactionSurfaceIdRef: { current: EmbeddedNodeId },
-  pendingSurfaceChangeRef: { current: PendingInteractionSurfaceChange | null },
-  change: PendingInteractionSurfaceChange,
-  courseStructure: ProjectedSlideshowCourseStructure,
-  refreshInteractionSurface: (update: (revision: number) => number) => void,
-): Promise<void> {
-  if (pendingSurfaceChangeRef.current !== change) return;
-  change.phase = "applying";
-  const reached = await selectInteractionSurfaceTarget(
-    semanticController,
-    courseStructure,
-    change.requestedTargetId,
-    change.requestedSurfaceId,
-  );
-  if (pendingSurfaceChangeRef.current !== change) return;
-  pendingSurfaceChangeRef.current = null;
-  if (reached) {
-    interactionSurfaceIdRef.current = change.requestedSurfaceId;
-    refreshInteractionSurface((revision) => revision + 1);
-    interactionController.replaceArtifact();
-    return;
-  }
-  const currentSurfaceId = resolvePresentationSurfaceId(
-    semanticController.getSnapshot(),
-    courseStructure,
-  );
-  if (!currentSurfaceId) {
-    throw new Error("Slideshow authoring lost its current semantic Surface.");
-  }
-  interactionSurfaceIdRef.current = currentSurfaceId;
-  refreshInteractionSurface((revision) => revision + 1);
-  interactionController.replaceArtifact();
-}
-
-async function cancelInteractionSurfaceChange(
-  semanticController: WorkspaceSemanticController,
-  interactionController: LearnerInteractionWorkspaceController,
-  interactionSurfaceIdRef: { current: EmbeddedNodeId },
-  pendingSurfaceChangeRef: { current: PendingInteractionSurfaceChange | null },
-  courseStructure: ProjectedSlideshowCourseStructure,
-): Promise<void> {
-  const outgoingSurfaceId = interactionSurfaceIdRef.current;
-  if (!(await restoreInteractionSurface(semanticController, courseStructure, outgoingSurfaceId))) {
-    return;
-  }
-  pendingSurfaceChangeRef.current = null;
-  interactionController.resolveContextChange("cancel");
-}
-
-async function selectInteractionSurfaceTarget(
-  semanticController: WorkspaceSemanticController,
-  courseStructure: ProjectedSlideshowCourseStructure,
-  targetId: EmbeddedNodeId,
-  surfaceId: EmbeddedNodeId,
-): Promise<boolean> {
-  const before = semanticController.getSnapshot();
-  if (
-    before.selectedId === targetId &&
-    resolvePresentationSurfaceId(before, courseStructure) === surfaceId
-  ) {
-    return true;
-  }
-  const result = await semanticController.select(targetId, {
-    origin: "presentation-timeline",
-    focusEditor: false,
-  });
-  return navigationReachedSurface(result, surfaceId, semanticController, courseStructure);
-}
-
-function navigationReachedSurface(
-  result: SemanticNavigationResult,
-  surfaceId: EmbeddedNodeId,
-  semanticController: WorkspaceSemanticController,
-  courseStructure: ProjectedSlideshowCourseStructure,
-): boolean {
-  switch (result.kind) {
-    case "reached":
-    case "reached-owner":
-      return (
-        resolvePresentationSurfaceId(semanticController.getSnapshot(), courseStructure) ===
-        surfaceId
-      );
-    case "missing":
-    case "interrupted":
-      return false;
-  }
-}
-
-function PresentationTimelineAuthoringWorkspace({
-  editor,
-  previewController,
-  semanticController,
-  surfaceId,
-  document,
-  projection,
-}: {
-  readonly editor: TiptapEditor;
-  readonly previewController: PresentationPreviewController;
-  readonly semanticController: ReturnType<typeof getSemanticDocumentControllerForEditor>;
-  readonly surfaceId: EmbeddedNodeId;
-  readonly document: ReturnType<typeof ScaffoldDocumentContentSchema.parse>;
-  readonly projection: ReturnType<typeof projectPresentationTimeline>;
-}) {
-  const initialViewportRef = useRef<{ durationMs: number; viewportWidthPx: number } | null>(
-    null,
-  );
-  initialViewportRef.current ??= {
-    durationMs: projection.durationMs ?? 0,
-    viewportWidthPx: 600,
-  };
-  const [timelineController, setTimelineController] =
-    useState<PresentationTimelineController | null>(null);
-  useEffect(() => {
-    const created = new PresentationTimelineController({
-      semanticSelection: semanticController,
-      initialViewport: initialViewportRef.current ?? {
-        durationMs: 0,
-        viewportWidthPx: 600,
-      },
-      zoomBounds: { minPixelsPerSecond: 20, maxPixelsPerSecond: 400 },
-    });
-    setTimelineController(created);
-    return () => created.destroy();
-  }, [semanticController]);
-  const previousDocumentRef = useRef(document);
-  useEffect(() => {
-    if (
-      previousDocumentRef.current !== document &&
-      previewController.getSnapshot().status !== "idle"
-    ) {
-      previewController.close();
-    }
-    previousDocumentRef.current = document;
-  }, [document, previewController]);
-
-  if (!timelineController) return null;
-
-  return (
-    <PresentationTimeline
-      controller={timelineController}
-      editor={editor}
-      preview={{ controller: previewController, document: { document, surfaceId } }}
-      projection={projection}
-    />
-  );
-}
-
-function resolvePresentationSurfaceId(
-  snapshot: ReturnType<typeof useSemanticDocumentControllerSnapshot>,
-  courseStructure: ProjectedSlideshowCourseStructure,
-): EmbeddedNodeId | null {
-  if (!snapshot.selectedId) return courseStructure.surfaceIds[0] ?? null;
-  return resolveSemanticTargetSurfaceId(snapshot.selectedId, snapshot.semantics, courseStructure);
 }
 
 function derivePublishState({

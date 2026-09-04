@@ -1,10 +1,10 @@
-import { SpeakerHighIcon as Speaker, TrashIcon as Trash } from "@phosphor-icons/react";
+import { TrashIcon as Trash } from "@phosphor-icons/react";
 import {
   EmbeddedNodeIdSchema,
   PresentationConfigurationV1Schema,
   type SurfacePresentationNarrationV1,
 } from "@scaffold/contracts";
-import type { Editor } from "@tiptap/react";
+import type { Editor } from "@tiptap/core";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -16,37 +16,42 @@ import {
   setPresentationSurfaceDuration,
   type PresentationAuthoringCommandError,
 } from "@/editor/presentation/model";
+import { presentPresentationAuthoringCommandError } from "@/editor/presentation/timeline/PresentationActionEditor";
+import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
+import { Button } from "@/ui/components/Button/Button";
+import { IconButton } from "@/ui/components/IconButton/IconButton";
+import { iconXs } from "@/ui/tokens/icon-sizes";
+
 import {
   presentPresentationNarrationMetadataError,
   resolvePresentationNarrationMetadata,
   type PresentationNarrationMetadataError,
-} from "@/editor/presentation/narration/presentation-narration-metadata";
-import { presentPresentationAuthoringCommandError } from "@/editor/presentation/timeline/PresentationActionEditor";
-import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
-import { MenuIconButton } from "@/editor/shell/bubbles/interaction/menu-controls/MenuControls";
+} from "./presentation-narration-metadata";
 
-interface SurfaceNarrationMenuSectionProps {
-  editor: Editor;
-  presentation: {
-    readonly narration: SurfacePresentationNarrationV1 | null;
-    readonly durationMs: number;
-  };
-  surfaceId: string;
+export interface PresentationNarrationControlsProps {
+  readonly editor: Editor;
+  readonly surfaceId: string;
+  readonly narration: SurfacePresentationNarrationV1 | null;
 }
 
-export function SurfaceNarrationMenuSection({
+/**
+ * Attach, replace or remove the narration audio of one Slideshow Surface.
+ *
+ * Lives in the Timeline toolbar: narration is the audio clock of the
+ * Surface's presentation, so it is authored beside the actions it drives.
+ */
+export function PresentationNarrationControls({
   editor,
-  presentation,
   surfaceId,
-}: SurfaceNarrationMenuSectionProps) {
+  narration,
+}: PresentationNarrationControlsProps) {
   const mediaPort = useMediaPort();
   const mountedRef = useRef(false);
-  const [narrationPickerOpen, setNarrationPickerOpen] = useState(false);
-  const [narrationError, setNarrationError] = useState<PresentationAuthoringCommandError | null>(
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [commandError, setCommandError] = useState<PresentationAuthoringCommandError | null>(null);
+  const [metadataError, setMetadataError] = useState<PresentationNarrationMetadataError | null>(
     null,
   );
-  const [narrationMetadataError, setNarrationMetadataError] =
-    useState<PresentationNarrationMetadataError | null>(null);
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -54,18 +59,18 @@ export function SurfaceNarrationMenuSection({
     };
   }, []);
 
-  const applyNarration = (narration: SurfacePresentationNarrationV1 | null) => {
+  const applyNarration = (next: SurfacePresentationNarrationV1 | null) => {
     const result = setPresentationSurfaceNarration({
       editor,
       surfaceId: EmbeddedNodeIdSchema.parse(surfaceId),
-      narration,
+      narration: next,
     });
-    setNarrationError(result.isErr() ? result.error : null);
-    setNarrationMetadataError(null);
+    setCommandError(result.isErr() ? result.error : null);
+    setMetadataError(null);
     return result.isOk();
   };
 
-  const handleNarrationResolved = (result: FilePickerResult) => {
+  const handleResolved = (result: FilePickerResult) => {
     const source = narrationSourceFromPickerResult(result);
     if (!source) throw new Error("The audio picker returned no media source.");
     if (!applyNarration({ source })) return false;
@@ -76,10 +81,10 @@ export function SurfaceNarrationMenuSection({
       createAudioElement: () => new Audio(),
       onResult: (metadataResult) => {
         if (metadataResult.isErr()) {
-          if (mountedRef.current) setNarrationMetadataError(metadataResult.error);
+          if (mountedRef.current) setMetadataError(metadataResult.error);
           return;
         }
-        const current = resolveSurfacePresentation(editor, parsedSurfaceId, readCourseMode(editor));
+        const current = readSurfaceTimeline(editor, parsedSurfaceId);
         if (!current || !sameNarrationSource(current.narration?.source, source)) return;
         if (metadataResult.value.durationMs <= current.durationMs) return;
         const durationResult = setPresentationSurfaceDuration({
@@ -88,70 +93,60 @@ export function SurfaceNarrationMenuSection({
           durationMs: metadataResult.value.durationMs,
         });
         if (mountedRef.current) {
-          setNarrationError(durationResult.isErr() ? durationResult.error : null);
+          setCommandError(durationResult.isErr() ? durationResult.error : null);
         }
       },
     });
     return true;
   };
 
+  const pickerTitle = narration ? "Replace narration" : "Add narration";
+
   return (
-    <>
-      <MenuIconButton
-        icon={Speaker}
-        label={presentation.narration ? "Replace narration" : "Add narration"}
-        onClick={() => setNarrationPickerOpen(true)}
-      />
-      {presentation.narration ? (
-        <MenuIconButton
-          destructive
-          icon={Trash}
-          label="Remove narration"
-          onClick={() => applyNarration(null)}
-        />
+    <div className="sc-presentation-narration-controls">
+      <Button size="sm" variant="ghost" onClick={() => setPickerOpen(true)}>
+        {pickerTitle}
+      </Button>
+      {narration ? (
+        <IconButton size="sm" aria-label="Remove narration" onClick={() => applyNarration(null)}>
+          <Trash size={iconXs} aria-hidden />
+        </IconButton>
       ) : null}
       <FilePickerModal
-        open={narrationPickerOpen}
-        onOpenChange={setNarrationPickerOpen}
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
         kind="media"
         allowedMediaTypes={["audio"]}
         defaultMediaType="audio"
-        title={presentation.narration ? "Replace narration" : "Add narration"}
+        title={pickerTitle}
         metadataFields={[]}
-        onResolved={handleNarrationResolved}
+        onResolved={handleResolved}
       />
-      {narrationError ? (
-        <span role="alert">{presentPresentationAuthoringCommandError(narrationError)}</span>
-      ) : null}
-      {narrationMetadataError ? (
-        <span role="alert">
-          {presentPresentationNarrationMetadataError(narrationMetadataError)}
+      {commandError ? (
+        <span className="sc-presentation-timeline-authoring-error" role="alert">
+          {presentPresentationAuthoringCommandError(commandError)}
         </span>
       ) : null}
-    </>
+      {metadataError ? (
+        <span className="sc-presentation-timeline-authoring-error" role="alert">
+          {presentPresentationNarrationMetadataError(metadataError)}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
-export function resolveSurfacePresentation(
+function readSurfaceTimeline(
   editor: Editor,
-  surfaceId: string | null | undefined,
-  courseMode: string | null,
-):
-  | {
-      readonly narration: SurfacePresentationNarrationV1 | null;
-      readonly durationMs: number;
-    }
-  | undefined {
-  if (courseMode !== "slideshow" || !surfaceId) return undefined;
+  surfaceId: string,
+): { readonly narration: SurfacePresentationNarrationV1 | null; readonly durationMs: number } | null {
   const courseDocument = editor.state.doc.firstChild;
   if (!courseDocument) throw new Error("The Course Document is missing.");
   const value = courseDocument.attrs["presentation"];
-  if (value === null || value === undefined) return { narration: null, durationMs: 0 };
+  if (value === null || value === undefined) return null;
   const configuration = PresentationConfigurationV1Schema.parse(value);
   const timeline = configuration.surfaces.find((candidate) => candidate.surfaceId === surfaceId);
-  if (!timeline) {
-    throw new Error(`Presentation configuration has no Timeline for Surface "${surfaceId}".`);
-  }
+  if (!timeline) return null;
   return { narration: timeline.narration ?? null, durationMs: timeline.durationMs };
 }
 
@@ -164,16 +159,6 @@ function sameNarrationSource(
     return expected.mode === "managed" && current.mediaId === expected.mediaId;
   }
   return expected.mode === "external" && current.src === expected.src;
-}
-
-export function readCourseMode(editor: Editor): string | null {
-  const courseDocument = editor.state.doc.firstChild;
-  if (!courseDocument || courseDocument.type.name !== "courseDocument") {
-    return null;
-  }
-
-  const mode = courseDocument.attrs["mode"];
-  return typeof mode === "string" ? mode : null;
 }
 
 function narrationSourceFromPickerResult(

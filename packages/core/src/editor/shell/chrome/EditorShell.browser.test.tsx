@@ -2,7 +2,20 @@ import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vite-plus/test";
 
+import { EditorBottomPanel } from "./EditorBottomPanel";
 import { EditorShell } from "./EditorShell";
+
+function timelinePanel() {
+  return (
+    <EditorBottomPanel
+      tabsLabel="Surface workspace"
+      tabs={[{ id: "timeline", label: "Timeline", content: <section>Timeline workspace</section> }]}
+      activeTabId="timeline"
+      onTabChange={() => undefined}
+      onClose={() => undefined}
+    />
+  );
+}
 
 describe("EditorShell rail geometry", () => {
   it.each([
@@ -12,7 +25,9 @@ describe("EditorShell rail geometry", () => {
   ] as const)("keeps the bottom workspace between independent docks at %s width", (_, width) => {
     const host = document.createElement("div");
     host.style.width = `${width}px`;
-    host.style.height = "720px";
+    // Fill the viewport minus the app header, like the production shell, so the
+    // viewport-sized rail boxes line up exactly with the row above the bar.
+    host.style.height = "calc(100dvh - 53px)";
     document.body.append(host);
     const root = createRoot(host);
 
@@ -38,31 +53,41 @@ describe("EditorShell rail geometry", () => {
             rightRail={<div>Right tools</div>}
             dock={<aside style={{ width: 220 }}>Agent</aside>}
             stage={<main>Stage</main>}
-            bottomWorkspace={<section>Timeline workspace</section>}
+            bottomWorkspace={timelinePanel()}
           />,
         );
       });
 
+      const centre = host.querySelector<HTMLElement>(".sc-editor-centre");
       const stageColumn = host.querySelector<HTMLElement>(".sc-editor-stage-column");
       const stage = host.querySelector<HTMLElement>(".sc-editor-stage");
       const workspace = host.querySelector<HTMLElement>(".sc-editor-bottom-workspace");
       const workspaceScroll = host.querySelector<HTMLElement>(".sc-editor-bottom-workspace-scroll");
       const leftDock = host.querySelector<HTMLElement>('.sc-editor-dock-slot[data-side="left"]');
       const rightDock = host.querySelector<HTMLElement>('.sc-editor-dock-slot[data-side="right"]');
-      if (!stageColumn || !stage || !workspace || !workspaceScroll || !leftDock || !rightDock) {
+      if (
+        !centre ||
+        !stageColumn ||
+        !stage ||
+        !workspace ||
+        !workspaceScroll ||
+        !leftDock ||
+        !rightDock
+      ) {
         throw new Error("Expected the shell, Stage, workspace, and both docks.");
       }
 
+      const centreRect = centre.getBoundingClientRect();
       const stageColumnRect = stageColumn.getBoundingClientRect();
       const stageRect = stage.getBoundingClientRect();
       const workspaceRect = workspace.getBoundingClientRect();
       const leftDockRect = leftDock.getBoundingClientRect();
       const rightDockRect = rightDock.getBoundingClientRect();
 
-      expect(workspaceRect.left).toBeCloseTo(stageColumnRect.left, 5);
-      expect(workspaceRect.right).toBeCloseTo(stageColumnRect.right, 5);
-      expect(workspaceRect.left).toBeCloseTo(stageRect.left, 5);
-      expect(workspaceRect.right).toBeCloseTo(stageRect.right, 5);
+      expect(workspaceRect.left).toBeCloseTo(centreRect.left, 5);
+      expect(workspaceRect.right).toBeCloseTo(centreRect.right, 5);
+      expect(stageRect.left).toBeCloseTo(stageColumnRect.left, 5);
+      expect(stageRect.right).toBeCloseTo(stageColumnRect.right, 5);
       expect(leftDockRect.right).toBeLessThanOrEqual(workspaceRect.left);
       expect(workspaceRect.right).toBeLessThanOrEqual(rightDockRect.left);
       expect(workspaceRect.top).toBeGreaterThanOrEqual(stageRect.bottom);
@@ -70,6 +95,61 @@ describe("EditorShell rail geometry", () => {
       expect(getComputedStyle(workspaceScroll).overflowY).toBe("auto");
       expect(host.scrollWidth).toBeLessThanOrEqual(host.clientWidth);
       expect(host.scrollHeight).toBe(scrollHeightWithoutWorkspace);
+
+      const shell = host.querySelector<HTMLElement>(".sc-editor-shell");
+      const leftRailSlot = host.querySelector<HTMLElement>(
+        '.sc-editor-rail-slot[data-side="left"]',
+      );
+      const rightRailSlot = host.querySelector<HTMLElement>(
+        '.sc-editor-rail-slot[data-side="right"]',
+      );
+      const leftRail = host.querySelector<HTMLElement>('.sc-editor-rail[data-side="left"]');
+      const rightRail = host.querySelector<HTMLElement>('.sc-editor-rail[data-side="right"]');
+      const leftPill = host.querySelector<HTMLElement>(
+        '.sc-editor-rail[data-side="left"] .sc-editor-rail-frame',
+      );
+      const rightPill = host.querySelector<HTMLElement>(
+        '.sc-editor-rail[data-side="right"] .sc-editor-rail-frame',
+      );
+      if (
+        !shell ||
+        !leftRailSlot ||
+        !rightRailSlot ||
+        !leftRail ||
+        !rightRail ||
+        !leftPill ||
+        !rightPill
+      ) {
+        throw new Error("Expected the shell, both rail slots, both rails, and both pills.");
+      }
+
+      const shellRect = shell.getBoundingClientRect();
+      const leftRailSlotRect = leftRailSlot.getBoundingClientRect();
+      const rightRailSlotRect = rightRailSlot.getBoundingClientRect();
+
+      // The bar spans rails + stage: its edges reach past both rail slots.
+      expect(workspaceRect.left).toBeLessThanOrEqual(leftRailSlotRect.left);
+      expect(workspaceRect.right).toBeGreaterThanOrEqual(rightRailSlotRect.right);
+
+      // Both docks stay full height, from shell top to shell bottom.
+      for (const dockRect of [leftDockRect, rightDockRect]) {
+        expect(Math.abs(dockRect.top - shellRect.top)).toBeLessThanOrEqual(1);
+        expect(Math.abs(dockRect.bottom - shellRect.bottom)).toBeLessThanOrEqual(1);
+      }
+
+      // Each rail pill sits centred in the space above the bar …
+      const midpointY = (stageRect.top + workspaceRect.top) / 2;
+      for (const pill of [leftPill, rightPill]) {
+        const pillRect = pill.getBoundingClientRect();
+        expect(Math.abs((pillRect.top + pillRect.bottom) / 2 - midpointY)).toBeLessThanOrEqual(
+          2,
+        );
+      }
+
+      // … and no rail box overlaps the bar.
+      for (const rail of [leftRail, rightRail]) {
+        expect(rail.getBoundingClientRect().bottom).toBeLessThanOrEqual(workspaceRect.top + 1);
+      }
     } finally {
       flushSync(() => root.unmount());
       host.remove();
@@ -88,7 +168,7 @@ describe("EditorShell rail geometry", () => {
         root.render(
           <EditorShell
             stage={<main>Stage</main>}
-            bottomWorkspace={<section>Timeline workspace</section>}
+            bottomWorkspace={timelinePanel()}
           />,
         );
       });
@@ -131,7 +211,7 @@ describe("EditorShell rail geometry", () => {
         root.render(
           <EditorShell
             stage={<main>Stage</main>}
-            bottomWorkspace={<section>Timeline workspace</section>}
+            bottomWorkspace={timelinePanel()}
           />,
         );
       });
@@ -210,6 +290,37 @@ describe("EditorShell rail geometry", () => {
       expect(after.left).toBeCloseTo(before.left, 5);
       expect(after.width).toBeCloseTo(before.width, 5);
     } finally {
+      flushSync(() => root.unmount());
+      host.remove();
+    }
+  });
+
+  it("pins the bottom workspace to the viewport bottom while the page scrolls", () => {
+    const host = document.createElement("div");
+    host.style.width = "1200px";
+    document.body.append(host);
+    const root = createRoot(host);
+    const previousScrollY = window.scrollY;
+
+    try {
+      flushSync(() => {
+        root.render(
+          <EditorShell
+            scrollModel="page"
+            stage={<main style={{ height: 3000 }}>Stage</main>}
+            bottomWorkspace={timelinePanel()}
+          />,
+        );
+      });
+      const workspace = host.querySelector<HTMLElement>(".sc-editor-bottom-workspace");
+      if (!workspace) throw new Error("Expected the bottom workspace.");
+
+      window.scrollTo(0, 800);
+      const workspaceRect = workspace.getBoundingClientRect();
+
+      expect(Math.abs(workspaceRect.bottom - window.innerHeight)).toBeLessThanOrEqual(1);
+    } finally {
+      window.scrollTo(0, previousScrollY);
       flushSync(() => root.unmount());
       host.remove();
     }
