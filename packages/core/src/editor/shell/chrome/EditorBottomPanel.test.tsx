@@ -211,6 +211,74 @@ describe("EditorBottomPanel", () => {
     expect(handle).toHaveAttribute("aria-valuenow", "480");
   });
 
+  it("restores the stored height on mount and falls back when invalid", () => {
+    window.sessionStorage.setItem("test-bottom-height", "300");
+    const first = setup("timeline", { heightStorageKey: "test-bottom-height" });
+    expect(
+      first.container
+        .querySelector<HTMLElement>(".sc-editor-bottom-panel")
+        ?.style.getPropertyValue("--sc-editor-bottom-workspace-height"),
+    ).toBe("300px");
+    first.unmount();
+    window.sessionStorage.removeItem("test-bottom-height");
+
+    window.sessionStorage.setItem("test-bottom-height-bad", "tall");
+    const second = setup("timeline", { heightStorageKey: "test-bottom-height-bad" });
+    expect(
+      second.container
+        .querySelector<HTMLElement>(".sc-editor-bottom-panel")
+        ?.style.getPropertyValue("--sc-editor-bottom-workspace-height"),
+    ).toBe("240px");
+    second.unmount();
+    window.sessionStorage.removeItem("test-bottom-height-bad");
+  });
+
+  it("persists keyboard resizes, pointer resizes and collapse toggles", () => {
+    const key = "test-bottom-height-write";
+    const { container } = setup("timeline", { heightStorageKey: key });
+    const handle = screen.getByRole("separator", {
+      name: "Resize bottom workspace",
+    }) as HTMLButtonElement;
+    handle.setPointerCapture = vi.fn();
+    handle.releasePointerCapture = vi.fn();
+
+    fireEvent.keyDown(handle, { key: "ArrowUp" });
+    expect(window.sessionStorage.getItem(key)).toBe("256");
+
+    fireEvent.keyDown(handle, { key: "Home" });
+    expect(window.sessionStorage.getItem(key)).toBe("256");
+
+    fireEvent.keyDown(handle, { key: "End" });
+    expect(window.sessionStorage.getItem(key)).toBe("480");
+
+    fireEvent.pointerDown(handle, { button: 0, clientY: 400, pointerId: 7 });
+    fireEvent.pointerMove(handle, { clientY: 500, pointerId: 7 });
+    fireEvent.pointerUp(handle, { pointerId: 7 });
+    expect(window.sessionStorage.getItem(key)).toBe("380");
+
+    window.sessionStorage.removeItem(key);
+  });
+
+  it("ignores throwing storage", () => {
+    vi.stubGlobal("sessionStorage", {
+      getItem: () => {
+        throw new Error("denied");
+      },
+      setItem: () => {
+        throw new Error("denied");
+      },
+      removeItem: () => undefined,
+    });
+    const { container } = setup("timeline", { heightStorageKey: "test-bottom-height-throw" });
+    const panel = container.querySelector<HTMLElement>(".sc-editor-bottom-panel");
+    const handle = screen.getByRole("separator", { name: "Resize bottom workspace" });
+
+    expect(panel?.style.getPropertyValue("--sc-editor-bottom-workspace-height")).toBe("240px");
+    fireEvent.keyDown(handle, { key: "ArrowUp" });
+    expect(panel?.style.getPropertyValue("--sc-editor-bottom-workspace-height")).toBe("256px");
+    vi.unstubAllGlobals();
+  });
+
   it("clamps pointer resizing without moving focus", () => {
     const { container } = setup();
     const focusTarget = screen.getByRole("tab", { name: "Timeline" });

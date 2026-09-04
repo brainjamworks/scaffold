@@ -118,7 +118,7 @@ describe("LearnerInteractionWorkspace", () => {
 
     const tabpanel = screen.getByRole("tabpanel");
     expect(
-      within(tabpanel).getByText("This Surface has no learner interaction capabilities."),
+      within(tabpanel).getByText("This slide has nothing a learner can interact with yet."),
     ).toBeInTheDocument();
     const status = document.querySelector(".sc-editor-bottom-panel-status");
     expect(status).toBeEmptyDOMElement();
@@ -346,10 +346,49 @@ describe("LearnerInteractionWorkspace", () => {
   it("shows an honest empty state without exposing unavailable creation", () => {
     renderWorkspace({ ...projection(), capabilityState: "empty", rules: [] });
 
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "This Surface has no learner interaction capabilities.",
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent(
+      "This slide has nothing a learner can interact with yet.",
     );
+    expect(status).toHaveTextContent(
+      "Add a Tabs, Accordion, media or assessment block, then come back to write rules.",
+    );
+    expect(screen.queryByRole("list", { name: "Interaction rules" })).toBeNull();
+    expect(screen.queryByText("Choose a rule to edit.")).toBeNull();
     expect(screen.getByRole("button", { name: "Add rule" })).toBeDisabled();
+  });
+
+  it("exposes every rule-row control as an icon or labelled button", () => {
+    renderWorkspace(projection({ stale: true }));
+
+    expect(
+      screen.getByRole("button", { name: "Edit Rule 1" }),
+    ).toHaveTextContent("Rule 1");
+    expect(
+      screen.getByRole("button", { name: "Repair Rule 1 (1 issue)" }),
+    ).toBeInTheDocument();
+    for (const name of [
+      "Disable Rule 1",
+      "Move Rule 1 earlier",
+      "Move Rule 1 later",
+      "Remove Rule 1",
+    ]) {
+      const control = screen.getByRole("button", { name });
+      expect(control.querySelector("svg")).toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: "Add rule" })).toBeInTheDocument();
+  });
+
+  it("focuses Save changes first when the decision dialog opens", async () => {
+    const user = userEvent.setup();
+    renderWorkspace(projection());
+
+    await user.click(screen.getByRole("button", { name: "Edit Rule 1" }));
+    await user.click(screen.getByLabelText("Rule enabled"));
+    await user.click(screen.getByRole("button", { name: "Edit Rule 2" }));
+
+    expect(screen.getByRole("alertdialog", { name: "Unsaved rule changes" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save changes" })).toHaveFocus();
   });
 
   it("previews only a clean saved Surface group and never submits the draft", async () => {

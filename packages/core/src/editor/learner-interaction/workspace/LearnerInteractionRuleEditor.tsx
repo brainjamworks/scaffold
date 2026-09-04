@@ -16,6 +16,8 @@ import { isControlValueValid } from "@/document/control-binding";
 import type { LearnerInteractionCompileDiagnostic } from "@/learner-interaction/model";
 import type { LearnerInteractionWorkspaceController } from "./learner-interaction-workspace-controller";
 import { validateLearnerInteractionRuleDraft } from "../model";
+import { Button } from "@/ui/components/Button/Button";
+import { Input } from "@/ui/components/Input/Input";
 
 export interface LearnerInteractionRuleEditorProps {
   readonly controller: LearnerInteractionWorkspaceController;
@@ -182,8 +184,9 @@ export function LearnerInteractionRuleEditor({
                   {String(condition.value)}
                 </output>
               )}
-              <button
-                type="button"
+              <Button
+                size="sm"
+                variant="ghost"
                 aria-label={`Remove condition ${index + 1}`}
                 onClick={() =>
                   update({
@@ -192,13 +195,14 @@ export function LearnerInteractionRuleEditor({
                 }
               >
                 Remove
-              </button>
+              </Button>
               <SourceDiagnostics diagnostics={diagnostics} />
             </fieldset>
           );
         })}
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant="ghost"
           disabled={projection.conditionStates.length === 0}
           onClick={() => {
             const option = projection.conditionStates[0];
@@ -217,7 +221,7 @@ export function LearnerInteractionRuleEditor({
           }}
         >
           Add condition
-        </button>
+        </Button>
       </fieldset>
 
       <fieldset>
@@ -234,8 +238,9 @@ export function LearnerInteractionRuleEditor({
           />
         ))}
         <div className="sc-learner-interactions-add-command">
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="ghost"
             disabled={projection.revealTargets.length === 0}
             onClick={() => {
               const option = projection.revealTargets[0];
@@ -249,9 +254,10 @@ export function LearnerInteractionRuleEditor({
             }}
           >
             Add reveal
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
             disabled={projection.targetCommands.length === 0}
             onClick={() => {
               const option = projection.targetCommands[0];
@@ -259,9 +265,10 @@ export function LearnerInteractionRuleEditor({
             }}
           >
             Add target command
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
             disabled={projection.navigationSurfaces.length === 0}
             onClick={() => {
               const option = projection.navigationSurfaces[0];
@@ -275,7 +282,7 @@ export function LearnerInteractionRuleEditor({
             }}
           >
             Add navigation
-          </button>
+          </Button>
         </div>
       </fieldset>
 
@@ -288,16 +295,16 @@ export function LearnerInteractionRuleEditor({
       ))}
       {saveError ? <p role="alert">{errorCopy(saveError)}</p> : null}
       <div className="sc-learner-interactions-editor-actions">
-        <button
-          type="button"
+        <Button
+          variant="primary"
           disabled={structuralDiagnostics.length > 0}
           onClick={() => controller.save()}
         >
           Save rule
-        </button>
-        <button type="button" onClick={() => controller.discard()}>
+        </Button>
+        <Button variant="ghost" onClick={() => controller.discard()}>
           Discard draft
-        </button>
+        </Button>
       </div>
     </section>
   );
@@ -426,24 +433,27 @@ function CommandRow({
     <fieldset aria-label={`Then command ${index + 1}`}>
       <legend>Then {index + 1}</legend>
       {field}
-      <button
-        type="button"
+      <Button
+        size="sm"
+        variant="ghost"
         aria-label={`Move command ${index + 1} earlier`}
         disabled={index === 0}
         onClick={() => moveCommand(controller, draft, index, -1)}
       >
         Earlier
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
         aria-label={`Move command ${index + 1} later`}
         disabled={index === draft.commands.length - 1}
         onClick={() => moveCommand(controller, draft, index, 1)}
       >
         Later
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
         aria-label={`Remove command ${index + 1}`}
         onClick={() =>
           controller.updateDraft({
@@ -453,7 +463,7 @@ function CommandRow({
         }
       >
         Remove
-      </button>
+      </Button>
       <SourceDiagnostics diagnostics={diagnostics} />
     </fieldset>
   );
@@ -523,7 +533,7 @@ function ControlValueField({
     <>
       <label>
         {label}
-        <input
+        <Input
           aria-label={label}
           type="number"
           min={definition.min}

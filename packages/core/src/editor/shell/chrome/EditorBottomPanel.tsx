@@ -46,6 +46,12 @@ export interface EditorBottomPanelProps {
   /** Label for the content region. Default "Bottom workspace". */
   readonly regionLabel?: string;
   readonly initialHeightPx?: number; // default 240, same clamps as today
+  /**
+   * sessionStorage key for per-session height memory. When set, the stored
+   * height seeds the initial height and every finished resize or collapse
+   * toggle persists the current height. All storage access is try/caught.
+   */
+  readonly heightStorageKey?: string;
 }
 
 const BOTTOM_WORKSPACE_COLLAPSED_HEIGHT_PX = 28;
@@ -60,6 +66,28 @@ function clampBottomWorkspaceHeight(heightPx: number, maximumHeightPx: number): 
     maximumHeightPx,
     Math.max(Math.min(BOTTOM_WORKSPACE_MIN_HEIGHT_PX, maximumHeightPx), heightPx),
   );
+}
+
+function readStoredHeightPx(key: string | undefined, fallbackPx: number): number {
+  if (!key) return fallbackPx;
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (raw === null) return fallbackPx;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return fallbackPx;
+    return clampBottomWorkspaceHeight(Math.round(parsed), BOTTOM_WORKSPACE_MAX_HEIGHT_PX);
+  } catch {
+    return fallbackPx;
+  }
+}
+
+function writeStoredHeightPx(key: string | undefined, heightPx: number): void {
+  if (!key) return;
+  try {
+    sessionStorage.setItem(key, String(Math.round(heightPx)));
+  } catch {
+    // Storage unavailable (private mode, disabled): keep the in-memory height.
+  }
 }
 
 interface BottomWorkspaceResizeSession {
@@ -77,11 +105,16 @@ export function EditorBottomPanel({
   tabsLabel,
   regionLabel = "Bottom workspace",
   initialHeightPx = BOTTOM_WORKSPACE_DEFAULT_HEIGHT_PX,
+  heightStorageKey,
 }: EditorBottomPanelProps) {
   const contentId = useId();
   const panelRef = useRef<HTMLElement>(null);
   const resizeSessionRef = useRef<BottomWorkspaceResizeSession | null>(null);
-  const [heightPx, setHeightPx] = useState(initialHeightPx);
+  const heightStorageKeyRef = useRef(heightStorageKey);
+  heightStorageKeyRef.current = heightStorageKey;
+  const [heightPx, setHeightPx] = useState(() =>
+    readStoredHeightPx(heightStorageKey, initialHeightPx),
+  );
   const [availableHeightPx, setAvailableHeightPx] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [headerActionsElement, setHeaderActionsElement] = useState<HTMLDivElement | null>(null);
@@ -135,38 +168,43 @@ export function EditorBottomPanel({
   }, [renderedHeightPx]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    const storageKey = heightStorageKeyRef.current;
     switch (event.key) {
-      case "ArrowUp":
-        setHeightPx(
-          clampBottomWorkspaceHeight(
-            collapsed
-              ? Math.min(BOTTOM_WORKSPACE_MIN_HEIGHT_PX, maximumHeightPx)
-              : expandedHeightPx + BOTTOM_WORKSPACE_KEYBOARD_STEP_PX,
-            maximumHeightPx,
-          ),
+      case "ArrowUp": {
+        const nextHeightPx = clampBottomWorkspaceHeight(
+          collapsed
+            ? Math.min(BOTTOM_WORKSPACE_MIN_HEIGHT_PX, maximumHeightPx)
+            : expandedHeightPx + BOTTOM_WORKSPACE_KEYBOARD_STEP_PX,
+          maximumHeightPx,
         );
+        setHeightPx(nextHeightPx);
+        writeStoredHeightPx(storageKey, nextHeightPx);
         setCollapsed(false);
         break;
+      }
       case "ArrowDown":
         if (!collapsed) {
-          setHeightPx(
-            clampBottomWorkspaceHeight(
-              expandedHeightPx - BOTTOM_WORKSPACE_KEYBOARD_STEP_PX,
-              maximumHeightPx,
-            ),
+          const nextHeightPx = clampBottomWorkspaceHeight(
+            expandedHeightPx - BOTTOM_WORKSPACE_KEYBOARD_STEP_PX,
+            maximumHeightPx,
           );
+          setHeightPx(nextHeightPx);
+          writeStoredHeightPx(storageKey, nextHeightPx);
         }
         break;
       case "Home":
         setCollapsed(true);
+        writeStoredHeightPx(storageKey, heightPx);
         break;
       case "End":
         setHeightPx(maximumHeightPx);
+        writeStoredHeightPx(storageKey, maximumHeightPx);
         setCollapsed(false);
         break;
       case "Enter":
       case " ":
         setCollapsed((current) => !current);
+        writeStoredHeightPx(storageKey, heightPx);
         break;
       default:
         return;
@@ -204,6 +242,7 @@ export function EditorBottomPanel({
     const session = resizeSessionRef.current;
     if (!session || session.pointerId !== event.pointerId) return;
     resizeSessionRef.current = null;
+    writeStoredHeightPx(heightStorageKeyRef.current, heightPx);
     event.currentTarget.releasePointerCapture(event.pointerId);
   }
 
