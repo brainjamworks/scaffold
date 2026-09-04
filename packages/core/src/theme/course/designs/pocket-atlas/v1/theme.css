@@ -5754,6 +5754,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   background: var(--pa-paper-muted);
 }
 
+/* The theme's generic data-course-state banner paint must not hit the
+   marker wrapper — verdict paint lives on the marker button. */
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker[data-course-state] {
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
 /* State-change motion (RIZ-292): transitions only, transform/opacity/color. */
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker {
   transition: opacity 120ms steps(2, end);

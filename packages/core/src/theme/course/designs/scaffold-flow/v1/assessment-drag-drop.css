@@ -148,6 +148,15 @@
   box-shadow: var(--shadow-2);
 }
 
+/* The theme's generic data-course-state banner paint must not hit the
+   marker wrapper — it draws a filled square behind the circular button.
+   Verdict paint lives on the button below. */
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-marker[data-course-state] {
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
 .sc-course.sc-course-theme-scaffold-flow-v1
   .sc-course-drag-drop-marker[data-course-state="correct"]
   > button {
