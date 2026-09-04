@@ -283,11 +283,35 @@
   }
 
   .sc-course-drag-drop-stage {
+    position: relative;
     display: grid;
     min-width: 0;
     /* Visible: markers anchored on edge points spill past the image box. */
     overflow: visible;
     place-items: center;
+  }
+
+  /* On-stage view tools (the expand affordance), hotspot-style. */
+  .sc-course-drag-drop__canvas-toolbar {
+    position: absolute;
+    z-index: 4;
+    inset-block-start: 0;
+    inset-inline-end: 0;
+    display: flex;
+  }
+
+  .sc-course-drag-drop__icon-action {
+    box-sizing: border-box;
+    display: inline-flex;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
   }
 
   .sc-course-drag-drop-stage[data-drag-active] [data-spatial-image-surface] {
@@ -309,6 +333,43 @@
     display: grid;
     place-items: center;
     transform: translate(-50%, -50%);
+  }
+
+  /* Answer reveal: acceptance zones, plus a connector from where the
+     learner's answer was to each missed zone. Geometry only — themes paint. */
+  .sc-course-drag-drop-reveal {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .sc-course-drag-drop-reveal__zone,
+  .sc-course-drag-drop-reveal__origin {
+    fill: none;
+    stroke: currentcolor;
+    stroke-width: 2px;
+  }
+
+  .sc-course-drag-drop-reveal__zone {
+    stroke-dasharray: 6 4;
+  }
+
+  .sc-course-drag-drop-reveal__connector {
+    stroke: currentcolor;
+    stroke-width: 2px;
+    stroke-dasharray: 2 5;
+    stroke-linecap: round;
+  }
+
+  @media (forced-colors: active) {
+    .sc-course-drag-drop-reveal__zone,
+    .sc-course-drag-drop-reveal__origin,
+    .sc-course-drag-drop-reveal__connector {
+      stroke: Highlight;
+    }
   }
 
   .sc-course-drag-drop-keyboard-cursor {

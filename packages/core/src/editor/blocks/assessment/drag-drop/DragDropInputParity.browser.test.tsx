@@ -180,7 +180,7 @@ async function completeBy(mode: "mouse" | "touch" | "keyboard", missingIndex: nu
     inlineRect,
   );
 
-  const expand = within(inline).getByRole("button", { name: "Expand" });
+  const expand = within(inline).getByRole("button", { name: "Answer in expanded workspace" });
   expand.focus();
   fireEvent.keyDown(expand, { code: "Enter", key: "Enter" });
   fireEvent.click(expand);

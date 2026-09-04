@@ -1,3 +1,4 @@
+import { ArrowsOutIcon as ArrowsOut } from "@phosphor-icons/react";
 import {
   useCallback,
   useEffect,
@@ -13,6 +14,7 @@ import {
   type EmbeddedDataId,
   type MarkerPresetId,
   type MarkerVisual,
+  type SpatialPlacementAssessment,
 } from "@scaffold/contracts";
 
 import { useAssessmentRuntimeById } from "@/editor/assessment/shared/runtime/use-assessment-runtime";
@@ -38,6 +40,7 @@ import {
 import { resolveDragDropPointerPlacement } from "./drag-drop-pointer-session";
 import { DragDropCourseWorkspace } from "./DragDropCourseWorkspace";
 import { RuntimeAssessmentControls } from "@/editor/blocks/assessment/shared/chrome/AssessmentControls";
+import { iconSm } from "@/ui/tokens/icon-sizes";
 import "./DragDrop.css";
 
 export type DragDropPresentation = "inline" | "expanded" | "full-slide";
@@ -85,7 +88,9 @@ interface OwnerState {
   readonly readyPresentations: ReadonlySet<DragDropPresentation>;
   readonly resolvedIcons: Readonly<Record<string, string>>;
   readonly responseReady: boolean;
+  readonly revealedPlacements: SpatialPlacementAssessment["correctPlacements"] | null;
   readonly reviewMarkerId: EmbeddedDataId | null;
+  readonly submittedPlacements: Readonly<Record<string, SpatialImagePoint>>;
   readonly selectedMarkerId: EmbeddedDataId | null;
   readonly unplaced: readonly DragDropCourseMarker[];
   readonly activateKeyboardPresentation: (presentation: DragDropPresentation) => void;
@@ -669,7 +674,9 @@ function Owner({
     readyPresentations,
     resolvedIcons,
     responseReady: assessment?.response.hasValue ?? false,
+    revealedPlacements: revealed?.correctPlacements ?? null,
     reviewMarkerId,
+    submittedPlacements: placements,
     selectedMarkerId,
     unplaced,
     activateKeyboardPresentation,
@@ -896,11 +903,6 @@ function Presentation({
             >
               Reset
             </button>
-            {presentation === "inline" && onRequestExpand ? (
-              <button type="button" onClick={onRequestExpand}>
-                Expand
-              </button>
-            ) : null}
           </div>
           {owner.placed.length > 0 ? (
             <ul className="sc-sr-only" aria-label="Placed markers">
@@ -944,6 +946,13 @@ function Presentation({
               owner.registerSurface(presentation, state);
               return (
                 <>
+                  {owner.revealedPlacements && state.status === "ready" ? (
+                    <RevealOverlay
+                      aspectRatio={state.aspectRatio}
+                      reveal={owner.revealedPlacements}
+                      submitted={owner.submittedPlacements}
+                    />
+                  ) : null}
                   {owner.displayMarkers.map((marker, index) => {
                     const point = owner.displayPlacements[marker.id];
                     if (!point) throw new Error(`Placed marker "${marker.id}" has no position.`);
@@ -995,6 +1004,28 @@ function Presentation({
               );
             }}
           </SpatialImageSurface>
+          {presentation === "inline" && onRequestExpand ? (
+            <div
+              role="toolbar"
+              aria-label="Drag and Drop view tools"
+              className="sc-course-drag-drop__canvas-toolbar"
+            >
+              <button
+                type="button"
+                aria-label="Answer in expanded workspace"
+                className="sc-course-drag-drop__icon-action"
+                title="Answer in expanded workspace"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onRequestExpand();
+                }}
+                onMouseDown={(event) => event.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                <ArrowsOut size={iconSm} aria-hidden />
+              </button>
+            </div>
+          ) : null}
           {owner.mediaUnavailable ? (
             <div role="alert">
               <p>The background image is unavailable.</p>
@@ -1011,6 +1042,71 @@ function Presentation({
         </div>
       </div>
     </section>
+  );
+}
+
+function RevealOverlay({
+  aspectRatio,
+  reveal,
+  submitted,
+}: {
+  readonly aspectRatio: number;
+  readonly reveal: SpatialPlacementAssessment["correctPlacements"];
+  readonly submitted: Readonly<Record<string, SpatialImagePoint>>;
+}) {
+  // Coordinates are percentages of the image box (x of width, y of height);
+  // radius is a percentage of the WIDTH, so vertical extents scale by the
+  // aspect ratio and physical circles render as viewBox ellipses. Strokes use
+  // vector-effect so the non-uniform viewBox cannot distort them.
+  const aspect = aspectRatio || 1;
+  return (
+    <svg
+      aria-hidden
+      className="sc-course-drag-drop-reveal"
+      focusable="false"
+      preserveAspectRatio="none"
+      viewBox="0 0 100 100"
+    >
+      {reveal.map(({ geometry, markerId }) => {
+        const learner = submitted[markerId];
+        const missed =
+          learner !== undefined &&
+          Math.hypot(learner.x - geometry.centerX, (learner.y - geometry.centerY) / aspect) >
+            geometry.radius;
+        return (
+          <g key={markerId} className="sc-course-drag-drop-reveal__item">
+            {missed ? (
+              <line
+                className="sc-course-drag-drop-reveal__connector"
+                vectorEffect="non-scaling-stroke"
+                x1={learner.x}
+                y1={learner.y}
+                x2={geometry.centerX}
+                y2={geometry.centerY}
+              />
+            ) : null}
+            {missed ? (
+              <ellipse
+                className="sc-course-drag-drop-reveal__origin"
+                cx={learner.x}
+                cy={learner.y}
+                rx={1.1}
+                ry={1.1 * aspect}
+                vectorEffect="non-scaling-stroke"
+              />
+            ) : null}
+            <ellipse
+              className="sc-course-drag-drop-reveal__zone"
+              cx={geometry.centerX}
+              cy={geometry.centerY}
+              rx={geometry.radius}
+              ry={geometry.radius * aspect}
+              vectorEffect="non-scaling-stroke"
+            />
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 

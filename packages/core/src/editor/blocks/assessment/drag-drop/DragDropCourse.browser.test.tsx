@@ -494,7 +494,7 @@ describe("DragDropCourseInteraction", () => {
     expect(inlineLayout).not.toBeNull();
     expect(getComputedStyle(inlineLayout!).display).toBe("grid");
 
-    await user.click(screen.getByRole("button", { name: "Expand" }));
+    await user.click(screen.getByRole("button", { name: "Answer in expanded workspace" }));
     const expandedTray = await waitFor(() => {
       const element = document.querySelector<HTMLElement>(
         '[data-drag-drop-presentation="expanded"] .sc-course-drag-drop-tray',
@@ -625,6 +625,15 @@ describe("DragDropCourseInteraction", () => {
     expect(correctLondon?.getAttribute("style")).toContain("left: 10%");
     expect(correctLondon?.getAttribute("style")).toContain("top: 20%");
     expect(document.querySelectorAll(".sc-course-drag-drop-marker")).toHaveLength(2);
+    // The reveal overlay draws every acceptance zone, plus a connector and
+    // origin ring for each answer that landed outside its zone.
+    const revealOverlay = document.querySelector(".sc-course-drag-drop-reveal");
+    expect(revealOverlay).not.toBeNull();
+    expect(revealOverlay!.querySelectorAll(".sc-course-drag-drop-reveal__zone")).toHaveLength(2);
+    expect(revealOverlay!.querySelectorAll(".sc-course-drag-drop-reveal__connector")).toHaveLength(
+      2,
+    );
+    expect(revealOverlay!.querySelectorAll(".sc-course-drag-drop-reveal__origin")).toHaveLength(2);
 
     await act(async () => {
       await currentRuntime()?.problem?.toggleAnswerView();
@@ -638,6 +647,7 @@ describe("DragDropCourseInteraction", () => {
     expect(learnerLondon?.getAttribute("style")).toContain("left: 25%");
     expect(learnerLondon?.getAttribute("style")).toContain("top: 30%");
     expect(document.querySelectorAll(".sc-course-drag-drop-marker")).toHaveLength(2);
+    expect(document.querySelector(".sc-course-drag-drop-reveal")).toBeNull();
   });
 
   it("checks immediate feedback once the whole marker response is complete", async () => {
@@ -1085,7 +1095,7 @@ describe("DragDropCourseInteraction", () => {
     fireEvent.keyDown(inlineParis, { code: "Enter", key: "Enter" });
     expect(inline.querySelector("[data-drag-drop-keyboard-cursor]")).not.toBeNull();
 
-    const expand = within(inline).getByRole("button", { name: "Expand" });
+    const expand = within(inline).getByRole("button", { name: "Answer in expanded workspace" });
     await user.click(expand);
     const expanded = await waitFor(() => {
       const element = document.querySelector<HTMLElement>(

@@ -5084,12 +5084,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   font-family: var(--default-font-family);
 }
 
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-image-hotspot__canvas-toolbar {
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-image-hotspot__canvas-toolbar,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop__canvas-toolbar {
   gap: 0.5rem;
   margin: 0.75rem;
 }
 
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-image-hotspot__icon-action {
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-image-hotspot__icon-action,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop__icon-action {
   border: var(--pa-keyline) solid var(--pa-ink);
   border-radius: 0;
   background: var(--pa-paper-raised);
@@ -5201,7 +5203,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 @media (hover: hover) and (pointer: fine) {
   .sc-course.sc-course-theme-pocket-atlas-v1
-    .sc-course-image-hotspot__icon-action:hover:not(:disabled) {
+    .sc-course-image-hotspot__icon-action:hover:not(:disabled),
+  .sc-course.sc-course-theme-pocket-atlas-v1
+    .sc-course-drag-drop__icon-action:hover:not(:disabled) {
     background: var(--pa-mango);
     color: #20164f;
     box-shadow: 4px 4px 0 var(--pa-ink);
@@ -5316,6 +5320,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-image-hotspot-marker:focus-visible,
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-image-hotspot__icon-action:focus-visible,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop__icon-action:focus-visible,
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-annotated-figure__pin-activate:focus-visible {
   outline: 3px solid var(--pa-focus);
   outline-offset: 4px;
@@ -6584,7 +6589,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     opacity: 0.8;
   }
 
-  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-image-hotspot__icon-action:focus-visible {
+  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-image-hotspot__icon-action:focus-visible,
+  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop__icon-action:focus-visible {
     outline-color: Highlight;
   }
 
@@ -6768,5 +6774,28 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker__remove:hover {
     background: var(--pa-coral);
     color: var(--pa-paper);
+  }
+}
+
+/* Answer reveal: mint acceptance zones on keyline-weight dashes; the
+   learner's original answer and connector stay in ink. */
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-reveal__zone {
+  stroke: var(--pa-mint);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-reveal__connector,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-reveal__origin {
+  stroke: var(--pa-ink);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-reveal__item {
+    animation: pa-drag-drop-reveal 120ms steps(2, end) both;
+  }
+}
+
+@keyframes pa-drag-drop-reveal {
+  from {
+    opacity: 0;
   }
 }

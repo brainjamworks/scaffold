@@ -185,6 +185,64 @@
   border-radius: 50%;
 }
 
+/* On-stage view tools: the same floating panel recipe as image-hotspot's
+   canvas toolbar, so the two spatial families read as siblings. */
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop__canvas-toolbar {
+  gap: calc(var(--space-1) * var(--sc-course-author-density));
+  padding: calc(var(--space-2) * var(--sc-course-author-density));
+  margin: calc(var(--space-2) * var(--sc-course-author-density));
+  border: 1px solid var(--gray-a6);
+  border-radius: max(var(--radius-3), min(var(--radius-full), 1.5rem));
+  background: var(--color-panel-translucent);
+  box-shadow: var(--shadow-2);
+  backdrop-filter: blur(10px);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop__icon-action {
+  border: 0;
+  border-radius: max(var(--radius-2), var(--radius-full));
+  background: transparent;
+  color: var(--gray-11);
+  transition:
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop__icon-action:focus-visible {
+  outline: 2px solid var(--accent-9);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop__icon-action:hover {
+    background: var(--accent-a3);
+    color: var(--accent-11);
+  }
+}
+
+/* Answer reveal: calm dashed acceptance zones in the correct-state colour;
+   the learner's original answer and its connector recede into the gray ramp. */
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-reveal__zone {
+  stroke: var(--sc-course-state-correct-indicator);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-reveal__connector,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-reveal__origin {
+  stroke: var(--gray-a8);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-reveal__item {
+    animation: sc-flow-drag-drop-reveal 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes sc-flow-drag-drop-reveal {
+  from {
+    opacity: 0;
+  }
+}
+
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-drag-drop-tray__scroll-hint {
   background: var(--gray-2);
   color: var(--gray-11);
