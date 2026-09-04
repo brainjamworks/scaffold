@@ -19,7 +19,6 @@ import {
   type ReactNode,
 } from "react";
 import type { Editor as TiptapEditor } from "@tiptap/core";
-import { Result } from "better-result";
 
 import { IconButton } from "@/ui/components/IconButton/IconButton";
 import type {
@@ -50,6 +49,7 @@ import {
 import type { SlideshowPlayerSizing } from "../player-types";
 import { CourseSectionNavigation } from "./CourseSectionNavigation";
 import { getSlideshowNavigationState, getSlideshowSurfaceStates } from "./slideshow-navigation";
+import { createPresentationPreviewPlaybackPort } from "./create-presentation-preview-playback-port";
 import { createRequestSurfaceChange, type SurfaceExitPolicy } from "./slideshow-surface-change";
 import type {
   SlideshowPresentationNarrationError,
@@ -221,41 +221,7 @@ export function SlideshowPlayer({
     const controls = surfaceRuntime.presentationControls;
     const seek = surfaceRuntime.seek;
     if (!controls || !seek || !activeSurfaceId) return null;
-    return Object.freeze({
-      getSnapshot: () => {
-        const snapshot = controls.getSnapshot();
-        return Object.freeze({
-          status: "ready" as const,
-          surfaceId: activeSurfaceId,
-          phase: snapshot.phase,
-          currentTimeMs: snapshot.currentTimeMs,
-          durationMs: snapshot.durationMs,
-        });
-      },
-      subscribe: (listener: () => void) => controls.subscribe(listener),
-      play: () => {
-        void controls.play();
-        return Result.ok();
-      },
-      pause: () => {
-        controls.pause();
-        return Result.ok();
-      },
-      async seek(timeMs: number) {
-        const result = await seek(timeMs);
-        if (result.isErr()) {
-          if (result.error.reason === "seek-out-of-range") return Result.err(result.error);
-          return Result.err(
-            Object.freeze({
-              reason: "preview-not-ready" as const,
-              operation: "seek" as const,
-              status: "error" as const,
-            }),
-          );
-        }
-        return Result.ok(Object.freeze({ kind: result.value.kind, timeMs: result.value.timeMs }));
-      },
-    });
+    return createPresentationPreviewPlaybackPort({ controls, seek, surfaceId: activeSurfaceId });
   }, [activeSurfaceId, surfaceRuntime.presentationControls, surfaceRuntime.seek]);
   useEffect(() => {
     if (!onPresentationPreviewPortChange || !presentationPreviewPort) return;

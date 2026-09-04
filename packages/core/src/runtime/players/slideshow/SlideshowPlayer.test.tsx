@@ -30,6 +30,7 @@ import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 import type { LearnerInteractionPreviewReportsPort } from "@/learner-interaction/model";
+import type { PresentationPreviewPlaybackPort } from "@/presentation/model";
 import {
   checkRuntimeDocumentReadiness,
   type PreparedCourseDocumentRuntimeRendererProps,
@@ -745,6 +746,46 @@ describe("SlideshowPlayer", () => {
     unmount();
     expect(onReportsPortChange).toHaveBeenLastCalledWith(null);
     expect(onPresentationPortChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it("hands Author Preview a playback port whose snapshot is stable between reads", async () => {
+    let presentationPort: PresentationPreviewPlaybackPort | null = null;
+    render(
+      <TestSlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "Stable snapshot slide" },
+        ])}
+        surfaceRuntimeProgramSource={(surfaceId) => ({
+          learnerInteractions: { surfaceId, rulesByEvent: new Map() },
+          presentation: {
+            autoAdvance: false,
+            timeline: {
+              surfaceId,
+              durationMs: 4_000,
+              cues: [],
+              waits: [],
+              visualProgram: {
+                surfaceId,
+                durationMs: 4_000,
+                targetById: new Map(),
+                segments: [],
+                sequenceContainers: [],
+              },
+            },
+          },
+        })}
+        onPresentationPreviewPortChange={(port) => {
+          presentationPort = port ?? presentationPort;
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(presentationPort).not.toBeNull());
+    const port = presentationPort as unknown as PresentationPreviewPlaybackPort;
+
+    // useSyncExternalStore force-re-renders forever when this identity is not held.
+    expect(port.getSnapshot()).toBe(port.getSnapshot());
   });
 
   it("uses the viewport owner document and retargets distinct content and chrome hosts", async () => {
