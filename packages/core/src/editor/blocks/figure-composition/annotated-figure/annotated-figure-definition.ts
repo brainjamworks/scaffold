@@ -27,6 +27,15 @@ export const annotatedFigureDefinition = defineBlock({
   title: "Annotated figure",
   documentSemantics: annotatedFigureDocumentSemantics,
   control: {
+    owner: {
+      states: [
+        {
+          key: "completed",
+          label: "Completed",
+          valueType: { kind: "boolean" },
+        },
+      ],
+    },
     semanticChildren: {
       [ANNOTATED_FIGURE_ANNOTATION_NODE]: {
         events: [

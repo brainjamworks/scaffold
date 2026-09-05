@@ -51,8 +51,17 @@ afterEach(() => {
 });
 
 describe("Annotated Figure Control Binding", () => {
-  it("declares only the approved public annotation capabilities", () => {
+  it("declares only the approved public figure capabilities", () => {
     expect((annotatedFigureDefinition as BlockDefinition).control).toEqual({
+      owner: {
+        states: [
+          {
+            key: "completed",
+            label: "Completed",
+            valueType: { kind: "boolean" },
+          },
+        ],
+      },
       semanticChildren: {
         annotated_figure_annotation: {
           events: [
@@ -219,6 +228,21 @@ describe("Annotated Figure Control Binding", () => {
       `Control Binding for owner "${OWNER_ID}" is no longer mounted.`,
     );
     unsubscribe?.();
+  });
+
+  it("marks the figure completed after the learner opens every annotation", async () => {
+    const user = userEvent.setup();
+    const editor = createRuntimeEditor("popover");
+    renderEditor(editor);
+    const binding = await requireAnnotatedFigureBinding(editor);
+
+    expect(binding.stateReader?.read({ targetId: OWNER_ID, key: "completed" })).toBe(false);
+
+    await user.click(screen.getByRole("button", { name: "View annotation 1" }));
+    expect(binding.stateReader?.read({ targetId: OWNER_ID, key: "completed" })).toBe(false);
+
+    await user.click(screen.getByRole("button", { name: "View annotation 2" }));
+    expect(binding.stateReader?.read({ targetId: OWNER_ID, key: "completed" })).toBe(true);
   });
 
   it("preserves an open annotation on lightbox transfer and reports explicit viewer dismissal", async () => {

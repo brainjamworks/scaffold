@@ -18,6 +18,7 @@ type StateListener = () => void;
 export interface AnnotatedFigureRuntimeController {
   readonly cancelPendingLearnerClose: () => void;
   readonly getOpenAnnotationId: () => string | null;
+  readonly hasLearnerOpenedAnnotation: (annotationId: string) => boolean;
   readonly requestLearnerClose: (annotationId: string) => void;
   readonly setOpenAnnotationId: (
     annotationId: string | null,
@@ -29,6 +30,7 @@ export interface AnnotatedFigureRuntimeController {
 
 export function createAnnotatedFigureRuntimeController(): AnnotatedFigureRuntimeController {
   let openAnnotationId: string | null = null;
+  const learnerOpenedAnnotationIds = new Set<string>();
   let pendingLearnerClose: ReturnType<typeof setTimeout> | null = null;
   const stateListeners = new Set<StateListener>();
   const changeListeners = new Set<OpenChangeListener>();
@@ -45,6 +47,9 @@ export function createAnnotatedFigureRuntimeController(): AnnotatedFigureRuntime
     if (annotationId === openAnnotationId) return;
     const previousAnnotationId = openAnnotationId;
     openAnnotationId = annotationId;
+    if (origin === "learner" && annotationId !== null) {
+      learnerOpenedAnnotationIds.add(annotationId);
+    }
     for (const listener of [...stateListeners]) listener();
     const change = Object.freeze({ previousAnnotationId, annotationId, origin });
     for (const listener of [...changeListeners]) listener(change);
@@ -53,6 +58,8 @@ export function createAnnotatedFigureRuntimeController(): AnnotatedFigureRuntime
   return Object.freeze({
     cancelPendingLearnerClose,
     getOpenAnnotationId: () => openAnnotationId,
+    hasLearnerOpenedAnnotation: (annotationId: string) =>
+      learnerOpenedAnnotationIds.has(annotationId),
     requestLearnerClose(annotationId: string) {
       if (pendingLearnerClose !== null) clearTimeout(pendingLearnerClose);
       pendingLearnerClose = setTimeout(() => {

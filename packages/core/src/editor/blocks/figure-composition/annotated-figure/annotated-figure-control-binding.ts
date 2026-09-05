@@ -13,7 +13,10 @@ import {
   type SemanticActivationOutcome,
 } from "@/document/semantic-target-interaction";
 
-import { resolveAnnotatedFigureModel } from "./annotated-figure-document-model";
+import {
+  resolveAnnotatedFigureModel,
+  type ResolvedAnnotatedFigureModel,
+} from "./annotated-figure-document-model";
 import type { AnnotatedFigureRuntimeController } from "./annotated-figure-runtime-controller";
 import { ANNOTATED_FIGURE_NODE } from "./content";
 
@@ -45,7 +48,7 @@ export function useAnnotatedFigureControlBinding(input: AnnotatedFigureControlBi
       const changedTargetId = change.annotationId ?? change.previousAnnotationId;
       if (!changedTargetId) return;
       const targetId = EmbeddedNodeIdSchema.parse(changedTargetId);
-      requireCurrentAnnotation(behaviorRef.current, mountedOwnerId, targetId);
+      requireCurrentTarget(behaviorRef.current, mountedOwnerId, targetId);
       const event = Object.freeze({
         targetId,
         type: change.annotationId === null ? "closed" : "opened",
@@ -67,13 +70,16 @@ export function useAnnotatedFigureControlBinding(input: AnnotatedFigureControlBi
       },
       stateReader: {
         read({ targetId }) {
-          requireCurrentAnnotation(behaviorRef.current, mountedOwnerId, targetId);
+          const model = requireCurrentTarget(behaviorRef.current, mountedOwnerId, targetId);
+          if (targetId === mountedOwnerId) {
+            return model.annotations.every(({ id }) => controller.hasLearnerOpenedAnnotation(id));
+          }
           return controller.getOpenAnnotationId() === targetId;
         },
       },
       commandExecutor: {
         async execute({ targetId, type, signal }) {
-          requireCurrentAnnotation(behaviorRef.current, mountedOwnerId, targetId);
+          requireCurrentTarget(behaviorRef.current, mountedOwnerId, targetId);
           if (signal.aborted) {
             return Result.err(Object.freeze({ reason: "cancelled" as const }));
           }
@@ -125,7 +131,7 @@ export function useAnnotatedFigureSemanticActivationBinding(
         if (!active) return unavailable(mountedOwnerId, childId, "owner-unmounted");
         if (signal.aborted) return interrupted(mountedOwnerId, childId);
         try {
-          requireCurrentAnnotation(behaviorRef.current, mountedOwnerId, childId);
+          requireCurrentTarget(behaviorRef.current, mountedOwnerId, childId);
         } catch {
           return unavailable(mountedOwnerId, childId, "child-missing");
         }
@@ -144,11 +150,11 @@ export function useAnnotatedFigureSemanticActivationBinding(
   }, [controller, enabled, ownerId, registry]);
 }
 
-function requireCurrentAnnotation(
+function requireCurrentTarget(
   behavior: AnnotatedFigureControlBindingInput,
   ownerId: EmbeddedNodeId,
   targetId: EmbeddedNodeId,
-): ProseMirrorNode {
+): ResolvedAnnotatedFigureModel {
   if (behavior.node?.type.name !== ANNOTATED_FIGURE_NODE || behavior.node.attrs["id"] !== ownerId) {
     throw new Error(`Annotated Figure Control Binding owner "${ownerId}" is no longer mounted.`);
   }
@@ -168,12 +174,18 @@ function requireCurrentAnnotation(
     throw new Error(`Annotated Figure Control Binding owner "${ownerId}" is no longer mounted.`);
   }
   const model = resolveAnnotatedFigureModel({ node: current, pos: position });
-  if (!model?.annotations.some((annotation) => annotation.id === targetId)) {
+  if (!model) {
+    throw new Error(`Annotated Figure Control Binding owner "${ownerId}" is invalid.`);
+  }
+  if (
+    targetId !== ownerId &&
+    !model.annotations.some((annotation) => annotation.id === targetId)
+  ) {
     throw new Error(
       `Annotated Figure annotation "${targetId}" is not a current child of owner "${ownerId}".`,
     );
   }
-  return current;
+  return model;
 }
 
 function outcome(
