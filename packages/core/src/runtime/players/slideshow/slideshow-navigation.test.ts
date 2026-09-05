@@ -8,7 +8,11 @@ import {
 } from "@/document/model/course-structure";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 
-import { getSlideshowNavigationState, getSlideshowSurfaceStates } from "./slideshow-navigation";
+import {
+  createSlideshowSurfaceTransitionState,
+  getSlideshowNavigationState,
+  getSlideshowSurfaceStates,
+} from "./slideshow-navigation";
 
 const SURFACE_1 = EmbeddedNodeIdSchema.parse("surface00001");
 const SURFACE_2 = EmbeddedNodeIdSchema.parse("surface00002");
@@ -282,3 +286,111 @@ function surface(id: string): JSONContent {
     content: [{ type: "paragraph" }],
   };
 }
+
+describe("Slideshow Surface transitions", () => {
+  const fade = { kind: "fade", durationMs: 400 } as const;
+
+  it("derives direction from Slideshow order and carries the destination's transition", () => {
+    const structure = unsectionedStructure(SURFACE_1, SURFACE_2, SURFACE_3);
+    expect(
+      createSlideshowSurfaceTransitionState({
+        structure,
+        sourceSurfaceId: SURFACE_1,
+        destinationSurfaceId: SURFACE_3,
+        transition: fade,
+        motionMode: "normal",
+      }),
+    ).toEqual({
+      sourceSurfaceId: SURFACE_1,
+      destinationSurfaceId: SURFACE_3,
+      direction: "forward",
+      transition: fade,
+    });
+    expect(
+      createSlideshowSurfaceTransitionState({
+        structure,
+        sourceSurfaceId: SURFACE_3,
+        destinationSurfaceId: SURFACE_1,
+        transition: fade,
+        motionMode: "normal",
+      }),
+    ).toMatchObject({ direction: "backward" });
+  });
+
+  it("models Cut and reduced motion as an immediate change with no transition state", () => {
+    const structure = unsectionedStructure(SURFACE_1, SURFACE_2);
+    const base = { structure, sourceSurfaceId: SURFACE_1, destinationSurfaceId: SURFACE_2 };
+    expect(
+      createSlideshowSurfaceTransitionState({ ...base, transition: undefined, motionMode: "normal" }),
+    ).toBeNull();
+    expect(
+      createSlideshowSurfaceTransitionState({
+        ...base,
+        transition: fade,
+        motionMode: "reduced-motion",
+      }),
+    ).toBeNull();
+  });
+
+  it("treats unknown or self-directed transitions as defects", () => {
+    const structure = unsectionedStructure(SURFACE_1, SURFACE_2);
+    expect(() =>
+      createSlideshowSurfaceTransitionState({
+        structure,
+        sourceSurfaceId: SURFACE_1,
+        destinationSurfaceId: STALE_SURFACE,
+        transition: fade,
+        motionMode: "normal",
+      }),
+    ).toThrow(/unknown Slideshow Surfaces/);
+    expect(() =>
+      createSlideshowSurfaceTransitionState({
+        structure,
+        sourceSurfaceId: SURFACE_1,
+        destinationSurfaceId: SURFACE_1,
+        transition: fade,
+        motionMode: "normal",
+      }),
+    ).toThrow(/to itself/);
+  });
+
+  it("paints exactly the outgoing/incoming pair and keeps every neighbour hidden", () => {
+    const structure = unsectionedStructure(SURFACE_1, SURFACE_2, SURFACE_3, SURFACE_4);
+    const navigation = getSlideshowNavigationState(structure, SURFACE_3);
+    const transition = createSlideshowSurfaceTransitionState({
+      structure,
+      sourceSurfaceId: SURFACE_1,
+      destinationSurfaceId: SURFACE_3,
+      transition: fade,
+      motionMode: "normal",
+    });
+
+    expect(getSlideshowSurfaceStates(structure, navigation, transition)).toEqual({
+      [SURFACE_1]: "outgoing",
+      [SURFACE_2]: "hidden",
+      [SURFACE_3]: "incoming",
+      [SURFACE_4]: "hidden",
+    });
+    expect(getSlideshowSurfaceStates(structure, navigation)).toEqual({
+      [SURFACE_1]: "hidden",
+      [SURFACE_2]: "previous",
+      [SURFACE_3]: "current",
+      [SURFACE_4]: "next",
+    });
+  });
+
+  it("refuses a transition whose destination is not the active Surface", () => {
+    const structure = unsectionedStructure(SURFACE_1, SURFACE_2, SURFACE_3);
+    const navigation = getSlideshowNavigationState(structure, SURFACE_2);
+    const transition = createSlideshowSurfaceTransitionState({
+      structure,
+      sourceSurfaceId: SURFACE_1,
+      destinationSurfaceId: SURFACE_3,
+      transition: fade,
+      motionMode: "normal",
+    });
+    expect(() => getSlideshowSurfaceStates(structure, navigation, transition)).toThrow(
+      /not the active Surface/,
+    );
+  });
+});

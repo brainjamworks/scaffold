@@ -3,9 +3,71 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
-export type RuntimeSurfaceState = "current" | "previous" | "next" | "hidden";
+/**
+ * `current` paints and owns the semantic/control runtime. `outgoing` and `incoming` are the two
+ * inert paint layers of one whole-Surface transition; `incoming` is the runtime authority while it
+ * paints, `outgoing` is frozen content. `previous`, `next` and `hidden` neither paint nor own.
+ */
+export type RuntimeSurfaceState =
+  | "current"
+  | "outgoing"
+  | "incoming"
+  | "previous"
+  | "next"
+  | "hidden";
 
 export type RuntimeSurfaceStateMap = Readonly<Record<string, RuntimeSurfaceState>>;
+
+export interface RuntimeSurfaceStateDescription {
+  /** Whether the Surface DOM is painted at all. */
+  readonly paints: boolean;
+  /** Whether the Surface owns the active semantic/control runtime. */
+  readonly authority: boolean;
+  /** Whether the Surface DOM is inert and excluded from accessibility navigation. */
+  readonly inert: boolean;
+}
+
+export function describeRuntimeSurfaceState(
+  surfaceState: RuntimeSurfaceState,
+): RuntimeSurfaceStateDescription {
+  switch (surfaceState) {
+    case "current":
+      return CURRENT_DESCRIPTION;
+    case "incoming":
+      return INCOMING_DESCRIPTION;
+    case "outgoing":
+      return OUTGOING_DESCRIPTION;
+    case "previous":
+    case "next":
+    case "hidden":
+      return HIDDEN_DESCRIPTION;
+  }
+}
+
+const CURRENT_DESCRIPTION = Object.freeze({ paints: true, authority: true, inert: false });
+const INCOMING_DESCRIPTION = Object.freeze({ paints: true, authority: true, inert: true });
+const OUTGOING_DESCRIPTION = Object.freeze({ paints: true, authority: false, inert: true });
+const HIDDEN_DESCRIPTION = Object.freeze({ paints: false, authority: false, inert: true });
+
+export function assertSingleRuntimeSurfaceAuthority(surfaceStates: RuntimeSurfaceStateMap): void {
+  const authorities = Object.entries(surfaceStates).filter(
+    ([, surfaceState]) => describeRuntimeSurfaceState(surfaceState).authority,
+  );
+  if (authorities.length > 1) {
+    throw new Error(
+      `Runtime Surface visibility granted authority to ${authorities.length} Surfaces: ${authorities
+        .map(([surfaceId]) => surfaceId)
+        .join(", ")}.`,
+    );
+  }
+  const outgoing = Object.values(surfaceStates).filter((state) => state === "outgoing").length;
+  const incoming = Object.values(surfaceStates).filter((state) => state === "incoming").length;
+  if (outgoing > 1 || incoming > 1 || outgoing !== incoming) {
+    throw new Error(
+      `Runtime Surface visibility must pair exactly one outgoing with one incoming Surface (received ${outgoing} outgoing, ${incoming} incoming).`,
+    );
+  }
+}
 
 interface RuntimeSurfaceVisibilityState {
   surfaceStates: RuntimeSurfaceStateMap | null;
@@ -43,6 +105,7 @@ export function setRuntimeSurfaceStates(
   surfaceStates: RuntimeSurfaceStateMap | null | undefined,
 ): void {
   const normalizedSurfaceStates = surfaceStates ?? null;
+  if (normalizedSurfaceStates) assertSingleRuntimeSurfaceAuthority(normalizedSurfaceStates);
   const currentSurfaceStates =
     runtimeSurfaceVisibilityPluginKey.getState(editor.state)?.surfaceStates ?? null;
 
@@ -95,10 +158,10 @@ export const RuntimeSurfaceVisibility = Extension.create({
               return false;
             });
 
-            const hasCurrentSurface = surfaceTargets.some(
-              (target) => surfaceStates[target.id] === "current",
+            const hasAuthority = surfaceTargets.some(
+              (target) => describeRuntimeSurfaceState(surfaceStates[target.id] ?? "hidden").authority,
             );
-            if (!hasCurrentSurface) return null;
+            if (!hasAuthority) return null;
 
             return DecorationSet.create(
               state.doc,
@@ -107,7 +170,7 @@ export const RuntimeSurfaceVisibility = Extension.create({
                 return Decoration.node(
                   target.pos,
                   target.pos + target.node.nodeSize,
-                  runtimeSurfaceAttrs(surfaceState),
+                  getRuntimeSurfaceAttributes(surfaceState),
                 );
               }),
             );
@@ -118,20 +181,31 @@ export const RuntimeSurfaceVisibility = Extension.create({
   },
 });
 
-function runtimeSurfaceAttrs(surfaceState: RuntimeSurfaceState): Record<string, string> {
-  if (surfaceState === "current") {
-    return {
+export function getRuntimeSurfaceAttributes(
+  surfaceState: RuntimeSurfaceState,
+): Readonly<Record<string, string>> {
+  const description = describeRuntimeSurfaceState(surfaceState);
+  if (!description.paints) {
+    return Object.freeze({
+      "aria-hidden": "true",
+      "data-runtime-surface-hidden": "true",
+      "data-runtime-surface-state": surfaceState,
+      hidden: "",
+    });
+  }
+  if (!description.inert) {
+    return Object.freeze({
       "data-runtime-surface-state": surfaceState,
       "data-runtime-surface-visible": "true",
-    };
+    });
   }
-
-  return {
+  return Object.freeze({
     "aria-hidden": "true",
-    "data-runtime-surface-hidden": "true",
     "data-runtime-surface-state": surfaceState,
-    hidden: "",
-  };
+    "data-runtime-surface-transition-layer": surfaceState,
+    "data-runtime-surface-visible": "true",
+    inert: "",
+  });
 }
 
 function surfaceStatesEqual(
