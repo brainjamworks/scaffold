@@ -714,6 +714,9 @@ describe("composite image_hotspot node", () => {
     const overlay = document.body.querySelector<SVGElement>(".sc-course-image-hotspot-overlay");
     expect(overlay?.getAttribute("aria-hidden")).toBe("true");
     expect(overlay?.querySelector(".sc-app-image-hotspot__author-region-number")).toBeNull();
+    const region = overlay?.querySelector(".sc-app-image-hotspot__author-region");
+    expect(region?.querySelector(".sc-app-image-hotspot__author-region-contrast")).not.toBeNull();
+    expect(region?.querySelector(".sc-app-image-hotspot__author-region-shape")).not.toBeNull();
 
     editor.destroy();
   });
@@ -1734,6 +1737,8 @@ describe("composite image_hotspot node", () => {
       releasePointerCapture: { configurable: true, value: vi.fn() },
     });
 
+    const escapedCanvasPointerDown = vi.fn();
+    document.addEventListener("pointerdown", escapedCanvasPointerDown);
     fireEvent.pointerDown(canvas, {
       button: 0,
       buttons: 1,
@@ -1741,6 +1746,8 @@ describe("composite image_hotspot node", () => {
       clientY: 40,
       pointerId: 1,
     });
+    document.removeEventListener("pointerdown", escapedCanvasPointerDown);
+    expect(escapedCanvasPointerDown).not.toHaveBeenCalled();
     fireEvent.pointerUp(canvas, {
       button: 0,
       buttons: 0,

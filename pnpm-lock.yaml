@@ -14,6 +14,9 @@ overrides:
   fast-uri: 3.1.4
   vite: npm:@voidzero-dev/vite-plus-core@0.2.4
 
+patchedDependencies:
+  '@dnd-kit/dom@0.5.0': 6b41be999bfaf2b5bad3e4d48d4a7f4562ed2d77b31d2c79ab3afa5e742b5f8e
+
 importers:
 
   .:
@@ -249,7 +252,7 @@ importers:
         version: 0.5.0
       '@dnd-kit/dom':
         specifier: ^0.5.0
-        version: 0.5.0
+        version: 0.5.0(patch_hash=6b41be999bfaf2b5bad3e4d48d4a7f4562ed2d77b31d2c79ab3afa5e742b5f8e)
       '@dnd-kit/react':
         specifier: ^0.5.0
         version: 0.5.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -4495,7 +4498,7 @@ snapshots:
       '@dnd-kit/geometry': 0.5.0
       tslib: 2.8.1
 
-  '@dnd-kit/dom@0.5.0':
+  '@dnd-kit/dom@0.5.0(patch_hash=6b41be999bfaf2b5bad3e4d48d4a7f4562ed2d77b31d2c79ab3afa5e742b5f8e)':
     dependencies:
       '@dnd-kit/abstract': 0.5.0
       '@dnd-kit/collision': 0.5.0
@@ -4511,7 +4514,7 @@ snapshots:
   '@dnd-kit/react@0.5.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@dnd-kit/abstract': 0.5.0
-      '@dnd-kit/dom': 0.5.0
+      '@dnd-kit/dom': 0.5.0(patch_hash=6b41be999bfaf2b5bad3e4d48d4a7f4562ed2d77b31d2c79ab3afa5e742b5f8e)
       '@dnd-kit/state': 0.5.0
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)

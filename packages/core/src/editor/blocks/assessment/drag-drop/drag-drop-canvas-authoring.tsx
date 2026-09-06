@@ -7,6 +7,7 @@ import {
   TrashIcon as Trash,
 } from "@phosphor-icons/react";
 import {
+  Fragment,
   useEffect,
   useId,
   useRef,
@@ -27,11 +28,12 @@ import {
 
 import {
   SpatialImageSurface,
-  normalizedPointToOverlayStyle,
   type SpatialImageSurfaceState,
 } from "@/editor/assessment/shared/spatial";
+import { DragDropMarkerPresetGlyph } from "@/editor/assessment/drag-drop/DragDropMarkerPresetGlyph";
 import { MediaWorkspace } from "@/editor/media/presentation/MediaWorkspace";
 import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
+import { CourseThemePortalBoundary } from "@/theme/course";
 import { IconButton } from "@/ui/components/IconButton/IconButton";
 import { Select, type SelectOption } from "@/ui/components/Select/Select";
 import { iconMd, iconSm } from "@/ui/tokens/icon-sizes";
@@ -69,7 +71,7 @@ function markerVisualOptions(includeCustom: boolean): readonly SelectOption[] {
 
 const USE_DEFAULT_MARKER_OPTION: SelectOption = { value: "inherit", label: "Use default" };
 
-export type DragDropAuthoringPresentation = "compact" | "full-slide" | "expanded";
+export type DragDropAuthoringPresentation = "compact" | "bounded" | "full-slide" | "expanded";
 
 interface DragDropAuthoringCanvasProps {
   readonly data: DragDropCanvasData;
@@ -77,8 +79,6 @@ interface DragDropAuthoringCanvasProps {
   readonly imageSrc: string | null;
   readonly mediaError?: boolean;
   readonly presentation?: DragDropAuthoringPresentation;
-  /** Bounded containers show a preview + pencil; editing happens in the workspace. */
-  readonly canEditInline?: boolean;
   readonly onAnnounce?: ((message: string) => void) | undefined;
   readonly renderLiveRegion?: boolean;
   readonly onRequestBackground: () => void;
@@ -127,7 +127,6 @@ type PointerInteraction =
  */
 export function DragDropAuthoringCanvas({
   assessment,
-  canEditInline = true,
   customIconSrc = () => null,
   data,
   imageSrc,
@@ -147,6 +146,7 @@ export function DragDropAuthoringCanvas({
   renderLiveRegion = true,
 }: DragDropAuthoringCanvasProps) {
   const isExpanded = presentation === "expanded";
+  const isBounded = presentation === "bounded";
   const surfaceState = useRef<SpatialImageSurfaceState | null>(null);
   const fitStageRef = useRef<HTMLDivElement>(null);
   const fieldLabelId = useId();
@@ -164,9 +164,8 @@ export function DragDropAuthoringCanvas({
   const announce = onAnnounce ?? setAnnouncementState;
   const interaction = useRef<PointerInteraction>({ mode: "idle" });
   const markerListRef = useRef<HTMLOListElement>(null);
-  const suppressSurfaceClickRef = useRef(false);
 
-  const editable = isExpanded || canEditInline;
+  const editable = !isBounded;
   const isInteracting =
     interaction.current.mode === "moving" ||
     interaction.current.mode === "resizing" ||
@@ -345,7 +344,10 @@ export function DragDropAuthoringCanvas({
     if (current.mode === "moving") {
       setDraftPlacement((draft) =>
         draft
-          ? { markerId: draft.markerId, geometry: { ...draft.geometry, centerX: point.x, centerY: point.y } }
+          ? {
+              markerId: draft.markerId,
+              geometry: { ...draft.geometry, centerX: point.x, centerY: point.y },
+            }
           : draft,
       );
       return;
@@ -360,12 +362,16 @@ export function DragDropAuthoringCanvas({
     });
   };
 
-  const onSurfacePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const finishSurfacePointer = (event: ReactPointerEvent<HTMLDivElement>, cancelled: boolean) => {
     const current = interaction.current;
     interaction.current = { mode: "idle" };
     if (current.mode === "idle") return;
+    if (cancelled) {
+      setDrawPreview(null);
+      setDraftPlacement(null);
+      return;
+    }
     if (current.mode === "drawing") {
-      suppressSurfaceClickRef.current = true;
       const preview = drawPreview;
       setDrawPreview(null);
       // Below the draw minimum the press was a click — it deselected on the
@@ -376,7 +382,6 @@ export function DragDropAuthoringCanvas({
       return;
     }
     if (current.mode === "moving" || current.mode === "resizing") {
-      suppressSurfaceClickRef.current = true;
       commitDraftPlacement();
       return;
     }
@@ -401,12 +406,65 @@ export function DragDropAuthoringCanvas({
     }
   };
 
+  const onSurfacePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    finishSurfacePointer(event, false);
+    try {
+      if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // Pointer capture is unavailable in some test environments.
+    }
+  };
+
+  const onSurfacePointerCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
+    finishSurfacePointer(event, true);
+  };
+
+  const canvasToolbar = !isExpanded ? (
+    <div
+      role="toolbar"
+      aria-label="Drag and Drop tools"
+      className="sc-app-drag-drop-canvas-toolbar"
+      hidden={isInteracting}
+    >
+      {editable ? (
+        <>
+          <DragDropAuthoringWorkspace.InlineAction
+            label="Replace background image"
+            intent="replace"
+            onClick={onRequestBackground}
+          >
+            <ArrowsClockwise size={iconMd} aria-hidden />
+          </DragDropAuthoringWorkspace.InlineAction>
+          <DragDropAuthoringWorkspace.InlineAction
+            data-drag-drop-add-marker=""
+            label="Add marker"
+            intent="add"
+            onClick={addMarkerAtCenter}
+          >
+            <Plus size={iconMd} aria-hidden />
+          </DragDropAuthoringWorkspace.InlineAction>
+        </>
+      ) : null}
+      <DragDropAuthoringWorkspace.InlineAction
+        label="Edit markers in expanded workspace"
+        intent="edit"
+        onClick={onRequestWorkspace}
+      >
+        <PencilSimple size={iconMd} aria-hidden />
+      </DragDropAuthoringWorkspace.InlineAction>
+    </div>
+  ) : null;
+
   const canvasSurface = (
     <SpatialImageSurface
       src={imageSrc}
       alt={data.image.alt ?? ""}
       aspectRatioCssProperty="--sc-drag-drop-aspect-ratio"
       fitContainerRef={fitStageRef}
+      className="sc-course-drag-drop-authoring-canvas"
+      imageClassName="sc-course-drag-drop-authoring-image"
       surfaceProps={{
         role: "group",
         tabIndex: armedRepositionId ? 0 : -1,
@@ -418,9 +476,8 @@ export function DragDropAuthoringCanvas({
               onPointerDown: onSurfacePointerDown,
               onPointerMove: onSurfacePointerMove,
               onPointerUp: onSurfacePointerUp,
-              onClick: () => {
-                suppressSurfaceClickRef.current = false;
-              },
+              onPointerCancel: onSurfacePointerCancel,
+              onLostPointerCapture: onSurfacePointerCancel,
             }
           : {}),
       }}
@@ -429,59 +486,110 @@ export function DragDropAuthoringCanvas({
         surfaceState.current = state;
         return (
           <>
-            {canvasToolbar}
-            {drawPreview ? (
-              <div
-                className="sc-app-drag-drop-correct-placement"
-                data-drawing=""
-                style={placementStyle({
-                  kind: "circle",
-                  centerX: drawPreview.center.x,
-                  centerY: drawPreview.center.y,
-                  radius: drawPreview.radius,
-                })}
+            {!isBounded ? canvasToolbar : null}
+            {state.naturalSize ? (
+              <svg
+                aria-hidden="true"
+                className="sc-app-drag-drop-placement-overlay"
+                focusable="false"
+                preserveAspectRatio="none"
+                viewBox={`0 0 ${state.naturalSize.width} ${state.naturalSize.height}`}
               >
-                <span className="sc-app-drag-drop-tolerance" aria-hidden />
-              </div>
+                {placements.map((placement) => (
+                  <g key={placement.markerId}>
+                    <circle
+                      className="sc-app-drag-drop-placement-zone__contrast"
+                      data-selected={editable && placement.markerId === selectedId ? "" : undefined}
+                      cx={(placement.geometry.centerX / 100) * state.naturalSize!.width}
+                      cy={(placement.geometry.centerY / 100) * state.naturalSize!.height}
+                      r={(placement.geometry.radius / 100) * state.naturalSize!.width}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                    <circle
+                      className="sc-app-drag-drop-placement-zone"
+                      data-authoring-placement-zone=""
+                      data-selected={editable && placement.markerId === selectedId ? "" : undefined}
+                      cx={(placement.geometry.centerX / 100) * state.naturalSize!.width}
+                      cy={(placement.geometry.centerY / 100) * state.naturalSize!.height}
+                      r={(placement.geometry.radius / 100) * state.naturalSize!.width}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  </g>
+                ))}
+                {drawPreview ? (
+                  <g>
+                    <circle
+                      className="sc-app-drag-drop-placement-zone__contrast sc-app-drag-drop-placement-zone__contrast--preview"
+                      cx={(drawPreview.center.x / 100) * state.naturalSize.width}
+                      cy={(drawPreview.center.y / 100) * state.naturalSize.height}
+                      r={(drawPreview.radius / 100) * state.naturalSize.width}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                    <circle
+                      className="sc-app-drag-drop-placement-zone sc-app-drag-drop-placement-zone--preview"
+                      cx={(drawPreview.center.x / 100) * state.naturalSize.width}
+                      cy={(drawPreview.center.y / 100) * state.naturalSize.height}
+                      r={(drawPreview.radius / 100) * state.naturalSize.width}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  </g>
+                ) : null}
+              </svg>
             ) : null}
             {placements.map((placement) => {
-          const index = data.markers.findIndex((marker) => marker.id === placement.markerId);
-          const marker = data.markers[index];
-          if (!marker) return null;
-          const selected = editable && marker.id === selectedId;
-          return (
-            <div
-              key={placement.markerId}
-              className="sc-app-drag-drop-correct-placement"
-              style={placementStyle(placement.geometry)}
-              data-marker-id={placement.markerId}
-              data-selected={selected ? "" : undefined}
-            >
-              <span className="sc-app-drag-drop-tolerance" aria-hidden />
-              {selected ? (
-                <span
-                  className="sc-app-drag-drop-resize-handle"
-                  data-authoring-resize-handle=""
-                  aria-hidden
-                  style={{ "--sc-drag-drop-handle-offset": `${placement.geometry.radius}%` } as CSSProperties}
-                />
-              ) : null}
-              <button
-                type="button"
-                className="sc-app-drag-drop-marker"
-                data-authoring-marker-id={placement.markerId}
-                aria-label={`Marker ${index + 1}: ${markerName(marker, index)}${selected ? ", selected" : ""}`}
-                aria-pressed={selected}
-                onClick={(clickEvent) => clickEvent.preventDefault()}
-              >
-                <MarkerVisualView
-                  visual={marker.visualOverride ?? data.defaultMarkerVisual}
-                  customIconSrc={customIconSrc}
-                />
-              </button>
-            </div>
-          );
+              const index = data.markers.findIndex((marker) => marker.id === placement.markerId);
+              const marker = data.markers[index];
+              if (!marker) return null;
+              const selected = editable && marker.id === selectedId;
+              return (
+                <Fragment key={placement.markerId}>
+                  <button
+                    type="button"
+                    className="sc-app-drag-drop-marker"
+                    data-authoring-marker-id={placement.markerId}
+                    data-selected={selected ? "" : undefined}
+                    aria-label={`Marker ${index + 1}: ${markerName(marker, index)}${selected ? ", selected" : ""}`}
+                    aria-pressed={selected}
+                    style={markerOverlayStyle(
+                      placement.geometry.centerX,
+                      placement.geometry.centerY,
+                    )}
+                    onClick={(clickEvent) => {
+                      clickEvent.preventDefault();
+                      clickEvent.stopPropagation();
+                      setSelectedId(marker.id);
+                      announce(`Marker ${index + 1} selected.`);
+                    }}
+                  />
+                  <span
+                    className="sc-app-drag-drop-marker__paint"
+                    data-authoring-marker-paint-id={placement.markerId}
+                    data-selected={selected ? "" : undefined}
+                    style={markerOverlayStyle(
+                      placement.geometry.centerX,
+                      placement.geometry.centerY,
+                    )}
+                    aria-hidden
+                  >
+                    <MarkerVisualView
+                      visual={marker.visualOverride ?? data.defaultMarkerVisual}
+                      customIconSrc={customIconSrc}
+                    />
+                    <span className="sc-app-drag-drop-marker__number">{index + 1}</span>
+                  </span>
+                </Fragment>
+              );
             })}
+            {editable &&
+            selectedId &&
+            placements.some(({ markerId }) => markerId === selectedId) ? (
+              <span
+                className="sc-app-drag-drop-resize-handle"
+                data-authoring-resize-handle=""
+                aria-hidden
+                style={resizeHandleStyle(placementFor(selectedId))}
+              />
+            ) : null}
           </>
         );
       }}
@@ -491,7 +599,7 @@ export function DragDropAuthoringCanvas({
   const stage = (
     <div
       ref={fitStageRef}
-      className="sc-app-drag-drop-stage"
+      className="sc-course-drag-drop-authoring-fit-stage"
       data-drag-drop-authoring-presentation={presentation}
       data-editable={editable ? "" : undefined}
       onMouseDown={(event) => {
@@ -501,6 +609,7 @@ export function DragDropAuthoringCanvas({
       }}
     >
       {canvasSurface}
+      {isBounded ? canvasToolbar : null}
       {armedRepositionId ? (
         <p className="sc-app-drag-drop-placement-hint" role="status">
           Click the image to reposition marker {markerNumber(armedRepositionId)}. Press Escape to
@@ -509,43 +618,6 @@ export function DragDropAuthoringCanvas({
       ) : null}
     </div>
   );
-
-  const canvasToolbar =
-    !isExpanded ? (
-        <div
-          role="toolbar"
-          aria-label="Drag and Drop tools"
-          className="sc-app-drag-drop-canvas-toolbar"
-          hidden={isInteracting}
-        >
-          {editable ? (
-            <>
-              <DragDropAuthoringWorkspace.InlineAction
-                label="Replace background image"
-                intent="replace"
-                onClick={onRequestBackground}
-              >
-                <ArrowsClockwise size={iconMd} aria-hidden />
-              </DragDropAuthoringWorkspace.InlineAction>
-              <DragDropAuthoringWorkspace.InlineAction
-                data-drag-drop-add-marker=""
-                label="Add marker"
-                intent="add"
-                onClick={addMarkerAtCenter}
-              >
-                <Plus size={iconMd} aria-hidden />
-              </DragDropAuthoringWorkspace.InlineAction>
-            </>
-          ) : null}
-          <DragDropAuthoringWorkspace.InlineAction
-            label="Edit markers in expanded workspace"
-            intent="edit"
-            onClick={onRequestWorkspace}
-          >
-            <PencilSimple size={iconMd} aria-hidden />
-          </DragDropAuthoringWorkspace.InlineAction>
-        </div>
-    ) : null;
 
   const liveRegion = renderLiveRegion ? (
     <span className="sc-sr-only" aria-live="polite" aria-atomic="true">
@@ -556,7 +628,7 @@ export function DragDropAuthoringCanvas({
   if (!isExpanded) {
     return (
       <section
-        className="sc-app-drag-drop-shell"
+        className="sc-course-drag-drop-authoring-shell"
         aria-label="Drag and Drop authoring"
         onKeyDown={(event: KeyboardEvent) => {
           if (event.key === "Escape" && armedRepositionId) {
@@ -566,7 +638,7 @@ export function DragDropAuthoringCanvas({
           }
         }}
       >
-        {stage}
+        <CourseThemePortalBoundary>{stage}</CourseThemePortalBoundary>
         {liveRegion}
       </section>
     );
@@ -751,7 +823,11 @@ function DragDropEmptyState({
           : "Upload an image, then drag on it to draw each marker zone learners will aim for."}
       </p>
       {mediaError && onRetryBackground ? (
-        <button type="button" className="sc-app-drag-drop-empty__retry" onClick={onRequestBackground}>
+        <button
+          type="button"
+          className="sc-app-drag-drop-empty__retry"
+          onClick={onRequestBackground}
+        >
           Choose a replacement image
         </button>
       ) : null}
@@ -950,34 +1026,36 @@ export function MarkerVisualView({
   if (visual.kind === "custom") {
     const src = customIconSrc(visual.source.mediaId);
     if (src && !imageFailed) {
-      return <img src={src} alt="" aria-hidden onError={() => setImageFailed(true)} />;
+      return (
+        <img
+          className="sc-app-drag-drop-marker__visual"
+          src={src}
+          alt=""
+          aria-hidden
+          onError={() => setImageFailed(true)}
+        />
+      );
     }
     return (
       <span
+        className="sc-app-drag-drop-marker__visual"
         role="img"
         aria-label="Custom marker icon unavailable"
         data-testid="custom-marker-fallback"
       >
-        ●
+        <DragDropMarkerPresetGlyph preset="dot" />
       </span>
     );
   }
-  return <span aria-hidden>{presetSymbol(visual.preset)}</span>;
-}
-
-function presetSymbol(preset: MarkerPresetId): string {
-  switch (preset) {
-    case "cross":
-      return "×";
-    case "pin":
-      return "⌖";
-    case "dot":
-      return "●";
-    case "flag":
-      return "⚑";
-    case "check":
-      return "✓";
-  }
+  return (
+    <span
+      className="sc-app-drag-drop-marker__visual"
+      data-marker-preset={visual.preset}
+      aria-hidden
+    >
+      <DragDropMarkerPresetGlyph preset={visual.preset} />
+    </span>
+  );
 }
 
 function move(markers: readonly DragDropMarker[], from: number, to: number): EmbeddedDataId[] {
@@ -988,9 +1066,20 @@ function move(markers: readonly DragDropMarker[], from: number, to: number): Emb
   return ids;
 }
 
-function placementStyle(geometry: SpatialPlacementCircle): CSSProperties {
+function markerOverlayStyle(x: number, y: number): CSSProperties {
   return {
-    ...normalizedPointToOverlayStyle({ x: geometry.centerX, y: geometry.centerY }),
-    "--sc-drag-drop-radius": `${geometry.radius}%`,
+    "--sc-drag-drop-marker-x": `${x}%`,
+    "--sc-drag-drop-marker-y": `${y}%`,
+  } as CSSProperties;
+}
+
+function resizeHandleStyle(geometry: SpatialPlacementCircle): CSSProperties {
+  const handleX =
+    geometry.centerX + geometry.radius <= 98
+      ? geometry.centerX + geometry.radius
+      : geometry.centerX - geometry.radius;
+  return {
+    "--sc-drag-drop-resize-handle-x": `${Math.min(100, Math.max(0, handleX))}%`,
+    "--sc-drag-drop-resize-handle-y": `${geometry.centerY}%`,
   } as CSSProperties;
 }

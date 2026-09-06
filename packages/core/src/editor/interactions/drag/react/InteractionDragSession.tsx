@@ -9,12 +9,15 @@ import { RestrictToHorizontalAxis, RestrictToVerticalAxis } from "@dnd-kit/abstr
 import { closestCenter, pointerIntersection } from "@dnd-kit/collision";
 import {
   Accessibility,
+  Cursor,
   DragDropManager,
   Draggable,
   KeyboardSensor,
   type KeyboardSensorOptions,
   PointerActivationConstraints,
   PointerSensor,
+  PreventSelection,
+  StyleInjector,
 } from "@dnd-kit/dom";
 import {
   DragDropProvider,
@@ -108,6 +111,8 @@ export interface InteractionDragPreviewContext {
   readonly sourceSize: InteractionDragPreviewSize;
 }
 
+export type InteractionDragPreviewAnchor = "source" | "pointer-center";
+
 export interface InteractionDragSessionProps<ActiveData, OverData> {
   readonly accessibilityMode: DragAccessibilityMode;
   readonly canDrop?: (active: ActiveData, over: OverData) => boolean;
@@ -119,6 +124,7 @@ export interface InteractionDragSessionProps<ActiveData, OverData> {
   readonly onEnd: (event: InteractionDragEvent<ActiveData, OverData>) => void;
   readonly onMove?: (event: InteractionDragEvent<ActiveData, OverData>) => void;
   readonly onStart?: (event: InteractionDragEvent<ActiveData, OverData>) => void;
+  readonly previewAnchor?: InteractionDragPreviewAnchor;
   readonly previewOverflow?: "clip" | "visible" | undefined;
   readonly profile: DragInputProfile;
   readonly renderPreview: (active: ActiveData, context: InteractionDragPreviewContext) => ReactNode;
@@ -156,6 +162,7 @@ interface ActiveSession<ActiveData, OverData> {
   collisionBoundaryRect: ClientRectSnapshot;
   readonly environment: ReadyInteractionDragEnvironment;
   readonly focusTarget: HTMLElement | null;
+  readonly activationClientPoint: ClientPoint | null;
   readonly input: DragInputKind;
   latestMove: {
     clientDelta: ClientDelta | null;
@@ -213,6 +220,7 @@ export function InteractionDragSession<ActiveData, OverData>({
   onEnd,
   onMove,
   onStart,
+  previewAnchor = "source",
   previewOverflow,
   profile,
   renderPreview,
@@ -337,6 +345,7 @@ export function InteractionDragSession<ActiveData, OverData>({
         input === "pointer" ? clientPointFromCoordinates(event.operation.position.current) : null;
       const activeSession: ActiveSession<ActiveData, OverData> = {
         active,
+        activationClientPoint: clientPoint,
         collisionBoundaryRect,
         environment,
         focusTarget: focusedHTMLElement(environment.ownerDocument),
@@ -353,9 +362,15 @@ export function InteractionDragSession<ActiveData, OverData>({
       activeSessionRef.current = activeSession;
 
       const handleBlur = () => cancelActiveSession("owner-window-blur");
+      const preventSelection = (selectionEvent: Event) => selectionEvent.preventDefault();
       environment.ownerWindow.addEventListener("blur", handleBlur);
-      activeSession.stopLifecycleListeners = () =>
+      if (input === "pointer") {
+        environment.ownerDocument.addEventListener("selectstart", preventSelection);
+      }
+      activeSession.stopLifecycleListeners = () => {
         environment.ownerWindow.removeEventListener("blur", handleBlur);
+        environment.ownerDocument.removeEventListener("selectstart", preventSelection);
+      };
 
       activeSession.stopCoordinateSubscription = environment.coordinateSpace.subscribe(() => {
         if (activeSessionRef.current !== activeSession) return;
@@ -566,8 +581,16 @@ export function InteractionDragSession<ActiveData, OverData>({
                 const activeData = registration.activeData as ActiveData;
                 const previewSize = resolvePreviewSize?.(activeData, sourceSize) ?? sourceSize;
                 if (!positivePreviewSize(previewSize)) return null;
+                const pointerAnchor =
+                  previewAnchor === "pointer-center"
+                    ? relativePointerAnchor(
+                        activeSessionRef.current?.activationClientPoint,
+                        sourceElement,
+                      )
+                    : null;
                 return (
                   <InteractionDragPreview
+                    anchor={pointerAnchor}
                     height={previewSize.height}
                     overflow={previewOverflow}
                     width={previewSize.width}
@@ -588,11 +611,13 @@ export function InteractionDragSession<ActiveData, OverData>({
 }
 
 function InteractionDragPreview({
+  anchor,
   children,
   height,
   overflow,
   width,
 }: {
+  anchor: Readonly<{ x: number; y: number }> | null;
   children: ReactNode;
   height: number;
   overflow?: "clip" | "visible" | undefined;
@@ -616,7 +641,19 @@ function InteractionDragPreview({
       data-interaction-drag-overlay=""
       data-interaction-drag-position-strategy="fixed"
       className="sc-interaction-drag-overlay"
-      style={{ height, overflow, width }}
+      style={{
+        height,
+        overflow,
+        width,
+        ...(anchor
+          ? {
+              left: `${anchor.x * 100}%`,
+              position: "absolute",
+              top: `${anchor.y * 100}%`,
+              transform: "translate(-50%, -50%)",
+            }
+          : {}),
+      }}
     >
       {children}
     </div>
@@ -729,16 +766,20 @@ function useInteractionPlugins(
 ): NonNullable<ComponentProps<typeof DragDropProvider>["plugins"]> {
   return useMemo(
     () => (defaults) => {
-      const withoutDefaultAccessibility = defaults.filter(
-        (entry) => pluginConstructor(entry) !== Accessibility,
+      const withoutInjectedGlobals = defaults.filter(
+        (entry) =>
+          ![Accessibility, Cursor, PreventSelection].includes(
+            pluginConstructor(entry) as typeof Accessibility,
+          ),
       );
-      if (mode === "selection-alternative") return withoutDefaultAccessibility;
+      const externalStyles = StyleInjector.configure({ external: true });
+      if (mode === "selection-alternative") return [...withoutInjectedGlobals, externalStyles];
       const accessibility = configure(InteractionDragAccessibility, {
         container,
         labels,
         sessionId,
       });
-      return [...withoutDefaultAccessibility, accessibility];
+      return [...withoutInjectedGlobals, accessibility, externalStyles];
     },
     [container, labels, mode, sessionId],
   );
@@ -1055,6 +1096,20 @@ function positivePreviewSize(size: InteractionDragPreviewSize): size is Interact
   return (
     Number.isFinite(size.width) && Number.isFinite(size.height) && size.width > 0 && size.height > 0
   );
+}
+
+function relativePointerAnchor(
+  point: ClientPoint | null | undefined,
+  sourceElement: Element,
+): Readonly<{ x: number; y: number }> | null {
+  if (!point) return null;
+  const rect = sourceElement.getBoundingClientRect();
+  if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height)) return null;
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  return Object.freeze({
+    x: (point.x - rect.left) / rect.width,
+    y: (point.y - rect.top) / rect.height,
+  });
 }
 
 function rectsIntersect(

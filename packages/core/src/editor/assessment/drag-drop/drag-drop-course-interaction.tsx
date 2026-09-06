@@ -7,13 +7,12 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import {
   SpatialPlacementAssessmentSchema,
   type EmbeddedDataId,
-  type MarkerPresetId,
-  type MarkerVisual,
   type SpatialPlacementAssessment,
 } from "@scaffold/contracts";
 
@@ -21,15 +20,15 @@ import { useAssessmentRuntimeById } from "@/editor/assessment/shared/runtime/use
 import {
   SpatialImageSurface,
   normalizedPointToOverlayStyle,
+  type SpatialImageFitStrategy,
   type SpatialImagePoint,
   type SpatialImageSurfaceState,
 } from "@/editor/assessment/shared/spatial";
-import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
-import { useInteractionDragSource } from "@/editor/interactions/drag/react/use-interaction-drag-source";
-import { useInteractionDropTarget } from "@/editor/interactions/drag/react/use-interaction-drop-target";
+import { useInteractionDragEnvironmentResolution } from "@/editor/interactions/drag/react/interaction-drag-environment";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 
 import type { DragDropCourseContent, DragDropCourseMarker } from "./drag-drop-course-content";
+import { DragDropMarkerPresetGlyph } from "./DragDropMarkerPresetGlyph";
 import {
   createIdleDragDropKeyboardCursor,
   transitionDragDropKeyboardCursor,
@@ -38,8 +37,12 @@ import {
   type DragDropKeyboardCursorStep,
 } from "./drag-drop-keyboard-cursor";
 import { resolveDragDropPointerPlacement } from "./drag-drop-pointer-session";
+import {
+  useSpatialMarkerPointerDrag,
+  type SpatialMarkerPointerDragState,
+  type SpatialMarkerPointerSource,
+} from "./use-spatial-marker-pointer-drag";
 import { DragDropCourseWorkspace } from "./DragDropCourseWorkspace";
-import { RuntimeAssessmentControls } from "@/editor/blocks/assessment/shared/chrome/AssessmentControls";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 import "./DragDrop.css";
 
@@ -48,18 +51,9 @@ export type DragDropPresentation = "inline" | "expanded" | "full-slide";
 export interface DragDropCourseInteractionProps {
   readonly assessmentTargetId: string | null;
   readonly content: DragDropCourseContent;
+  readonly fitStrategy?: SpatialImageFitStrategy;
   readonly presentation: DragDropPresentation;
   readonly onRequestExpand?: () => void;
-}
-
-interface DragMarkerData {
-  readonly markerId: EmbeddedDataId;
-  readonly label: string;
-  readonly origin: "shelf" | "canvas";
-}
-
-interface ImageDropData {
-  readonly presentation: DragDropPresentation;
 }
 
 interface FocusRequest {
@@ -72,7 +66,7 @@ type RuntimeController = NonNullable<ReturnType<typeof useAssessmentRuntimeById>
 const EMPTY_PLACEMENTS: Readonly<Record<string, SpatialImagePoint>> = {};
 
 interface OwnerState {
-  readonly activeDragMarkerId: EmbeddedDataId | null;
+  readonly activePointerDrag: SpatialMarkerPointerDragState | null;
   readonly announcement: string;
   readonly content: DragDropCourseContent;
   readonly displayMarkers: readonly DragDropCourseMarker[];
@@ -88,9 +82,7 @@ interface OwnerState {
   readonly readyPresentations: ReadonlySet<DragDropPresentation>;
   readonly resolvedIcons: Readonly<Record<string, string>>;
   readonly responseReady: boolean;
-  readonly revealedPlacements: SpatialPlacementAssessment["correctPlacements"] | null;
   readonly reviewMarkerId: EmbeddedDataId | null;
-  readonly submittedPlacements: Readonly<Record<string, SpatialImagePoint>>;
   readonly selectedMarkerId: EmbeddedDataId | null;
   readonly unplaced: readonly DragDropCourseMarker[];
   readonly activateKeyboardPresentation: (presentation: DragDropPresentation) => void;
@@ -106,7 +98,11 @@ interface OwnerState {
     presentation: DragDropPresentation,
     state: SpatialImageSurfaceState,
   ) => void;
-  readonly removeMarker: (marker: DragDropCourseMarker, presentation: DragDropPresentation) => void;
+  readonly registerReturnTarget: (
+    presentation: DragDropPresentation,
+    target: HTMLElement | null,
+  ) => void;
+  readonly returnMarker: (marker: DragDropCourseMarker, presentation: DragDropPresentation) => void;
   readonly reset: (presentation: DragDropPresentation) => void;
   readonly retryImage: () => void;
   readonly inspectPlacedMarker: (marker: DragDropCourseMarker) => void;
@@ -122,13 +118,18 @@ interface OwnerState {
     presentation: DragDropPresentation,
     origin: HTMLElement,
   ) => void;
+  readonly startPointerDrag: (
+    source: SpatialMarkerPointerSource,
+    event: ReactPointerEvent<HTMLElement>,
+  ) => void;
 }
 
 export function DragDropInlineCourseWorkspace({
   assessmentTargetId,
   content,
+  fitStrategy,
   presentation = "inline",
-}: Pick<DragDropCourseInteractionProps, "assessmentTargetId" | "content"> & {
+}: Pick<DragDropCourseInteractionProps, "assessmentTargetId" | "content" | "fitStrategy"> & {
   readonly presentation?: Exclude<DragDropPresentation, "expanded">;
 }) {
   const [open, setOpen] = useState(false);
@@ -137,6 +138,7 @@ export function DragDropInlineCourseWorkspace({
       {(owner) => (
         <DragDropCourseWorkspace.Root open={open} onOpenChange={setOpen}>
           <Presentation
+            {...(fitStrategy !== undefined ? { fitStrategy } : {})}
             owner={owner}
             presentation={presentation}
             onRequestExpand={() => setOpen(true)}
@@ -147,12 +149,6 @@ export function DragDropInlineCourseWorkspace({
               description="Place each marker on the image."
             >
               <Presentation owner={owner} presentation="expanded" />
-              <div className="sc-course-drag-drop-workspace__footer">
-                <RuntimeAssessmentControls
-                  problem={owner.problem}
-                  maxAttempts={owner.problem?.state.maxAttempts ?? null}
-                />
-              </div>
             </DragDropCourseWorkspace.Content>
           ) : null}
         </DragDropCourseWorkspace.Root>
@@ -166,6 +162,7 @@ export function DragDropCourseInteraction(props: DragDropCourseInteractionProps)
     <Owner assessmentTargetId={props.assessmentTargetId} content={props.content}>
       {(owner) => (
         <Presentation
+          {...(props.fitStrategy !== undefined ? { fitStrategy: props.fitStrategy } : {})}
           owner={owner}
           presentation={props.presentation}
           {...(props.onRequestExpand ? { onRequestExpand: props.onRequestExpand } : {})}
@@ -188,10 +185,14 @@ function Owner({
   const runtime = assessment?.interaction ?? null;
   const problem = assessment?.problem ?? null;
   const mediaPort = useMediaPort();
+  const dragEnvironmentResolution = useInteractionDragEnvironmentResolution();
+  const dragEnvironment =
+    dragEnvironmentResolution.status === "ready" ? dragEnvironmentResolution.environment : null;
   const surfaces = useRef<Partial<Record<DragDropPresentation, SpatialImageSurfaceState>>>({});
+  const returnTargets = useRef<Partial<Record<DragDropPresentation, HTMLElement>>>({});
   const contentRef = useRef(content);
   contentRef.current = content;
-  const activeDragMarker = useRef<DragDropCourseMarker | null>(null);
+  const activePointerDragRef = useRef<SpatialMarkerPointerSource | null>(null);
   const focusSequence = useRef(0);
   const keyboardCursorRef = useRef<DragDropKeyboardCursorState>(createIdleDragDropKeyboardCursor());
   const wasSubmitted = useRef(false);
@@ -199,7 +200,6 @@ function Owner({
   const keyboardFocusOrigin = useRef<HTMLElement | null>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<EmbeddedDataId | null>(null);
   const [reviewMarkerId, setReviewMarkerId] = useState<EmbeddedDataId | null>(null);
-  const [activeDragMarkerId, setActiveDragMarkerId] = useState<EmbeddedDataId | null>(null);
   const [resolvedImage, setResolvedImage] = useState<{ mediaId: string; src: string } | null>(null);
   const [resolvedIcons, setResolvedIcons] = useState<Readonly<Record<string, string>>>({});
   const [mediaUnavailable, setMediaUnavailable] = useState(false);
@@ -325,8 +325,6 @@ function Owner({
     }
     setSelectedMarkerId(null);
     setReviewMarkerId(null);
-    setActiveDragMarkerId(null);
-    activeDragMarker.current = null;
   }, [locked, setKeyboardCursor, setKeyboardPresentation]);
   useEffect(() => {
     if (!problem?.state.submitted) {
@@ -570,13 +568,21 @@ function Owner({
       cancelKeyboardPositioning();
       return;
     }
-    if (!selectedMarker || activeDragMarker.current) return;
+    if (!selectedMarker || activePointerDragRef.current) return;
     setSelectedMarkerId(null);
     setAnnouncement(`${selectedMarker.label} selection cancelled.`);
   }, [cancelKeyboardPositioning, selectedMarker]);
+  const registerReturnTarget = useCallback(
+    (presentation: DragDropPresentation, target: HTMLElement | null) => {
+      if (target) returnTargets.current[presentation] = target;
+      else delete returnTargets.current[presentation];
+    },
+    [],
+  );
   const clearSurface = useCallback(
     (presentation: DragDropPresentation) => {
       delete surfaces.current[presentation];
+      delete returnTargets.current[presentation];
       setReadyPresentations((value) => {
         if (!value.has(presentation)) return value;
         const next = new Set(value);
@@ -627,20 +633,20 @@ function Owner({
     },
     [abandonKeyboardPositioning, finishPlacement, locked, runtime, selectedMarker],
   );
-  const removeMarker = useCallback(
+  const returnMarker = useCallback(
     (marker: DragDropCourseMarker, presentation: DragDropPresentation) => {
       if (!runtime) return;
       abandonKeyboardPositioning();
       const outcome = runtime.removePlacement(marker.id);
       if (outcome.status === "updated") {
         if (selectedMarkerId === marker.id) setSelectedMarkerId(null);
-        setAnnouncement(`${marker.label} removed.`);
+        setAnnouncement(`${marker.label} returned to markers.`);
         requestFocus(marker.id, presentation);
       } else {
         setAnnouncement(
           outcome.status === "attempt-locked"
             ? "This attempt is locked."
-            : "Marker removal is unavailable.",
+            : "Returning this marker is unavailable.",
         );
       }
     },
@@ -667,8 +673,101 @@ function Owner({
     [abandonKeyboardPositioning, content.markers, requestFocus, runtime],
   );
 
+  const pointerDrag = useSpatialMarkerPointerDrag({
+    disabled: locked,
+    environment: dragEnvironment,
+    isOverReturnTarget: (source, clientPoint) => {
+      if (source.origin !== "canvas") return false;
+      const target = returnTargets.current[source.presentation];
+      if (!target) return false;
+      const bounds = target.getBoundingClientRect();
+      return (
+        bounds.width > 0 &&
+        bounds.height > 0 &&
+        clientPoint.x >= bounds.left &&
+        clientPoint.x <= bounds.right &&
+        clientPoint.y >= bounds.top &&
+        clientPoint.y <= bounds.bottom
+      );
+    },
+    onCancel: (source) => {
+      const marker = content.markers.find(({ id }) => id === source.markerId);
+      if (!marker) {
+        throw new Error(`Dragged marker "${source.markerId}" is no longer current.`);
+      }
+      activePointerDragRef.current = null;
+      setAnnouncement(`${marker.label} move cancelled.`);
+      requestFocus(marker.id, source.presentation);
+    },
+    onDrop: (source, clientPoint, overReturnTarget) => {
+      const marker = content.markers.find(({ id }) => id === source.markerId);
+      if (!marker) {
+        throw new Error(`Dragged marker "${source.markerId}" is no longer current.`);
+      }
+      activePointerDragRef.current = null;
+      if (source.origin === "canvas" && overReturnTarget) {
+        returnMarker(marker, source.presentation);
+        return;
+      }
+      const surface = surfaces.current[source.presentation];
+      if (!runtime || !surface) {
+        setAnnouncement(`${marker.label} move cancelled.`);
+        requestFocus(marker.id, source.presentation);
+        return;
+      }
+      const result = resolveDragDropPointerPlacement({
+        clientPoint,
+        locked,
+        markerId: marker.id,
+        surface,
+      });
+      if (result.status === "cancelled") {
+        setAnnouncement(
+          result.reason === "attempt-locked"
+            ? "This attempt is locked."
+            : `${marker.label} move cancelled.`,
+        );
+        requestFocus(marker.id, source.presentation);
+        return;
+      }
+      finishPlacement(marker, runtime.setPlacement(marker.id, result.point));
+      requestFocus(marker.id, source.presentation);
+    },
+    onStart: (source) => {
+      const marker = content.markers.find(({ id }) => id === source.markerId);
+      if (!marker) {
+        throw new Error(`Dragged marker "${source.markerId}" is no longer current.`);
+      }
+      abandonKeyboardPositioning();
+      activePointerDragRef.current = source;
+      setReviewMarkerId(null);
+      setSelectedMarkerId(marker.id);
+      setAnnouncement(`${marker.label} picked up.`);
+    },
+    renderPreview: (source) => {
+      const marker = content.markers.find(({ id }) => id === source.markerId);
+      if (!marker) {
+        throw new Error(`Drag preview marker "${source.markerId}" is no longer current.`);
+      }
+      return (
+        <span
+          className="sc-course-drag-drop-marker sc-course-drag-drop-drag-preview"
+          data-edge-x="middle"
+          data-edge-y="top"
+          data-origin={source.origin}
+        >
+          <button type="button" tabIndex={-1}>
+            <MarkerVisualView marker={marker} resolvedIcons={resolvedIcons} />
+          </button>
+        </span>
+      );
+    },
+    resolveCanvasPoint: (source, clientPoint) =>
+      surfaces.current[source.presentation]?.pointFromClient(clientPoint) ?? null,
+  });
+
   const owner: OwnerState = {
-    activeDragMarkerId,
+    activePointerDrag: pointerDrag.active,
     announcement,
     canRetryImage: managedImageId !== null,
     content,
@@ -684,9 +783,7 @@ function Owner({
     readyPresentations,
     resolvedIcons,
     responseReady: assessment?.response.hasValue ?? false,
-    revealedPlacements: revealed?.correctPlacements ?? null,
     reviewMarkerId,
-    submittedPlacements: placements,
     selectedMarkerId,
     unplaced,
     activateKeyboardPresentation,
@@ -711,7 +808,8 @@ function Owner({
     registerSurface: (presentation, state) => {
       surfaces.current[presentation] = state;
     },
-    removeMarker,
+    registerReturnTarget,
+    returnMarker,
     reset,
     retryImage: () => {
       setResolvedImage(null);
@@ -724,91 +822,24 @@ function Owner({
     selectMarker,
     selectPlacedMarker,
     startKeyboardPositioning,
+    startPointerDrag: pointerDrag.start,
   };
 
   return (
-    <InteractionDragSession<DragMarkerData, ImageDropData>
-      accessibilityMode="selection-alternative"
-      collisionPolicy="pointer"
-      disabled={locked}
-      labels={{
-        draggable: "Drag and Drop marker",
-        instructions: "Drag the marker onto the image, or select it and choose a position.",
-      }}
-      onCancel={() => {
-        const marker = activeDragMarker.current;
-        setActiveDragMarkerId(null);
-        activeDragMarker.current = null;
-        if (marker) setAnnouncement(`${marker.label} move cancelled.`);
-      }}
-      onEnd={(event) => {
-        const marker = content.markers.find(({ id }) => id === event.active.data.markerId);
-        if (!marker)
-          throw new Error(`Dragged marker "${event.active.data.markerId}" is no longer current.`);
-        setActiveDragMarkerId(null);
-        activeDragMarker.current = null;
-        const presentation = event.over?.data.presentation;
-        const surface = presentation ? surfaces.current[presentation] : null;
-        if (!runtime || !presentation || !surface) {
-          setAnnouncement(`${marker.label} move cancelled.`);
-          return;
-        }
-        const result = resolveDragDropPointerPlacement({
-          clientPoint: event.clientPoint,
-          locked,
-          markerId: marker.id,
-          surface,
-        });
-        if (result.status === "cancelled") {
-          setAnnouncement(
-            result.reason === "attempt-locked"
-              ? "This attempt is locked."
-              : `${marker.label} move cancelled.`,
-          );
-          return;
-        }
-        finishPlacement(marker, runtime.setPlacement(marker.id, result.point));
-        requestFocus(marker.id, presentation);
-      }}
-      onStart={(event) => {
-        const marker = content.markers.find(({ id }) => id === event.active.data.markerId);
-        if (!marker)
-          throw new Error(`Dragged marker "${event.active.data.markerId}" is no longer current.`);
-        abandonKeyboardPositioning();
-        activeDragMarker.current = marker;
-        setActiveDragMarkerId(marker.id);
-        setReviewMarkerId(null);
-        setSelectedMarkerId(marker.id);
-        setAnnouncement(`${marker.label} picked up.`);
-      }}
-      previewOverflow="visible"
-      profile="pointer"
-      renderPreview={(active) => {
-        const marker = content.markers.find(({ id }) => id === active.markerId);
-        if (!marker)
-          throw new Error(`Drag preview marker "${active.markerId}" is no longer current.`);
-        return (
-          <span className="sc-course-drag-drop-drag-preview" data-origin={active.origin}>
-            <MarkerVisualView marker={marker} resolvedIcons={resolvedIcons} />
-            {active.origin === "shelf" ? <span>{marker.label}</span> : null}
-          </span>
-        );
-      }}
-      resolvePreviewSize={(active) =>
-        active.origin === "canvas" ? { height: 44, width: 44 } : null
-      }
-      sessionId={`drag-drop-${assessmentTargetId ?? "runtime"}`}
-    >
+    <>
       {children(owner)}
-    </InteractionDragSession>
+      {pointerDrag.overlay}
+    </>
   );
 }
 
 function Presentation({
+  fitStrategy,
   onRequestExpand,
   owner,
   presentation,
 }: {
+  readonly fitStrategy?: SpatialImageFitStrategy;
   readonly onRequestExpand?: () => void;
   readonly owner: OwnerState;
   readonly presentation: DragDropPresentation;
@@ -818,19 +849,38 @@ function Presentation({
   const statusId = useId();
   const sectionRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
-  const drop = useInteractionDropTarget<ImageDropData>({
-    data: { presentation },
-    disabled: owner.locked || !owner.readyPresentations.has(presentation),
-    id: `drag-drop-image:${presentation}`,
-    label: "Drag and Drop image",
-  });
   const selectedMarker = owner.selectedMarkerId
     ? (owner.content.markers.find(({ id }) => id === owner.selectedMarkerId) ?? null)
     : null;
+  const activePointerMarker = owner.activePointerDrag
+    ? (owner.content.markers.find(({ id }) => id === owner.activePointerDrag?.source.markerId) ??
+      null)
+    : null;
+  if (owner.activePointerDrag && !activePointerMarker) {
+    throw new Error(
+      `Dragged marker "${owner.activePointerDrag.source.markerId}" is no longer current.`,
+    );
+  }
+  const returnDragMarker =
+    owner.activePointerDrag?.source.origin === "canvas" &&
+    owner.activePointerDrag.source.presentation === presentation
+      ? activePointerMarker
+      : null;
+  const returnState = returnDragMarker
+    ? owner.activePointerDrag?.overReturnTarget
+      ? "active"
+      : "available"
+    : undefined;
   const ready = Boolean(
     owner.imageSrc && owner.readyPresentations.has(presentation) && !owner.mediaUnavailable,
   );
   const clearSurface = owner.clearSurface;
+  const registerReturnTarget = owner.registerReturnTarget;
+  const resolvedFitStrategy = fitStrategy ?? (presentation === "inline" ? "width" : "contain");
+  const setReturnTarget = useCallback(
+    (target: HTMLElement | null) => registerReturnTarget(presentation, target),
+    [presentation, registerReturnTarget],
+  );
 
   useEffect(() => {
     const request = owner.focusRequest;
@@ -865,6 +915,7 @@ function Presentation({
       className="sc-course-drag-drop-interaction"
       aria-label="Drag and Drop response"
       data-assessment-answer-view={owner.problem?.answerView ?? "submitted"}
+      data-drag-drop-fit={resolvedFitStrategy}
       data-drag-drop-presentation={presentation}
       data-drag-drop-response-ready={String(owner.responseReady)}
       onKeyDown={(event) => {
@@ -872,26 +923,39 @@ function Presentation({
       }}
     >
       {owner.content.accessibleLegend ? (
-        <p id={legendId}>{owner.content.accessibleLegend}</p>
+        <p id={legendId} className="sc-sr-only">
+          {owner.content.accessibleLegend}
+        </p>
       ) : null}
       <p id={instructionsId} className="sc-sr-only">
         Keyboard: focus a marker and press Enter or Space to position it. Use arrow keys to move;
         Shift moves coarsely and Alt moves finely. Press Enter or Space to place, or Escape to
         cancel. Press Delete on a placed marker to return it to the shelf.
       </p>
-      <p id={statusId} role="status" aria-live="polite">
+      <p id={statusId} className="sc-sr-only" role="status" aria-live="polite">
         {owner.announcement ? `${owner.announcement} ` : null}
         {owner.placed.length} of {owner.content.markers.length} markers placed.
       </p>
       <div className="sc-course-drag-drop-interaction__layout">
         <aside
+          ref={setReturnTarget}
           className="sc-course-drag-drop-tray"
           aria-label="Markers"
           data-idle={owner.locked && owner.unplaced.length === 0 ? "" : undefined}
+          data-drag-drop-return-state={returnState}
         >
-          <div className="sc-course-drag-drop-tray__unplaced">
+          {returnDragMarker ? (
+            <div className="sc-course-drag-drop-tray__return-target" aria-hidden>
+              Drop to return
+            </div>
+          ) : null}
+          <div className="sc-course-drag-drop-tray__header">
             <h3>Markers to place</h3>
-            {owner.unplaced.length === 0 ? <p>All markers placed.</p> : null}
+            <span aria-hidden="true" className="sc-course-drag-drop-interaction__progress">
+              {owner.placed.length} / {owner.content.markers.length}
+            </span>
+          </div>
+          <div className="sc-course-drag-drop-tray__unplaced">
             {owner.unplaced.map((marker) => (
               <TrayMarker
                 key={marker.id}
@@ -900,11 +964,21 @@ function Presentation({
                 focusMarkerId={marker.id}
                 label={`Select ${accessibleMarkerLabel(owner.content, marker)} for placement`}
                 marker={marker}
-                presentation={presentation}
                 resolvedIcons={owner.resolvedIcons}
                 selected={owner.selectedMarkerId === marker.id}
+                dragging={
+                  owner.activePointerDrag?.source.markerId === marker.id &&
+                  owner.activePointerDrag.source.origin === "shelf" &&
+                  owner.activePointerDrag.source.presentation === presentation
+                }
                 onKeyboardStart={(origin) =>
                   owner.startKeyboardPositioning(marker, presentation, origin)
+                }
+                onPointerDragStart={(event) =>
+                  owner.startPointerDrag(
+                    { markerId: marker.id, origin: "shelf", presentation },
+                    event,
+                  )
                 }
                 onSelect={() => owner.selectMarker(marker)}
               />
@@ -913,6 +987,7 @@ function Presentation({
           <div className="sc-course-drag-drop-tray__actions">
             <button
               type="button"
+              className="sc-course-drag-drop-tray__reset"
               disabled={owner.locked || owner.placed.length === 0}
               onClick={() => owner.reset(presentation)}
             >
@@ -928,20 +1003,16 @@ function Presentation({
           </ul>
         ) : null}
 
-        <div
-          ref={stageRef}
-          className="sc-course-drag-drop-stage"
-          data-drop-active={drop.isDropTarget || undefined}
-          data-drag-active={owner.activeDragMarkerId ? "" : undefined}
-        >
+        <div ref={stageRef} className="sc-course-drag-drop-stage">
           <SpatialImageSurface
-            ref={drop.targetRef}
             src={owner.imageSrc}
             alt={owner.content.image?.alt ?? ""}
             aspectRatioCssProperty="--sc-drag-drop-aspect-ratio"
-            // The stage is height-definite in these presentations; contain-fit
-            // the image to it so expanding actually scales the canvas up.
-            fitContainerRef={presentation === "inline" ? undefined : stageRef}
+            // Contain-fit presentations use the stage's available height as
+            // well as its width; width-fit presentations retain their natural
+            // document flow.
+            fitContainerRef={resolvedFitStrategy === "contain" ? stageRef : undefined}
+            fitStrategy={resolvedFitStrategy}
             overlayOverflow="visible"
             onImageLoad={() => owner.imageLoaded(presentation)}
             onImageError={() => owner.imageFailed(presentation)}
@@ -965,11 +1036,14 @@ function Presentation({
               owner.registerSurface(presentation, state);
               return (
                 <>
-                  {owner.revealedPlacements && state.status === "ready" ? (
-                    <RevealOverlay
-                      aspectRatio={state.aspectRatio}
-                      reveal={owner.revealedPlacements}
-                      submitted={owner.submittedPlacements}
+                  {owner.activePointerDrag?.source.presentation === presentation &&
+                  owner.activePointerDrag.canvasPoint &&
+                  activePointerMarker ? (
+                    <CanvasMarkerDragPreview
+                      marker={activePointerMarker}
+                      origin={owner.activePointerDrag.source.origin}
+                      point={owner.activePointerDrag.canvasPoint}
+                      resolvedIcons={owner.resolvedIcons}
                     />
                   ) : null}
                   {owner.displayMarkers.map((marker, index) => {
@@ -985,10 +1059,14 @@ function Presentation({
                         inspectionDisabled={!ready}
                         marker={marker}
                         point={point}
-                        presentation={presentation}
                         resolvedIcons={owner.resolvedIcons}
                         selected={
                           owner.selectedMarkerId === marker.id || owner.reviewMarkerId === marker.id
+                        }
+                        dragging={
+                          owner.activePointerDrag?.source.markerId === marker.id &&
+                          owner.activePointerDrag.source.origin === "canvas" &&
+                          owner.activePointerDrag.source.presentation === presentation
                         }
                         total={owner.displayMarkers.length}
                         onKeyboardStart={
@@ -997,37 +1075,19 @@ function Presentation({
                             : (origin) =>
                                 owner.startKeyboardPositioning(marker, presentation, origin)
                         }
+                        onPointerDragStart={(event) =>
+                          owner.startPointerDrag(
+                            { markerId: marker.id, origin: "canvas", presentation },
+                            event,
+                          )
+                        }
                         onSelect={() => owner.selectPlacedMarker(marker)}
-                        onRemove={
-                          owner.locked
-                            ? undefined
-                            : () => owner.removeMarker(marker, presentation)
+                        onReturn={
+                          owner.locked ? undefined : () => owner.returnMarker(marker, presentation)
                         }
                       />
                     );
                   })}
-                  {presentation !== "expanded" && onRequestExpand && state.status === "ready" ? (
-                    <div
-                      role="toolbar"
-                      aria-label="Drag and Drop view tools"
-                      className="sc-course-drag-drop__canvas-toolbar"
-                    >
-                      <button
-                        type="button"
-                        aria-label="Answer in expanded workspace"
-                        className="sc-course-drag-drop__icon-action"
-                        title="Answer in expanded workspace"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onRequestExpand();
-                        }}
-                        onMouseDown={(event) => event.stopPropagation()}
-                        onPointerDown={(event) => event.stopPropagation()}
-                      >
-                        <ArrowsOut size={iconSm} aria-hidden />
-                      </button>
-                    </div>
-                  ) : null}
                   {owner.keyboardCursor.kind === "positioning" && keyboardMarker && ready ? (
                     <KeyboardCursor
                       describedBy={instructionsId}
@@ -1045,6 +1105,28 @@ function Presentation({
               );
             }}
           </SpatialImageSurface>
+          {presentation !== "expanded" && onRequestExpand ? (
+            <div
+              role="toolbar"
+              aria-label="Drag and Drop view tools"
+              className="sc-course-drag-drop__canvas-toolbar"
+            >
+              <button
+                type="button"
+                aria-label="Answer in expanded workspace"
+                className="sc-course-drag-drop__icon-action"
+                title="Answer in expanded workspace"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onRequestExpand();
+                }}
+                onMouseDown={(event) => event.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                <ArrowsOut size={iconSm} aria-hidden />
+              </button>
+            </div>
+          ) : null}
           {owner.mediaUnavailable ? (
             <div role="alert">
               <p>The background image is unavailable.</p>
@@ -1097,132 +1179,46 @@ function fanCoincidentPlacements(
   return result;
 }
 
-function RevealOverlay({
-  aspectRatio,
-  reveal,
-  submitted,
-}: {
-  readonly aspectRatio: number;
-  readonly reveal: SpatialPlacementAssessment["correctPlacements"];
-  readonly submitted: Readonly<Record<string, SpatialImagePoint>>;
-}) {
-  // Coordinates are percentages of the image box (x of width, y of height);
-  // radius is a percentage of the WIDTH, so vertical extents scale by the
-  // aspect ratio and physical circles render as viewBox ellipses. Strokes use
-  // vector-effect so the non-uniform viewBox cannot distort them.
-  const aspect = aspectRatio || 1;
-  return (
-    <svg
-      aria-hidden
-      className="sc-course-drag-drop-reveal"
-      focusable="false"
-      preserveAspectRatio="none"
-      viewBox="0 0 100 100"
-    >
-      {reveal.map(({ geometry, markerId }) => {
-        const learner = submitted[markerId];
-        const missed =
-          learner !== undefined &&
-          Math.hypot(learner.x - geometry.centerX, (learner.y - geometry.centerY) / aspect) >
-            geometry.radius;
-        return (
-          <g key={markerId} className="sc-course-drag-drop-reveal__item">
-            {missed ? (
-              <>
-                <line
-                  className="sc-course-drag-drop-reveal__connector-casing"
-                  vectorEffect="non-scaling-stroke"
-                  x1={learner.x}
-                  y1={learner.y}
-                  x2={geometry.centerX}
-                  y2={geometry.centerY}
-                />
-                <line
-                  className="sc-course-drag-drop-reveal__connector"
-                  vectorEffect="non-scaling-stroke"
-                  x1={learner.x}
-                  y1={learner.y}
-                  x2={geometry.centerX}
-                  y2={geometry.centerY}
-                />
-                <ellipse
-                  className="sc-course-drag-drop-reveal__origin-casing"
-                  cx={learner.x}
-                  cy={learner.y}
-                  rx={1.1}
-                  ry={1.1 * aspect}
-                  vectorEffect="non-scaling-stroke"
-                />
-                <ellipse
-                  className="sc-course-drag-drop-reveal__origin"
-                  cx={learner.x}
-                  cy={learner.y}
-                  rx={1.1}
-                  ry={1.1 * aspect}
-                  vectorEffect="non-scaling-stroke"
-                />
-              </>
-            ) : null}
-            <ellipse
-              className="sc-course-drag-drop-reveal__zone"
-              cx={geometry.centerX}
-              cy={geometry.centerY}
-              rx={geometry.radius}
-              ry={geometry.radius * aspect}
-              vectorEffect="non-scaling-stroke"
-            />
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
-
 function TrayMarker({
   describedBy,
   disabled,
   dragDisabled = disabled,
+  dragging,
   focusMarkerId,
   label,
   marker,
   onKeyboardStart,
+  onPointerDragStart,
   onSelect,
-  presentation,
   resolvedIcons,
   selected,
 }: {
   readonly describedBy: string;
   readonly disabled: boolean;
   readonly dragDisabled?: boolean;
+  readonly dragging: boolean;
   readonly focusMarkerId?: EmbeddedDataId;
   readonly label: string;
   readonly marker: DragDropCourseMarker;
   readonly onKeyboardStart?: ((origin: HTMLElement) => void) | undefined;
+  readonly onPointerDragStart: (event: ReactPointerEvent<HTMLElement>) => void;
   readonly onSelect: () => void;
-  readonly presentation: DragDropPresentation;
   readonly resolvedIcons: Readonly<Record<string, string>>;
   readonly selected: boolean;
 }) {
-  const drag = useInteractionDragSource<DragMarkerData>({
-    data: { markerId: marker.id, label: marker.label, origin: "shelf" },
-    disabled: dragDisabled,
-    id: `drag-drop-marker:${presentation}:${marker.id}`,
-    label,
-  });
   return (
     <span
-      ref={drag.sourceRef}
       className="sc-course-drag-drop-source"
-      data-interaction-drag-placeholder={drag.isPlaceholder ? "" : undefined}
+      data-drag-drop-pointer-placeholder={dragging ? "" : undefined}
     >
       <button
-        ref={drag.handleRef}
         type="button"
         aria-describedby={describedBy}
         aria-label={label}
         aria-pressed={selected}
         data-drag-drop-focus-marker={focusMarkerId}
         disabled={disabled}
+        onPointerDown={dragDisabled ? undefined : onPointerDragStart}
         onKeyDown={(event) => {
           if (!onKeyboardStart || (event.key !== "Enter" && event.key !== " ")) return;
           event.preventDefault();
@@ -1244,30 +1240,32 @@ function TrayMarker({
 function PlacedMarker({
   describedBy,
   dragDisabled,
+  dragging,
   feedbackState,
   index,
   inspectionDisabled,
   marker,
   onKeyboardStart,
-  onRemove,
+  onPointerDragStart,
+  onReturn,
   onSelect,
   point,
-  presentation,
   resolvedIcons,
   selected,
   total,
 }: {
   readonly describedBy: string;
   readonly dragDisabled: boolean;
+  readonly dragging: boolean;
   readonly feedbackState: "correct" | "incorrect" | "submitted" | null;
   readonly index: number;
   readonly inspectionDisabled: boolean;
   readonly marker: DragDropCourseMarker;
   readonly onKeyboardStart?: ((origin: HTMLElement) => void) | undefined;
-  readonly onRemove?: (() => void) | undefined;
+  readonly onPointerDragStart: (event: ReactPointerEvent<HTMLElement>) => void;
+  readonly onReturn?: (() => void) | undefined;
   readonly onSelect: () => void;
   readonly point: SpatialImagePoint;
-  readonly presentation: DragDropPresentation;
   readonly resolvedIcons: Readonly<Record<string, string>>;
   readonly selected: boolean;
   readonly total: number;
@@ -1275,36 +1273,29 @@ function PlacedMarker({
   const label = `Placed ${marker.label}, ${index + 1} of ${total}. ${
     dragDisabled ? "Review position" : "Drag to reposition"
   }`;
-  const drag = useInteractionDragSource<DragMarkerData>({
-    data: { markerId: marker.id, label: marker.label, origin: "canvas" },
-    disabled: dragDisabled,
-    id: `drag-drop-canvas-marker:${presentation}:${marker.id}`,
-    label,
-  });
   return (
     <span
-      ref={drag.sourceRef}
       className="sc-course-drag-drop-marker"
       data-course-state={feedbackState ?? undefined}
       data-edge-x={point.x <= 15 ? "left" : point.x >= 85 ? "right" : "middle"}
       data-edge-y={point.y >= 75 ? "bottom" : "top"}
-      data-interaction-drag-placeholder={drag.isPlaceholder ? "" : undefined}
+      data-drag-drop-pointer-placeholder={dragging ? "" : undefined}
       data-selected={selected ? "" : undefined}
       style={{ ...(normalizedPointToOverlayStyle(point) as CSSProperties), zIndex: index + 1 }}
     >
       <button
-        ref={drag.handleRef}
         type="button"
         aria-describedby={describedBy}
         aria-label={label}
         aria-pressed={selected}
         data-drag-drop-focus-marker={marker.id}
         disabled={inspectionDisabled}
+        onPointerDown={dragDisabled ? undefined : onPointerDragStart}
         onKeyDown={(event) => {
-          if (onRemove && (event.key === "Delete" || event.key === "Backspace")) {
+          if (onReturn && (event.key === "Delete" || event.key === "Backspace")) {
             event.preventDefault();
             event.stopPropagation();
-            onRemove();
+            onReturn();
             return;
           }
           if (!onKeyboardStart || (event.key !== "Enter" && event.key !== " ")) return;
@@ -1320,20 +1311,36 @@ function PlacedMarker({
         <MarkerVisualView marker={marker} resolvedIcons={resolvedIcons} />
       </button>
       <span className="sc-course-drag-drop-marker__label">{marker.label}</span>
-      {selected && onRemove ? (
-        <button
-          type="button"
-          className="sc-course-drag-drop-marker__remove"
-          aria-label={`Remove ${marker.label} from the image`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onRemove();
-          }}
-        >
-          <span aria-hidden>×</span>
-        </button>
-      ) : null}
       {feedbackState ? <span className="sc-sr-only">{feedbackState}</span> : null}
+    </span>
+  );
+}
+
+function CanvasMarkerDragPreview({
+  marker,
+  origin,
+  point,
+  resolvedIcons,
+}: {
+  readonly marker: DragDropCourseMarker;
+  readonly origin: SpatialMarkerPointerSource["origin"];
+  readonly point: SpatialImagePoint;
+  readonly resolvedIcons: Readonly<Record<string, string>>;
+}) {
+  return (
+    <span
+      aria-hidden
+      className="sc-course-drag-drop-marker sc-course-drag-drop-canvas-preview"
+      data-drag-drop-active-preview=""
+      data-drag-drop-canvas-preview=""
+      data-edge-x={point.x <= 15 ? "left" : point.x >= 85 ? "right" : "middle"}
+      data-edge-y={point.y >= 75 ? "bottom" : "top"}
+      data-origin={origin}
+      style={{ ...(normalizedPointToOverlayStyle(point) as CSSProperties), zIndex: 100 }}
+    >
+      <button type="button" tabIndex={-1}>
+        <MarkerVisualView marker={marker} resolvedIcons={resolvedIcons} />
+      </button>
     </span>
   );
 }
@@ -1471,21 +1478,18 @@ function MarkerVisualView({
       return <img src={src} alt="" aria-hidden onError={() => setImageFailed(true)} />;
     }
     return (
-      <span aria-hidden data-custom-icon-fallback="">
-        ●
+      <span className="sc-course-drag-drop-marker__visual" aria-hidden data-custom-icon-fallback="">
+        <DragDropMarkerPresetGlyph preset="dot" />
       </span>
     );
   }
-  return <span aria-hidden>{presetSymbol(visual)}</span>;
-}
-
-function presetSymbol(visual: Extract<MarkerVisual, { kind: "preset" }>): string {
-  const symbols: Record<MarkerPresetId, string> = {
-    cross: "×",
-    pin: "⌖",
-    dot: "●",
-    flag: "⚑",
-    check: "✓",
-  };
-  return symbols[visual.preset];
+  return (
+    <span
+      className="sc-course-drag-drop-marker__visual"
+      data-marker-preset={visual.preset}
+      aria-hidden
+    >
+      <DragDropMarkerPresetGlyph preset={visual.preset} />
+    </span>
+  );
 }

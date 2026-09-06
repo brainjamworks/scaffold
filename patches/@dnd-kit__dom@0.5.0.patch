@@ -1,0 +1,56 @@
+diff --git a/index.cjs b/index.cjs
+index f132ea74a0dc8e612a16ad5a3200af4cf517f3d7..67f8dc958c231de94c388d6a2de23362c500fc95 100644
+--- a/index.cjs
++++ b/index.cjs
+@@ -366,6 +366,7 @@ _registeredRules = new WeakMap();
+ _additionalRoots = new WeakMap();
+ _StyleInjector_instances = new WeakSet();
+ syncStyles_fn = function() {
++  if (this.options?.external) return;
+   const { roots } = this;
+   const cleanups = [];
+   for (const root of roots) {
+diff --git a/index.d.cts b/index.d.cts
+index 6c012511955a7ca4f8fd9a8804aacc3ffe705a65..1506587e200f8faf705d759d5097a4b159616b81 100644
+--- a/index.d.cts
++++ b/index.d.cts
+@@ -347,6 +347,11 @@ declare class PreventSelection extends Plugin<DragDropManager> {
+ 
+ type CleanupFunction = () => void;
+ interface StyleInjectorOptions {
++    /**
++     * Skip DOM stylesheet injection when the registered rules are supplied by
++     * the application ahead of drag activation.
++     */
++    external?: boolean;
+     nonce?: string;
+ }
+ declare class StyleInjector extends CorePlugin<DragDropManager, StyleInjectorOptions> {
+diff --git a/index.d.ts b/index.d.ts
+index 6c012511955a7ca4f8fd9a8804aacc3ffe705a65..1506587e200f8faf705d759d5097a4b159616b81 100644
+--- a/index.d.ts
++++ b/index.d.ts
+@@ -347,6 +347,11 @@ declare class PreventSelection extends Plugin<DragDropManager> {
+ 
+ type CleanupFunction = () => void;
+ interface StyleInjectorOptions {
++    /**
++     * Skip DOM stylesheet injection when the registered rules are supplied by
++     * the application ahead of drag activation.
++     */
++    external?: boolean;
+     nonce?: string;
+ }
+ declare class StyleInjector extends CorePlugin<DragDropManager, StyleInjectorOptions> {
+diff --git a/index.js b/index.js
+index 3791186e08d435e2217ed2380d49e9ce83f41e8b..b00e44909351166d58aa4e506a0d78af7b039cf9 100644
+--- a/index.js
++++ b/index.js
+@@ -365,6 +365,7 @@ _registeredRules = new WeakMap();
+ _additionalRoots = new WeakMap();
+ _StyleInjector_instances = new WeakSet();
+ syncStyles_fn = function() {
++  if (this.options?.external) return;
+   const { roots } = this;
+   const cleanups = [];
+   for (const root of roots) {

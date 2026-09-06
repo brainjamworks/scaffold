@@ -66,16 +66,33 @@ describe("full-slide Drag and Drop presentation", () => {
     expect(interaction.getBoundingClientRect().width).toBeGreaterThan(
       surface.getBoundingClientRect().width * 0.9,
     );
-    // Shelf above stage: the shelf spans the interaction width and the
-    // stage takes the remaining height below it.
-    expect(tray.getBoundingClientRect().width).toBeGreaterThan(
-      interaction.getBoundingClientRect().width * 0.9,
+    expect(
+      getComputedStyle(interaction)
+        .getPropertyValue("--sc-course-drag-drop-marker-rail-inline-size")
+        .trim(),
+    ).toBe("14rem");
+    // The same learner topology is used in blocks and slides: a bounded
+    // marker rail followed by the image stage, not a slide-only shelf.
+    expect(tray.getBoundingClientRect().width).toBeLessThan(
+      interaction.getBoundingClientRect().width * 0.4,
     );
-    expect(stage.getBoundingClientRect().top).toBeGreaterThanOrEqual(
-      tray.getBoundingClientRect().bottom - 1,
+    expect(stage.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+      tray.getBoundingClientRect().right - 1,
     );
-    expect(getComputedStyle(tray).overflowY).toBe("auto");
-    expect(tray.scrollHeight).toBeGreaterThanOrEqual(tray.clientHeight);
+    expect(getComputedStyle(layout).columnGap).toBe("0px");
+    expect(
+      Math.abs(stage.getBoundingClientRect().top - tray.getBoundingClientRect().top),
+    ).toBeLessThan(1);
+    expect(
+      Math.abs(stage.getBoundingClientRect().bottom - tray.getBoundingClientRect().bottom),
+    ).toBeLessThan(1);
+    expect(getComputedStyle(tray).display).toBe("flex");
+    expect(getComputedStyle(tray).overflow).toBe("hidden");
+    const unplaced = requiredElement<HTMLElement>(tray, ".sc-course-drag-drop-tray__unplaced");
+    expect(getComputedStyle(unplaced).flexDirection).toBe("column");
+    expect(getComputedStyle(unplaced).overflowY).toBe("auto");
+    const viewTools = requiredElement<HTMLElement>(stage, ".sc-course-drag-drop__canvas-toolbar");
+    expect(viewTools.parentElement).toBe(stage);
     expect(surface.querySelectorAll(".sc-course-drag-drop-source")).toHaveLength(12);
 
     const first = requiredElement<HTMLButtonElement>(
@@ -156,7 +173,7 @@ describe("full-slide Drag and Drop presentation", () => {
     // a small scale is that the stage/tray arrangement stays inside the slide
     // with a scrollable tray instead of overflowing it.
     await page.viewport(700, 440);
-    const host = mountRuntimeSlide({ height: 360, width: 640 });
+    const host = mountRuntimeSlide({ height: 360, markerCount: 1, width: 640 });
     await waitForCondition(
       () => host.querySelector('[data-drag-drop-presentation="full-slide"]') !== null,
     );
@@ -176,11 +193,17 @@ describe("full-slide Drag and Drop presentation", () => {
     const tray = requiredElement<HTMLElement>(layout, ".sc-course-drag-drop-tray");
     const stage = requiredElement<HTMLElement>(layout, ".sc-course-drag-drop-stage");
 
-    expect(trackCount(getComputedStyle(layout).gridTemplateColumns)).toBe(1);
-    expect(stage.getBoundingClientRect().top).toBeGreaterThanOrEqual(
-      tray.getBoundingClientRect().bottom - 1,
+    expect(trackCount(getComputedStyle(layout).gridTemplateColumns)).toBe(2);
+    expect(stage.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+      tray.getBoundingClientRect().right - 1,
     );
-    expect(getComputedStyle(tray).overflowY).toBe("auto");
+    expect(getComputedStyle(tray).display).toBe("flex");
+    expect(getComputedStyle(tray).overflow).toBe("hidden");
+    const actions = requiredElement<HTMLElement>(tray, ".sc-course-drag-drop-tray__actions");
+    expect(Number.parseFloat(getComputedStyle(actions).marginBlockStart)).toBeGreaterThan(0);
+    expect(actions.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      tray.getBoundingClientRect().bottom + 1,
+    );
     expect(surface.scrollWidth).toBeLessThanOrEqual(surface.clientWidth + 1);
     expect(surface.scrollHeight).toBeLessThanOrEqual(surface.clientHeight + 1);
   });
@@ -188,14 +211,15 @@ describe("full-slide Drag and Drop presentation", () => {
 
 function mountRuntimeSlide({
   height = 576,
+  markerCount = 12,
   width = 1024,
-}: { height?: number; width?: number } = {}): HTMLElement {
+}: { height?: number; markerCount?: number; width?: number } = {}): HTMLElement {
   const host = document.createElement("div");
   host.style.cssText = `position:absolute;inset:0 auto auto 0;width:${width}px;height:${height}px;`;
   document.body.append(host);
   const root = createRoot(host);
   mountedRoots.push(root);
-  const content = dragDropQuestionDocument();
+  const content = dragDropQuestionDocument(markerCount);
   const readiness = checkRuntimeDocumentReadiness(content, runtimeComposition, {
     scaffoldPlusAuthorized: false,
   });
@@ -233,13 +257,13 @@ function mountRuntimeSlide({
   return host;
 }
 
-function dragDropQuestionDocument(): JSONContent {
+function dragDropQuestionDocument(markerCount: number): JSONContent {
   const definition = builtInSurfaceVariantRegistry.get("slide-drag-drop-question");
   if (!definition) throw new Error("Expected Drag and Drop Surface definition.");
   const surface = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
   const question = surface.content?.[0];
   if (!question) throw new Error("Expected Drag and Drop question.");
-  const markers = Array.from({ length: 12 }, (_, index) => ({
+  const markers = Array.from({ length: markerCount }, (_, index) => ({
     id: `marker0000${String(index + 1).padStart(2, "0")}`,
     label: `Marker ${index + 1}`,
     visualOverride: null,

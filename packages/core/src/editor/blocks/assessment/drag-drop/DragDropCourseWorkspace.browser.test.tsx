@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -33,23 +33,26 @@ describe("DragDropCourseWorkspace", () => {
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
-  it("gives the expanded presentation a bounded scrolling shelf and a footer submit", () => {
+  it("gives the expanded presentation distinct scrolling marker and image regions", () => {
     render(
       <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
         <div className="sc-course-drag-drop-workspace">
           <div className="sc-course-drag-drop-interaction" data-drag-drop-presentation="expanded">
             <div className="sc-course-drag-drop-interaction__layout">
               <aside className="sc-course-drag-drop-tray" aria-label="Markers">
-                <div className="sc-course-drag-drop-tray__unplaced">tray</div>
+                <div className="sc-course-drag-drop-tray__unplaced">
+                  <div className="sc-course-drag-drop-source">
+                    <button type="button" aria-pressed="true">
+                      Marker 1
+                    </button>
+                  </div>
+                </div>
                 <div className="sc-course-drag-drop-tray__actions">
                   <button type="button">Reset</button>
                 </div>
               </aside>
               <div className="sc-course-drag-drop-stage">image</div>
             </div>
-          </div>
-          <div className="sc-course-drag-drop-workspace__footer">
-            <button type="button">Submit</button>
           </div>
         </div>
       </CourseThemeProvider>,
@@ -61,19 +64,26 @@ describe("DragDropCourseWorkspace", () => {
     const tray = document.querySelector<HTMLElement>(
       '[data-drag-drop-presentation="expanded"] .sc-course-drag-drop-tray',
     );
-    const footer = document.querySelector<HTMLElement>(
-      ".sc-course-drag-drop-workspace__footer",
+    const unplaced = document.querySelector<HTMLElement>(
+      '[data-drag-drop-presentation="expanded"] .sc-course-drag-drop-tray__unplaced',
     );
     expect(layout).not.toBeNull();
     expect(tray).not.toBeNull();
-    expect(footer).not.toBeNull();
+    expect(unplaced).not.toBeNull();
+    const workspace = document.querySelector<HTMLElement>(".sc-course-drag-drop-workspace");
+    const stage = layout!.querySelector<HTMLElement>(".sc-course-drag-drop-stage");
+    expect(workspace).not.toBeNull();
+    expect(stage).not.toBeNull();
+    expect(getComputedStyle(workspace!).gap).toBe("0px");
+    expect(getComputedStyle(stage!).padding).toBe("8px");
     expect(getComputedStyle(layout!).display).toBe("grid");
-    // The shelf renders above the stage in the DOM.
+    expect(getComputedStyle(layout!).gridTemplateAreas).toContain("markers");
+    expect(getComputedStyle(layout!).gridTemplateAreas).toContain("canvas");
+    expect(getComputedStyle(unplaced!).overflowY).toBe("auto");
+    expect(getComputedStyle(unplaced!).padding).toBe("8px");
+    // The marker rail remains first in the DOM and in reading order.
     expect(layout!.firstElementChild).toBe(tray);
-    // The shelf wraps; the expanded interaction body is the scroll container.
-    // The reachable action row is the footer submit, not tray placed-rows.
-    const submit = within(footer!).getByRole("button", { name: "Submit" });
-    expect(submit).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Submit" })).toBeNull();
   });
 });
 

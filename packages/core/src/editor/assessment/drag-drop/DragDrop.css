@@ -1,7 +1,7 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-components {
-  .sc-app-drag-drop-shell {
+  .sc-course-drag-drop-authoring-shell {
     position: relative;
     display: grid;
     width: 100%;
@@ -37,13 +37,13 @@
     border: 1px solid var(--sc-app-color-border);
     border-radius: var(--sc-app-radius-control);
     background: var(--sc-app-color-background);
-    color: var(--sc-app-color-text);
+    color: var(--sc-app-color-text-primary);
     font-family: var(--sc-app-font-family);
     font-size: 0.8125rem;
     cursor: pointer;
   }
 
-  .sc-app-drag-drop-stage {
+  .sc-course-drag-drop-authoring-fit-stage {
     position: relative;
     display: grid;
     box-sizing: border-box;
@@ -54,23 +54,25 @@
   }
 
   /* Fill the block: the surface contain-fits this box, no scrolling. */
-  .sc-app-drag-drop-stage[data-drag-drop-authoring-presentation="compact"] {
+  .sc-course-drag-drop-authoring-fit-stage[data-drag-drop-authoring-presentation="compact"] {
     block-size: min(32rem, 70dvh);
   }
 
-  .sc-app-drag-drop-stage[data-drag-drop-authoring-presentation="full-slide"],
-  .sc-app-drag-drop-stage[data-drag-drop-authoring-presentation="expanded"] {
+  .sc-course-drag-drop-authoring-fit-stage[data-drag-drop-authoring-presentation="bounded"],
+  .sc-course-drag-drop-authoring-fit-stage[data-drag-drop-authoring-presentation="full-slide"],
+  .sc-course-drag-drop-authoring-fit-stage[data-drag-drop-authoring-presentation="expanded"] {
     block-size: 100%;
     min-block-size: 0;
   }
 
-  .sc-app-drag-drop-stage [data-spatial-image-surface] {
+  .sc-course-drag-drop-authoring-canvas {
     position: relative;
     aspect-ratio: var(--sc-drag-drop-aspect-ratio);
+    user-select: none;
     touch-action: none;
   }
 
-  .sc-app-drag-drop-stage[data-editable] [data-spatial-image-surface] {
+  .sc-course-drag-drop-authoring-fit-stage[data-editable] .sc-course-drag-drop-authoring-canvas {
     cursor: crosshair;
   }
 
@@ -98,70 +100,173 @@
     border: 1px solid var(--sc-app-color-border);
     border-radius: var(--sc-app-radius-surface);
     background: var(--sc-app-color-background);
-    color: var(--sc-app-color-text);
+    color: var(--sc-app-color-text-primary);
     font-family: var(--sc-app-font-family);
     font-size: 0.8125rem;
     line-height: 1.4;
   }
 
-  .sc-app-drag-drop-correct-placement {
+  .sc-app-drag-drop-placement-overlay {
     position: absolute;
-    transform: translate(-50%, -50%);
-  }
-
-  .sc-app-drag-drop-correct-placement[data-selected] {
-    z-index: 3;
-  }
-
-  .sc-app-drag-drop-tolerance {
-    position: absolute;
-    width: calc(var(--sc-drag-drop-radius) * 2);
-    aspect-ratio: 1;
-    border: 2px dashed currentcolor;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
     pointer-events: none;
   }
 
-  .sc-app-drag-drop-correct-placement[data-selected] .sc-app-drag-drop-tolerance {
-    border-style: solid;
+  .sc-app-drag-drop-placement-zone {
+    fill: color-mix(in oklch, var(--sc-app-color-primary) 16%, transparent);
+    stroke: var(--sc-app-color-primary);
+    stroke-width: 2px;
+  }
+
+  .sc-app-drag-drop-placement-zone__contrast {
+    fill: none;
+    stroke: var(--sc-app-color-background);
+    stroke-width: 5px;
+  }
+
+  .sc-app-drag-drop-placement-zone[data-selected] {
+    stroke-width: 4px;
+  }
+
+  .sc-app-drag-drop-placement-zone__contrast[data-selected] {
+    stroke-width: 7px;
+  }
+
+  .sc-app-drag-drop-placement-zone--preview,
+  .sc-app-drag-drop-placement-zone__contrast--preview {
+    stroke-dasharray: 7 5;
+  }
+
+  .sc-app-drag-drop-placement-zone--preview {
+    fill: color-mix(in oklch, var(--sc-app-color-primary) 10%, transparent);
   }
 
   .sc-app-drag-drop-resize-handle {
     position: absolute;
-    z-index: 2;
-    left: var(--sc-drag-drop-handle-offset);
-    top: 0;
+    z-index: 4;
+    left: var(--sc-drag-drop-resize-handle-x);
+    top: var(--sc-drag-drop-resize-handle-y);
     box-sizing: border-box;
-    width: 1rem;
-    height: 1rem;
-    border: 2px solid currentcolor;
-    border-radius: 50%;
-    background: var(--sc-app-color-background);
+    width: 44px;
+    height: 44px;
     transform: translate(-50%, -50%);
     cursor: ew-resize;
     touch-action: none;
   }
 
+  .sc-app-drag-drop-resize-handle::before {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    box-sizing: border-box;
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--sc-app-color-primary);
+    background: var(--sc-app-color-background);
+    box-shadow:
+      0 0 0 1px var(--sc-app-color-background),
+      0 0 0 2px var(--sc-app-color-text-primary);
+    content: "";
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
   .sc-app-drag-drop-marker {
     position: absolute;
+    z-index: 2;
     display: grid;
     width: 2.75rem;
     height: 2.75rem;
+    left: clamp(1.375rem, var(--sc-drag-drop-marker-x), calc(100% - 1.375rem));
+    top: clamp(1.375rem, var(--sc-drag-drop-marker-y), calc(100% - 1.375rem));
     padding: 0;
-    border: 2px solid currentcolor;
+    border: 0;
     border-radius: 50%;
-    background: var(--sc-app-color-background);
-    color: var(--sc-app-color-text);
-    place-items: center;
+    background: transparent;
+    color: var(--sc-app-color-text-primary);
     transform: translate(-50%, -50%);
     cursor: grab;
     touch-action: none;
   }
 
-  .sc-app-drag-drop-marker img {
+  .sc-app-drag-drop-marker[data-selected],
+  .sc-app-drag-drop-marker__paint[data-selected] {
+    z-index: 3;
+  }
+
+  .sc-app-drag-drop-marker:focus-visible {
+    outline: none;
+  }
+
+  .sc-app-drag-drop-marker__paint {
+    position: absolute;
+    z-index: 2;
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    left: var(--sc-drag-drop-marker-x);
+    top: var(--sc-drag-drop-marker-y);
+    place-items: center;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .sc-app-drag-drop-marker__paint > .sc-app-drag-drop-marker__visual {
+    display: grid;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+    font-size: 1.5rem;
+    line-height: 1;
+    place-items: center;
+    filter: drop-shadow(0 0 1px var(--sc-app-color-background))
+      drop-shadow(0 0 1px var(--sc-app-color-text-primary));
+    pointer-events: none;
+  }
+
+  .sc-app-drag-drop-marker__visual > svg,
+  .sc-course-drag-drop-marker__visual > svg {
+    display: block;
+    width: 1em;
+    height: 1em;
+  }
+
+  .sc-app-drag-drop-marker:focus-visible
+    + .sc-app-drag-drop-marker__paint
+    .sc-app-drag-drop-marker__visual {
+    border-radius: 50%;
+    outline: 3px solid var(--sc-app-color-primary);
+    outline-offset: 3px;
+  }
+
+  .sc-app-drag-drop-marker__number {
+    position: absolute;
+    inset: auto -0.25rem -0.25rem auto;
+    display: grid;
+    min-width: 1.125rem;
+    height: 1.125rem;
+    padding-inline: 0.1875rem;
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: 999px;
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-primary);
+    font-family: var(--sc-app-font-family);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow:
+      0 0 0 1px var(--sc-app-color-background),
+      0 0 0 2px var(--sc-app-color-text-primary);
+    place-items: center;
+    pointer-events: none;
+  }
+
+  .sc-app-drag-drop-marker img.sc-app-drag-drop-marker__visual {
     width: 1.75rem;
     height: 1.75rem;
+    min-width: 0;
+    min-height: 0;
     object-fit: contain;
   }
 
@@ -189,7 +294,7 @@
     border: 1px solid var(--sc-app-color-border);
     border-radius: var(--sc-app-radius-control);
     background: var(--sc-app-color-background);
-    color: var(--sc-app-color-text);
+    color: var(--sc-app-color-text-primary);
     font-family: var(--sc-app-font-family);
     font-size: 0.875rem;
   }
@@ -244,16 +349,36 @@
   @media (forced-colors: active) {
     .sc-app-drag-drop-canvas-toolbar,
     .sc-app-drag-drop-placement-hint,
-    .sc-app-drag-drop-marker,
-    .sc-app-drag-drop-resize-handle,
+    .sc-app-drag-drop-marker__number,
+    .sc-app-drag-drop-resize-handle::before,
     .sc-app-drag-drop-workspace__input,
     .sc-app-drag-drop-empty__retry {
       border-color: CanvasText;
     }
 
     .sc-app-drag-drop-workspace__input:focus-visible,
-    .sc-app-drag-drop-marker:focus-visible {
+    .sc-app-drag-drop-marker:focus-visible
+      + .sc-app-drag-drop-marker__paint
+      .sc-app-drag-drop-marker__visual {
       outline-color: Highlight;
+    }
+
+    .sc-app-drag-drop-placement-zone {
+      fill: transparent;
+      stroke: Highlight;
+    }
+
+    .sc-app-drag-drop-placement-zone__contrast {
+      stroke: Canvas;
+    }
+
+    .sc-app-drag-drop-marker__visual {
+      filter: none;
+    }
+
+    .sc-app-drag-drop-marker__number,
+    .sc-app-drag-drop-resize-handle::before {
+      box-shadow: none;
     }
   }
 
@@ -272,6 +397,7 @@
     min-width: 0;
     gap: 0.75rem;
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .sc-course-drag-drop-interaction > p {
@@ -281,17 +407,40 @@
   .sc-course-drag-drop-interaction__layout {
     display: grid;
     min-width: 0;
-    gap: 0.75rem;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0;
+    grid-template-areas: "markers canvas";
+    grid-template-columns:
+      minmax(12rem, var(--sc-course-drag-drop-marker-rail-inline-size, 15rem))
+      minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .sc-course-drag-drop-interaction[data-drag-drop-fit="contain"] {
+    block-size: 100%;
+    min-block-size: 0;
+  }
+
+  .sc-course-drag-drop-interaction[data-drag-drop-fit="contain"]
+    .sc-course-drag-drop-interaction__layout {
+    block-size: 100%;
+  }
+
+  .sc-course-drag-drop-interaction[data-drag-drop-fit="contain"]
+    .sc-course-drag-drop-interaction__layout,
+  .sc-course-drag-drop-interaction[data-drag-drop-fit="contain"] .sc-course-drag-drop-stage {
+    min-block-size: 0;
   }
 
   .sc-course-drag-drop-stage {
     position: relative;
     display: grid;
+    box-sizing: border-box;
     min-width: 0;
     /* Visible: markers anchored on edge points spill past the image box. */
     overflow: visible;
+    grid-area: canvas;
+    padding: 0.5rem;
     place-items: center;
   }
 
@@ -318,18 +467,15 @@
     cursor: pointer;
   }
 
-  .sc-course-drag-drop-stage[data-drag-active] [data-spatial-image-surface] {
-    outline: 2px dashed currentcolor;
-    outline-offset: 0.25rem;
-  }
-
-  .sc-course-drag-drop-stage[data-drop-active] [data-spatial-image-surface] {
-    outline-style: solid;
-  }
-
   .sc-course-drag-drop-stage [data-spatial-image-surface] {
     position: relative;
     aspect-ratio: var(--sc-drag-drop-aspect-ratio);
+    user-select: none;
+  }
+
+  .sc-course-drag-drop-stage [data-spatial-image-surface] > img {
+    pointer-events: none;
+    user-select: none;
   }
 
   .sc-course-drag-drop-marker {
@@ -337,63 +483,6 @@
     display: grid;
     place-items: center;
     transform: translate(-50%, -50%);
-  }
-
-  /* Answer reveal: acceptance zones, plus a connector from where the
-     learner's answer was to each missed zone. Ornaments clip to the image
-     box — a region beyond the image edge cannot receive answers, and rings
-     must not spill over sibling chrome. */
-  .sc-course-drag-drop-reveal {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    pointer-events: none;
-  }
-
-  .sc-course-drag-drop-reveal__zone {
-    fill: none;
-    stroke: currentcolor;
-    stroke-width: 2px;
-    stroke-dasharray: 6 4;
-  }
-
-  /* Connector and origin draw OVER THE LEARNER'S IMAGE, whose luminance is
-     independent of the app colour mode — so their paint is literal (dark
-     core on a light casing, legible on any imagery), not theme tokens. */
-  .sc-course-drag-drop-reveal__connector-casing,
-  .sc-course-drag-drop-reveal__origin-casing {
-    fill: none;
-    stroke: rgb(255 255 255 / 0.85);
-    stroke-width: 4.5px;
-    stroke-linecap: round;
-  }
-
-  .sc-course-drag-drop-reveal__origin {
-    fill: none;
-    stroke: rgb(30 33 44 / 0.85);
-    stroke-width: 2px;
-  }
-
-  .sc-course-drag-drop-reveal__connector {
-    stroke: rgb(30 33 44 / 0.85);
-    stroke-width: 2px;
-    stroke-dasharray: 2 5;
-    stroke-linecap: round;
-  }
-
-  @media (forced-colors: active) {
-    .sc-course-drag-drop-reveal__zone,
-    .sc-course-drag-drop-reveal__origin,
-    .sc-course-drag-drop-reveal__connector {
-      stroke: Highlight;
-    }
-
-    .sc-course-drag-drop-reveal__connector-casing,
-    .sc-course-drag-drop-reveal__origin-casing {
-      stroke: Canvas;
-    }
   }
 
   .sc-course-drag-drop-keyboard-cursor {
@@ -424,26 +513,59 @@
   }
 
   .sc-course-drag-drop-marker > button {
+    position: relative;
     display: grid;
-    padding: 0.25rem;
-    border: 2px solid currentcolor;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: 0;
     border-radius: 50%;
+    background: transparent;
+    outline: none;
     place-items: center;
   }
 
-  .sc-course-drag-drop-marker[data-course-state="correct"] > button {
-    border-style: double;
-    border-width: 4px;
+  .sc-course-drag-drop-marker > button::before {
+    position: absolute;
+    box-sizing: border-box;
+    width: 2rem;
+    height: 2rem;
+    border: 2px solid currentcolor;
+    border-radius: 50%;
+    content: "";
+    pointer-events: none;
   }
 
-  .sc-course-drag-drop-marker[data-course-state="incorrect"] > button {
+  .sc-course-drag-drop-marker[data-selected] > button::before {
+    border-width: 3px;
+  }
+
+  .sc-course-drag-drop-marker[data-course-state="incorrect"] > button::before {
     border-style: dashed;
   }
 
   .sc-course-drag-drop-marker img {
-    width: 1.5rem;
-    height: 1.5rem;
+    position: relative;
+    width: 1.25rem;
+    height: 1.25rem;
     object-fit: contain;
+  }
+
+  .sc-course-drag-drop-marker__visual {
+    position: relative;
+    display: grid;
+    width: 1.125rem;
+    height: 1.125rem;
+    font-size: 1.125rem;
+    line-height: 1;
+    place-items: center;
+    pointer-events: none;
+  }
+
+  .sc-course-drag-drop-marker__visual[data-marker-preset="dot"] {
+    width: 0.75rem;
+    height: 0.75rem;
+    font-size: 0.75rem;
   }
 
   .sc-course-drag-drop-marker__label {
@@ -475,34 +597,99 @@
     bottom: 100%;
   }
 
-  /* Once the attempt locks with everything placed, the shelf is dead
-     chrome ("All markers placed" + a disabled Reset) — collapse it and
-     hand its row to the stage. */
+  /* Once the attempt locks with everything placed, the marker rail has no
+     remaining learner action. Collapse it and hand its space to the stage. */
   .sc-course-drag-drop-tray[data-idle] {
     display: none;
   }
 
   .sc-course-drag-drop-tray[data-idle] ~ .sc-course-drag-drop-stage {
-    grid-row: 2;
+    grid-area: 1 / 1 / -1 / -1;
   }
 
-  /* The tray is a horizontal shelf above the stage: unplaced markers
-     deplete as the learner places them; actions sit at the trailing edge. */
+  /* Bounded-fill placement (regions, grid cells): the canvas fills the
+     assessment shell's content lane instead of the compact fixed height —
+     the same recipe as image-hotspot's bounded rules. */
+  .sc-assessment-node-view[data-bounded-placement="fill"] [data-node="drag-drop-canvas"] {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    align-items: center;
+    justify-items: stretch;
+    overflow: hidden;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    [data-node="drag-drop-canvas"]
+    > .sc-course-drag-drop-authoring-shell {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    .sc-course-drag-drop-authoring-fit-stage[data-drag-drop-authoring-presentation="bounded"] {
+    block-size: 100%;
+    min-block-size: 0;
+  }
+
+  /* Every learner presentation uses the same topology: an independently
+     scrolling marker rail beside the image, with persistent actions below. */
   .sc-course-drag-drop-tray {
+    position: relative;
     display: flex;
     min-width: 0;
-    flex-wrap: wrap;
-    align-items: center;
+    min-block-size: 0;
+    block-size: 100%;
+    flex-direction: column;
+    align-items: stretch;
     gap: 0.75rem;
+    grid-area: markers;
+    overflow: hidden;
+  }
+
+  .sc-course-drag-drop-tray__header {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-block-end: 0.75rem;
   }
 
   .sc-course-drag-drop-tray__unplaced {
     display: flex;
     min-width: 0;
-    flex: 1 1 auto;
-    flex-wrap: wrap;
-    align-items: center;
+    min-block-size: 0;
+    flex: 0 1 auto;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
     gap: 0.5rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.5rem;
+    scrollbar-gutter: stable;
+  }
+
+  .sc-course-drag-drop-tray__unplaced:empty {
+    display: none;
+  }
+
+  .sc-course-drag-drop-tray__return-target {
+    position: absolute;
+    z-index: 10;
+    display: grid;
+    padding: 1rem;
+    text-align: center;
+    font-weight: 700;
+    inset: 0.5rem;
+    place-items: center;
+    pointer-events: none;
   }
 
   .sc-course-drag-drop-tray h3,
@@ -515,117 +702,82 @@
     outline-offset: 2px;
   }
 
-  /* The selection ring lives on the circular button so it stays circular;
-     the wrapper is a zero-size placement anchor and would draw a box. */
-  .sc-course-drag-drop-marker[data-selected] > button {
-    outline: 3px solid currentcolor;
-    outline-offset: 2px;
+  /* Preserve source layout during a drag without painting a second marker.
+     The moving canvas draft is the only visible marker. */
+  .sc-course-drag-drop-marker[data-drag-drop-pointer-placeholder] {
+    opacity: 0;
+    pointer-events: none;
   }
 
-  /* While a placed marker is being dragged, its left-behind placeholder must
-     read as a ghost, not a second marker with live controls. */
-  .sc-course-drag-drop-marker[data-interaction-drag-placeholder] {
-    opacity: 0.35;
-  }
-
-  .sc-course-drag-drop-marker[data-interaction-drag-placeholder]
-    .sc-course-drag-drop-marker__remove {
-    display: none;
+  .sc-course-drag-drop-source[data-drag-drop-pointer-placeholder] {
+    opacity: 0;
+    pointer-events: none;
   }
 
   .sc-course-drag-drop-tray__actions {
     display: flex;
+    flex: 0 0 auto;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
-    margin-inline-start: auto;
+    justify-content: flex-end;
+    margin-block-start: auto;
+    padding-block-start: 0.75rem;
   }
 
+  .sc-course-drag-drop-tray__reset,
   .sc-course-drag-drop-tray__actions button,
   .sc-course-drag-drop-stage div[role="alert"] button {
     min-height: 2.75rem;
   }
 
-  /* Badge just off the marker's top-right corner — far enough out that it
-     clears the selection ring instead of drawing a second ring over it. The
-     compound selector out-weighs the `.sc-course-drag-drop-marker > button`
-     sizing rule, which would otherwise force the badge to the marker size. */
-  .sc-course-drag-drop-marker > button.sc-course-drag-drop-marker__remove {
-    position: absolute;
-    left: calc(100% + 0.5rem);
-    top: -0.5rem;
-    transform: translate(-50%, -50%);
-    z-index: 3;
-    display: grid;
-    width: 1.75rem;
-    height: 1.75rem;
-    min-width: 0;
-    min-height: 0;
-    padding: 0;
-    border: 2px solid currentcolor;
-    border-radius: 50%;
-    place-items: center;
-    cursor: pointer;
-    font-size: 1rem;
-    line-height: 1;
-  }
-
-  /* Near the right image edge the badge flips to the top-left corner so it
-     stays inside the stage. */
-  .sc-course-drag-drop-marker[data-edge-x="right"]
-    > button.sc-course-drag-drop-marker__remove {
-    left: -0.5rem;
-  }
-
-  /* Near the bottom edge the label sits above the marker and the stage
-     boundary clips below, so the badge moves to the side at mid-height —
-     clear of the label, never clipped. */
-  .sc-course-drag-drop-marker[data-edge-y="bottom"]
-    > button.sc-course-drag-drop-marker__remove {
-    left: calc(100% + 0.75rem);
-    top: 50%;
-  }
-
-  .sc-course-drag-drop-marker[data-edge-y="bottom"][data-edge-x="right"]
-    > button.sc-course-drag-drop-marker__remove {
-    left: -0.75rem;
-  }
-
   .sc-course-drag-drop-source {
-    display: inline-flex;
+    display: flex;
+    inline-size: 100%;
     min-width: 0;
   }
 
   .sc-course-drag-drop-source > button {
     display: inline-flex;
+    inline-size: 100%;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 0.5rem;
   }
 
-  .sc-course-drag-drop-drag-preview {
-    display: inline-flex;
-    min-height: 2.75rem;
-    padding: 0.5rem 0.75rem;
-    align-items: center;
-    gap: 0.5rem;
-    border: 2px solid currentcolor;
-    /* The overlay wrapper is sized from the drag source; the pill must not
-       wrap or truncate inside it. */
-    white-space: nowrap;
-    width: max-content;
+  .sc-course-drag-drop-source > button,
+  .sc-course-drag-drop-marker > button:first-of-type {
+    touch-action: none;
   }
 
-  /* A marker lifted off the canvas previews as the marker itself: a circle
-     the size of the placed button, glyph centred, no label pill. */
-  .sc-course-drag-drop-drag-preview[data-origin="canvas"] {
-    width: 100%;
-    height: 100%;
-    max-width: none;
-    min-height: 0;
-    padding: 0;
-    justify-content: center;
-    border-radius: 50%;
+  .sc-course-drag-drop-pointer-preview {
+    position: fixed;
+    z-index: calc(infinity);
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    user-select: none;
+    will-change: transform;
+  }
+
+  .sc-course-drag-drop-canvas-preview {
+    pointer-events: none;
+  }
+
+  .sc-course-drag-drop-pointer-preview .sc-course-drag-drop-marker > button,
+  .sc-course-drag-drop-canvas-preview > button {
+    transform: none;
+    transition: none;
+  }
+
+  /* The preview uses the placed marker's own button + label markup so every
+     course theme paints the lifted marker exactly as it will land. */
+  .sc-course-drag-drop-drag-preview.sc-course-drag-drop-marker {
+    position: relative;
+    width: 2.75rem;
+    height: 2.75rem;
+    transform: none;
+    pointer-events: none;
   }
 
   .sc-course-drag-drop-tray__scroll-hint {
@@ -651,11 +803,11 @@
     display: grid;
     min-width: 0;
     min-height: 0;
-    overflow: auto;
-    /* Header and footer take their size; the interaction gets the rest, so
-       the expanded canvas can actually scale the image to the dialog. */
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    gap: 1rem;
+    overflow: hidden;
+    /* The header takes its intrinsic size; the shared interaction owns the
+       remaining workspace without duplicating assessment controls. */
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0;
     inset: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
       max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
     pointer-events: auto;
@@ -674,24 +826,33 @@
     margin: 0;
   }
 
-  .sc-course-drag-drop-workspace__footer {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-  }
-
   .sc-course-drag-drop-workspace > .sc-course-drag-drop-interaction {
     min-height: 0;
     block-size: 100%;
     padding: 1rem;
-    overflow: auto;
+    overflow: hidden;
   }
 
   .sc-course-drag-drop-interaction[data-drag-drop-presentation="expanded"]
     .sc-course-drag-drop-interaction__layout {
-    min-height: 0;
+    --sc-course-drag-drop-marker-rail-inline-size: 17rem;
+  }
+
+  @media (max-width: 36rem) {
+    .sc-course-drag-drop-interaction:not([data-drag-drop-presentation="full-slide"])
+      .sc-course-drag-drop-interaction__layout {
+      grid-template-areas:
+        "markers"
+        "canvas";
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .sc-course-drag-drop-interaction:not([data-drag-drop-presentation="full-slide"])
+      .sc-course-drag-drop-tray {
+      block-size: auto;
+      max-block-size: min(14rem, 40vh);
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {

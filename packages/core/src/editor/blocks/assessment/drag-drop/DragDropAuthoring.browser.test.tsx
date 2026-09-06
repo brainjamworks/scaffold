@@ -10,6 +10,10 @@ import type {
   MarkerVisual,
 } from "@scaffold/contracts";
 
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+
 import { DragDropAuthoringCanvas } from "./drag-drop-canvas-authoring";
 import {
   decodeImage,
@@ -66,6 +70,40 @@ describe("Drag and Drop authoring", () => {
     );
   });
 
+  it("renders acceptance zones in the image coordinate system, separate from marker controls", async () => {
+    const marker = { id: "marker000001" as never, label: "London", visualOverride: null };
+    const { container } = renderCanvas({ markers: [marker] });
+    await prepareImage(container);
+
+    const overlay = container.querySelector<SVGSVGElement>(".sc-app-drag-drop-placement-overlay");
+    const casing = overlay?.querySelector<SVGCircleElement>(
+      ".sc-app-drag-drop-placement-zone__contrast",
+    );
+    const zone = overlay?.querySelector<SVGCircleElement>("[data-authoring-placement-zone]");
+    expect(overlay).not.toBeNull();
+    expect(overlay).toHaveAttribute("viewBox", "0 0 2 1");
+    expect(casing).not.toBeNull();
+    expect(casing).toHaveAttribute("cx", "0");
+    expect(casing).toHaveAttribute("cy", "0.5");
+    expect(casing).toHaveAttribute("r", "0.08");
+    expect(zone).toHaveAttribute("cx", "0");
+    expect(zone).toHaveAttribute("cy", "0.5");
+    expect(zone).toHaveAttribute("r", "0.08");
+    expect(container.querySelector(".sc-app-drag-drop-correct-placement")).toBeNull();
+    const markerButton = container.querySelector<HTMLElement>("[data-authoring-marker-id]");
+    const markerPaint = container.querySelector<HTMLElement>("[data-authoring-marker-paint-id]");
+    expect(markerButton).not.toBeNull();
+    expect(markerPaint).not.toBeNull();
+    expect(markerButton?.style.getPropertyValue("--sc-drag-drop-marker-x")).toBe("0%");
+    expect(markerButton?.style.getPropertyValue("--sc-drag-drop-marker-y")).toBe("50%");
+    expect(getComputedStyle(markerButton!).left).toBe("22px");
+    expect(getComputedStyle(markerButton!).width).toBe("44px");
+    expect(markerPaint?.style.getPropertyValue("--sc-drag-drop-marker-x")).toBe("0%");
+    expect(markerPaint?.style.getPropertyValue("--sc-drag-drop-marker-y")).toBe("50%");
+    expect(getComputedStyle(markerPaint!).left).toBe("0px");
+    expect(markerPaint?.querySelector('[data-marker-preset="dot"] svg')).not.toBeNull();
+  });
+
   it("moves a marker by dragging it past the threshold and commits on release", async () => {
     const marker = { id: "marker000001" as never, label: "London", visualOverride: null };
     const onSetCorrectPlacement = vi.fn();
@@ -105,6 +143,16 @@ describe("Drag and Drop authoring", () => {
       return found!;
     });
 
+    const markerPaint = container.querySelector<HTMLElement>("[data-authoring-marker-paint-id]")!;
+    const markerVisual = markerPaint.querySelector<HTMLElement>(".sc-app-drag-drop-marker__visual");
+    const markerNumber = markerPaint.querySelector<HTMLElement>(".sc-app-drag-drop-marker__number");
+    expect(getComputedStyle(markerVisual!).filter).not.toBe("none");
+    expect(getComputedStyle(markerNumber!).boxShadow).not.toBe("none");
+    expect(Number.parseFloat(getComputedStyle(handle, "::before").width)).toBeGreaterThanOrEqual(9);
+    expect(Number.parseFloat(getComputedStyle(handle, "::before").borderTopWidth)).toBeGreaterThan(
+      0,
+    );
+
     fireEvent.pointerDown(handle, { button: 0, clientX: 116, clientY: 150, pointerId: 1 });
     fireEvent.pointerMove(surface, { clientX: 180, clientY: 150, pointerId: 1 });
     fireEvent.pointerUp(surface, { clientX: 180, clientY: 150, pointerId: 1 });
@@ -115,6 +163,30 @@ describe("Drag and Drop authoring", () => {
       centerY: 50,
       radius: 20,
     });
+  });
+
+  it("discards an interrupted resize instead of committing a stale draft", async () => {
+    const marker = { id: "marker000001" as never, label: "London", visualOverride: null };
+    const onSetCorrectPlacement = vi.fn();
+    const { container } = renderCanvas({ markers: [marker], onSetCorrectPlacement });
+    await prepareImage(container);
+
+    const surface = spatialSurface(container);
+    const markerButton = container.querySelector<HTMLElement>("[data-authoring-marker-id]")!;
+    fireEvent.pointerDown(markerButton, { button: 0, clientX: 100, clientY: 150, pointerId: 1 });
+    fireEvent.pointerUp(surface, { clientX: 100, clientY: 150, pointerId: 1 });
+    const handle = await waitFor(() =>
+      container.querySelector<HTMLElement>("[data-authoring-resize-handle]"),
+    );
+    if (!handle) throw new Error("Expected a Drag and Drop resize handle.");
+
+    fireEvent.pointerDown(handle, { button: 0, clientX: 116, clientY: 150, pointerId: 2 });
+    fireEvent.pointerMove(surface, { clientX: 180, clientY: 150, pointerId: 2 });
+    fireEvent.pointerCancel(surface, { clientX: 180, clientY: 150, pointerId: 2 });
+    fireEvent.pointerMove(surface, { clientX: 220, clientY: 150, pointerId: 2 });
+    fireEvent.pointerUp(surface, { clientX: 220, clientY: 150, pointerId: 2 });
+
+    expect(onSetCorrectPlacement).not.toHaveBeenCalled();
   });
 
   it("edits default and marker appearance from the workspace inspector", async () => {
@@ -245,9 +317,9 @@ describe("Drag and Drop authoring", () => {
     expect(onRequestBackground).toHaveBeenCalledOnce();
   });
 
-  it("renders a preview with only the workspace affordance when inline editing is off", async () => {
+  it("renders a bounded preview with only the workspace affordance", async () => {
     const onCreateMarker = vi.fn(() => null);
-    const { container } = renderCanvas({ canEditInline: false, onCreateMarker });
+    const { container } = renderCanvas({ presentation: "bounded", onCreateMarker });
     await prepareImage(container);
 
     const surface = spatialSurface(container);
@@ -256,9 +328,7 @@ describe("Drag and Drop authoring", () => {
     expect(onCreateMarker).not.toHaveBeenCalled();
 
     expect(screen.queryByRole("button", { name: "Add marker" })).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Edit markers in expanded workspace" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Edit markers in expanded workspace" })).toBeTruthy();
   });
 
   it("rehydrates each persisted managed custom icon after a fresh mount", async () => {
@@ -334,14 +404,45 @@ describe("Drag and Drop authoring", () => {
     const { container } = renderCanvas({ markers });
     await prepareImage(container);
 
-    const shell = container.querySelector<HTMLElement>(".sc-app-drag-drop-shell");
-    const stage = container.querySelector<HTMLElement>(".sc-app-drag-drop-stage");
+    const shell = container.querySelector<HTMLElement>(".sc-course-drag-drop-authoring-shell");
+    const stage = container.querySelector<HTMLElement>(".sc-course-drag-drop-authoring-fit-stage");
     const toolbar = container.querySelector<HTMLElement>(".sc-app-drag-drop-canvas-toolbar");
     expect(shell).not.toBeNull();
     expect(getComputedStyle(stage!).overflow).toBe("hidden");
     expect(toolbar).not.toBeNull();
     expect(getComputedStyle(toolbar!).position).toBe("absolute");
     expect(container.querySelectorAll("[data-authoring-marker-id]")).toHaveLength(12);
+  });
+
+  it("projects the authoring image through Course-owned shell, fit-stage, and canvas hooks", async () => {
+    const { container } = renderCanvas();
+    await prepareImage(container);
+
+    const shell = container.querySelector<HTMLElement>(".sc-course-drag-drop-authoring-shell");
+    const stage = container.querySelector<HTMLElement>(".sc-course-drag-drop-authoring-fit-stage");
+    const canvas = container.querySelector<HTMLElement>(".sc-course-drag-drop-authoring-canvas");
+
+    expect(shell).not.toHaveClass("sc-app-drag-drop-shell");
+    expect(stage).not.toHaveClass("sc-app-drag-drop-stage");
+    expect(stage).toHaveAttribute("data-drag-drop-authoring-presentation", "compact");
+    expect(canvas).toHaveAttribute("data-spatial-image-surface");
+  });
+
+  it("anchors the bounded Block workspace action to the fit-stage rather than the image", async () => {
+    const { container } = renderCanvas({ presentation: "bounded" });
+    await prepareImage(container);
+
+    const stage = container.querySelector<HTMLElement>(".sc-course-drag-drop-authoring-fit-stage");
+    const canvas = spatialSurface(container);
+    const toolbar = container.querySelector<HTMLElement>(".sc-app-drag-drop-canvas-toolbar");
+
+    expect(stage).toHaveAttribute("data-drag-drop-authoring-presentation", "bounded");
+    expect(toolbar?.parentElement).toBe(stage);
+    expect(canvas.contains(toolbar)).toBe(false);
+    expect(screen.queryByRole("button", { name: "Add marker" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Edit markers in expanded workspace" }),
+    ).toBeInTheDocument();
   });
 
   it("defines the standard assessment settings and sheet-owned attempt control", () => {
@@ -363,7 +464,6 @@ describe("Drag and Drop authoring", () => {
 });
 
 function renderCanvas({
-  canEditInline,
   markers = [],
   onCreateMarker = vi.fn(() => null),
   onReorderMarkers = vi.fn(),
@@ -374,7 +474,6 @@ function renderCanvas({
   onUpdateMarker = vi.fn(),
   presentation,
 }: {
-  canEditInline?: boolean;
   markers?: DragDropCanvasData["markers"];
   onCreateMarker?: DragDropAuthoringCanvasProps["onCreateMarker"];
   onReorderMarkers?: DragDropAuthoringCanvasProps["onReorderMarkers"];
@@ -386,21 +485,26 @@ function renderCanvas({
   presentation?: DragDropAuthoringCanvasProps["presentation"];
 } = {}) {
   return render(
-    <DragDropAuthoringCanvas
-      data={canvasData(markers)}
-      assessment={assessment(markers)}
-      imageSrc={TEST_IMAGE_SRC}
-      onRequestBackground={vi.fn()}
-      onCreateMarker={onCreateMarker}
-      onUpdateMarker={onUpdateMarker}
-      onReorderMarkers={onReorderMarkers}
-      onSetCorrectPlacement={onSetCorrectPlacement}
-      onDeleteMarker={onDeleteMarker}
-      onSetDefaultMarkerVisual={onSetDefaultMarkerVisual}
-      {...(onRequestCustomIcon ? { onRequestCustomIcon } : {})}
-      {...(presentation ? { presentation } : {})}
-      {...(canEditInline === undefined ? {} : { canEditInline })}
-    />,
+    <AppThemeProvider appearance="light">
+      <div>
+        <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+          <DragDropAuthoringCanvas
+            data={canvasData(markers)}
+            assessment={assessment(markers)}
+            imageSrc={TEST_IMAGE_SRC}
+            onRequestBackground={vi.fn()}
+            onCreateMarker={onCreateMarker}
+            onUpdateMarker={onUpdateMarker}
+            onReorderMarkers={onReorderMarkers}
+            onSetCorrectPlacement={onSetCorrectPlacement}
+            onDeleteMarker={onDeleteMarker}
+            onSetDefaultMarkerVisual={onSetDefaultMarkerVisual}
+            {...(onRequestCustomIcon ? { onRequestCustomIcon } : {})}
+            {...(presentation ? { presentation } : {})}
+          />
+        </CourseThemeProvider>
+      </div>
+    </AppThemeProvider>,
   );
 }
 

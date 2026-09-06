@@ -163,6 +163,53 @@ describe("DragDropCourseInteraction", () => {
     );
   });
 
+  it("hands a lifted shelf marker to a canvas-owned spatial preview", async () => {
+    renderCourse({});
+    const surface = await readySurface();
+    surface.getBoundingClientRect = () => rect({ left: 100, top: 100, width: 400, height: 200 });
+    const london = screen.getByRole("button", { name: "Select London for placement" });
+    const source = london.closest<HTMLElement>(".sc-course-drag-drop-source");
+    if (!source) throw new Error("Expected London to have a Drag and Drop source wrapper.");
+    source.getBoundingClientRect = () => rect({ left: 20, top: 20, width: 120, height: 44 });
+
+    await startPointerDrag(london, "mouse");
+    const liftedPreview = document.querySelector<HTMLElement>("[data-drag-drop-pointer-preview]");
+    if (!liftedPreview) throw new Error("Expected the shelf marker to lift under the pointer.");
+    const liftedRect = liftedPreview.getBoundingClientRect();
+    expect(liftedRect.left + liftedRect.width / 2).toBeCloseTo(50, 0);
+    expect(liftedRect.top + liftedRect.height / 2).toBeCloseTo(50, 0);
+    expect(getComputedStyle(source).opacity).toBe("0");
+    expect(document.querySelector("[data-interaction-drag-overlay]")).toBeNull();
+
+    await movePointer({ x: 200, y: 150 }, "mouse");
+
+    const preview = surface.querySelector<HTMLElement>("[data-drag-drop-canvas-preview]");
+    if (!preview) throw new Error("Expected an active Drag and Drop canvas preview.");
+    expect(preview.style.left).toBe("25%");
+    expect(preview.style.top).toBe("25%");
+    expect(document.querySelector("[data-drag-drop-pointer-preview]")).toBeNull();
+
+    await movePointer({ x: 240, y: 190 }, "mouse");
+    expect(preview.style.left).toBe("35%");
+    expect(preview.style.top).toBe("45%");
+    expect(preview.querySelector('[data-marker-preset="pin"] svg')).not.toBeNull();
+    expect(preview.querySelector(".sc-course-drag-drop-marker__label")).toBeNull();
+    const markerButton = preview.querySelector<HTMLButtonElement>(":scope > button");
+    if (!markerButton) throw new Error("Expected the drag preview to use placed marker markup.");
+    expect(getComputedStyle(markerButton).borderRadius).toBe("50%");
+
+    fireEvent.pointerCancel(document, {
+      clientX: 240,
+      clientY: 190,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: "mouse",
+    });
+    await waitFor(() =>
+      expect(document.querySelector("[data-drag-drop-active-preview]")).toBeNull(),
+    );
+  });
+
   it("places a marker at the scaled image edge with touch", async () => {
     let assessmentStore: AssessmentStoreApi | null = null;
     renderCourse({
@@ -183,6 +230,93 @@ describe("DragDropCourseInteraction", () => {
       expect(localAssessmentResponse(assessmentStore, problemId)).toEqual({
         placements: { marker000001: { x: 100, y: 0 } },
       }),
+    );
+  });
+
+  it("returns a placed marker by dragging it onto the marker bar", async () => {
+    let assessmentStore: AssessmentStoreApi | null = null;
+    let runtime: AssessmentRuntimeController<"spatial-placement"> | null = null;
+    renderCourse({
+      onRuntime: (value) => {
+        runtime = value;
+      },
+      onStore: (store) => {
+        assessmentStore = store;
+      },
+    });
+    const surface = await readySurface();
+    surface.getBoundingClientRect = imageRect;
+    await waitFor(() => expect(runtime).not.toBeNull());
+    const currentRuntime = () => runtime as AssessmentRuntimeController<"spatial-placement"> | null;
+    await act(async () => {
+      expect(currentRuntime()?.interaction.setPlacement("marker000001", { x: 25, y: 75 })).toEqual({
+        status: "updated",
+      });
+    });
+    const placedLondon = await screen.findByRole("button", {
+      name: /Placed London, 1 of 1\. Drag to reposition/,
+    });
+    const markerBar = screen.getByRole("complementary", { name: "Markers" });
+    markerBar.getBoundingClientRect = () => rect({ left: 600, top: 100, width: 160, height: 280 });
+
+    await startPointerDrag(placedLondon, "mouse");
+    await movePointer({ x: 680, y: 200 }, "mouse");
+
+    expect(markerBar).toHaveAttribute("data-drag-drop-return-state", "active");
+    const returnTarget = within(markerBar).getByText("Drop to return");
+    expect(returnTarget).toBeVisible();
+    expect(surface.querySelector("[data-drag-drop-canvas-preview]")).toBeNull();
+    const pointerPreview = document.querySelector<HTMLElement>("[data-drag-drop-pointer-preview]");
+    expect(pointerPreview).not.toBeNull();
+    expect(pointerPreview?.querySelector(".sc-course-drag-drop-marker__label")).toBeNull();
+
+    await movePointer({ x: 200, y: 100 }, "mouse");
+    expect(markerBar).toHaveAttribute("data-drag-drop-return-state", "available");
+    finishPointerDrag({ x: 680, y: 200 }, "mouse");
+    await waitFor(() =>
+      expect(localAssessmentResponse(assessmentStore, problemId)).toEqual({ placements: {} }),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("London returned to markers");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Select London for placement" })).toHaveFocus(),
+    );
+  });
+
+  it("returns a placed marker from the keyboard without painting redundant removal controls", async () => {
+    const user = userEvent.setup();
+    let assessmentStore: AssessmentStoreApi | null = null;
+    let runtime: AssessmentRuntimeController<"spatial-placement"> | null = null;
+    renderCourse({
+      onRuntime: (value) => {
+        runtime = value;
+      },
+      onStore: (store) => {
+        assessmentStore = store;
+      },
+    });
+    await readySurface();
+    await waitFor(() => expect(runtime).not.toBeNull());
+    const currentRuntime = () => runtime as AssessmentRuntimeController<"spatial-placement"> | null;
+    await act(async () => {
+      expect(currentRuntime()?.interaction.setPlacement("marker000001", { x: 25, y: 75 })).toEqual({
+        status: "updated",
+      });
+    });
+    const placedLondon = await screen.findByRole("button", {
+      name: /Placed London, 1 of 1\. Drag to reposition/,
+    });
+
+    await user.click(placedLondon);
+
+    expect(screen.queryByRole("button", { name: /Remove London from the image/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Return London to markers" })).toBeNull();
+
+    await user.keyboard("{Backspace}");
+    await waitFor(() =>
+      expect(localAssessmentResponse(assessmentStore, problemId)).toEqual({ placements: {} }),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Select London for placement" })).toHaveFocus(),
     );
   });
 
@@ -220,6 +354,9 @@ describe("DragDropCourseInteraction", () => {
       });
 
       await startPointerDrag(placedLondon, "mouse", pointerId);
+      const placedSource = placedLondon.closest<HTMLElement>(".sc-course-drag-drop-marker");
+      if (!placedSource) throw new Error("Expected the placed marker source wrapper.");
+      expect(getComputedStyle(placedSource).opacity).toBe("0");
       if (terminal === "outside") {
         await movePointer({ x: 700, y: 500 }, "mouse", pointerId);
         finishPointerDrag({ x: 700, y: 500 }, "mouse", pointerId);
@@ -236,7 +373,7 @@ describe("DragDropCourseInteraction", () => {
       }
 
       await waitFor(() =>
-        expect(document.querySelector("[data-interaction-drag-overlay]")).toBeNull(),
+        expect(document.querySelector("[data-drag-drop-active-preview]")).toBeNull(),
       );
       expect(localAssessmentResponse(assessmentStore, problemId)).toEqual({
         placements: { marker000001: { x: 25, y: 75 } },
@@ -288,7 +425,7 @@ describe("DragDropCourseInteraction", () => {
 
     await waitFor(() => expect(currentRuntime()?.problem?.interactionLocked).toBe(true));
     await waitFor(() =>
-      expect(document.querySelector("[data-interaction-drag-overlay]")).toBeNull(),
+      expect(document.querySelector("[data-drag-drop-active-preview]")).toBeNull(),
     );
     expect(localAssessmentResponse(assessmentStore, problemId)).toEqual({
       placements: {
@@ -434,6 +571,13 @@ describe("DragDropCourseInteraction", () => {
     });
     await user.click(markerThree);
     expect(markerThree).toHaveAttribute("aria-pressed", "true");
+    expect(getComputedStyle(markerThree).minWidth).toBe("44px");
+    expect(getComputedStyle(markerThree).outlineStyle).toBe("none");
+    const markerThreeVisual = markerThree.querySelector<HTMLElement>(
+      '.sc-course-drag-drop-marker__visual[data-marker-preset="dot"]',
+    );
+    expect(markerThreeVisual).not.toBeNull();
+    expect(getComputedStyle(markerThreeVisual!).width).toBe("12px");
 
     const edgeMarker = screen.getByRole("button", {
       name: /Placed A very long marker label.*12 of 12\. Drag to reposition/,
@@ -446,11 +590,8 @@ describe("DragDropCourseInteraction", () => {
     expect(edgeMarker?.getAttribute("style")).toContain("left: 100%");
     expect(edgeMarker?.getAttribute("style")).toContain("top: 100%");
 
-    await user.click(
-      screen.getByRole("button", {
-        name: "Remove Marker 3 from the image",
-      }),
-    );
+    expect(screen.queryByRole("button", { name: "Return Marker 3 to markers" })).toBeNull();
+    await user.keyboard("{Backspace}");
     await waitFor(() =>
       expect(localAssessmentResponse(assessmentStore, problemId)?.placements).not.toHaveProperty(
         "marker000003",
@@ -463,6 +604,20 @@ describe("DragDropCourseInteraction", () => {
         }),
       ).toHaveFocus(),
     );
+  });
+
+  it("keeps the image surface visually inert while markers are dragged", async () => {
+    renderCourse({});
+    const surface = await readySurface();
+    const stage = surface.closest<HTMLElement>(".sc-course-drag-drop-stage");
+    const image = surface.querySelector<HTMLImageElement>("img");
+    expect(stage).not.toBeNull();
+    expect(image).not.toBeNull();
+
+    stage!.setAttribute("data-drag-active", "");
+    expect(getComputedStyle(surface).outlineStyle).toBe("none");
+    expect(getComputedStyle(surface).userSelect).toBe("none");
+    expect(getComputedStyle(image!).pointerEvents).toBe("none");
   });
 
   it("keeps tray actions reachable while a dense tray scrolls in inline and expanded layouts", async () => {
@@ -481,18 +636,29 @@ describe("DragDropCourseInteraction", () => {
     const trays = screen.getAllByLabelText("Markers");
     expect(trays).toHaveLength(1);
     const tray = trays[0]!;
-    // Actions stay in normal flow as the last shelf row so Reset/Expand stay
-    // reachable while a dense shelf scrolls.
+    // Actions stay in normal flow after the independently scrollable marker
+    // list so Reset/Expand remain reachable with a dense rail.
     const actions = tray.querySelector<HTMLElement>(".sc-course-drag-drop-tray__actions");
     expect(actions).not.toBeNull();
     expect(getComputedStyle(actions!).position).not.toBe("sticky");
+    expect(getComputedStyle(actions!).justifyContent).toBe("flex-end");
     expect(tray.lastElementChild).toBe(actions);
+    const header = tray.querySelector<HTMLElement>(".sc-course-drag-drop-tray__header");
+    expect(header).not.toBeNull();
+    expect(within(header!).getByText("0 / 12")).toBeVisible();
 
     const inlineLayout = document.querySelector<HTMLElement>(
       '[data-drag-drop-presentation="inline"] .sc-course-drag-drop-interaction__layout',
     );
     expect(inlineLayout).not.toBeNull();
     expect(getComputedStyle(inlineLayout!).display).toBe("grid");
+    expect(getComputedStyle(inlineLayout!).gridTemplateAreas).toContain("markers");
+    expect(getComputedStyle(inlineLayout!).gridTemplateAreas).toContain("canvas");
+    expect(getComputedStyle(inlineLayout!).columnGap).toBe("0px");
+    const inlineUnplaced = tray.querySelector<HTMLElement>(".sc-course-drag-drop-tray__unplaced");
+    expect(inlineUnplaced).not.toBeNull();
+    expect(getComputedStyle(inlineUnplaced!).flexDirection).toBe("column");
+    expect(getComputedStyle(inlineUnplaced!).overflowY).toBe("auto");
 
     await user.click(screen.getByRole("button", { name: "Answer in expanded workspace" }));
     const expandedTray = await waitFor(() => {
@@ -625,15 +791,13 @@ describe("DragDropCourseInteraction", () => {
     expect(correctLondon?.getAttribute("style")).toContain("left: 10%");
     expect(correctLondon?.getAttribute("style")).toContain("top: 20%");
     expect(document.querySelectorAll(".sc-course-drag-drop-marker")).toHaveLength(2);
-    // The reveal overlay draws every acceptance zone, plus a connector and
-    // origin ring for each answer that landed outside its zone.
-    const revealOverlay = document.querySelector(".sc-course-drag-drop-reveal");
-    expect(revealOverlay).not.toBeNull();
-    expect(revealOverlay!.querySelectorAll(".sc-course-drag-drop-reveal__zone")).toHaveLength(2);
-    expect(revealOverlay!.querySelectorAll(".sc-course-drag-drop-reveal__connector")).toHaveLength(
-      2,
+    // Correct-answer mode is exclusive: it replaces the learner's positions
+    // with the answer positions instead of overlaying tolerances, origins or
+    // connectors from the submitted response.
+    expect(document.querySelector(".sc-course-drag-drop-reveal")).toBeNull();
+    expect(getComputedStyle(correctLondon!.querySelector("button")!).borderStyle).not.toBe(
+      "double",
     );
-    expect(revealOverlay!.querySelectorAll(".sc-course-drag-drop-reveal__origin")).toHaveLength(2);
 
     await act(async () => {
       await currentRuntime()?.problem?.toggleAnswerView();
@@ -839,10 +1003,8 @@ describe("DragDropCourseInteraction", () => {
     expect(screen.getByRole("status")).toHaveTextContent("London positioning cancelled");
     await waitFor(() => expect(placedLondon).toHaveFocus());
 
-    await user.click(placedLondon);
-    const remove = screen.getByRole("button", { name: "Remove London from the image" });
-    remove.focus();
-    await user.keyboard("{Enter}");
+    placedLondon.focus();
+    fireEvent.keyDown(placedLondon, { code: "Delete", key: "Delete" });
     await waitFor(() =>
       expect(localAssessmentResponse(assessmentStore, problemId)).toEqual({ placements: {} }),
     );
@@ -931,6 +1093,11 @@ describe("DragDropCourseInteraction", () => {
       expect(document.querySelector("[data-drag-drop-keyboard-cursor]")).not.toBeNull(),
     );
     await user.keyboard("{Enter}");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Placed London, 1 of 1. Drag to reposition" }),
+      ).toHaveFocus(),
+    );
     const submit = await screen.findByRole("button", { name: "Submit" });
     await waitFor(() => expect(submit).toBeEnabled());
     submit.focus();
@@ -1077,6 +1244,7 @@ describe("DragDropCourseInteraction", () => {
       onStore: (store) => {
         assessmentStore = store;
       },
+      submissionControls: true,
     });
     const inline = document.querySelector<HTMLElement>("[data-drag-drop-presentation='inline']");
     if (!inline) throw new Error("Expected inline Drag and Drop presentation.");
@@ -1104,6 +1272,14 @@ describe("DragDropCourseInteraction", () => {
       expect(element).not.toBeNull();
       return element!;
     });
+    const workspace = expanded.closest(".sc-course-drag-drop-workspace");
+    expect(workspace).not.toBeNull();
+    expect(workspace!.children).toHaveLength(2);
+    expect(workspace!.lastElementChild).toBe(expanded);
+    expect(within(expanded).queryByRole("button", { name: "Submit" })).toBeNull();
+    expect(document.querySelectorAll('[data-assessment-submission-action="submit"]')).toHaveLength(
+      1,
+    );
     const expandedSurface = expanded.querySelector<HTMLElement>("[data-spatial-image-surface]");
     if (!expandedSurface) throw new Error("Expected expanded spatial image surface.");
     await waitFor(() =>
@@ -1296,7 +1472,7 @@ async function startPointerDrag(
   });
   await movePointer({ x: 50, y: 50 }, pointerType, pointerId);
   await waitFor(() =>
-    expect(document.querySelector("[data-interaction-drag-overlay]")).not.toBeNull(),
+    expect(document.querySelector("[data-drag-drop-active-preview]")).not.toBeNull(),
   );
 }
 

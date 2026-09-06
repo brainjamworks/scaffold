@@ -18,3 +18,6 @@ peerDependencyRules:
     - vite
   allowedVersions:
     vite: "*"
+
+patchedDependencies:
+  '@dnd-kit/dom@0.5.0': patches/@dnd-kit__dom@0.5.0.patch

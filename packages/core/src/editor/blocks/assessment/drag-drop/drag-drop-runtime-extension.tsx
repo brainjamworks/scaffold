@@ -2,6 +2,8 @@ import { Extension } from "@tiptap/core";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
 import { DragDropCanvasDataSchema, DragDropSettingsSchema } from "@scaffold/contracts";
 
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveActiveBoundedPlacement } from "@/editor/bounded-containers/model/bounded-container-placement";
 import { AssessmentRuntimeProblemContent } from "@/editor/blocks/assessment/shared/runtime/AssessmentRuntimeProblemContent";
 import { createBlockRuntimeNodeView } from "@/editor/frame/runtime/create-block-runtime-node-view";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
@@ -31,7 +33,7 @@ function DragDropCanvasRuntimeView(props: NodeViewProps) {
   const owner =
     typeof canvasPos === "number" ? findOwner(props.editor.state.doc.resolve(canvasPos)) : null;
   if (!owner) throw new Error("Drag and Drop canvas is missing its assessment owner.");
-  if (owner.type.name === SURFACE_DRAG_DROP_QUESTION_NODE_TYPE) {
+  if (owner.node.type.name === SURFACE_DRAG_DROP_QUESTION_NODE_TYPE) {
     return (
       <NodeViewWrapper
         data-node="drag-drop-canvas"
@@ -40,14 +42,19 @@ function DragDropCanvasRuntimeView(props: NodeViewProps) {
       />
     );
   }
-  const ownerId = String(owner.attrs["id"] ?? "");
+  const ownerId = String(owner.node.attrs["id"] ?? "");
   const data = DragDropCanvasDataSchema.parse(props.node.attrs["data"]);
-  const settings = DragDropSettingsSchema.parse(owner.attrs["settings"]);
+  const settings = DragDropSettingsSchema.parse(owner.node.attrs["settings"]);
   const content = createDragDropCourseContent(data, settings.legend ?? undefined);
+  const boundedFillActive = isDragDropBoundedFillActive(props.editor, owner.pos);
 
   return (
     <NodeViewWrapper data-node="drag-drop-canvas" contentEditable={false}>
-      <DragDropInlineCourseWorkspace assessmentTargetId={ownerId} content={content} />
+      <DragDropInlineCourseWorkspace
+        assessmentTargetId={ownerId}
+        content={content}
+        fitStrategy={boundedFillActive ? "contain" : "width"}
+      />
     </NodeViewWrapper>
   );
 }
@@ -75,7 +82,20 @@ export const DragDropRuntimeExtension = Extension.create({
 function findOwner($pos: ReturnType<NodeViewProps["editor"]["state"]["doc"]["resolve"]>) {
   for (let depth = $pos.depth; depth > 0; depth -= 1) {
     const node = $pos.node(depth);
-    if (isDragDropOwnerNodeType(node.type.name)) return node;
+    if (isDragDropOwnerNodeType(node.type.name)) return { node, pos: $pos.before(depth) };
   }
   return null;
+}
+
+function isDragDropBoundedFillActive(editor: NodeViewProps["editor"], ownerPos: number): boolean {
+  const capabilities = getScaffoldCapabilitiesForEditor(editor);
+  return (
+    resolveActiveBoundedPlacement({
+      blockDefinitions: capabilities.blocks.registry,
+      capability: "fill",
+      doc: editor.state.doc,
+      layoutDefinitions: capabilities.layouts.registry,
+      pos: ownerPos,
+    }) === "fill"
+  );
 }

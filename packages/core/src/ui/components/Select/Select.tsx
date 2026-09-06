@@ -1,6 +1,7 @@
 import { CaretDownIcon as CaretDown, CheckIcon as Check } from "@phosphor-icons/react";
 import {
   forwardRef,
+  type ComponentProps,
   type ComponentPropsWithoutRef,
   type ComponentRef,
   type CSSProperties,
@@ -167,6 +168,7 @@ export interface SelectProps {
   onChange: (next: string) => void;
   options: readonly SelectOption[];
   "aria-describedby"?: string;
+  "aria-label"?: string;
   "aria-labelledby"?: string;
   placeholder?: string;
   disabled?: boolean;
@@ -176,6 +178,15 @@ export interface SelectProps {
   required?: boolean;
   /** Width / className overrides applied to the trigger. */
   className?: string;
+  /**
+   * Extra props for the trigger: `data-*` focus and test hooks and any
+   * other per-use trigger need. The documented trigger props above win
+   * over anything repeated here.
+   */
+  triggerProps?: Omit<
+    ComponentProps<typeof Trigger>,
+    "placeholder" | "invalid" | "className" | "id" | "aria-describedby" | "aria-labelledby"
+  > & { [dataAttribute: `data-${string}`]: string | undefined };
 }
 
 /**
@@ -189,6 +200,7 @@ function SimpleSelect({
   onChange,
   options,
   "aria-describedby": ariaDescribedBy,
+  "aria-label": ariaLabel,
   "aria-labelledby": ariaLabelledBy,
   placeholder,
   disabled,
@@ -197,6 +209,7 @@ function SimpleSelect({
   name,
   required,
   className,
+  triggerProps,
 }: SelectProps) {
   return (
     <Root
@@ -207,8 +220,10 @@ function SimpleSelect({
       {...(required !== undefined ? { required } : {})}
     >
       <Trigger
+        {...(triggerProps !== undefined ? triggerProps : {})}
         {...(id !== undefined ? { id } : {})}
         {...(ariaDescribedBy !== undefined ? { "aria-describedby": ariaDescribedBy } : {})}
+        {...(ariaLabel !== undefined ? { "aria-label": ariaLabel } : {})}
         {...(ariaLabelledBy !== undefined ? { "aria-labelledby": ariaLabelledBy } : {})}
         {...(invalid !== undefined ? { invalid } : {})}
         {...(placeholder !== undefined ? { placeholder } : {})}

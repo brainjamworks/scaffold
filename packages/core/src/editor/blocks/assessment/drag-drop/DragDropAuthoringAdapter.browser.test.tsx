@@ -35,9 +35,34 @@ afterEach(() => {
 });
 
 describe("Drag and Drop authoring adapter", () => {
+  it("does not reload an unchanged background when marker data changes", async () => {
+    const user = userEvent.setup();
+    const resolve = vi.fn(async (_mediaId: string) => TEST_IMAGE_SRC);
+    const media = {
+      resolve,
+      upload: async () => {
+        throw new Error("Upload is not used by this marker edit test.");
+      },
+    };
+    const editor = createEditor(authoredDocument());
+    render(
+      <ScaffoldServicesProvider ports={{ media }}>
+        {createAuthoringMovementTestRoot(editor, <EditorContent editor={editor} />)}
+      </ScaffoldServicesProvider>,
+    );
+
+    await waitFor(() => expect(resolve).toHaveBeenCalledWith("background-image"));
+    await user.click(screen.getByRole("button", { name: "Add marker" }));
+    await waitFor(() => expect(canvasDataFrom(editor.getJSON()).markers).toHaveLength(2));
+
+    expect(resolve.mock.calls.filter(([mediaId]) => mediaId === "background-image")).toHaveLength(
+      1,
+    );
+  });
+
   it("writes the visible default selector and resolves persisted custom icons after reopen", async () => {
     const user = userEvent.setup();
-    const resolve = vi.fn(async () => TEST_IMAGE_SRC);
+    const resolve = vi.fn(async (_mediaId: string) => TEST_IMAGE_SRC);
     const media = {
       resolve,
       upload: async () => {
@@ -53,12 +78,8 @@ describe("Drag and Drop authoring adapter", () => {
 
     await waitFor(() => expect(resolve).toHaveBeenCalledWith("custom-marker-icon"));
     expect(screen.queryByRole("img", { name: "Custom marker icon unavailable" })).toBeNull();
-    await user.click(
-      screen.getByRole("button", { name: "Edit markers in expanded workspace" }),
-    );
-    await user.click(
-      await screen.findByRole("combobox", { name: "Default marker appearance" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Edit markers in expanded workspace" }));
+    await user.click(await screen.findByRole("combobox", { name: "Default marker appearance" }));
     await user.click(await screen.findByRole("option", { name: "Check" }));
     await waitFor(() =>
       expect(canvasDataFrom(firstEditor.getJSON()).defaultMarkerVisual).toEqual({
@@ -97,9 +118,7 @@ describe("Drag and Drop authoring adapter", () => {
       </ScaffoldServicesProvider>,
     );
 
-    freshEditor.commands.insertContent(
-      dragDropBlockDefinition.insert!.content() as JSONContent,
-    );
+    freshEditor.commands.insertContent(dragDropBlockDefinition.insert!.content() as JSONContent);
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Add background image" })).toBeTruthy();

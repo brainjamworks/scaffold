@@ -329,11 +329,17 @@
     height: 1.5rem;
     align-items: center;
     justify-content: center;
+    border: 2px solid var(--sc-app-color-primary);
     border-radius: 50%;
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-primary);
     font-family: var(--sc-app-font-family);
     font-size: 0.75rem;
     font-weight: 700;
     line-height: 1;
+    box-shadow:
+      0 0 0 1px var(--sc-app-color-background),
+      0 0 0 2px var(--sc-app-color-text-primary);
   }
 
   .sc-app-image-hotspot-author-marker__edit {
@@ -345,6 +351,17 @@
     border: 1px solid var(--sc-app-color-border);
     border-radius: 50%;
     background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-primary);
+    box-shadow:
+      0 0 0 1px var(--sc-app-color-background),
+      0 0 0 2px var(--sc-app-color-text-primary);
+  }
+
+  .sc-app-image-hotspot__author-region-contrast {
+    fill: none;
+    stroke: var(--sc-app-color-background);
+    stroke-width: 5px;
+    vector-effect: non-scaling-stroke;
   }
 
   .sc-app-image-hotspot__author-region-shape {
@@ -363,6 +380,11 @@
   .sc-app-image-hotspot__author-region[data-hotspot-state="selected"]
     .sc-app-image-hotspot__author-region-shape {
     stroke-width: 4px;
+  }
+
+  .sc-app-image-hotspot__author-region[data-hotspot-state="selected"]
+    .sc-app-image-hotspot__author-region-contrast {
+    stroke-width: 7px;
   }
 
   .sc-app-image-hotspot__author-resize-handle {
@@ -387,6 +409,9 @@
     border: 2px solid var(--sc-app-color-primary);
     border-radius: 0;
     background: var(--sc-app-color-background);
+    box-shadow:
+      0 0 0 1px var(--sc-app-color-background),
+      0 0 0 2px var(--sc-app-color-text-primary);
     content: "";
     transform: translate(-50%, -50%);
     pointer-events: none;
@@ -398,6 +423,10 @@
     stroke-width: 2px;
     stroke-dasharray: 7 5;
     vector-effect: non-scaling-stroke;
+  }
+
+  .sc-app-image-hotspot__author-region-contrast--preview {
+    stroke-dasharray: 7 5;
   }
 
   .sc-app-image-hotspot-editor__title,
@@ -477,9 +506,19 @@
       stroke: CanvasText;
     }
 
+    .sc-app-image-hotspot__author-region-contrast {
+      stroke: Canvas;
+    }
+
     .sc-app-image-hotspot__author-resize-handle::before {
       border-color: CanvasText;
       background: Canvas;
+      box-shadow: none;
+    }
+
+    .sc-app-image-hotspot-author-marker__number,
+    .sc-app-image-hotspot-author-marker__edit {
+      box-shadow: none;
     }
 
     .sc-app-image-hotspot__icon-action:focus-visible,

@@ -57,6 +57,8 @@ describe("InteractionDragSession with installed dnd-kit", () => {
       </OverlayBoundaryResolutionProvider>,
     );
 
+    const headChildrenBeforeActivation = new Set(document.head.children);
+
     activateWithPointer(screen.getByRole("button", { name: "Drag Card" }));
 
     await waitFor(() => {
@@ -67,6 +69,12 @@ describe("InteractionDragSession with installed dnd-kit", () => {
         "",
       );
     });
+    const activationStyles = Array.from(document.head.querySelectorAll("style")).filter(
+      (style) =>
+        !headChildrenBeforeActivation.has(style) &&
+        style.textContent?.includes("data-dnd-dragging"),
+    );
+    expect(activationStyles).toHaveLength(0);
 
     fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
   });

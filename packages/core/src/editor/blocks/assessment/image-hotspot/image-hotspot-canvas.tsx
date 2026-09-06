@@ -533,6 +533,7 @@ function AuthorCanvas({
   const onPointerDown = (e: PointerEvent<HTMLDivElement>, aspectRatio: number) => {
     if (e.button !== 0 || !containerRef.current) return;
     e.preventDefault();
+    e.stopPropagation();
 
     if (suppressNextCanvasPointerDownRef.current) {
       suppressNextCanvasPointerDownRef.current = false;
@@ -870,18 +871,32 @@ function AuthorCanvas({
                         cx={cx}
                         cy={cy}
                         r={r}
+                        className="sc-app-image-hotspot__author-region-contrast"
+                      />
+                      <circle
+                        cx={cx}
+                        cy={cy}
+                        r={r}
                         className="sc-app-image-hotspot__author-region-shape"
                       />
                     </g>
                   );
                 })}
                 {drawingPreview && (
-                  <circle
-                    cx={(drawingPreview.cx / 100) * naturalSize.w}
-                    cy={(drawingPreview.cy / 100) * naturalSize.h}
-                    r={(drawingPreview.r / 100) * naturalSize.w}
-                    className="sc-app-image-hotspot__author-region-preview"
-                  />
+                  <g>
+                    <circle
+                      cx={(drawingPreview.cx / 100) * naturalSize.w}
+                      cy={(drawingPreview.cy / 100) * naturalSize.h}
+                      r={(drawingPreview.r / 100) * naturalSize.w}
+                      className="sc-app-image-hotspot__author-region-contrast sc-app-image-hotspot__author-region-contrast--preview"
+                    />
+                    <circle
+                      cx={(drawingPreview.cx / 100) * naturalSize.w}
+                      cy={(drawingPreview.cy / 100) * naturalSize.h}
+                      r={(drawingPreview.r / 100) * naturalSize.w}
+                      className="sc-app-image-hotspot__author-region-preview"
+                    />
+                  </g>
                 )}
               </svg>
             )}

@@ -129,6 +129,48 @@ describe("Select", () => {
     expect(onChange).toHaveBeenCalledWith("bar");
   });
 
+  it("puts the accessible name on the trigger", async () => {
+    render(
+      <Select
+        value="line"
+        onChange={vi.fn()}
+        aria-label="Chart type"
+        options={[
+          { value: "bar", label: "Bar" },
+          { value: "line", label: "Line" },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Chart type" })).toHaveClass(
+      "sc-select-trigger",
+    );
+  });
+
+  it("passes data hooks through triggerProps to the trigger", async () => {
+    const onChange = vi.fn();
+    render(
+      <Select
+        value="line"
+        onChange={onChange}
+        aria-label="Chart type"
+        triggerProps={{ "data-field-source": "chart-type" }}
+        options={[
+          { value: "bar", label: "Bar" },
+          { value: "line", label: "Line" },
+        ]}
+      />,
+    );
+
+    const trigger = screen.getByRole("combobox", { name: "Chart type" });
+    expect(trigger).toHaveAttribute("data-field-source", "chart-type");
+
+    await userEvent.click(trigger);
+    await userEvent.click(screen.getByRole("option", { name: "Bar" }));
+
+    expect(onChange).toHaveBeenCalledWith("bar");
+  });
+
   it("keeps the exported variant helper available", () => {
     expect(selectVariants({ invalid: true })).toBe("sc-select-trigger");
   });

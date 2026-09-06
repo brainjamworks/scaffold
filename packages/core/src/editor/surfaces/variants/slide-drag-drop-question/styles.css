@@ -24,7 +24,7 @@
     /* Visible: edge-placed markers legitimately spill past the image box
        into the slide padding; the slide canvas is the outer clip. */
     overflow: visible;
-    padding: clamp(0.75rem, 2cqw, 1.25rem) clamp(1rem, 5cqw, 3rem);
+    padding: 0.5rem clamp(0.75rem, 2.5cqw, 1.5rem);
   }
 
   /* Fill and fit like the image-hotspot slide canvas: 100% of the slide,
@@ -38,12 +38,13 @@
     grid-column: 1 / -1;
     grid-row: 3;
     overflow: hidden;
-    padding: clamp(0.75rem, 2cqw, 1.25rem) clamp(1rem, 5cqw, 3rem);
+    padding: 0.5rem clamp(0.75rem, 2.5cqw, 1.5rem);
   }
 
   .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"] {
     --sc-course-drag-drop-tray-padding: 0.75rem;
     --sc-course-drag-drop-stack-gap: 0.5rem;
+    --sc-course-drag-drop-marker-rail-inline-size: 14rem;
     block-size: 100%;
     min-inline-size: 0;
     min-block-size: 0;
@@ -54,8 +55,6 @@
     .sc-course-drag-drop-interaction__layout {
     block-size: 100%;
     min-block-size: 0;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"]
@@ -65,24 +64,9 @@
   }
 
   .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"]
-    .sc-course-drag-drop-tray {
-    min-block-size: 0;
-    max-block-size: 9rem;
-    overflow: auto;
-    overscroll-behavior: contain;
-  }
-
-  .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"]
     .sc-course-drag-drop-stage
     [data-spatial-image-surface] {
     max-inline-size: 100%;
     max-block-size: 100%;
-  }
-
-  @container (max-width: 46rem) {
-    .sc-course-drag-drop-interaction[data-drag-drop-presentation="full-slide"]
-      .sc-course-drag-drop-tray {
-      max-block-size: 7rem;
-    }
   }
 }

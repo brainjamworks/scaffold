@@ -37,23 +37,23 @@ describe("Scaffold Flow Drag and Drop recipe", () => {
         host,
         '[data-testid="incorrect-marker"] > button',
       );
-      const restingStyle = getComputedStyle(resting);
-      const selectedStyle = getComputedStyle(selected);
+      const restingStyle = getComputedStyle(resting, "::before");
+      const selectedStyle = getComputedStyle(selected, "::before");
 
       expect(restingStyle.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
       expect(restingStyle.borderTopWidth).toBe("2px");
       expect(selectedStyle.backgroundColor).not.toBe(restingStyle.backgroundColor);
       expect(selectedStyle.borderTopColor).not.toBe(restingStyle.borderTopColor);
-      expect(getComputedStyle(selected).outlineStyle).toBe("solid");
+      expect(getComputedStyle(selected).outlineStyle).toBe("none");
 
-      const correctStyle = getComputedStyle(correct);
-      const incorrectStyle = getComputedStyle(incorrect);
+      const correctStyle = getComputedStyle(correct, "::before");
+      const incorrectStyle = getComputedStyle(incorrect, "::before");
       expect(correctStyle.borderTopColor).not.toBe(incorrectStyle.borderTopColor);
       expect(correctStyle.backgroundColor).not.toBe(incorrectStyle.backgroundColor);
-      // Structural border language already separates the verdicts; the theme
-      // must preserve that non-colour evidence.
-      expect(getComputedStyle(correct).borderTopStyle).toBe("double");
-      expect(getComputedStyle(incorrect).borderTopStyle).toBe("dashed");
+      // One calm marker border carries the correct state; the incorrect
+      // marker retains a dashed non-colour distinction.
+      expect(correctStyle.borderTopStyle).toBe("solid");
+      expect(incorrectStyle.borderTopStyle).toBe("dashed");
 
       resting.focus();
       expect(getComputedStyle(resting).outlineStyle).toBe("solid");
@@ -78,11 +78,41 @@ describe("Scaffold Flow Drag and Drop recipe", () => {
         4.5,
       );
 
+      const layout = requireElement<HTMLElement>(host, ".sc-course-drag-drop-interaction__layout");
+      expect(getComputedStyle(layout).borderTopWidth).not.toBe("0px");
       const stage = requireElement<HTMLElement>(host, ".sc-course-drag-drop-stage");
-      expect(getComputedStyle(stage).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+      expect(getComputedStyle(stage).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
       const surface = requireElement<HTMLElement>(stage, "[data-spatial-image-surface]");
-      expect(getComputedStyle(surface).borderTopWidth).not.toBe("0px");
-      expect(getComputedStyle(surface).borderTopStyle).toBe("solid");
+      expect(getComputedStyle(surface).borderTopWidth).toBe("0px");
+      expect(getComputedStyle(surface).boxShadow).toBe("none");
+    },
+  );
+
+  it.each(["light", "dark"] as const)(
+    "frames the authoring canvas and promotes the bounded fit-stage in %s mode",
+    async (appearance) => {
+      const { host } = mountAuthoring(appearance);
+      await waitForCondition(
+        () => host.querySelector(".sc-course-drag-drop-authoring-canvas") !== null,
+      );
+
+      const compactCanvas = requireElement<HTMLElement>(
+        host,
+        '[data-testid="authoring-compact"] .sc-course-drag-drop-authoring-canvas',
+      );
+      const boundedStage = requireElement<HTMLElement>(host, '[data-testid="authoring-bounded"]');
+      const boundedCanvas = requireElement<HTMLElement>(
+        boundedStage,
+        ".sc-course-drag-drop-authoring-canvas",
+      );
+
+      expect(getComputedStyle(compactCanvas).borderTopWidth).not.toBe("0px");
+      expect(getComputedStyle(compactCanvas).borderTopLeftRadius).not.toBe("0px");
+      expect(getComputedStyle(compactCanvas).boxShadow).not.toBe("none");
+      expect(getComputedStyle(boundedStage).borderTopWidth).not.toBe("0px");
+      expect(getComputedStyle(boundedStage).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+      expect(getComputedStyle(boundedCanvas).borderTopWidth).toBe("0px");
+      expect(getComputedStyle(boundedCanvas).boxShadow).toBe("none");
     },
   );
 
@@ -96,9 +126,14 @@ describe("Scaffold Flow Drag and Drop recipe", () => {
     expect(getComputedStyle(cursor).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
     expect(getComputedStyle(cursor).outlineStyle).toBe("solid");
 
-    const preview = requireElement<HTMLElement>(host, ".sc-course-drag-drop-drag-preview");
-    expect(getComputedStyle(preview).boxShadow).not.toBe("none");
-    expect(getComputedStyle(preview).borderTopWidth).not.toBe("0px");
+    const preview = requireElement<HTMLElement>(host, ".sc-course-drag-drop-drag-preview > button");
+    const previewPaint = getComputedStyle(preview, "::before");
+    expect(previewPaint.boxShadow).not.toBe("none");
+    expect(previewPaint.borderTopWidth).not.toBe("0px");
+    expect(previewPaint.borderTopLeftRadius).toBe("50%");
+    expect(
+      host.querySelector(".sc-course-drag-drop-drag-preview .sc-course-drag-drop-marker__label"),
+    ).toBeNull();
   });
 
   it("keeps media failure quiet but actionable", async () => {
@@ -110,6 +145,21 @@ describe("Scaffold Flow Drag and Drop recipe", () => {
     expect(retry.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
     expect(getComputedStyle(retry).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
   });
+
+  it.each(["light", "dark"] as const)(
+    "makes the active marker-bar return target unmistakable in %s mode",
+    async (appearance) => {
+      const { host } = mountDragDrop(appearance);
+      await waitForCondition(
+        () => host.querySelector(".sc-course-drag-drop-tray__return-target") !== null,
+      );
+      const target = requireElement<HTMLElement>(host, ".sc-course-drag-drop-tray__return-target");
+
+      expect(getComputedStyle(target).borderTopStyle).toBe("solid");
+      expect(getComputedStyle(target).borderTopLeftRadius).not.toBe("0px");
+      expect(getComputedStyle(target).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    },
+  );
 
   it("adds no structural compensation on top of the family layout", async () => {
     const { host } = mountDragDrop("light");
@@ -217,9 +267,17 @@ function DragDropFixture({ wideImage = false }: { wideImage?: boolean }) {
             <button type="button">Retry image</button>
           </div>
         </div>
-        <aside aria-label="Markers" className="sc-course-drag-drop-tray">
-          <div className="sc-course-drag-drop-tray__unplaced">
+        <aside
+          aria-label="Markers"
+          className="sc-course-drag-drop-tray"
+          data-drag-drop-return-state="active"
+        >
+          <div className="sc-course-drag-drop-tray__return-target">Drop to return</div>
+          <div className="sc-course-drag-drop-tray__header">
             <h3>Markers to place</h3>
+            <span className="sc-course-drag-drop-interaction__progress">0 / 2</span>
+          </div>
+          <div className="sc-course-drag-drop-tray__unplaced">
             <span className="sc-course-drag-drop-source">
               <button aria-label="Select Berlin for placement" aria-pressed="true" type="button">
                 <span aria-hidden>●</span>
@@ -234,13 +292,20 @@ function DragDropFixture({ wideImage = false }: { wideImage?: boolean }) {
             </span>
           </div>
           <div className="sc-course-drag-drop-tray__actions">
-            <button type="button">Reset</button>
+            <button className="sc-course-drag-drop-tray__reset" type="button">
+              Reset
+            </button>
           </div>
         </aside>
       </div>
-      <span className="sc-course-drag-drop-drag-preview">
-        <span aria-hidden>●</span>
-        <span>Berlin</span>
+      <span
+        className="sc-course-drag-drop-marker sc-course-drag-drop-drag-preview"
+        data-edge-x="middle"
+        data-edge-y="top"
+      >
+        <button type="button">
+          <span aria-hidden>●</span>
+        </button>
       </span>
     </section>
   );
@@ -264,6 +329,40 @@ function mountDragDrop(appearance: "light" | "dark") {
     </>,
   );
   return { host };
+}
+
+function mountAuthoring(appearance: "light" | "dark") {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  mountedRoots.push(root);
+  root.render(
+    <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance={appearance}>
+      <DragDropAuthoringFixture />
+    </CourseThemeProvider>,
+  );
+  return { host };
+}
+
+function DragDropAuthoringFixture() {
+  return (
+    <section className="sc-course-drag-drop-authoring-shell">
+      <div
+        className="sc-course-drag-drop-authoring-fit-stage"
+        data-drag-drop-authoring-presentation="compact"
+        data-testid="authoring-compact"
+      >
+        <div className="sc-course-drag-drop-authoring-canvas" data-spatial-image-surface="" />
+      </div>
+      <div
+        className="sc-course-drag-drop-authoring-fit-stage"
+        data-drag-drop-authoring-presentation="bounded"
+        data-testid="authoring-bounded"
+      >
+        <div className="sc-course-drag-drop-authoring-canvas" data-spatial-image-surface="" />
+      </div>
+    </section>
+  );
 }
 
 function mountInRegion(appearance: "light" | "dark", regionWidth: number) {

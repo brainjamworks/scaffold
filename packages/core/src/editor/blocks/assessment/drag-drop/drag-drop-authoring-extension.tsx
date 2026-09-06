@@ -1,7 +1,4 @@
-import {
-  ArrowsClockwiseIcon as ArrowsClockwise,
-  PlusIcon as Plus,
-} from "@phosphor-icons/react";
+import { ArrowsClockwiseIcon as ArrowsClockwise, PlusIcon as Plus } from "@phosphor-icons/react";
 import { Extension } from "@tiptap/core";
 import {
   NodeViewWrapper,
@@ -30,7 +27,7 @@ import {
   type MarkerVisual,
 } from "@scaffold/contracts";
 import type { MediaPort } from "@/host/ports/media";
-import { TextSelection } from "@tiptap/pm/state";
+import { setTextSelectionNearInTransaction } from "@/editor/selection/selection-transactions";
 import type { CheckedMutationIssue } from "@/document/model/commands/checked-transactions";
 
 import {
@@ -134,24 +131,31 @@ function DragDropCanvasAuthoringView(props: NodeViewProps) {
     null,
   );
   const customMediaIds = useMemo(() => managedCustomIconIds(data), [data]);
+  const imageMode = data.image?.mode ?? null;
+  const imageReference =
+    data.image?.mode === "external"
+      ? data.image.src
+      : data.image?.mode === "managed"
+        ? data.image.mediaId
+        : null;
 
   useEffect(() => {
     let current = true;
     setMediaError(false);
-    if (data.image === null) {
+    if (imageMode === null || imageReference === null) {
       setImageSrc(null);
       return () => {
         current = false;
       };
     }
-    if (data.image.mode === "external") {
-      setImageSrc(data.image.src);
+    if (imageMode === "external") {
+      setImageSrc(imageReference);
       return () => {
         current = false;
       };
     }
     void mediaPort
-      ?.resolve(data.image.mediaId)
+      ?.resolve(imageReference)
       .then((url) => {
         if (current) setImageSrc(url);
       })
@@ -161,7 +165,7 @@ function DragDropCanvasAuthoringView(props: NodeViewProps) {
     return () => {
       current = false;
     };
-  }, [data.image, mediaPort, reload]);
+  }, [imageMode, imageReference, mediaPort, reload]);
 
   useEffect(() => {
     let current = true;
@@ -194,7 +198,9 @@ function DragDropCanvasAuthoringView(props: NodeViewProps) {
         // Keep the editor selection parked at this block. Post-transaction
         // focus otherwise scrolls the editor to a stale selection (often
         // the document tail), yanking the author away from the canvas.
-        outcome.tr.setSelection(TextSelection.near(outcome.tr.doc.resolve(resolved.pos)));
+        if (!setTextSelectionNearInTransaction(outcome.tr, resolved.pos)) {
+          throw new Error("Failed to preserve the Drag and Drop authoring selection.");
+        }
       }
       return outcome;
     });
@@ -239,7 +245,7 @@ function DragDropCanvasAuthoringView(props: NodeViewProps) {
     selector: ({ editor }) => isDragDropBoundedFillActive(editor, canvasPos),
   });
   const isFullSlide = owner?.node.type.name === "surface_drag_drop_question";
-  const canEditInline = isFullSlide || !boundedFillActive;
+  const presentation = isFullSlide ? "full-slide" : boundedFillActive ? "bounded" : "compact";
 
   const canvasCallbacks = {
     onRequestBackground: () => setPickerKind("background"),
@@ -281,18 +287,14 @@ function DragDropCanvasAuthoringView(props: NodeViewProps) {
       );
     },
     onDeleteMarker: (markerId: string) => {
-      transact((tr, resolved) =>
-        deleteDragDropMarkerChecked({ tr, target: resolved, markerId }),
-      );
+      transact((tr, resolved) => deleteDragDropMarkerChecked({ tr, target: resolved, markerId }));
     },
     onSetDefaultMarkerVisual: (visual: MarkerVisual) => {
       transact((tr, resolved) =>
         setDragDropDefaultMarkerVisualChecked({ tr, target: resolved, visual }),
       );
     },
-    onRequestCustomIcon: (
-      apply: (visual: Extract<MarkerVisual, { kind: "custom" }>) => void,
-    ) => {
+    onRequestCustomIcon: (apply: (visual: Extract<MarkerVisual, { kind: "custom" }>) => void) => {
       customApply.current = apply;
       setPickerKind("custom");
     },
@@ -320,8 +322,8 @@ function DragDropCanvasAuthoringView(props: NodeViewProps) {
           assessment={assessment}
           imageSrc={imageSrc}
           mediaError={mediaError}
-          presentation={isFullSlide ? "full-slide" : "compact"}
-          canEditInline={canEditInline}
+          presentation={presentation}
+          renderLiveRegion={!workspaceOpen}
           onRequestWorkspace={() => setWorkspaceOpen(true)}
         />
         <DragDropAuthoringWorkspace.Content

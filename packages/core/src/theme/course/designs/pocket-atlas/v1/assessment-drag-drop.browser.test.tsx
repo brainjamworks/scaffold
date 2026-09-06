@@ -38,7 +38,7 @@ describe("Pocket Atlas Drag and Drop recipe", () => {
         host,
         '[data-testid="incorrect-marker"] > button',
       );
-      const restingStyle = getComputedStyle(resting);
+      const restingStyle = getComputedStyle(resting, "::before");
 
       expect(restingStyle.borderTopWidth).toBe("2px");
       expect(restingStyle.borderTopLeftRadius).toBe("0px");
@@ -46,17 +46,27 @@ describe("Pocket Atlas Drag and Drop recipe", () => {
       expect(resting.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
       expect(resting.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
 
-      const selectedStyle = getComputedStyle(selected);
+      const selectedStyle = getComputedStyle(selected, "::before");
       expect(selectedStyle.backgroundColor).not.toBe(restingStyle.backgroundColor);
-      expect(getComputedStyle(selected).outlineStyle).toBe("solid");
+      expect(getComputedStyle(selected).outlineStyle).toBe("none");
 
-      const correctStyle = getComputedStyle(correct);
-      const incorrectStyle = getComputedStyle(incorrect);
+      const preview = requireElement<HTMLButtonElement>(
+        host,
+        ".sc-course-drag-drop-drag-preview > button",
+      );
+      expect(getComputedStyle(preview, "::before").borderTopLeftRadius).toBe("0px");
+      expect(
+        host.querySelector(".sc-course-drag-drop-drag-preview .sc-course-drag-drop-marker__label"),
+      ).toBeNull();
+
+      const correctStyle = getComputedStyle(correct, "::before");
+      const incorrectStyle = getComputedStyle(incorrect, "::before");
       expect(correctStyle.backgroundColor).not.toBe(incorrectStyle.backgroundColor);
       expect(correctStyle.backgroundColor).not.toBe(restingStyle.backgroundColor);
-      // Structural verdict language survives the Atlas treatment.
-      expect(getComputedStyle(correct).borderTopStyle).toBe("double");
-      expect(getComputedStyle(incorrect).borderTopStyle).toBe("dashed");
+      // One calm marker border carries the correct state; the incorrect
+      // marker retains a dashed non-colour distinction.
+      expect(correctStyle.borderTopStyle).toBe("solid");
+      expect(incorrectStyle.borderTopStyle).toBe("dashed");
 
       const label = requireElement<HTMLElement>(
         host,
@@ -87,19 +97,60 @@ describe("Pocket Atlas Drag and Drop recipe", () => {
   );
 
   it.each(["light", "dark"] as const)(
-    "leaves the slide itself unadorned while framing the image box in %s mode",
+    "frames one unified marker-and-image workbench in %s mode",
     async (appearance) => {
       const { host } = mountDragDrop(appearance);
       await waitForCondition(() => host.querySelector(".sc-course-drag-drop-stage") !== null);
 
+      const layout = requireElement<HTMLElement>(host, ".sc-course-drag-drop-interaction__layout");
+      expect(getComputedStyle(layout).borderTopWidth).toBe("2px");
+      expect(getComputedStyle(layout).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+      expect(getComputedStyle(layout).boxShadow).not.toBe("none");
+
       const stage = requireElement<HTMLElement>(host, ".sc-course-drag-drop-stage");
       expect(getComputedStyle(stage).boxShadow).toBe("none");
-      expect(getComputedStyle(stage).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+      expect(getComputedStyle(stage).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
 
       const surface = requireElement<HTMLElement>(stage, "[data-spatial-image-surface]");
-      expect(getComputedStyle(surface).borderTopWidth).toBe("2px");
+      expect(getComputedStyle(surface).borderTopWidth).toBe("0px");
       expect(getComputedStyle(surface).borderTopLeftRadius).toBe("0px");
       expect(getComputedStyle(surface).boxShadow).toBe("none");
+    },
+  );
+
+  it.each(["light", "dark"] as const)(
+    "makes the active marker-bar return target unmistakable in %s mode",
+    async (appearance) => {
+      const { host } = mountDragDrop(appearance);
+      await waitForCondition(
+        () => host.querySelector(".sc-course-drag-drop-tray__return-target") !== null,
+      );
+      const target = requireElement<HTMLElement>(host, ".sc-course-drag-drop-tray__return-target");
+
+      expect(getComputedStyle(target).borderTopStyle).toBe("solid");
+      expect(getComputedStyle(target).borderTopLeftRadius).toBe("0px");
+      expect(getComputedStyle(target).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+      expect(getComputedStyle(target).boxShadow).not.toBe("none");
+    },
+  );
+
+  it.each(["light", "dark"] as const)(
+    "gives the authoring fit-stage the same paper keyline as Image Hotspot in %s mode",
+    async (appearance) => {
+      const { host } = mountAuthoring(appearance);
+      await waitForCondition(
+        () => host.querySelector(".sc-course-drag-drop-authoring-fit-stage") !== null,
+      );
+
+      const stage = requireElement<HTMLElement>(host, ".sc-course-drag-drop-authoring-fit-stage");
+      const canvas = requireElement<HTMLElement>(stage, ".sc-course-drag-drop-authoring-canvas");
+      const stageStyle = getComputedStyle(stage);
+
+      expect(stageStyle.borderTopWidth).toBe("2px");
+      expect(stageStyle.borderTopLeftRadius).toBe("0px");
+      expect(stageStyle.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+      expect(stageStyle.boxShadow).not.toBe("none");
+      expect(getComputedStyle(canvas).borderTopWidth).toBe("0px");
     },
   );
 
@@ -194,9 +245,17 @@ function DragDropFixture() {
             </button>
           </div>
         </div>
-        <aside aria-label="Markers" className="sc-course-drag-drop-tray">
-          <div className="sc-course-drag-drop-tray__unplaced">
+        <aside
+          aria-label="Markers"
+          className="sc-course-drag-drop-tray"
+          data-drag-drop-return-state="active"
+        >
+          <div className="sc-course-drag-drop-tray__return-target">Drop to return</div>
+          <div className="sc-course-drag-drop-tray__header">
             <h3>Markers to place</h3>
+            <span className="sc-course-drag-drop-interaction__progress">0 / 2</span>
+          </div>
+          <div className="sc-course-drag-drop-tray__unplaced">
             <span className="sc-course-drag-drop-source" data-testid="tray-source">
               <button aria-label="Select Berlin for placement" aria-pressed="true" type="button">
                 <span aria-hidden>●</span>
@@ -213,13 +272,20 @@ function DragDropFixture() {
             </span>
           </div>
           <div className="sc-course-drag-drop-tray__actions">
-            <button type="button">Reset</button>
+            <button className="sc-course-drag-drop-tray__reset" type="button">
+              Reset
+            </button>
           </div>
         </aside>
       </div>
-      <span className="sc-course-drag-drop-drag-preview">
-        <span aria-hidden>●</span>
-        <span>Berlin</span>
+      <span
+        className="sc-course-drag-drop-marker sc-course-drag-drop-drag-preview"
+        data-edge-x="middle"
+        data-edge-y="top"
+      >
+        <button type="button">
+          <span aria-hidden>●</span>
+        </button>
       </span>
     </section>
   );
@@ -250,6 +316,35 @@ function mountDragDrop(appearance: "light" | "dark") {
         <DragDropFixture />
       </div>
     </>,
+  );
+  return { host };
+}
+
+function mountAuthoring(appearance: "light" | "dark") {
+  const host = document.createElement("div");
+  host.style.width = "56rem";
+  document.body.append(host);
+  const root = createRoot(host);
+  mountedRoots.push(root);
+  root.render(
+    <CourseThemeProvider
+      appearance={appearance}
+      theme={{
+        schemaVersion: 1,
+        design: { id: "pocket-atlas", revision: "1" },
+        colourSystem: { id: "pocket-atlas", revision: "1" },
+        overrides: {},
+      }}
+    >
+      <section className="sc-course-drag-drop-authoring-shell">
+        <div
+          className="sc-course-drag-drop-authoring-fit-stage"
+          data-drag-drop-authoring-presentation="compact"
+        >
+          <div className="sc-course-drag-drop-authoring-canvas" data-spatial-image-surface="" />
+        </div>
+      </section>
+    </CourseThemeProvider>,
   );
   return { host };
 }

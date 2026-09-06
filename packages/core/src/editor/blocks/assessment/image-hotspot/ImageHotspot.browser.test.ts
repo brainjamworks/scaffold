@@ -8,7 +8,7 @@ import "@/theme/course/designs/pocket-atlas/v1/theme.css";
 import "@/theme/course/designs/scaffold-flow/v1/theme.css";
 
 import "../shared/chrome/assessment-node-view.css";
-import "./ImageHotspot.css";
+import "@/editor/assessment/image-hotspot/ImageHotspot.css";
 
 let host: HTMLElement | null = null;
 
@@ -132,6 +132,7 @@ describe("bounded image hotspot layout", () => {
       <div class="sc-course-image-hotspot-canvas">
         <svg class="sc-course-image-hotspot-overlay" viewBox="0 0 320 180">
           <g class="sc-app-image-hotspot__author-region" data-hotspot-state="selected">
+            <circle class="sc-app-image-hotspot__author-region-contrast" cx="160" cy="90" r="24"></circle>
             <circle class="sc-app-image-hotspot__author-region-shape" cx="160" cy="90" r="24"></circle>
           </g>
         </svg>
@@ -151,6 +152,10 @@ describe("bounded image hotspot layout", () => {
       host,
       ".sc-app-image-hotspot__author-region-shape",
     );
+    const contrast = requireElement<SVGCircleElement>(
+      host,
+      ".sc-app-image-hotspot__author-region-contrast",
+    );
     const number = requireElement<HTMLElement>(host, ".sc-app-image-hotspot-author-marker__number");
     const resizeHandle = requireElement<HTMLElement>(
       host,
@@ -161,17 +166,23 @@ describe("bounded image hotspot layout", () => {
 
     expect(getComputedStyle(marker, "::before").content).toBe("none");
     expect(getComputedStyle(marker).outlineStyle).toBe("none");
+    expect(Number.parseFloat(getComputedStyle(contrast).strokeWidth)).toBeGreaterThan(
+      Number.parseFloat(getComputedStyle(region).strokeWidth),
+    );
     expect(getComputedStyle(region).strokeWidth).toBe("4px");
     expect(getComputedStyle(number).outlineStyle).toBe("solid");
     expect(getComputedStyle(number).outlineWidth).toBe("2px");
     expect(getComputedStyle(number).width).toBe("24px");
     expect(getComputedStyle(number).height).toBe("24px");
     expect(getComputedStyle(number).borderRadius).toBe("50%");
+    expect(getComputedStyle(number).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    expect(getComputedStyle(number).boxShadow).not.toBe("none");
     expect(getComputedStyle(resizeHandle).width).toBe("44px");
     expect(getComputedStyle(resizeHandle).height).toBe("44px");
     expect(getComputedStyle(resizeHandle).cursor).toBe("ew-resize");
     expect(getComputedStyle(resizeHandle, "::before").width).toBe("10px");
     expect(getComputedStyle(resizeHandle, "::before").borderRadius).toBe("0px");
+    expect(getComputedStyle(resizeHandle, "::before").boxShadow).not.toBe("none");
   });
 
   it("gives Pocket Atlas runtime states visible markers and a non-filling revealed region", async () => {

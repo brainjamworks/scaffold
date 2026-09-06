@@ -5048,7 +5048,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-annotated-figure__stage,
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-image-hotspot-fit-stage {
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-image-hotspot-fit-stage,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-authoring-fit-stage {
   overflow: hidden;
   border: var(--pa-keyline) solid var(--pa-ink);
   border-radius: 0;
@@ -5091,6 +5092,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-image-hotspot-shell {
+  color: var(--pa-ink);
+  font-family: var(--default-font-family);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-authoring-shell {
   color: var(--pa-ink);
   font-family: var(--default-font-family);
 }
@@ -5345,52 +5351,67 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-keyboard-instructions,
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-interaction p[role="status"] {
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-interaction__progress {
   color: var(--pa-ink-soft);
   font-size: calc(0.875rem * var(--sc-course-author-text-scale));
   line-height: 1.5;
 }
 
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-interaction p[role="status"] {
-  font-weight: 700;
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-interaction__progress {
+  font-size: calc(0.8125rem * var(--sc-course-author-text-scale));
+  font-weight: 600;
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-interaction__layout {
+  border: var(--pa-keyline) solid var(--pa-ink);
+  background: var(--pa-paper-raised);
+  box-shadow: 2px 2px 0 var(--pa-ink);
+  overflow: hidden;
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-stage {
+  background: var(--pa-paper-raised);
   box-shadow: none;
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-stage [data-spatial-image-surface] {
-  border: var(--pa-keyline) solid var(--pa-ink);
+  border: 0;
   border-radius: 0;
-  background: var(--pa-paper-muted);
-  transition:
-    background-color 120ms steps(2, end),
-    outline-color 120ms steps(2, end);
-}
-
-.sc-course.sc-course-theme-pocket-atlas-v1
-  .sc-course-drag-drop-stage[data-drag-active]
-  [data-spatial-image-surface] {
-  outline-color: var(--pa-violet);
-  background: color-mix(in srgb, var(--pa-mint) 22%, var(--pa-paper-muted));
-}
-
-.sc-course.sc-course-theme-pocket-atlas-v1
-  .sc-course-drag-drop-stage[data-drop-active]
-  [data-spatial-image-surface] {
-  outline-color: var(--pa-violet-deep);
-  background: color-mix(in srgb, var(--pa-mango) 30%, var(--pa-paper-muted));
+  background: transparent;
+  box-shadow: none;
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray {
-  border: var(--pa-keyline) solid var(--pa-ink);
+  border: 0;
+  border-inline-end: var(--pa-keyline) solid var(--pa-ink);
   border-radius: 0;
   background: var(--pa-paper-muted);
-  padding: var(
-    --sc-course-drag-drop-tray-padding,
-    calc(0.75rem * var(--sc-course-author-density))
-  );
+  padding: var(--sc-course-drag-drop-tray-padding, calc(0.75rem * var(--sc-course-author-density)));
   scrollbar-color: var(--pa-violet) var(--pa-paper-muted);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray__header {
+  border-block-end: var(--pa-keyline) solid var(--pa-ink);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray__actions {
+  border-block-start: var(--pa-keyline) solid var(--pa-ink);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray__return-target {
+  border: var(--pa-keyline) dashed var(--pa-ink);
+  border-radius: 0;
+  background: var(--pa-paper-raised);
+  color: var(--pa-ink);
+  box-shadow: 2px 2px 0 var(--pa-ink);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1
+  .sc-course-drag-drop-tray[data-drag-drop-return-state="active"]
+  .sc-course-drag-drop-tray__return-target {
+  border-style: solid;
+  background: var(--pa-mango);
+  box-shadow: 3px 3px 0 var(--pa-ink);
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray__placed,
@@ -5462,15 +5483,18 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker > button {
+  /* Dark ink in both modes: dark-mode --pa-ink is pale and vanishes on the
+     mango fill (1.27:1); the highlight foreground stays dark on mango. */
+  color: var(--pa-stat-highlight-foreground);
+  cursor: grab;
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker > button::before {
   border-width: var(--pa-keyline);
   border-color: var(--pa-ink);
   border-radius: 0;
   background: var(--pa-mango);
-  /* Dark ink in both modes: dark-mode --pa-ink is pale and vanishes on the
-     mango fill (1.27:1); the highlight foreground stays dark on mango. */
-  color: var(--pa-stat-highlight-foreground);
   box-shadow: 2px 2px 0 var(--pa-ink);
-  cursor: grab;
   transition:
     background-color 120ms steps(2, end),
     box-shadow 120ms steps(2, end),
@@ -5481,17 +5505,18 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   cursor: default;
 }
 
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker[data-selected] > button {
-  outline-color: var(--pa-violet-deep);
-}
-
 /* Selection fill only while no verdict is on the marker — verdict paint
-   wins; selection during review reads as the outline ring alone. */
+   wins; the stronger single boundary communicates selection without rings. */
 .sc-course.sc-course-theme-pocket-atlas-v1
   .sc-course-drag-drop-marker[data-selected]:not([data-course-state])
   > button {
-  background: var(--pa-violet);
   color: var(--pa-violet-foreground);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1
+  .sc-course-drag-drop-marker[data-selected]:not([data-course-state])
+  > button::before {
+  background: var(--pa-violet);
   box-shadow: 3px 3px 0 var(--pa-ink);
 }
 
@@ -5510,40 +5535,47 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 .sc-course.sc-course-theme-pocket-atlas-v1
   .sc-course-drag-drop-marker[data-course-state="correct"]
   > button {
+  color: var(--sc-course-state-correct-text);
+}
+
+.sc-course.sc-course-theme-pocket-atlas-v1
+  .sc-course-drag-drop-marker[data-course-state="correct"]
+  > button::before {
   border-color: var(--sc-course-state-correct-border);
   background: var(--sc-course-state-correct-background);
-  color: var(--sc-course-state-correct-text);
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1
   .sc-course-drag-drop-marker[data-course-state="incorrect"]
   > button {
-  border-color: var(--sc-course-state-incorrect-border);
-  background: var(--sc-course-state-incorrect-background);
   color: var(--sc-course-state-incorrect-text);
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1
-  .sc-course-drag-drop-marker[data-course-state="submitted"]
-  > button {
-  background: var(--pa-violet);
-  color: var(--pa-violet-foreground);
+  .sc-course-drag-drop-marker[data-course-state="incorrect"]
+  > button::before {
+  border-color: var(--sc-course-state-incorrect-border);
+  background: var(--sc-course-state-incorrect-background);
 }
 
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-drag-preview {
-  border: var(--pa-keyline) solid var(--pa-ink);
-  border-radius: 0;
+.sc-course.sc-course-theme-pocket-atlas-v1
+  .sc-course-drag-drop-marker[data-course-state="submitted"]
+  > button::before {
   background: var(--pa-violet);
-  color: var(--pa-violet-foreground);
-  font-family: var(--heading-font-family);
-  font-size: calc(0.8125rem * var(--sc-course-author-text-scale));
-  font-weight: 700;
-  box-shadow: var(--pa-shadow-md);
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1 [data-custom-icon-fallback] {
   font-size: 1.25rem;
   line-height: 1;
+}
+
+@media (max-width: 36rem) {
+  .sc-course.sc-course-theme-pocket-atlas-v1
+    .sc-course-drag-drop-interaction:not([data-drag-drop-presentation="full-slide"])
+    .sc-course-drag-drop-tray {
+    border-inline-end: 0;
+    border-block-end: var(--pa-keyline) solid var(--pa-ink);
+  }
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-keyboard-cursor {
@@ -5556,6 +5588,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   box-shadow: 2px 2px 0 var(--pa-ink);
 }
 
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray__reset,
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray__actions button,
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray__placed > div > button,
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray__placed > button,
@@ -5588,6 +5621,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 .sc-course.sc-course-theme-pocket-atlas-v1
   :is(
+    .sc-course-drag-drop-tray__header,
     .sc-course-drag-drop-tray__actions,
     .sc-course-drag-drop-tray__placed,
     .sc-course-drag-drop-tray__navigation
@@ -5611,6 +5645,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-workspace__close:focus-visible,
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-source > button:focus-visible,
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker > button:focus-visible,
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray__reset:focus-visible,
 .sc-course.sc-course-theme-pocket-atlas-v1
   :is(
     .sc-course-drag-drop-tray__actions,
@@ -5627,13 +5662,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   outline-offset: 3px;
 }
 
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-workspace__close:active:not(:disabled),
+.sc-course.sc-course-theme-pocket-atlas-v1
+  .sc-course-drag-drop-workspace__close:active:not(:disabled),
 .sc-course.sc-course-theme-pocket-atlas-v1
   .sc-course-drag-drop-source
   > button:active:not(:disabled),
 .sc-course.sc-course-theme-pocket-atlas-v1
   .sc-course-drag-drop-marker
   > button:active:not(:disabled),
+.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray__reset:active:not(:disabled),
 .sc-course.sc-course-theme-pocket-atlas-v1
   :is(
     .sc-course-drag-drop-tray__actions,
@@ -5664,10 +5701,17 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   .sc-course.sc-course-theme-pocket-atlas-v1
     .sc-course-drag-drop-marker
     > button:not(:disabled):hover {
+    color: var(--pa-violet-foreground);
+  }
+
+  .sc-course.sc-course-theme-pocket-atlas-v1
+    .sc-course-drag-drop-marker
+    > button:not(:disabled):hover::before {
     box-shadow: 3px 3px 0 var(--pa-ink);
     transform: translate(-1px, -1px);
   }
 
+  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray__reset:hover:not(:disabled),
   .sc-course.sc-course-theme-pocket-atlas-v1
     :is(
       .sc-course-drag-drop-tray__actions,
@@ -5687,7 +5731,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     [data-spatial-image-surface],
   .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-tray,
   .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-source > button,
-  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker > button,
+  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker > button::before,
   .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker__label,
   .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-drag-preview,
   .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-keyboard-cursor {
@@ -5709,22 +5753,27 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   }
 
   .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-keyboard-cursor,
-  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker > button,
+  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker > button::before,
   .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-source > button {
     background: Canvas;
+  }
+
+  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-keyboard-cursor,
+  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker > button,
+  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-source > button {
     color: CanvasText;
   }
 
   .sc-course.sc-course-theme-pocket-atlas-v1
     .sc-course-drag-drop-marker[data-course-state="correct"]
-    > button {
+    > button::before {
     border-style: double;
     border-width: 3px;
   }
 
   .sc-course.sc-course-theme-pocket-atlas-v1
     .sc-course-drag-drop-marker[data-course-state="incorrect"]
-    > button {
+    > button::before {
     border-style: dashed;
   }
 }
@@ -5732,6 +5781,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 @media (prefers-reduced-motion: reduce) {
   .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-source > button,
   .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker > button,
+  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker > button::before,
   .sc-course.sc-course-theme-pocket-atlas-v1
     :is(
       .sc-course-drag-drop-tray__actions,
@@ -5748,20 +5798,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   }
 }
 
-/* Full-slide Drag and Drop hooks (RIZ-289): the tray becomes the side panel, so
-   it takes the stage/tray boundary and panel paint; the prompt spans as a band
-   above the stage, mirroring categorise's full-slide bin-grid treatment. */
-.sc-course.sc-course-theme-pocket-atlas-v1
-  [data-full-slide-question-family="drag-drop"]
-  [data-drag-drop-presentation="full-slide"]
-  .sc-course-drag-drop-tray {
-  border-block-end: var(
-    --sc-course-drag-drop-stage-tray-boundary,
-    var(--pa-keyline) solid var(--pa-ink)
-  );
-  background: var(--pa-paper-muted);
-}
-
+/* The prompt remains a slide-level band; the shared learner interaction owns
+   the same marker-rail and image-stage structure in every presentation. */
 .sc-course.sc-course-theme-pocket-atlas-v1
   [data-full-slide-question-family="drag-drop"]
   [data-slot="assessment-prompt"] {
@@ -5770,7 +5808,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 }
 
 /* The theme's generic data-course-state banner paint must not hit the
-   marker wrapper — verdict paint lives on the marker button. */
+   marker wrapper — verdict paint lives on the marker surface. */
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker[data-course-state] {
   border: 0;
   background: transparent;
@@ -5804,9 +5842,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-workspace[data-state="closed"] {
   opacity: 0;
   transform: scale(0.97);
-}
-
-@media (hover: hover) and (pointer: fine) {
 }
 
 .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-annotated-figure__legend {
@@ -6780,42 +6815,5 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       .sc-course-flashcard-mastered__reset
     ):focus-visible {
     outline-color: Highlight;
-  }
-}
-
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker__remove {
-  border-color: var(--pa-ink);
-  border-radius: 0;
-  background: var(--pa-paper-raised);
-  color: var(--pa-ink);
-  box-shadow: 2px 2px 0 var(--pa-ink);
-  transition:
-    background-color 120ms steps(2, end),
-    box-shadow 120ms steps(2, end),
-    transform 120ms steps(2, end);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-marker__remove:hover {
-    background: var(--pa-coral);
-    color: var(--pa-paper);
-  }
-}
-
-/* Answer reveal: mint acceptance zones on keyline-weight dashes; the
-   learner's original answer and connector stay in ink. */
-.sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-reveal__zone {
-  stroke: var(--pa-mint);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .sc-course.sc-course-theme-pocket-atlas-v1 .sc-course-drag-drop-reveal__item {
-    animation: pa-drag-drop-reveal 120ms steps(2, end) both;
-  }
-}
-
-@keyframes pa-drag-drop-reveal {
-  from {
-    opacity: 0;
   }
 }

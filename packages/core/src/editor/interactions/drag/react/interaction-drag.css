@@ -1,3 +1,68 @@
+/* dnd-kit Feedback owns overlay geometry and drop animation, but its default
+   StyleInjector inserts these constant rules inside the activation event. Core
+   supplies them up front and configures the pinned package patch for external
+   styles so pointer activation performs no document-wide stylesheet mutation. */
+:is(:root, :host) [data-dnd-dragging] {
+  position: fixed !important;
+  z-index: calc(infinity);
+  top: var(--dnd-top, 0px) !important;
+  right: unset !important;
+  bottom: unset !important;
+  left: var(--dnd-left, 0px) !important;
+  width: var(--dnd-width, auto);
+  max-width: var(--dnd-width, auto);
+  height: var(--dnd-height, auto);
+  max-height: var(--dnd-height, auto);
+  pointer-events: none !important;
+  touch-action: none;
+  transform: var(--dnd-transform, none) !important;
+  transition: var(--dnd-transition) !important;
+  will-change: translate;
+}
+
+:is(:root, :host) [data-dnd-placeholder] {
+  transition: none;
+}
+
+:is(:root, :host) [data-dnd-placeholder="hidden"] {
+  visibility: hidden;
+}
+
+[data-dnd-dragging] * {
+  pointer-events: none !important;
+}
+
+[data-dnd-dragging]:not([data-dnd-dropping]) {
+  translate: var(--dnd-translate) !important;
+}
+
+[data-dnd-dragging][style*="--dnd-scale"] {
+  scale: var(--dnd-scale) !important;
+  transform-origin: var(--dnd-transform-origin) !important;
+}
+
+@layer dnd-kit {
+  :where([data-dnd-dragging][popover]) {
+    overflow: visible;
+    margin: unset;
+    padding: unset;
+    border: unset;
+    background: unset;
+    color: inherit;
+  }
+
+  :where([data-dnd-dragging][popover]:is(input, button)) {
+    border: revert;
+    background: revert;
+  }
+}
+
+[data-dnd-dragging]::backdrop,
+[data-dnd-overlay]:not([data-dnd-dragging]) {
+  display: none;
+  visibility: hidden;
+}
+
 @layer sc-components {
   .sc-interaction-drag-activation-area {
     box-sizing: border-box;
