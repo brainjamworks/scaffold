@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vite-plus/test";
+import { Result } from "better-result";
 
 import { SCAFFOLD_MEDIA_CONTEXTS, type MediaPort } from "./media";
 import {
@@ -31,12 +32,14 @@ import type {
   ScaffoldArtifactCreationMetadata,
   ScaffoldArtifactCreationPort,
 } from "./artifact-creation";
-import type { ArtifactSaveResult } from "./artifact-persistence";
+import type { ArtifactPersistenceFailure, ArtifactSaveResult } from "./artifact-persistence";
 import type {
   ArtifactRevision,
   LearnerPublicationPayload,
   LearnerPublicationPort,
   LearnerPublicationStatus,
+  LearnerPublicationStatusResult,
+  LearnerPublishResult,
 } from "./learner-publication";
 
 const successfulProblemOutcome: AssessmentProblemCommandOutcome = {
@@ -62,6 +65,20 @@ const SECOND_QUIZ_GROUP_ID = "artifact:artifact-1/group:quiz00000002";
 const PROBLEM_ID = "artifact:artifact-1/block:target000001";
 
 describe("host app contracts", () => {
+  it("retains the artifact id and cause for every expected persistence failure", () => {
+    const causes = [new Error("unavailable"), new Error("quota"), new Error("aborted")];
+    const failures = [
+      { reason: "storage-unavailable", artifactId: "artifact-1", cause: causes[0] },
+      { reason: "quota-exceeded", artifactId: "artifact-1", cause: causes[1] },
+      { reason: "write-aborted", artifactId: "artifact-1", cause: causes[2] },
+    ] satisfies ArtifactPersistenceFailure[];
+
+    expect(failures).toEqual([
+      { reason: "storage-unavailable", artifactId: "artifact-1", cause: causes[0] },
+      { reason: "quota-exceeded", artifactId: "artifact-1", cause: causes[1] },
+      { reason: "write-aborted", artifactId: "artifact-1", cause: causes[2] },
+    ]);
+  });
   it("keeps canonical revision authority and supported publication payloads host-owned", () => {
     expectTypeOf<ArtifactRevision>().toEqualTypeOf<string>();
     expectTypeOf<ArtifactSaveResult>().toEqualTypeOf<{
@@ -91,8 +108,8 @@ describe("host app contracts", () => {
       assessmentGroups: readonly unknown[];
     }>();
     expectTypeOf<LearnerPublicationPort>().toEqualTypeOf<{
-      getStatus: () => Promise<LearnerPublicationStatus>;
-      publish: (payload: LearnerPublicationPayload) => Promise<LearnerPublicationStatus>;
+      getStatus: () => Promise<LearnerPublicationStatusResult>;
+      publish: (payload: LearnerPublicationPayload) => Promise<LearnerPublishResult>;
     }>();
   });
 
@@ -174,15 +191,15 @@ describe("host app contracts", () => {
 
   it("scopes host services by authoring and learner responsibilities", async () => {
     const artifactPersistence = {
-      saveArtifact: async () => ({ artifactRevision: "revision-1" }),
+      saveArtifact: async () => Result.ok({ artifactRevision: "revision-1" }),
     } satisfies ArtifactPersistencePort;
     const learnerPublication = {
-      getStatus: async () => ({
+      getStatus: async () => Result.ok({
         currentArtifactRevision: "revision-1",
         publishedArtifactRevision: null,
         publishedAt: null,
       }),
-      publish: async () => ({
+      publish: async () => Result.ok({
         currentArtifactRevision: "revision-1",
         publishedArtifactRevision: "revision-1",
         publishedAt: "2026-08-10T12:00:00.000Z",

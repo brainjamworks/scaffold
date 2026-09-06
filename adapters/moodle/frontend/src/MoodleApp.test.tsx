@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   runtimeHostProps: [] as ContentRuntimeHostProps[],
   learnerAppProps: [] as ScaffoldLearnerAppProps[],
   moodleCall: vi.fn(),
-  saveNow: vi.fn(async () => true),
+  saveNow: vi.fn(),
   scaffoldApplications: [] as Array<{
     runtime: ContentRuntimeHostProps["composition"];
   }>,

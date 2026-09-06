@@ -310,7 +310,7 @@ final class content_service {
         $canonical = $this->project_artifact($preflightrecord, $cmid, true);
         $currentrevision = self::artifact_revision($canonical);
         if (!hash_equals($currentrevision, $sourceartifactrevision)) {
-            throw new \invalid_parameter_exception('stale-artifact-revision');
+            throw new \moodle_exception('publicationstaleartifactrevision', 'scaffold');
         }
 
         $artifactmetadata = self::decode_required_object($artifactmetadatajson, 'artifactmetadatajson');
@@ -354,7 +354,7 @@ final class content_service {
             $current = $DB->get_record('scaffold', ['id' => $scope->instance->id], '*', MUST_EXIST);
             $currentcanonical = $this->project_artifact($current, $cmid, true);
             if (!hash_equals(self::artifact_revision($currentcanonical), $sourceartifactrevision)) {
-                throw new \invalid_parameter_exception('stale-artifact-revision');
+                throw new \moodle_exception('publicationstaleartifactrevision', 'scaffold');
             }
 
             $currentprojection = assessment_projection::for_activity($current);

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import type { LearnerPublicationPayload } from "@scaffold/core/ports";
+import type {
+  LearnerPublicationPayload,
+  LearnerPublicationStatus,
+  LearnerPublicationStatusResult,
+  LearnerPublishResult,
+} from "@scaffold/core/ports";
 
 import { createXBlockLearnerPublicationPort } from "./learner-publication-port";
 import type { XBlockInnerBridge } from "./xblock-inner-bridge";
@@ -58,9 +63,9 @@ describe("createXBlockLearnerPublicationPort", () => {
     });
     const port = createXBlockLearnerPublicationPort(bridge, initialStatus);
 
-    await expect(port.getStatus()).resolves.toBe(initialStatus);
-    await expect(port.publish(payload)).resolves.toEqual(publishedStatus);
-    await expect(port.getStatus()).resolves.toEqual(publishedStatus);
+    expect(publicationValue(await port.getStatus())).toBe(initialStatus);
+    expect(publicationValue(await port.publish(payload))).toEqual(publishedStatus);
+    expect(publicationValue(await port.getStatus())).toEqual(publishedStatus);
     expect(bridge.requests).toEqual([{ type: "publication.publish", payload }]);
   });
 
@@ -71,9 +76,60 @@ describe("createXBlockLearnerPublicationPort", () => {
     });
     const port = createXBlockLearnerPublicationPort(bridge, initialStatus);
 
-    await expect(port.publish(payload)).rejects.toMatchObject({
-      code: "stale-artifact-revision",
+    const result = await port.publish(payload);
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) throw new Error("expected stale publication to fail");
+    expect(result.error).toMatchObject({
+      reason: "stale-artifact-revision",
+      artifactId: "usage-v1",
+      sourceArtifactRevision: "revision-1",
+      cause: expect.any(Error),
     });
-    await expect(port.getStatus()).resolves.toBe(initialStatus);
+    expect(publicationValue(await port.getStatus())).toBe(initialStatus);
+  });
+
+  it.each([
+    { error: "authoring permission required", reason: "forbidden" },
+    { error: "invalid-publication: learner content is invalid", reason: "invalid-payload" },
+    { error: "publication-write-failed", reason: "write-aborted" },
+  ] as const)("classifies $reason at the XBlock boundary", async ({ error, reason }) => {
+    const port = createXBlockLearnerPublicationPort(
+      new PublicationBridge({ success: false, error }),
+      initialStatus,
+    );
+
+    const result = await port.publish(payload);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) throw new Error(`expected ${reason} publication failure`);
+    expect(result.error).toMatchObject({
+      reason,
+      artifactId: "usage-v1",
+      cause: expect.any(Error),
+    });
+  });
+
+  it.each([
+    ["unknown response", "temporary host failure"],
+    ["publication-like unknown response", "publication storage unavailable"],
+    ["empty response", ""],
+    ["non-string response", { reason: "publication-write-failed" }],
+  ])("keeps %s observable", async (_label, error) => {
+    const port = createXBlockLearnerPublicationPort(
+      new PublicationBridge({ success: false, error }),
+      initialStatus,
+    );
+
+    await expect(port.publish(payload)).rejects.toMatchObject({
+      message: expect.stringMatching(/publication refusal/),
+      cause: expect.anything(),
+    });
   });
 });
+
+function publicationValue(
+  result: LearnerPublicationStatusResult | LearnerPublishResult,
+): LearnerPublicationStatus {
+  if (result.isErr()) throw new Error("expected publication operation to succeed");
+  return result.value;
+}

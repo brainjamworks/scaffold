@@ -1,8 +1,9 @@
 import type {
   ArtifactPersistencePort,
+  ArtifactPersistenceResult,
   ArtifactSavePayload,
-  ArtifactSaveResult,
 } from "@scaffold/core/ports";
+import { artifactSaveFailed, artifactSaveSucceeded } from "@scaffold/core/ports";
 
 import { ARTIFACT_STORE, getBrowserStorageDb, type StoredArtifact } from "./browserStorageDb";
 
@@ -48,10 +49,21 @@ export function createBrowserPersistencePort(
   const latencyMs = options.saveLatencyMs ?? DEFAULT_SAVE_LATENCY_MS;
 
   return {
-    async saveArtifact(payload: ArtifactSavePayload): Promise<ArtifactSaveResult> {
-      const db = await getBrowserStorageDb();
-      if (!db) {
-        throw new Error("Browser persistence: IndexedDB is unavailable");
+    async saveArtifact(payload: ArtifactSavePayload): Promise<ArtifactPersistenceResult> {
+      const artifactId = payload.artifact.id;
+      const database = getBrowserStorageDb();
+      if (!database) {
+        const cause = new Error("Browser persistence: IndexedDB is unavailable");
+        return artifactSaveFailed({ reason: "storage-unavailable", artifactId, cause });
+      }
+
+      let db;
+      try {
+        db = await database;
+      } catch (error) {
+        const failure = classifyBrowserStorageFailure(error, artifactId, "open");
+        if (failure) return artifactSaveFailed(failure);
+        throw error;
       }
 
       const artifactRevision = crypto.randomUUID();
@@ -63,21 +75,21 @@ export function createBrowserPersistencePort(
       };
 
       try {
-        await db.put(ARTIFACT_STORE, stored, payload.artifact.id);
+        await db.put(ARTIFACT_STORE, stored, artifactId);
       } catch (error) {
-        throw new Error(
-          `Browser persistence: could not write artifact ${payload.artifact.id}: ${stringifyError(error)}`,
-        );
+        const failure = classifyBrowserStorageFailure(error, artifactId, "write");
+        if (failure) return artifactSaveFailed(failure);
+        throw error;
       }
 
       if (latencyMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, latencyMs));
       }
 
-      return {
+      return artifactSaveSucceeded({
         artifact: { title: payload.artifact.title },
         artifactRevision,
-      };
+      });
     },
 
     async loadArtifact(artifactId: string): Promise<StoredArtifact | null> {
@@ -95,6 +107,32 @@ export function createBrowserPersistencePort(
   };
 }
 
-function stringifyError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+function classifyBrowserStorageFailure(
+  cause: unknown,
+  artifactId: string,
+  operation: "open" | "write",
+) {
+  const name = readErrorName(cause);
+  if (name === "QuotaExceededError") {
+    return { reason: "quota-exceeded" as const, artifactId, cause };
+  }
+  if (name === "AbortError") {
+    return { reason: "write-aborted" as const, artifactId, cause };
+  }
+  if (
+    operation === "open" &&
+    (name === "InvalidStateError" || name === "NotSupportedError" || name === "SecurityError")
+  ) {
+    return { reason: "storage-unavailable" as const, artifactId, cause };
+  }
+  return null;
+}
+
+function readErrorName(error: unknown): string | null {
+  if (!error || typeof error !== "object") return null;
+  const descriptor = Object.getOwnPropertyDescriptor(error, "name");
+  if (descriptor && "value" in descriptor && typeof descriptor.value === "string") {
+    return descriptor.value;
+  }
+  return error instanceof Error ? error.name : null;
 }

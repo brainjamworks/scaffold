@@ -1,4 +1,4 @@
-import { ScaffoldAuthoringEntry } from "@scaffold/core/authoring";
+import { ScaffoldAuthoringEntry, type AuthoringSaveResult } from "@scaffold/core/authoring";
 import type { ScaffoldAuthoringArtifact } from "@scaffold/core/ports";
 import { createScaffoldApplication } from "@scaffold/core/extensions";
 import { useMemo, useRef } from "react";
@@ -72,7 +72,7 @@ export function XBlockStudioApp({ data, bridge }: XBlockStudioAppProps) {
               onActivate={() => {
                 void saveWithHostNotification(bridge, context.saveNow, manualSaveInFlightRef)
                   .then(async (saved) => {
-                    if (saved) await notifyXBlockDone(bridge);
+                    if (saved?.isOk()) await notifyXBlockDone(bridge);
                   })
                   .catch(() => undefined);
               }}
@@ -88,10 +88,10 @@ export function XBlockStudioApp({ data, bridge }: XBlockStudioAppProps) {
 
 async function saveWithHostNotification(
   bridge: XBlockInnerBridge,
-  saveNow: () => Promise<boolean>,
+  saveNow: () => Promise<AuthoringSaveResult>,
   inFlightRef: { current: boolean },
-): Promise<boolean> {
-  if (inFlightRef.current) return false;
+): Promise<AuthoringSaveResult | null> {
+  if (inFlightRef.current) return null;
   inFlightRef.current = true;
   try {
     await notifyXBlockSaveStart(bridge);

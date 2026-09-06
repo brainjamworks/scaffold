@@ -6,6 +6,7 @@ import {
   type MoodleBridgeResponse,
 } from "../bridge/protocol";
 import type { MoodleApplicationConfig } from "../types";
+import { MoodleServiceError } from "../api";
 
 interface MoodleInnerLifecycle {
   destroy(): void;
@@ -133,6 +134,14 @@ export function mountMoodleInner({
     pending.delete(message.requestId);
     if (message.ok) {
       request.resolve(message.result);
+    } else if (message.error.kind === "moodle-service-error") {
+      request.reject(
+        new MoodleServiceError(message.error.message, {
+          errorCode: message.error.errorCode,
+          debugInfo: message.error.debugInfo,
+          exceptionName: message.error.exceptionName,
+        }),
+      );
     } else {
       request.reject(new Error(message.error.message));
     }

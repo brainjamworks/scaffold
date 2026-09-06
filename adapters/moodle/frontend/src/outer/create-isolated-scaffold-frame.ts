@@ -4,6 +4,7 @@ import {
   createMoodleBridgeSuccessResponse,
   validateMoodleBridgeEvent,
   type MoodleAjaxRequest,
+  type MoodleBridgeFailure,
 } from "../bridge/protocol";
 import type { MoodleApplicationConfig, MoodleOuterBootstrapConfig } from "../types";
 
@@ -82,7 +83,7 @@ export function createIsolatedScaffoldFrame({
         createMoodleBridgeFailureResponse({
           sessionId,
           requestId: request.requestId,
-          message: error instanceof Error ? error.message : "Moodle call failed",
+          error: toMoodleBridgeFailure(error),
         }),
       );
     }
@@ -133,6 +134,31 @@ export function createIsolatedScaffoldFrame({
       errorElement?.remove();
       iframe.remove();
     },
+  };
+}
+
+function toMoodleBridgeFailure(error: unknown): MoodleBridgeFailure {
+  if (
+    error !== null &&
+    typeof error === "object" &&
+    typeof (error as Record<string, unknown>)["errorcode"] === "string" &&
+    (error as Record<string, unknown>)["errorcode"] !== "" &&
+    typeof (error as Record<string, unknown>)["message"] === "string" &&
+    (error as Record<string, unknown>)["message"] !== ""
+  ) {
+    const serviceError = error as Record<string, unknown>;
+    return {
+      kind: "moodle-service-error",
+      message: serviceError["message"] as string,
+      errorCode: serviceError["errorcode"] as string,
+      debugInfo: typeof serviceError["debuginfo"] === "string" ? serviceError["debuginfo"] : null,
+      exceptionName:
+        typeof serviceError["exception"] === "string" ? serviceError["exception"] : null,
+    };
+  }
+  return {
+    kind: "unexpected-error",
+    message: error instanceof Error ? error.message : "Moodle call failed",
   };
 }
 

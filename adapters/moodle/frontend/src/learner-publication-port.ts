@@ -1,12 +1,16 @@
 import type {
+  LearnerPublishFailure,
   LearnerPublicationPayload,
   LearnerPublicationPort,
-  LearnerPublicationPortError,
-  LearnerPublicationPortErrorCode,
   LearnerPublicationStatus,
 } from "@scaffold/core/ports";
+import {
+  learnerPublicationStatusSucceeded,
+  learnerPublishFailed,
+  learnerPublishSucceeded,
+} from "@scaffold/core/ports";
 
-import { moodleCall, type MoodleAjaxResponse } from "./api";
+import { MoodleServiceError, moodleCall, type MoodleAjaxResponse } from "./api";
 
 interface PublishContentResponse extends MoodleAjaxResponse {
   publicationStatusJson?: unknown;
@@ -19,7 +23,7 @@ export function createMoodleLearnerPublicationPort(
   let authoritativeStatus = initialStatus;
   return {
     async getStatus() {
-      return authoritativeStatus;
+      return learnerPublicationStatusSucceeded(authoritativeStatus);
     },
 
     async publish(payload: LearnerPublicationPayload) {
@@ -33,9 +37,12 @@ export function createMoodleLearnerPublicationPort(
           assessmentgroupsjson: JSON.stringify(payload.assessmentGroups),
         });
         authoritativeStatus = parseMoodlePublicationStatus(response.publicationStatusJson);
-        return authoritativeStatus;
-      } catch (error) {
-        throw typedPublicationError(error);
+        return learnerPublishSucceeded(authoritativeStatus);
+      } catch (cause) {
+        if (!(cause instanceof MoodleServiceError)) throw cause;
+        const failure = classifyMoodlePublicationFailure(cause, payload);
+        if (failure === null) throw cause;
+        return learnerPublishFailed(failure);
       }
     },
   };
@@ -70,13 +77,23 @@ export function parseMoodlePublicationStatus(value: unknown): LearnerPublication
   };
 }
 
-function typedPublicationError(error: unknown): unknown {
-  const message = error instanceof Error ? error.message : String(error);
-  const code: LearnerPublicationPortErrorCode | null = message.includes("stale-artifact-revision")
-    ? "stale-artifact-revision"
-    : message.includes("not authorized") || message.includes("permission")
-      ? "forbidden"
-      : null;
-  if (code === null) return error;
-  return Object.assign(new Error(message), { code }) satisfies LearnerPublicationPortError;
+function classifyMoodlePublicationFailure(
+  cause: MoodleServiceError,
+  payload: LearnerPublicationPayload,
+): LearnerPublishFailure | null {
+  if (cause.service.errorCode === "publicationstaleartifactrevision") {
+    return {
+      reason: "stale-artifact-revision",
+      artifactId: payload.artifact.id,
+      sourceArtifactRevision: payload.sourceArtifactRevision,
+      cause,
+    };
+  }
+  if (cause.service.errorCode === "nopermissions") {
+    return { reason: "forbidden", artifactId: payload.artifact.id, cause };
+  }
+  if (cause.service.errorCode === "invalidparameter") {
+    return { reason: "invalid-payload", artifactId: payload.artifact.id, cause };
+  }
+  return null;
 }

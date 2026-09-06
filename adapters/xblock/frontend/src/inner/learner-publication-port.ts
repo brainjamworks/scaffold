@@ -1,9 +1,13 @@
 import type {
+  LearnerPublishFailure,
   LearnerPublicationPayload,
   LearnerPublicationPort,
-  LearnerPublicationPortError,
-  LearnerPublicationPortErrorCode,
   LearnerPublicationStatus,
+} from "@scaffold/core/ports";
+import {
+  learnerPublicationStatusSucceeded,
+  learnerPublishFailed,
+  learnerPublishSucceeded,
 } from "@scaffold/core/ports";
 
 import type { BridgeHandlerResponse } from "./handler-response";
@@ -20,16 +24,16 @@ export function createXBlockLearnerPublicationPort(
   let authoritativeStatus = initialStatus;
   return {
     async getStatus() {
-      return authoritativeStatus;
+      return learnerPublicationStatusSucceeded(authoritativeStatus);
     },
 
     async publish(payload: LearnerPublicationPayload) {
       const response = await bridge.request<PublishContentResponse>("publication.publish", payload);
       if (response.success === false) {
-        throw publicationHandlerError(response.error);
+        return learnerPublishFailed(publicationHandlerFailure(response.error, payload));
       }
       authoritativeStatus = parseXBlockPublicationStatus(response.publicationStatus);
-      return authoritativeStatus;
+      return learnerPublishSucceeded(authoritativeStatus);
     },
   };
 }
@@ -57,14 +61,31 @@ export function parseXBlockPublicationStatus(value: unknown): LearnerPublication
   };
 }
 
-function publicationHandlerError(value: unknown): LearnerPublicationPortError | Error {
-  const message = typeof value === "string" ? value : "XBlock Publish was refused";
-  const code: LearnerPublicationPortErrorCode | null = message.includes("stale-artifact-revision")
-    ? "stale-artifact-revision"
-    : message.includes("permission")
-      ? "forbidden"
-      : message.includes("payload") || message.includes("publication")
-        ? "invalid-payload"
-        : null;
-  return code === null ? new Error(message) : Object.assign(new Error(message), { code });
+function publicationHandlerFailure(
+  value: unknown,
+  payload: LearnerPublicationPayload,
+): LearnerPublishFailure {
+  if (typeof value !== "string") {
+    throw new Error("XBlock publication refusal is malformed", { cause: value });
+  }
+  const message = value;
+  const cause = new Error(message);
+  if (message === "stale-artifact-revision") {
+    return {
+      reason: "stale-artifact-revision",
+      artifactId: payload.artifact.id,
+      sourceArtifactRevision: payload.sourceArtifactRevision,
+      cause,
+    };
+  }
+  if (message === "authoring permission required") {
+    return { reason: "forbidden", artifactId: payload.artifact.id, cause };
+  }
+  if (message.startsWith("invalid-publication: ")) {
+    return { reason: "invalid-payload", artifactId: payload.artifact.id, cause };
+  }
+  if (message === "publication-write-failed") {
+    return { reason: "write-aborted", artifactId: payload.artifact.id, cause };
+  }
+  throw new Error(`Unknown XBlock publication refusal: ${message}`, { cause });
 }

@@ -5,8 +5,9 @@ import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { ScaffoldAuthoringEntryProps } from "@scaffold/core/authoring";
+import type { AuthoringSaveResult, ScaffoldAuthoringEntryProps } from "@scaffold/core/authoring";
 import type { ScaffoldApplication } from "@scaffold/core/extensions";
+import { artifactSaveSucceeded } from "@scaffold/core/ports";
 
 import { applyStudioLayoutCompat } from "./layout";
 import { createScaffoldArtifact, ScaffoldArtifactSchema } from "@scaffold/core/format";
@@ -17,7 +18,7 @@ import type { XBlockInnerBridge } from "./inner/xblock-inner-bridge";
 const studioMountMocks = vi.hoisted(() => ({
   applications: [] as ScaffoldApplication[],
   authoringEntryProps: [] as ScaffoldAuthoringEntryProps[],
-  saveNow: vi.fn(async () => true),
+  saveNow: vi.fn(async (): Promise<AuthoringSaveResult> => successfulAuthoringSaveResult()),
 }));
 
 const mountedRoots: Root[] = [];
@@ -69,7 +70,7 @@ afterEach(() => {
 });
 
 beforeEach(() => {
-  studioMountMocks.saveNow.mockReset().mockResolvedValue(true);
+  studioMountMocks.saveNow.mockReset().mockResolvedValue(successfulAuthoringSaveResult());
 });
 
 function renderModal({
@@ -165,7 +166,7 @@ describe("XBlockStudioApp mounted configuration", () => {
       studioMountMocks.applications[0],
     );
     const props = studioMountMocks.authoringEntryProps[0];
-    expect(props?.headerActions).toBeUndefined();
+    expect(props).not.toHaveProperty("headerActions");
     const slots = props?.hostHeaderActions?.({
       preview: false,
       saveNow: studioMountMocks.saveNow,
@@ -182,7 +183,7 @@ describe("XBlockStudioApp mounted configuration", () => {
 
   it("orders one manual save lifecycle and rejects an overlapping Done operation", async () => {
     const events: string[] = [];
-    const saveResult = createDeferred<boolean>();
+    const saveResult = createDeferred<AuthoringSaveResult>();
     studioMountMocks.saveNow.mockImplementation(() => {
       events.push("saveNow");
       return saveResult.promise;
@@ -199,7 +200,7 @@ describe("XBlockStudioApp mounted configuration", () => {
 
     expect(events).toEqual(["host.notifySaveStart", "saveNow"]);
 
-    saveResult.resolve(true);
+    saveResult.resolve(successfulAuthoringSaveResult());
     await waitForCondition(() => events.includes("host.notifySaveEnd"));
     expect(events).toEqual(["host.notifySaveStart", "saveNow", "host.notifySaveEnd"]);
     expect(events).not.toContain("host.done");
@@ -209,7 +210,7 @@ describe("XBlockStudioApp mounted configuration", () => {
     const events: string[] = [];
     studioMountMocks.saveNow.mockImplementation(async () => {
       events.push("saveNow");
-      return true;
+      return successfulAuthoringSaveResult();
     });
     const bridge = createBridgeStub((type) => {
       events.push(type);
@@ -325,4 +326,9 @@ async function waitForCondition(condition: () => boolean): Promise<void> {
     if (performance.now() > deadline) throw new Error("Timed out waiting for Studio actions");
     await new Promise((resolve) => window.setTimeout(resolve, 0));
   }
+}
+
+function successfulAuthoringSaveResult(): AuthoringSaveResult {
+  const value = { localRevision: 1, artifactRevision: "revision-2" };
+  return artifactSaveSucceeded(value) as unknown as AuthoringSaveResult;
 }

@@ -1,12 +1,12 @@
 // @vitest-environment happy-dom
 import "fake-indexeddb/auto";
 
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { ArtifactSavePayload } from "@scaffold/core/ports";
 
 import { createBrowserPersistencePort } from "./createBrowserPersistencePort";
-import { resetBrowserStorage } from "./browserStorageDb";
+import * as browserStorage from "./browserStorageDb";
 
 const samplePayload = (overrides: Partial<ArtifactSavePayload> = {}): ArtifactSavePayload => ({
   artifact: {
@@ -20,11 +20,13 @@ const samplePayload = (overrides: Partial<ArtifactSavePayload> = {}): ArtifactSa
 
 describe("createBrowserPersistencePort", () => {
   beforeEach(async () => {
-    await resetBrowserStorage();
+    await browserStorage.resetBrowserStorage();
   });
 
   afterEach(async () => {
-    await resetBrowserStorage();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    await browserStorage.resetBrowserStorage();
   });
 
   it("persists a saved artifact and reads it back", async () => {
@@ -37,7 +39,7 @@ describe("createBrowserPersistencePort", () => {
         },
       }),
     );
-    expect(result).toEqual({
+    expect(savedValue(result)).toEqual({
       artifact: { title: "Page one" },
       artifactRevision: expect.any(String),
     });
@@ -46,7 +48,7 @@ describe("createBrowserPersistencePort", () => {
     expect(loaded).not.toBeNull();
     expect(loaded?.artifact.title).toBe("Page one");
     expect(loaded?.artifact.id).toBe("artifact-1");
-    expect(loaded?.artifactRevision).toBe(result.artifactRevision);
+    expect(loaded?.artifactRevision).toBe(savedValue(result).artifactRevision);
     expect(loaded?.savedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
@@ -70,8 +72,8 @@ describe("createBrowserPersistencePort", () => {
     );
     const loaded = await port.loadArtifact("artifact-1");
     expect(loaded?.artifact.title).toBe("Second");
-    expect(second.artifactRevision).not.toBe(first.artifactRevision);
-    expect(loaded?.artifactRevision).toBe(second.artifactRevision);
+    expect(savedValue(second).artifactRevision).not.toBe(savedValue(first).artifactRevision);
+    expect(loaded?.artifactRevision).toBe(savedValue(second).artifactRevision);
   });
 
   it("clearArtifact removes a single artifact and leaves others intact", async () => {
@@ -98,4 +100,53 @@ describe("createBrowserPersistencePort", () => {
     const elapsed = Date.now() - start;
     expect(elapsed).toBeGreaterThanOrEqual(45);
   });
+
+  it("returns storage-unavailable with the artifact id and cause", async () => {
+    vi.stubGlobal("indexedDB", undefined);
+    const port = createBrowserPersistencePort({ saveLatencyMs: 0 });
+
+    const result = await port.saveArtifact(samplePayload());
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) throw new Error("expected storage-unavailable");
+    expect(result.error).toMatchObject({
+      reason: "storage-unavailable",
+      artifactId: "artifact-1",
+      cause: expect.any(Error),
+    });
+  });
+
+  it.each([
+    ["QuotaExceededError", "quota-exceeded"],
+    ["AbortError", "write-aborted"],
+  ] as const)("classifies %s at the browser write boundary", async (name, reason) => {
+    const cause = new DOMException(name, name);
+    vi.spyOn(browserStorage, "getBrowserStorageDb").mockReturnValue(
+      Promise.resolve({ put: vi.fn().mockRejectedValue(cause) } as never),
+    );
+    const port = createBrowserPersistencePort({ saveLatencyMs: 0 });
+
+    const result = await port.saveArtifact(samplePayload());
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) throw new Error(`expected ${reason}`);
+    expect(result.error).toEqual({ reason, artifactId: "artifact-1", cause });
+  });
+
+  it("does not flatten an unknown adapter defect", async () => {
+    const defect = new Error("programming defect");
+    vi.spyOn(browserStorage, "getBrowserStorageDb").mockReturnValue(
+      Promise.resolve({ put: vi.fn().mockRejectedValue(defect) } as never),
+    );
+    const port = createBrowserPersistencePort({ saveLatencyMs: 0 });
+
+    await expect(port.saveArtifact(samplePayload())).rejects.toBe(defect);
+  });
 });
+
+function savedValue(
+  result: Awaited<ReturnType<ReturnType<typeof createBrowserPersistencePort>["saveArtifact"]>>,
+) {
+  if (result.isErr()) throw new Error(`expected successful save, received ${result.error.reason}`);
+  return result.value;
+}

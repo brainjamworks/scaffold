@@ -90,6 +90,7 @@ $string['privacy:metadata:scaffold_learner_activity:timemodified'] = 'When the l
 $string['privacy:metadata:scaffold_learner_activity:userid'] = 'The learner who owns the activity progress.';
 $string['problemnotfound'] = 'The assessment problem was not found.';
 $string['publicationmigrationinvalid'] = 'The stored Scaffold learner publication could not be migrated.';
+$string['publicationstaleartifactrevision'] = 'The saved Scaffold content changed before publication.';
 $string['quizanswerreviewdisabled'] = 'Quiz answer review is disabled.';
 $string['quizattemptnotcomplete'] = 'The Quiz attempt is not complete.';
 $string['quizattemptnotlatest'] = 'The Quiz attempt is not the latest attempt.';

@@ -113,7 +113,18 @@ describe("Moodle bridge protocol", () => {
       createMoodleBridgeFailureResponse({
         sessionId,
         requestId: "request-2",
-        message: "Moodle call failed",
+        error: { kind: "unexpected-error", message: "Moodle call failed" },
+      }),
+      createMoodleBridgeFailureResponse({
+        sessionId,
+        requestId: "request-3",
+        error: {
+          kind: "moodle-service-error",
+          message: "Invalid parameter value detected",
+          errorCode: "invalidparameter",
+          debugInfo: "stale-artifact-revision",
+          exceptionName: "invalid_parameter_exception",
+        },
       }),
     ];
 

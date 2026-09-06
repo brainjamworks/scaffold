@@ -18,18 +18,30 @@ export type {
   QuizSubmitQuestionRequest,
 } from "./assessment";
 export type {
+  ArtifactPersistenceFailure,
   ArtifactPersistencePort,
+  ArtifactPersistenceResult,
   ArtifactSavePayload,
   ArtifactSaveResult,
   SaveableScaffoldArtifact,
 } from "./artifact-persistence";
+export { artifactSaveFailed, artifactSaveSucceeded } from "./artifact-persistence";
 export type {
   ArtifactRevision,
+  LearnerPublicationRefusal,
   LearnerPublicationPayload,
   LearnerPublicationPort,
-  LearnerPublicationPortError,
-  LearnerPublicationPortErrorCode,
   LearnerPublicationStatus,
+  LearnerPublicationStatusFailure,
+  LearnerPublicationStatusResult,
+  LearnerPublishFailure,
+  LearnerPublishResult,
+} from "./learner-publication";
+export {
+  learnerPublicationStatusFailed,
+  learnerPublicationStatusSucceeded,
+  learnerPublishFailed,
+  learnerPublishSucceeded,
 } from "./learner-publication";
 export type {
   ScaffoldArtifactCreationInput,

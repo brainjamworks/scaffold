@@ -14,6 +14,20 @@ export interface MoodleAjaxResponse {
   [key: string]: unknown;
 }
 
+export class MoodleServiceError extends Error {
+  constructor(
+    message: string,
+    readonly service: {
+      errorCode: string | null;
+      debugInfo: string | null;
+      exceptionName: string | null;
+    } = { errorCode: null, debugInfo: null, exceptionName: null },
+  ) {
+    super(message);
+    this.name = "MoodleServiceError";
+  }
+}
+
 export async function moodleCall<T extends MoodleAjaxResponse>(
   methodName: string,
   args: Record<string, unknown>,
@@ -25,7 +39,7 @@ export async function moodleCall<T extends MoodleAjaxResponse>(
 
   const body = await bridge.call<T>(methodName, args);
   if (body.success === false) {
-    throw new Error(
+    throw new MoodleServiceError(
       typeof body.error === "string" ? body.error : `Moodle service failed: ${methodName}`,
     );
   }

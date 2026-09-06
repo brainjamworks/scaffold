@@ -668,8 +668,8 @@ final class content_service_test extends \advanced_testcase {
                 '[]',
             );
             $this->fail('Expected stale publication to be refused');
-        } catch (\invalid_parameter_exception $exception) {
-            $this->assertStringContainsString('stale-artifact-revision', $exception->getMessage());
+        } catch (\moodle_exception $exception) {
+            $this->assertSame('publicationstaleartifactrevision', $exception->errorcode);
         }
 
         $after = $DB->get_record('scaffold', ['id' => $activity->id], '*', MUST_EXIST);

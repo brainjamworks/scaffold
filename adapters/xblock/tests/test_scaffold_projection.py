@@ -2902,6 +2902,37 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             {"success": False, "error": "authoring permission required"},
         )
 
+    def test_publish_content_returns_declared_validation_refusal(self):
+        block = make_xblock()
+        payload = publication_payload(block)
+        payload["artifact"]["id"] = "another-artifact"
+
+        result = block.publish_content(payload)
+
+        self.assertFalse(result["success"])
+        self.assertTrue(result["error"].startswith("invalid-publication: "))
+
+    def test_publish_content_returns_declared_storage_refusal(self):
+        block = make_xblock()
+        saved = block.save_content(save_payload(title="Published lesson"))
+
+        with patch.object(
+            scaffold,
+            "_replace_active_publication",
+            side_effect=RuntimeError("injected storage failure"),
+        ):
+            result = block.publish_content(
+                publication_payload(
+                    block,
+                    source_revision=saved["artifactRevision"],
+                ),
+            )
+
+        self.assertEqual(
+            result,
+            {"success": False, "error": "publication-write-failed"},
+        )
+
     def test_publication_assignment_failure_rolls_back_prior_fields(self):
         class FaultingPublicationStore:
             def __init__(self):

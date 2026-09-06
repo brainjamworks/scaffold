@@ -6,6 +6,7 @@ import {
 } from "./authoring-ports";
 import { createXBlockLearnerHostServices, createXBlockRuntimePorts } from "./ports";
 import type { XBlockInnerBridge } from "./xblock-inner-bridge";
+import { createXBlockArtifactPersistence } from "./artifact-persistence-port";
 import type { XBlockBridgeRequestType } from "../bridge/protocol";
 
 class RecordingBridge implements XBlockInnerBridge {
@@ -491,7 +492,10 @@ describe("XBlock assessment ports", () => {
       },
     };
 
-    await expect(services.artifactPersistence.saveArtifact(bundle)).resolves.toEqual({
+    const saved = await services.artifactPersistence.saveArtifact(bundle);
+    expect(saved.isOk()).toBe(true);
+    if (saved.isErr()) throw new Error("expected XBlock artifact save to succeed");
+    expect(saved.value).toEqual({
       artifactRevision: "revision-2",
     });
 
@@ -501,7 +505,50 @@ describe("XBlock assessment ports", () => {
         payload: { artifact: bundle.artifact },
       },
     ]);
-    await expect(services.learnerPublication.getStatus()).resolves.toBe(publicationStatus);
+    const loadedPublicationStatus = await services.learnerPublication.getStatus();
+    expect(loadedPublicationStatus.isOk()).toBe(true);
+    if (loadedPublicationStatus.isErr()) throw new Error("expected publication status to load");
+    expect(loadedPublicationStatus.value).toBe(publicationStatus);
+  });
+
+  it("returns an actionable write failure when the XBlock handler refuses Save", async () => {
+    const bridge = {
+      request: async () => ({ success: false, error: "save refused" }),
+    } as unknown as XBlockInnerBridge;
+    const result = await createXBlockArtifactPersistence(bridge).saveArtifact({
+      artifact: {
+        id: "artifact-1",
+        title: "Scaffold",
+        mode: "page",
+        content: { type: "doc", content: [] },
+      },
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) throw new Error("expected XBlock artifact save to fail");
+    expect(result.error).toMatchObject({
+      reason: "write-aborted",
+      artifactId: "artifact-1",
+      cause: expect.objectContaining({ message: "save refused" }),
+    });
+  });
+
+  it("keeps unexpected XBlock persistence defects observable", async () => {
+    const defect = new Error("broken XBlock bridge invariant");
+    const bridge = {
+      request: async () => Promise.reject(defect),
+    } as unknown as XBlockInnerBridge;
+
+    await expect(
+      createXBlockArtifactPersistence(bridge).saveArtifact({
+        artifact: {
+          id: "artifact-1",
+          title: "Scaffold",
+          mode: "page",
+          content: { type: "doc", content: [] },
+        },
+      }),
+    ).rejects.toBe(defect);
   });
 
   it("gets authoring artifact metadata through the XBlock creation handler", async () => {
@@ -536,9 +583,13 @@ describe("XBlock assessment ports", () => {
     };
 
     const saved = await services.artifactPersistence.saveArtifact({ artifact });
-    await expect(services.learnerPublication.getStatus()).resolves.toBe(publicationStatus);
+    if (saved.isErr()) throw new Error("expected XBlock artifact save to succeed");
+    const loadedPublicationStatus = await services.learnerPublication.getStatus();
+    expect(loadedPublicationStatus.isOk()).toBe(true);
+    if (loadedPublicationStatus.isErr()) throw new Error("expected publication status to load");
+    expect(loadedPublicationStatus.value).toBe(publicationStatus);
     await services.learnerPublication.publish({
-      sourceArtifactRevision: saved.artifactRevision,
+      sourceArtifactRevision: saved.value.artifactRevision,
       artifact: {
         id: artifact.id,
         title: artifact.title,

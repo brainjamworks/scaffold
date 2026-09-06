@@ -7,6 +7,9 @@ import {
   createMoodleBridgeLifecycleMessage,
   createMoodleBridgeSuccessResponse,
 } from "../bridge/protocol";
+import { MoodleServiceError } from "../api";
+import { createMoodleArtifactPersistence } from "../artifact-persistence-port";
+import { createMoodleLearnerPublicationPort } from "../learner-publication-port";
 import { mountMoodleInner } from "./mount-inner-lifecycle";
 
 const sessionId = "session-123";
@@ -153,7 +156,7 @@ describe("mountMoodleInner", () => {
       createMoodleBridgeFailureResponse({
         sessionId,
         requestId: failedRequest.requestId,
-        message: "Permission denied",
+        error: { kind: "unexpected-error", message: "Permission denied" },
       }),
     );
     await expect(failure).rejects.toThrow("Permission denied");
@@ -162,6 +165,146 @@ describe("mountMoodleInner", () => {
       "Unsupported Moodle AJAX method",
     );
     expect(postMessage).toHaveBeenCalledTimes(2);
+    lifecycle.destroy();
+  });
+
+  it("preserves a rejected Moodle service refusal through the bridge for publication", async () => {
+    const lifecycle = mountMoodleInner({ root: createRoot(), mount: vi.fn() });
+    dispatchInit(authoringConfig);
+    postMessage.mockClear();
+    const port = createMoodleLearnerPublicationPort(42, {
+      currentArtifactRevision: "revision-1",
+      publishedArtifactRevision: null,
+      publishedAt: null,
+    });
+
+    const publication = port.publish({
+      sourceArtifactRevision: "revision-1",
+      artifact: {
+        id: "moodle-cm-42",
+        title: "Published title",
+        mode: "page",
+        requiresScaffoldPlus: false,
+      },
+      learnerContent: { type: "doc", content: [] },
+      assessmentTargets: [],
+      assessmentGroups: [],
+    });
+    const request = postMessage.mock.calls[0]?.[0];
+    dispatchResponse(
+      createMoodleBridgeFailureResponse({
+        sessionId,
+        requestId: request.requestId,
+        error: {
+          kind: "moodle-service-error",
+          message: "The saved Scaffold content changed before publication.",
+          errorCode: "publicationstaleartifactrevision",
+          debugInfo: null,
+          exceptionName: "moodle_exception",
+        },
+      }),
+    );
+
+    const result = await publication;
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) throw new Error("expected publication refusal");
+    expect(result.error).toMatchObject({
+      reason: "stale-artifact-revision",
+      artifactId: "moodle-cm-42",
+      sourceArtifactRevision: "revision-1",
+      cause: expect.objectContaining({
+        name: "MoodleServiceError",
+        service: {
+          errorCode: "publicationstaleartifactrevision",
+          debugInfo: null,
+          exceptionName: "moodle_exception",
+        },
+      }),
+    });
+    lifecycle.destroy();
+  });
+
+  it("keeps rejected Moodle service facts available to the existing saving owner", async () => {
+    const lifecycle = mountMoodleInner({ root: createRoot(), mount: vi.fn() });
+    dispatchInit(authoringConfig);
+    postMessage.mockClear();
+
+    const saving = createMoodleArtifactPersistence(42).saveArtifact({
+      artifact: {
+        id: "moodle-cm-42",
+        title: "Draft",
+        mode: "page",
+        content: { type: "doc", content: [] },
+      },
+    });
+    const request = postMessage.mock.calls[0]?.[0];
+    dispatchResponse(
+      createMoodleBridgeFailureResponse({
+        sessionId,
+        requestId: request.requestId,
+        error: {
+          kind: "moodle-service-error",
+          message: "Invalid parameter value detected",
+          errorCode: "invalidparameter",
+          debugInfo: "artifactjson is invalid",
+          exceptionName: "invalid_parameter_exception",
+        },
+      }),
+    );
+
+    const result = await saving;
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) throw new Error("expected save refusal");
+    expect(result.error).toMatchObject({
+      reason: "write-aborted",
+      artifactId: "moodle-cm-42",
+      cause: expect.any(MoodleServiceError),
+    });
+    expect((result.error.cause as MoodleServiceError).service).toEqual({
+      errorCode: "invalidparameter",
+      debugInfo: "artifactjson is invalid",
+      exceptionName: "invalid_parameter_exception",
+    });
+    lifecycle.destroy();
+  });
+
+  it("keeps an unknown Moodle save service code observable through the bridge", async () => {
+    const lifecycle = mountMoodleInner({ root: createRoot(), mount: vi.fn() });
+    dispatchInit(authoringConfig);
+    postMessage.mockClear();
+
+    const saving = createMoodleArtifactPersistence(42).saveArtifact({
+      artifact: {
+        id: "moodle-cm-42",
+        title: "Draft",
+        mode: "page",
+        content: { type: "doc", content: [] },
+      },
+    });
+    const request = postMessage.mock.calls[0]?.[0];
+    dispatchResponse(
+      createMoodleBridgeFailureResponse({
+        sessionId,
+        requestId: request.requestId,
+        error: {
+          kind: "moodle-service-error",
+          message: "Database write failed",
+          errorCode: "dmlwriteexception",
+          debugInfo: "Unexpected storage failure",
+          exceptionName: "dml_write_exception",
+        },
+      }),
+    );
+
+    await expect(saving).rejects.toMatchObject({
+      name: "MoodleServiceError",
+      message: "Database write failed",
+      service: {
+        errorCode: "dmlwriteexception",
+        debugInfo: "Unexpected storage failure",
+        exceptionName: "dml_write_exception",
+      },
+    });
     lifecycle.destroy();
   });
 

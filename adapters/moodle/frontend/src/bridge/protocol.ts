@@ -1,7 +1,7 @@
 import type { MoodleApplicationConfig } from "../types";
 
 export const SCAFFOLD_MOODLE_BRIDGE_CHANNEL = "scaffold.moodle.bridge";
-export const SCAFFOLD_MOODLE_BRIDGE_PROTOCOL_VERSION = 2;
+export const SCAFFOLD_MOODLE_BRIDGE_PROTOCOL_VERSION = 3;
 
 export const MOODLE_AJAX_METHODS = [
   "mod_scaffold_get_payload",
@@ -73,8 +73,21 @@ export type MoodleBridgeResponse =
   | (MoodleBridgeBaseEnvelope<"response"> & {
       requestId: string;
       ok: false;
-      error: { message: string };
+      error: MoodleBridgeFailure;
     });
+
+export type MoodleBridgeFailure =
+  | {
+      kind: "moodle-service-error";
+      message: string;
+      errorCode: string;
+      debugInfo: string | null;
+      exceptionName: string | null;
+    }
+  | {
+      kind: "unexpected-error";
+      message: string;
+    };
 
 export type MoodleBridgeMessage =
   | MoodleAjaxRequest
@@ -161,17 +174,17 @@ export function createMoodleBridgeSuccessResponse({
 export function createMoodleBridgeFailureResponse({
   sessionId,
   requestId,
-  message,
+  error,
 }: {
   sessionId: string;
   requestId: string;
-  message: string;
+  error: MoodleBridgeFailure;
 }): MoodleBridgeResponse {
   return envelope(sessionId, {
     kind: "response",
     requestId,
     ok: false,
-    error: { message },
+    error,
   });
 }
 
@@ -239,10 +252,21 @@ function validateResponse(value: Record<string, unknown>): MoodleBridgeValidatio
   if (value.ok === true && Object.prototype.hasOwnProperty.call(value, "result")) {
     return { ok: true, message: value as unknown as MoodleBridgeResponse };
   }
-  if (value.ok === false && isRecord(value.error) && isNonEmptyString(value.error.message)) {
+  if (value.ok === false && isMoodleBridgeFailure(value.error)) {
     return { ok: true, message: value as unknown as MoodleBridgeResponse };
   }
   return failure("invalid_response", "Moodle bridge response is malformed.");
+}
+
+function isMoodleBridgeFailure(value: unknown): value is MoodleBridgeFailure {
+  if (!isRecord(value) || !isNonEmptyString(value.message)) return false;
+  if (value.kind === "unexpected-error") return Object.keys(value).length === 2;
+  return (
+    value.kind === "moodle-service-error" &&
+    isNonEmptyString(value.errorCode) &&
+    (value.debugInfo === null || typeof value.debugInfo === "string") &&
+    (value.exceptionName === null || typeof value.exceptionName === "string")
+  );
 }
 
 function validateLifecycle(value: Record<string, unknown>): MoodleBridgeValidationResult {

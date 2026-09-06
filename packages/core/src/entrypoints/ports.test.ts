@@ -3,6 +3,8 @@ import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 import * as ports from "@scaffold/core/ports";
 import type {
   ArtifactPersistencePort,
+  ArtifactPersistenceFailure,
+  ArtifactPersistenceResult,
   ArtifactRevision,
   ArtifactSavePayload,
   ArtifactSaveResult,
@@ -76,6 +78,8 @@ type PortsTypeSurface = {
   artifactCreationMode: ScaffoldArtifactCreationMode;
   artifactCreationPort: ScaffoldArtifactCreationPort;
   artifactPersistencePort: ArtifactPersistencePort;
+  artifactPersistenceFailure: ArtifactPersistenceFailure;
+  artifactPersistenceResult: ArtifactPersistenceResult;
   artifactRevision: ArtifactRevision;
   artifactSavePayload: ArtifactSavePayload;
   artifactSaveResult: ArtifactSaveResult;
@@ -141,6 +145,12 @@ describe("@scaffold/core/ports", () => {
       "LearningEventSchema",
       "MEDIA_UPLOAD_TYPES",
       "SCAFFOLD_MEDIA_CONTEXTS",
+      "artifactSaveFailed",
+      "artifactSaveSucceeded",
+      "learnerPublicationStatusFailed",
+      "learnerPublicationStatusSucceeded",
+      "learnerPublishFailed",
+      "learnerPublishSucceeded",
     ]);
     expect(Object.values(ports).every((value) => value !== undefined)).toBe(true);
     expect(ports.SCAFFOLD_MEDIA_CONTEXTS).toEqual(["authoring", "preview", "runtime"]);

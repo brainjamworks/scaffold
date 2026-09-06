@@ -149,7 +149,13 @@ describe("createIsolatedScaffoldFrame", () => {
     const callMoodle = vi
       .fn()
       .mockResolvedValueOnce({ success: true })
-      .mockRejectedValueOnce(new Error("Permission denied"));
+      .mockRejectedValueOnce({
+        exception: "moodle_exception",
+        errorcode: "publicationstaleartifactrevision",
+        message: "The saved Scaffold content changed before publication.",
+        debuginfo: null,
+      })
+      .mockRejectedValueOnce(new Error("Network disconnected"));
     const { frame, sessionId, innerOrigin, postMessage } = createFrame(learnerConfig, callMoodle);
 
     dispatchRequest(frame.iframe, innerOrigin, sessionId, "request-1");
@@ -171,7 +177,22 @@ describe("createIsolatedScaffoldFrame", () => {
       kind: "response",
       requestId: "request-2",
       ok: false,
-      error: { message: "Permission denied" },
+      error: {
+        kind: "moodle-service-error",
+        message: "The saved Scaffold content changed before publication.",
+        errorCode: "publicationstaleartifactrevision",
+        debugInfo: null,
+        exceptionName: "moodle_exception",
+      },
+    });
+
+    dispatchRequest(frame.iframe, innerOrigin, sessionId, "request-3");
+    await vi.waitFor(() => expect(postMessage).toHaveBeenCalledTimes(3));
+    expect(postMessage.mock.calls[2]?.[0]).toMatchObject({
+      kind: "response",
+      requestId: "request-3",
+      ok: false,
+      error: { kind: "unexpected-error", message: "Network disconnected" },
     });
 
     frame.destroy();

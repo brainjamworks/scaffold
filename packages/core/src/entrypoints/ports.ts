@@ -9,18 +9,30 @@ export {
   type MediaUploadType,
 } from "@/host/ports/media";
 export type {
+  ArtifactPersistenceFailure,
   ArtifactPersistencePort,
+  ArtifactPersistenceResult,
   ArtifactSavePayload,
   ArtifactSaveResult,
   SaveableScaffoldArtifact,
 } from "@/host/ports/artifact-persistence";
+export { artifactSaveFailed, artifactSaveSucceeded } from "@/host/ports/artifact-persistence";
 export type {
   ArtifactRevision,
+  LearnerPublicationRefusal,
   LearnerPublicationPayload,
   LearnerPublicationPort,
-  LearnerPublicationPortError,
-  LearnerPublicationPortErrorCode,
   LearnerPublicationStatus,
+  LearnerPublicationStatusFailure,
+  LearnerPublicationStatusResult,
+  LearnerPublishFailure,
+  LearnerPublishResult,
+} from "@/host/ports/learner-publication";
+export {
+  learnerPublicationStatusFailed,
+  learnerPublicationStatusSucceeded,
+  learnerPublishFailed,
+  learnerPublishSucceeded,
 } from "@/host/ports/learner-publication";
 export type {
   ScaffoldArtifactCreationInput,
