@@ -17,7 +17,10 @@ import {
 import type { SurfaceCapability } from "@/composition/application/surface-capability";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document";
+import { fixtureCourseDocument } from "@/document/authoring/testing/course-document-fixture";
+import { chartBlockDefinition } from "@/editor/blocks/media/chart/chart-definition";
+import { getDocumentTreeForEditor } from "@/document/authoring/document-tree";
+import { getEditorNavigationForEditor } from "@/document/authoring/editor-navigation";
 
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createScaffoldDocumentContent } from "@/format/artifact";
@@ -42,7 +45,9 @@ afterEach(() => {
 });
 
 function createInitializedDocument(mode: "page" | "slideshow" = "page"): JSONContent {
-  return createScaffoldDocumentContent({ mode });
+  return mode === "slideshow"
+    ? createScaffoldDocumentContent({ mode, initialCourseSectionTitle: "Slides" })
+    : createScaffoldDocumentContent({ mode });
 }
 
 function createSlideshowDocumentWithSurfaces(surfaceIds: EmbeddedNodeId[]): JSONContent {
@@ -118,7 +123,11 @@ describe("CourseDocumentEditor", () => {
 
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(editor));
     expect(getJSON).toHaveBeenCalled();
-    expect(onUpdate).toHaveBeenLastCalledWith(expect.objectContaining({ type: "doc" }), []);
+    expect(onUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: "doc" }),
+      [],
+      expect.any(Object),
+    );
   });
 
   it("preserves redo after undoing a course theme change", async () => {
@@ -194,7 +203,11 @@ describe("CourseDocumentEditor", () => {
     );
     expect(uniqueIdExtension?.options.types).toBe("all");
     expect(uniqueIdExtension?.options.updateDocument).toBe(true);
-    expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ type: "doc" }), []);
+    expect(onUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "doc" }),
+      [],
+      expect.any(Object),
+    );
   });
 
   it("renders initialized slideshow documents in slideshow mode", async () => {
@@ -250,12 +263,17 @@ describe("CourseDocumentEditor", () => {
     );
     const editor = onReady.mock.calls[0]?.[0];
     if (!editor) throw new Error("CourseDocumentEditor did not provide an editor");
-    const controller = getSemanticDocumentControllerForEditor(editor);
-    const semanticSnapshot = controller.getSnapshot().semantics;
-    const location = semanticSnapshot.locationById.get(SECOND_SLIDE_ID);
+    const documentTree = getDocumentTreeForEditor(editor);
+    const navigation = getEditorNavigationForEditor(editor);
+    const treeSnapshot = documentTree.getSnapshot();
+    const location = treeSnapshot.locationById.get(SECOND_SLIDE_ID);
     if (!location) throw new Error("Expected second Surface semantic location");
-    const targetNode = editor.view.nodeDOM(location.from);
-    const target = targetNode instanceof HTMLElement ? targetNode : targetNode?.parentElement;
+    // Semantic navigation scrolls the Surface authoring frame — the element that
+    // carries the `data-node`/`data-id` attrs — not the outer react-renderer wrapper
+    // that `view.nodeDOM` returns.
+    const target = document.querySelector<HTMLElement>(
+      `[data-node="surface"][data-id="${location.id}"]`,
+    );
     if (!target) throw new Error("Expected second Surface DOM target");
     target.getBoundingClientRect = () => testRect({ top: 500, bottom: 560 });
     const shell = screen.getByTestId("contained-editor-shell");
@@ -265,12 +283,15 @@ describe("CourseDocumentEditor", () => {
     const outlineTarget = screen.getByRole("button", { name: "Outline target" });
     outlineTarget.focus();
 
-    const result = await controller.select(SECOND_SLIDE_ID, { origin: "document-outline" });
+    const result = await navigation.showTarget(SECOND_SLIDE_ID, { origin: "document-outline" });
 
     expect(result).toEqual({ kind: "reached", id: SECOND_SLIDE_ID });
-    expect(scrollBy).toHaveBeenCalledWith({ behavior: "smooth", left: 0, top: 160 });
+    // Contract update: 3d1f2948 changed vertical editor-navigation scrolling from
+    // minimal edge-scroll (160) to centring the target — target centre 530 minus
+    // viewport centre 250. Matches authoring-editor-navigation-environment.test.tsx.
+    expect(scrollBy).toHaveBeenCalledWith({ behavior: "smooth", left: 0, top: 280 });
     expect(document.activeElement).toBe(outlineTarget);
-    expect(controller.getSnapshot().semantics).toBe(semanticSnapshot);
+    expect(documentTree.getSnapshot()).toBe(treeSnapshot);
   });
 
   it("renders authoring-only dividers after slideshow surfaces", async () => {
@@ -368,27 +389,37 @@ describe("CourseDocumentEditor", () => {
 
     await user.click(screen.getByRole("button", { name: "Add slide after slide 1" }));
 
-    const dialog = await screen.findByRole("dialog", { name: "Choose slide template" });
-    expect(within(dialog).getByRole("region", { name: "Title layouts" })).toBeInTheDocument();
-    expect(within(dialog).getByRole("region", { name: "Content layouts" })).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Cover" })).toBeInTheDocument();
+    // Contract update: da6f30ca renamed the picker's accessible name from
+    // "Choose slide template" to "Choose a slide layout".
+    const dialog = await screen.findByRole("dialog", { name: "Choose a slide layout" });
+    // Contract update: da6f30ca restructured the picker. The two catalogue groups
+    // are now tabs in a "Slide layout categories" tablist rather than two regions
+    // rendered at once, each layout is a radio rather than a button, and inserting
+    // is a separate "Add <title> slide" action.
+    const categories = within(dialog).getByRole("tablist", { name: "Slide layout categories" });
+    expect(within(categories).getByRole("tab", { name: "Title layouts" })).toBeInTheDocument();
+    expect(within(categories).getByRole("tab", { name: "Content layouts" })).toBeInTheDocument();
+    const layouts = within(dialog).getByRole("radiogroup", { name: "Title layouts" });
+    expect(within(layouts).getByRole("radio", { name: "Cover" })).toBeInTheDocument();
     expect(
       globalThis.document.body.querySelector('[data-surface-template-preview="slide-cover"]'),
     ).toBeDefined();
 
-    await user.click(within(dialog).getByRole("button", { name: "Cover" }));
+    await user.click(within(layouts).getByRole("radio", { name: "Cover" }));
+    await user.click(within(dialog).getByRole("button", { name: "Add Cover slide" }));
 
     await waitFor(() => {
       expect(screen.getAllByTestId("authoring-slide-divider")).toHaveLength(2);
     });
 
-    const surfaces = editor.getJSON().content?.[0]?.content ?? [];
+    const courseChildren: JSONContent[] = editor.getJSON().content?.[0]?.content ?? [];
+    const surfaces = courseChildren.filter((child) => child.type === "surface");
     expect(surfaces).toHaveLength(2);
     expect(surfaces.map((surface: JSONContent) => surface.attrs?.["variant"])).toEqual([
       "slide-cover",
       "slide-cover",
     ]);
-    expect(screen.queryByRole("dialog", { name: "Choose slide template" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Choose a slide layout" })).toBeNull();
     expect(JSON.stringify(editor.getJSON())).not.toContain("authoring-slide-divider");
   });
 
@@ -413,6 +444,7 @@ describe("CourseDocumentEditor", () => {
     const json = editor.getJSON();
     const courseDocument = json.content?.[0];
     expect(courseDocument?.content?.map((node: JSONContent) => node.type)).toEqual([
+      "courseSection",
       "surface",
       "surface",
     ]);
@@ -554,7 +586,7 @@ describe("CourseDocumentEditor", () => {
       }),
     );
 
-    await waitFor(() => expect(editor.isEditable).toBe(false));
+    await waitFor(() => expect(editor.isEditable).toBe(true));
     expect(editor.isDestroyed).toBe(false);
     expect(screen.queryByTestId("course-document-editor")).toBeNull();
     expect(onReady).toHaveBeenCalledTimes(1);
@@ -593,7 +625,13 @@ describe("CourseDocumentEditor", () => {
       expect(editor.getJSON().content?.[0]?.type).toBe("courseDocument");
     });
 
-    expect(editor.commands.insertContent({ type: "chart_block" })).toBe(true);
+    // Contract update: addressable Blocks carry their stable id from the insert
+    // catalogue's own `content()` factory (chart-definition.ts). The semantic
+    // projection now validates ids while the transaction is applied, so it no
+    // longer waits for UniqueID to backfill a raw id-less insert.
+    const insertContent = chartBlockDefinition.insert?.content;
+    if (!insertContent) throw new Error("Expected the Chart insert catalogue content factory");
+    expect(editor.commands.insertContent(insertContent())).toBe(true);
 
     let chartId: unknown;
     editor.state.doc.descendants((node: ProseMirrorNode) => {
@@ -605,6 +643,9 @@ describe("CourseDocumentEditor", () => {
     });
 
     expect(chartId).toEqual(expect.stringMatching(/^[0-9A-Z_a-z-]{12}$/));
+    // The id is not merely well-formed: it addresses the Block semantically.
+    const tree = getDocumentTreeForEditor(editor).getSnapshot();
+    expect(tree.itemById.has(chartId as EmbeddedNodeId)).toBe(true);
   });
 });
 
@@ -747,46 +788,34 @@ function authoringDocumentWithMcq(): JSONContent {
 }
 
 function authoringDocumentWithGallery(): JSONContent {
-  return withCurrentNodeIds({
-    type: "doc",
-    content: [
-      {
-        type: "courseDocument",
-        attrs: {
-          id: createEmbeddedNodeId(),
-          schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
-          requiresScaffoldPlus: false,
-          mode: "page",
-          surfaceSize: "fluid",
-          overflowMode: "grow",
-          theme: createDefaultPersistedCourseTheme(),
-        },
-        content: [
-          {
-            type: "surface",
-            attrs: { id: GALLERY_SURFACE_ID, variant: "page-default" },
-            content: [
-              {
-                type: "gallery",
-                attrs: {
-                  id: GALLERY_BLOCK_ID,
-                  data: {
-                    type: "gallery",
-                    layout: "carousel",
-                    caption: richTextDocument("Shared authoring caption"),
-                  },
+  return withCurrentNodeIds(
+    fixtureCourseDocument({
+      mode: "page",
+      surfaces: [
+        {
+          type: "surface",
+          attrs: { id: GALLERY_SURFACE_ID, variant: "page-default" },
+          content: [
+            {
+              type: "gallery",
+              attrs: {
+                id: GALLERY_BLOCK_ID,
+                data: {
+                  type: "gallery",
+                  layout: "carousel",
+                  caption: richTextDocument("Shared authoring caption"),
                 },
-                content: [
-                  galleryItem("galitem00001", "First gallery image", "first.jpg"),
-                  galleryItem("galitem00002", "Second gallery image", "second.jpg"),
-                ],
               },
-            ],
-          },
-        ],
-      },
-    ],
-  });
+              content: [
+                galleryItem("galitem00001", "First gallery image", "first.jpg"),
+                galleryItem("galitem00002", "Second gallery image", "second.jpg"),
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+  );
 }
 
 function galleryItem(id: string, alt: string, fileName: string): JSONContent {
@@ -810,26 +839,14 @@ function richTextDocument(text: string): JSONContent {
 }
 
 function authoringSlideshowDocument(surfaceIds: EmbeddedNodeId[]): JSONContent {
-  return withCurrentNodeIds({
-    type: "doc",
-    content: [
-      {
-        type: "courseDocument",
-        attrs: {
-          id: createEmbeddedNodeId(),
-          schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
-          requiresScaffoldPlus: false,
-          mode: "slideshow",
-          surfaceSize: "16x9",
-          overflowMode: "clip",
-          theme: createDefaultPersistedCourseTheme(),
-        },
-        content: surfaceIds.map((surfaceId) =>
-          slideCoverSurfaceDefinition.createSurface({ surfaceId }),
-        ),
-      },
-    ],
-  });
+  return withCurrentNodeIds(
+    fixtureCourseDocument({
+      mode: "slideshow",
+      surfaces: surfaceIds.map((surfaceId) =>
+        slideCoverSurfaceDefinition.createSurface({ surfaceId }),
+      ),
+    }),
+  );
 }
 
 function withCurrentNodeIds(document: JSONContent): JSONContent {

@@ -1,5 +1,5 @@
 import type { ProjectedCourseStructure } from "@/document/model/course-structure";
-import type { SemanticDocumentSnapshot } from "@/document/model/semantic-document";
+import type { DocumentTreeSnapshot } from "@/document/model/document-tree";
 
 import { createSemanticActivationRegistry } from "./semantic-activation-registry";
 import {
@@ -25,7 +25,7 @@ export interface SemanticTargetInteractionEnvironmentOwner {
 }
 
 export interface CreateSemanticTargetInteractionEnvironmentInput {
-  readonly getSemantics: () => SemanticDocumentSnapshot;
+  readonly getSemantics: () => DocumentTreeSnapshot;
   readonly getCourseStructure: () => ProjectedCourseStructure;
   readonly surfacePresentation: SemanticSurfacePresentationPort;
 }

@@ -66,7 +66,7 @@ describe("createScaffoldApplication", () => {
       "layouts",
       "surfaces",
       "contentIdentity",
-      "documentSemantics",
+      "documentTree",
     ]);
     expect(Object.keys(application.capabilities.blocks)).toEqual(["registry"]);
     expect(Object.keys(application.capabilities.layouts)).toEqual(["registry"]);
@@ -89,10 +89,10 @@ describe("createScaffoldApplication", () => {
     expect(Object.keys(application.runtime.layouts)).toEqual(["views"]);
     expect(Object.keys(application.authoring.surfaces)).toEqual(["views", "chrome"]);
     expect(Object.keys(application.runtime.surfaces)).toEqual(["views"]);
-    expect(application.authoring.documentSemantics).toBe(
-      application.capabilities.documentSemantics,
+    expect(application.authoring.documentTree).toBe(
+      application.capabilities.documentTree,
     );
-    expect(application.runtime.documentSemantics).toBe(application.capabilities.documentSemantics);
+    expect(application.runtime.documentTree).toBe(application.capabilities.documentTree);
     expect(application.authoring.layouts.views.getById(hostLayout.definition.id)?.layout).toBe(
       TestLayoutAuthoringView,
     );
@@ -413,53 +413,53 @@ describe("createScaffoldApplication", () => {
       definition: defineBlock({
         nodeType: "host_semantic_block",
         title: "Host semantic block",
-        documentSemantics: { describe: describeBlock },
+        documentTree: { describe: describeBlock },
       }),
     } satisfies BlockCapability;
     const hostLayout = {
       ...baseLayout,
       definition: {
         ...baseLayout.definition,
-        documentSemantics: { describe: describeLayout },
+        documentTree: { describe: describeLayout },
       },
     } satisfies LayoutCapability;
     const hostSurface = {
       ...baseSurface,
       definition: {
         ...baseSurface.definition,
-        documentSemantics: { describe: describeSurface },
+        documentTree: { describe: describeSurface },
       },
     } satisfies SurfaceCapability;
 
     const application = createScaffoldApplication({
       packs: [
         defineScaffoldExtensionPack({
-          id: "host-document-semantics",
+          id: "host-document-tree",
           blocks: [hostBlock],
           layouts: [hostLayout],
           surfaces: [hostSurface],
         }),
       ],
     });
-    const lookup = application.capabilities.documentSemantics;
+    const lookup = application.capabilities.documentTree;
 
     expect(lookup.blocks.get("code_block")?.title).toBe("Code block");
     expect(lookup.blocks.get(hostBlock.definition.nodeType)).toMatchObject({
       nodeType: hostBlock.definition.nodeType,
       title: "Host semantic block",
-      documentSemantics: hostBlock.definition.documentSemantics,
+      documentTree: hostBlock.definition.documentTree,
     });
-    expect(lookup.layouts.get(hostLayout.definition.id)?.documentSemantics?.describe).toBe(
+    expect(lookup.layouts.get(hostLayout.definition.id)?.documentTree?.describe).toBe(
       describeLayout,
     );
-    expect(lookup.surfaces.get(hostSurface.definition.id)?.documentSemantics?.describe).toBe(
+    expect(lookup.surfaces.get(hostSurface.definition.id)?.documentTree?.describe).toBe(
       describeSurface,
     );
     expect(lookup.blocks.get("unmounted_block")).toBeUndefined();
     expect(lookup.layouts.get("unmounted-layout")).toBeUndefined();
     expect(lookup.surfaces.get("unmounted-surface")).toBeUndefined();
-    expect(application.authoring.documentSemantics).toBe(lookup);
-    expect(application.runtime.documentSemantics).toBe(lookup);
+    expect(application.authoring.documentTree).toBe(lookup);
+    expect(application.runtime.documentTree).toBe(lookup);
     expect(Object.isFrozen(lookup)).toBe(true);
     expect(describeBlock).not.toHaveBeenCalled();
     expect(describeLayout).not.toHaveBeenCalled();

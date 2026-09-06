@@ -1,5 +1,5 @@
-import type { SemanticDocumentController } from "@/document/authoring/semantic-document";
-import type { SemanticSubtreeOutlineProps } from "./SemanticSubtreeOutline";
+import type { EditorNavigationController } from "@/document/authoring/editor-navigation";
+import type { DocumentTreeSubtreeOutlineProps } from "./DocumentTreeSubtreeOutline";
 import {
   DocumentNavigator,
   type DocumentNavigatorNavigation,
@@ -8,17 +8,17 @@ import {
 import type { CourseOutlineStructureAuthoringPort } from "./course-outline-structure-authoring";
 import type { OverlayBoundaryResolution } from "@/ui/overlays/portal-host-context";
 
-export interface DocumentOutlineProps extends SemanticSubtreeOutlineProps {
-  readonly controller: SemanticSubtreeOutlineProps["controller"] &
-    Pick<SemanticDocumentController, "reportComponentSelection">;
+export interface DocumentOutlineProps extends DocumentTreeSubtreeOutlineProps {
+  readonly navigation: DocumentTreeSubtreeOutlineProps["navigation"] &
+    Pick<EditorNavigationController, "reportComponentSelection">;
   readonly sectionDialogOverlayBoundary?: OverlayBoundaryResolution;
   readonly sectionDialogInteractionOwnerRoot?: Element;
   readonly structureAuthoring?: CourseOutlineStructureAuthoringPort;
   readonly surfaceActions?: DocumentNavigatorSurfaceActionPort;
   readonly onDocumentNavigatorNavigationChange?: (navigation: DocumentNavigatorNavigation) => void;
 }
-export type { DocumentOutlineAuthoringPort } from "./SemanticSubtreeOutline";
-export { DocumentOutlineRowViewport } from "./SemanticSubtreeOutline";
+export type { DocumentOutlineAuthoringPort } from "./DocumentTreeSubtreeOutline";
+export { DocumentOutlineRowViewport } from "./DocumentTreeSubtreeOutline";
 
 export function DocumentOutline(props: DocumentOutlineProps) {
   return (
@@ -35,7 +35,8 @@ export function DocumentOutline(props: DocumentOutlineProps) {
         : {})}
       {...(props.structureAuthoring ? { structureAuthoring: props.structureAuthoring } : {})}
       {...(props.surfaceActions ? { surfaceActions: props.surfaceActions } : {})}
-      controller={props.controller}
+      navigation={props.navigation}
+      tree={props.tree}
       viewController={props.viewController}
       viewport={props.viewport}
     />

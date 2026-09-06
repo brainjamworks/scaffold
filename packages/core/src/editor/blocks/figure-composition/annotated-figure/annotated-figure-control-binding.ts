@@ -108,7 +108,7 @@ export function useAnnotatedFigureControlBinding(input: AnnotatedFigureControlBi
   }, [controller, editor, enabled, ownerId, registry]);
 }
 
-/** Opens published annotations for semantic navigation without learner causation. */
+/** Opens exposed annotations for editor navigation without learner causation. */
 export function useAnnotatedFigureSemanticActivationBinding(
   input: AnnotatedFigureControlBindingInput,
 ): void {

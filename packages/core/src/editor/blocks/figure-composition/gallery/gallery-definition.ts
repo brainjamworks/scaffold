@@ -12,7 +12,7 @@ import {
 } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { GALLERY_ITEM_NODE, GALLERY_NODE, emptyGalleryData, emptyGalleryItemData } from "./content";
-import { galleryDocumentSemantics } from "./gallery-document-semantics";
+import { galleryDocumentTree } from "./gallery-document-tree";
 
 export const GALLERY_BLOCK_ID = "gallery";
 
@@ -46,7 +46,7 @@ export const galleryItemsCollection = {
 export const galleryDefinition = defineBlock({
   nodeType: GALLERY_NODE,
   title: "Gallery",
-  documentSemantics: galleryDocumentSemantics,
+  documentTree: galleryDocumentTree,
   control: {
     semanticChildren: {
       [GALLERY_ITEM_NODE]: {

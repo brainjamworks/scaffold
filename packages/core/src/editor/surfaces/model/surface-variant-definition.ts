@@ -3,7 +3,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { ZodTypeAny } from "zod";
 
 import { normalizeControlDefinition, type ControlDefinition } from "@/document/control-binding";
-import type { DocumentSemanticsDefinition } from "@/document/model/semantic-document";
+import type { DocumentTreeDefinition } from "@/document/model/document-tree";
 import {
   normalizeSurfaceAssessmentTargetCapability,
   type SurfaceAssessmentTargetCapability,
@@ -76,7 +76,7 @@ export interface SurfaceVariantDefinition {
   alignment?: SurfaceAlignmentDefinition;
   settingsSchema?: ZodTypeAny;
   structurePolicy?: SurfaceStructurePolicy;
-  documentSemantics?: DocumentSemanticsDefinition;
+  documentTree?: DocumentTreeDefinition;
   control?: ControlDefinition;
   assessmentTargets?: SurfaceAssessmentTargetCapability;
   createSurface: (input: CreateSurfaceInput) => JSONContent;

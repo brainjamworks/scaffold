@@ -18,14 +18,14 @@ import {
   ANNOTATED_FIGURE_NODE,
   emptyAnnotatedFigureData,
 } from "./content";
-import { annotatedFigureDocumentSemantics } from "./annotated-figure-document-semantics";
+import { annotatedFigureDocumentTree } from "./annotated-figure-document-tree";
 
 export const ANNOTATED_FIGURE_BLOCK_ID = "annotated-figure";
 
 export const annotatedFigureDefinition = defineBlock({
   nodeType: ANNOTATED_FIGURE_NODE,
   title: "Annotated figure",
-  documentSemantics: annotatedFigureDocumentSemantics,
+  documentTree: annotatedFigureDocumentTree,
   control: {
     owner: {
       states: [

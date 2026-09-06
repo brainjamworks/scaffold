@@ -1,5 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { fireEvent } from "@testing-library/react";
+import { Result } from "better-result";
 import { render as renderBrowserReact } from "vitest-browser-react";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
@@ -26,9 +27,9 @@ describe("Course Outline Surface movement", () => {
         productAccess={{ scaffoldPlusAuthorized: false }}
         services={{
           artifactPersistence: {
-            saveArtifact: vi.fn(async (_payload: ArtifactSavePayload) => ({
-              artifactRevision: "outline-empty-section-alignment-revision" as const,
-            })),
+            saveArtifact: vi.fn(async (_payload: ArtifactSavePayload) =>
+              Result.ok({ artifactRevision: "outline-empty-section-alignment-revision" as const }),
+            ),
           },
           learnerPublication: learnerPublication(),
           media: null,
@@ -61,9 +62,9 @@ describe("Course Outline Surface movement", () => {
   });
 
   it("moves only a Surface through the keyboard drag session and preserves its stable ID", async () => {
-    const saveArtifact = vi.fn(async (_payload: ArtifactSavePayload) => ({
-      artifactRevision: "outline-move-revision" as const,
-    }));
+  const saveArtifact = vi.fn(async (_payload: ArtifactSavePayload) =>
+    Result.ok({ artifactRevision: "outline-move-revision" as const }),
+  );
     const rendered = await renderBrowserReact(
       <ScaffoldAuthoringApp
         application={createScaffoldApplication()}
@@ -239,9 +240,9 @@ describe("Course Outline Surface movement", () => {
   });
 
   it("projects the slide order while pointer dragging before the document commit", async () => {
-    const saveArtifact = vi.fn(async (_payload: ArtifactSavePayload) => ({
-      artifactRevision: "outline-pointer-move-revision" as const,
-    }));
+    const saveArtifact = vi.fn(async (_payload: ArtifactSavePayload) =>
+      Result.ok({ artifactRevision: "outline-pointer-move-revision" as const }),
+    );
     const rendered = await renderBrowserReact(
       <ScaffoldAuthoringApp
         application={createScaffoldApplication()}
@@ -362,9 +363,9 @@ describe("Course Outline Surface movement", () => {
         productAccess={{ scaffoldPlusAuthorized: false }}
         services={{
           artifactPersistence: {
-            saveArtifact: vi.fn(async (_payload: ArtifactSavePayload) => ({
-              artifactRevision: "outline-no-op-revision" as const,
-            })),
+            saveArtifact: vi.fn(async (_payload: ArtifactSavePayload) =>
+              Result.ok({ artifactRevision: "outline-no-op-revision" as const }),
+            ),
           },
           learnerPublication: learnerPublication(),
           media: null,
@@ -536,12 +537,12 @@ function dragAnnouncement(): string {
 
 function learnerPublication(): LearnerPublicationPort {
   return {
-    getStatus: async () => ({
+    getStatus: async () => Result.ok({
       currentArtifactRevision: "outline-move-revision",
       publishedArtifactRevision: null,
       publishedAt: null,
     }),
-    publish: async (payload) => ({
+    publish: async (payload) => Result.ok({
       currentArtifactRevision: payload.sourceArtifactRevision,
       publishedArtifactRevision: payload.sourceArtifactRevision,
       publishedAt: "2026-08-11T08:00:00.000Z",

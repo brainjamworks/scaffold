@@ -33,7 +33,7 @@ import { flushSync } from "react-dom";
 
 import type { CheckedMutationResult } from "@/document/model/commands/checked-transactions";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
+import { getEditorNavigationForState } from "@/document/authoring/editor-navigation";
 import { nodeViewUiStateKey, useNodeViewOpenState } from "@/editor/prosemirror/node-view-ui-state";
 import {
   useAuthoringNodeTarget,
@@ -560,9 +560,7 @@ function AnnotatedFigureCanvasAuthoringView(props: NodeViewProps) {
     setSelectedAnnotationId(annotationId);
     const semanticId = EmbeddedNodeIdSchema.safeParse(annotationId);
     if (semanticId.success) {
-      semanticDocumentPluginKey
-        .getState(props.editor.state)
-        ?.reportComponentSelection(semanticId.data);
+      getEditorNavigationForState(props.editor.state).reportComponentSelection(semanticId.data);
     }
     if (workspaceOpen) return;
     if (data.captionDisplay === "popover") {

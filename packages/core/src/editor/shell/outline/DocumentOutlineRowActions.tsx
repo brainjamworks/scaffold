@@ -1,6 +1,6 @@
 import { DotsThreeVerticalIcon as DotsThreeVertical } from "@phosphor-icons/react";
 
-import type { SemanticItem } from "@/document/model/semantic-document";
+import type { DocumentTreeItem } from "@/document/model/document-tree";
 import * as DropdownMenu from "@/ui/components/DropdownMenu/DropdownMenu";
 import { iconXs } from "@/ui/tokens/icon-sizes";
 import { zIndex } from "@/ui/overlays/z-index";
@@ -13,12 +13,12 @@ export function DocumentOutlineRowActions({
   onEditSectionTitle,
   onDeleteSection,
 }: {
-  readonly item: SemanticItem;
+  readonly item: DocumentTreeItem;
   readonly triggerRef?: (element: HTMLButtonElement | null) => void;
   readonly triggerTabIndex?: number;
-  readonly onDuplicateSection: (item: SemanticItem) => void;
-  readonly onEditSectionTitle: (item: SemanticItem) => void;
-  readonly onDeleteSection: (item: SemanticItem) => void;
+  readonly onDuplicateSection: (item: DocumentTreeItem) => void;
+  readonly onEditSectionTitle: (item: DocumentTreeItem) => void;
+  readonly onDeleteSection: (item: DocumentTreeItem) => void;
 }) {
   if (item.kind !== "course-section") return null;
 

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { SemanticLabel } from "@/composition/model/semantic-label-extension";
 import { resolveStableNode } from "@/document/model/identity/resolve-stable-node";
-import { MAX_SEMANTIC_LABEL_LENGTH } from "@/document/model/semantic-document/semantic-labels";
+import { MAX_SEMANTIC_LABEL_LENGTH } from "@/document/model/document-tree/semantic-labels";
 import { createAuthoringNodeTarget } from "@/editor/prosemirror/authoring-target";
 import { createTestNodeIdentityExtension } from "@/editor/testing";
 

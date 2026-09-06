@@ -8,13 +8,15 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
-import { createSemanticDefinitionLookup } from "@/composition/model/semantic-definition-lookup";
+import { createDocumentTreeDefinitionLookup } from "@/composition/model/document-tree-definition-lookup";
 import {
-  createSemanticDocumentExtension,
-  getSemanticDocumentControllerForEditor,
-  SemanticHierarchyViewController,
-} from "@/document/authoring/semantic-document";
-import { createAuthoringSemanticNavigationEnvironment } from "@/document/authoring/semantic-document/authoring-semantic-navigation-environment";
+  createDocumentAuthoringExtension,
+  getDocumentTreeForEditor,
+  getEditorNavigationForEditor,
+  DocumentTreeViewController,
+} from "@/document/authoring";
+import { createAuthoringEditorNavigationEnvironment } from "@/document/authoring/editor-navigation/authoring-editor-navigation-environment";
+import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import {
   LayoutAuthoringNode,
@@ -126,7 +128,7 @@ describe("Document Outline bidirectional navigation", () => {
       ),
     );
 
-    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.prose);
+    await expect.poll(() => controller.getSelectionSnapshot().selectedId).toBe(IDS.prose);
     expect(selectedOutlineLabel()).toContain("Editor prose");
     expect(harness.editor.view.dom.contains(document.activeElement)).toBe(true);
     expect(harness.viewController.getSnapshot().expandedIds.has(IDS.firstSurface)).toBe(true);
@@ -134,7 +136,7 @@ describe("Document Outline bidirectional navigation", () => {
     const hiddenTab = roleElement<HTMLButtonElement>("tab", "Hidden topic");
     hiddenTab.focus();
     hiddenTab.click();
-    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.hiddenTab);
+    await expect.poll(() => controller.getSelectionSnapshot().selectedId).toBe(IDS.hiddenTab);
     expect(selectedOutlineLabel()).toContain("Hidden topic");
     expect(document.activeElement?.getAttribute("role")).toBe("tab");
 
@@ -142,13 +144,13 @@ describe("Document Outline bidirectional navigation", () => {
     const annotationPin = roleElement<HTMLButtonElement>("button", "Select annotation 1");
     annotationPin.focus();
     annotationPin.click();
-    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.annotation);
+    await expect.poll(() => controller.getSelectionSnapshot().selectedId).toBe(IDS.annotation);
     expect(selectedOutlineLabel()).toContain("Annotation detail");
     expect(
       requiredElement<HTMLElement>(document.body, '[role="tree"]').contains(document.activeElement),
     ).toBe(false);
 
-    const flashcard = controller.getSnapshot().semantics.itemById.get(IDS.flashcard);
+    const flashcard = harness.tree.getSnapshot().itemById.get(IDS.flashcard);
     expect(flashcard?.children.map(({ id, label }) => ({ id, label }))).toEqual([
       { id: IDS.firstFlashcardCard, label: "Card 1" },
       { id: IDS.secondFlashcardCard, label: "Card 2" },
@@ -161,15 +163,15 @@ describe("Document Outline bidirectional navigation", () => {
     const harness = await mountOutline();
     mounted.push(harness);
     const controller = harness.controller;
-    const target = controller.getSnapshot().semantics.itemById.get(IDS.hiddenProse);
+    const target = harness.tree.getSnapshot().itemById.get(IDS.hiddenProse);
     if (!target) throw new Error("Expected hidden prose semantic item");
 
     await expandAncestorsThroughOutline(harness, IDS.hiddenProse);
     const targetRow = treeItemForLabel(target.label);
     await userEvent.click(targetRow);
 
-    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.hiddenProse);
-    expect(controller.getSnapshot().selectionOrigin).toBe("document-outline");
+    await expect.poll(() => controller.getSelectionSnapshot().selectedId).toBe(IDS.hiddenProse);
+    expect(controller.getSelectionSnapshot().selectionOrigin).toBe("document-outline");
     expect(targetRow.getAttribute("aria-selected")).toBe("true");
     expect(document.activeElement).toBe(targetRow);
     expect(harness.editor.state.selection).toBeInstanceOf(TextSelection);
@@ -188,14 +190,14 @@ describe("Document Outline bidirectional navigation", () => {
     const harness = await mountOutline();
     mounted.push(harness);
     const controller = harness.controller;
-    const cell = controller.getSnapshot().semantics.itemById.get(IDS.firstCell);
+    const cell = harness.tree.getSnapshot().itemById.get(IDS.firstCell);
     if (!cell) throw new Error("Expected Grid Cell semantic item");
 
     await expandAncestorsThroughOutline(harness, IDS.firstCell);
     const cellRow = treeItemForLabel(cell.label);
     await userEvent.click(cellRow);
 
-    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.firstCell);
+    await expect.poll(() => controller.getSelectionSnapshot().selectedId).toBe(IDS.firstCell);
     expect(interactionOwnerPluginKey.getState(harness.editor.state)?.explicitOwner).toMatchObject({
       id: IDS.grid,
       kind: "grid",
@@ -209,14 +211,14 @@ describe("Document Outline bidirectional navigation", () => {
     const harness = await mountOutline();
     mounted.push(harness);
     const controller = harness.controller;
-    const annotation = controller.getSnapshot().semantics.itemById.get(IDS.annotation);
+    const annotation = harness.tree.getSnapshot().itemById.get(IDS.annotation);
     if (!annotation) throw new Error("Expected annotation semantic item");
 
     await expandAncestorsThroughOutline(harness, IDS.annotation);
     const annotationRow = treeItemForLabel(annotation.label);
     await userEvent.click(annotationRow);
 
-    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.annotation);
+    await expect.poll(() => controller.getSelectionSnapshot().selectedId).toBe(IDS.annotation);
     expect(harness.editor.state.selection).toBeInstanceOf(NodeSelection);
     expect((harness.editor.state.selection as NodeSelection).node.attrs["id"]).toBe(
       IDS.annotationFigure,
@@ -234,7 +236,7 @@ describe("Document Outline bidirectional navigation", () => {
     const harness = await mountOutline();
     mounted.push(harness);
     const controller = harness.controller;
-    const card = controller.getSnapshot().semantics.itemById.get(IDS.secondFlashcardCard);
+    const card = harness.tree.getSnapshot().itemById.get(IDS.secondFlashcardCard);
     if (!card) throw new Error("Expected Flashcard card semantic item");
 
     const activityBefore = flashcardAuthoringState(harness.editor);
@@ -250,8 +252,10 @@ describe("Document Outline bidirectional navigation", () => {
     const cardRow = treeItemForLabel(card.label);
     await userEvent.click(cardRow);
 
-    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.secondFlashcardCard);
-    expect(controller.getSnapshot().selectionOrigin).toBe("document-outline");
+    await expect
+      .poll(() => controller.getSelectionSnapshot().selectedId)
+      .toBe(IDS.secondFlashcardCard);
+    expect(controller.getSelectionSnapshot().selectionOrigin).toBe("document-outline");
     expect(harness.editor.state.selection).toBeInstanceOf(NodeSelection);
     expect((harness.editor.state.selection as NodeSelection).node.attrs["id"]).toBe(IDS.flashcard);
     expect(
@@ -303,7 +307,7 @@ describe("Document Outline bidirectional navigation", () => {
     ] as const;
 
     for (const testCase of cases) {
-      const target = harness.controller.getSnapshot().semantics.itemById.get(testCase.targetId);
+      const target = harness.tree.getSnapshot().itemById.get(testCase.targetId);
       if (!target) throw new Error(`Expected semantic target ${testCase.targetId}`);
       let ownedScroll: ReturnType<typeof installHorizontalRevealGeometry> | null = null;
       if (testCase.scrollOwnerSelector && testCase.targetSelector) {
@@ -321,8 +325,10 @@ describe("Document Outline bidirectional navigation", () => {
       const targetRow = treeItemForLabel(target.label);
       await userEvent.click(targetRow);
 
-      await expect.poll(() => harness.controller.getSnapshot().selectedId).toBe(testCase.targetId);
-      expect(harness.controller.getSnapshot().selectionOrigin).toBe("document-outline");
+      await expect
+        .poll(() => harness.controller.getSelectionSnapshot().selectedId)
+        .toBe(testCase.targetId);
+      expect(harness.controller.getSelectionSnapshot().selectionOrigin).toBe("document-outline");
       expect(targetRow.getAttribute("aria-selected")).toBe("true");
       expect(document.activeElement).toBe(targetRow);
       expect(harness.editor.state.selection).toBeInstanceOf(NodeSelection);
@@ -348,12 +354,8 @@ describe("Document Outline bidirectional navigation", () => {
   it("suppresses a stale mounted authoring finish while preserving the latest Outline request", async () => {
     const harness = await mountOutline();
     mounted.push(harness);
-    const staleTarget = harness.controller
-      .getSnapshot()
-      .semantics.itemById.get(IDS.secondGalleryItem);
-    const currentTarget = harness.controller
-      .getSnapshot()
-      .semantics.itemById.get(IDS.secondFlashcardCard);
+    const staleTarget = harness.tree.getSnapshot().itemById.get(IDS.secondGalleryItem);
+    const currentTarget = harness.tree.getSnapshot().itemById.get(IDS.secondFlashcardCard);
     if (!staleTarget || !currentTarget) throw new Error("Expected mounted stale-request targets");
     await expandAncestorsThroughOutline(harness, IDS.secondGalleryItem);
     await expandAncestorsThroughOutline(harness, IDS.secondFlashcardCard);
@@ -366,14 +368,14 @@ describe("Document Outline bidirectional navigation", () => {
     await userEvent.click(currentRow);
 
     await expect
-      .poll(() => harness.controller.getSnapshot().selectedId)
+      .poll(() => harness.controller.getSelectionSnapshot().selectedId)
       .toBe(IDS.secondFlashcardCard);
-    expect(harness.controller.getSnapshot().selectionOrigin).toBe("document-outline");
+    expect(harness.controller.getSelectionSnapshot().selectionOrigin).toBe("document-outline");
     expect(document.activeElement).toBe(currentRow);
     heldScroll.release();
     await Promise.resolve();
 
-    expect(harness.controller.getSnapshot().selectedId).toBe(IDS.secondFlashcardCard);
+    expect(harness.controller.getSelectionSnapshot().selectedId).toBe(IDS.secondFlashcardCard);
     expect(document.activeElement).toBe(currentRow);
     expect(staleRow.getAttribute("aria-selected")).toBe("false");
     expect(currentRow.getAttribute("aria-selected")).toBe("true");
@@ -382,7 +384,7 @@ describe("Document Outline bidirectional navigation", () => {
   it("commits hidden outer and inner Layout Sections before resolving final scroll geometry", async () => {
     const harness = await mountOutline();
     mounted.push(harness);
-    const target = harness.controller.getSnapshot().semantics.itemById.get(IDS.nestedHiddenProse);
+    const target = harness.tree.getSnapshot().itemById.get(IDS.nestedHiddenProse);
     if (!target) throw new Error("Expected nested hidden prose semantic item");
     const outerPanel = requiredElement<HTMLElement>(
       harness.editor.view.dom,
@@ -420,7 +422,7 @@ describe("Document Outline bidirectional navigation", () => {
     expect(harness.scrollVisibility).toEqual([]);
     innerCommit.release();
     await expect
-      .poll(() => harness.controller.getSnapshot().selectedId)
+      .poll(() => harness.controller.getSelectionSnapshot().selectedId)
       .toBe(IDS.nestedHiddenProse);
     expect(commitOrder).toEqual(["outer", "inner"]);
     expect(harness.scrollVisibility.at(-1)).toEqual({ inner: true, outer: true });
@@ -430,18 +432,19 @@ describe("Document Outline bidirectional navigation", () => {
 });
 
 interface MountedOutlineHarness {
-  readonly controller: ReturnType<typeof getSemanticDocumentControllerForEditor>;
+  readonly controller: ReturnType<typeof getEditorNavigationForEditor>;
+  readonly tree: ReturnType<typeof getDocumentTreeForEditor>;
   readonly editor: Editor;
   readonly rendered: RenderResult;
   readonly revealedIds: EmbeddedNodeId[];
   readonly scrollVisibility: Array<{ inner: boolean; outer: boolean }>;
-  readonly viewController: SemanticHierarchyViewController;
+  readonly viewController: DocumentTreeViewController;
   holdNextAuthoringScroll(): { readonly requested: () => boolean; readonly release: () => void };
   dispose(): Promise<void>;
 }
 
 async function mountOutline(): Promise<MountedOutlineHarness> {
-  const semantics = createSemanticDefinitionLookup({
+  const semantics = createDocumentTreeDefinitionLookup({
     blocks: builtInBlockRegistry,
     layouts: builtInLayoutRegistry,
     surfaces: builtInSurfaceVariantRegistry,
@@ -455,14 +458,14 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
     contentIdentity: Object.freeze({
       rewrites: Object.freeze({ getByNodeType: () => undefined, hasNodeType: () => false }),
     }),
-    documentSemantics: semantics,
+    documentTree: semantics,
   });
   const editor = new Editor({
     editable: true,
     extensions: [
       createTestNodeIdentityExtension(),
       createScaffoldCapabilitiesStorageExtension(capabilities),
-      createSemanticDocumentExtension(semantics),
+      createDocumentAuthoringExtension(semantics),
       DocumentNode,
       StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
       ExtendedParagraph,
@@ -487,10 +490,12 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
     ],
     content: representativeDocument(),
   });
-  const controller = getSemanticDocumentControllerForEditor(editor);
+  const tree = getDocumentTreeForEditor(editor);
+  const controller = getEditorNavigationForEditor(editor);
   const viewport = new DocumentOutlineRowViewport();
-  const viewController = new SemanticHierarchyViewController({
-    controller,
+  const viewController = new DocumentTreeViewController({
+    tree,
+    navigation: controller,
     origin: "document-outline",
     viewport,
   });
@@ -501,7 +506,8 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
   const rendered = await renderBrowserReact(
     <div className="sc-editor-shell" data-scroll-model="contained">
       <DocumentOutline
-        controller={controller}
+        tree={tree}
+        navigation={controller}
         viewController={viewController}
         viewport={viewport}
       />
@@ -517,17 +523,17 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
     readonly gate: Deferred<void>;
     readonly markRequested: () => void;
   } | null = null;
-  const environment = createAuthoringSemanticNavigationEnvironment({
+  const environment = createAuthoringEditorNavigationEnvironment({
     blockDefinitions: builtInBlockRegistry,
-    getSnapshot: () => controller.getSnapshot().semantics,
+    getDocumentTree: () => tree.getSnapshot(),
     root: host,
     view: editor.view,
   });
-  controller.setNavigationEditor({
+  controller.setEditor({
     dispatch: (transaction) => editor.view.dispatch(transaction),
     focus: () => editor.view.focus(),
   });
-  controller.setNavigationEnvironment({
+  controller.setEnvironment({
     createActivationTransaction: (location) => environment.createActivationTransaction(location),
     presentSurface: (surfaceId) => environment.presentSurface(surfaceId),
     async bringIntoView(location, behavior) {
@@ -556,11 +562,14 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
   await expect.element(page.getByRole("tree", { name: /structure$/ })).toBeVisible();
   await expect
     .poll(
-      () => controller.semanticTargetInteractions.registry.resolve(IDS.tabs).kind === "resolved",
+      () =>
+        getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(IDS.tabs).kind ===
+        "resolved",
     )
     .toBe(true);
 
   return {
+    tree,
     controller,
     editor,
     rendered,
@@ -592,7 +601,7 @@ async function expandAncestorsThroughOutline(
   harness: MountedOutlineHarness,
   targetId: EmbeddedNodeId,
 ): Promise<void> {
-  const snapshot = harness.controller.getSnapshot().semantics;
+  const snapshot = harness.tree.getSnapshot();
   const ancestors: EmbeddedNodeId[] = [];
   let parentId = snapshot.parentById.get(targetId) ?? null;
   while (parentId) {

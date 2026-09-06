@@ -26,7 +26,7 @@ import { RegionAuthoringNode } from "@/editor/surfaces/authoring/nodes/region-au
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
-import { createSemanticDefinitionLookup } from "@/composition/model/semantic-definition-lookup";
+import { createDocumentTreeDefinitionLookup } from "@/composition/model/document-tree-definition-lookup";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { CONTENT_LAYOUT_ATTR } from "@/editor/content-layout/model/content-layout-attribute";
 
@@ -135,7 +135,7 @@ const testCapabilities = Object.freeze({
   contentIdentity: Object.freeze({
     rewrites: Object.freeze({ getByNodeType: () => undefined, hasNodeType: () => false }),
   }),
-  documentSemantics: createSemanticDefinitionLookup({
+  documentTree: createDocumentTreeDefinitionLookup({
     blocks: testBlockRegistry,
     layouts: builtInLayoutRegistry,
     surfaces: testSurfaceVariants,

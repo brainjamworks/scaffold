@@ -2,10 +2,10 @@ import type { EmbeddedNodeId } from "@scaffold/contracts";
 
 import type { ProjectedCourseStructure } from "@/document/model/course-structure";
 import type {
-  SemanticActivationRelationship,
-  SemanticDocumentSnapshot,
-  SemanticLocation,
-} from "@/document/model/semantic-document";
+  DocumentItemActivation,
+  DocumentTreeSnapshot,
+  DocumentItemLocation,
+} from "@/document/model/document-tree";
 
 import type {
   MountedSemanticActivationBinding,
@@ -55,7 +55,7 @@ export interface SemanticTargetInteractionCoordinator {
 
 interface CreateSemanticTargetInteractionCoordinatorInput {
   readonly registry: SemanticActivationRegistryResolver;
-  readonly getSemantics: () => SemanticDocumentSnapshot;
+  readonly getSemantics: () => DocumentTreeSnapshot;
   readonly getCourseStructure: () => ProjectedCourseStructure;
   readonly surfacePresentation: SemanticSurfacePresentationPort;
   readonly lifecycleSignal?: AbortSignal;
@@ -63,7 +63,7 @@ interface CreateSemanticTargetInteractionCoordinatorInput {
 
 interface ResolvedSemanticTarget {
   readonly id: EmbeddedNodeId;
-  readonly location: SemanticLocation;
+  readonly location: DocumentItemLocation;
 }
 
 export function createSemanticTargetInteractionCoordinator({
@@ -182,7 +182,7 @@ export function createSemanticTargetInteractionCoordinator({
 }
 
 function resolveTarget(
-  semantics: SemanticDocumentSnapshot,
+  semantics: DocumentTreeSnapshot,
   requestedId: EmbeddedNodeId,
 ): ResolvedSemanticTarget | null {
   if (!semantics.itemById.has(requestedId)) return null;
@@ -198,7 +198,7 @@ function resolveTarget(
 
 function resolveSurfaceId(
   target: ResolvedSemanticTarget,
-  semantics: SemanticDocumentSnapshot,
+  semantics: DocumentTreeSnapshot,
   courseStructure: ProjectedCourseStructure,
 ): EmbeddedNodeId | null {
   if (target.location.surfaceId) return target.location.surfaceId;
@@ -211,7 +211,7 @@ function nextActivation(
   target: ResolvedSemanticTarget,
   completedBindings: ReadonlyMap<string, MountedSemanticActivationBinding>,
   registry: SemanticActivationRegistryResolver,
-): SemanticActivationRelationship | null {
+): DocumentItemActivation | null {
   for (const relationship of target.location.activationPath) {
     const resolution = registry.resolve(relationship.ownerId);
     if (
@@ -227,7 +227,7 @@ function nextActivation(
 
 function assertOutcomeIdentity(
   outcome: SemanticActivationOutcome,
-  relationship: SemanticActivationRelationship,
+  relationship: DocumentItemActivation,
 ): void {
   if (outcome.ownerId !== relationship.ownerId || outcome.childId !== relationship.childId) {
     throw new Error(
@@ -236,13 +236,13 @@ function assertOutcomeIdentity(
   }
 }
 
-function activationKey(relationship: SemanticActivationRelationship): string {
+function activationKey(relationship: DocumentItemActivation): string {
   return `${relationship.ownerKind}:${relationship.ownerId}:${relationship.childId}`;
 }
 
 function sameActivation(
-  left: SemanticActivationRelationship,
-  right: SemanticActivationRelationship,
+  left: DocumentItemActivation,
+  right: DocumentItemActivation,
 ): boolean {
   return (
     left.ownerKind === right.ownerKind &&
@@ -266,8 +266,8 @@ function interrupted(requestedId: EmbeddedNodeId): SemanticTargetInteractionResu
 function unavailable(
   requestedId: EmbeddedNodeId,
   target: ResolvedSemanticTarget,
-  semantics: SemanticDocumentSnapshot,
-  relationship: SemanticActivationRelationship,
+  semantics: DocumentTreeSnapshot,
+  relationship: DocumentItemActivation,
   reason: Extract<SemanticActivationOutcome, { kind: "unavailable" }>["reason"],
 ): SemanticTargetInteractionResult {
   return Object.freeze({
@@ -283,8 +283,8 @@ function unavailable(
 function refused(
   requestedId: EmbeddedNodeId,
   target: ResolvedSemanticTarget,
-  semantics: SemanticDocumentSnapshot,
-  relationship: SemanticActivationRelationship,
+  semantics: DocumentTreeSnapshot,
+  relationship: DocumentItemActivation,
   reason: Extract<SemanticActivationOutcome, { kind: "refused" }>["reason"],
 ): SemanticTargetInteractionResult {
   return Object.freeze({
@@ -299,8 +299,8 @@ function refused(
 
 function resolveNearestReachableOwnerId(
   target: ResolvedSemanticTarget,
-  failedRelationship: SemanticActivationRelationship,
-  semantics: SemanticDocumentSnapshot,
+  failedRelationship: DocumentItemActivation,
+  semantics: DocumentTreeSnapshot,
 ): EmbeddedNodeId | null {
   if (semantics.itemById.has(failedRelationship.ownerId)) {
     return failedRelationship.ownerId;

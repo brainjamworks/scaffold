@@ -2,7 +2,7 @@ import {
   CaretRightIcon as CaretRight,
   PresentationIcon as Presentation,
 } from "@phosphor-icons/react";
-import type { SemanticItem } from "@/document/model/semantic-document";
+import type { DocumentTreeItem } from "@/document/model/document-tree";
 import { iconLg, iconXs } from "@/ui/tokens/icon-sizes";
 
 import {
@@ -39,25 +39,25 @@ export function CourseSectionGroup({
 }: {
   readonly expanded: boolean;
   readonly hasMovableSurface: boolean;
-  readonly item: SemanticItem;
+  readonly item: DocumentTreeItem;
   readonly surfaceDragProjection: CourseOutlineSurfaceDragProjection | null;
   readonly selected: boolean;
   readonly selectedSurfaceId: string | null;
   readonly registerSelectionControl: (element: HTMLButtonElement | null) => void;
   readonly registerSurfaceControl: (surfaceId: string, element: HTMLButtonElement | null) => void;
-  readonly onSelect: (item: SemanticItem) => void;
-  readonly onSelectSurface: (item: SemanticItem) => void;
-  readonly onShowSurfaceStructure: (item: SemanticItem) => void;
-  readonly canDragSurface: (item: SemanticItem) => boolean;
+  readonly onSelect: (item: DocumentTreeItem) => void;
+  readonly onSelectSurface: (item: DocumentTreeItem) => void;
+  readonly onShowSurfaceStructure: (item: DocumentTreeItem) => void;
+  readonly canDragSurface: (item: DocumentTreeItem) => boolean;
   readonly movementAvailable: boolean;
   readonly onExpandedChange: (expanded: boolean) => void;
-  readonly onDeleteSection: (item: SemanticItem) => void;
-  readonly onDeleteSurface?: (item: SemanticItem) => void;
-  readonly onDuplicateSection: (item: SemanticItem) => void;
-  readonly onDuplicateSurface?: (item: SemanticItem) => void;
-  readonly onRenameSection: (item: SemanticItem) => void;
-  readonly onRenameSurface?: (item: SemanticItem, value: string) => boolean;
-  readonly onSurfaceSettings?: (item: SemanticItem) => void;
+  readonly onDeleteSection: (item: DocumentTreeItem) => void;
+  readonly onDeleteSurface?: (item: DocumentTreeItem) => void;
+  readonly onDuplicateSection: (item: DocumentTreeItem) => void;
+  readonly onDuplicateSurface?: (item: DocumentTreeItem) => void;
+  readonly onRenameSection: (item: DocumentTreeItem) => void;
+  readonly onRenameSurface?: (item: DocumentTreeItem, value: string) => boolean;
+  readonly onSurfaceSettings?: (item: DocumentTreeItem) => void;
   readonly registerSectionActionControl: (
     sectionId: string,
     element: HTMLButtonElement | null,

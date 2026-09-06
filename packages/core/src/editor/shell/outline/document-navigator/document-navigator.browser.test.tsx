@@ -4,11 +4,11 @@ import { render as renderBrowserReact } from "vitest-browser-react";
 import { describe, expect, it } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
 
-import { SemanticHierarchyViewController } from "@/document/authoring/semantic-document/semantic-hierarchy-view-controller";
-import type { SemanticDocumentControllerSnapshot } from "@/document/authoring/semantic-document/semantic-document-controller";
-import type { SemanticNavigationOptions } from "@/document/authoring/semantic-document/semantic-navigation";
-import type { SemanticDocumentSnapshot, SemanticItem } from "@/document/model/semantic-document";
-import { DocumentOutlineRowViewport } from "../SemanticSubtreeOutline";
+import { DocumentTreeViewController } from "@/document/authoring/document-tree/document-tree-view-controller";
+import type { EditorSelectionSnapshot } from "@/document/authoring/editor-navigation";
+import type { EditorNavigationOptions } from "@/document/authoring/editor-navigation/editor-navigation";
+import type { DocumentTreeSnapshot, DocumentTreeItem } from "@/document/model/document-tree";
+import { DocumentOutlineRowViewport } from "../DocumentTreeSubtreeOutline";
 import { DocumentNavigator, type DocumentNavigatorNavigation } from "./DocumentNavigator";
 
 describe("Document Navigator", () => {
@@ -16,16 +16,18 @@ describe("Document Navigator", () => {
     const heading = item("heading", "rich-text", "Heading");
     const surface = item("surface", "surface", "Introduction", [heading]);
     const section = item("section", "course-section", "Section 1", [surface]);
-    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const controller = new FakeDocumentOwners(snapshotFromRoots([section]));
     const viewport = new DocumentOutlineRowViewport();
-    const viewController = new SemanticHierarchyViewController({
-      controller,
+    const viewController = new DocumentTreeViewController({
+      tree: controller,
+      navigation: controller,
       origin: "document-outline",
       viewport,
     });
     const rendered = await renderBrowserReact(
       <DocumentNavigatorHarness
-        controller={controller}
+        tree={controller}
+        navigation={controller}
         viewController={viewController}
         viewport={viewport}
       />,
@@ -37,9 +39,9 @@ describe("Document Navigator", () => {
       await expect
         .element(page.getByRole("button", { name: "Select Course Section Section 1" }))
         .toHaveAttribute("aria-pressed", "true");
-      expect(controller.selectCalls).toEqual([]);
+      expect(controller.showTargetCalls).toEqual([]);
       await userEvent.click(page.getByRole("button", { name: "Select Surface Introduction" }));
-      expect(controller.selectCalls.at(-1)?.id).toBe(surface.id);
+      expect(controller.showTargetCalls.at(-1)?.id).toBe(surface.id);
       await userEvent.click(page.getByRole("button", { name: "Show structure for Introduction" }));
       await expect
         .element(page.getByRole("tree", { name: "Introduction structure" }))
@@ -82,10 +84,10 @@ function id(value: string): EmbeddedNodeId {
 
 function item(
   value: string,
-  kind: SemanticItem["kind"],
+  kind: DocumentTreeItem["kind"],
   label: string,
-  children: readonly SemanticItem[] = [],
-): SemanticItem {
+  children: readonly DocumentTreeItem[] = [],
+): DocumentTreeItem {
   return {
     id: id(value),
     kind,
@@ -99,10 +101,10 @@ function item(
   };
 }
 
-function snapshotFromRoots(roots: readonly SemanticItem[]): SemanticDocumentSnapshot {
-  const itemById = new Map<EmbeddedNodeId, SemanticItem>();
+function snapshotFromRoots(roots: readonly DocumentTreeItem[]): DocumentTreeSnapshot {
+  const itemById = new Map<EmbeddedNodeId, DocumentTreeItem>();
   const parentById = new Map<EmbeddedNodeId, EmbeddedNodeId | null>();
-  const visit = (entry: SemanticItem, parentId: EmbeddedNodeId | null) => {
+  const visit = (entry: DocumentTreeItem, parentId: EmbeddedNodeId | null) => {
     itemById.set(entry.id, entry);
     parentById.set(entry.id, parentId);
     entry.children.forEach((child) => visit(child, entry.id));
@@ -119,30 +121,34 @@ function snapshotFromRoots(roots: readonly SemanticItem[]): SemanticDocumentSnap
   };
 }
 
-class FakeSemanticDocumentController {
-  readonly selectCalls: Array<{ id: EmbeddedNodeId; options: SemanticNavigationOptions }> = [];
+class FakeDocumentOwners {
+  readonly showTargetCalls: Array<{ id: EmbeddedNodeId; options: EditorNavigationOptions }> = [];
   readonly #listeners = new Set<() => void>();
-  #snapshot: SemanticDocumentControllerSnapshot;
+  #tree: DocumentTreeSnapshot;
+  #selection: EditorSelectionSnapshot;
 
-  constructor(semantics: SemanticDocumentSnapshot) {
-    this.#snapshot = { semantics, selectedId: null, selectionOrigin: null };
+  constructor(semantics: DocumentTreeSnapshot) {
+    this.#tree = semantics;
+    this.#selection = { selectedId: null, selectionOrigin: null };
   }
 
-  getSnapshot = () => this.#snapshot;
+  getSnapshot = () => this.#tree;
+  getSelectionSnapshot = () => this.#selection;
 
   subscribe = (listener: () => void) => {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
   };
+  subscribeSelection = this.subscribe;
 
   reportComponentSelection(itemId: EmbeddedNodeId) {
-    this.#snapshot = { ...this.#snapshot, selectedId: itemId, selectionOrigin: "component" };
+    this.#selection = { selectedId: itemId, selectionOrigin: "component" };
     for (const listener of this.#listeners) listener();
   }
 
-  async select(itemId: EmbeddedNodeId, options: SemanticNavigationOptions) {
-    this.selectCalls.push({ id: itemId, options });
-    this.#snapshot = { ...this.#snapshot, selectedId: itemId, selectionOrigin: options.origin };
+  async showTarget(itemId: EmbeddedNodeId, options: EditorNavigationOptions) {
+    this.showTargetCalls.push({ id: itemId, options });
+    this.#selection = { selectedId: itemId, selectionOrigin: options.origin };
     for (const listener of this.#listeners) listener();
     return { kind: "reached" as const, id: itemId };
   }

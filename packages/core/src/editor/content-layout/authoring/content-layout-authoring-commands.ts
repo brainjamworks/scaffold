@@ -4,10 +4,10 @@ import type { EditorState, Transaction } from "@tiptap/pm/state";
 import { Result, type Result as ResultType } from "better-result";
 
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
-import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document/semantic-document-storage";
-import { setSemanticSelectionTransactionMeta } from "@/document/authoring/semantic-document/semantic-selection-origin";
-import type { SemanticLocation } from "@/document/model/semantic-document";
-import { resolveSemanticPresentationContainer } from "@/document/model/semantic-document/presentation-container-resolution";
+import { getDocumentTreeForEditor } from "@/document/authoring/document-tree/document-tree-storage";
+import { setEditorSelectionTransactionMeta } from "@/document/authoring/editor-navigation/editor-selection-origin";
+import type { DocumentItemLocation } from "@/document/model/document-tree";
+import { resolveDocumentItemPresentationContainer } from "@/document/model/document-tree/document-item-presentation-container";
 import {
   createAuthoringInteractionNavigationTransaction,
   resolveAuthoringInteractionNavigationTarget,
@@ -158,7 +158,7 @@ export function setAuthoringContentLayout({
 }): ContentLayoutAuthoringResult {
   if (editor.isDestroyed) return containerUnavailable(containerId);
 
-  const snapshot = getSemanticDocumentControllerForEditor(editor).getSnapshot().semantics;
+  const snapshot = getDocumentTreeForEditor(editor).getSnapshot();
   const container = snapshot.itemById.get(containerId);
   if (!container || container.presentationContainer === null) {
     return containerUnavailable(containerId);
@@ -206,7 +206,7 @@ function prepareNavigationTransaction({
   readonly containerId: EmbeddedNodeId;
   readonly childId: EmbeddedNodeId;
 }): ResultType<Transaction, ContentLayoutAuthoringIssue> {
-  const snapshot = getSemanticDocumentControllerForEditor(editor).getSnapshot().semantics;
+  const snapshot = getDocumentTreeForEditor(editor).getSnapshot();
   const container = snapshot.itemById.get(containerId);
   if (!container || container.presentationContainer === null) {
     return Result.err(Object.freeze({ kind: "container-unavailable", containerId }));
@@ -215,7 +215,7 @@ function prepareNavigationTransaction({
     return Result.err(Object.freeze({ kind: "child-unavailable", containerId, childId }));
   }
 
-  const boundary = resolveSemanticPresentationContainer(snapshot, childId);
+  const boundary = resolveDocumentItemPresentationContainer(snapshot, childId);
   if (
     boundary === null ||
     boundary.boundaryId !== containerId ||
@@ -238,7 +238,7 @@ function prepareNavigationTransaction({
     return Result.err(Object.freeze({ kind: "navigation-unavailable", childId }));
   }
 
-  setSemanticSelectionTransactionMeta(transaction, {
+  setEditorSelectionTransactionMeta(transaction, {
     intendedId: childId,
     origin: "content-layout",
   });
@@ -247,7 +247,7 @@ function prepareNavigationTransaction({
 
 function createExactSelectionTransaction(
   state: EditorState,
-  location: SemanticLocation,
+  location: DocumentItemLocation,
 ): Transaction | null {
   const transaction = state.tr;
   const target = location.selectionTarget;
@@ -265,7 +265,7 @@ function createExactSelectionTransaction(
 
 function createOwnerActivationTransaction(
   editor: Editor,
-  location: SemanticLocation,
+  location: DocumentItemLocation,
 ): Transaction | null {
   const capabilities = getScaffoldCapabilitiesForEditor(editor);
   const target = resolveAuthoringInteractionNavigationTarget(
@@ -276,7 +276,7 @@ function createOwnerActivationTransaction(
   return target ? createAuthoringInteractionNavigationTransaction(editor.state, target) : null;
 }
 
-function locationMatchesDocument(state: EditorState, location: SemanticLocation): boolean {
+function locationMatchesDocument(state: EditorState, location: DocumentItemLocation): boolean {
   const node = state.doc.nodeAt(location.from);
   return node?.attrs["id"] === location.id && node.type.name === location.nodeType;
 }

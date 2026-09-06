@@ -11,7 +11,7 @@ import {
   emptyGlossaryData,
   glossaryEntryContent,
 } from "./content";
-import { glossaryDocumentSemantics } from "./glossary-document-semantics";
+import { glossaryDocumentTree } from "./glossary-document-tree";
 
 export const GLOSSARY_BLOCK_ID = "glossary";
 
@@ -34,7 +34,7 @@ const DEFAULT_ENTRIES = [
 export const glossaryBlockDefinition = defineBlock({
   nodeType: GLOSSARY_NODE,
   title: "Glossary",
-  documentSemantics: glossaryDocumentSemantics,
+  documentTree: glossaryDocumentTree,
   frame: {
     resizable: true,
     resizeMode: "responsive",

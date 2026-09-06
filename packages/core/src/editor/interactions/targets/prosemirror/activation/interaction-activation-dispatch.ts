@@ -12,8 +12,8 @@ import {
   setTextSelectionInTransaction,
   setTextSelectionNearInTransaction,
 } from "@/editor/selection/selection-transactions";
-import type { SemanticEditorSelectionTarget } from "@/document/model/semantic-document/semantic-location";
-import { setSemanticSelectionTransactionMeta } from "@/document/authoring/semantic-document/semantic-selection-origin";
+import type { DocumentItemEditorSelectionTarget } from "@/document/model/document-tree/document-item-location";
+import { setEditorSelectionTransactionMeta } from "@/document/authoring/editor-navigation/editor-selection-origin";
 
 import {
   InteractionTargetKind,
@@ -209,7 +209,7 @@ export function createStructuralInteractionTargetActivationTransaction(
   });
   const intendedId = EmbeddedNodeIdSchema.safeParse(target.id);
   if (intendedId.success) {
-    setSemanticSelectionTransactionMeta(transaction, {
+    setEditorSelectionTransactionMeta(transaction, {
       intendedId: intendedId.data,
       origin: "editor",
     });
@@ -259,7 +259,7 @@ function applyPointerWithinTargetPlacement(
 function retainActiveChildSelection(
   tr: Transaction,
   activeRange: StructuralActivationPlacementRange,
-  selectionTarget: SemanticEditorSelectionTarget,
+  selectionTarget: DocumentItemEditorSelectionTarget,
 ): boolean {
   if (isTextOrNodeSelectionWithinRange(tr.selection, activeRange, tr.doc.content.size)) {
     return true;
@@ -270,7 +270,7 @@ function retainActiveChildSelection(
 
 function applySemanticSelectionTarget(
   tr: Transaction,
-  selectionTarget: SemanticEditorSelectionTarget,
+  selectionTarget: DocumentItemEditorSelectionTarget,
 ): boolean {
   switch (selectionTarget.kind) {
     case "node":

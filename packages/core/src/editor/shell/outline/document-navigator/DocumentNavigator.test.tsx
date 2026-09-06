@@ -7,11 +7,11 @@ import userEvent from "@testing-library/user-event";
 import { useState, type ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { SemanticHierarchyViewController } from "@/document/authoring/semantic-document/semantic-hierarchy-view-controller";
-import type { SemanticDocumentControllerSnapshot } from "@/document/authoring/semantic-document/semantic-document-controller";
-import type { SemanticNavigationOptions } from "@/document/authoring/semantic-document/semantic-navigation";
-import type { SemanticDocumentSnapshot, SemanticItem } from "@/document/model/semantic-document";
-import { DocumentOutlineRowViewport } from "../SemanticSubtreeOutline";
+import { DocumentTreeViewController } from "@/document/authoring/document-tree/document-tree-view-controller";
+import type { EditorSelectionSnapshot } from "@/document/authoring/editor-navigation";
+import type { EditorNavigationOptions } from "@/document/authoring/editor-navigation/editor-navigation";
+import type { DocumentTreeSnapshot, DocumentTreeItem } from "@/document/model/document-tree";
+import { DocumentOutlineRowViewport } from "../DocumentTreeSubtreeOutline";
 import { DocumentNavigator, type DocumentNavigatorNavigation } from "./DocumentNavigator";
 
 const scrollIntoView = vi.fn();
@@ -26,17 +26,19 @@ describe("DocumentNavigator", () => {
     const user = userEvent.setup();
     const surface = item("surface-1", "surface", "Introduction");
     const section = item("section-1", "course-section", "Section 1", [surface]);
-    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const controller = new FakeDocumentOwners(snapshotFromRoots([section]));
     const viewport = new DocumentOutlineRowViewport();
-    const viewController = new SemanticHierarchyViewController({
-      controller,
+    const viewController = new DocumentTreeViewController({
+      tree: controller,
+      navigation: controller,
       origin: "document-outline",
       viewport,
     });
 
     render(
       <DocumentNavigator
-        controller={controller}
+        tree={controller}
+        navigation={controller}
         viewController={viewController}
         viewport={viewport}
       />,
@@ -61,17 +63,19 @@ describe("DocumentNavigator", () => {
   it("selects an empty Course Section without changing its disclosure state", async () => {
     const user = userEvent.setup();
     const section = item("section-1", "course-section", "Empty Section");
-    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const controller = new FakeDocumentOwners(snapshotFromRoots([section]));
     const viewport = new DocumentOutlineRowViewport();
-    const viewController = new SemanticHierarchyViewController({
-      controller,
+    const viewController = new DocumentTreeViewController({
+      tree: controller,
+      navigation: controller,
       origin: "document-outline",
       viewport,
     });
 
     render(
       <DocumentNavigator
-        controller={controller}
+        tree={controller}
+        navigation={controller}
         viewController={viewController}
         viewport={viewport}
       />,
@@ -86,7 +90,7 @@ describe("DocumentNavigator", () => {
       screen.getByRole("button", { name: "Select Course Section Empty Section" }),
     ).toHaveAttribute("aria-pressed", "true");
     expect(controller.componentSelectionCalls).toEqual([section.id]);
-    expect(controller.selectCalls).toEqual([]);
+    expect(controller.showTargetCalls).toEqual([]);
   });
 
   it("returns to Overview, expands, and reveals an externally selected Course Section", async () => {
@@ -94,17 +98,19 @@ describe("DocumentNavigator", () => {
     const heading = item("heading", "rich-text", "Heading");
     const surface = item("surface-1", "surface", "Introduction", [heading]);
     const section = item("section-1", "course-section", "Section 1", [surface]);
-    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const controller = new FakeDocumentOwners(snapshotFromRoots([section]));
     const viewport = new DocumentOutlineRowViewport();
-    const viewController = new SemanticHierarchyViewController({
-      controller,
+    const viewController = new DocumentTreeViewController({
+      tree: controller,
+      navigation: controller,
       origin: "document-outline",
       viewport,
     });
 
     render(
       <DocumentNavigatorHarness
-        controller={controller}
+        tree={controller}
+        navigation={controller}
         viewController={viewController}
         viewport={viewport}
       />,
@@ -127,7 +133,7 @@ describe("DocumentNavigator", () => {
       "true",
     );
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
-    expect(controller.selectCalls).toEqual([]);
+    expect(controller.showTargetCalls).toEqual([]);
 
     await user.click(disclosure);
     expect(disclosure).toHaveAttribute("aria-expanded", "false");
@@ -136,10 +142,11 @@ describe("DocumentNavigator", () => {
   it("keeps a collapsed Course Section available as a Surface drop destination", async () => {
     const user = userEvent.setup();
     const section = item("section-1", "course-section", "Empty Section");
-    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const controller = new FakeDocumentOwners(snapshotFromRoots([section]));
     const viewport = new DocumentOutlineRowViewport();
-    const viewController = new SemanticHierarchyViewController({
-      controller,
+    const viewController = new DocumentTreeViewController({
+      tree: controller,
+      navigation: controller,
       origin: "document-outline",
       viewport,
     });
@@ -154,7 +161,8 @@ describe("DocumentNavigator", () => {
 
     render(
       <DocumentNavigator
-        controller={controller}
+        tree={controller}
+        navigation={controller}
         structureAuthoring={structureAuthoring}
         viewController={viewController}
         viewport={viewport}
@@ -171,17 +179,19 @@ describe("DocumentNavigator", () => {
     const callout = item("callout", "block", "Callout", [heading]);
     const introduction = item("surface-1", "surface", "Introduction", [callout]);
     const section = item("section-1", "course-section", "Section 1", [introduction]);
-    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const controller = new FakeDocumentOwners(snapshotFromRoots([section]));
     const viewport = new DocumentOutlineRowViewport();
-    const viewController = new SemanticHierarchyViewController({
-      controller,
+    const viewController = new DocumentTreeViewController({
+      tree: controller,
+      navigation: controller,
       origin: "document-outline",
       viewport,
     });
 
     render(
       <DocumentNavigatorHarness
-        controller={controller}
+        tree={controller}
+        navigation={controller}
         viewController={viewController}
         viewport={viewport}
       />,
@@ -198,8 +208,8 @@ describe("DocumentNavigator", () => {
       "aria-selected",
       "true",
     );
-    expect(controller.getSnapshot().selectedId).toBe(heading.id);
-    expect(controller.selectCalls).toEqual([]);
+    expect(controller.getSelectionSnapshot().selectedId).toBe(heading.id);
+    expect(controller.showTargetCalls).toEqual([]);
   });
 
   it("follows a new external descendant selection into another Surface Structure", async () => {
@@ -208,17 +218,19 @@ describe("DocumentNavigator", () => {
     const paragraph = item("paragraph", "rich-text", "Summary paragraph");
     const summary = item("surface-2", "surface", "Summary", [paragraph]);
     const section = item("section-1", "course-section", "Section 1", [introduction, summary]);
-    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const controller = new FakeDocumentOwners(snapshotFromRoots([section]));
     const viewport = new DocumentOutlineRowViewport();
-    const viewController = new SemanticHierarchyViewController({
-      controller,
+    const viewController = new DocumentTreeViewController({
+      tree: controller,
+      navigation: controller,
       origin: "document-outline",
       viewport,
     });
 
     render(
       <DocumentNavigatorHarness
-        controller={controller}
+        tree={controller}
+        navigation={controller}
         viewController={viewController}
         viewport={viewport}
       />,
@@ -235,8 +247,8 @@ describe("DocumentNavigator", () => {
       "aria-selected",
       "true",
     );
-    expect(controller.getSnapshot().selectedId).toBe(paragraph.id);
-    expect(controller.selectCalls).toEqual([]);
+    expect(controller.getSelectionSnapshot().selectedId).toBe(paragraph.id);
+    expect(controller.showTargetCalls).toEqual([]);
   });
 
   it("requires a new external selection to reopen Structure after Back", async () => {
@@ -245,17 +257,19 @@ describe("DocumentNavigator", () => {
     const paragraph = item("paragraph", "rich-text", "Paragraph");
     const introduction = item("surface-1", "surface", "Introduction", [heading, paragraph]);
     const section = item("section-1", "course-section", "Section 1", [introduction]);
-    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const controller = new FakeDocumentOwners(snapshotFromRoots([section]));
     const viewport = new DocumentOutlineRowViewport();
-    const viewController = new SemanticHierarchyViewController({
-      controller,
+    const viewController = new DocumentTreeViewController({
+      tree: controller,
+      navigation: controller,
       origin: "document-outline",
       viewport,
     });
 
     render(
       <DocumentNavigatorHarness
-        controller={controller}
+        tree={controller}
+        navigation={controller}
         viewController={viewController}
         viewport={viewport}
       />,
@@ -274,7 +288,7 @@ describe("DocumentNavigator", () => {
     await waitFor(() =>
       expect(screen.queryByRole("tree", { name: "Introduction structure" })).toBeNull(),
     );
-    expect(controller.getSnapshot().selectedId).toBe(heading.id);
+    expect(controller.getSelectionSnapshot().selectedId).toBe(heading.id);
 
     act(() => controller.selectFromComponent(paragraph.id));
     const structure = await screen.findByRole("tree", { name: "Introduction structure" });
@@ -288,17 +302,19 @@ describe("DocumentNavigator", () => {
     const heading = item("heading", "rich-text", "Heading");
     const introduction = item("surface-1", "surface", "Introduction", [heading]);
     const section = item("section-1", "course-section", "Section 1", [introduction]);
-    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const controller = new FakeDocumentOwners(snapshotFromRoots([section]));
     const viewport = new DocumentOutlineRowViewport();
-    const viewController = new SemanticHierarchyViewController({
-      controller,
+    const viewController = new DocumentTreeViewController({
+      tree: controller,
+      navigation: controller,
       origin: "document-outline",
       viewport,
     });
 
     render(
       <DocumentNavigatorHarness
-        controller={controller}
+        tree={controller}
+        navigation={controller}
         viewController={viewController}
         viewport={viewport}
       />,
@@ -326,17 +342,19 @@ describe("DocumentNavigator", () => {
     const introduction = item("surface-1", "surface", "Introduction", [heading]);
     const summary = item("surface-2", "surface", "Summary");
     const section = item("section-1", "course-section", "Section 1", [introduction, summary]);
-    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const controller = new FakeDocumentOwners(snapshotFromRoots([section]));
     const viewport = new DocumentOutlineRowViewport();
-    const viewController = new SemanticHierarchyViewController({
-      controller,
+    const viewController = new DocumentTreeViewController({
+      tree: controller,
+      navigation: controller,
       origin: "document-outline",
       viewport,
     });
 
     render(
       <DocumentNavigatorHarness
-        controller={controller}
+        tree={controller}
+        navigation={controller}
         viewController={viewController}
         viewport={viewport}
       />,
@@ -347,7 +365,7 @@ describe("DocumentNavigator", () => {
     expect(screen.queryByRole("treeitem", { name: "Heading" })).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Select Surface Introduction" }));
-    expect(controller.selectCalls.at(-1)).toEqual({
+    expect(controller.showTargetCalls.at(-1)).toEqual({
       id: introduction.id,
       options: { origin: "document-outline", focusEditor: false },
     });
@@ -368,10 +386,11 @@ describe("DocumentNavigator", () => {
     const user = userEvent.setup();
     const surface = item("surface-1", "surface", "Introduction");
     const section = item("section-1", "course-section", "Section 1", [surface]);
-    const controller = new FakeSemanticDocumentController(snapshotFromRoots([section]));
+    const controller = new FakeDocumentOwners(snapshotFromRoots([section]));
     const viewport = new DocumentOutlineRowViewport();
-    const viewController = new SemanticHierarchyViewController({
-      controller,
+    const viewController = new DocumentTreeViewController({
+      tree: controller,
+      navigation: controller,
       origin: "document-outline",
       viewport,
     });
@@ -391,7 +410,8 @@ describe("DocumentNavigator", () => {
 
     render(
       <DocumentNavigator
-        controller={controller}
+        tree={controller}
+        navigation={controller}
         structureAuthoring={structureAuthoring}
         surfaceActions={surfaceActions}
         viewController={viewController}
@@ -438,10 +458,10 @@ function id(value: string): EmbeddedNodeId {
 
 function item(
   value: string,
-  kind: SemanticItem["kind"],
+  kind: DocumentTreeItem["kind"],
   label: string,
-  children: readonly SemanticItem[] = [],
-): SemanticItem {
+  children: readonly DocumentTreeItem[] = [],
+): DocumentTreeItem {
   return {
     id: id(value),
     kind,
@@ -455,10 +475,10 @@ function item(
   };
 }
 
-function snapshotFromRoots(roots: readonly SemanticItem[]): SemanticDocumentSnapshot {
-  const itemById = new Map<EmbeddedNodeId, SemanticItem>();
+function snapshotFromRoots(roots: readonly DocumentTreeItem[]): DocumentTreeSnapshot {
+  const itemById = new Map<EmbeddedNodeId, DocumentTreeItem>();
   const parentById = new Map<EmbeddedNodeId, EmbeddedNodeId | null>();
-  const visit = (entry: SemanticItem, parentId: EmbeddedNodeId | null) => {
+  const visit = (entry: DocumentTreeItem, parentId: EmbeddedNodeId | null) => {
     itemById.set(entry.id, entry);
     parentById.set(entry.id, parentId);
     entry.children.forEach((child) => visit(child, entry.id));
@@ -475,35 +495,39 @@ function snapshotFromRoots(roots: readonly SemanticItem[]): SemanticDocumentSnap
   };
 }
 
-class FakeSemanticDocumentController {
-  readonly selectCalls: Array<{ id: EmbeddedNodeId; options: SemanticNavigationOptions }> = [];
+class FakeDocumentOwners {
+  readonly showTargetCalls: Array<{ id: EmbeddedNodeId; options: EditorNavigationOptions }> = [];
   readonly componentSelectionCalls: EmbeddedNodeId[] = [];
   readonly #listeners = new Set<() => void>();
-  #snapshot: SemanticDocumentControllerSnapshot;
+  #tree: DocumentTreeSnapshot;
+  #selection: EditorSelectionSnapshot;
 
-  constructor(semantics: SemanticDocumentSnapshot) {
-    this.#snapshot = { semantics, selectedId: null, selectionOrigin: null };
+  constructor(semantics: DocumentTreeSnapshot) {
+    this.#tree = semantics;
+    this.#selection = { selectedId: null, selectionOrigin: null };
   }
 
-  getSnapshot = () => this.#snapshot;
+  getSnapshot = () => this.#tree;
+  getSelectionSnapshot = () => this.#selection;
 
   subscribe = (listener: () => void) => {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
   };
+  subscribeSelection = this.subscribe;
 
   selectFromEditor(itemId: EmbeddedNodeId) {
-    this.#snapshot = { ...this.#snapshot, selectedId: itemId, selectionOrigin: "editor" };
+    this.#selection = { selectedId: itemId, selectionOrigin: "editor" };
     for (const listener of this.#listeners) listener();
   }
 
   selectFromComponent(itemId: EmbeddedNodeId) {
-    this.#snapshot = { ...this.#snapshot, selectedId: itemId, selectionOrigin: "component" };
+    this.#selection = { selectedId: itemId, selectionOrigin: "component" };
     for (const listener of this.#listeners) listener();
   }
 
-  replaceSemantics(semantics: SemanticDocumentSnapshot) {
-    this.#snapshot = { ...this.#snapshot, semantics };
+  replaceSemantics(semantics: DocumentTreeSnapshot) {
+    this.#tree = semantics;
     for (const listener of this.#listeners) listener();
   }
 
@@ -512,9 +536,9 @@ class FakeSemanticDocumentController {
     this.selectFromComponent(itemId);
   }
 
-  async select(itemId: EmbeddedNodeId, options: SemanticNavigationOptions) {
-    this.selectCalls.push({ id: itemId, options });
-    this.#snapshot = { ...this.#snapshot, selectedId: itemId, selectionOrigin: options.origin };
+  async showTarget(itemId: EmbeddedNodeId, options: EditorNavigationOptions) {
+    this.showTargetCalls.push({ id: itemId, options });
+    this.#selection = { selectedId: itemId, selectionOrigin: options.origin };
     for (const listener of this.#listeners) listener();
     return { kind: "reached" as const, id: itemId };
   }

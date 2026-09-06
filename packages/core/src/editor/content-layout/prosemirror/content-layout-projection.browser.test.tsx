@@ -20,7 +20,7 @@ import { createBlockRuntimeNodeView } from "@/editor/frame/runtime/create-block-
 import { defineBlock, type BlockDefinition } from "@/editor/blocks/block-definition";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { projectAuthoringCourseStructure } from "@/document/authoring/course-structure/project-authoring-course-structure";
-import { projectSemanticDocument } from "@/document/model/semantic-document";
+import { buildDocumentTree } from "@/document/model/document-tree";
 import { CONTENT_LAYOUT_PROJECTION_DOM_ATTRS } from "../view/content-layout-projection-dom";
 import {
   clearContentLayoutProjectionMeta,
@@ -731,9 +731,9 @@ function createProjectionBatch(
 
   const definitions =
     lane === "authoring"
-      ? projectionApplication.authoring.documentSemantics
-      : projectionApplication.runtime.documentSemantics;
-  const snapshot = projectSemanticDocument({
+      ? projectionApplication.authoring.documentTree
+      : projectionApplication.runtime.documentTree;
+  const snapshot = buildDocumentTree({
     courseStructure,
     definitions,
     doc: editor.state.doc,

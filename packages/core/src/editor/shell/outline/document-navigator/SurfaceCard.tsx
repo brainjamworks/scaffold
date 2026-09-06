@@ -1,4 +1,4 @@
-import type { SemanticItem } from "@/document/model/semantic-document";
+import type { DocumentTreeItem } from "@/document/model/document-tree";
 import {
   useInteractionDragSource,
   type InteractionDragSourceResult,
@@ -11,15 +11,15 @@ import {
 import { SurfaceActions } from "./SurfaceActions";
 
 interface SurfaceCardProps {
-  readonly item: SemanticItem;
+  readonly item: DocumentTreeItem;
   readonly selected: boolean;
   readonly registerSelectionControl: (element: HTMLButtonElement | null) => void;
-  readonly onSelect: (item: SemanticItem) => void;
-  readonly onShowStructure: (item: SemanticItem) => void;
-  readonly onDelete?: (item: SemanticItem) => void;
-  readonly onDuplicate?: (item: SemanticItem) => void;
-  readonly onRename?: (item: SemanticItem, value: string) => boolean;
-  readonly onSettings?: (item: SemanticItem) => void;
+  readonly onSelect: (item: DocumentTreeItem) => void;
+  readonly onShowStructure: (item: DocumentTreeItem) => void;
+  readonly onDelete?: (item: DocumentTreeItem) => void;
+  readonly onDuplicate?: (item: DocumentTreeItem) => void;
+  readonly onRename?: (item: DocumentTreeItem, value: string) => boolean;
+  readonly onSettings?: (item: DocumentTreeItem) => void;
   readonly draggable?: boolean;
 }
 

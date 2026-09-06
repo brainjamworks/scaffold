@@ -26,7 +26,7 @@ import {
   type SlideCompositionMetadata,
   type SurfaceCatalogueInput,
 } from "./slide-composition-schema";
-import { createSurfaceDocumentSemantics } from "./surface-document-semantics";
+import { createSurfaceDocumentTree } from "./surface-document-tree";
 
 export type SlideCompositionStructurePolicy = {
   readonly fixedChildren: readonly FixedSurfaceChild[];
@@ -127,9 +127,9 @@ export function defineSlideCompositionSurface(
     ...definition,
     catalogue,
     createSurface,
-    documentSemantics:
-      definition.documentSemantics ??
-      createSurfaceDocumentSemantics({ ownedRichTextNodeTypes: ["slide_title"] }),
+    documentTree:
+      definition.documentTree ??
+      createSurfaceDocumentTree({ ownedRichTextNodeTypes: ["slide_title"] }),
     slideComposition,
     modes: SLIDESHOW_MODES,
     settingsSchema,

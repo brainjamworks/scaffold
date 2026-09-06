@@ -7,15 +7,14 @@ import { Schema, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { EditorState } from "@tiptap/pm/state";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { SemanticDocumentControllerSnapshot } from "@/document/authoring/semantic-document/semantic-document-controller";
 import type {
-  SemanticDocumentSnapshot,
-  SemanticItemKind,
-} from "@/document/model/semantic-document/semantic-document-snapshot";
+  DocumentTreeSnapshot,
+  DocumentTreeItemKind,
+} from "@/document/model/document-tree/document-tree-snapshot";
 import {
-  createSemanticSnapshotBuilder,
-  type SemanticSnapshotItemInput,
-} from "@/document/model/semantic-document/snapshot-builder";
+  createDocumentTreeSnapshotBuilder,
+  type DocumentTreeSnapshotItemInput,
+} from "@/document/model/document-tree/document-tree-snapshot-builder";
 import type { ContentLayoutAuthoringState } from "@/editor/content-layout/model/content-layout-authoring-state";
 import type { StructuralActivationPlacementResolution } from "@/editor/interactions/targets/prosemirror/activation/structural-activation-placement";
 import {
@@ -26,12 +25,12 @@ import {
 import { resolveContentLayoutStructuralActivationPlacement } from "./content-layout-structural-activation-placement";
 
 const dependencyMocks = vi.hoisted(() => ({
-  getSemanticDocumentControllerForState: vi.fn(),
+  getDocumentTreeForState: vi.fn(),
   readContentLayoutAuthoringState: vi.fn(),
 }));
 
-vi.mock("@/document/authoring/semantic-document/semantic-document-storage", () => ({
-  getSemanticDocumentControllerForState: dependencyMocks.getSemanticDocumentControllerForState,
+vi.mock("@/document/authoring/document-tree/document-tree-storage", () => ({
+  getDocumentTreeForState: dependencyMocks.getDocumentTreeForState,
 }));
 
 vi.mock("../prosemirror/content-layout-authoring-extension", () => ({
@@ -101,7 +100,7 @@ describe("resolveContentLayoutStructuralActivationPlacement", () => {
         expect(resolution.selectionTarget).toBe(location.selectionTarget);
       }
       expect(Object.isFrozen(resolution)).toBe(true);
-      expect(dependencyMocks.getSemanticDocumentControllerForState).toHaveBeenCalledOnce();
+      expect(dependencyMocks.getDocumentTreeForState).toHaveBeenCalledOnce();
       expect(dependencyMocks.readContentLayoutAuthoringState).toHaveBeenCalledOnce();
     },
   );
@@ -121,7 +120,7 @@ describe("resolveContentLayoutStructuralActivationPlacement", () => {
     InteractionTargetKind.Layout,
     InteractionTargetKind.Surface,
   ])("keeps a non-eligible %s target on pointer placement", (kind) => {
-    dependencyMocks.getSemanticDocumentControllerForState.mockImplementation(() => {
+    dependencyMocks.getDocumentTreeForState.mockImplementation(() => {
       throw new Error("Non-eligible targets must not read Semantic Snapshot state");
     });
     dependencyMocks.readContentLayoutAuthoringState.mockImplementation(() => {
@@ -134,7 +133,7 @@ describe("resolveContentLayoutStructuralActivationPlacement", () => {
     });
 
     expect(resolution).toEqual({ kind: "pointer-within-target" });
-    expect(dependencyMocks.getSemanticDocumentControllerForState).not.toHaveBeenCalled();
+    expect(dependencyMocks.getDocumentTreeForState).not.toHaveBeenCalled();
     expect(dependencyMocks.readContentLayoutAuthoringState).not.toHaveBeenCalled();
   });
 
@@ -297,7 +296,7 @@ describe("resolveContentLayoutStructuralActivationPlacement", () => {
 
 interface Fixture {
   readonly editorState: EditorState;
-  readonly snapshot: SemanticDocumentSnapshot;
+  readonly snapshot: DocumentTreeSnapshot;
   readonly authoringState: ContentLayoutAuthoringState;
   readonly target: InteractionTargetRef;
 }
@@ -307,16 +306,16 @@ interface DocumentItem {
   readonly children?: readonly DocumentItem[];
 }
 
-interface TestSemanticItem {
+interface TestDocumentTreeItem {
   readonly id: EmbeddedNodeId;
   readonly parentId: EmbeddedNodeId | null;
-  readonly kind: SemanticItemKind;
+  readonly kind: DocumentTreeItemKind;
   readonly contentLayout?: typeof FLOW | typeof SEQUENCE;
 }
 
 function createFixture(
   targetKind: InteractionTargetRef["kind"],
-  semanticKind: SemanticItemKind,
+  semanticKind: DocumentTreeItemKind,
   contentLayout: typeof FLOW | typeof SEQUENCE,
 ): Fixture {
   const editorState = createEditorState([
@@ -339,13 +338,8 @@ function createFixture(
 }
 
 function resolve(fixture: Fixture, supplyAuthoringState = true) {
-  const controllerSnapshot: SemanticDocumentControllerSnapshot = Object.freeze({
-    semantics: fixture.snapshot,
-    selectedId: null,
-    selectionOrigin: null,
-  });
-  dependencyMocks.getSemanticDocumentControllerForState.mockReturnValue({
-    getSnapshot: () => controllerSnapshot,
+  dependencyMocks.getDocumentTreeForState.mockReturnValue({
+    getSnapshot: () => fixture.snapshot,
   });
   if (supplyAuthoringState) {
     dependencyMocks.readContentLayoutAuthoringState.mockReturnValue(fixture.authoringState);
@@ -375,8 +369,8 @@ function createDocumentNode(input: DocumentItem): ProseMirrorNode {
 
 function buildSnapshot(
   doc: ProseMirrorNode,
-  items: readonly TestSemanticItem[],
-): SemanticDocumentSnapshot {
+  items: readonly TestDocumentTreeItem[],
+): DocumentTreeSnapshot {
   const documentNodes = new Map<
     EmbeddedNodeId,
     { readonly node: ProseMirrorNode; readonly pos: number }
@@ -387,11 +381,11 @@ function buildSnapshot(
     return true;
   });
 
-  const builder = createSemanticSnapshotBuilder({ revision: 1, mode: "page" });
+  const builder = createDocumentTreeSnapshotBuilder({ revision: 1, mode: "page" });
   for (const testItem of items) {
     const documentNode = documentNodes.get(testItem.id);
     if (!documentNode) throw new Error(`Missing test document node ${testItem.id}.`);
-    const semanticItem: SemanticSnapshotItemInput = {
+    const semanticItem: DocumentTreeSnapshotItemInput = {
       id: testItem.id,
       kind: testItem.kind,
       nodeType: documentNode.node.type.name,
@@ -442,9 +436,9 @@ function createAuthoringState(
 function item(
   itemId: EmbeddedNodeId,
   parentId: EmbeddedNodeId | null,
-  kind: SemanticItemKind,
+  kind: DocumentTreeItemKind,
   contentLayout?: typeof FLOW | typeof SEQUENCE,
-): TestSemanticItem {
+): TestDocumentTreeItem {
   return {
     id: itemId,
     parentId,

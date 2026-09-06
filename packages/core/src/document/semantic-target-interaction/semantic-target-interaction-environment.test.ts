@@ -7,9 +7,9 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
-import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document";
-import { projectSemanticDocument } from "@/document/model/semantic-document";
-import { createRepresentativeSemanticDocumentFixture } from "@/document/model/semantic-document/testing/semantic-document-fixtures";
+import { getEditorNavigationForEditor } from "@/document/authoring/editor-navigation";
+import { buildDocumentTree } from "@/document/model/document-tree";
+import { createRepresentativeDocumentTreeFixture } from "@/document/model/document-tree/testing/document-tree-fixtures";
 
 import { createSemanticTargetInteractionEnvironment } from "./semantic-target-interaction-environment";
 import {
@@ -20,8 +20,8 @@ import {
 
 describe("SemanticTargetInteractionEnvironment", () => {
   it("isolates mounted environments and keeps disposal outside the borrowed service", async () => {
-    const fixture = createRepresentativeSemanticDocumentFixture({ kind: "page" });
-    const semantics = projectSemanticDocument({
+    const fixture = createRepresentativeDocumentTreeFixture({ kind: "page" });
+    const semantics = buildDocumentTree({
       doc: fixture.doc,
       courseStructure: fixture.courseStructure,
       definitions: fixture.definitions,
@@ -76,8 +76,8 @@ describe("SemanticTargetInteractionEnvironment", () => {
   });
 
   it("exposes one borrow-only environment through Core editor storage", () => {
-    const fixture = createRepresentativeSemanticDocumentFixture({ kind: "page" });
-    const semantics = projectSemanticDocument({
+    const fixture = createRepresentativeDocumentTreeFixture({ kind: "page" });
+    const semantics = buildDocumentTree({
       doc: fixture.doc,
       courseStructure: fixture.courseStructure,
       definitions: fixture.definitions,
@@ -140,8 +140,8 @@ describe("SemanticTargetInteractionEnvironment", () => {
   });
 
   it("interrupts in-flight work when the owning environment is disposed", async () => {
-    const fixture = createRepresentativeSemanticDocumentFixture({ kind: "page" });
-    const projected = projectSemanticDocument({
+    const fixture = createRepresentativeDocumentTreeFixture({ kind: "page" });
+    const projected = buildDocumentTree({
       doc: fixture.doc,
       courseStructure: fixture.courseStructure,
       definitions: fixture.definitions,
@@ -225,21 +225,20 @@ describe("SemanticTargetInteractionEnvironment", () => {
     const secondEditor = createEditor();
 
     try {
-      const firstController = getSemanticDocumentControllerForEditor(firstEditor);
+      const firstNavigation = getEditorNavigationForEditor(firstEditor);
       const firstEnvironment = getSemanticTargetInteractionEnvironmentForEditor(firstEditor);
       const secondEnvironment = getSemanticTargetInteractionEnvironmentForEditor(secondEditor);
       const presentSurface = vi.fn(async () => undefined);
       const createActivationTransaction = vi.fn(() => firstEditor.state.tr);
       const bringIntoView = vi.fn(async () => undefined);
-      firstController.setNavigationEnvironment({
+      firstNavigation.setEnvironment({
         presentSurface,
         createActivationTransaction,
         bringIntoView,
       });
       const beforeSelection = firstEditor.state.selection.toJSON();
 
-      expect(firstEnvironment).toBe(firstController.semanticTargetInteractions);
-      expect(firstController).not.toHaveProperty("semanticActivations");
+      expect(firstNavigation).not.toHaveProperty("semanticTargetInteractions");
       expect(firstEnvironment.registry.resolve).toBeDefined();
       expect(firstEnvironment).not.toBe(secondEnvironment);
       await expect(

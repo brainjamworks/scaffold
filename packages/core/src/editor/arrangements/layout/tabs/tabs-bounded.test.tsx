@@ -9,7 +9,7 @@ import { createElement } from "react";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
-import { createSemanticDefinitionLookup } from "@/composition/model/semantic-definition-lookup";
+import { createDocumentTreeDefinitionLookup } from "@/composition/model/document-tree-definition-lookup";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import {
@@ -49,7 +49,7 @@ const coreCapabilities = Object.freeze({
   contentIdentity: Object.freeze({
     rewrites: Object.freeze({ getByNodeType: () => undefined, hasNodeType: () => false }),
   }),
-  documentSemantics: createSemanticDefinitionLookup({
+  documentTree: createDocumentTreeDefinitionLookup({
     blocks: builtInBlockRegistry,
     layouts: builtInLayoutRegistry,
     surfaces: builtInSurfaceVariantRegistry,

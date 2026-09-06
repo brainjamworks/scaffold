@@ -1,12 +1,12 @@
 import type { SurfaceVariantDefinition } from "../surface-variant-definition";
-import { createSurfaceDocumentSemantics } from "../surface-document-semantics";
+import { createSurfaceDocumentTree } from "../surface-document-tree";
 
 export const slideModuleCoverSurfaceDefinition = {
   id: "slide-module-cover",
   modes: ["slideshow"],
   title: "Module cover",
   description: "Structured opener for a course module or unit.",
-  documentSemantics: createSurfaceDocumentSemantics({
+  documentTree: createSurfaceDocumentTree({
     ownedRichTextNodeTypes: ["heading"],
     contentRootNodeTypes: ["slide_cover_subtitle"],
   }),

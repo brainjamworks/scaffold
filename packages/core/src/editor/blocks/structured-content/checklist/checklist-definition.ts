@@ -11,7 +11,7 @@ import {
   checklistItemContent,
   emptyChecklistData,
 } from "./content";
-import { checklistDocumentSemantics } from "./checklist-document-semantics";
+import { checklistDocumentTree } from "./checklist-document-tree";
 
 export const CHECKLIST_BLOCK_ID = "checklist";
 
@@ -24,7 +24,7 @@ const DEFAULT_ITEMS = [
 export const checklistBlockDefinition = defineBlock({
   nodeType: CHECKLIST_NODE,
   title: "Checklist",
-  documentSemantics: checklistDocumentSemantics,
+  documentTree: checklistDocumentTree,
   control: {
     owner: {
       events: [{ type: "completed", label: "Completed" }],

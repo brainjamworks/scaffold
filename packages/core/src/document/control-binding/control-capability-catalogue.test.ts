@@ -2,15 +2,15 @@ import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import type {
-  SemanticBlockDefinition,
-  SemanticDefinitionLookup,
-  SemanticLayoutDefinition,
-  SemanticSurfaceDefinition,
-} from "@/document/model/semantic-document/definition-lookup";
+  DocumentTreeBlockDefinition,
+  DocumentTreeDefinitionLookup,
+  DocumentTreeLayoutDefinition,
+  DocumentTreeSurfaceDefinition,
+} from "@/document/model/document-tree/definition-lookup";
 import type {
-  SemanticDocumentSnapshot,
-  SemanticItem,
-} from "@/document/model/semantic-document/semantic-document-snapshot";
+  DocumentTreeSnapshot,
+  DocumentTreeItem,
+} from "@/document/model/document-tree/document-tree-snapshot";
 import {
   normalizeControlDefinition,
   type ControlDefinition,
@@ -322,7 +322,7 @@ describe("createControlCapabilityCatalogue", () => {
   });
 
   it("throws when contradictory owners claim the same public target", () => {
-    const shared = item(IDS.blockItem, "published-child", "block_item", "surface-alpha");
+    const shared = item(IDS.blockItem, "exposed-child", "block_item", "surface-alpha");
     const first = item(IDS.surfaceAlpha, "surface", "surface", "surface-alpha", [shared]);
     const second = item(IDS.surfaceBeta, "surface", "surface", "surface-duplicate", [shared]);
 
@@ -349,12 +349,12 @@ describe("createControlCapabilityCatalogue", () => {
 });
 
 function createFixture(revision: number): {
-  readonly snapshot: SemanticDocumentSnapshot;
-  readonly definitions: SemanticDefinitionLookup;
+  readonly snapshot: DocumentTreeSnapshot;
+  readonly definitions: DocumentTreeDefinitionLookup;
 } {
   const passiveItem = item(
     IDS.passiveItem,
-    "published-child",
+    "exposed-child",
     "block_item",
     "passive_block",
   );
@@ -366,7 +366,7 @@ function createFixture(revision: number): {
     [passiveItem],
   );
   const block = item(IDS.block, "block", "controlled_block", "controlled_block", [
-    item(IDS.blockItem, "published-child", "block_item", "controlled_block"),
+    item(IDS.blockItem, "exposed-child", "block_item", "controlled_block"),
   ]);
   const layoutAlpha = item(IDS.layoutAlpha, "layout", "layout", "layout-alpha", [
     item(IDS.sectionAlpha, "layout-section", "section", "layout-alpha"),
@@ -387,8 +387,8 @@ function createFixture(revision: number): {
   };
 }
 
-function createDefinitions(): SemanticDefinitionLookup {
-  const blocks = new Map<string, SemanticBlockDefinition>([
+function createDefinitions(): DocumentTreeDefinitionLookup {
+  const blocks = new Map<string, DocumentTreeBlockDefinition>([
     [
       "controlled_block",
       Object.freeze({
@@ -407,7 +407,7 @@ function createDefinitions(): SemanticDefinitionLookup {
       }),
     ],
   ]);
-  const layouts = new Map<string, SemanticLayoutDefinition>([
+  const layouts = new Map<string, DocumentTreeLayoutDefinition>([
     [
       "layout-alpha",
       Object.freeze({ id: "layout-alpha", title: "Layout alpha", control: LAYOUT_ALPHA_CONTROL }),
@@ -417,7 +417,7 @@ function createDefinitions(): SemanticDefinitionLookup {
       Object.freeze({ id: "layout-beta", title: "Layout beta", control: LAYOUT_BETA_CONTROL }),
     ],
   ]);
-  const surfaces = new Map<string, SemanticSurfaceDefinition>([
+  const surfaces = new Map<string, DocumentTreeSurfaceDefinition>([
     [
       "surface-alpha",
       Object.freeze({
@@ -453,11 +453,11 @@ function createDefinitions(): SemanticDefinitionLookup {
 
 function item(
   itemId: EmbeddedNodeId,
-  kind: SemanticItem["kind"],
+  kind: DocumentTreeItem["kind"],
   nodeType: string,
   definitionId: string | null,
-  children: readonly SemanticItem[] = [],
-): SemanticItem {
+  children: readonly DocumentTreeItem[] = [],
+): DocumentTreeItem {
   return Object.freeze({
     id: itemId,
     kind,
@@ -473,11 +473,11 @@ function item(
 
 function snapshot(
   revision: number,
-  roots: readonly SemanticItem[],
-): SemanticDocumentSnapshot {
-  const itemById = new Map<EmbeddedNodeId, SemanticItem>();
+  roots: readonly DocumentTreeItem[],
+): DocumentTreeSnapshot {
+  const itemById = new Map<EmbeddedNodeId, DocumentTreeItem>();
   const parentById = new Map<EmbeddedNodeId, EmbeddedNodeId | null>();
-  const visit = (semanticItem: SemanticItem, parentId: EmbeddedNodeId | null) => {
+  const visit = (semanticItem: DocumentTreeItem, parentId: EmbeddedNodeId | null) => {
     if (itemById.has(semanticItem.id)) return;
     itemById.set(semanticItem.id, semanticItem);
     parentById.set(semanticItem.id, parentId);

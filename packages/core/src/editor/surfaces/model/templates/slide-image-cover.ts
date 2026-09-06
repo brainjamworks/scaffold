@@ -5,7 +5,7 @@ import { SurfaceSettingsSchema } from "@/schemas/course-document";
 import type { SurfaceVariantDefinition } from "../surface-variant-definition";
 import { SurfaceOwnedImageSchema, type SurfaceOwnedImage } from "../surface-owned-image";
 import { DEFAULT_SURFACE_SETTINGS } from "../surface-settings";
-import { createSurfaceDocumentSemantics } from "../surface-document-semantics";
+import { createSurfaceDocumentTree } from "../surface-document-tree";
 
 export const SlideImageCoverImageSideSchema = z.enum(["left", "right"]);
 
@@ -78,7 +78,7 @@ export const slideImageCoverSurfaceDefinition = {
     },
   },
   settingsSchema: SlideImageCoverSurfaceSettingsSchema,
-  documentSemantics: createSurfaceDocumentSemantics({
+  documentTree: createSurfaceDocumentTree({
     ownedRichTextNodeTypes: ["heading"],
     contentRootNodeTypes: ["slide_cover_subtitle"],
   }),

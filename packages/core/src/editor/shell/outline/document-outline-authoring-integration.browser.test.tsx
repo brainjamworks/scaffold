@@ -1,6 +1,7 @@
 import { McqSettingsSchema } from "@scaffold/contracts";
 import type { JSONContent } from "@tiptap/core";
 import { StrictMode } from "react";
+import { Result } from "better-result";
 import { render as renderBrowserReact } from "vitest-browser-react";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
@@ -38,7 +39,7 @@ describe("Document Outline authoring integration", () => {
         productAccess={{ scaffoldPlusAuthorized: false }}
         services={{
           artifactPersistence: {
-            saveArtifact: vi.fn(async () => ({ artifactRevision: "outline-test-revision" })),
+            saveArtifact: vi.fn(async () => Result.ok({ artifactRevision: "outline-test-revision" })),
           },
           learnerPublication: createTestLearnerPublicationPort(),
           media: null,
@@ -118,7 +119,7 @@ describe("Document Outline authoring integration", () => {
         productAccess={{ scaffoldPlusAuthorized: false }}
         services={{
           artifactPersistence: {
-            saveArtifact: vi.fn(async () => ({ artifactRevision: "outline-test-revision" })),
+            saveArtifact: vi.fn(async () => Result.ok({ artifactRevision: "outline-test-revision" })),
           },
           learnerPublication: createTestLearnerPublicationPort(),
           media: null,
@@ -210,7 +211,7 @@ describe("Document Outline authoring integration", () => {
         productAccess={{ scaffoldPlusAuthorized: false }}
         services={{
           artifactPersistence: {
-            saveArtifact: vi.fn(async () => ({ artifactRevision: "outline-test-revision" })),
+            saveArtifact: vi.fn(async () => Result.ok({ artifactRevision: "outline-test-revision" })),
           },
           learnerPublication: createTestLearnerPublicationPort(),
           media: null,
@@ -279,7 +280,7 @@ describe("Document Outline authoring integration", () => {
         productAccess={{ scaffoldPlusAuthorized: false }}
         services={{
           artifactPersistence: {
-            saveArtifact: vi.fn(async () => ({ artifactRevision: "outline-test-revision" })),
+            saveArtifact: vi.fn(async () => Result.ok({ artifactRevision: "outline-test-revision" })),
           },
           learnerPublication: createTestLearnerPublicationPort(),
           media: null,
@@ -340,7 +341,7 @@ describe("Document Outline authoring integration", () => {
           productAccess={{ scaffoldPlusAuthorized: false }}
           services={{
             artifactPersistence: {
-              saveArtifact: vi.fn(async () => ({ artifactRevision: "outline-test-revision" })),
+              saveArtifact: vi.fn(async () => Result.ok({ artifactRevision: "outline-test-revision" })),
             },
             learnerPublication: createTestLearnerPublicationPort(),
             media: null,
@@ -378,9 +379,9 @@ describe("Document Outline authoring integration", () => {
     const mcq = builtInBlockRegistry.getByNodeType("mcq")?.insert;
     if (!surface || !mcq) throw new Error("Expected the built-in page Surface and MCQ insert");
     surface.content = [mountedMcq(mcq.content())];
-    const saveArtifact = vi.fn(async (_payload: ArtifactSavePayload) => ({
-      artifactRevision: "outline-test-revision" as const,
-    }));
+    const saveArtifact = vi.fn(async (_payload: ArtifactSavePayload) =>
+      Result.ok({ artifactRevision: "outline-test-revision" as const }),
+    );
     let rendered = await renderBrowserReact(
       <ScaffoldAuthoringApp
         application={createScaffoldApplication()}
@@ -457,12 +458,12 @@ function multipleChoiceOutlineCount(): number {
 
 function createTestLearnerPublicationPort(): LearnerPublicationPort {
   return {
-    getStatus: async () => ({
+    getStatus: async () => Result.ok({
       currentArtifactRevision: "outline-test-revision",
       publishedArtifactRevision: null,
       publishedAt: null,
     }),
-    publish: async (payload) => ({
+    publish: async (payload) => Result.ok({
       currentArtifactRevision: payload.sourceArtifactRevision,
       publishedArtifactRevision: payload.sourceArtifactRevision,
       publishedAt: "2026-08-10T12:00:00.000Z",

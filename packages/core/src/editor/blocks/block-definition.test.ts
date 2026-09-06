@@ -24,7 +24,7 @@ const insertDefinition = {
 
 describe("defineBlock", () => {
   it("keeps Code Block outside the visual presentation catalogue", () => {
-    expect(codeBlockDefinition.documentSemantics?.presentation?.actionIds).toEqual([]);
+    expect(codeBlockDefinition.documentTree?.presentation?.actionIds).toEqual([]);
   });
   it("normalizes deterministic definition data without collecting the block", () => {
     const schema = z.object({ emphasis: z.boolean() });
@@ -205,7 +205,7 @@ describe("defineBlock", () => {
     const describe = vi.fn(() => ({ label: "Safe label" }));
     const projectChildren = vi.fn(() => []);
     const actionIds = ["reveal"];
-    const documentSemantics = {
+    const documentTree = {
       describe,
       presentation: { actionIds },
       projectChildren,
@@ -215,19 +215,19 @@ describe("defineBlock", () => {
       nodeType: "semantic_fixture",
       title: "Semantic fixture",
       insert: { ...insertDefinition, title: "Different insertion title" },
-      documentSemantics,
+      documentTree,
     });
 
     expect(definition.title).toBe("Semantic fixture");
     expect(definition.insert?.title).toBe("Different insertion title");
-    expect(definition.documentSemantics).not.toBe(documentSemantics);
-    expect(definition.documentSemantics?.describe).toBe(describe);
-    expect(definition.documentSemantics?.projectChildren).toBe(projectChildren);
-    expect(definition.documentSemantics?.presentation?.actionIds).toEqual(["reveal"]);
-    expect(definition.documentSemantics?.presentation?.actionIds).not.toBe(actionIds);
-    expect(Object.isFrozen(definition.documentSemantics)).toBe(true);
-    expect(Object.isFrozen(definition.documentSemantics?.presentation)).toBe(true);
-    expect(Object.isFrozen(definition.documentSemantics?.presentation?.actionIds)).toBe(true);
+    expect(definition.documentTree).not.toBe(documentTree);
+    expect(definition.documentTree?.describe).toBe(describe);
+    expect(definition.documentTree?.projectChildren).toBe(projectChildren);
+    expect(definition.documentTree?.presentation?.actionIds).toEqual(["reveal"]);
+    expect(definition.documentTree?.presentation?.actionIds).not.toBe(actionIds);
+    expect(Object.isFrozen(definition.documentTree)).toBe(true);
+    expect(Object.isFrozen(definition.documentTree?.presentation)).toBe(true);
+    expect(Object.isFrozen(definition.documentTree?.presentation?.actionIds)).toBe(true);
     expect(describe).not.toHaveBeenCalled();
     expect(projectChildren).not.toHaveBeenCalled();
   });
@@ -243,7 +243,7 @@ describe("defineBlock", () => {
     const definition = defineBlock({
       nodeType: "controlled_fixture",
       title: "Controlled fixture",
-      documentSemantics: { projectChildren },
+      documentTree: { projectChildren },
       control,
     });
 

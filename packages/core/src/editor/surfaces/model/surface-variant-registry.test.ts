@@ -154,7 +154,7 @@ describe("surface variant registry foundation", () => {
     const describe = vi.fn(() => ({ label: "Surface" }));
     const projectChildren = vi.fn(() => []);
     const actionIds = ["reveal"];
-    const documentSemantics = {
+    const documentTree = {
       describe,
       presentation: { actionIds },
       projectChildren,
@@ -162,19 +162,19 @@ describe("surface variant registry foundation", () => {
     const registry = createSurfaceVariantRegistry([
       createSurfaceDefinition("isolated-semantic-definition-test", {
         defaultForModes: ["page"],
-        documentSemantics,
+        documentTree,
       }),
     ]);
     const registered = registry.get("isolated-semantic-definition-test");
 
-    expect(registered?.documentSemantics).not.toBe(documentSemantics);
-    expect(registered?.documentSemantics?.describe).toBe(describe);
-    expect(registered?.documentSemantics?.projectChildren).toBe(projectChildren);
-    expect(registered?.documentSemantics?.presentation?.actionIds).toEqual(["reveal"]);
-    expect(registered?.documentSemantics?.presentation?.actionIds).not.toBe(actionIds);
-    expect(Object.isFrozen(registered?.documentSemantics)).toBe(true);
-    expect(Object.isFrozen(registered?.documentSemantics?.presentation)).toBe(true);
-    expect(Object.isFrozen(registered?.documentSemantics?.presentation?.actionIds)).toBe(true);
+    expect(registered?.documentTree).not.toBe(documentTree);
+    expect(registered?.documentTree?.describe).toBe(describe);
+    expect(registered?.documentTree?.projectChildren).toBe(projectChildren);
+    expect(registered?.documentTree?.presentation?.actionIds).toEqual(["reveal"]);
+    expect(registered?.documentTree?.presentation?.actionIds).not.toBe(actionIds);
+    expect(Object.isFrozen(registered?.documentTree)).toBe(true);
+    expect(Object.isFrozen(registered?.documentTree?.presentation)).toBe(true);
+    expect(Object.isFrozen(registered?.documentTree?.presentation?.actionIds)).toBe(true);
     expect(describe).not.toHaveBeenCalled();
     expect(projectChildren).not.toHaveBeenCalled();
   });

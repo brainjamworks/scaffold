@@ -2,11 +2,11 @@ import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { Result } from "better-result";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { SemanticDefinitionLookup } from "@/document/model/semantic-document/definition-lookup";
+import type { DocumentTreeDefinitionLookup } from "@/document/model/document-tree/definition-lookup";
 import type {
-  SemanticDocumentSnapshot,
-  SemanticItem,
-} from "@/document/model/semantic-document/semantic-document-snapshot";
+  DocumentTreeSnapshot,
+  DocumentTreeItem,
+} from "@/document/model/document-tree/document-tree-snapshot";
 import { createControlCapabilityCatalogue } from "./control-capability-catalogue";
 import type {
   ControlCapabilitySetDefinition,
@@ -78,7 +78,7 @@ const OWNER_CAPABILITIES = FULL_CONTROL.owner!;
 
 describe("ControlBindingRegistry", () => {
   it("uses the catalogue target map to validate an exact semantic child", () => {
-    const child = semanticItem(CHILD_ID, "published-child", "section", "controlled_block");
+    const child = semanticItem(CHILD_ID, "exposed-child", "section", "controlled_block");
     const owner = semanticItem(OWNER_ID, "block", "controlled_block", "controlled_block", [child]);
     const snapshot = Object.freeze({
       revision: 1,
@@ -94,7 +94,7 @@ describe("ControlBindingRegistry", () => {
       ]),
       locationById: new Map(),
       diagnostics: Object.freeze([]),
-    }) satisfies SemanticDocumentSnapshot;
+    }) satisfies DocumentTreeSnapshot;
     const definitions = Object.freeze({
       blocks: Object.freeze({
         get: (nodeType: string) =>
@@ -109,7 +109,7 @@ describe("ControlBindingRegistry", () => {
       }),
       layouts: Object.freeze({ get: () => undefined }),
       surfaces: Object.freeze({ get: () => undefined }),
-    }) satisfies SemanticDefinitionLookup;
+    }) satisfies DocumentTreeDefinitionLookup;
     const catalogue = createControlCapabilityCatalogue({ snapshot, definitions });
     const source = createEventSource();
     const registry = createControlBindingRegistry({
@@ -751,11 +751,11 @@ function createEventSource(): {
 
 function semanticItem(
   itemId: EmbeddedNodeId,
-  kind: SemanticItem["kind"],
+  kind: DocumentTreeItem["kind"],
   nodeType: string,
   definitionId: string | null,
-  children: readonly SemanticItem[] = [],
-): SemanticItem {
+  children: readonly DocumentTreeItem[] = [],
+): DocumentTreeItem {
   return Object.freeze({
     id: itemId,
     kind,

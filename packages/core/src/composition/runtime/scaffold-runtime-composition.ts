@@ -2,7 +2,7 @@ import {
   resolveScaffoldCapabilities,
   type ResolvedScaffoldCapabilities,
 } from "@/composition/model/resolved-scaffold-capabilities";
-import type { SemanticDefinitionLookup } from "@/document/model/semantic-document";
+import type { DocumentTreeDefinitionLookup } from "@/document/model/document-tree";
 import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { builtInLayoutRuntimeViews } from "@/editor/arrangements/layout/runtime/built-in-layout-views";
 import type { LayoutRuntimeViewRegistration } from "@/editor/arrangements/layout/runtime/layout-view-definition";
@@ -35,7 +35,7 @@ export interface ScaffoldRuntimeSurfaceComposition {
 
 export interface ScaffoldRuntimeComposition {
   readonly capabilities: ResolvedScaffoldCapabilities;
-  readonly documentSemantics: SemanticDefinitionLookup;
+  readonly documentTree: DocumentTreeDefinitionLookup;
   readonly blocks: ScaffoldRuntimeBlockComposition;
   readonly layouts: ScaffoldRuntimeLayoutComposition;
   readonly surfaces: ScaffoldRuntimeSurfaceComposition;
@@ -49,7 +49,7 @@ export function createScaffoldRuntimeComposition(
 ): ScaffoldRuntimeComposition {
   return Object.freeze({
     capabilities,
-    documentSemantics: capabilities.documentSemantics,
+    documentTree: capabilities.documentTree,
     blocks: Object.freeze({
       extensions: Object.freeze([...blockExtensions]),
     }),

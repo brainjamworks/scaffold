@@ -29,8 +29,7 @@ import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtif
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import type { SemanticDocumentController } from "@/document/authoring/semantic-document/semantic-document-controller";
-import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
+import { documentAuthoringPluginKey } from "@/document/authoring/document-authoring-storage";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import {
   LEARNING_EVENT_ACTIVITY_TYPES,
@@ -965,9 +964,9 @@ it("opens one workspace canvas and selected caption field, then restores editor 
 it("reports the actual annotation IDs selected from pins and the workspace", async () => {
   const user = userEvent.setup();
   const reportComponentSelection = vi.fn();
-  const controllerLookup = vi.spyOn(semanticDocumentPluginKey, "getState").mockReturnValue({
-    reportComponentSelection,
-  } as unknown as SemanticDocumentController);
+  const controllerLookup = vi.spyOn(documentAuthoringPluginKey, "getState").mockReturnValue({
+    editorNavigation: { reportComponentSelection },
+  } as unknown as NonNullable<ReturnType<typeof documentAuthoringPluginKey.getState>>);
   const editor = renderAnnotatedFigureEditor(
     annotatedFigureFixture(popoverFigureData(), [
       { id: "annotate0001", x: 25, y: 30, caption: "First reported annotation" },

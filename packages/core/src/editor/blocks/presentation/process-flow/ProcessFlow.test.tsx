@@ -18,7 +18,7 @@ import {
   createSemanticActivationBindingTestExtension,
   requireSemanticActivationBinding,
   semanticActivationRequest,
-} from "@/document/authoring/semantic-document/testing/semantic-activation-binding-test-extension";
+} from "@/document/authoring/testing/semantic-activation-binding-test-extension";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import {

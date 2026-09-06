@@ -17,7 +17,7 @@ import {
 } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
-import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document/semantic-document-storage";
+import { getEditorNavigationForEditor } from "@/document/authoring/editor-navigation";
 import { deleteNodeChecked } from "@/document/model/commands/checked-transactions";
 import { insertCatalogItemChecked } from "@/editor/insertion/checked-insertion";
 import { AuthoringContentChrome } from "@/editor/shell/authoring/AuthoringContentChrome";
@@ -116,7 +116,7 @@ describe("mounted Content Layout authoring", () => {
 
     await expectProjectedChild(editor, IDS.first, "available");
     await expectProjectedChild(editor, IDS.second, "withheld");
-    expect(getSemanticDocumentControllerForEditor(editor).getSnapshot()).toMatchObject({
+    expect(getEditorNavigationForEditor(editor).getSelectionSnapshot()).toMatchObject({
       selectedId: IDS.region,
       selectionOrigin: "editor",
     });
@@ -141,7 +141,7 @@ describe("mounted Content Layout authoring", () => {
     await clickRegionWhitespace(editor);
 
     expect(posAtCoords).toHaveBeenCalled();
-    expect(getSemanticDocumentControllerForEditor(editor).getSnapshot()).toMatchObject({
+    expect(getEditorNavigationForEditor(editor).getSelectionSnapshot()).toMatchObject({
       selectedId: IDS.region,
       selectionOrigin: "editor",
     });
@@ -171,7 +171,7 @@ describe("mounted Content Layout authoring", () => {
     const second = requireNodeDom(editor, IDS.second);
     await userEvent.click(second);
 
-    expect(getSemanticDocumentControllerForEditor(editor).getSnapshot()).toMatchObject({
+    expect(getEditorNavigationForEditor(editor).getSelectionSnapshot()).toMatchObject({
       selectedId: IDS.second,
       selectionOrigin: "editor",
     });
@@ -201,7 +201,7 @@ describe("mounted Content Layout authoring", () => {
       "ordinary direct-child selection activation",
     );
 
-    expect(getSemanticDocumentControllerForEditor(editor).getSnapshot()).toMatchObject({
+    expect(getEditorNavigationForEditor(editor).getSelectionSnapshot()).toMatchObject({
       selectedId: IDS.second,
       selectionOrigin: "editor",
     });
@@ -946,7 +946,7 @@ describe("mounted Content Layout authoring", () => {
     await userEvent.click(secondTab);
     await expect.element(secondTab).toHaveAttribute("aria-selected", "true");
     await expect.element(firstTab).toHaveAttribute("aria-selected", "false");
-    expect(getSemanticDocumentControllerForEditor(editor).getSnapshot()).toMatchObject({
+    expect(getEditorNavigationForEditor(editor).getSelectionSnapshot()).toMatchObject({
       selectedId: IDS.tabSecondSection,
       selectionOrigin: "component",
     });

@@ -1,39 +1,42 @@
-import type { SemanticHierarchyViewController } from "@/document/authoring/semantic-document";
-import type { SemanticDocumentSnapshot, SemanticItem } from "@/document/model/semantic-document";
+import type { DocumentTreeViewController } from "@/document/authoring/document-tree";
+import type { DocumentTreeSnapshot, DocumentTreeItem } from "@/document/model/document-tree";
 
 import {
-  SemanticSubtreeOutline,
+  DocumentTreeSubtreeOutline,
   type DocumentOutlineAuthoringPort,
   type DocumentOutlineRowViewport,
-  type SemanticSubtreeOutlineProps,
-} from "../SemanticSubtreeOutline";
+  type DocumentTreeSubtreeOutlineProps,
+} from "../DocumentTreeSubtreeOutline";
 
-const EMPTY_ITEMS: readonly SemanticItem[] = [];
+const EMPTY_ITEMS: readonly DocumentTreeItem[] = [];
 
 export function SurfaceStructure({
   authoring,
-  controller,
+  tree,
+  navigation,
   item,
   viewController,
   viewport,
 }: {
   readonly authoring?: DocumentOutlineAuthoringPort;
-  readonly controller: SemanticSubtreeOutlineProps["controller"];
-  readonly item: SemanticItem;
-  readonly viewController: SemanticHierarchyViewController;
+  readonly tree: DocumentTreeSubtreeOutlineProps["tree"];
+  readonly navigation: DocumentTreeSubtreeOutlineProps["navigation"];
+  readonly item: DocumentTreeItem;
+  readonly viewController: DocumentTreeViewController;
   readonly viewport: DocumentOutlineRowViewport;
 }) {
-  const selectSurfaceChildren = (snapshot: SemanticDocumentSnapshot) =>
+  const selectSurfaceChildren = (snapshot: DocumentTreeSnapshot) =>
     snapshot.itemById.get(item.id)?.children ?? EMPTY_ITEMS;
   return (
     <div className="sc-surface-structure-view">
       <h2 className="sc-surface-structure-title" title={item.label}>
         {item.label}
       </h2>
-      <SemanticSubtreeOutline
+      <DocumentTreeSubtreeOutline
         ariaLabel={`${item.label} structure`}
         {...(authoring ? { authoring } : {})}
-        controller={controller}
+        navigation={navigation}
+        tree={tree}
         selectRoots={selectSurfaceChildren}
         viewController={viewController}
         viewport={viewport}

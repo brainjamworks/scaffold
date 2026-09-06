@@ -8,12 +8,12 @@ import {
 } from "@scaffold/contracts";
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 import {
-  APPROVED_SEMANTIC_MEMBER_FAMILY_CASES,
-  SEMANTIC_LIFECYCLE_AUTHORING_STATE,
-  createSemanticLifecycleDocument,
-  projectSemanticLifecycleDocument,
-  requireLifecycleNodeById,
-} from "@/composition/application/testing/semantic-publication-lifecycle-fixtures";
+  APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES,
+  DOCUMENT_TREE_LIFECYCLE_AUTHORING_STATE,
+  createDocumentTreeLifecycleDocument,
+  projectDocumentTreeLifecycleDocument,
+  requireDocumentTreeLifecycleNodeById,
+} from "@/composition/application/testing/document-tree-lifecycle-fixtures";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createEmbeddedNodeId } from "./stable-ids";
 
@@ -749,7 +749,7 @@ describe("cloneJsonWithNewStableIds", () => {
     expect(clone.attrs?.["data"]).toEqual(source.attrs?.["data"]);
   });
 
-  it.each(APPROVED_SEMANTIC_MEMBER_FAMILY_CASES)(
+  it.each(APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES)(
     "$label gives repeated copies pairwise-disjoint persisted and semantic identities",
     (family) => {
       const sourceOwner = family.createOwner();
@@ -768,16 +768,16 @@ describe("cloneJsonWithNewStableIds", () => {
       expect([...firstCopyIds, ...secondCopyIds]).not.toContain(family.unrelatedSiblingId);
 
       const sourceDocument = family.createDocument();
-      const sibling = requireLifecycleNodeById(sourceDocument, family.unrelatedSiblingId).node;
-      const firstCopyNode = SEMANTIC_LIFECYCLE_AUTHORING_STATE.schema.nodeFromJSON(firstCopy);
-      const secondCopyNode = SEMANTIC_LIFECYCLE_AUTHORING_STATE.schema.nodeFromJSON(secondCopy);
-      const combined = createSemanticLifecycleDocument([
+      const sibling = requireDocumentTreeLifecycleNodeById(sourceDocument, family.unrelatedSiblingId).node;
+      const firstCopyNode = DOCUMENT_TREE_LIFECYCLE_AUTHORING_STATE.schema.nodeFromJSON(firstCopy);
+      const secondCopyNode = DOCUMENT_TREE_LIFECYCLE_AUTHORING_STATE.schema.nodeFromJSON(secondCopy);
+      const combined = createDocumentTreeLifecycleDocument([
         sourceOwner,
         firstCopyNode,
         secondCopyNode,
         sibling,
       ]);
-      const snapshot = projectSemanticLifecycleDocument(combined, 31);
+      const snapshot = projectDocumentTreeLifecycleDocument(combined, 31);
       const ownerIds = [sourceOwner, firstCopyNode, secondCopyNode].map((node) =>
         EmbeddedNodeIdSchema.parse(node.attrs["id"]),
       );
@@ -813,12 +813,12 @@ describe("cloneJsonWithNewStableIds", () => {
 
   it("needs no feature-specific identity rewrite for approved public member IDs", () => {
     expect(
-      APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.map(({ ownerNodeType }) => ({
+      APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES.map(({ ownerNodeType }) => ({
         ownerNodeType,
         operation: CORE_IDENTITY_REWRITES.getByNodeType(ownerNodeType),
       })),
     ).toEqual(
-      APPROVED_SEMANTIC_MEMBER_FAMILY_CASES.map(({ ownerNodeType }) => ({
+      APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES.map(({ ownerNodeType }) => ({
         ownerNodeType,
         operation: undefined,
       })),

@@ -10,10 +10,11 @@ import {
 } from "react";
 
 import type {
-  SemanticDocumentController,
-  SemanticHierarchyViewController,
-} from "@/document/authoring/semantic-document";
-import type { SemanticItem } from "@/document/model/semantic-document";
+  DocumentTreeStore,
+  DocumentTreeViewController,
+} from "@/document/authoring/document-tree";
+import type { EditorNavigationController } from "@/document/authoring/editor-navigation";
+import type { DocumentTreeItem } from "@/document/model/document-tree";
 import type { SurfaceId } from "@/document/model/course-structure";
 import type { OverlayBoundaryResolution } from "@/ui/overlays/portal-host-context";
 import { Button } from "@/ui/components/Button/Button";
@@ -22,7 +23,7 @@ import { iconSm } from "@/ui/tokens/icon-sizes";
 import type {
   DocumentOutlineAuthoringPort,
   DocumentOutlineRowViewport,
-} from "../SemanticSubtreeOutline";
+} from "../DocumentTreeSubtreeOutline";
 import {
   DocumentOutlineSectionDialogs,
   type CourseSectionDialogRequest,
@@ -39,9 +40,10 @@ import { PageOverview } from "./PageOverview";
 import { SurfaceStructure } from "./SurfaceStructure";
 import "./document-navigator.css";
 
-type DocumentNavigatorController = Pick<
-  SemanticDocumentController,
-  "getSnapshot" | "reportComponentSelection" | "subscribe" | "select"
+type DocumentNavigatorTree = Pick<DocumentTreeStore, "getSnapshot" | "subscribe">;
+type DocumentNavigatorNavigationController = Pick<
+  EditorNavigationController,
+  "getSelectionSnapshot" | "reportComponentSelection" | "showTarget" | "subscribeSelection"
 >;
 
 type DocumentNavigatorView =
@@ -60,7 +62,8 @@ export interface DocumentNavigatorSurfaceActionPort {
 
 export function DocumentNavigator({
   authoring,
-  controller,
+  tree,
+  navigation,
   viewController,
   viewport,
   sectionDialogOverlayBoundary,
@@ -70,8 +73,9 @@ export function DocumentNavigator({
   onNavigationChange,
 }: {
   readonly authoring?: DocumentOutlineAuthoringPort;
-  readonly controller: DocumentNavigatorController;
-  readonly viewController: SemanticHierarchyViewController;
+  readonly tree: DocumentNavigatorTree;
+  readonly navigation: DocumentNavigatorNavigationController;
+  readonly viewController: DocumentTreeViewController;
   readonly viewport: DocumentOutlineRowViewport;
   readonly sectionDialogOverlayBoundary?: OverlayBoundaryResolution;
   readonly sectionDialogInteractionOwnerRoot?: Element;
@@ -79,17 +83,18 @@ export function DocumentNavigator({
   readonly surfaceActions?: DocumentNavigatorSurfaceActionPort;
   readonly onNavigationChange?: (navigation: DocumentNavigatorNavigation) => void;
 }) {
-  const snapshot = useSyncExternalStore(
-    controller.subscribe,
-    controller.getSnapshot,
-    controller.getSnapshot,
+  const treeSnapshot = useSyncExternalStore(tree.subscribe, tree.getSnapshot, tree.getSnapshot);
+  const selectionSnapshot = useSyncExternalStore(
+    navigation.subscribeSelection,
+    navigation.getSelectionSnapshot,
+    navigation.getSelectionSnapshot,
   );
   const hierarchySnapshot = useSyncExternalStore(
     viewController.subscribe,
     viewController.getSnapshot,
     viewController.getSnapshot,
   );
-  const isSlideshow = snapshot.semantics.mode === "slideshow";
+  const isSlideshow = treeSnapshot.mode === "slideshow";
   const courseStructureAuthoring = isSlideshow ? structureAuthoring : undefined;
   const [view, setView] = useState<DocumentNavigatorView>({ kind: "overview" });
   const [sectionDialog, setSectionDialog] = useState<CourseSectionDialogRequest>(null);
@@ -104,18 +109,17 @@ export function DocumentNavigator({
   const dialogReturnControl = useRef<HTMLButtonElement | null>(null);
   const returnSurfaceId = useRef<EmbeddedNodeId | null>(null);
   const drilledSurface =
-    view.kind === "surface-structure"
-      ? (snapshot.semantics.itemById.get(view.surfaceId) ?? null)
-      : null;
+    view.kind === "surface-structure" ? (treeSnapshot.itemById.get(view.surfaceId) ?? null) : null;
   const selectedSurfaceId = findOwningSurfaceId(
-    snapshot.selectedId,
-    snapshot.semantics.itemById,
-    snapshot.semantics.parentById,
+    selectionSnapshot.selectedId,
+    treeSnapshot.itemById,
+    treeSnapshot.parentById,
   );
   const externallySelectedItem =
-    (snapshot.selectionOrigin === "editor" || snapshot.selectionOrigin === "component") &&
-    snapshot.selectedId
-      ? (snapshot.semantics.itemById.get(snapshot.selectedId) ?? null)
+    (selectionSnapshot.selectionOrigin === "editor" ||
+      selectionSnapshot.selectionOrigin === "component") &&
+    selectionSnapshot.selectedId
+      ? (treeSnapshot.itemById.get(selectionSnapshot.selectedId) ?? null)
       : null;
   const externallySelectedDescendantId =
     externallySelectedItem && selectedSurfaceId && externallySelectedItem.id !== selectedSurfaceId
@@ -128,7 +132,7 @@ export function DocumentNavigator({
   const externallySelectedCourseSectionId =
     externallySelectedItem?.kind === "course-section" ? externallySelectedItem.id : null;
   const externalSelectionRouteKey = externallySelectedItem
-    ? `${snapshot.selectionOrigin}:${externallySelectedItem.id}:${selectedSurfaceId ?? ""}`
+    ? `${selectionSnapshot.selectionOrigin}:${externallySelectedItem.id}:${selectedSurfaceId ?? ""}`
     : null;
   const handledExternalSelectionRouteKey = useRef(externalSelectionRouteKey);
 
@@ -140,9 +144,7 @@ export function DocumentNavigator({
 
   useLayoutEffect(() => {
     const currentIds = new Set(
-      snapshot.semantics.roots
-        .filter((item) => item.kind === "course-section")
-        .map((item) => item.id),
+      treeSnapshot.roots.filter((item) => item.kind === "course-section").map((item) => item.id),
     );
     for (const sectionId of currentIds) {
       if (!seenCourseSectionIds.current.has(sectionId)) {
@@ -150,7 +152,7 @@ export function DocumentNavigator({
       }
     }
     seenCourseSectionIds.current = currentIds;
-  }, [snapshot.semantics.roots, viewController]);
+  }, [treeSnapshot.roots, viewController]);
 
   useEffect(() => {
     if (view.kind === "surface-structure" && !drilledSurface) {
@@ -220,13 +222,13 @@ export function DocumentNavigator({
     globalThis.queueMicrotask(() => returnControl?.focus());
   };
 
-  const selectSurface = (item: SemanticItem) => {
-    void controller.select(item.id, { origin: "document-outline", focusEditor: false });
+  const selectSurface = (item: DocumentTreeItem) => {
+    void navigation.showTarget(item.id, { origin: "document-outline", focusEditor: false });
   };
 
-  const selectSection = (item: SemanticItem) => {
+  const selectSection = (item: DocumentTreeItem) => {
     locallySelectedSectionId.current = item.id;
-    controller.reportComponentSelection(item.id);
+    navigation.reportComponentSelection(item.id);
   };
 
   const finishStructureAction = (
@@ -244,25 +246,25 @@ export function DocumentNavigator({
     setStatus(ok ? successMessage : "This Surface action is no longer available.");
   };
 
-  const renameSurface = (item: SemanticItem, value: string): boolean => {
+  const renameSurface = (item: DocumentTreeItem, value: string): boolean => {
     if (!authoring) return false;
     const result = authoring.write(item, value);
     setStatus(result.ok ? "Surface name updated." : result.message);
     return result.ok;
   };
 
-  const showSurfaceStructure = (item: SemanticItem) => {
+  const showSurfaceStructure = (item: DocumentTreeItem) => {
     returnSurfaceId.current = item.id;
     setView({ kind: "surface-structure", surfaceId: item.id });
   };
 
   const surfaceSettings = surfaceActions
-    ? (item: SemanticItem) =>
+    ? (item: DocumentTreeItem) =>
         finishSurfaceAction(surfaceActions.openSettings(item.id), "Surface settings opened.")
     : undefined;
   const duplicateSurface =
     isSlideshow && surfaceActions?.duplicateSurface
-      ? (item: SemanticItem) =>
+      ? (item: DocumentTreeItem) =>
           finishSurfaceAction(
             surfaceActions.duplicateSurface?.(item.id) ?? false,
             "Surface duplicated.",
@@ -270,7 +272,7 @@ export function DocumentNavigator({
       : undefined;
   const deleteSurfaceAction =
     isSlideshow && surfaceActions?.deleteSurface
-      ? (item: SemanticItem) =>
+      ? (item: DocumentTreeItem) =>
           finishSurfaceAction(surfaceActions.deleteSurface?.(item.id) ?? false, "Surface deleted.")
       : undefined;
 
@@ -278,8 +280,9 @@ export function DocumentNavigator({
     return (
       <SurfaceStructure
         {...(authoring ? { authoring } : {})}
-        controller={controller}
         item={drilledSurface}
+        navigation={navigation}
+        tree={tree}
         viewController={viewController}
         viewport={viewport}
       />
@@ -320,9 +323,9 @@ export function DocumentNavigator({
       {isSlideshow ? (
         <CourseOverview
           expandedSectionIds={hierarchySnapshot.expandedIds}
-          roots={snapshot.semantics.roots}
+          roots={treeSnapshot.roots}
           surfaceDragProjection={surfaceDragProjection}
-          selectedId={snapshot.selectedId}
+          selectedId={selectionSnapshot.selectedId}
           selectedSurfaceId={selectedSurfaceId}
           registerSectionControl={registerSectionControl}
           registerSurfaceControl={registerSurfaceControl}
@@ -332,7 +335,7 @@ export function DocumentNavigator({
           canDragSurface={(item) =>
             Boolean(
               courseStructureAuthoring &&
-              deriveCourseOutlineSurfaceDropTargets(snapshot.semantics.roots, item.id).some(
+              deriveCourseOutlineSurfaceDropTargets(treeSnapshot.roots, item.id).some(
                 ({ destination }) => courseStructureAuthoring.canMoveSurface(item.id, destination),
               ),
             )
@@ -382,7 +385,7 @@ export function DocumentNavigator({
         />
       ) : (
         <PageOverview
-          roots={snapshot.semantics.roots}
+          roots={treeSnapshot.roots}
           selectedSurfaceId={selectedSurfaceId}
           registerSurfaceControl={registerSurfaceControl}
           onSelectSurface={selectSurface}
@@ -416,7 +419,7 @@ export function DocumentNavigator({
                     surfaceIds,
                     surfaceLabels: surfaceIds.map(
                       (surfaceId) =>
-                        snapshot.semantics.itemById.get(surfaceId)?.label ?? "Unavailable Surface",
+                        treeSnapshot.itemById.get(surfaceId)?.label ?? "Unavailable Surface",
                     ),
                   }
                 : current,
@@ -443,7 +446,7 @@ export function DocumentNavigator({
 
 function findOwningSurfaceId(
   selectedId: EmbeddedNodeId | null,
-  itemById: ReadonlyMap<EmbeddedNodeId, SemanticItem>,
+  itemById: ReadonlyMap<EmbeddedNodeId, DocumentTreeItem>,
   parentById: ReadonlyMap<EmbeddedNodeId, EmbeddedNodeId | null>,
 ): EmbeddedNodeId | null {
   let id = selectedId;

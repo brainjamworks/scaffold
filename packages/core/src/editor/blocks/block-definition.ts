@@ -15,9 +15,9 @@ import {
   type ControlDefinition,
 } from "@/document/control-binding";
 import {
-  normalizeDocumentSemanticsDefinition,
-  type DocumentSemanticsDefinition,
-} from "@/document/model/semantic-document";
+  normalizeDocumentTreeDefinition,
+  type DocumentTreeDefinition,
+} from "@/document/model/document-tree";
 import type { ConfigurationDefinition } from "../configuration/definition";
 import { deriveQuickMenuDefinition } from "../configuration/quick-menu-derivation";
 import type { QuickControlDescriptor, QuickMenuDefinition } from "../configuration/quick-menu";
@@ -208,7 +208,7 @@ export interface BlockDefinitionInput {
   readonly boundedPlacement?: BoundedPlacement;
   readonly stagedBoundedHost?: BlockStagedBoundedHostDefinition;
   readonly frame?: BlockFrameDefinition;
-  readonly documentSemantics?: DocumentSemanticsDefinition;
+  readonly documentTree?: DocumentTreeDefinition;
   readonly control?: ControlDefinition;
 }
 
@@ -225,7 +225,7 @@ export function defineBlock(input: BlockDefinitionInput): BlockDefinition {
   const settingsSheet = deriveSettingsSheetDefinition(input.configuration);
   const frame = normalizeFrameDefinition(input.frame);
   const insert = normalizeBlockInsertDefinition(input.insert);
-  const documentSemantics = normalizeDocumentSemanticsDefinition(input.documentSemantics);
+  const documentTree = normalizeDocumentTreeDefinition(input.documentTree);
   const control = normalizeControlDefinition(controlInput);
 
   return Object.freeze({
@@ -236,7 +236,7 @@ export function defineBlock(input: BlockDefinitionInput): BlockDefinition {
     ...(settingsSheet ? { settingsSheet: { nodeType: input.nodeType, ...settingsSheet } } : {}),
     ...(frame ? { frame } : {}),
     ...(insert ? { insert } : {}),
-    ...(documentSemantics ? { documentSemantics } : {}),
+    ...(documentTree ? { documentTree } : {}),
     ...(control ? { control } : {}),
   });
 }

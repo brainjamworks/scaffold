@@ -79,7 +79,7 @@ import { AuthoringDocumentChrome } from "@/editor/shell/authoring/AuthoringDocum
 import { resolveStructuralInteractionBubbleModel } from "@/editor/shell/bubbles/interaction/StructuralInteractionBubbleMenu";
 import { createStructuralInteractionBubbleRendererMap } from "@/editor/interactions/interaction-bubble";
 import { readContentLayoutAuthoringState } from "@/editor/content-layout/prosemirror/content-layout-authoring-extension";
-import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document/semantic-document-storage";
+import { getDocumentTreeForEditor } from "@/document/authoring/document-tree";
 import { createAlignmentTargetPort } from "@/editor/interactions/alignment/alignment-target";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { builtInSurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-views";
@@ -1205,10 +1205,10 @@ describe("layout arrangement nodes", () => {
 
   it("composes real Tabs Section controls while keeping Layout arrangement-only", async () => {
     const editor = await makeRealSectionEditor();
-    const semanticController = getSemanticDocumentControllerForEditor(editor);
+    const documentTree = getDocumentTreeForEditor(editor);
     await waitFor(() => {
       expect(
-        semanticController.getSnapshot().semantics.itemById.has(REAL_SECTION_IDS.section),
+        documentTree.getSnapshot().itemById.has(REAL_SECTION_IDS.section),
       ).toBe(true);
     });
 

@@ -15,9 +15,9 @@ import {
   createSurfaceVariantRegistry,
   type SurfaceVariantRegistry,
 } from "@/editor/surfaces/model/surface-variant-registry";
-import type { SemanticDefinitionLookup } from "@/document/model/semantic-document";
+import type { DocumentTreeDefinitionLookup } from "@/document/model/document-tree";
 
-import { createSemanticDefinitionLookup } from "./semantic-definition-lookup";
+import { createDocumentTreeDefinitionLookup } from "./document-tree-definition-lookup";
 
 export interface ResolvedBlockCapabilities {
   readonly registry: BlockRegistry;
@@ -38,7 +38,7 @@ export interface ResolvedScaffoldCapabilities {
   readonly contentIdentity: {
     readonly rewrites: ContentIdentityRewriteLookup;
   };
-  readonly documentSemantics: SemanticDefinitionLookup;
+  readonly documentTree: DocumentTreeDefinitionLookup;
 }
 
 export interface ResolvableBlockCapability {
@@ -80,7 +80,7 @@ export function resolveScaffoldCapabilities({
     layouts,
     surfaces,
     contentIdentity,
-    documentSemantics: createSemanticDefinitionLookup({
+    documentTree: createDocumentTreeDefinitionLookup({
       blocks: blocks.registry,
       layouts: layouts.registry,
       surfaces: surfaces.registry,

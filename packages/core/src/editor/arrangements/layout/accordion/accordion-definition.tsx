@@ -8,16 +8,16 @@ import { z } from "zod";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import type {
-  DocumentSemanticsDefinition,
-  PublishedSemanticChild,
-  SemanticChildProjector,
-  SemanticItemDescriber,
-} from "@/document/model/semantic-document";
-import { normalizeSemanticLabel } from "@/document/model/semantic-document/semantic-labels";
+  DocumentTreeDefinition,
+  ExposedDocumentChild,
+  DocumentTreeChildrenBuilder,
+  DocumentTreeItemDescriber,
+} from "@/document/model/document-tree";
+import { normalizeSemanticLabel } from "@/document/model/document-tree/semantic-labels";
 import { defineConfiguration } from "@/editor/configuration/definition";
 
 import type { LayoutDefinition } from "../model/layout-definition";
-import { hiddenLayoutSectionDocumentSemantics } from "../shared/model/layout-semantic-publication";
+import { hiddenLayoutSectionDocumentTree } from "../shared/model/layout-semantic-publication";
 import { createAccordionContent, createAccordionSection } from "./accordion-content";
 
 const AccordionLayoutOptionsSchema = z.object({
@@ -30,7 +30,7 @@ const AccordionSectionOptionsSchema = z.object({
   defaultOpen: z.boolean().default(false),
 });
 
-const describeAccordionSection: SemanticItemDescriber = ({ owner }) => {
+const describeAccordionSection: DocumentTreeItemDescriber = ({ owner }) => {
   let title = "";
   owner.forEach((node) => {
     if (node.type.name === "accordion_section_title") title = node.textContent;
@@ -38,14 +38,14 @@ const describeAccordionSection: SemanticItemDescriber = ({ owner }) => {
   return Object.freeze({ label: normalizeSemanticLabel(title, "Accordion section") });
 };
 
-const projectAccordionSectionChildren: SemanticChildProjector = ({ owner, helpers }) => {
+const projectAccordionSectionChildren: DocumentTreeChildrenBuilder = ({ owner, helpers }) => {
   let panel: ProseMirrorNode | undefined;
   owner.forEach((node) => {
     if (node.type.name === "accordion_section_panel") panel = node;
   });
   if (!panel) return Object.freeze([]);
 
-  const candidates = new Map<number, PublishedSemanticChild>();
+  const candidates = new Map<number, ExposedDocumentChild>();
   for (const candidate of helpers.projectStandardRichText(panel)) {
     candidates.set(candidate.relativePos, candidate);
   }
@@ -55,7 +55,7 @@ const projectAccordionSectionChildren: SemanticChildProjector = ({ owner, helper
   return Object.freeze([...candidates.values()].sort((a, b) => a.relativePos - b.relativePos));
 };
 
-const accordionSectionDocumentSemantics: DocumentSemanticsDefinition = Object.freeze({
+const accordionSectionDocumentTree: DocumentTreeDefinition = Object.freeze({
   describe: describeAccordionSection,
   projectChildren: projectAccordionSectionChildren,
 });
@@ -71,7 +71,7 @@ export const accordionLayoutDefinition = {
   placeholders: {
     accordion_section_title: "Enter your section title",
   },
-  documentSemantics: hiddenLayoutSectionDocumentSemantics,
+  documentTree: hiddenLayoutSectionDocumentTree,
   control: {
     semanticChildren: {
       section: {
@@ -138,7 +138,7 @@ export const accordionLayoutDefinition = {
   section: {
     label: "Accordion section",
     addLabel: "Add section",
-    documentSemantics: accordionSectionDocumentSemantics,
+    documentTree: accordionSectionDocumentTree,
     create: ({ index }) => createAccordionSection(index, `Section ${index + 1}`, false),
     configuration: defineConfiguration({
       attr: "options",

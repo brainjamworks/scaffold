@@ -8,9 +8,9 @@ import {
   type ControlDefinition,
 } from "@/document/control-binding";
 import {
-  normalizeDocumentSemanticsDefinition,
-  type DocumentSemanticsDefinition,
-} from "@/document/model/semantic-document";
+  normalizeDocumentTreeDefinition,
+  type DocumentTreeDefinition,
+} from "@/document/model/document-tree";
 import { deriveQuickMenuDefinition } from "@/editor/configuration/quick-menu-derivation";
 import type { QuickMenuDefinition } from "@/editor/configuration/quick-menu";
 import { deriveSettingsSheetDefinition } from "@/editor/configuration/settings-sheet-derivation";
@@ -34,7 +34,7 @@ export interface LayoutSectionDefinition {
   /** Label for the generic append affordance, e.g. "Add event". */
   readonly addLabel: string;
   readonly configuration?: ConfigurationDefinition;
-  readonly documentSemantics?: DocumentSemanticsDefinition;
+  readonly documentTree?: DocumentTreeDefinition;
   readonly create: (input: CreateLayoutSectionInput) => JSONContent;
 }
 
@@ -76,7 +76,7 @@ export interface LayoutDefinition {
   readonly createContent: (input?: CreateLayoutContentInput) => JSONContent;
   readonly placeholders?: LayoutPlaceholderDefinition;
   readonly section?: LayoutSectionDefinition;
-  readonly documentSemantics?: DocumentSemanticsDefinition;
+  readonly documentTree?: DocumentTreeDefinition;
   readonly control?: ControlDefinition;
 }
 
@@ -98,7 +98,7 @@ export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefi
   const settingsSheet = deriveSettingsSheetDefinition(definition.configuration);
   const sectionQuickMenu = deriveQuickMenuDefinition(definition.section?.configuration);
   const sectionSettingsSheet = deriveSettingsSheetDefinition(definition.section?.configuration);
-  const documentSemantics = normalizeDocumentSemanticsDefinition(definition.documentSemantics);
+  const documentTree = normalizeDocumentTreeDefinition(definition.documentTree);
   const control = normalizeControlDefinition(controlInput);
   const keywords = definition.keywords ? Object.freeze([...definition.keywords]) : undefined;
   const placeholders = definition.placeholders
@@ -112,8 +112,8 @@ export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefi
     : undefined;
   const section = definition.section
     ? (() => {
-        const sectionDocumentSemantics = normalizeDocumentSemanticsDefinition(
-          definition.section.documentSemantics,
+        const sectionDocumentTree = normalizeDocumentTreeDefinition(
+          definition.section.documentTree,
         );
         return Object.freeze({
           ...definition.section,
@@ -121,7 +121,7 @@ export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefi
           ...(registeredSectionSettingsSheet
             ? { settingsSheet: registeredSectionSettingsSheet }
             : {}),
-          ...(sectionDocumentSemantics ? { documentSemantics: sectionDocumentSemantics } : {}),
+          ...(sectionDocumentTree ? { documentTree: sectionDocumentTree } : {}),
         });
       })()
     : undefined;
@@ -133,7 +133,7 @@ export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefi
     ...(quickMenu ? { quickMenu } : {}),
     ...(layoutSettingsSheet ? { settingsSheet: layoutSettingsSheet } : {}),
     ...(section ? { section } : {}),
-    ...(documentSemantics ? { documentSemantics } : {}),
+    ...(documentTree ? { documentTree } : {}),
     ...(control ? { control } : {}),
   });
 }

@@ -6,9 +6,8 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
-import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import { fixtureCourseDocument } from "@/document/authoring/testing/course-document-fixture";
 
 import { CourseDocumentEditor } from "./CourseDocumentEditor.test-harness";
 
@@ -88,76 +87,50 @@ async function mountEditor(content: JSONContent): Promise<Editor> {
 }
 
 function pageDocument(surfaceAttrs: Record<string, unknown>): JSONContent {
-  return {
-    type: "doc",
-    content: [
+  return fixtureCourseDocument({
+    mode: "page",
+    surfaces: [
       {
-        type: "courseDocument",
-        attrs: {
-          id: createEmbeddedNodeId(),
-          schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
-          mode: "page",
-          surfaceSize: "fluid",
-          overflowMode: "grow",
-          theme: createDefaultPersistedCourseTheme(),
-        },
+        type: "surface",
+        attrs: surfaceAttrs,
         content: [
           {
-            type: "surface",
-            attrs: surfaceAttrs,
-            content: [
-              {
-                type: "paragraph",
-                attrs: { id: createEmbeddedNodeId() },
-                content: [{ type: "text", text: "Authored page text" }],
-              },
-            ],
+            type: "paragraph",
+            attrs: { id: createEmbeddedNodeId() },
+            content: [{ type: "text", text: "Authored page text" }],
           },
         ],
       },
     ],
-  };
+  });
 }
 
 function slideshowDocument(surfaces: Array<Record<string, unknown>>): JSONContent {
-  return {
-    type: "doc",
-    content: [
-      {
-        type: "courseDocument",
-        attrs: {
-          id: createEmbeddedNodeId(),
-          schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
-          mode: "slideshow",
-          surfaceSize: "16x9",
-          overflowMode: "clip",
-          theme: createDefaultPersistedCourseTheme(),
+  return fixtureCourseDocument({
+    mode: "slideshow",
+    surfaces: surfaces.map((attrs, index) => ({
+      type: "surface",
+      attrs,
+      content: [
+        {
+          type: "heading",
+          attrs: { id: createEmbeddedNodeId(), level: 1 },
+          content: [{ type: "text", text: `Slide title ${index + 1}` }],
         },
-        content: surfaces.map((attrs, index) => ({
-          type: "surface",
-          attrs,
+        {
+          type: "slide_cover_subtitle",
+          attrs: { id: createEmbeddedNodeId() },
           content: [
             {
-              type: "heading",
-              attrs: { id: createEmbeddedNodeId(), level: 1 },
-              content: [{ type: "text", text: `Slide title ${index + 1}` }],
-            },
-            {
-              type: "slide_cover_subtitle",
+              type: "paragraph",
               attrs: { id: createEmbeddedNodeId() },
-              content: [
-                {
-                  type: "paragraph",
-                  attrs: { id: createEmbeddedNodeId() },
-                  content: [{ type: "text", text: `Slide text ${index + 1}` }],
-                },
-              ],
+              content: [{ type: "text", text: `Slide text ${index + 1}` }],
             },
           ],
-        })),
-      },
-    ],
-  };
+        },
+      ],
+    })),
+  });
 }
 
 function clickSurfaceText(editor: Editor): void {
@@ -196,7 +169,12 @@ function firstParagraphRange(editor: Editor): { from: number; to: number } {
 
 function surfaceAttrsAt(editor: Editor, index: number): Record<string, unknown> {
   const courseDocument = editor.getJSON().content?.[0] as JSONContent | undefined;
-  const surface = courseDocument?.content?.[index] as JSONContent | undefined;
+  // Slideshow Course Documents open with a courseSection boundary, so index by
+  // Surface rather than by raw child position.
+  const surfaces = (courseDocument?.content ?? []).filter(
+    (child: JSONContent) => child.type === "surface",
+  );
+  const surface = surfaces[index];
   if (!surface) throw new Error(`expected surface at index ${index}`);
   return surface.attrs ?? {};
 }

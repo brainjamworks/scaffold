@@ -32,6 +32,7 @@ export interface CourseDocumentEditorTestHarnessProps extends Omit<
     readonly onUpdate?: (
       json: JSONContent,
       unavailableContent: readonly UnavailableContentRef[],
+      sourceDocument: object,
     ) => void;
   };
   readonly onDocumentError?: (

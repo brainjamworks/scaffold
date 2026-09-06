@@ -1,7 +1,7 @@
 import { CourseSectionTitleSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 
-import type { SemanticItem } from "@/document/model/semantic-document";
+import type { DocumentTreeItem } from "@/document/model/document-tree";
 import { AuthoringOverlayOwnership } from "@/editor/interactions/floating/AuthoringOverlayBoundary";
 import { Button } from "@/ui/components/Button/Button";
 import { Field, FieldError, Input, Label } from "@/ui/components/Input/Input";
@@ -18,10 +18,10 @@ import type {
 import { courseOutlineStructureIssueMessage } from "./course-outline-structure-messages";
 
 export type CourseSectionDialogRequest =
-  | { readonly kind: "rename"; readonly item: SemanticItem }
+  | { readonly kind: "rename"; readonly item: DocumentTreeItem }
   | {
       readonly kind: "delete";
-      readonly item: SemanticItem;
+      readonly item: DocumentTreeItem;
       readonly surfaceIds: readonly EmbeddedNodeId[];
       readonly surfaceLabels: readonly string[];
     }

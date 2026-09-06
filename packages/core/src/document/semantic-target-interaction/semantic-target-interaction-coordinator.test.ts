@@ -2,19 +2,19 @@ import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import type {
-  SemanticActivationRelationship,
-  SemanticDocumentSnapshot,
-} from "@/document/model/semantic-document";
-import { createRepresentativeSemanticDocumentFixture } from "@/document/model/semantic-document/testing/semantic-document-fixtures";
-import { projectSemanticDocument } from "@/document/model/semantic-document";
+  DocumentItemActivation,
+  DocumentTreeSnapshot,
+} from "@/document/model/document-tree";
+import { createRepresentativeDocumentTreeFixture } from "@/document/model/document-tree/testing/document-tree-fixtures";
+import { buildDocumentTree } from "@/document/model/document-tree";
 
 import { createSemanticActivationRegistry } from "./semantic-activation-registry";
 import { createSemanticTargetInteractionCoordinator } from "./semantic-target-interaction-coordinator";
 
 describe("SemanticTargetInteractionCoordinator", () => {
   it("presents the current Surface before activating current owners outer-to-inner with one request context", async () => {
-    const fixture = createRepresentativeSemanticDocumentFixture({ kind: "page" });
-    const projected = projectSemanticDocument({
+    const fixture = createRepresentativeDocumentTreeFixture({ kind: "page" });
+    const projected = buildDocumentTree({
       doc: fixture.doc,
       courseStructure: fixture.courseStructure,
       definitions: fixture.definitions,
@@ -541,13 +541,13 @@ describe("SemanticTargetInteractionCoordinator", () => {
 });
 
 function createHarness(
-  initialPath: readonly SemanticActivationRelationship[] = [
+  initialPath: readonly DocumentItemActivation[] = [
     relationship("owner0000001", "child0000001", "layout"),
   ],
   present: () => Promise<void> = async () => undefined,
 ) {
-  const fixture = createRepresentativeSemanticDocumentFixture({ kind: "page" });
-  const projected = projectSemanticDocument({
+  const fixture = createRepresentativeDocumentTreeFixture({ kind: "page" });
+  const projected = buildDocumentTree({
     doc: fixture.doc,
     courseStructure: fixture.courseStructure,
     definitions: fixture.definitions,
@@ -580,7 +580,7 @@ function createHarness(
     get path() {
       return path;
     },
-    setPath(nextPath: readonly SemanticActivationRelationship[]) {
+    setPath(nextPath: readonly DocumentItemActivation[]) {
       path = nextPath;
       semantics = snapshotWithPath(semantics, targetId, nextPath);
     },
@@ -602,10 +602,10 @@ function createHarness(
 }
 
 function snapshotWithPath(
-  snapshot: SemanticDocumentSnapshot,
+  snapshot: DocumentTreeSnapshot,
   targetId: EmbeddedNodeId,
-  activationPath: readonly SemanticActivationRelationship[],
-): SemanticDocumentSnapshot {
+  activationPath: readonly DocumentItemActivation[],
+): DocumentTreeSnapshot {
   const location = snapshot.locationById.get(targetId);
   if (!location) throw new Error("expected target location");
   const locationById = new Map(snapshot.locationById);
@@ -616,8 +616,8 @@ function snapshotWithPath(
 function relationship(
   ownerId: string,
   childId: string,
-  ownerKind: SemanticActivationRelationship["ownerKind"],
-): SemanticActivationRelationship {
+  ownerKind: DocumentItemActivation["ownerKind"],
+): DocumentItemActivation {
   return {
     ownerId: EmbeddedNodeIdSchema.parse(ownerId),
     childId: EmbeddedNodeIdSchema.parse(childId),

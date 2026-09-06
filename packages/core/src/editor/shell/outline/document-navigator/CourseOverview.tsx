@@ -1,5 +1,5 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
-import type { SemanticItem } from "@/document/model/semantic-document";
+import type { DocumentTreeItem } from "@/document/model/document-tree";
 import { useLayoutEffect, useRef, type RefObject } from "react";
 import type { CourseOutlineSurfaceDragProjection } from "../CourseOutlineSurfaceDragSession";
 
@@ -29,7 +29,7 @@ export function CourseOverview({
   registerSectionActionControl,
 }: {
   readonly expandedSectionIds: ReadonlySet<EmbeddedNodeId>;
-  readonly roots: readonly SemanticItem[];
+  readonly roots: readonly DocumentTreeItem[];
   readonly surfaceDragProjection: CourseOutlineSurfaceDragProjection | null;
   readonly selectedId: string | null;
   readonly selectedSurfaceId: string | null;
@@ -38,19 +38,19 @@ export function CourseOverview({
     element: HTMLButtonElement | null,
   ) => void;
   readonly registerSurfaceControl: (surfaceId: string, element: HTMLButtonElement | null) => void;
-  readonly onSelectSection: (item: SemanticItem) => void;
-  readonly onSelectSurface: (item: SemanticItem) => void;
-  readonly onShowSurfaceStructure: (item: SemanticItem) => void;
-  readonly canDragSurface: (item: SemanticItem) => boolean;
+  readonly onSelectSection: (item: DocumentTreeItem) => void;
+  readonly onSelectSurface: (item: DocumentTreeItem) => void;
+  readonly onShowSurfaceStructure: (item: DocumentTreeItem) => void;
+  readonly canDragSurface: (item: DocumentTreeItem) => boolean;
   readonly movementAvailable: boolean;
   readonly onSectionExpandedChange: (sectionId: EmbeddedNodeId, expanded: boolean) => void;
-  readonly onDeleteSection: (item: SemanticItem) => void;
-  readonly onDeleteSurface?: (item: SemanticItem) => void;
-  readonly onDuplicateSection: (item: SemanticItem) => void;
-  readonly onDuplicateSurface?: (item: SemanticItem) => void;
-  readonly onRenameSection: (item: SemanticItem) => void;
-  readonly onRenameSurface?: (item: SemanticItem, value: string) => boolean;
-  readonly onSurfaceSettings?: (item: SemanticItem) => void;
+  readonly onDeleteSection: (item: DocumentTreeItem) => void;
+  readonly onDeleteSurface?: (item: DocumentTreeItem) => void;
+  readonly onDuplicateSection: (item: DocumentTreeItem) => void;
+  readonly onDuplicateSurface?: (item: DocumentTreeItem) => void;
+  readonly onRenameSection: (item: DocumentTreeItem) => void;
+  readonly onRenameSurface?: (item: DocumentTreeItem, value: string) => boolean;
+  readonly onSurfaceSettings?: (item: DocumentTreeItem) => void;
   readonly registerSectionActionControl: (
     sectionId: string,
     element: HTMLButtonElement | null,
@@ -103,7 +103,7 @@ interface OutlineMotion {
 
 function useCourseOutlineReorderMotion(
   rootRef: RefObject<HTMLDivElement | null>,
-  roots: readonly SemanticItem[],
+  roots: readonly DocumentTreeItem[],
   projection: CourseOutlineSurfaceDragProjection | null,
 ): void {
   const targetRectsRef = useRef(new Map<string, DOMRect>());

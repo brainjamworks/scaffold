@@ -24,7 +24,7 @@ import { SurfaceSettingsSchema } from "@/schemas/course-document";
 import { createSurfaceAssessmentTargets } from "../../assessment/surface-assessment-target";
 import { SURFACE_DROPDOWN_QUESTION_NODE_TYPE } from "../../assessment/surface-dropdown-question-node";
 import { matchFixedSurfaceChildrenFromJSON } from "../../policies/surface-fixed-structure";
-import { createSurfaceDocumentSemantics } from "../../surface-document-semantics";
+import { createSurfaceDocumentTree } from "../../surface-document-tree";
 import { DEFAULT_SURFACE_SETTINGS } from "../../surface-settings";
 import type { FixedSurfaceChild, SurfaceVariantDefinition } from "../../surface-variant-definition";
 
@@ -108,7 +108,7 @@ export const slideDropdownQuestionSurfaceDefinition = {
     },
   },
   settingsSchema: SurfaceSettingsSchema,
-  documentSemantics: createSurfaceDocumentSemantics({
+  documentTree: createSurfaceDocumentTree({
     contentRootNodeTypes: [SURFACE_DROPDOWN_QUESTION_NODE_TYPE],
   }),
   control: assessmentControlDefinition,

@@ -20,15 +20,15 @@ import {
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import {
-  APPROVED_SEMANTIC_MEMBER_FAMILY_CASES,
-  SEMANTIC_LIFECYCLE_AUTHORING_STATE,
-  createCompleteSemanticLifecycleDocument,
-} from "@/composition/application/testing/semantic-publication-lifecycle-fixtures";
+  APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES,
+  DOCUMENT_TREE_LIFECYCLE_AUTHORING_STATE,
+  createCompleteDocumentTreeLifecycleDocument,
+} from "@/composition/application/testing/document-tree-lifecycle-fixtures";
 import {
   getSemanticTargetInteractionEnvironmentForEditor,
   tryGetSemanticTargetInteractionEnvironmentForEditor,
 } from "@/document/semantic-target-interaction";
-import { hiddenLayoutSectionDocumentSemantics } from "@/editor/arrangements/layout/shared/model/layout-semantic-publication";
+import { hiddenLayoutSectionDocumentTree } from "@/editor/arrangements/layout/shared/model/layout-semantic-publication";
 import type { LayoutRuntimeViewProps } from "@/editor/arrangements/layout/runtime/layout-view-definition";
 
 import type { ControlEventListener } from "./control-binding";
@@ -52,11 +52,11 @@ afterEach(() => {
 
 describe("Control Binding editor lifecycle", () => {
   it("keeps authoring and runtime catalogue, registry and Target Interaction siblings isolated", () => {
-    const content = createCompleteSemanticLifecycleDocument().toJSON();
+    const content = createCompleteDocumentTreeLifecycleDocument().toJSON();
     const authoring = trackEditor(
       new Editor({
         editable: true,
-        extensions: SEMANTIC_LIFECYCLE_AUTHORING_STATE.extensions,
+        extensions: DOCUMENT_TREE_LIFECYCLE_AUTHORING_STATE.extensions,
         content,
       }),
     );
@@ -74,7 +74,7 @@ describe("Control Binding editor lifecycle", () => {
     const runtimeCatalogue = getControlCapabilityCatalogueForEditor(runtime);
     const authoringRegistry = getControlBindingRegistryForEditor(authoring);
     const runtimeRegistry = getControlBindingRegistryForEditor(runtime);
-    const sharedOwnerId = APPROVED_SEMANTIC_MEMBER_FAMILY_CASES[0]!.ownerId;
+    const sharedOwnerId = APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES[0]!.ownerId;
     const authoringSharedOwner = authoringCatalogue.resolve(sharedOwnerId);
     const runtimeSharedOwner = runtimeCatalogue.resolve(sharedOwnerId);
 
@@ -116,8 +116,8 @@ describe("Control Binding editor lifecycle", () => {
     const editor = trackEditor(
       new Editor({
         editable: true,
-        extensions: SEMANTIC_LIFECYCLE_AUTHORING_STATE.extensions,
-        content: createCompleteSemanticLifecycleDocument().toJSON(),
+        extensions: DOCUMENT_TREE_LIFECYCLE_AUTHORING_STATE.extensions,
+        content: createCompleteDocumentTreeLifecycleDocument().toJSON(),
       }),
     );
     const registry = getControlBindingRegistryForEditor(editor);
@@ -273,7 +273,7 @@ function unmountProofLayoutCapability(
       title: "Control lifecycle unmount proof",
       description: "Test-only mounted Control Binding lifecycle owner",
       icon: CircleIcon,
-      documentSemantics: hiddenLayoutSectionDocumentSemantics,
+      documentTree: hiddenLayoutSectionDocumentTree,
       control: {
         semanticChildren: {
           section: { events: [{ type: "changed", label: "Changed" }] },

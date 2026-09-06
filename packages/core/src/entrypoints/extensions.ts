@@ -47,17 +47,17 @@ export type {
   LayoutSectionDefinition,
 } from "@/editor/arrangements/layout/model/layout-definition";
 export type {
-  DocumentSemanticsDefinition,
-  PublishedSemanticChild,
-  SemanticActivationRelationship,
-  SemanticChildProjectionInput,
-  SemanticChildProjector,
-  SemanticDefinitionOwnerInput,
-  SemanticItemDescriber,
-  SemanticItemDescription,
-  SemanticPresentationDefinition,
-  SemanticProjectionHelpers,
-} from "@/document/model/semantic-document";
+  DocumentTreeDefinition,
+  ExposedDocumentChild,
+  DocumentItemActivation,
+  DocumentTreeChildrenInput,
+  DocumentTreeChildrenBuilder,
+  DocumentTreeOwnerInput,
+  DocumentTreeItemDescriber,
+  DocumentTreeItemDescription,
+  DocumentItemPresentation,
+  DocumentTreeBuildHelpers,
+} from "@/document/model/document-tree";
 export type { SurfaceAuthoringViewBinding } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
 export type {
   SurfaceAuthoringViewProps,

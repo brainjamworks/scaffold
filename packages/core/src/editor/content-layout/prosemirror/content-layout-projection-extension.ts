@@ -19,13 +19,13 @@ import { CONTENT_LAYOUT_ATTR } from "../model/content-layout-attribute";
 import { contentLayoutProjectionDomAttributes } from "../view/content-layout-projection-dom";
 import "../view/content-layout-projection.css";
 import type {
-  SemanticDocumentSnapshot,
-  SemanticItem,
-} from "@/document/model/semantic-document/semantic-document-snapshot";
-import type { SemanticLocation } from "@/document/model/semantic-document/semantic-location";
+  DocumentTreeSnapshot,
+  DocumentTreeItem,
+} from "@/document/model/document-tree/document-tree-snapshot";
+import type { DocumentItemLocation } from "@/document/model/document-tree/document-item-location";
 
 export interface ContentLayoutProjectionBatch {
-  readonly snapshot: SemanticDocumentSnapshot;
+  readonly snapshot: DocumentTreeSnapshot;
   readonly containers: readonly ContentLayoutProjectionInput[];
 }
 
@@ -206,7 +206,7 @@ interface ContentLayoutProjectionDecorationSpec {
 }
 
 interface ValidatedContentLayoutProjectionContainer {
-  readonly locations: readonly SemanticLocation[];
+  readonly locations: readonly DocumentItemLocation[];
 }
 
 type ContentLayoutProjectionValidationDiagnostic =
@@ -446,7 +446,7 @@ function buildProjectionState(
 
 function validateContainerInput(
   doc: ProseMirrorNode,
-  snapshot: SemanticDocumentSnapshot,
+  snapshot: DocumentTreeSnapshot,
   input: ContentLayoutProjectionInput,
 ): ContentLayoutProjectionValidationResult {
   const item = snapshot.itemById.get(input.containerId);
@@ -476,7 +476,7 @@ function validateContainerInput(
   }
 
   const containerLocation = snapshot.locationById.get(input.containerId);
-  if (!isSemanticLocationLike(containerLocation)) {
+  if (!isDocumentItemLocationLike(containerLocation)) {
     return Result.err(createMissingLocationDiagnostic(input.containerId, input.containerId));
   }
   if (containerLocation.id !== input.containerId) {
@@ -621,13 +621,13 @@ function validateContainerInput(
     }
   }
 
-  const locations: SemanticLocation[] = [];
+  const locations: DocumentItemLocation[] = [];
   let previousFrom = -1;
   let previousIndex = -1;
   let previousChildId: EmbeddedNodeId | null = null;
   for (const [index, childId] of input.directChildIds.entries()) {
     const location = snapshot.locationById.get(childId);
-    if (!isSemanticLocationLike(location)) {
+    if (!isDocumentItemLocationLike(location)) {
       return Result.err(createMissingLocationDiagnostic(input.containerId, childId));
     }
     if (location.id !== childId) {
@@ -803,7 +803,7 @@ function normalizeContentLayoutProjectionBatch(
 
 function isContentLayoutProjectionBatch(value: unknown): value is ContentLayoutProjectionBatch {
   if (!isRecord(value)) return false;
-  if (!isSemanticDocumentSnapshot(value["snapshot"])) return false;
+  if (!isDocumentTreeSnapshot(value["snapshot"])) return false;
   return (
     Array.isArray(value["containers"]) && value["containers"].every(isContentLayoutProjectionInput)
   );
@@ -835,7 +835,7 @@ function flowWithheldDomAttributes(): Readonly<Record<string, string>> {
   });
 }
 
-function isSemanticDocumentSnapshot(value: unknown): value is SemanticDocumentSnapshot {
+function isDocumentTreeSnapshot(value: unknown): value is DocumentTreeSnapshot {
   if (!isRecord(value)) return false;
   const revision = value["revision"];
   return (
@@ -851,7 +851,7 @@ function isSemanticDocumentSnapshot(value: unknown): value is SemanticDocumentSn
   );
 }
 
-function isSemanticItemLike(value: unknown): value is SemanticItem {
+function isSemanticItemLike(value: unknown): value is DocumentTreeItem {
   if (!isRecord(value) || !isEmbeddedNodeId(value["id"]) || typeof value["nodeType"] !== "string") {
     return false;
   }
@@ -865,7 +865,7 @@ function isSemanticItemLike(value: unknown): value is SemanticItem {
   );
 }
 
-function isSemanticLocationLike(value: unknown): value is SemanticLocation {
+function isDocumentItemLocationLike(value: unknown): value is DocumentItemLocation {
   return (
     isRecord(value) &&
     isEmbeddedNodeId(value["id"]) &&

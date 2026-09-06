@@ -4,7 +4,7 @@ import {
   TreeStructureIcon as TreeStructure,
 } from "@phosphor-icons/react";
 
-import type { SemanticItem } from "@/document/model/semantic-document";
+import type { DocumentTreeItem } from "@/document/model/document-tree";
 import * as DropdownMenu from "@/ui/components/DropdownMenu/DropdownMenu";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 import { zIndex } from "@/ui/overlays/z-index";
@@ -17,12 +17,12 @@ export function SurfaceActions({
   onSettings,
   onShowStructure,
 }: {
-  readonly item: SemanticItem;
-  readonly onDelete?: (item: SemanticItem) => void;
-  readonly onDuplicate?: (item: SemanticItem) => void;
-  readonly onRename?: (item: SemanticItem) => void;
-  readonly onSettings?: (item: SemanticItem) => void;
-  readonly onShowStructure: (item: SemanticItem) => void;
+  readonly item: DocumentTreeItem;
+  readonly onDelete?: (item: DocumentTreeItem) => void;
+  readonly onDuplicate?: (item: DocumentTreeItem) => void;
+  readonly onRename?: (item: DocumentTreeItem) => void;
+  readonly onSettings?: (item: DocumentTreeItem) => void;
+  readonly onShowStructure: (item: DocumentTreeItem) => void;
 }) {
   const hasMenuActions = Boolean(onRename || onDuplicate || onDelete);
   return (

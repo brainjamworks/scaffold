@@ -1,18 +1,18 @@
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import type {
-  DocumentSemanticsDefinition,
-  PublishedSemanticChild,
-  SemanticChildProjectionInput,
-} from "@/document/model/semantic-document";
-import { PRESENTATION_VISUAL_ACTION_IDS } from "@/document/model/semantic-document/definition";
+  DocumentTreeDefinition,
+  ExposedDocumentChild,
+  DocumentTreeChildrenInput,
+} from "@/document/model/document-tree";
+import { PRESENTATION_VISUAL_ACTION_IDS } from "@/document/model/document-tree/definition";
 import { SECTION_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
 
 /** Explicit opt-in publication for Layout variants whose Sections can be hidden. */
-export const hiddenLayoutSectionDocumentSemantics: DocumentSemanticsDefinition = Object.freeze({
+export const hiddenLayoutSectionDocumentTree: DocumentTreeDefinition = Object.freeze({
   presentation: Object.freeze({ actionIds: PRESENTATION_VISUAL_ACTION_IDS }),
-  projectChildren: ({ owner, ownerId }: SemanticChildProjectionInput) => {
-    const sections: PublishedSemanticChild[] = [];
+  projectChildren: ({ owner, ownerId }: DocumentTreeChildrenInput) => {
+    const sections: ExposedDocumentChild[] = [];
     let offset = 0;
     owner.forEach((node) => {
       if (node.type.name === SECTION_NODE_TYPE) {

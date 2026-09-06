@@ -218,23 +218,23 @@ describe("surface definitions", () => {
   it("preserves semantic callback identity without executing callbacks during normalization", () => {
     const describe = vi.fn(() => ({ label: "Surface" }));
     const projectChildren = vi.fn(() => []);
-    const documentSemantics = { describe, projectChildren };
+    const documentTree = { describe, projectChildren };
 
     const normalized = normalizeSurfaceDefinition({
       id: "surface-definition-semantics-test",
       modes: ["page"],
       title: "Semantic surface",
       description: "Surface semantics fixture",
-      documentSemantics,
+      documentTree,
       createSurface: ({ surfaceId }) => ({
         type: "surface",
         attrs: { id: surfaceId, variant: "surface-definition-semantics-test" },
       }),
     });
 
-    expect(normalized.documentSemantics).toBe(documentSemantics);
-    expect(normalized.documentSemantics?.describe).toBe(describe);
-    expect(normalized.documentSemantics?.projectChildren).toBe(projectChildren);
+    expect(normalized.documentTree).toBe(documentTree);
+    expect(normalized.documentTree?.describe).toBe(describe);
+    expect(normalized.documentTree?.projectChildren).toBe(projectChildren);
     expect(describe).not.toHaveBeenCalled();
     expect(projectChildren).not.toHaveBeenCalled();
   });
@@ -264,7 +264,7 @@ describe("surface definitions", () => {
       modes: ["page"],
       title: "Controlled surface",
       description: "Surface control fixture",
-      documentSemantics: { projectChildren },
+      documentTree: { projectChildren },
       control,
       createSurface: ({ surfaceId }) => ({
         type: "surface",
@@ -895,11 +895,11 @@ describe("surface definitions", () => {
   it("resolves definitions by id", () => {
     for (const definition of builtInSurfaceVariantDefinitions) {
       const registered = builtInSurfaceVariantRegistry.get(definition.id);
-      if (definition.assessmentTargets && definition.documentSemantics) {
+      if (definition.assessmentTargets && definition.documentTree) {
         expect(registered).toMatchObject({
           ...definition,
-          documentSemantics: {
-            ...definition.documentSemantics,
+          documentTree: {
+            ...definition.documentTree,
             presentation: { actionIds: [] },
           },
         });

@@ -4,7 +4,7 @@ import type { ResolvedStableNode } from "../identity/resolve-stable-node";
 import {
   MAX_SEMANTIC_LABEL_LENGTH,
   normalizeAuthoredSemanticLabel,
-} from "../semantic-document/semantic-labels";
+} from "../document-tree/semantic-labels";
 import type { CheckedMutationResult } from "./checked-transactions";
 
 export function setSemanticLabelChecked<TTransform extends Transform>({

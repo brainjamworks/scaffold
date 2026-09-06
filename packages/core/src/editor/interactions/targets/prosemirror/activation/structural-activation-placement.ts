@@ -1,7 +1,7 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import type { EditorState } from "@tiptap/pm/state";
 
-import type { SemanticEditorSelectionTarget } from "@/document/model/semantic-document/semantic-location";
+import type { DocumentItemEditorSelectionTarget } from "@/document/model/document-tree/document-item-location";
 import type { SelectionDocumentRange } from "@/editor/selection/selection-transactions";
 
 import type { InteractionTargetRef } from "../../model/interaction-owner-state";
@@ -30,7 +30,7 @@ export type StructuralActivationPlacementResolution =
       readonly kind: "retain-active-child";
       readonly activeChildId: EmbeddedNodeId;
       readonly activeRange: StructuralActivationPlacementRange;
-      readonly selectionTarget: SemanticEditorSelectionTarget;
+      readonly selectionTarget: DocumentItemEditorSelectionTarget;
     }
   | {
       readonly kind: "placement-unavailable";

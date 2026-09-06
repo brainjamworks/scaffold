@@ -33,7 +33,7 @@ describe("createLayoutInsertAction", () => {
       description: "Layout semantics fixture",
       icon: ColumnsIcon,
       control: undefined as never,
-      documentSemantics: {
+      documentTree: {
         describe: describeLayout,
         projectChildren: projectLayoutChildren,
       },
@@ -41,7 +41,7 @@ describe("createLayoutInsertAction", () => {
       section: {
         label: "Panel",
         addLabel: "Add panel",
-        documentSemantics: {
+        documentTree: {
           describe: describeSection,
           projectChildren: projectSectionChildren,
         },
@@ -49,12 +49,12 @@ describe("createLayoutInsertAction", () => {
       },
     });
 
-    expect(Object.isFrozen(definition.documentSemantics)).toBe(true);
-    expect(Object.isFrozen(definition.section?.documentSemantics)).toBe(true);
-    expect(definition.documentSemantics?.describe).toBe(describeLayout);
-    expect(definition.documentSemantics?.projectChildren).toBe(projectLayoutChildren);
-    expect(definition.section?.documentSemantics?.describe).toBe(describeSection);
-    expect(definition.section?.documentSemantics?.projectChildren).toBe(projectSectionChildren);
+    expect(Object.isFrozen(definition.documentTree)).toBe(true);
+    expect(Object.isFrozen(definition.section?.documentTree)).toBe(true);
+    expect(definition.documentTree?.describe).toBe(describeLayout);
+    expect(definition.documentTree?.projectChildren).toBe(projectLayoutChildren);
+    expect(definition.section?.documentTree?.describe).toBe(describeSection);
+    expect(definition.section?.documentTree?.projectChildren).toBe(projectSectionChildren);
     expect(Object.hasOwn(definition, "control")).toBe(false);
     expect(describeLayout).not.toHaveBeenCalled();
     expect(projectLayoutChildren).not.toHaveBeenCalled();
@@ -77,7 +77,7 @@ describe("createLayoutInsertAction", () => {
       title: "Controlled layout",
       description: "Controlled layout fixture",
       icon: ColumnsIcon,
-      documentSemantics: { projectChildren },
+      documentTree: { projectChildren },
       control,
       createContent: () => ({ type: "layout", attrs: { variant: "controlled-layout" } }),
     });

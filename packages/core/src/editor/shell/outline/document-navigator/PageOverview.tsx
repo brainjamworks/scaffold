@@ -1,4 +1,4 @@
-import type { SemanticItem } from "@/document/model/semantic-document";
+import type { DocumentTreeItem } from "@/document/model/document-tree";
 
 import { SurfaceCard } from "./SurfaceCard";
 
@@ -11,13 +11,13 @@ export function PageOverview({
   onRenameSurface,
   onSurfaceSettings,
 }: {
-  readonly roots: readonly SemanticItem[];
+  readonly roots: readonly DocumentTreeItem[];
   readonly selectedSurfaceId: string | null;
   readonly registerSurfaceControl: (surfaceId: string, element: HTMLButtonElement | null) => void;
-  readonly onSelectSurface: (item: SemanticItem) => void;
-  readonly onShowSurfaceStructure: (item: SemanticItem) => void;
-  readonly onRenameSurface?: (item: SemanticItem, value: string) => boolean;
-  readonly onSurfaceSettings?: (item: SemanticItem) => void;
+  readonly onSelectSurface: (item: DocumentTreeItem) => void;
+  readonly onShowSurfaceStructure: (item: DocumentTreeItem) => void;
+  readonly onRenameSurface?: (item: DocumentTreeItem, value: string) => boolean;
+  readonly onSurfaceSettings?: (item: DocumentTreeItem) => void;
 }) {
   const surface = roots.length === 1 && roots[0]?.kind === "surface" ? roots[0] : null;
   if (!surface) {

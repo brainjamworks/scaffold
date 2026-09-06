@@ -28,4 +28,4 @@ export {
   readSurfaceViewSettingsFromProseMirrorDoc,
   type SurfaceViewSettings,
 } from "./surface-view-settings";
-export * from "./semantic-document";
+export * from "./document-tree";

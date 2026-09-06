@@ -7,8 +7,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { AuthoringDocumentChrome } from "@/editor/shell/authoring/AuthoringDocumentChrome";
 import { readSurfaceViewSettingsFromProseMirrorDoc } from "@/document/model/surface-view-settings";
-import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document";
-import { createAuthoringSemanticNavigationEnvironment } from "@/document/authoring/semantic-document/authoring-semantic-navigation-environment";
+import { getDocumentTreeForEditor } from "@/document/authoring/document-tree";
+import {
+  getEditorNavigationForEditor,
+} from "@/document/authoring/editor-navigation";
+import { createAuthoringEditorNavigationEnvironment } from "@/document/authoring/editor-navigation/authoring-editor-navigation-environment";
 import { getCourseDocumentAuthoringEnvironmentState } from "@/composition/authoring/create-authoring-composition";
 import {
   canonicalizeAuthoringDocument,
@@ -33,10 +36,17 @@ export interface CourseDocumentEditorProps {
   mount: CourseDocumentAuthoringMount;
   onChange?: (editor: TiptapEditor) => void;
   onReady?: (editor: TiptapEditor) => void;
-  onUpdate?: (json: JSONContent, unavailableContent: readonly UnavailableContentRef[]) => void;
+  onUpdate?: (
+    json: JSONContent,
+    unavailableContent: readonly UnavailableContentRef[],
+    sourceDocument: object,
+  ) => void;
   onDocumentError?: (failure: CourseDocumentAuthoringFailure) => void;
   onUnavailableContentChange?: (content: readonly UnavailableContentRef[]) => void;
   courseAppearance?: ScaffoldColorMode;
+  /** Keeps the mounted editor non-editable for true review/read-only states. */
+  readOnly?: boolean;
+  /** Hides only the visual authoring canvas while preserving the editor command owner. */
   suspended?: boolean;
 }
 
@@ -65,6 +75,7 @@ export function CourseDocumentEditor({
   onDocumentError,
   onUnavailableContentChange,
   courseAppearance = "light",
+  readOnly = false,
   suspended = false,
 }: CourseDocumentEditorProps) {
   const [initialMount] = useState(mount);
@@ -126,7 +137,7 @@ export function CourseDocumentEditor({
         return;
       }
       callbackRef.current.onUnavailableContentChange?.(canonical.unavailableContent);
-      observer?.(canonical.canonicalDocument, canonical.unavailableContent);
+      observer?.(canonical.canonicalDocument, canonical.unavailableContent, editor.state.doc);
     },
     [environmentState, mountState.expectedRequiresScaffoldPlus, mountState.productAccess],
   );
@@ -143,6 +154,7 @@ export function CourseDocumentEditor({
       onReady={handleReady}
       onUpdate={handleUpdate}
       courseAppearance={courseAppearance}
+      readOnly={readOnly}
       suspended={suspended}
     />
   );
@@ -159,6 +171,7 @@ interface RequiredEditorProps {
   onReady: ((editor: TiptapEditor) => void) | undefined;
   onUpdate: (editor: TiptapEditor) => void;
   courseAppearance: ScaffoldColorMode;
+  readOnly: boolean;
   suspended: boolean;
 }
 
@@ -173,13 +186,14 @@ function MountedCourseDocumentEditor({
   onReady,
   onUpdate,
   courseAppearance,
+  readOnly,
   suspended,
 }: RequiredEditorProps) {
   const [overlayContainer, setOverlayContainer] = useState<HTMLDivElement | null>(null);
   const editor = useEditor({
     immediatelyRender: false,
     content,
-    editable: editable && !suspended,
+    editable: editable && !readOnly,
     extensions: authoringExtensions,
     onCreate: ({ editor: e }) => {
       onReady?.(e);
@@ -191,26 +205,27 @@ function MountedCourseDocumentEditor({
   });
 
   useEffect(() => {
-    editor?.setEditable(editable && !suspended);
-  }, [editable, editor, suspended]);
+    editor?.setEditable(editable && !readOnly);
+  }, [editable, editor, readOnly]);
 
   useEffect(() => {
     if (!editor || !overlayContainer) return;
-    const controller = getSemanticDocumentControllerForEditor(editor);
-    controller.setNavigationEditor({
+    const documentTree = getDocumentTreeForEditor(editor);
+    const navigation = getEditorNavigationForEditor(editor);
+    navigation.setEditor({
       dispatch: (transaction) => editor.view.dispatch(transaction),
       focus: () => editor.view.focus(),
     });
-    controller.setNavigationEnvironment(
-      createAuthoringSemanticNavigationEnvironment({
+    navigation.setEnvironment(
+      createAuthoringEditorNavigationEnvironment({
         blockDefinitions: composition.capabilities.blocks.registry,
-        getSnapshot: () => controller.getSnapshot().semantics,
+        getDocumentTree: documentTree.getSnapshot,
         root: overlayContainer,
         view: editor.view,
       }),
     );
     return () => {
-      controller.clearNavigation();
+      navigation.clearEnvironment();
     };
   }, [composition.capabilities.blocks.registry, editor, overlayContainer]);
 
@@ -234,7 +249,7 @@ function MountedCourseDocumentEditor({
       <ScaffoldArtifactIdentityProvider artifactId={artifactId ?? null}>
         <AuthoringDocumentChrome
           courseAppearance={courseAppearance}
-          editable={editable}
+          editable={editable && !readOnly}
           editor={editor}
           overlayContainer={overlayContainer}
           surfaceAuthoringChrome={composition.surfaces.chrome}

@@ -1370,14 +1370,9 @@ function makeSurfaceEditor(
     ],
     layoutDefinitions: layoutDefinitions.definitions,
     surfaceDefinitions: surfaceVariants.definitions,
-    identityRewriteRegistrations: includeContributed
-      ? [
-          {
-            nodeType: contributedBlockDefinition.nodeType,
-            rewrite: input.identityRewrite ?? contributedIdentityRewrite,
-          },
-        ]
-      : [],
+    // The contributed Block's rewrite is registered once, through its own Block
+    // capability above. Registering it again here as a standalone registration
+    // is what `be53b2ce` began rejecting as a duplicate.
   });
   const editor = new Editor({
     extensions: [

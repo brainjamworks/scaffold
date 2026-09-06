@@ -6,10 +6,10 @@ import {
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  createSemanticSnapshotBuilder,
-  type SemanticSnapshotItemInput,
-} from "@/document/model/semantic-document/snapshot-builder";
-import type { SemanticDocumentSnapshot } from "@/document/model/semantic-document/semantic-document-snapshot";
+  createDocumentTreeSnapshotBuilder,
+  type DocumentTreeSnapshotItemInput,
+} from "@/document/model/document-tree/document-tree-snapshot-builder";
+import type { DocumentTreeSnapshot } from "@/document/model/document-tree/document-tree-snapshot";
 
 import {
   deriveContentLayoutAuthoringState,
@@ -68,7 +68,7 @@ describe("deriveContentLayoutAuthoringState", () => {
       item(IDS.firstRegion, IDS.surface, "region", SEQUENCE),
       item(IDS.first, IDS.firstRegion, "rich-text"),
       item(IDS.second, IDS.firstRegion, "block"),
-      item(IDS.nested, IDS.second, "published-child"),
+      item(IDS.nested, IDS.second, "exposed-child"),
     ]);
 
     const state = derive(snapshot, IDS.nested);
@@ -82,7 +82,7 @@ describe("deriveContentLayoutAuthoringState", () => {
       item(IDS.firstRegion, IDS.surface, "region", FLOW),
       item(IDS.first, IDS.firstRegion, "rich-text"),
       item(IDS.second, IDS.firstRegion, "block"),
-      item(IDS.nested, IDS.second, "published-child"),
+      item(IDS.nested, IDS.second, "exposed-child"),
     ]);
     const previousState = derive(previousSnapshot, IDS.nested);
     const sequenceSnapshot = buildSnapshot([
@@ -90,7 +90,7 @@ describe("deriveContentLayoutAuthoringState", () => {
       item(IDS.firstRegion, IDS.surface, "region", SEQUENCE),
       item(IDS.first, IDS.firstRegion, "rich-text"),
       item(IDS.second, IDS.firstRegion, "block"),
-      item(IDS.nested, IDS.second, "published-child"),
+      item(IDS.nested, IDS.second, "exposed-child"),
     ]);
 
     const state = derive(sequenceSnapshot, IDS.nested, previousState);
@@ -107,7 +107,7 @@ describe("deriveContentLayoutAuthoringState", () => {
       item(IDS.firstRegion, IDS.surface, "region", SEQUENCE),
       item(IDS.first, IDS.firstRegion, "rich-text"),
       item(IDS.second, IDS.firstRegion, "block"),
-      item(IDS.nested, IDS.second, "published-child"),
+      item(IDS.nested, IDS.second, "exposed-child"),
     ]);
     const previousState = derive(snapshot, IDS.first);
 
@@ -125,7 +125,7 @@ describe("deriveContentLayoutAuthoringState", () => {
       item(IDS.innerCell, IDS.atomicGrid, "cell", SEQUENCE),
       item(IDS.second, IDS.innerCell, "rich-text"),
       item(IDS.third, IDS.innerCell, "block"),
-      item(IDS.nested, IDS.third, "published-child"),
+      item(IDS.nested, IDS.third, "exposed-child"),
     ]);
     const previousState = derive(snapshot, IDS.first);
 
@@ -151,7 +151,7 @@ describe("deriveContentLayoutAuthoringState", () => {
       item(IDS.layout, IDS.flowCell, "layout"),
       item(IDS.sequenceSection, IDS.layout, "layout-section", SEQUENCE),
       item(IDS.third, IDS.sequenceSection, "block"),
-      item(IDS.nested, IDS.third, "published-child"),
+      item(IDS.nested, IDS.third, "exposed-child"),
     ]);
     const previousState = derive(snapshot, IDS.first);
 
@@ -287,7 +287,7 @@ describe("deriveContentLayoutAuthoringState", () => {
       item(IDS.firstRegion, IDS.surface, "region", SEQUENCE),
       item(IDS.first, IDS.firstRegion, "rich-text"),
       item(IDS.inserted, IDS.firstRegion, "block"),
-      item(IDS.nested, IDS.inserted, "published-child"),
+      item(IDS.nested, IDS.inserted, "exposed-child"),
       item(IDS.second, IDS.firstRegion, "rich-text"),
     ]);
 
@@ -312,7 +312,7 @@ describe("deriveContentLayoutAuthoringState", () => {
       item(IDS.surface, null, "surface"),
       item(IDS.firstRegion, IDS.surface, "region", SEQUENCE),
       item(IDS.inserted, IDS.firstRegion, "block"),
-      item(IDS.nested, IDS.inserted, "published-child"),
+      item(IDS.nested, IDS.inserted, "exposed-child"),
     ]);
 
     const state = derive(replacementSnapshot, IDS.nested, previousState);
@@ -357,7 +357,7 @@ describe("deriveContentLayoutAuthoringState", () => {
       item(IDS.firstRegion, IDS.surface, "region", SEQUENCE),
       item(IDS.first, IDS.firstRegion, "rich-text"),
       item(IDS.inserted, IDS.firstRegion, "block"),
-      item(IDS.nested, IDS.inserted, "published-child"),
+      item(IDS.nested, IDS.inserted, "exposed-child"),
       item(IDS.third, IDS.firstRegion, "rich-text"),
     ]);
 
@@ -480,13 +480,13 @@ describe("deriveContentLayoutAuthoringState", () => {
 interface TestItem {
   readonly id: EmbeddedNodeId;
   readonly parentId: EmbeddedNodeId | null;
-  readonly kind: SemanticSnapshotItemInput["kind"];
+  readonly kind: DocumentTreeSnapshotItemInput["kind"];
   readonly contentLayout?: typeof FLOW | typeof SEQUENCE;
   readonly documentFrom?: number;
 }
 
 function derive(
-  snapshot: SemanticDocumentSnapshot,
+  snapshot: DocumentTreeSnapshot,
   selectedId: EmbeddedNodeId | null,
   previousState: ContentLayoutAuthoringState | null = null,
 ): ContentLayoutAuthoringState {
@@ -521,8 +521,8 @@ function atDocumentPosition(testItem: TestItem, documentFrom: number): TestItem 
   return { ...testItem, documentFrom };
 }
 
-function buildSnapshot(items: readonly TestItem[]): SemanticDocumentSnapshot {
-  const builder = createSemanticSnapshotBuilder({ revision: 1, mode: "page" });
+function buildSnapshot(items: readonly TestItem[]): DocumentTreeSnapshot {
+  const builder = createDocumentTreeSnapshotBuilder({ revision: 1, mode: "page" });
 
   items.forEach(({ id: itemId, parentId, kind, contentLayout, documentFrom }, index) => {
     const from = documentFrom ?? index * 10 + 1;

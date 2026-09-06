@@ -6,12 +6,12 @@ import {
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { EditorState } from "@tiptap/pm/state";
 
-import { getSemanticDocumentControllerForState } from "@/document/authoring/semantic-document/semantic-document-storage";
-import type { SemanticLocation } from "@/document/model/semantic-document/semantic-location";
+import { getDocumentTreeForState } from "@/document/authoring/document-tree/document-tree-storage";
+import type { DocumentItemLocation } from "@/document/model/document-tree/document-item-location";
 import type {
-  SemanticItem,
-  SemanticItemKind,
-} from "@/document/model/semantic-document/semantic-document-snapshot";
+  DocumentTreeItem,
+  DocumentTreeItemKind,
+} from "@/document/model/document-tree/document-tree-snapshot";
 import {
   resolveDefaultStructuralActivationPlacement,
   type StructuralActivationPlacementIssue,
@@ -31,7 +31,7 @@ export const resolveContentLayoutStructuralActivationPlacement: StructuralActiva
     if (semanticKind === null) return resolveDefaultStructuralActivationPlacement(input);
 
     const targetId = requireTargetId(input.target);
-    const snapshot = getSemanticDocumentControllerForState(input.state).getSnapshot().semantics;
+    const snapshot = getDocumentTreeForState(input.state).getSnapshot();
     const targetItem = snapshot.itemById.get(targetId);
     const targetLocation = snapshot.locationById.get(targetId);
     if (
@@ -97,7 +97,7 @@ export const resolveContentLayoutStructuralActivationPlacement: StructuralActiva
     });
   };
 
-function eligibleSemanticKind(target: InteractionTargetRef): SemanticItemKind | null {
+function eligibleSemanticKind(target: InteractionTargetRef): DocumentTreeItemKind | null {
   switch (target.kind) {
     case InteractionTargetKind.Region:
       return "region";
@@ -120,10 +120,10 @@ function requireTargetId(target: InteractionTargetRef): EmbeddedNodeId {
 
 function isLiveSemanticNode(
   state: EditorState,
-  item: SemanticItem,
-  location: SemanticLocation | undefined,
-  parentLocation?: SemanticLocation,
-): location is SemanticLocation {
+  item: DocumentTreeItem,
+  location: DocumentItemLocation | undefined,
+  parentLocation?: DocumentItemLocation,
+): location is DocumentItemLocation {
   if (
     location === undefined ||
     location.id !== item.id ||
@@ -144,7 +144,7 @@ function isLiveSemanticNode(
   );
 }
 
-function isSelectionTargetWithinLocation(location: SemanticLocation): boolean {
+function isSelectionTargetWithinLocation(location: DocumentItemLocation): boolean {
   const selectionTarget = location.selectionTarget;
   if (typeof selectionTarget !== "object" || selectionTarget === null) return false;
 

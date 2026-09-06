@@ -23,7 +23,7 @@ import {
   authoringCourseDocumentContentExpression,
   createUnavailableContentAuthoringExtensions,
 } from "@/document/authoring/unavailable-content";
-import { createSemanticDocumentExtension } from "@/document/authoring/semantic-document";
+import { createDocumentAuthoringExtension } from "@/document/authoring/document-authoring-extension";
 import { resolveContentLayoutStructuralActivationPlacement } from "@/editor/content-layout/authoring/content-layout-structural-activation-placement";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
@@ -181,7 +181,7 @@ export function createCourseDocumentAuthoringExtensions({
 
   return [
     createScaffoldCapabilitiesStorageExtension(composition.capabilities),
-    createSemanticDocumentExtension(composition.documentSemantics),
+    createDocumentAuthoringExtension(composition.documentTree),
     ContentLayoutProjectionExtension,
     ContentLayoutAuthoringExtension,
     createScaffoldAuthoringCataloguesStorageExtension(composition.catalogues),

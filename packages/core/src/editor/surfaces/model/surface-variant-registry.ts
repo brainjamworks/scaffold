@@ -2,7 +2,7 @@ import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import type { JSONContent } from "@tiptap/core";
 
 import type { CourseMode } from "@/schemas/course-document";
-import { normalizeDocumentSemanticsDefinition } from "@/document/model/semantic-document";
+import { normalizeDocumentTreeDefinition } from "@/document/model/document-tree";
 import { isSurfaceVariantId } from "@/lib/code-defined-identifiers";
 
 import {
@@ -167,13 +167,13 @@ function createImmutableSurfaceDefinition(
   input: SurfaceVariantDefinition,
 ): RegisteredSurfaceVariantDefinition {
   const definition = normalizeSurfaceDefinition(input);
-  const documentSemantics = normalizeDocumentSemanticsDefinition(
+  const documentTree = normalizeDocumentTreeDefinition(
     definition.assessmentTargets
       ? {
-          ...definition.documentSemantics,
+          ...definition.documentTree,
           presentation: { actionIds: [] },
         }
-      : definition.documentSemantics,
+      : definition.documentTree,
   );
   return Object.freeze({
     ...definition,
@@ -190,7 +190,7 @@ function createImmutableSurfaceDefinition(
     ...(definition.structurePolicy
       ? { structurePolicy: createImmutableSurfaceStructurePolicy(definition.structurePolicy) }
       : {}),
-    ...(documentSemantics ? { documentSemantics } : {}),
+    ...(documentTree ? { documentTree } : {}),
   });
 }
 

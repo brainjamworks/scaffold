@@ -7,11 +7,11 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import {
-  APPROVED_SEMANTIC_MEMBER_FAMILY_CASES,
-  SEMANTIC_LIFECYCLE_APPLICATION,
-  projectSemanticLifecycleDocument,
-  requireLifecycleNodeById,
-} from "@/composition/application/testing/semantic-publication-lifecycle-fixtures";
+  APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES,
+  DOCUMENT_TREE_LIFECYCLE_APPLICATION,
+  projectDocumentTreeLifecycleDocument,
+  requireDocumentTreeLifecycleNodeById,
+} from "@/composition/application/testing/document-tree-lifecycle-fixtures";
 
 import {
   deleteNodeChecked,
@@ -290,11 +290,11 @@ describe("checked transaction primitives", () => {
     expect(tr.steps).toHaveLength(0);
   });
 
-  it.each(APPROVED_SEMANTIC_MEMBER_FAMILY_CASES)(
+  it.each(APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES)(
     "$label checked duplicate regenerates owner and public-descendant identity",
     (family) => {
       const doc = family.createDocument();
-      const source = requireLifecycleNodeById(doc, family.ownerId);
+      const source = requireDocumentTreeLifecycleNodeById(doc, family.ownerId);
       const sourceBefore = source.node.toJSON();
       const originalDocument = doc.toJSON();
       const tr = new Transform(doc);
@@ -303,13 +303,13 @@ describe("checked transaction primitives", () => {
         tr,
         pos: source.pos,
         regenerateNodeIds: true,
-        identityRewrites: SEMANTIC_LIFECYCLE_APPLICATION.capabilities.contentIdentity.rewrites,
+        identityRewrites: DOCUMENT_TREE_LIFECYCLE_APPLICATION.capabilities.contentIdentity.rewrites,
       });
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       const duplicateOwnerId = EmbeddedNodeIdSchema.parse(result.node.attrs["id"]);
-      const snapshot = projectSemanticLifecycleDocument(result.tr.doc, 41);
+      const snapshot = projectDocumentTreeLifecycleDocument(result.tr.doc, 41);
       const sourceChildren = snapshot.itemById.get(family.ownerId)?.children ?? [];
       const duplicateChildren = snapshot.itemById.get(duplicateOwnerId)?.children ?? [];
       const sourceIdentities = new Set([

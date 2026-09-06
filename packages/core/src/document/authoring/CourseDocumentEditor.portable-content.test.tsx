@@ -36,7 +36,10 @@ describe("CourseDocumentEditor portable content", () => {
 
     await waitFor(() => {
       expect(onUpdate).toHaveBeenCalled();
-      expect(onUpdate.mock.lastCall?.[0]).toEqual(editor.getJSON());
+      // Contract update: befbb550 split working attrs from portable ones. The
+      // in-memory doc keeps `null` sentinels for absent orchestration attrs;
+      // the portable JSON handed to `onUpdate` omits them entirely.
+      expect(onUpdate.mock.lastCall?.[0]).toEqual(withPortableCourseAttrs(editor.getJSON()));
     });
   });
 
@@ -78,7 +81,11 @@ describe("CourseDocumentEditor portable content", () => {
 
   it("opens, selects, deletes, and losslessly saves an unavailable Surface", async () => {
     const content = slideshowDocumentWithUnavailableSurface();
-    const unavailableOriginal = structuredClone(content.content![0]!.content![1]!);
+    // Address the unavailable Surface by id: a slideshow Course Document opens
+    // with a courseSection boundary, so it is not at a fixed child index.
+    const unavailableSource = findNodeById(content, "plussurf0001");
+    if (!unavailableSource) throw new Error("Expected the unavailable Surface fixture.");
+    const unavailableOriginal = structuredClone(unavailableSource);
     const onReady = vi.fn();
     const onUpdate = vi.fn();
 
@@ -360,10 +367,31 @@ function pageDocumentWithoutCourseId(): JSONContent {
   return content;
 }
 
+/**
+ * Restates the working → portable Course Document attrs boundary (befbb550):
+ * `branching`, `learnerInteractions` and `presentation` are `null` in the
+ * ProseMirror attrs and absent from the portable JSON.
+ */
+function withPortableCourseAttrs(document: JSONContent): JSONContent {
+  const courseDocument = document.content?.[0];
+  if (!courseDocument?.attrs) return document;
+  const attrs: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(courseDocument.attrs)) {
+    const absentOrchestration =
+      value === null && ["branching", "learnerInteractions", "presentation"].includes(key);
+    if (!absentOrchestration) attrs[key] = value;
+  }
+  return {
+    ...document,
+    content: [{ ...courseDocument, attrs }, ...(document.content?.slice(1) ?? [])],
+  };
+}
+
 function slideshowDocumentWithUnavailableSurface(): JSONContent {
   const content = createScaffoldDocumentContent({
     mode: "slideshow",
     surfaceId: "surface00001",
+    initialCourseSectionTitle: "Slides",
   });
   const courseDocument = content.content![0]!;
   courseDocument.content!.push({

@@ -5,30 +5,30 @@ import {
 import type { KeyboardEvent } from "react";
 import { useEffect, useRef } from "react";
 
-import type { SemanticItem } from "@/document/model/semantic-document";
-import { MAX_SEMANTIC_LABEL_LENGTH } from "@/document/model/semantic-document/semantic-labels";
+import type { DocumentTreeItem } from "@/document/model/document-tree";
+import { MAX_SEMANTIC_LABEL_LENGTH } from "@/document/model/document-tree/semantic-labels";
 import { Input } from "@/ui/components/Input/Input";
 import { iconXs } from "@/ui/tokens/icon-sizes";
 
-import type { DocumentOutlineRowViewport } from "./SemanticSubtreeOutline";
+import type { DocumentOutlineRowViewport } from "./DocumentTreeSubtreeOutline";
 
 export interface DocumentOutlineRowProps {
   readonly draft: string;
   readonly editing: boolean;
   readonly expanded: boolean;
   readonly focused: boolean;
-  readonly item: SemanticItem;
+  readonly item: DocumentTreeItem;
   readonly level: number;
   readonly renameAvailable: boolean;
   readonly selected: boolean;
   readonly viewport: DocumentOutlineRowViewport;
-  readonly onActivate: (item: SemanticItem) => void;
-  readonly onCancelRename: (item: SemanticItem) => void;
-  readonly onCommitRename: (item: SemanticItem) => void;
+  readonly onActivate: (item: DocumentTreeItem) => void;
+  readonly onCancelRename: (item: DocumentTreeItem) => void;
+  readonly onCommitRename: (item: DocumentTreeItem) => void;
   readonly onDraftChange: (value: string) => void;
-  readonly onKeyDown: (event: KeyboardEvent<HTMLDivElement>, item: SemanticItem) => void;
-  readonly onRename: (item: SemanticItem) => void;
-  readonly onToggle: (item: SemanticItem, expanded: boolean) => void;
+  readonly onKeyDown: (event: KeyboardEvent<HTMLDivElement>, item: DocumentTreeItem) => void;
+  readonly onRename: (item: DocumentTreeItem) => void;
+  readonly onToggle: (item: DocumentTreeItem, expanded: boolean) => void;
 }
 
 export function DocumentOutlineRow({

@@ -1,5 +1,5 @@
 import type { SurfaceVariantDefinition } from "../surface-variant-definition";
-import { createSurfaceDocumentSemantics } from "../surface-document-semantics";
+import { createSurfaceDocumentTree } from "../surface-document-tree";
 
 export const pageDefaultSurfaceDefinition = {
   id: "page-default",
@@ -7,7 +7,7 @@ export const pageDefaultSurfaceDefinition = {
   defaultForModes: ["page"],
   title: "Page",
   description: "Default single-surface page body.",
-  documentSemantics: createSurfaceDocumentSemantics({ directRichText: true }),
+  documentTree: createSurfaceDocumentTree({ directRichText: true }),
   createSurface: ({ surfaceId }) => ({
     type: "surface",
     attrs: { id: surfaceId, variant: "page-default" },

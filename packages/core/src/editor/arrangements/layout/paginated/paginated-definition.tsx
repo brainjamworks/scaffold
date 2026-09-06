@@ -1,6 +1,6 @@
 import { BookOpenTextIcon as BookOpenText } from "@phosphor-icons/react";
 import type { LayoutDefinition } from "../model/layout-definition";
-import { hiddenLayoutSectionDocumentSemantics } from "../shared/model/layout-semantic-publication";
+import { hiddenLayoutSectionDocumentTree } from "../shared/model/layout-semantic-publication";
 import { createPaginatedContent, createPaginatedPage } from "./paginated-content";
 
 export const paginatedLayoutDefinition = {
@@ -10,7 +10,7 @@ export const paginatedLayoutDefinition = {
   icon: BookOpenText,
   boundedPlacement: "fill",
   keywords: ["pages", "pagination", "book", "sequence"],
-  documentSemantics: hiddenLayoutSectionDocumentSemantics,
+  documentTree: hiddenLayoutSectionDocumentTree,
   control: {
     semanticChildren: {
       section: {

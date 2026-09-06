@@ -12,10 +12,10 @@ import {
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  createSemanticSnapshotBuilder,
-  type SemanticSnapshotItemInput,
-} from "@/document/model/semantic-document/snapshot-builder";
-import type { SemanticLocation } from "@/document/model/semantic-document/semantic-location";
+  createDocumentTreeSnapshotBuilder,
+  type DocumentTreeSnapshotItemInput,
+} from "@/document/model/document-tree/document-tree-snapshot-builder";
+import type { DocumentItemLocation } from "@/document/model/document-tree/document-item-location";
 import { CONTENT_LAYOUT_ATTR } from "../model/content-layout-attribute";
 import {
   ContentLayoutProjectionExtension,
@@ -1491,7 +1491,7 @@ function createBatch(
     ])[];
   } = {},
 ): ContentLayoutProjectionBatch {
-  const builder = createSemanticSnapshotBuilder({
+  const builder = createDocumentTreeSnapshotBuilder({
     revision: options.revision ?? 1,
     mode: "slideshow",
   });
@@ -1542,10 +1542,10 @@ function createBatch(
 
 function semanticItem(
   idValue: EmbeddedNodeId,
-  kind: SemanticSnapshotItemInput["kind"],
+  kind: DocumentTreeSnapshotItemInput["kind"],
   nodeType: string,
   contentLayout: PresentationContentLayout | null,
-): SemanticSnapshotItemInput {
+): DocumentTreeSnapshotItemInput {
   return {
     id: idValue,
     kind,
@@ -1620,9 +1620,9 @@ function withSnapshotLocationFrom(
 function withSnapshotLocation(
   batch: ContentLayoutProjectionBatch,
   locationId: EmbeddedNodeId,
-  update: Partial<Pick<SemanticLocation, "id" | "nodeType" | "from" | "to">>,
+  update: Partial<Pick<DocumentItemLocation, "id" | "nodeType" | "from" | "to">>,
 ): ContentLayoutProjectionBatch {
-  const locations: readonly (readonly [EmbeddedNodeId, SemanticLocation])[] = [
+  const locations: readonly (readonly [EmbeddedNodeId, DocumentItemLocation])[] = [
     ...batch.snapshot.locationById,
   ].map(([idValue, value]) =>
     idValue === locationId

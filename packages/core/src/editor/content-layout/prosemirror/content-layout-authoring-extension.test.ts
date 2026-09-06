@@ -12,11 +12,11 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
-  createSemanticSnapshotBuilder,
-  type SemanticSnapshotItemInput,
-} from "@/document/model/semantic-document/snapshot-builder";
-import type { SemanticDocumentControllerSnapshot } from "@/document/authoring/semantic-document/semantic-document-controller";
-import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
+  createDocumentTreeSnapshotBuilder,
+  type DocumentTreeSnapshotItemInput,
+} from "@/document/model/document-tree/document-tree-snapshot-builder";
+import type { EditorSelectionSnapshot } from "@/document/authoring/editor-navigation";
+import { documentAuthoringPluginKey } from "@/document/authoring/document-authoring-storage";
 import { CONTENT_LAYOUT_ATTR } from "../model/content-layout-attribute";
 import {
   ContentLayoutProjectionExtension,
@@ -95,38 +95,55 @@ interface ChildInput {
   readonly id: EmbeddedNodeId;
 }
 
-class TestSemanticDocumentController {
-  #snapshot: SemanticDocumentControllerSnapshot;
+class TestDocumentTreeStore {
+  #snapshot: ReturnType<typeof createSnapshot>;
   #listeners = new Set<() => void>();
 
   constructor(doc: ProseMirrorNode) {
-    this.#snapshot = createControllerSnapshot(createSnapshot(doc, 0), null, null);
+    this.#snapshot = createSnapshot(doc, 0);
   }
-
-  getSnapshot = (): SemanticDocumentControllerSnapshot => this.#snapshot;
 
   get listenerCount(): number {
     return this.#listeners.size;
   }
+
+  getSnapshot = () => this.#snapshot;
 
   subscribe = (listener: () => void): (() => void) => {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
   };
 
-  setSelectedId(selectedId: EmbeddedNodeId | null): void {
-    if (selectedId !== null) this.reportComponentSelection(selectedId);
+  applyTransaction(transaction: Transaction, state: EditorState): void {
+    if (!transaction.docChanged) return;
+    this.#snapshot = createSnapshot(state.doc, this.#snapshot.revision + 1);
+    for (const listener of this.#listeners) listener();
+  }
+}
+
+class TestEditorNavigationController {
+  #snapshot: EditorSelectionSnapshot = Object.freeze({ selectedId: null, selectionOrigin: null });
+  #listeners = new Set<() => void>();
+
+  get listenerCount(): number {
+    return this.#listeners.size;
   }
 
+  getSelectionSnapshot = (): EditorSelectionSnapshot => this.#snapshot;
+
+  subscribeSelection = (listener: () => void): (() => void) => {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  };
+
   reportComponentSelection(selectedId: EmbeddedNodeId): void {
-    if (!this.#snapshot.semantics.itemById.has(selectedId)) return;
     if (
       this.#snapshot.selectedId === selectedId &&
       this.#snapshot.selectionOrigin === "component"
     ) {
       return;
     }
-    this.#snapshot = createControllerSnapshot(this.#snapshot.semantics, selectedId, "component");
+    this.#snapshot = Object.freeze({ selectedId, selectionOrigin: "component" });
     this.#publish();
   }
 
@@ -134,20 +151,14 @@ class TestSemanticDocumentController {
     this.#publish();
   }
 
-  applyTransaction(transaction: Transaction, state: EditorState): void {
+  applyTransaction(transaction: Transaction, _state: EditorState): void {
     if (!transaction.docChanged && !transaction.selectionSet) return;
 
     const previous = this.#snapshot;
-    const semantics = transaction.docChanged
-      ? createSnapshot(state.doc, previous.semantics.revision + 1)
-      : previous.semantics;
     const selectionMeta = transaction.getMeta(TEST_SELECTION_META) as
       | { readonly selectedId: EmbeddedNodeId | null }
       | undefined;
-    const selectedId =
-      selectionMeta === undefined
-        ? reconcileSelectedId(previous, semantics)
-        : selectionMeta.selectedId;
+    const selectedId = selectionMeta === undefined ? previous.selectedId : selectionMeta.selectedId;
     const selectionOrigin =
       selectedId === null
         ? null
@@ -155,15 +166,11 @@ class TestSemanticDocumentController {
           ? previous.selectionOrigin
           : ("editor" as const);
 
-    if (
-      semantics === previous.semantics &&
-      selectedId === previous.selectedId &&
-      selectionOrigin === previous.selectionOrigin
-    ) {
+    if (selectedId === previous.selectedId && selectionOrigin === previous.selectionOrigin) {
       return;
     }
 
-    this.#snapshot = createControllerSnapshot(semantics, selectedId, selectionOrigin);
+    this.#snapshot = Object.freeze({ selectedId, selectionOrigin });
     this.#publish();
   }
 
@@ -270,7 +277,7 @@ describe("ContentLayoutAuthoringExtension", () => {
     }
   });
 
-  it("publishes controller-only selection changes without a document step or history entry", async () => {
+  it("publishes navigation-only selection changes without a document step or history entry", async () => {
     const editor = createEditor([
       {
         id: IDS.firstRegion,
@@ -283,9 +290,9 @@ describe("ContentLayoutAuthoringExtension", () => {
       const beforeJSON = JSON.stringify(editor.state.doc.toJSON());
       const beforeSelection = editor.state.selection.toJSON();
       const transactions = observeTransactions(editor);
-      const controller = getTestController(editor);
+      const navigation = getTestNavigation(editor);
 
-      controller.reportComponentSelection(IDS.second);
+      navigation.reportComponentSelection(IDS.second);
       await flushMicrotasks();
 
       expect(transactions).toHaveLength(1);
@@ -294,7 +301,7 @@ describe("ContentLayoutAuthoringExtension", () => {
       expect(JSON.stringify(editor.state.doc.toJSON())).toBe(beforeJSON);
       expect(editor.state.selection.toJSON()).toEqual(beforeSelection);
       expect(editor.can().undo()).toBe(false);
-      expect(controller.getSnapshot().selectedId).toBe(IDS.second);
+      expect(navigation.getSelectionSnapshot().selectedId).toBe(IDS.second);
       expect(
         readContentLayoutAuthoringState(editor.state).containers.get(IDS.firstRegion)
           ?.activeChildId,
@@ -306,7 +313,7 @@ describe("ContentLayoutAuthoringExtension", () => {
     }
   });
 
-  it("keeps first-child initialization when Flow becomes Sequence with a later controller selection", async () => {
+  it("keeps first-child initialization when Flow becomes Sequence with a later navigation selection", async () => {
     const editor = await createFlowEditorWithLaterControllerSelection();
     try {
       const appendedTransactions = observeAppendedTransactions(editor);
@@ -331,20 +338,21 @@ describe("ContentLayoutAuthoringExtension", () => {
     }
   });
 
-  it("reconciles explicit selection when the controller source identity is unchanged", async () => {
+  it("reconciles explicit selection when the tree source identity is unchanged", async () => {
     const editor = await createFlowEditorWithLaterControllerSelection();
     try {
       const appendedTransactions = observeAppendedTransactions(editor);
       transitionToSequence(editor);
-      const controller = getTestController(editor);
-      const semantics = controller.getSnapshot().semantics;
+      const tree = getTestTree(editor);
+      const navigation = getTestNavigation(editor);
+      const documentTree = tree.getSnapshot();
       appendedTransactions.length = 0;
 
       selectNode(editor, IDS.second);
       await flushMicrotasks();
 
-      expect(controller.getSnapshot().semantics).toBe(semantics);
-      expect(controller.getSnapshot().selectedId).toBe(IDS.second);
+      expect(tree.getSnapshot()).toBe(documentTree);
+      expect(navigation.getSelectionSnapshot().selectedId).toBe(IDS.second);
       expect(appendedTransactions).toHaveLength(1);
       expect(appendedTransactions[0]?.steps).toHaveLength(0);
       expect(
@@ -385,7 +393,7 @@ describe("ContentLayoutAuthoringExtension", () => {
     }
   });
 
-  it("coalesces same-tick controller selections to the final state", async () => {
+  it("coalesces same-tick navigation selections to the final state", async () => {
     const editor = createEditor([
       {
         id: IDS.firstRegion,
@@ -396,14 +404,14 @@ describe("ContentLayoutAuthoringExtension", () => {
     try {
       await flushMicrotasks();
       const transactions = observeTransactions(editor);
-      const controller = getTestController(editor);
+      const navigation = getTestNavigation(editor);
 
-      controller.reportComponentSelection(IDS.second);
-      controller.reportComponentSelection(IDS.first);
+      navigation.reportComponentSelection(IDS.second);
+      navigation.reportComponentSelection(IDS.first);
       await flushMicrotasks();
 
       expect(transactions).toHaveLength(1);
-      expect(controller.getSnapshot().selectedId).toBe(IDS.first);
+      expect(navigation.getSelectionSnapshot().selectedId).toBe(IDS.first);
       expect(
         readContentLayoutAuthoringState(editor.state).containers.get(IDS.firstRegion)
           ?.activeChildId,
@@ -414,7 +422,7 @@ describe("ContentLayoutAuthoringExtension", () => {
     }
   });
 
-  it("deduplicates repeated equivalent controller publications", async () => {
+  it("deduplicates repeated equivalent navigation publications", async () => {
     const editor = createEditor([
       {
         id: IDS.firstRegion,
@@ -425,15 +433,15 @@ describe("ContentLayoutAuthoringExtension", () => {
     try {
       await flushMicrotasks();
       const transactions = observeTransactions(editor);
-      const controller = getTestController(editor);
+      const navigation = getTestNavigation(editor);
 
-      controller.reportComponentSelection(IDS.second);
+      navigation.reportComponentSelection(IDS.second);
       await flushMicrotasks();
       expect(transactions).toHaveLength(1);
 
       transactions.length = 0;
-      controller.publishEquivalentSnapshot();
-      controller.publishEquivalentSnapshot();
+      navigation.publishEquivalentSnapshot();
+      navigation.publishEquivalentSnapshot();
       await flushMicrotasks();
 
       expect(transactions).toHaveLength(0);
@@ -452,8 +460,8 @@ describe("ContentLayoutAuthoringExtension", () => {
       },
     ]);
     try {
-      const controller = getTestController(editor);
-      controller.reportComponentSelection(IDS.second);
+      const navigation = getTestNavigation(editor);
+      navigation.reportComponentSelection(IDS.second);
       await flushMicrotasks();
 
       expect(
@@ -769,7 +777,7 @@ describe("ContentLayoutAuthoringExtension", () => {
     }
   });
 
-  it("does not append for an equivalent controller and derived state", async () => {
+  it("does not append for equivalent navigation and derived state", async () => {
     const editor = createEditor([
       {
         id: IDS.firstRegion,
@@ -804,13 +812,15 @@ describe("ContentLayoutAuthoringExtension", () => {
       },
     ]);
     const dispatch = vi.spyOn(editor.view, "dispatch");
-    const controller = getTestController(editor);
+    const tree = getTestTree(editor);
+    const navigation = getTestNavigation(editor);
     try {
-      controller.reportComponentSelection(IDS.first);
+      navigation.reportComponentSelection(IDS.first);
       editor.destroy();
       await flushMicrotasks();
 
-      expect(controller.listenerCount).toBe(0);
+      expect(tree.listenerCount).toBe(0);
+      expect(navigation.listenerCount).toBe(0);
       expect(dispatch).not.toHaveBeenCalled();
     } finally {
       if (!editor.isDestroyed) editor.destroy();
@@ -832,7 +842,7 @@ describe("ContentLayoutAuthoringExtension", () => {
             { id: IDS.firstRegion, contentLayout: SEQUENCE, children: [{ id: IDS.first }] },
           ]),
         }),
-    ).toThrow("Semantic Document Controller extension is not installed");
+    ).toThrow("Document authoring extension is not installed");
 
     expect(
       () =>
@@ -842,7 +852,7 @@ describe("ContentLayoutAuthoringExtension", () => {
             TestContainerNode,
             TestChildNode,
             StarterKit.configure({ document: false, trailingNode: false }),
-            createTestSemanticDocumentExtension(),
+            createTestDocumentAuthoringExtension(),
             ContentLayoutAuthoringExtension,
           ],
           content: createDocument([
@@ -860,7 +870,7 @@ function createEditor(containers: readonly ContainerInput[]): Editor {
       TestContainerNode,
       TestChildNode,
       StarterKit.configure({ document: false, trailingNode: false }),
-      createTestSemanticDocumentExtension(),
+      createTestDocumentAuthoringExtension(),
       ContentLayoutProjectionExtension,
       ContentLayoutAuthoringExtension,
     ],
@@ -877,7 +887,7 @@ async function createFlowEditorWithLaterControllerSelection(): Promise<Editor> {
     },
   ]);
   await flushMicrotasks();
-  getTestController(editor).reportComponentSelection(IDS.second);
+  getTestNavigation(editor).reportComponentSelection(IDS.second);
   await flushMicrotasks();
   return editor;
 }
@@ -894,25 +904,31 @@ function transitionToSequence(editor: Editor): Transaction {
   return transaction;
 }
 
-function getTestController(editor: Editor): TestSemanticDocumentController {
-  const controller = semanticDocumentPluginKey.getState(editor.state);
-  if (!controller) throw new Error("Expected the test Semantic Document Controller.");
-  return controller as unknown as TestSemanticDocumentController;
+function getTestTree(editor: Editor): TestDocumentTreeStore {
+  const lifecycle = documentAuthoringPluginKey.getState(editor.state);
+  if (!lifecycle) throw new Error("Expected the test document authoring lifecycle.");
+  return lifecycle.documentTree as unknown as TestDocumentTreeStore;
 }
 
-function createTestSemanticDocumentExtension() {
+function getTestNavigation(editor: Editor): TestEditorNavigationController {
+  const lifecycle = documentAuthoringPluginKey.getState(editor.state);
+  if (!lifecycle) throw new Error("Expected the test document authoring lifecycle.");
+  return lifecycle.editorNavigation as unknown as TestEditorNavigationController;
+}
+
+function createTestDocumentAuthoringExtension() {
   return Extension.create({
-    name: "semanticDocumentController",
+    name: "documentAuthoringLifecycle",
 
     addProseMirrorPlugins() {
       return [
         new Plugin({
-          key: semanticDocumentPluginKey,
+          key: documentAuthoringPluginKey,
           state: {
-            init: (_config, state) => new TestSemanticDocumentController(state.doc),
-            apply: (transaction, controller, _oldState, newState) => {
-              controller.applyTransaction(transaction, newState);
-              return controller;
+            init: (_config, state) => createTestDocumentAuthoringLifecycle(state.doc),
+            apply: (transaction, lifecycle, _oldState, newState) => {
+              lifecycle.applyTransaction(transaction, newState);
+              return lifecycle;
             },
           },
         }),
@@ -921,27 +937,22 @@ function createTestSemanticDocumentExtension() {
   });
 }
 
-function createControllerSnapshot(
-  semantics: ReturnType<typeof createSnapshot>,
-  selectedId: EmbeddedNodeId | null,
-  selectionOrigin: SemanticDocumentControllerSnapshot["selectionOrigin"],
-): SemanticDocumentControllerSnapshot {
-  return Object.freeze({ semantics, selectedId, selectionOrigin });
-}
-
-function reconcileSelectedId(
-  previous: SemanticDocumentControllerSnapshot,
-  semantics: ReturnType<typeof createSnapshot>,
-): EmbeddedNodeId | null {
-  let candidate = previous.selectedId;
-  while (candidate !== null && !semantics.itemById.has(candidate)) {
-    candidate = previous.semantics.parentById.get(candidate) ?? null;
-  }
-  return candidate;
+function createTestDocumentAuthoringLifecycle(doc: ProseMirrorNode) {
+  const documentTree = new TestDocumentTreeStore(doc);
+  const editorNavigation = new TestEditorNavigationController();
+  return {
+    documentTree,
+    editorNavigation,
+    applyTransaction(transaction: Transaction, state: EditorState): void {
+      documentTree.applyTransaction(transaction, state);
+      editorNavigation.applyTransaction(transaction, state);
+    },
+    dispose(): void {},
+  } as unknown as NonNullable<ReturnType<typeof documentAuthoringPluginKey.getState>>;
 }
 
 function createSnapshot(doc: ProseMirrorNode, revision: number) {
-  const builder = createSemanticSnapshotBuilder({ revision, mode: "page" });
+  const builder = createDocumentTreeSnapshotBuilder({ revision, mode: "page" });
 
   doc.descendants((node, position, parent) => {
     if (node.type.name !== "container" && node.type.name !== "child") return true;
@@ -949,7 +960,7 @@ function createSnapshot(doc: ProseMirrorNode, revision: number) {
     const itemId = id(String(node.attrs["id"]));
     const parentId = parent?.type.name === "container" ? id(String(parent.attrs["id"])) : null;
     const isContainer = node.type.name === "container";
-    const item: SemanticSnapshotItemInput = {
+    const item: DocumentTreeSnapshotItemInput = {
       id: itemId,
       kind: isContainer ? "region" : "block",
       nodeType: node.type.name,

@@ -14,8 +14,9 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document/semantic-document-storage";
-import { readSemanticSelectionTransactionMeta } from "@/document/authoring/semantic-document/semantic-selection-origin";
+import { getDocumentTreeForEditor } from "@/document/authoring/document-tree/document-tree-storage";
+import { getEditorNavigationForEditor } from "@/document/authoring/editor-navigation";
+import { readEditorSelectionTransactionMeta } from "@/document/authoring/editor-navigation/editor-selection-origin";
 import { CONTENT_LAYOUT_ATTR } from "@/editor/content-layout/model/content-layout-attribute";
 import { resolveStableNodeById } from "@/document/model/identity/resolve-stable-node";
 import { ExtendedBlockquote } from "@/editor/rich-text/model/rich-text-blocks";
@@ -92,14 +93,13 @@ describe("content-layout authoring navigation", () => {
     expect(result.isOk()).toBe(true);
     expect(editor.state.doc.eq(originalDocument)).toBe(true);
     expect(editor.state.selection).toBeInstanceOf(TextSelection);
-    const location = getSemanticDocumentControllerForEditor(editor)
-      .getSnapshot()
-      .semantics.locationById.get(IDS.second);
+    const location = getDocumentTreeForEditor(editor)
+      .getSnapshot().locationById.get(IDS.second);
     expect(location?.selectionTarget.kind).toBe("text");
     if (location?.selectionTarget.kind !== "text") return;
     expect(editor.state.selection.from).toBe(location.selectionTarget.from);
     expect(editor.state.selection.to).toBe(location.selectionTarget.to);
-    expect(getSemanticDocumentControllerForEditor(editor).getSnapshot()).toMatchObject({
+    expect(getEditorNavigationForEditor(editor).getSelectionSnapshot()).toMatchObject({
       selectedId: IDS.second,
       selectionOrigin: "content-layout",
     });
@@ -123,9 +123,8 @@ describe("content-layout authoring navigation", () => {
     });
     const originalDocument = editor.state.doc;
     const transactions = observeTransactions(editor);
-    const location = getSemanticDocumentControllerForEditor(editor)
-      .getSnapshot()
-      .semantics.locationById.get(IDS.blockquote);
+    const location = getDocumentTreeForEditor(editor)
+      .getSnapshot().locationById.get(IDS.blockquote);
     expect(location?.selectionTarget.kind).toBe("node");
     if (location?.selectionTarget.kind !== "node") return;
 
@@ -139,7 +138,7 @@ describe("content-layout authoring navigation", () => {
     expect(editor.state.doc.eq(originalDocument)).toBe(true);
     expect(editor.state.selection).toBeInstanceOf(NodeSelection);
     expect(editor.state.selection.from).toBe(location.selectionTarget.pos);
-    expect(readSemanticSelectionTransactionMeta(transactions[0]!)).toEqual({
+    expect(readEditorSelectionTransactionMeta(transactions[0]!)).toEqual({
       intendedId: IDS.blockquote,
       origin: "content-layout",
     });
@@ -154,9 +153,8 @@ describe("content-layout authoring navigation", () => {
     });
     const originalDocument = editor.state.doc;
     const transactions = observeTransactions(editor);
-    const location = getSemanticDocumentControllerForEditor(editor)
-      .getSnapshot()
-      .semantics.locationById.get(IDS.blockquote);
+    const location = getDocumentTreeForEditor(editor)
+      .getSnapshot().locationById.get(IDS.blockquote);
     expect(location?.selectionTarget.kind).toBe("near");
     if (location?.selectionTarget.kind !== "near") return;
     const expectedSelection = TextSelection.near(
@@ -175,7 +173,7 @@ describe("content-layout authoring navigation", () => {
     expect(editor.state.selection).not.toBeInstanceOf(NodeSelection);
     expect(editor.state.selection.from).toBe(expectedSelection.from);
     expect(editor.state.selection.to).toBe(expectedSelection.to);
-    expect(readSemanticSelectionTransactionMeta(transactions[0]!)).toEqual({
+    expect(readEditorSelectionTransactionMeta(transactions[0]!)).toEqual({
       intendedId: IDS.blockquote,
       origin: "content-layout",
     });
@@ -228,7 +226,7 @@ describe("content-layout authoring navigation", () => {
       }).isOk(),
     ).toBe(true);
     expect(editor.state.doc.eq(originalDocument)).toBe(true);
-    expect(getSemanticDocumentControllerForEditor(editor).getSnapshot()).toMatchObject({
+    expect(getEditorNavigationForEditor(editor).getSelectionSnapshot()).toMatchObject({
       selectedId: IDS.layout,
       selectionOrigin: "content-layout",
     });
@@ -240,7 +238,7 @@ describe("content-layout authoring navigation", () => {
         childId: IDS.nestedParagraph,
       }).isOk(),
     ).toBe(true);
-    expect(getSemanticDocumentControllerForEditor(editor).getSnapshot()).toMatchObject({
+    expect(getEditorNavigationForEditor(editor).getSelectionSnapshot()).toMatchObject({
       selectedId: IDS.nestedParagraph,
       selectionOrigin: "content-layout",
     });
@@ -329,7 +327,7 @@ describe("content-layout authoring layout changes", () => {
 
     expect(result.isOk()).toBe(true);
     expect(requireNode(editor, IDS.region).attrs[CONTENT_LAYOUT_ATTR]).toBe(SEQUENCE);
-    expect(getSemanticDocumentControllerForEditor(editor).getSnapshot()).toMatchObject({
+    expect(getEditorNavigationForEditor(editor).getSelectionSnapshot()).toMatchObject({
       selectedId: IDS.first,
       selectionOrigin: "content-layout",
     });
@@ -433,7 +431,7 @@ describe("content-layout authoring layout changes", () => {
     expect(result.isOk()).toBe(true);
     expect(requireNode(editor, IDS.region).attrs[CONTENT_LAYOUT_ATTR]).toBe(SEQUENCE);
     expect(requireNode(editor, IDS.first).textContent).toBe("");
-    expect(getSemanticDocumentControllerForEditor(editor).getSnapshot()).toMatchObject({
+    expect(getEditorNavigationForEditor(editor).getSelectionSnapshot()).toMatchObject({
       selectedId: IDS.first,
       selectionOrigin: "content-layout",
     });

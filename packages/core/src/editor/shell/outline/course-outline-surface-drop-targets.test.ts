@@ -1,7 +1,7 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { SemanticItem } from "@/document/model/semantic-document";
+import type { DocumentTreeItem } from "@/document/model/document-tree";
 
 import {
   deriveCourseOutlineSurfaceDropTargets,
@@ -67,19 +67,19 @@ function id(value: string): EmbeddedNodeId {
   return value.padEnd(12, "0") as EmbeddedNodeId;
 }
 
-function surface(value: string): SemanticItem {
+function surface(value: string): DocumentTreeItem {
   return item(value, "surface", []);
 }
 
-function section(value: string, children: readonly SemanticItem[]): SemanticItem {
+function section(value: string, children: readonly DocumentTreeItem[]): DocumentTreeItem {
   return item(value, "course-section", children);
 }
 
 function item(
   value: string,
-  kind: SemanticItem["kind"],
-  children: readonly SemanticItem[],
-): SemanticItem {
+  kind: DocumentTreeItem["kind"],
+  children: readonly DocumentTreeItem[],
+): DocumentTreeItem {
   return {
     id: id(value),
     kind,

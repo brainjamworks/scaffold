@@ -1,6 +1,6 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 
-import type { SemanticActivationRelationship } from "@/document/model/semantic-document";
+import type { DocumentItemActivation } from "@/document/model/document-tree";
 
 export type SemanticInteractionOrigin =
   | "document-outline"
@@ -11,7 +11,7 @@ export type SemanticInteractionOrigin =
 
 export interface SemanticActivationRequest {
   readonly requestedId: EmbeddedNodeId;
-  readonly relationship: SemanticActivationRelationship;
+  readonly relationship: DocumentItemActivation;
   readonly origin: SemanticInteractionOrigin;
   readonly causationId: string;
   readonly signal: AbortSignal;

@@ -1,7 +1,7 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 
 import type { SurfaceDestination, SurfaceId } from "@/document/model/course-structure";
-import type { SemanticItem } from "@/document/model/semantic-document";
+import type { DocumentTreeItem } from "@/document/model/document-tree";
 
 export interface CourseOutlineSurfaceDropTarget {
   readonly targetSurfaceId?: SurfaceId;
@@ -10,10 +10,10 @@ export interface CourseOutlineSurfaceDropTarget {
 }
 
 export function orderedCourseOutlineSurfaces(
-  roots: readonly SemanticItem[],
-): readonly SemanticItem[] {
-  const surfaces: SemanticItem[] = [];
-  const visit = (items: readonly SemanticItem[]) => {
+  roots: readonly DocumentTreeItem[],
+): readonly DocumentTreeItem[] {
+  const surfaces: DocumentTreeItem[] = [];
+  const visit = (items: readonly DocumentTreeItem[]) => {
     for (const item of items) {
       if (item.kind === "surface") surfaces.push(item);
       else if (item.kind === "course-section") visit(item.children);
@@ -24,7 +24,7 @@ export function orderedCourseOutlineSurfaces(
 }
 
 export function deriveCourseOutlineSurfaceDropTargets(
-  roots: readonly SemanticItem[],
+  roots: readonly DocumentTreeItem[],
   sourceId: EmbeddedNodeId,
 ): readonly CourseOutlineSurfaceDropTarget[] {
   const surfaces = orderedCourseOutlineSurfaces(roots);

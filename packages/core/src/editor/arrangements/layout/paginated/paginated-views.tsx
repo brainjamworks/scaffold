@@ -3,7 +3,7 @@ import { NodeViewContent, useEditorState } from "@tiptap/react";
 import type { EditorState } from "@tiptap/pm/state";
 import { useEffect } from "react";
 
-import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
+import { getEditorNavigationForState } from "@/document/authoring/editor-navigation";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { setNonDestructiveSelectionNearWithinRangeInTransaction } from "@/editor/selection/selection-transactions";
 import { publishInteractionOwnerSnapshot } from "@/editor/interactions/targets/prosemirror/facade/interaction-owner-snapshot-publisher";
@@ -44,7 +44,7 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
   const layoutPos = resolveLayoutPos(props);
   const layoutId = readRequiredPaginatedNodeId(props.node.attrs["id"], "layout");
   const pages = readPaginatedPages(props.node);
-  const semanticController = semanticDocumentPluginKey.getState(props.editor.state);
+  const editorNavigation = getEditorNavigationForState(props.editor.state);
   const storedActiveId = useLayoutInteractionStore(
     props.editor,
     (state) => state.activePageByLayoutId[layoutId],
@@ -77,7 +77,7 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
     }
     const semanticPageId = EmbeddedNodeIdSchema.safeParse(pageId);
     if (semanticPageId.success) {
-      semanticController?.reportComponentSelection(semanticPageId.data);
+      editorNavigation.reportComponentSelection(semanticPageId.data);
     }
   };
   const activateLayout = () => {

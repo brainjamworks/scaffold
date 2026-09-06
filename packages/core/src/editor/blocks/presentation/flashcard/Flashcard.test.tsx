@@ -14,7 +14,7 @@ import {
   createSemanticActivationBindingTestExtension,
   requireSemanticActivationBinding,
   semanticActivationRequest,
-} from "@/document/authoring/semantic-document/testing/semantic-activation-binding-test-extension";
+} from "@/document/authoring/testing/semantic-activation-binding-test-extension";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { AUTHORING_FRAME_WRAPPER_ATTR } from "@/editor/interactions/dom/authoring-chrome";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";

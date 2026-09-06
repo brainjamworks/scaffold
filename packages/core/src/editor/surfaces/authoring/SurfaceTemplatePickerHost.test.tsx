@@ -76,7 +76,7 @@ const surfaceVariantsWithContribution = createSurfaceVariantRegistry([
 const coreCapabilities = createCoreScaffoldAuthoringComposition().capabilities;
 const testCapabilities = Object.freeze({
   blocks: coreCapabilities.blocks,
-  documentSemantics: coreCapabilities.documentSemantics,
+  documentTree: coreCapabilities.documentTree,
   layouts: coreCapabilities.layouts,
   surfaces: Object.freeze({ registry: surfaceVariants }),
 });

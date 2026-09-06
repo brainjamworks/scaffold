@@ -17,7 +17,7 @@ import {
   createSemanticActivationBindingTestExtension,
   requireSemanticActivationBinding,
   semanticActivationRequest,
-} from "@/document/authoring/semantic-document/testing/semantic-activation-binding-test-extension";
+} from "@/document/authoring/testing/semantic-activation-binding-test-extension";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";

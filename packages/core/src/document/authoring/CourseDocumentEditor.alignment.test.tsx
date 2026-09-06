@@ -10,7 +10,6 @@ import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { createAlignmentTargetPort } from "@/editor/interactions/alignment/alignment-target";
 import { collectOwnedHorizontalParticipants } from "@/editor/interactions/alignment/owned-content-alignment";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
@@ -23,8 +22,8 @@ import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
-import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { fixtureCourseDocument } from "@/document/authoring/testing/course-document-fixture";
 
 import { CourseDocumentEditor } from "./CourseDocumentEditor.test-harness";
 
@@ -343,29 +342,18 @@ function structuralDescriptor(
 }
 
 function pageDocument(content: JSONContent[]): JSONContent {
-  return assignMissingFixtureIds({
-    type: "doc",
-    content: [
-      {
-        type: "courseDocument",
-        attrs: {
-          id: createEmbeddedNodeId(),
-          schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
-          mode: "page",
-          surfaceSize: "fluid",
-          overflowMode: "grow",
-          theme: createDefaultPersistedCourseTheme(),
+  return assignMissingFixtureIds(
+    fixtureCourseDocument({
+      mode: "page",
+      surfaces: [
+        {
+          type: "surface",
+          attrs: { id: "surface-page", variant: "page-default" },
+          content,
         },
-        content: [
-          {
-            type: "surface",
-            attrs: { id: "surface-page", variant: "page-default" },
-            content,
-          },
-        ],
-      },
-    ],
-  });
+      ],
+    }),
+  );
 }
 
 function slideshowAlignmentDocument(): JSONContent {
@@ -398,23 +386,13 @@ function slideshowAlignmentDocument(): JSONContent {
     ]),
   ];
 
-  return assignMissingFixtureIds({
-    type: "doc",
-    content: [
-      {
-        type: "courseDocument",
-        attrs: {
-          id: createEmbeddedNodeId(),
-          schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
-          mode: "slideshow",
-          surfaceSize: "16x9",
-          overflowMode: "clip",
-          theme: createDefaultPersistedCourseTheme(),
-        },
-        content: [cover, contentSurface],
-      },
-    ],
-  });
+  return assignMissingFixtureIds(
+    fixtureCourseDocument({
+      mode: "slideshow",
+      surfaces: [cover, contentSurface],
+      courseSectionId: fixtureId("alignment-section"),
+    }),
+  );
 }
 
 function paragraph(text: string, textAlign: "left" | "center" | "right" | "justify"): JSONContent {

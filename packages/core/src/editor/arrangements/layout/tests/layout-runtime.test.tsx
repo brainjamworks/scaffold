@@ -15,7 +15,7 @@ import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/cre
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { getControlBindingRegistryForEditor } from "@/document/control-binding";
-import { semanticActivationRequest } from "@/document/authoring/semantic-document/testing/semantic-activation-binding-test-extension";
+import { semanticActivationRequest } from "@/document/authoring/testing/semantic-activation-binding-test-extension";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { CellRuntimeNode, GridRuntimeNode } from "@/editor/arrangements/grid/runtime/grid-nodes";
 

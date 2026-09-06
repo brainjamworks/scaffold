@@ -1,9 +1,9 @@
 import { PresentationContentLayout, type EmbeddedNodeId } from "@scaffold/contracts";
 
 import type {
-  SemanticDocumentSnapshot,
-  SemanticItem,
-} from "@/document/model/semantic-document/semantic-document-snapshot";
+  DocumentTreeSnapshot,
+  DocumentTreeItem,
+} from "@/document/model/document-tree/document-tree-snapshot";
 
 import type { ContentLayoutProjectionInput } from "./content-layout-projection";
 
@@ -29,7 +29,7 @@ export interface ContentLayoutAuthoringState {
 }
 
 export interface DeriveContentLayoutAuthoringStateInput {
-  readonly snapshot: SemanticDocumentSnapshot;
+  readonly snapshot: DocumentTreeSnapshot;
   readonly selectedId: EmbeddedNodeId | null;
   readonly previousState: ContentLayoutAuthoringState | null;
 }
@@ -74,7 +74,7 @@ export function deriveContentLayoutAuthoringState({
 }
 
 function deriveContainerState(
-  item: SemanticItem,
+  item: DocumentTreeItem,
   directChildIds: readonly EmbeddedNodeId[],
   previousContainer: ContentLayoutAuthoringContainerState | null,
   selectedDirectChildId: EmbeddedNodeId | null,
@@ -130,7 +130,7 @@ function deriveContainerState(
 }
 
 function resolveSelectedDirectChildIds(
-  snapshot: SemanticDocumentSnapshot,
+  snapshot: DocumentTreeSnapshot,
   selectedId: EmbeddedNodeId | null,
 ): ReadonlyMap<EmbeddedNodeId, EmbeddedNodeId> {
   const selectedDirectChildIds = new Map<EmbeddedNodeId, EmbeddedNodeId>();

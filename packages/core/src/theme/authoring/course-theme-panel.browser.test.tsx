@@ -1,6 +1,7 @@
 import type { PersistedCourseTheme } from "@scaffold/contracts";
 import type { Editor, JSONContent } from "@tiptap/core";
 import type { ReactNode } from "react";
+import { Result } from "better-result";
 import { render as renderBrowserReact } from "vitest-browser-react";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser/context";
@@ -120,8 +121,16 @@ describe("course theme panel browser workflow", () => {
           artifactPersistence: {
             saveArtifact: async (bundle) => {
               savedBundles.push(bundle);
-              return {};
+              return Result.ok({ artifactRevision: "theme-browser-revision" });
             },
+          },
+          learnerPublication: {
+            getStatus: async () => Result.ok({
+              currentArtifactRevision: "theme-browser-initial",
+              publishedArtifactRevision: null,
+              publishedAt: null,
+            }),
+            publish: vi.fn(),
           },
           media: null,
         }}

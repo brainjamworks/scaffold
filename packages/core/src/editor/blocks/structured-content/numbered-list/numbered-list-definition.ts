@@ -13,7 +13,7 @@ import {
   numberedListItemContent,
   numberedListTitleContent,
 } from "./content";
-import { numberedListDocumentSemantics } from "./numbered-list-document-semantics";
+import { numberedListDocumentTree } from "./numbered-list-document-tree";
 
 export const NUMBERED_LIST_BLOCK_ID = "numbered-list";
 
@@ -23,7 +23,7 @@ const DEFAULT_ITEMS = ["Add the first item", "Add the second item"] as const;
 export const numberedListBlockDefinition = defineBlock({
   nodeType: NUMBERED_LIST_NODE,
   title: "Numbered list",
-  documentSemantics: numberedListDocumentSemantics,
+  documentTree: numberedListDocumentTree,
   configuration: defineConfiguration({
     attr: "data",
     schema: NumberedListDataSchema,

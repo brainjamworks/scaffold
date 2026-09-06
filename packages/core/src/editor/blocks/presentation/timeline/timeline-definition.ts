@@ -19,7 +19,7 @@ import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 
 import { TIMELINE_ITEM_NODE, TIMELINE_NODE, createTimelineContent } from "./content";
-import { timelineDocumentSemantics } from "./timeline-document-semantics";
+import { timelineDocumentTree } from "./timeline-document-tree";
 
 export const TIMELINE_BLOCK_ID = "timeline";
 
@@ -37,7 +37,7 @@ const PRESENTATION_LABELS: Record<TimelinePresentation, string> = {
 export const timelineBlockDefinition = defineBlock({
   nodeType: TIMELINE_NODE,
   title: "Timeline",
-  documentSemantics: timelineDocumentSemantics,
+  documentTree: timelineDocumentTree,
   control: {
     semanticChildren: {
       [TIMELINE_ITEM_NODE]: {

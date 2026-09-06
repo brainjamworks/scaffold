@@ -20,7 +20,7 @@ import {
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
-import { createSemanticDefinitionLookup } from "@/composition/model/semantic-definition-lookup";
+import { createDocumentTreeDefinitionLookup } from "@/composition/model/document-tree-definition-lookup";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import {
   ARRANGEMENT_CONTENT,
@@ -62,7 +62,7 @@ import {
 } from "@/editor/shell/bubbles/interaction/StructuralInteractionBubbleMenu";
 import { createStructuralInteractionBubbleRendererMap } from "@/editor/interactions/interaction-bubble";
 import { readContentLayoutAuthoringState } from "@/editor/content-layout/prosemirror/content-layout-authoring-extension";
-import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document/semantic-document-storage";
+import { getDocumentTreeForEditor } from "@/document/authoring/document-tree";
 
 import { createGridAuthoringNodes } from "../authoring/grid-nodes";
 import { CellRuntimeNode, GridRuntimeNode } from "../runtime/grid-nodes";
@@ -108,7 +108,7 @@ const testScaffoldCapabilities = Object.freeze({
   contentIdentity: Object.freeze({
     rewrites: Object.freeze({ getByNodeType: () => undefined, hasNodeType: () => false }),
   }),
-  documentSemantics: createSemanticDefinitionLookup({
+  documentTree: createDocumentTreeDefinitionLookup({
     blocks: testBlockRegistry,
     layouts: builtInLayoutRegistry,
     surfaces: builtInSurfaceVariantRegistry,
@@ -1654,9 +1654,9 @@ describe("grid arrangement nodes", () => {
 
   it("composes real Cell controls while keeping Grid arrangement-only", async () => {
     const editor = await makeRealCellEditor();
-    const semanticController = getSemanticDocumentControllerForEditor(editor);
+    const documentTree = getDocumentTreeForEditor(editor);
     await waitFor(() => {
-      expect(semanticController.getSnapshot().semantics.itemById.has(REAL_CELL_IDS.cell)).toBe(
+      expect(documentTree.getSnapshot().itemById.has(REAL_CELL_IDS.cell)).toBe(
         true,
       );
     });

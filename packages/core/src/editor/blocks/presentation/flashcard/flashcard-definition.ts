@@ -11,13 +11,13 @@ import {
   FLASHCARD_NODE,
   createFlashcardContent,
 } from "./content";
-import { flashcardDocumentSemantics } from "./flashcard-document-semantics";
+import { flashcardDocumentTree } from "./flashcard-document-tree";
 
 export const flashcardBlockDefinition = defineBlock({
   nodeType: FLASHCARD_NODE,
   title: "Flashcards",
   boundedPlacement: "fill",
-  documentSemantics: flashcardDocumentSemantics,
+  documentTree: flashcardDocumentTree,
   control: {
     owner: {
       events: [{ type: "completed", label: "Completed" }],

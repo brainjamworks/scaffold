@@ -8,7 +8,7 @@ import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document";
+import { getEditorNavigationForEditor } from "@/document/authoring/editor-navigation";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
@@ -81,7 +81,7 @@ describe("CourseDocumentEditor StrictMode lifecycle", () => {
     expect(await screen.findByTestId("course-document-editor")).toBeInTheDocument();
   });
 
-  it("keeps semantic navigation mounted after StrictMode effect replay", async () => {
+  it("keeps editor navigation mounted after StrictMode effect replay", async () => {
     const onReady = vi.fn();
     render(
       createElement(
@@ -98,10 +98,10 @@ describe("CourseDocumentEditor StrictMode lifecycle", () => {
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
     const editor = onReady.mock.calls[0]?.[0];
     if (!editor) throw new Error("CourseDocumentEditor did not provide an editor");
-    const controller = getSemanticDocumentControllerForEditor(editor);
+    const navigation = getEditorNavigationForEditor(editor);
 
     await expect(
-      controller.select(SECOND_SLIDE_ID, { origin: "document-outline" }),
+      navigation.showTarget(SECOND_SLIDE_ID, { origin: "document-outline" }),
     ).resolves.toEqual({ kind: "reached", id: SECOND_SLIDE_ID });
   });
 });

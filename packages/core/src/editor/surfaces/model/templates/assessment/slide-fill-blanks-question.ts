@@ -26,7 +26,7 @@ import { SurfaceSettingsSchema } from "@/schemas/course-document";
 import { createSurfaceAssessmentTargets } from "../../assessment/surface-assessment-target";
 import { SURFACE_FILL_BLANKS_QUESTION_NODE_TYPE } from "../../assessment/surface-fill-blanks-question-node";
 import { matchFixedSurfaceChildrenFromJSON } from "../../policies/surface-fixed-structure";
-import { createSurfaceDocumentSemantics } from "../../surface-document-semantics";
+import { createSurfaceDocumentTree } from "../../surface-document-tree";
 import { DEFAULT_SURFACE_SETTINGS } from "../../surface-settings";
 import type { FixedSurfaceChild, SurfaceVariantDefinition } from "../../surface-variant-definition";
 
@@ -113,7 +113,7 @@ export const slideFillBlanksQuestionSurfaceDefinition = {
     },
   },
   settingsSchema: SurfaceSettingsSchema,
-  documentSemantics: createSurfaceDocumentSemantics({
+  documentTree: createSurfaceDocumentTree({
     contentRootNodeTypes: [SURFACE_FILL_BLANKS_QUESTION_NODE_TYPE],
   }),
   control: assessmentControlDefinition,

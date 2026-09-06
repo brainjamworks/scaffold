@@ -21,7 +21,7 @@ import { SURFACE_MULTISELECT_QUESTION_NODE_TYPE } from "../../assessment/surface
 import { SURFACE_QUIZ_NODE_TYPE } from "../../assessment/surface-quiz-node";
 import { SURFACE_SEQUENCING_QUESTION_NODE_TYPE } from "../../assessment/surface-sequencing-question-node";
 import { matchFixedSurfaceChildrenFromJSON } from "../../policies/surface-fixed-structure";
-import { createSurfaceDocumentSemantics } from "../../surface-document-semantics";
+import { createSurfaceDocumentTree } from "../../surface-document-tree";
 import { DEFAULT_SURFACE_SETTINGS } from "../../surface-settings";
 import type { FixedSurfaceChild, SurfaceVariantDefinition } from "../../surface-variant-definition";
 import { slideCategoriseQuestionSurfaceDefinition } from "./slide-categorise-question";
@@ -77,7 +77,7 @@ export const slideQuizSurfaceDefinition = {
     },
   },
   settingsSchema: SurfaceSettingsSchema,
-  documentSemantics: createSurfaceDocumentSemantics({
+  documentTree: createSurfaceDocumentTree({
     contentRootNodeTypes: [SURFACE_QUIZ_NODE_TYPE],
   }),
   control: quizControlDefinition,

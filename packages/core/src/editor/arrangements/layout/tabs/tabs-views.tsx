@@ -3,7 +3,7 @@ import { NodeViewContent, useEditorState } from "@tiptap/react";
 import type { EditorState } from "@tiptap/pm/state";
 import { useCallback, useEffect, useMemo, type KeyboardEvent } from "react";
 
-import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
+import { getEditorNavigationForState } from "@/document/authoring/editor-navigation";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { setNonDestructiveSelectionNearWithinRangeInTransaction } from "@/editor/selection/selection-transactions";
 import { publishInteractionOwnerSnapshot } from "@/editor/interactions/targets/prosemirror/facade/interaction-owner-snapshot-publisher";
@@ -54,7 +54,7 @@ export function TabsLayoutView(props: LayoutComponentProps) {
   const layoutId = resolveLayoutId(props);
   const options = readTabsOptions(props.node.attrs["options"]);
   const sections = readTabsSections(props.node);
-  const semanticController = semanticDocumentPluginKey.getState(props.editor.state);
+  const editorNavigation = getEditorNavigationForState(props.editor.state);
   const storedActiveId = useLayoutInteractionStore(
     props.editor,
     (state) => state.activeTabByLayoutId[layoutId],
@@ -89,7 +89,7 @@ export function TabsLayoutView(props: LayoutComponentProps) {
     }
     const semanticSectionId = EmbeddedNodeIdSchema.safeParse(sectionId);
     if (semanticSectionId.success) {
-      semanticController?.reportComponentSelection(semanticSectionId.data);
+      editorNavigation.reportComponentSelection(semanticSectionId.data);
     }
   };
   const activateLayout = () => {

@@ -130,7 +130,7 @@ describe("built-in surface variant definitions", () => {
 
   it("declares semantic publication for every built-in Surface", () => {
     for (const definition of builtInSurfaceVariantRegistry.definitions) {
-      expect(definition.documentSemantics?.projectChildren).toBeTypeOf("function");
+      expect(definition.documentTree?.projectChildren).toBeTypeOf("function");
     }
   });
 

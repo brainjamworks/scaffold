@@ -27,10 +27,10 @@ describe("hidden Layout Section semantic publication", () => {
       ]);
 
       const definition = builtInLayoutDefinitions.find(({ id }) => id === variant);
-      if (!definition?.documentSemantics?.projectChildren) {
+      if (!definition?.documentTree?.projectChildren) {
         throw new Error(`Missing ${variant} Layout semantic publication.`);
       }
-      const children = definition.documentSemantics.projectChildren({
+      const children = definition.documentTree.projectChildren({
         definitionId: variant,
         helpers: {
           projectDirectOwnedMembers: () => [],
@@ -57,7 +57,7 @@ describe("hidden Layout Section semantic publication", () => {
           activation: [{ ownerId, childId: secondId, ownerKind: "layout" }],
         },
       ]);
-      expect(definition.documentSemantics.presentation?.actionIds).toEqual([
+      expect(definition.documentTree.presentation?.actionIds).toEqual([
         "reveal",
         "hide",
         "emphasize",

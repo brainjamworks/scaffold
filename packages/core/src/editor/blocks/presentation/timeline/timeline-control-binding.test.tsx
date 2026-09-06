@@ -13,21 +13,19 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vite-plus/test";
 
-import {
-  createSemanticDocumentExtension,
-  getSemanticDocumentControllerForEditor,
-} from "@/document/authoring/semantic-document";
+import { createDocumentAuthoringExtension } from "@/document/authoring";
 import {
   requireSemanticActivationBinding,
   semanticActivationRequest,
-} from "@/document/authoring/semantic-document/testing/semantic-activation-binding-test-extension";
+} from "@/document/authoring/testing/semantic-activation-binding-test-extension";
 import {
   getControlBindingRegistryForEditor,
   type ControlBinding,
   type ControlEvent,
 } from "@/document/control-binding";
+import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { CourseDocumentNode, DocumentNode, createCourseSectionNode } from "@/document/model/nodes";
-import type { SemanticDefinitionLookup } from "@/document/model/semantic-document";
+import type { DocumentTreeDefinitionLookup } from "@/document/model/document-tree";
 import type { BlockDefinition } from "@/editor/blocks/block-definition";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
@@ -50,7 +48,7 @@ const ENTRY_IDS = [
   "timeEntry002" as EmbeddedNodeId,
   "timeEntry003" as EmbeddedNodeId,
 ] as const;
-const semanticDefinitions: SemanticDefinitionLookup = Object.freeze({
+const semanticDefinitions: DocumentTreeDefinitionLookup = Object.freeze({
   blocks: Object.freeze({
     get: (nodeType: string) =>
       nodeType === TIMELINE_NODE
@@ -58,8 +56,8 @@ const semanticDefinitions: SemanticDefinitionLookup = Object.freeze({
             nodeType: TIMELINE_NODE,
             title: timelineBlockDefinition.title,
             isAssessment: false,
-            ...(timelineBlockDefinition.documentSemantics
-              ? { documentSemantics: timelineBlockDefinition.documentSemantics }
+            ...(timelineBlockDefinition.documentTree
+              ? { documentTree: timelineBlockDefinition.documentTree }
               : {}),
             ...(timelineBlockDefinition.control
               ? { control: timelineBlockDefinition.control }
@@ -298,7 +296,7 @@ describe("Timeline Control Binding", () => {
     ).toThrow(`Control target "foreignTime1" does not belong to owner "${TIMELINE_ID}".`);
   });
 
-  it("lets silent semantic navigation supersede an in-flight Control command", async () => {
+  it("lets silent editor navigation supersede an in-flight Control command", async () => {
     const editor = createRuntimeEditor("carousel");
     render(<EditorContent editor={editor} />);
     const binding = await requireTimelineBinding(editor);
@@ -319,8 +317,7 @@ describe("Timeline Control Binding", () => {
     void controlCommand?.then((result) => {
       controlResult = result;
     });
-    const semanticRegistry =
-      getSemanticDocumentControllerForEditor(editor).semanticTargetInteractions.registry;
+    const semanticRegistry = getSemanticTargetInteractionEnvironmentForEditor(editor).registry;
     const semanticNavigation = requireSemanticActivationBinding(
       semanticRegistry,
       TIMELINE_ID,
@@ -467,7 +464,7 @@ function timelineEditorExtensions(lifecycle: "authoring" | "runtime"): Extension
   });
   return [
     createTestNodeIdentityExtension(),
-    createSemanticDocumentExtension(semanticDefinitions),
+    createDocumentAuthoringExtension(semanticDefinitions),
     DocumentNode,
     StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
     ExtendedParagraph,

@@ -1,8 +1,11 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state";
-import type { SemanticDocumentControllerSnapshot } from "@/document/authoring/semantic-document/semantic-document-controller";
-import type { SemanticDocumentSnapshot } from "@/document/model/semantic-document/semantic-document-snapshot";
-import { getSemanticDocumentControllerForState } from "@/document/authoring/semantic-document/semantic-document-storage";
+import type { DocumentTreeSnapshot } from "@/document/model/document-tree/document-tree-snapshot";
+import { getDocumentTreeForState } from "@/document/authoring/document-tree";
+import {
+  getEditorNavigationForState,
+  type EditorSelectionSnapshot,
+} from "@/document/authoring/editor-navigation";
 import {
   deriveContentLayoutAuthoringState,
   type ContentLayoutAuthoringState,
@@ -14,8 +17,8 @@ import {
 } from "./content-layout-projection-extension";
 
 interface ContentLayoutAuthoringIdentity {
-  readonly semanticSnapshot: SemanticDocumentSnapshot;
-  readonly selectedId: SemanticDocumentControllerSnapshot["selectedId"];
+  readonly documentTree: DocumentTreeSnapshot;
+  readonly selectedId: EditorSelectionSnapshot["selectedId"];
 }
 
 interface ContentLayoutAuthoringPluginState {
@@ -73,14 +76,17 @@ export const ContentLayoutAuthoringExtension = Extension.create({
               if (transaction !== null) view.dispatch(transaction);
             });
           };
-          const controller = getSemanticDocumentControllerForState(view.state);
-          const unsubscribe = controller.subscribe(schedulePublication);
+          const tree = getDocumentTreeForState(view.state);
+          const navigation = getEditorNavigationForState(view.state);
+          const unsubscribeTree = tree.subscribe(schedulePublication);
+          const unsubscribeSelection = navigation.subscribeSelection(schedulePublication);
           schedulePublication();
 
           return {
             destroy() {
               destroyed = true;
-              unsubscribe();
+              unsubscribeTree();
+              unsubscribeSelection();
             },
           };
         },
@@ -94,12 +100,14 @@ export function readContentLayoutAuthoringState(state: EditorState): ContentLayo
 }
 
 function initializePluginState(state: EditorState): ContentLayoutAuthoringPluginState {
-  const controller = getSemanticDocumentControllerForState(state);
+  const tree = getDocumentTreeForState(state);
+  const navigation = getEditorNavigationForState(state);
   void readContentLayoutProjectionDiagnostics(state);
-  const snapshot = controller.getSnapshot();
+  const snapshot = tree.getSnapshot();
+  const selection = navigation.getSelectionSnapshot();
   const authoringState = deriveContentLayoutAuthoringState({
-    snapshot: snapshot.semantics,
-    selectedId: snapshot.selectedId,
+    snapshot,
+    selectedId: selection.selectedId,
     previousState: null,
   });
   return Object.freeze({ authoringState, publishedIdentity: null });
@@ -110,9 +118,11 @@ function createPublicationTransactionIfNeeded(
   selectionReconciliationRequested = false,
 ): Transaction | null {
   const pluginState = readPluginState(state);
-  const controller = getSemanticDocumentControllerForState(state);
-  const snapshot = controller.getSnapshot();
-  const identity = createIdentity(snapshot);
+  const tree = getDocumentTreeForState(state);
+  const navigation = getEditorNavigationForState(state);
+  const snapshot = tree.getSnapshot();
+  const selection = navigation.getSelectionSnapshot();
+  const identity = createIdentity(snapshot, selection);
   const sourceIdentityUnchanged =
     pluginState.publishedIdentity !== null &&
     identitiesEqual(pluginState.publishedIdentity, identity);
@@ -121,14 +131,14 @@ function createPublicationTransactionIfNeeded(
   }
 
   const authoringState = deriveContentLayoutAuthoringState({
-    snapshot: snapshot.semantics,
-    selectedId: snapshot.selectedId,
+    snapshot,
+    selectedId: selection.selectedId,
     previousState: pluginState.publishedIdentity === null ? null : pluginState.authoringState,
   });
   if (sourceIdentityUnchanged && authoringStatesEqual(pluginState.authoringState, authoringState)) {
     return null;
   }
-  return createPublicationTransaction(state, authoringState, identity, snapshot.semantics);
+  return createPublicationTransaction(state, authoringState, identity, snapshot);
 }
 
 function authoringStatesEqual(
@@ -186,7 +196,7 @@ function createPublicationTransaction(
   state: EditorState,
   authoringState: ContentLayoutAuthoringState,
   identity: ContentLayoutAuthoringIdentity,
-  snapshot: SemanticDocumentSnapshot,
+  snapshot: DocumentTreeSnapshot,
 ): Transaction {
   const batch: ContentLayoutProjectionBatch = Object.freeze({
     snapshot,
@@ -203,11 +213,12 @@ function createPublicationTransaction(
 }
 
 function createIdentity(
-  snapshot: SemanticDocumentControllerSnapshot,
+  documentTree: DocumentTreeSnapshot,
+  selection: EditorSelectionSnapshot,
 ): ContentLayoutAuthoringIdentity {
   return Object.freeze({
-    semanticSnapshot: snapshot.semantics,
-    selectedId: snapshot.selectedId,
+    documentTree,
+    selectedId: selection.selectedId,
   });
 }
 
@@ -215,7 +226,7 @@ function identitiesEqual(
   left: ContentLayoutAuthoringIdentity,
   right: ContentLayoutAuthoringIdentity,
 ): boolean {
-  return left.semanticSnapshot === right.semanticSnapshot && left.selectedId === right.selectedId;
+  return left.documentTree === right.documentTree && left.selectedId === right.selectedId;
 }
 
 function isOwnPublicationTransaction(transactions: readonly Transaction[]): boolean {

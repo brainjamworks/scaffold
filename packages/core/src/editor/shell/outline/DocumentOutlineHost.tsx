@@ -1,12 +1,16 @@
 import { ArrowLeftIcon as ArrowLeft, XIcon as X } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/core";
-import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { SemanticHierarchyViewController } from "@/document/authoring/semantic-document/semantic-hierarchy-view-controller";
-import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document/semantic-document-storage";
+import {
+  DocumentTreeViewController,
+  getDocumentTreeForEditor,
+  useDocumentTreeSnapshot,
+} from "@/document/authoring/document-tree";
+import { getEditorNavigationForEditor } from "@/document/authoring/editor-navigation";
 import { setSemanticLabelChecked } from "@/document/model/commands/semantic-label";
 import type { SurfaceId } from "@/document/model/course-structure";
-import { readAuthoredSemanticLabel } from "@/document/model/semantic-document/semantic-labels";
+import { readAuthoredSemanticLabel } from "@/document/model/document-tree/semantic-labels";
 import {
   registerAuthoringInteractionHost,
   resolveAuthoringInteractionRoot,
@@ -44,12 +48,9 @@ export interface DocumentOutlineHostProps {
 
 export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProps) {
   const applicationOverlayBoundary = useOverlayBoundary();
-  const controller = getSemanticDocumentControllerForEditor(editor);
-  const semanticSnapshot = useSyncExternalStore(
-    controller.subscribe,
-    controller.getSnapshot,
-    controller.getSnapshot,
-  );
+  const tree = getDocumentTreeForEditor(editor);
+  const navigation = getEditorNavigationForEditor(editor);
+  const treeSnapshot = useDocumentTreeSnapshot(editor);
   const authoring = useMemo(() => createDocumentOutlineAuthoringPort(editor), [editor]);
   const structureAuthoring = useMemo(
     () => createCourseOutlineStructureAuthoringPort(editor),
@@ -69,17 +70,16 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
         : null,
     [dragRoot],
   );
-  const [viewController, setViewController] = useState<SemanticHierarchyViewController | null>(
-    null,
-  );
+  const [viewController, setViewController] = useState<DocumentTreeViewController | null>(null);
   const [documentNavigatorNavigation, setDocumentNavigatorNavigation] =
     useState<DocumentNavigatorNavigation>({ kind: "overview" });
-  const isSlideshow = semanticSnapshot.semantics.mode === "slideshow";
+  const isSlideshow = treeSnapshot.mode === "slideshow";
   const overviewLabel = isSlideshow ? "Course overview" : "Page overview";
 
   useEffect(() => {
-    const next = new SemanticHierarchyViewController({
-      controller,
+    const next = new DocumentTreeViewController({
+      tree,
+      navigation,
       origin: "document-outline",
       viewport,
     });
@@ -89,7 +89,7 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
       next.destroy();
       setViewController((current) => (current === next ? null : current));
     };
-  }, [controller, viewport]);
+  }, [navigation, tree, viewport]);
 
   useEffect(() => () => viewport.destroy(), [viewport]);
 
@@ -141,7 +141,8 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
                   : { sectionDialogOverlayBoundary: applicationOverlayBoundary })}
                 sectionDialogInteractionOwnerRoot={resolveAuthoringInteractionRoot(editor.view.dom)}
                 authoring={authoring}
-                controller={controller}
+                navigation={navigation}
+                tree={tree}
                 onDocumentNavigatorNavigationChange={setDocumentNavigatorNavigation}
                 structureAuthoring={structureAuthoring}
                 surfaceActions={surfaceActions}

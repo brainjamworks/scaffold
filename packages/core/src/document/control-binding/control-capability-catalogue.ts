@@ -1,11 +1,11 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { Result, type Result as ResultType } from "better-result";
 
-import type { SemanticDefinitionLookup } from "@/document/model/semantic-document/definition-lookup";
+import type { DocumentTreeDefinitionLookup } from "@/document/model/document-tree/definition-lookup";
 import type {
-  SemanticDocumentSnapshot,
-  SemanticItem,
-} from "@/document/model/semantic-document/semantic-document-snapshot";
+  DocumentTreeSnapshot,
+  DocumentTreeItem,
+} from "@/document/model/document-tree/document-tree-snapshot";
 import type {
   ControlCapabilitySetDefinition,
   ControlCommandDefinition,
@@ -67,8 +67,8 @@ export interface ControlCapabilityCatalogue {
 }
 
 export interface CreateControlCapabilityCatalogueInput {
-  readonly snapshot: SemanticDocumentSnapshot;
-  readonly definitions: SemanticDefinitionLookup;
+  readonly snapshot: DocumentTreeSnapshot;
+  readonly definitions: DocumentTreeDefinitionLookup;
 }
 
 export function createControlCapabilityCatalogue({
@@ -152,17 +152,17 @@ export function createControlCapabilityCatalogue({
   });
 }
 
-type SemanticOwnerItem = SemanticItem & {
+type SemanticOwnerItem = DocumentTreeItem & {
   readonly kind: "surface" | "layout" | "block";
 };
 
-function isSemanticOwner(item: SemanticItem): item is SemanticOwnerItem {
+function isSemanticOwner(item: DocumentTreeItem): item is SemanticOwnerItem {
   return item.kind === "surface" || item.kind === "layout" || item.kind === "block";
 }
 
 function resolveOwnerControlDefinition(
   owner: SemanticOwnerItem,
-  definitions: SemanticDefinitionLookup,
+  definitions: DocumentTreeDefinitionLookup,
 ): ControlDefinition | undefined {
   if (owner.definitionId === null) return undefined;
 
@@ -212,7 +212,7 @@ function assertDefinitionIdentity(owner: SemanticOwnerItem, definitionId: string
 }
 
 function visitOwnedSemanticChild(
-  item: SemanticItem,
+  item: DocumentTreeItem,
   ownerId: EmbeddedNodeId,
   control: ControlDefinition,
   targetById: Map<EmbeddedNodeId, ResolvedControlTarget>,
@@ -229,7 +229,7 @@ function visitOwnedSemanticChild(
 
 function claimTarget(
   targetById: Map<EmbeddedNodeId, ResolvedControlTarget>,
-  item: SemanticItem,
+  item: DocumentTreeItem,
   ownerId: EmbeddedNodeId,
   capabilities: ControlCapabilitySetDefinition,
 ): void {

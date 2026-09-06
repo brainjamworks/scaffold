@@ -12,7 +12,7 @@ import type {
   BlockCapability,
   BlockDefinition,
   BlockDefinitionInput,
-  DocumentSemanticsDefinition,
+  DocumentTreeDefinition,
   LayoutDefinition,
   LayoutSectionDefinition,
   LayoutCapability,
@@ -38,9 +38,9 @@ import type {
   SurfaceRuntimeViewBinding,
   SurfaceRuntimeViewProps,
   SurfaceVariantDefinition,
-  PublishedSemanticChild,
-  SemanticChildProjector,
-  SemanticItemDescriber,
+  ExposedDocumentChild,
+  DocumentTreeChildrenBuilder,
+  DocumentTreeItemDescriber,
   LearningEventReporter,
 } from "@scaffold/core/extensions";
 // @ts-expect-error Raw event drafts are not available to host blocks.
@@ -83,10 +83,10 @@ type ExtensionTypeSurface = {
   runtimeSurfaces: ScaffoldRuntimeSurfaceComposition;
   learningEventInput: BlockLearningEventInput;
   learningEventReporter: LearningEventReporter;
-  documentSemantics: DocumentSemanticsDefinition;
-  semanticChild: PublishedSemanticChild;
-  semanticChildProjector: SemanticChildProjector;
-  semanticDescriber: SemanticItemDescriber;
+  documentTree: DocumentTreeDefinition;
+  semanticChild: ExposedDocumentChild;
+  semanticChildProjector: DocumentTreeChildrenBuilder;
+  semanticDescriber: DocumentTreeItemDescriber;
   layoutDefinition: LayoutDefinition;
   layoutSectionDefinition: LayoutSectionDefinition;
   sessionViolation: LearningEventSession;
@@ -132,25 +132,25 @@ describe("@scaffold/core/extensions", () => {
       "capabilities" | "authoring" | "runtime"
     >();
     expectTypeOf<keyof ResolvedScaffoldCapabilities>().toEqualTypeOf<
-      "blocks" | "documentSemantics" | "layouts" | "surfaces"
+      "blocks" | "contentIdentity" | "documentTree" | "layouts" | "surfaces"
     >();
     expectTypeOf<keyof ResolvedBlockCapabilities>().toEqualTypeOf<"registry">();
     expectTypeOf<keyof ResolvedLayoutCapabilities>().toEqualTypeOf<"registry">();
     expectTypeOf<keyof ResolvedSurfaceCapabilities>().toEqualTypeOf<"registry">();
     expectTypeOf<keyof ScaffoldAuthoringComposition>().toEqualTypeOf<
-      "blocks" | "capabilities" | "catalogues" | "documentSemantics" | "layouts" | "surfaces"
+      "blocks" | "capabilities" | "catalogues" | "documentTree" | "layouts" | "surfaces"
     >();
     expectTypeOf<keyof ScaffoldAuthoringBlockComposition>().toEqualTypeOf<"extensions">();
     expectTypeOf<keyof ScaffoldAuthoringLayoutComposition>().toEqualTypeOf<"views">();
     expectTypeOf<keyof ScaffoldAuthoringSurfaceComposition>().toEqualTypeOf<"chrome" | "views">();
     expectTypeOf<keyof ScaffoldRuntimeComposition>().toEqualTypeOf<
-      "blocks" | "capabilities" | "documentSemantics" | "layouts" | "surfaces"
+      "blocks" | "capabilities" | "documentTree" | "layouts" | "surfaces"
     >();
     expectTypeOf<keyof ScaffoldRuntimeBlockComposition>().toEqualTypeOf<"extensions">();
     expectTypeOf<keyof ScaffoldRuntimeLayoutComposition>().toEqualTypeOf<"views">();
     expectTypeOf<keyof ScaffoldRuntimeSurfaceComposition>().toEqualTypeOf<"views">();
     expectTypeOf<keyof SurfaceCapability>().toEqualTypeOf<
-      "authoringView" | "definition" | "runtimeView"
+      "authoringView" | "definition" | "identityRewrites" | "runtimeView"
     >();
     expectTypeOf<keyof SurfaceAuthoringViewBinding>().toEqualTypeOf<
       "component" | "configuration" | "variantId"

@@ -11,17 +11,18 @@ import { page, userEvent } from "vite-plus/test/browser/context";
 
 import { SemanticLabel } from "@/composition/model/semantic-label-extension";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
-import { createSemanticDefinitionLookup } from "@/composition/model/semantic-definition-lookup";
+import { createDocumentTreeDefinitionLookup } from "@/composition/model/document-tree-definition-lookup";
 import {
-  createSemanticDocumentExtension,
-  getSemanticDocumentControllerForEditor,
-  SemanticHierarchyViewController,
-} from "@/document/authoring/semantic-document";
+  createDocumentAuthoringExtension,
+  getDocumentTreeForEditor,
+  getEditorNavigationForEditor,
+  DocumentTreeViewController,
+} from "@/document/authoring";
 import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-new-ids";
 import { resolveStableNode } from "@/document/model/identity/resolve-stable-node";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
-import { MAX_SEMANTIC_LABEL_LENGTH } from "@/document/model/semantic-document/semantic-labels";
+import { MAX_SEMANTIC_LABEL_LENGTH } from "@/document/model/document-tree/semantic-labels";
 import {
   CellAuthoringNode,
   GridAuthoringNode,
@@ -39,9 +40,9 @@ import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 
 import {
   DocumentOutlineRowViewport,
-  SemanticSubtreeOutline,
+  DocumentTreeSubtreeOutline,
   type DocumentOutlineAuthoringPort,
-} from "./SemanticSubtreeOutline";
+} from "./DocumentTreeSubtreeOutline";
 import { createDocumentOutlineAuthoringPort } from "./DocumentOutlineHost";
 
 const IDS = {
@@ -72,10 +73,10 @@ describe("Document Outline live mounted updates", () => {
   it("reconciles insert, label edit, move, duplicate and delete transactions without stale rows", async () => {
     const harness = await mountLiveOutline();
     mounted.push(harness);
-    const { controller, editor } = harness;
+    const { controller, tree, editor } = harness;
 
     selectTextNode(editor, IDS.alpha);
-    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.alpha);
+    await expect.poll(() => controller.getSelectionSnapshot().selectedId).toBe(IDS.alpha);
     const alphaNode = requireNode(editor, IDS.alpha);
     const insertedNode = editor.schema.nodeFromJSON(paragraph(IDS.inserted, "Inserted paragraph"));
     editor.view.dispatch(
@@ -83,7 +84,7 @@ describe("Document Outline live mounted updates", () => {
     );
 
     await expect
-      .poll(() => semanticChildIds(controller, IDS.region))
+      .poll(() => semanticChildIds(tree, IDS.region))
       .toEqual([IDS.alpha, IDS.inserted, IDS.beta, IDS.figure]);
     expect(outlineLabelCount("Inserted paragraph")).toBe(1);
 
@@ -95,13 +96,13 @@ describe("Document Outline live mounted updates", () => {
         editor.schema.text("Renamed paragraph"),
       ),
     );
-    await expect.poll(() => semanticLabel(controller, IDS.inserted)).toBe("Renamed paragraph");
+    await expect.poll(() => semanticLabel(tree, IDS.inserted)).toBe("Renamed paragraph");
     expect(outlineLabelCount("Inserted paragraph")).toBe(0);
     expect(outlineLabelCount("Renamed paragraph")).toBe(1);
 
     moveNodeAfter(editor, IDS.inserted, IDS.figure);
     await expect
-      .poll(() => semanticChildIds(controller, IDS.region))
+      .poll(() => semanticChildIds(tree, IDS.region))
       .toEqual([IDS.alpha, IDS.beta, IDS.figure, IDS.inserted]);
 
     const cloned = cloneJsonWithNewStableIds(requireNode(editor, IDS.inserted).node.toJSON(), {
@@ -120,37 +121,37 @@ describe("Document Outline live mounted updates", () => {
       ),
     );
     await expect
-      .poll(() => semanticChildIds(controller, IDS.region))
+      .poll(() => semanticChildIds(tree, IDS.region))
       .toEqual([IDS.alpha, IDS.beta, IDS.figure, IDS.inserted, IDS.duplicate]);
-    expect(semanticLabel(controller, IDS.inserted)).toBe("Renamed paragraph 1");
-    expect(semanticLabel(controller, IDS.duplicate)).toBe("Renamed paragraph 2");
+    expect(semanticLabel(tree, IDS.inserted)).toBe("Renamed paragraph 1");
+    expect(semanticLabel(tree, IDS.duplicate)).toBe("Renamed paragraph 2");
     expect(outlineLabelCount("Renamed paragraph 1")).toBe(1);
     expect(outlineLabelCount("Renamed paragraph 2")).toBe(1);
 
     selectTextNode(editor, IDS.duplicate);
-    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.duplicate);
+    await expect.poll(() => controller.getSelectionSnapshot().selectedId).toBe(IDS.duplicate);
     deleteNode(editor, IDS.duplicate);
-    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.inserted);
-    expect(semanticChildIds(controller, IDS.region)).not.toContain(IDS.duplicate);
+    await expect.poll(() => controller.getSelectionSnapshot().selectedId).toBe(IDS.inserted);
+    expect(semanticChildIds(tree, IDS.region)).not.toContain(IDS.duplicate);
     expect(outlineLabelCount("Renamed paragraph")).toBe(1);
-    expect(new Set(semanticChildIds(controller, IDS.region)).size).toBe(
-      semanticChildIds(controller, IDS.region).length,
+    expect(new Set(semanticChildIds(tree, IDS.region)).size).toBe(
+      semanticChildIds(tree, IDS.region).length,
     );
   });
 
   it("tracks paragraph split/join and annotation reorder/removal while preserving mounted selection", async () => {
     const harness = await mountLiveOutline();
     mounted.push(harness);
-    const { controller, editor } = harness;
-    const initialRegionIds = semanticChildIds(controller, IDS.region);
+    const { controller, tree, editor } = harness;
+    const initialRegionIds = semanticChildIds(tree, IDS.region);
 
     const alpha = requireNode(editor, IDS.alpha);
     editor.commands.setTextSelection(alpha.pos + 6);
     expect(editor.commands.splitBlock()).toBe(true);
     await expect
-      .poll(() => semanticChildIds(controller, IDS.region).length)
+      .poll(() => semanticChildIds(tree, IDS.region).length)
       .toBe(initialRegionIds.length + 1);
-    const splitIds = semanticChildIds(controller, IDS.region);
+    const splitIds = semanticChildIds(tree, IDS.region);
     expect(new Set(splitIds).size).toBe(splitIds.length);
 
     const splitSecondId = splitIds.find((candidate) => !initialRegionIds.includes(candidate));
@@ -159,11 +160,11 @@ describe("Document Outline live mounted updates", () => {
     editor.commands.setTextSelection(splitSecond.pos + 1);
     expect(editor.commands.joinBackward()).toBe(true);
     await expect
-      .poll(() => semanticChildIds(controller, IDS.region).length)
+      .poll(() => semanticChildIds(tree, IDS.region).length)
       .toBe(initialRegionIds.length);
 
     controller.reportComponentSelection(IDS.secondPin);
-    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.secondPin);
+    await expect.poll(() => controller.getSelectionSnapshot().selectedId).toBe(IDS.secondPin);
     const moveResult = moveAnnotatedFigureAnnotationChecked({
       tr: editor.state.tr,
       target: requireFigureTarget(editor),
@@ -174,9 +175,9 @@ describe("Document Outline live mounted updates", () => {
     expect(moveResult.ok).toBe(true);
     if (moveResult.ok) editor.view.dispatch(moveResult.tr);
     await expect
-      .poll(() => semanticChildIds(controller, IDS.figure))
+      .poll(() => semanticChildIds(tree, IDS.figure))
       .toEqual([IDS.thirdPin, IDS.firstPin, IDS.secondPin]);
-    expect(controller.getSnapshot().selectedId).toBe(IDS.secondPin);
+    expect(controller.getSelectionSnapshot().selectedId).toBe(IDS.secondPin);
 
     const removeResult = removeAnnotatedFigureAnnotationChecked({
       tr: editor.state.tr,
@@ -186,19 +187,19 @@ describe("Document Outline live mounted updates", () => {
     expect(removeResult.ok).toBe(true);
     if (removeResult.ok) editor.view.dispatch(removeResult.tr);
     await expect
-      .poll(() => semanticChildIds(controller, IDS.figure))
+      .poll(() => semanticChildIds(tree, IDS.figure))
       .toEqual([IDS.thirdPin, IDS.firstPin]);
-    expect(controller.getSnapshot().selectedId).toBe(IDS.figure);
+    expect(controller.getSelectionSnapshot().selectedId).toBe(IDS.figure);
     expect(outlineLabelCount("Second annotation")).toBe(0);
   });
 
   it("renders direct Grid Cell prose as a live child of the expandable Cell", async () => {
     const harness = await mountLiveOutline(gridCellDocument());
     mounted.push(harness);
-    const { controller, editor, viewController } = harness;
+    const { tree, editor, viewController } = harness;
 
-    expect(semanticChildIds(controller, IDS.cell)).toEqual([IDS.cellParagraph]);
-    expect(controller.getSnapshot().semantics.parentById.get(IDS.cellParagraph)).toBe(IDS.cell);
+    expect(semanticChildIds(tree, IDS.cell)).toEqual([IDS.cellParagraph]);
+    expect(tree.getSnapshot().parentById.get(IDS.cellParagraph)).toBe(IDS.cell);
 
     for (const ancestorId of [IDS.surface, IDS.region, IDS.grid]) {
       viewController.setExpanded(ancestorId, true);
@@ -222,9 +223,7 @@ describe("Document Outline live mounted updates", () => {
       ),
     );
 
-    await expect
-      .poll(() => semanticLabel(controller, IDS.cellParagraph))
-      .toBe("Current Cell prose");
+    await expect.poll(() => semanticLabel(tree, IDS.cellParagraph)).toBe("Current Cell prose");
     await expect.element(page.getByRole("treeitem", { name: "Current Cell prose" })).toBeVisible();
     expect(outlineLabelCount("Direct Cell prose")).toBe(0);
   });
@@ -232,13 +231,13 @@ describe("Document Outline live mounted updates", () => {
   it("preserves the disclosure hit area and adds a logical label gap for branches and leaves", async () => {
     const harness = await mountLiveOutline();
     mounted.push(harness);
-    const { controller, viewController } = harness;
+    const { tree, viewController } = harness;
 
     viewController.setExpanded(IDS.surface, true);
     viewController.setExpanded(IDS.region, true);
     await expect.element(page.getByRole("treeitem", { name: "Alpha paragraph" })).toBeVisible();
 
-    const surfaceLabel = semanticLabel(controller, IDS.surface);
+    const surfaceLabel = semanticLabel(tree, IDS.surface);
     if (!surfaceLabel) throw new Error("Expected Surface semantic label");
     expectOutlineLabelGap(requireOutlineRow(surfaceLabel), ".sc-document-outline-disclosure");
     expectOutlineLabelGap(
@@ -250,12 +249,12 @@ describe("Document Outline live mounted updates", () => {
   it("renames inline with F2, isolates input events, resets the override and preserves undo history", async () => {
     const harness = await mountLiveOutline();
     mounted.push(harness);
-    const { controller, editor, viewController } = harness;
+    const { controller, tree, editor, viewController } = harness;
 
     viewController.setExpanded(IDS.surface, true);
     viewController.setExpanded(IDS.region, true);
     selectTextNode(editor, IDS.beta);
-    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.beta);
+    await expect.poll(() => controller.getSelectionSnapshot().selectedId).toBe(IDS.beta);
 
     const alphaRow = requireOutlineRow("Alpha paragraph");
     alphaRow.focus();
@@ -266,10 +265,10 @@ describe("Document Outline live mounted updates", () => {
 
     await userEvent.clear(input);
     await userEvent.type(input, "  Author   overview  ");
-    expect(controller.getSnapshot().selectedId).toBe(IDS.beta);
+    expect(controller.getSelectionSnapshot().selectedId).toBe(IDS.beta);
     await userEvent.keyboard("{Enter}");
 
-    await expect.poll(() => semanticLabel(controller, IDS.alpha)).toBe("Author overview");
+    await expect.poll(() => semanticLabel(tree, IDS.alpha)).toBe("Author overview");
     expect(requireNode(editor, IDS.alpha).node.attrs["semanticLabel"]).toBe("Author overview");
     expect(requireNode(editor, IDS.alpha).node.textContent).toBe("Alpha paragraph");
     expect(document.activeElement).toBe(requireOutlineRow("Author overview"));
@@ -278,9 +277,9 @@ describe("Document Outline live mounted updates", () => {
     expect(successStatus).toHaveClass("sc-document-outline-status--visually-hidden");
 
     expect(editor.commands.undo()).toBe(true);
-    await expect.poll(() => semanticLabel(controller, IDS.alpha)).toBe("Alpha paragraph");
+    await expect.poll(() => semanticLabel(tree, IDS.alpha)).toBe("Alpha paragraph");
     expect(editor.commands.redo()).toBe(true);
-    await expect.poll(() => semanticLabel(controller, IDS.alpha)).toBe("Author overview");
+    await expect.poll(() => semanticLabel(tree, IDS.alpha)).toBe("Author overview");
 
     const renamedRow = requireOutlineRow("Author overview");
     renamedRow.focus();
@@ -291,7 +290,7 @@ describe("Document Outline live mounted updates", () => {
     await userEvent.clear(resetInput);
     await userEvent.keyboard("{Enter}");
 
-    await expect.poll(() => semanticLabel(controller, IDS.alpha)).toBe("Alpha paragraph");
+    await expect.poll(() => semanticLabel(tree, IDS.alpha)).toBe("Alpha paragraph");
     expect(requireNode(editor, IDS.alpha).node.attrs["semanticLabel"]).toBeNull();
     expect(document.activeElement).toBe(requireOutlineRow("Alpha paragraph"));
   });
@@ -299,7 +298,7 @@ describe("Document Outline live mounted updates", () => {
   it("cancels an inline rename with Escape and commits it on blur", async () => {
     const harness = await mountLiveOutline();
     mounted.push(harness);
-    const { controller, editor, viewController } = harness;
+    const { tree, editor, viewController } = harness;
 
     viewController.setExpanded(IDS.surface, true);
     viewController.setExpanded(IDS.region, true);
@@ -324,7 +323,7 @@ describe("Document Outline live mounted updates", () => {
     await userEvent.type(blurredInput, "Blurred label");
     blurredInput.blur();
 
-    await expect.poll(() => semanticLabel(controller, IDS.alpha)).toBe("Blurred label");
+    await expect.poll(() => semanticLabel(tree, IDS.alpha)).toBe("Blurred label");
     expect(requireNode(editor, IDS.alpha).node.attrs["semanticLabel"]).toBe("Blurred label");
     expect(document.activeElement).toBe(requireOutlineRow("Blurred label"));
   });
@@ -332,8 +331,8 @@ describe("Document Outline live mounted updates", () => {
   it("resolves moved structural, Block and rich-text targets through their current stable IDs", async () => {
     const harness = await mountLiveOutline();
     mounted.push(harness);
-    const { authoring, controller, editor } = harness;
-    const beta = controller.getSnapshot().semantics.itemById.get(IDS.beta);
+    const { authoring, tree, editor } = harness;
+    const beta = tree.getSnapshot().itemById.get(IDS.beta);
     if (!beta) throw new Error("Expected the Beta paragraph semantic item");
 
     moveNodeAfter(editor, IDS.beta, IDS.figure);
@@ -343,15 +342,15 @@ describe("Document Outline live mounted updates", () => {
       [IDS.figure, "Author figure"],
       [IDS.alpha, "Author prose"],
     ] as const) {
-      const item = controller.getSnapshot().semantics.itemById.get(itemId);
+      const item = tree.getSnapshot().itemById.get(itemId);
       if (!item) throw new Error(`Expected semantic item ${itemId}`);
       expect(authoring.write(item, label)).toEqual({ ok: true });
-      expect(semanticLabel(controller, itemId)).toBe(label);
+      expect(semanticLabel(tree, itemId)).toBe(label);
       expect(requireNode(editor, itemId).node.attrs["semanticLabel"]).toBe(label);
     }
 
     expect(authoring.write(beta, "Moved prose")).toEqual({ ok: true });
-    expect(semanticLabel(controller, IDS.beta)).toBe("Moved prose");
+    expect(semanticLabel(tree, IDS.beta)).toBe("Moved prose");
     expect(requireNode(editor, IDS.beta).node.attrs["semanticLabel"]).toBe("Moved prose");
   });
 
@@ -386,16 +385,17 @@ describe("Document Outline live mounted updates", () => {
     expect(requireElement<HTMLElement>('[role="status"]')).toHaveClass(
       "sc-document-outline-status--visually-hidden",
     );
-    expect(harness.controller.getSnapshot().semantics.itemById.has(IDS.alpha)).toBe(false);
+    expect(harness.tree.getSnapshot().itemById.has(IDS.alpha)).toBe(false);
   });
 });
 
 interface MountedLiveOutline {
   readonly authoring: DocumentOutlineAuthoringPort;
-  readonly controller: ReturnType<typeof getSemanticDocumentControllerForEditor>;
+  readonly controller: ReturnType<typeof getEditorNavigationForEditor>;
+  readonly tree: ReturnType<typeof getDocumentTreeForEditor>;
   readonly editor: Editor;
   readonly rendered: RenderResult;
-  readonly viewController: SemanticHierarchyViewController;
+  readonly viewController: DocumentTreeViewController;
   dispose(): Promise<void>;
 }
 
@@ -405,7 +405,7 @@ async function mountLiveOutline(
     editor: Editor,
   ) => DocumentOutlineAuthoringPort = createDocumentOutlineAuthoringPort,
 ): Promise<MountedLiveOutline> {
-  const semantics = createSemanticDefinitionLookup({
+  const semantics = createDocumentTreeDefinitionLookup({
     blocks: builtInBlockRegistry,
     layouts: builtInLayoutRegistry,
     surfaces: builtInSurfaceVariantRegistry,
@@ -429,10 +429,10 @@ async function mountLiveOutline(
           contentIdentity: Object.freeze({
             rewrites: Object.freeze({ getByNodeType: () => undefined, hasNodeType: () => false }),
           }),
-          documentSemantics: semantics,
+          documentTree: semantics,
         }),
       ),
-      createSemanticDocumentExtension(semantics),
+      createDocumentAuthoringExtension(semantics),
       DocumentNode,
       StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
       UndoRedo,
@@ -452,19 +452,22 @@ async function mountLiveOutline(
     ],
     content,
   });
-  const controller = getSemanticDocumentControllerForEditor(editor);
+  const tree = getDocumentTreeForEditor(editor);
+  const controller = getEditorNavigationForEditor(editor);
   const authoring = createAuthoringPort(editor);
   const viewport = new DocumentOutlineRowViewport();
-  const viewController = new SemanticHierarchyViewController({
-    controller,
+  const viewController = new DocumentTreeViewController({
+    tree,
+    navigation: controller,
     origin: "document-outline",
     viewport,
   });
   const rendered = await renderBrowserReact(
     <div>
-      <SemanticSubtreeOutline
+      <DocumentTreeSubtreeOutline
         authoring={authoring}
-        controller={controller}
+        tree={tree}
+        navigation={controller}
         viewController={viewController}
         viewport={viewport}
       />
@@ -475,6 +478,7 @@ async function mountLiveOutline(
 
   return {
     authoring,
+    tree,
     controller,
     editor,
     rendered,
@@ -539,19 +543,19 @@ function findNodeType(editor: Editor, nodeId: EmbeddedNodeId): string {
 }
 
 function semanticChildIds(
-  controller: ReturnType<typeof getSemanticDocumentControllerForEditor>,
+  tree: ReturnType<typeof getDocumentTreeForEditor>,
   parentId: EmbeddedNodeId,
 ): EmbeddedNodeId[] {
-  return [...(controller.getSnapshot().semantics.itemById.get(parentId)?.children ?? [])].map(
+  return [...(tree.getSnapshot().itemById.get(parentId)?.children ?? [])].map(
     ({ id: childId }) => childId,
   );
 }
 
 function semanticLabel(
-  controller: ReturnType<typeof getSemanticDocumentControllerForEditor>,
+  tree: ReturnType<typeof getDocumentTreeForEditor>,
   nodeId: EmbeddedNodeId,
 ): string | undefined {
-  return controller.getSnapshot().semantics.itemById.get(nodeId)?.label;
+  return tree.getSnapshot().itemById.get(nodeId)?.label;
 }
 
 function outlineLabelCount(label: string): number {

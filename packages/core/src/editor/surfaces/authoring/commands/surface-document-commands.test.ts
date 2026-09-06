@@ -1,28 +1,21 @@
 // @vitest-environment happy-dom
 
+import { type CourseMode } from "@scaffold/contracts";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
-import UniqueID from "@tiptap/extension-unique-id";
-import StarterKit from "@tiptap/starter-kit";
+import { UndoRedo } from "@tiptap/extensions";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
-import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import {
-  resolveScaffoldCapabilities,
-  type ResolvableBlockCapability,
-} from "@/composition/model/resolved-scaffold-capabilities";
-import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
-import {
-  CellAuthoringNode,
-  GridAuthoringNode,
-} from "@/editor/arrangements/grid/authoring/grid-nodes";
-import {
-  LayoutAuthoringNode,
-  SectionAuthoringNode,
-} from "@/editor/arrangements/layout/authoring/layout-nodes";
-import { CourseDocumentNode, DocumentNode, createCourseSectionNode } from "@/document/model/nodes";
+  createScaffoldApplication,
+  defineScaffoldExtensionPack,
+} from "@/composition/application/create-scaffold-application";
+import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { type ResolvableBlockCapability } from "@/composition/model/resolved-scaffold-capabilities";
+import { fixtureCourseDocument } from "@/document/authoring/testing/course-document-fixture";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineBlock } from "@/editor/blocks/block-definition";
+import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
+import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 
 import {
   canDeleteSurface,
@@ -33,11 +26,6 @@ import {
   setPageSurfaceNotes,
   setPageSurfaceTitle,
 } from "./surface-document-commands";
-import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
-import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
-import { SlideCoverSubtitleNode } from "@/editor/surfaces/model/nodes/slide-cover-subtitle";
-import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
-import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 
 const STABLE_ID_PATTERN = /^[0-9A-Z_a-z-]{12}$/;
 const FIRST_CREATED_SURFACE_ID = createEmbeddedNodeId();
@@ -85,63 +73,53 @@ function section(id: string, title: string): JSONContent {
   };
 }
 
-function courseDocument(
-  mode: "page" | "slideshow" | "branching",
-  surfaces: JSONContent[],
-): JSONContent {
-  return {
-    type: "doc",
-    content: [
-      {
-        type: "courseDocument",
-        attrs: { mode, surfaceSize: "fluid", overflowMode: "grow" },
-        content: surfaces,
-      },
+/**
+ * The `copy_fixture` Block exists only to prove that Surface duplication routes
+ * nested Blocks through their owner's registered identity rewrite, so it is
+ * contributed to the real composition as an extension pack rather than bolted
+ * onto a hand-built schema.
+ */
+function makeApplication(blockCapabilities: readonly ResolvableBlockCapability[]) {
+  if (blockCapabilities.length === 0) return createScaffoldApplication();
+  return createScaffoldApplication({
+    packs: [
+      defineScaffoldExtensionPack({
+        id: "surface-command-fixtures",
+        blocks: blockCapabilities.map((capability) => ({
+          ...capability,
+          authoringExtension: TestCopyFixtureNode,
+          runtimeExtension: TestCopyFixtureNode,
+        })),
+      }),
     ],
-  };
+  });
 }
 
 function makeEditor(
-  mode: "page" | "slideshow" | "branching",
+  mode: CourseMode,
   surfaces: JSONContent[],
   blockCapabilities: readonly ResolvableBlockCapability[] = [],
   withHistory = false,
 ): Editor {
-  const capabilities = resolveScaffoldCapabilities({
-    blockCapabilities,
-    layoutDefinitions: [],
-    surfaceDefinitions: [pageDefaultSurfaceDefinition, slideCoverSurfaceDefinition],
+  const application = makeApplication(blockCapabilities);
+  const extensions = createCourseDocumentAuthoringExtensions({
+    editable: true,
+    composition: application.authoring,
   });
   return new Editor({
-    extensions: [
-      createScaffoldCapabilitiesStorageExtension(capabilities),
-      DocumentNode,
-      StarterKit.configure({
-        document: false,
-        paragraph: false,
-        undoRedo: withHistory ? {} : false,
-      }),
-      ExtendedParagraph,
-      CourseDocumentNode,
-      createCourseSectionNode(),
-      SurfaceNode,
-      RegionNode,
-      SlideCoverSubtitleNode,
-      GridAuthoringNode,
-      CellAuthoringNode,
-      LayoutAuthoringNode,
-      SectionAuthoringNode,
-      TestCopyFixtureNode,
-      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
-      createCourseStructureCommandsExtension(),
-    ],
-    content: courseDocument(mode, surfaces),
+    extensions: withHistory ? [...extensions, UndoRedo] : extensions,
+    content: fixtureCourseDocument({ mode, surfaces }),
   });
 }
 
-function surfaces(editor: Editor): JSONContent[] {
+function courseChildren(editor: Editor): JSONContent[] {
   const course = editor.getJSON().content?.[0] as JSONContent | undefined;
   return course?.content ?? [];
+}
+
+/** Course Documents also carry Course Section boundaries; these are the Surfaces. */
+function surfaces(editor: Editor): JSONContent[] {
+  return courseChildren(editor).filter((child) => child.type === "surface");
 }
 
 describe("surface document commands", () => {
@@ -364,7 +342,7 @@ describe("surface document commands", () => {
         surface("surface00001", "First", { variant: "slide-cover" }),
         surface("surface00002", "Second", { variant: "slide-cover" }),
       ],
-      EMPTY_BLOCK_CAPABILITIES,
+      [],
       true,
     );
     const before = editor.getJSON();
@@ -448,7 +426,8 @@ describe("surface document commands", () => {
 
       expect(canDeleteSurface(editor, surfaceId)).toBe(true);
       expect(deleteSurface(editor, surfaceId)).toBe(true);
-      expect(surfaces(editor).map((child) => child.attrs?.["id"])).toEqual(expectedIds);
+      // These cases assert the surviving Course Structure, boundaries included.
+      expect(courseChildren(editor).map((child) => child.attrs?.["id"])).toEqual(expectedIds);
 
       editor.destroy();
     },
