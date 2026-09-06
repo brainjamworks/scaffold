@@ -1,9 +1,11 @@
 import { createArtifactSavePayload } from "@/authoring/publication/artifact-save-bundle";
+import { Result, type Result as ResultType } from "better-result";
 import type { CourseDocumentAuthoringEnvironment } from "@/composition/authoring/create-authoring-composition";
 import { prepareScaffoldArtifactForAuthoring } from "@/document/authoring/prepare-scaffold-artifact-for-authoring";
 import { createDefaultCourseSectionTitle } from "@/document/model/course-structure";
 import { createScaffoldArtifact } from "@/format/artifact";
 import type { ArtifactRevision } from "@/host/ports/learner-publication";
+import type { ArtifactPersistenceFailure } from "@/host/ports";
 import type {
   ScaffoldAuthoringArtifact,
   ScaffoldAuthoringEntryHostServices,
@@ -17,6 +19,11 @@ export interface AuthoringArtifactCreationResult {
   readonly artifactRevision: ArtifactRevision;
 }
 
+export type AuthoringArtifactCreationOutcome = ResultType<
+  AuthoringArtifactCreationResult,
+  ArtifactPersistenceFailure
+>;
+
 type CreateAndPersistAuthoringArtifactInput = {
   productAccess: ScaffoldProductAccess;
   services: ScaffoldAuthoringEntryHostServices;
@@ -25,7 +32,7 @@ type CreateAndPersistAuthoringArtifactInput = {
 
 export async function createAndPersistAuthoringArtifact(
   input: CreateAndPersistAuthoringArtifactInput,
-): Promise<AuthoringArtifactCreationResult> {
+): Promise<AuthoringArtifactCreationOutcome> {
   const { mode, productAccess, services, authoringEnvironment } = input;
   const metadata = await services.artifactCreation.createArtifactMetadata({ mode });
   const artifact = createScaffoldArtifact({
@@ -47,12 +54,13 @@ export async function createAndPersistAuthoringArtifact(
   const establishedArtifact = prepared.artifact;
   const payload = createArtifactSavePayload({ artifact: establishedArtifact });
   const result = await services.artifactPersistence.saveArtifact(payload);
-  const hostTitle = result?.artifact?.title;
-  return {
+  if (result.isErr()) return Result.err(result.error);
+  const hostTitle = result.value.artifact?.title;
+  return Result.ok({
     artifact:
       typeof hostTitle === "string" && hostTitle
         ? { ...establishedArtifact, title: hostTitle }
         : establishedArtifact,
-    artifactRevision: result.artifactRevision,
-  };
+    artifactRevision: result.value.artifactRevision,
+  });
 }

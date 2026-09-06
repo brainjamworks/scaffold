@@ -3,6 +3,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
+import { Result } from "better-result";
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 
 const testApplication = createScaffoldApplication();
@@ -32,10 +33,10 @@ describe("ScaffoldAuthoringEntry capability failure", () => {
         services={{
           artifactCreation: { createArtifactMetadata: vi.fn() },
           artifactPersistence: {
-            saveArtifact: vi.fn(async () => ({ artifactRevision: "revision-created" })),
+            saveArtifact: vi.fn(async () => Result.ok({ artifactRevision: "revision-created" })),
           },
           learnerPublication: {
-            getStatus: vi.fn(async () => ({
+            getStatus: vi.fn(async () => Result.ok({
               currentArtifactRevision: "revision-created",
               publishedArtifactRevision: null,
               publishedAt: null,

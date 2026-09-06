@@ -3,7 +3,7 @@ import type { JSONContent } from "@tiptap/core";
 
 import type { ControlCapabilityCatalogue } from "@/document/control-binding/control-capability-catalogue";
 import type { ProjectedCourseStructure } from "@/document/model/course-structure";
-import type { SemanticDocumentSnapshot } from "@/document/model/semantic-document";
+import type { DocumentTreeSnapshot } from "@/document/model/document-tree";
 import {
   compileLearnerInteractions,
   type LearnerInteractionCompilation,
@@ -28,7 +28,7 @@ export function checkLearnerInteractionPublication({
 }: {
   readonly document: ScaffoldDocumentContent;
   readonly courseStructure: ProjectedCourseStructure;
-  readonly semanticSnapshot: SemanticDocumentSnapshot;
+  readonly semanticSnapshot: DocumentTreeSnapshot;
   readonly controlCapabilities: ControlCapabilityCatalogue;
 }): LearnerInteractionPublicationCheck {
   if (courseStructure.kind === "page") return { status: "ready", compilation: null };

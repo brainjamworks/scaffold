@@ -3,6 +3,7 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vite-plus/test";
+import { Result } from "better-result";
 
 import type { ArtifactSavePayload, ArtifactSaveResult, LearnerPublicationPort } from "@/host/ports";
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
@@ -125,9 +126,9 @@ function createDeferred<T>() {
 function renderEntry({
   artifact = null,
   createArtifactMetadata = vi.fn(),
-  saveArtifact = vi.fn(async (_payload: ArtifactSavePayload) => ({
-    artifactRevision: "revision-created",
-  })),
+  saveArtifact = vi.fn(async (_payload: ArtifactSavePayload) =>
+    Result.ok({ artifactRevision: "revision-created" }),
+  ),
   learnerPublication = createLearnerPublicationPort(),
   application = testApplication,
   productAccess = coreProductAccess,
@@ -196,7 +197,7 @@ describe("ScaffoldAuthoringEntry loading boundary", () => {
       requiresScaffoldPlus: boolean;
       title?: string;
     }>();
-    const persistence = createDeferred<ArtifactSaveResult>();
+    const persistence = createDeferred<ReturnType<typeof Result.ok<ArtifactSaveResult>>>();
     const createArtifactMetadata = vi.fn(() => metadata.promise);
     const saveArtifact = vi.fn((_: ArtifactSavePayload) => persistence.promise);
 
@@ -233,10 +234,12 @@ describe("ScaffoldAuthoringEntry loading boundary", () => {
     expect(screen.queryByTestId("ready-authoring-app")).toBeNull();
 
     act(() =>
-      persistence.resolve({
-        artifactRevision: "revision-created",
-        artifact: { title: "Host title" },
-      }),
+      persistence.resolve(
+        Result.ok({
+          artifactRevision: "revision-created",
+          artifact: { title: "Host title" },
+        }),
+      ),
     );
 
     expect(await screen.findByTestId("ready-authoring-app")).toHaveProperty(
@@ -273,7 +276,7 @@ describe("ScaffoldAuthoringEntry loading boundary", () => {
 
 function createLearnerPublicationPort(): LearnerPublicationPort {
   return {
-    getStatus: vi.fn(async () => ({
+    getStatus: vi.fn(async () => Result.ok({
       currentArtifactRevision: "revision-created",
       publishedArtifactRevision: null,
       publishedAt: null,

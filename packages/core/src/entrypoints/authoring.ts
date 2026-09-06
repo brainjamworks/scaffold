@@ -16,9 +16,16 @@ export type {
   ScaffoldAuthoringHostActionSlots,
   ScaffoldAuthoringHostActionsContext,
   ScaffoldAuthoringSaveState,
+} from "@/editor/shell/authoring/AuthoringHeaderActions";
+export type {
   ScaffoldPreviewServicesFactory,
   ScaffoldLearnerPreviewContent,
 } from "@/editor/shell/authoring/ScaffoldAuthoringApp";
+export type {
+  AuthoringSaveFailure,
+  AuthoringSaveResult,
+  SavedAuthoringRevision,
+} from "@/editor/shell/authoring/authoring-save-controller";
 export type { ScaffoldAuthoringEntryProps } from "@/editor/shell/authoring/ScaffoldAuthoringEntry";
 export type {
   ScaffoldAuthoringArtifact,

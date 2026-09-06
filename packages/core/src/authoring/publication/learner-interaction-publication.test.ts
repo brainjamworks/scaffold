@@ -14,7 +14,7 @@ import type {
   ResolvedControlTarget,
 } from "@/document/control-binding/control-capability-catalogue";
 import { projectCourseStructure } from "@/document/model/course-structure";
-import type { SemanticDocumentSnapshot, SemanticItem } from "@/document/model/semantic-document";
+import type { DocumentTreeSnapshot, DocumentTreeItem } from "@/document/model/document-tree";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 
 import { checkLearnerInteractionPublication } from "./learner-interaction-publication";
@@ -129,9 +129,9 @@ function invalidRule(
   return { ...validRule(), id, isEnabled, when: { targetId: TARGET_ID, type } };
 }
 
-function semanticSnapshot(mode: "page" | "slideshow"): SemanticDocumentSnapshot {
+function semanticSnapshot(mode: "page" | "slideshow"): DocumentTreeSnapshot {
   const surface = semanticItem(SURFACE_ID, "surface");
-  const target = semanticItem(TARGET_ID, "published-child");
+  const target = semanticItem(TARGET_ID, "exposed-child");
   return {
     revision: 1,
     mode,
@@ -152,7 +152,7 @@ function semanticSnapshot(mode: "page" | "slideshow"): SemanticDocumentSnapshot 
   };
 }
 
-function semanticItem(id: typeof SURFACE_ID, kind: SemanticItem["kind"]): SemanticItem {
+function semanticItem(id: typeof SURFACE_ID, kind: DocumentTreeItem["kind"]): DocumentTreeItem {
   return {
     id,
     kind,

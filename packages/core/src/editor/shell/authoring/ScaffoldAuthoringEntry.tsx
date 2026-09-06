@@ -70,7 +70,9 @@ export function ScaffoldAuthoringEntry({
   const creationPendingRef = useRef(false);
   const activeCreation =
     artifact === null && createdArtifactState?.source === artifact
-      ? createdArtifactState.result
+      ? createdArtifactState.result.isOk()
+        ? createdArtifactState.result.value
+        : null
       : null;
   const activeArtifact = artifact ?? activeCreation?.artifact ?? null;
 
@@ -117,6 +119,10 @@ export function ScaffoldAuthoringEntry({
           }),
         )
         .then((result) => {
+          if (result.isErr()) {
+            setCreationState("error");
+            return result;
+          }
           setCreatedArtifactState({
             source: artifact,
             result,
@@ -125,8 +131,8 @@ export function ScaffoldAuthoringEntry({
         });
 
       void Promise.all([readyPromise, creationPromise])
-        .then(() => {
-          setCreationState("idle");
+        .then(([, result]) => {
+          if (result.isOk()) setCreationState("idle");
         })
         .catch((error: unknown) => {
           if (error instanceof CapabilityLoadError) {

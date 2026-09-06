@@ -1,7 +1,7 @@
 import { CircleNotchIcon as CircleNotch } from "@phosphor-icons/react";
 import { useId, type MouseEvent } from "react";
 
-import type { ScaffoldAuthoringPublishState } from "@/editor/shell/authoring/ScaffoldAuthoringApp";
+import type { ScaffoldAuthoringPublishState } from "@/editor/shell/authoring/authoring-publication-controller";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 
 import "./AuthoringPublishAction.css";

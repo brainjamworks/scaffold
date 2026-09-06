@@ -25,7 +25,11 @@ export interface ContentAuthorHostProps {
   mount: CourseDocumentAuthoringMount;
   onChange?: (editor: TiptapEditor) => void;
   onEditorReady?: (editor: TiptapEditor) => void;
-  onUpdate?: (json: JSONContent, unavailableContent: readonly UnavailableContentRef[]) => void;
+  onUpdate?: (
+    json: JSONContent,
+    unavailableContent: readonly UnavailableContentRef[],
+    sourceDocument: object,
+  ) => void;
   onDocumentError?: (failure: CourseDocumentAuthoringFailure) => void;
   onUnavailableContentChange?: (content: readonly UnavailableContentRef[]) => void;
   courseAppearance?: ScaffoldColorMode;
@@ -150,6 +154,7 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
               {...(onDocumentError ? { onDocumentError } : {})}
               {...(onUnavailableContentChange ? { onUnavailableContentChange } : {})}
               {...(courseAppearance ? { courseAppearance } : {})}
+              readOnly={reviewing}
               suspended={reviewing || stagePreview != null}
             />
             {stagePreview ??

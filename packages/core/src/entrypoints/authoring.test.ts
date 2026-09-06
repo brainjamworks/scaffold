@@ -8,6 +8,8 @@ import type { UnavailableContentNodeView } from "@scaffold/core/authoring";
 // @ts-expect-error The raw editor component is a Core-internal trust boundary.
 import type { CourseDocumentEditorProps } from "@scaffold/core/authoring";
 import type {
+  AuthoringSaveFailure,
+  AuthoringSaveResult,
   ScaffoldAuthoringArtifact,
   ScaffoldAuthoringComposition,
   ScaffoldAuthoringEntryHostServices,
@@ -16,6 +18,7 @@ import type {
   ScaffoldAuthoringHostActionsContext,
   ScaffoldAuthoringHostServices,
   ScaffoldAuthoringSaveState,
+  SavedAuthoringRevision,
   ScaffoldLearnerHostServices,
   ScaffoldLearnerPreviewContent,
   ScaffoldPreviewServicesFactory,
@@ -24,6 +27,8 @@ import type {
 } from "@scaffold/core/authoring";
 
 type AuthoringTypeSurface = {
+  authoringSaveFailure: AuthoringSaveFailure;
+  authoringSaveResult: AuthoringSaveResult;
   authoringLaneViolation: ScaffoldRuntimeComposition;
   compatibilityPresentationViolation: UnavailableContentNodeView;
   composition: ScaffoldAuthoringComposition;
@@ -40,6 +45,7 @@ type AuthoringTypeSurface = {
   previewServicesFactory: ScaffoldPreviewServicesFactory;
   productAccess: ScaffoldProductAccess;
   saveState: ScaffoldAuthoringSaveState;
+  savedAuthoringRevision: SavedAuthoringRevision;
 };
 
 describe("@scaffold/core/authoring", () => {

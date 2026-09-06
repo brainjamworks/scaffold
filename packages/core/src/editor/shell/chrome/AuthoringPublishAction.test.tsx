@@ -4,7 +4,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type { ScaffoldAuthoringPublishState } from "../authoring/ScaffoldAuthoringApp";
+import type { ScaffoldAuthoringPublishState } from "../authoring/authoring-publication-controller";
 import { AuthoringPublishAction } from "./AuthoringPublishAction";
 
 const policyCases: ReadonlyArray<{

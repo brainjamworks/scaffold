@@ -12,10 +12,34 @@ export const ARTIFACT_SAVE_PAYLOAD_LIMITS = {
   assessmentGroupsBytes: 512 * 1024,
 } as const;
 
+export type LearnerPublicationPayloadPart =
+  | "learner-content"
+  | "assessment-targets"
+  | "assessment-groups";
+
 export class ArtifactSavePayloadError extends Error {
-  constructor(message: string) {
-    super(message);
+  readonly part: LearnerPublicationPayloadPart;
+  readonly measuredBytes: number;
+  readonly limitBytes: number;
+
+  constructor({
+    part,
+    label,
+    verb,
+    bytes,
+    limit,
+  }: {
+    readonly part: LearnerPublicationPayloadPart;
+    readonly label: string;
+    readonly verb: "is" | "are";
+    readonly bytes: number;
+    readonly limit: number;
+  }) {
+    super(`${label} ${verb} too large to publish (${bytes} bytes, limit ${limit} bytes).`);
     this.name = "ArtifactSavePayloadError";
+    this.part = part;
+    this.measuredBytes = bytes;
+    this.limitBytes = limit;
   }
 }
 
@@ -24,16 +48,14 @@ function jsonByteLength(value: unknown): number {
 }
 
 function assertPayloadSize(
+  part: LearnerPublicationPayloadPart,
   label: string,
   verb: "is" | "are",
-  action: "publish" | "save",
   bytes: number,
   limit: number,
 ) {
   if (bytes <= limit) return;
-  throw new ArtifactSavePayloadError(
-    `${label} ${verb} too large to ${action} (${bytes} bytes, limit ${limit} bytes).`,
-  );
+  throw new ArtifactSavePayloadError({ part, label, verb, bytes, limit });
 }
 
 export function createArtifactSavePayload(input: ArtifactSaveProjectionInput): ArtifactSavePayload {
@@ -44,23 +66,23 @@ export function validateLearnerPublicationPayloadSize(
   publication: Extract<LearnerPublicationProjection, { readonly status: "supported" }>,
 ): void {
   assertPayloadSize(
+    "learner-content",
     "Learner content",
     "is",
-    "publish",
     jsonByteLength(publication.learnerContent),
     ARTIFACT_SAVE_PAYLOAD_LIMITS.learnerContentBytes,
   );
   assertPayloadSize(
+    "assessment-targets",
     "Assessment targets",
     "are",
-    "publish",
     jsonByteLength(publication.assessmentTargets),
     ARTIFACT_SAVE_PAYLOAD_LIMITS.assessmentTargetsBytes,
   );
   assertPayloadSize(
+    "assessment-groups",
     "Assessment groups",
     "are",
-    "publish",
     jsonByteLength(publication.assessmentGroups),
     ARTIFACT_SAVE_PAYLOAD_LIMITS.assessmentGroupsBytes,
   );
