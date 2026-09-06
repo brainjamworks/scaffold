@@ -362,6 +362,8 @@ describe("Slideshow Presentation learner integration", () => {
       expectedNextEnabled: false,
       expectedContinue: false,
       expectedContentInteraction: "inert",
+      expectedPromptTitle: null,
+      expectedPromptInstruction: null,
     },
     {
       name: "playing",
@@ -369,6 +371,8 @@ describe("Slideshow Presentation learner integration", () => {
       expectedNextEnabled: false,
       expectedContinue: false,
       expectedContentInteraction: "inert",
+      expectedPromptTitle: null,
+      expectedPromptInstruction: null,
     },
     {
       name: "paused",
@@ -376,6 +380,8 @@ describe("Slideshow Presentation learner integration", () => {
       expectedNextEnabled: false,
       expectedContinue: false,
       expectedContentInteraction: "inert",
+      expectedPromptTitle: null,
+      expectedPromptInstruction: null,
     },
     {
       name: "manual hold",
@@ -386,6 +392,8 @@ describe("Slideshow Presentation learner integration", () => {
       expectedNextEnabled: false,
       expectedContinue: true,
       expectedContentInteraction: "inert",
+      expectedPromptTitle: "Presentation paused",
+      expectedPromptInstruction: "Continue when you’re ready.",
     },
     {
       name: "learner waiting",
@@ -398,6 +406,8 @@ describe("Slideshow Presentation learner integration", () => {
       expectedContinue: false,
       gateObservation: "awaiting-satisfaction",
       expectedContentInteraction: "enabled",
+      expectedPromptTitle: "Your turn",
+      expectedPromptInstruction: "Complete the required interaction on this slide to continue.",
     },
     {
       name: "learner waiting before gate registration",
@@ -409,6 +419,8 @@ describe("Slideshow Presentation learner integration", () => {
       expectedNextEnabled: false,
       expectedContinue: false,
       expectedContentInteraction: "inert",
+      expectedPromptTitle: "Please wait",
+      expectedPromptInstruction: "Preparing the next step…",
     },
     {
       name: "learner satisfaction observed while its turn settles",
@@ -421,6 +433,8 @@ describe("Slideshow Presentation learner integration", () => {
       expectedContinue: false,
       gateObservation: "satisfaction-observed",
       expectedContentInteraction: "inert",
+      expectedPromptTitle: "Please wait",
+      expectedPromptInstruction: "Preparing the next step…",
     },
     {
       name: "learner ready",
@@ -432,6 +446,8 @@ describe("Slideshow Presentation learner integration", () => {
       expectedNextEnabled: false,
       expectedContinue: true,
       expectedContentInteraction: "inert",
+      expectedPromptTitle: "Interaction complete",
+      expectedPromptInstruction: "Continue when you’re ready.",
     },
     {
       name: "completed",
@@ -439,6 +455,8 @@ describe("Slideshow Presentation learner integration", () => {
       expectedNextEnabled: true,
       expectedContinue: false,
       expectedContentInteraction: "inert",
+      expectedPromptTitle: null,
+      expectedPromptInstruction: null,
     },
     {
       name: "stopped",
@@ -446,6 +464,8 @@ describe("Slideshow Presentation learner integration", () => {
       expectedNextEnabled: false,
       expectedContinue: false,
       expectedContentInteraction: "inert",
+      expectedPromptTitle: null,
+      expectedPromptInstruction: null,
     },
   ] as const)("keeps each control single-purpose from $name", async (testCase) => {
     const presentation = createControllablePresentationSession(testCase.snapshot);
@@ -494,6 +514,12 @@ describe("Slideshow Presentation learner integration", () => {
       ? await screen.findByRole("button", { name: "Continue presentation" })
       : screen.queryByRole("button", { name: "Continue presentation" });
     expect(continueControl !== null).toBe(testCase.expectedContinue);
+    if (testCase.expectedPromptTitle) {
+      expect(screen.getByText(testCase.expectedPromptTitle)).toBeVisible();
+      expect(screen.getByText(testCase.expectedPromptInstruction!)).toBeVisible();
+    } else {
+      expect(document.querySelector(".sc-slideshow-player__presentation-checkpoint")).toBeNull();
+    }
     const transportControl = await screen.findByRole("button", {
       name: testCase.snapshot.phase === "playing" ? "Pause presentation" : "Play presentation",
     });
@@ -565,6 +591,34 @@ describe("Slideshow Presentation learner integration", () => {
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 of 2"));
     await waitFor(() => expect(presentations.get(SECOND_SURFACE_ID)?.play).toHaveBeenCalledOnce());
+  });
+
+  it("keeps an author-preview Surface paused even when authored auto-advance is enabled", async () => {
+    const presentation = createControllablePresentationSession(
+      presentationSnapshot("awaiting-start"),
+    );
+    slideshowRuntimeTestProbe.createComposition = (rawInput) =>
+      testComposition(
+        rawInput as CreateSlideshowSurfaceRuntimeCompositionInput,
+        presentation.session,
+      );
+    const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
+
+    renderTest(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          preparedDocument={prepared.preparedDocument}
+          structure={prepared.structure}
+          surfaceRuntimeProgramSource={(surfaceId) =>
+            configuredPresentationProgram(surfaceId, true)
+          }
+          autoPlayPresentation={false}
+        />
+      </CourseThemeProvider>,
+    );
+
+    await screen.findByRole("button", { name: "Play presentation" });
+    expect(presentation.play).not.toHaveBeenCalled();
   });
 
   it("keeps an auto-advancing manual Wait behind explicit Continue", async () => {
@@ -2181,7 +2235,6 @@ function emptyVisualProgram(
     durationMs,
     targetById: new Map(),
     segments: Object.freeze([]),
-    sequenceContainers: Object.freeze([]),
   });
 }
 
@@ -2261,6 +2314,7 @@ function testComposition(
   return Object.freeze({
     surfaceId: input.surfaceId,
     learnerRuntime,
+    setExecutionEnabled: vi.fn(),
     ...(presentationSession && presentationControls
       ? {
           presentationControls,
@@ -2300,6 +2354,7 @@ function createCompositionLifecycleProbe(
     return Object.freeze({
       surfaceId,
       learnerRuntime: learner.runtime,
+      setExecutionEnabled: vi.fn(),
       ...(presentationSession
         ? {
             presentationControls: presentationControlsFrom(presentationSession),
@@ -2381,6 +2436,7 @@ function createControllableLearnerRuntime(
       capturedListeners.push(listener);
       return () => listeners.delete(listener);
     },
+    setExecutionEnabled: vi.fn(),
   }) as unknown as SlideshowSurfaceRuntimeComposition["learnerRuntime"];
 
   return {

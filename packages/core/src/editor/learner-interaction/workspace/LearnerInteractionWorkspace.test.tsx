@@ -3,7 +3,6 @@
 import {
   EmbeddedDataIdSchema,
   EmbeddedNodeIdSchema,
-  type ScaffoldDocumentContent,
   type LearnerInteractionRuleId,
   type LearnerInteractionRuleV1,
 } from "@scaffold/contracts";
@@ -22,11 +21,8 @@ import type {
   LearnerInteractionRuleDraft,
   ProjectedLearnerInteractionRule,
 } from "../model";
-import {
-  LearnerInteractionPreviewController,
-  LearnerInteractionPreviewPortOwner,
-} from "../preview";
 import type { LearnerInteractionTurnReport } from "@/learner-interaction/model";
+import type { AuthorPreviewReports } from "@/editor/shell/authoring/author-preview-session-controller";
 import { LearnerInteractionWorkspaceController } from "./learner-interaction-workspace-controller";
 import { LearnerInteractionWorkspace } from "./LearnerInteractionWorkspace";
 
@@ -92,9 +88,7 @@ describe("LearnerInteractionWorkspace", () => {
     expect(section).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Interactions" })).toBeNull();
     expect(screen.queryByText("Rules for the selected Surface.")).toBeNull();
-    expect(
-      within(section).getByRole("button", { name: "Preview interactions" }),
-    ).toBeInTheDocument();
+    expect(within(section).queryByRole("button", { name: /preview interactions/i })).toBeNull();
     expect(within(section).getByRole("button", { name: "Add rule" })).toBeInTheDocument();
   });
 
@@ -102,15 +96,11 @@ describe("LearnerInteractionWorkspace", () => {
     renderWorkspace(projection(), {}, renderInPanel);
 
     const actions = document.querySelector(".sc-editor-bottom-panel-header-actions");
-    if (!actions) throw new Error("expected panel header actions slot");
-    expect(
-      within(actions).getByRole("button", { name: "Preview interactions" }),
-    ).toBeInTheDocument();
+    if (!(actions instanceof HTMLElement)) throw new Error("expected panel header actions slot");
+    expect(within(actions).queryByRole("button", { name: /preview interactions/i })).toBeNull();
     expect(within(actions).getByRole("button", { name: "Add rule" })).toBeInTheDocument();
     expect(document.querySelector(".sc-learner-interactions-header")).toBeNull();
-    expect(
-      screen.getByRole("region", { name: "Interactions" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Interactions" })).toBeInTheDocument();
   });
 
   it("keeps the capability-empty status in the body, out of the status slot", () => {
@@ -130,12 +120,15 @@ describe("LearnerInteractionWorkspace", () => {
 
     await user.click(screen.getByRole("button", { name: "Add rule" }));
     expect(screen.getByRole("button", { name: "Save rule" })).toBeDisabled();
-    await user.selectOptions(screen.getByLabelText("When"), `${IDS.source}:activated`);
+    expect(screen.queryByText("Choose a When event.")).toBeNull();
+    expect(screen.queryByText("Add at least one Then command.")).toBeNull();
+    await chooseRuleOption(user, "When", "Source — Activated");
+    await user.click(screen.getByText("Add condition…"));
     await user.click(screen.getByRole("button", { name: "Add condition" }));
-    await user.selectOptions(screen.getByLabelText("Condition 1 value"), "true");
-    await user.click(screen.getByRole("button", { name: "Add reveal" }));
-    await user.click(screen.getByRole("button", { name: "Add target command" }));
-    await user.click(screen.getByRole("button", { name: "Add navigation" }));
+    await chooseRuleOption(user, "Condition 1 value", "True");
+    await chooseRuleOption(user, "Add response", "Reveal content");
+    await chooseRuleOption(user, "Add response", "Control a block");
+    await chooseRuleOption(user, "Add response", "Go to a slide");
 
     const editor = screen.getByRole("region", { name: "Rule editor" });
     expect(within(editor).getAllByRole("group", { name: /Then command/ })).toHaveLength(3);
@@ -194,11 +187,11 @@ describe("LearnerInteractionWorkspace", () => {
     const harness = renderWorkspace(projection());
 
     await user.click(screen.getByRole("button", { name: "Edit Rule 1" }));
-    await user.click(screen.getByRole("button", { name: "Disable Rule 1" }));
+    await user.click(screen.getByLabelText("Rule enabled"));
 
     expect(harness.onSetRuleEnabled).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Rule enabled")).not.toBeChecked();
-    expect(screen.getByRole("button", { name: "Enable Rule 1" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Enable Rule 1" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Save rule" }));
     expect(harness.saveDraft).toHaveBeenCalledWith(
@@ -212,13 +205,13 @@ describe("LearnerInteractionWorkspace", () => {
 
     await user.click(screen.getByRole("button", { name: "Edit Rule 1" }));
     await user.click(screen.getByLabelText("Rule enabled"));
-    await user.click(screen.getByRole("button", { name: "Enable Rule 1" }));
-    await user.click(screen.getByRole("button", { name: "Disable Rule 1" }));
+    await user.click(screen.getByLabelText("Rule enabled"));
+    await user.click(screen.getByLabelText("Rule enabled"));
     await user.click(screen.getByRole("button", { name: "Discard draft" }));
 
     expect(harness.onSetRuleEnabled).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Rule enabled")).toBeChecked();
-    expect(screen.getByRole("button", { name: "Disable Rule 1" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Disable Rule 1" })).not.toBeInTheDocument();
   });
 
   it("keeps stale sources visible and focuses exact inline repair from a rule badge", async () => {
@@ -228,10 +221,11 @@ describe("LearnerInteractionWorkspace", () => {
     await user.click(screen.getByRole("button", { name: "Repair Rule 1 (1 issue)" }));
     const when = screen.getByLabelText("When");
     expect(when).toHaveFocus();
-    expect(within(when).getByRole("option", { name: /Unavailable.*stale-event/ })).toBeTruthy();
+    await user.click(when);
+    expect(await screen.findByRole("option", { name: /Unavailable.*stale-event/ })).toBeTruthy();
     expect(screen.getByText("This event is no longer available.")).toBeInTheDocument();
 
-    await user.selectOptions(when, `${IDS.source}:activated`);
+    await user.click(await screen.findByRole("option", { name: "Source — Activated" }));
     expect(screen.queryByText("This event is no longer available.")).not.toBeInTheDocument();
   });
 
@@ -260,11 +254,11 @@ describe("LearnerInteractionWorkspace", () => {
     );
     expect(screen.getAllByText("Choose a valid state value.")).toHaveLength(3);
 
-    await user.selectOptions(screen.getByLabelText("Condition 1 comparison"), "not-equals");
+    await chooseRuleOption(user, "Condition 1 comparison", "does not equal");
     expect(screen.getAllByText("Choose a valid state value.")).toHaveLength(3);
 
-    await user.selectOptions(screen.getByLabelText("Condition 1 value"), "true");
-    await user.selectOptions(screen.getByLabelText("Condition 2 value"), "active");
+    await chooseRuleOption(user, "Condition 1 value", "True");
+    await chooseRuleOption(user, "Condition 2 value", "Active");
     await user.type(screen.getByLabelText("Condition 3 value"), "4");
     expect(screen.queryByText("Choose a valid state value.")).not.toBeInTheDocument();
   });
@@ -291,9 +285,9 @@ describe("LearnerInteractionWorkspace", () => {
       "legacy-command-number",
     );
 
-    await user.selectOptions(screen.getByLabelText("Command 1 input"), "true");
+    await chooseRuleOption(user, "Command 1 input", "True");
     await user.type(screen.getByLabelText("Command 2 input"), "4");
-    await user.selectOptions(screen.getByLabelText("Command 3 input"), "active");
+    await chooseRuleOption(user, "Command 3 input", "Active");
     expect(screen.queryByText("Choose a valid command value.")).not.toBeInTheDocument();
   });
 
@@ -347,9 +341,7 @@ describe("LearnerInteractionWorkspace", () => {
     renderWorkspace({ ...projection(), capabilityState: "empty", rules: [] });
 
     const status = screen.getByRole("status");
-    expect(status).toHaveTextContent(
-      "This slide has nothing a learner can interact with yet.",
-    );
+    expect(status).toHaveTextContent("This slide has nothing a learner can interact with yet.");
     expect(status).toHaveTextContent(
       "Add a Tabs, Accordion, media or assessment block, then come back to write rules.",
     );
@@ -361,12 +353,8 @@ describe("LearnerInteractionWorkspace", () => {
   it("exposes every rule-row control as an icon or labelled button", () => {
     renderWorkspace(projection({ stale: true }));
 
-    expect(
-      screen.getByRole("button", { name: "Edit Rule 1" }),
-    ).toHaveTextContent("Rule 1");
-    expect(
-      screen.getByRole("button", { name: "Repair Rule 1 (1 issue)" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit Rule 1" })).toHaveTextContent("Rule 1");
+    expect(screen.getByRole("button", { name: "Repair Rule 1 (1 issue)" })).toBeInTheDocument();
     for (const name of [
       "Disable Rule 1",
       "Move Rule 1 earlier",
@@ -391,30 +379,21 @@ describe("LearnerInteractionWorkspace", () => {
     expect(screen.getByRole("button", { name: "Save changes" })).toHaveFocus();
   });
 
-  it("previews only a clean saved Surface group and never submits the draft", async () => {
+  it("does not own Preview entry or submit a draft when configuring a rule", async () => {
     const user = userEvent.setup();
     const harness = renderWorkspace(projection());
 
-    await user.click(screen.getByRole("button", { name: "Preview interactions" }));
-    expect(harness.preview.load).toHaveBeenCalledWith({
-      document: harness.previewDocument,
-      surfaceId: IDS.surface,
-    });
+    expect(screen.queryByRole("button", { name: /preview interactions/i })).toBeNull();
+    expect(harness.preview.load).not.toHaveBeenCalled();
     expect(harness.saveDraft).not.toHaveBeenCalled();
-    expect(await screen.findByRole("button", { name: "Close interactions preview" })).toBeEnabled();
-
-    await user.click(screen.getByRole("button", { name: "Close interactions preview" }));
     await user.click(screen.getByRole("button", { name: "Edit Rule 1" }));
     await user.click(screen.getByLabelText("Rule enabled"));
-    expect(screen.getByRole("button", { name: "Preview interactions" })).toBeDisabled();
+    expect(harness.preview.load).not.toHaveBeenCalled();
   });
 
   it("keeps only the latest real turn and focuses its exact saved source", async () => {
     const user = userEvent.setup();
-    const harness = renderWorkspace(projection());
-    await user.click(screen.getByRole("button", { name: "Preview interactions" }));
-    await screen.findByRole("button", { name: "Close interactions preview" });
-
+    const harness = renderWorkspace(projection(), { previewActive: true });
     act(() => harness.preview.publish(report(1, IDS.firstRule)));
     expect(
       await screen.findByRole("region", { name: "Latest interaction turn" }),
@@ -427,6 +406,7 @@ describe("LearnerInteractionWorkspace", () => {
       "Turn 1",
     );
 
+    await user.click(screen.getByText("Turn 2 · Turn completed."));
     await user.click(screen.getByRole("button", { name: "Inspect Rule 2 command 1" }));
     expect(screen.getByRole("heading", { name: "Rule 2" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Then command 1" })).toContainElement(
@@ -435,11 +415,25 @@ describe("LearnerInteractionWorkspace", () => {
   });
 });
 
+/**
+ * Drives a Radix rule dropdown the way the primitive's own tests do: open
+ * the trigger, then pick the portalled option by its visible label.
+ */
+async function chooseRuleOption(
+  user: ReturnType<typeof userEvent.setup>,
+  triggerName: string,
+  optionName: string | RegExp,
+): Promise<void> {
+  await user.click(screen.getByRole("combobox", { name: triggerName }));
+  await user.click(await screen.findByRole("option", { name: optionName }));
+}
+
 function renderWorkspace(
   value: LearnerInteractionAuthoringProjection,
   options: {
     readonly saveResult?: LearnerInteractionAuthoringCommandResult<LearnerInteractionRuleId>;
     readonly setEnabledResult?: LearnerInteractionAuthoringCommandResult;
+    readonly previewActive?: boolean;
   } = {},
   wrap: (node: ReactNode) => ReactNode = (node) => node,
 ) {
@@ -465,15 +459,14 @@ function renderWorkspace(
   const onRemoveRule = vi.fn(
     (_ruleId: LearnerInteractionRuleId): LearnerInteractionAuthoringCommandResult => Result.ok(),
   );
-  const previewDocument = {} as ScaffoldDocumentContent;
   const preview = createPreviewHarness();
   render(
     wrap(
       <LearnerInteractionWorkspace
         controller={controller}
         projection={value}
-        previewController={preview.controller}
-        previewDocument={previewDocument}
+        previewReports={preview.reports}
+        previewActive={options.previewActive ?? false}
         onSetRuleEnabled={onSetRuleEnabled}
         onReorderRule={onReorderRule}
         onRemoveRule={onRemoveRule}
@@ -486,14 +479,15 @@ function renderWorkspace(
     onSetRuleEnabled,
     onReorderRule,
     onRemoveRule,
-    previewDocument,
     preview,
   };
 }
 
 function createPreviewHarness() {
   let publishReport: ((report: LearnerInteractionTurnReport) => void) | null = null;
-  const reportsPort = {
+  const reports: AuthorPreviewReports = {
+    getSnapshot: () => ({ status: "ready", surfaceId: IDS.surface }),
+    subscribe: () => () => undefined,
     subscribeReports(listener: (report: LearnerInteractionTurnReport) => void) {
       publishReport = listener;
       return () => {
@@ -501,19 +495,10 @@ function createPreviewHarness() {
       };
     },
   };
-  let owner: LearnerInteractionPreviewPortOwner;
-  const prepare = vi.fn(async () => {
-    queueMicrotask(() => owner.connect(reportsPort));
-    return Result.ok();
-  });
-  owner = new LearnerInteractionPreviewPortOwner({ prepare, close: vi.fn() });
-  const controller = new LearnerInteractionPreviewController({
-    port: owner,
-    close: () => owner.close(),
-  });
+  const load = vi.fn();
   return {
-    controller,
-    load: prepare,
+    reports,
+    load,
     publish(reportValue: LearnerInteractionTurnReport) {
       publishReport?.(reportValue);
     },

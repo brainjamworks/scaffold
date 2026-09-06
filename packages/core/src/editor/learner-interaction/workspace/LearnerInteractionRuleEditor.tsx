@@ -1,5 +1,7 @@
 import type { ControlStatePredicateV1, LearnerInteractionCommandV1 } from "@scaffold/contracts";
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { ArrowDownIcon, ArrowUpIcon, TrashIcon } from "@phosphor-icons/react";
+import { IconButton } from "@/ui/components/IconButton/IconButton";
 
 import type {
   LearnerInteractionAuthoringCommandError,
@@ -17,7 +19,9 @@ import type { LearnerInteractionCompileDiagnostic } from "@/learner-interaction/
 import type { LearnerInteractionWorkspaceController } from "./learner-interaction-workspace-controller";
 import { validateLearnerInteractionRuleDraft } from "../model";
 import { Button } from "@/ui/components/Button/Button";
+import { Checkbox } from "@/ui/components/Checkbox/Checkbox";
 import { Input } from "@/ui/components/Input/Input";
+import { Select } from "@/ui/components/Select/Select";
 
 export interface LearnerInteractionRuleEditorProps {
   readonly controller: LearnerInteractionWorkspaceController;
@@ -39,15 +43,22 @@ export function LearnerInteractionRuleEditor({
   errorCopy,
 }: LearnerInteractionRuleEditorProps) {
   const regionRef = useRef<HTMLElement>(null);
+  const [conditionsOpen, setConditionsOpen] = useState(false);
   const structuralDiagnostics = validateLearnerInteractionRuleDraft(draft);
   const saveError = controller.getSnapshot().saveError;
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!focusSource) return;
-    regionRef.current
-      ?.querySelector<HTMLElement>(`[data-learner-interaction-source="${focusSource}"]`)
-      ?.focus();
+    if (focusSource.startsWith("condition-") && !conditionsOpen) {
+      setConditionsOpen(true);
+      return;
+    }
+    const source = regionRef.current?.querySelector<HTMLElement>(
+      `[data-learner-interaction-source="${focusSource}"]`,
+    );
+    source?.focus();
+    source?.scrollIntoView?.({ block: "nearest" });
     onFocusComplete();
-  }, [focusSource, onFocusComplete]);
+  }, [focusSource, onFocusComplete, conditionsOpen]);
 
   const update = (patch: Partial<LearnerInteractionRuleDraft>) =>
     controller.updateDraft({ ...draft, ...patch });
@@ -58,251 +69,272 @@ export function LearnerInteractionRuleEditor({
   return (
     <section ref={regionRef} className="sc-learner-interactions-editor" aria-label="Rule editor">
       <header>
-        <h3>
+        <h2>
           {draft.ruleId === null
             ? "New rule"
             : `Rule ${projection.rules.findIndex(({ rule }) => rule.id === draft.ruleId) + 1}`}
-        </h3>
-        <label>
-          <input
-            aria-label="Rule enabled"
-            type="checkbox"
-            checked={draft.isEnabled}
-            onChange={(event) => update({ isEnabled: event.currentTarget.checked })}
-          />
-          Enabled
-        </label>
+        </h2>
+        {draft.ruleId === null ? (
+          <label>
+            <Checkbox
+              aria-label="Rule enabled"
+              checked={draft.isEnabled}
+              onCheckedChange={(checked) => update({ isEnabled: checked === true })}
+            />
+            Enabled
+          </label>
+        ) : null}
       </header>
 
-      <label>
-        When
-        <select
-          data-learner-interaction-source="when"
-          value={draft.when ? eventKey(draft.when.targetId, draft.when.type) : ""}
-          onChange={(event) => {
-            const option = projection.whenEvents.find(
-              (candidate) =>
-                eventKey(candidate.targetId, candidate.type) === event.currentTarget.value,
-            );
-            update({
-              when: option ? { targetId: option.targetId, type: option.type } : null,
-            });
-          }}
-        >
-          <option value="">Choose an event</option>
-          {projectedRule?.when.option.availability === "unavailable" &&
-          sameValue(draft.when, projectedRule.when.reference) ? (
-            <option
-              value={eventKey(projectedRule.when.option.targetId, projectedRule.when.option.type)}
-            >
-              Unavailable: {projectedRule.when.option.targetLabel} —{" "}
-              {projectedRule.when.option.label}
-            </option>
-          ) : null}
-          {projection.whenEvents.map((option) => (
-            <option
-              key={eventKey(option.targetId, option.type)}
-              value={eventKey(option.targetId, option.type)}
-            >
-              {option.targetLabel} — {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <SourceDiagnostics diagnostics={whenDiagnostics} />
+      <div className="sc-learner-interactions-reaction">
+        <div className="sc-learner-interactions-trigger-group">
+          <label className="sc-learner-interactions-when">
+            When
+            <Select
+              aria-label="When"
+              triggerProps={{ "data-learner-interaction-source": "when" }}
+              value={draft.when ? eventKey(draft.when.targetId, draft.when.type) : ""}
+              placeholder="Choose an event"
+              onChange={(next) => {
+                const option = projection.whenEvents.find(
+                  (candidate) => eventKey(candidate.targetId, candidate.type) === next,
+                );
+                update({
+                  when: option ? { targetId: option.targetId, type: option.type } : null,
+                });
+              }}
+              options={[
+                ...(projectedRule?.when.option.availability === "unavailable" &&
+                sameValue(draft.when, projectedRule.when.reference)
+                  ? [
+                      {
+                        value: eventKey(
+                          projectedRule.when.option.targetId,
+                          projectedRule.when.option.type,
+                        ),
+                        label: `Unavailable: ${projectedRule.when.option.targetLabel} — ${projectedRule.when.option.label}`,
+                      },
+                    ]
+                  : []),
+                ...projection.whenEvents.map((option) => ({
+                  value: eventKey(option.targetId, option.type),
+                  label:
+                    option.type === "selected"
+                      ? `${option.targetLabel} is selected`
+                      : `${option.targetLabel} — ${option.label}`,
+                })),
+              ]}
+            />
+          </label>
+          <SourceDiagnostics diagnostics={whenDiagnostics} />
 
-      <fieldset>
-        <legend>If all</legend>
-        {draft.conditions.map((condition, index) => {
-          const saved = projectedRule?.conditions[index];
-          const option =
-            projection.conditionStates.find(
-              (candidate) =>
-                candidate.targetId === condition.targetId && candidate.key === condition.key,
-            ) ?? (sameConditionValue(condition, saved?.predicate) ? saved?.option : undefined);
-          const diagnostics = sameConditionValue(condition, saved?.predicate)
-            ? (saved?.diagnostics ?? [])
-            : [];
-          return (
-            <fieldset key={index} aria-label={`Condition ${index + 1}`}>
-              <select
-                aria-label={`Condition ${index + 1} state`}
-                data-learner-interaction-source={`condition-${index}`}
-                value={stateKey(condition.targetId, condition.key)}
-                onChange={(event) => {
-                  const selected = projection.conditionStates.find(
+          <details
+            className="sc-learner-interactions-conditions"
+            open={conditionsOpen}
+            onToggle={(event) => setConditionsOpen(event.currentTarget.open)}
+          >
+            <summary>
+              {draft.conditions.length > 0
+                ? `Only if · ${draft.conditions.length} condition${draft.conditions.length === 1 ? "" : "s"}`
+                : "Add condition…"}
+            </summary>
+            <fieldset>
+              <legend>All conditions must match</legend>
+              {draft.conditions.map((condition, index) => {
+                const saved = projectedRule?.conditions[index];
+                const option =
+                  projection.conditionStates.find(
                     (candidate) =>
-                      stateKey(candidate.targetId, candidate.key) === event.currentTarget.value,
-                  );
-                  if (!selected?.valueType) return;
-                  replaceCondition(controller, draft, index, {
-                    targetId: selected.targetId,
-                    key: selected.key,
-                    operator: "equals",
-                    value: defaultValue(selected.valueType),
-                  });
-                }}
-              >
-                {option?.availability === "unavailable" ? (
-                  <option value={stateKey(option.targetId, option.key)}>
-                    Unavailable: {option.targetLabel} — {option.label}
-                  </option>
-                ) : null}
-                {projection.conditionStates.map((candidate) => (
-                  <option
-                    key={stateKey(candidate.targetId, candidate.key)}
-                    value={stateKey(candidate.targetId, candidate.key)}
-                  >
-                    {candidate.targetLabel} — {candidate.label}
-                  </option>
-                ))}
-              </select>
-              <select
-                aria-label={`Condition ${index + 1} comparison`}
-                value={condition.operator}
-                onChange={(event) =>
-                  replaceCondition(controller, draft, index, {
-                    ...condition,
-                    operator: event.currentTarget.value as "equals" | "not-equals",
-                  })
-                }
-              >
-                <option value="equals">equals</option>
-                <option value="not-equals">does not equal</option>
-              </select>
-              {option?.valueType ? (
-                <ControlValueField
-                  label={`Condition ${index + 1} value`}
-                  definition={option.valueType}
-                  value={condition.value}
-                  onChange={(value) =>
-                    replaceCondition(controller, draft, index, { ...condition, value })
-                  }
-                />
-              ) : (
-                <output aria-label={`Condition ${index + 1} unavailable value`}>
-                  {String(condition.value)}
-                </output>
-              )}
+                      candidate.targetId === condition.targetId && candidate.key === condition.key,
+                  ) ??
+                  (sameConditionValue(condition, saved?.predicate) ? saved?.option : undefined);
+                const diagnostics = sameConditionValue(condition, saved?.predicate)
+                  ? (saved?.diagnostics ?? [])
+                  : [];
+                return (
+                  <fieldset key={index} aria-label={`Condition ${index + 1}`}>
+                    <Select
+                      aria-label={`Condition ${index + 1} state`}
+                      triggerProps={{ "data-learner-interaction-source": `condition-${index}` }}
+                      value={stateKey(condition.targetId, condition.key)}
+                      onChange={(next) => {
+                        const selected = projection.conditionStates.find(
+                          (candidate) => stateKey(candidate.targetId, candidate.key) === next,
+                        );
+                        if (!selected?.valueType) return;
+                        replaceCondition(controller, draft, index, {
+                          targetId: selected.targetId,
+                          key: selected.key,
+                          operator: "equals",
+                          value: defaultValue(selected.valueType),
+                        });
+                      }}
+                      options={[
+                        ...(option?.availability === "unavailable"
+                          ? [
+                              {
+                                value: stateKey(option.targetId, option.key),
+                                label: `Unavailable: ${option.targetLabel} — ${option.label}`,
+                              },
+                            ]
+                          : []),
+                        ...projection.conditionStates.map((candidate) => ({
+                          value: stateKey(candidate.targetId, candidate.key),
+                          label: `${candidate.targetLabel} — ${candidate.label}`,
+                        })),
+                      ]}
+                    />
+                    <Select
+                      aria-label={`Condition ${index + 1} comparison`}
+                      value={condition.operator}
+                      onChange={(next) =>
+                        replaceCondition(controller, draft, index, {
+                          ...condition,
+                          operator: next as "equals" | "not-equals",
+                        })
+                      }
+                      options={[
+                        { value: "equals", label: "equals" },
+                        { value: "not-equals", label: "does not equal" },
+                      ]}
+                    />
+                    {option?.valueType ? (
+                      <ControlValueField
+                        label={`Condition ${index + 1} value`}
+                        definition={option.valueType}
+                        value={condition.value}
+                        onChange={(value) =>
+                          replaceCondition(controller, draft, index, { ...condition, value })
+                        }
+                      />
+                    ) : (
+                      <output aria-label={`Condition ${index + 1} unavailable value`}>
+                        {String(condition.value)}
+                      </output>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label={`Remove condition ${index + 1}`}
+                      onClick={() =>
+                        update({
+                          conditions: draft.conditions.filter(
+                            (_, candidate) => candidate !== index,
+                          ),
+                        })
+                      }
+                    >
+                      Remove
+                    </Button>
+                    <SourceDiagnostics diagnostics={diagnostics} />
+                  </fieldset>
+                );
+              })}
               <Button
                 size="sm"
                 variant="ghost"
-                aria-label={`Remove condition ${index + 1}`}
-                onClick={() =>
+                disabled={projection.conditionStates.length === 0}
+                onClick={() => {
+                  const option = projection.conditionStates[0];
+                  if (!option?.valueType) return;
                   update({
-                    conditions: draft.conditions.filter((_, candidate) => candidate !== index),
-                  })
-                }
+                    conditions: [
+                      ...draft.conditions,
+                      {
+                        targetId: option.targetId,
+                        key: option.key,
+                        operator: "equals",
+                        value: defaultValue(option.valueType),
+                      },
+                    ],
+                  });
+                }}
               >
-                Remove
+                Add condition
               </Button>
-              <SourceDiagnostics diagnostics={diagnostics} />
             </fieldset>
-          );
-        })}
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={projection.conditionStates.length === 0}
-          onClick={() => {
-            const option = projection.conditionStates[0];
-            if (!option?.valueType) return;
-            update({
-              conditions: [
-                ...draft.conditions,
-                {
-                  targetId: option.targetId,
-                  key: option.key,
-                  operator: "equals",
-                  value: defaultValue(option.valueType),
-                },
-              ],
-            });
-          }}
-        >
-          Add condition
-        </Button>
-      </fieldset>
-
-      <fieldset>
-        <legend>Then in order</legend>
-        {draft.commands.map((command, index) => (
-          <CommandRow
-            key={index}
-            command={command}
-            index={index}
-            draft={draft}
-            projection={projection}
-            projectedRule={projectedRule}
-            controller={controller}
-          />
-        ))}
-        <div className="sc-learner-interactions-add-command">
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={projection.revealTargets.length === 0}
-            onClick={() => {
-              const option = projection.revealTargets[0];
-              if (option)
-                update({
-                  commands: [
-                    ...draft.commands,
-                    { kind: "reveal-target", targetId: option.targetId },
-                  ],
-                });
-            }}
-          >
-            Add reveal
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={projection.targetCommands.length === 0}
-            onClick={() => {
-              const option = projection.targetCommands[0];
-              if (option) update({ commands: [...draft.commands, targetCommand(option)] });
-            }}
-          >
-            Add target command
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={projection.navigationSurfaces.length === 0}
-            onClick={() => {
-              const option = projection.navigationSurfaces[0];
-              if (option)
-                update({
-                  commands: [
-                    ...draft.commands,
-                    { kind: "navigate-surface", surfaceId: option.surfaceId },
-                  ],
-                });
-            }}
-          >
-            Add navigation
-          </Button>
+          </details>
         </div>
-      </fieldset>
 
-      {structuralDiagnostics.map((diagnostic) => (
-        <p key={diagnostic.reason} role="status">
-          {diagnostic.reason === "when-required"
-            ? "Choose a When event."
-            : "Add at least one Then command."}
-        </p>
-      ))}
+        <div className="sc-learner-interactions-response-group">
+          <fieldset className="sc-learner-interactions-responses">
+            <legend>Then</legend>
+            {draft.commands.map((command, index) => (
+              <CommandRow
+                key={index}
+                command={command}
+                index={index}
+                draft={draft}
+                projection={projection}
+                projectedRule={projectedRule}
+                controller={controller}
+              />
+            ))}
+          </fieldset>
+          <div className="sc-learner-interactions-add-command">
+            <Select
+              aria-label="Add response"
+              value=""
+              placeholder="+ Add response"
+              options={[
+                {
+                  value: "reveal",
+                  label: "Reveal content",
+                  disabled: projection.revealTargets.length === 0,
+                },
+                {
+                  value: "command",
+                  label: "Control a block",
+                  disabled: projection.targetCommands.length === 0,
+                },
+                {
+                  value: "navigate",
+                  label: "Go to a slide",
+                  disabled: projection.navigationSurfaces.length === 0,
+                },
+              ]}
+              onChange={(next) => {
+                if (next === "reveal") {
+                  const option = projection.revealTargets[0];
+                  if (option)
+                    update({
+                      commands: [
+                        ...draft.commands,
+                        { kind: "reveal-target", targetId: option.targetId },
+                      ],
+                    });
+                } else if (next === "command") {
+                  const option = projection.targetCommands[0];
+                  if (option) update({ commands: [...draft.commands, targetCommand(option)] });
+                } else if (next === "navigate") {
+                  const option = projection.navigationSurfaces[0];
+                  if (option)
+                    update({
+                      commands: [
+                        ...draft.commands,
+                        { kind: "navigate-surface", surfaceId: option.surfaceId },
+                      ],
+                    });
+                } else {
+                  throw new Error(`Unknown interaction response: ${next}`);
+                }
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
       {saveError ? <p role="alert">{errorCopy(saveError)}</p> : null}
       <div className="sc-learner-interactions-editor-actions">
         <Button
+          size="sm"
           variant="primary"
           disabled={structuralDiagnostics.length > 0}
           onClick={() => controller.save()}
         >
           Save rule
         </Button>
-        <Button variant="ghost" onClick={() => controller.discard()}>
+        <Button size="sm" variant="ghost" onClick={() => controller.discard()}>
           Discard draft
         </Button>
       </div>
@@ -333,50 +365,60 @@ function CommandRow({
   if (command.kind === "reveal-target") {
     const savedOption = saved?.kind === "reveal-target" ? saved.option : undefined;
     field = (
-      <select
+      <Select
         aria-label={`Command ${index + 1} reveal target`}
-        data-learner-interaction-source={`command-${index}`}
+        triggerProps={{ "data-learner-interaction-source": `command-${index}` }}
         value={command.targetId}
-        onChange={(event) =>
+        onChange={(next) =>
           replace({
             kind: "reveal-target",
-            targetId: event.currentTarget.value as typeof command.targetId,
+            targetId: next as typeof command.targetId,
           })
         }
-      >
-        {savedOption?.availability === "unavailable" ? (
-          <option value={savedOption.targetId}>Unavailable: {savedOption.label}</option>
-        ) : null}
-        {projection.revealTargets.map((option) => (
-          <option key={option.targetId} value={option.targetId}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        options={[
+          ...(savedOption?.availability === "unavailable"
+            ? [
+                {
+                  value: savedOption.targetId,
+                  label: `Unavailable: ${savedOption.label}`,
+                },
+              ]
+            : []),
+          ...projection.revealTargets.map((option) => ({
+            value: option.targetId,
+            label: `Reveal ${option.label}`,
+          })),
+        ]}
+      />
     );
   } else if (command.kind === "navigate-surface") {
     const savedOption = saved?.kind === "navigate-surface" ? saved.option : undefined;
     field = (
-      <select
+      <Select
         aria-label={`Command ${index + 1} navigation target`}
-        data-learner-interaction-source={`command-${index}`}
+        triggerProps={{ "data-learner-interaction-source": `command-${index}` }}
         value={command.surfaceId}
-        onChange={(event) =>
+        onChange={(next) =>
           replace({
             kind: "navigate-surface",
-            surfaceId: event.currentTarget.value as typeof command.surfaceId,
+            surfaceId: next as typeof command.surfaceId,
           })
         }
-      >
-        {savedOption?.availability === "unavailable" ? (
-          <option value={savedOption.surfaceId}>Unavailable: {savedOption.label}</option>
-        ) : null}
-        {projection.navigationSurfaces.map((option) => (
-          <option key={option.surfaceId} value={option.surfaceId}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        options={[
+          ...(savedOption?.availability === "unavailable"
+            ? [
+                {
+                  value: savedOption.surfaceId,
+                  label: `Unavailable: ${savedOption.label}`,
+                },
+              ]
+            : []),
+          ...projection.navigationSurfaces.map((option) => ({
+            value: option.surfaceId,
+            label: `Go to ${option.label}`,
+          })),
+        ]}
+      />
     );
   } else {
     const savedOption = saved?.kind === "target-command" ? saved.option : undefined;
@@ -388,32 +430,31 @@ function CommandRow({
       ) ?? savedOption;
     field = (
       <>
-        <select
+        <Select
           aria-label={`Command ${index + 1} target command`}
-          data-learner-interaction-source={`command-${index}`}
+          triggerProps={{ "data-learner-interaction-source": `command-${index}` }}
           value={targetCommandKey(command.command.targetId, command.command.type)}
-          onChange={(event) => {
+          onChange={(next) => {
             const selected = projection.targetCommands.find(
-              (candidate) =>
-                targetCommandKey(candidate.targetId, candidate.type) === event.currentTarget.value,
+              (candidate) => targetCommandKey(candidate.targetId, candidate.type) === next,
             );
             if (selected) replace(targetCommand(selected));
           }}
-        >
-          {option?.availability === "unavailable" ? (
-            <option value={targetCommandKey(option.targetId, option.type)}>
-              Unavailable: {option.targetLabel} — {option.label}
-            </option>
-          ) : null}
-          {projection.targetCommands.map((candidate) => (
-            <option
-              key={targetCommandKey(candidate.targetId, candidate.type)}
-              value={targetCommandKey(candidate.targetId, candidate.type)}
-            >
-              {candidate.targetLabel} — {candidate.label}
-            </option>
-          ))}
-        </select>
+          options={[
+            ...(option?.availability === "unavailable"
+              ? [
+                  {
+                    value: targetCommandKey(option.targetId, option.type),
+                    label: `Unavailable: ${option.targetLabel} — ${option.label}`,
+                  },
+                ]
+              : []),
+            ...projection.targetCommands.map((candidate) => ({
+              value: targetCommandKey(candidate.targetId, candidate.type),
+              label: `${candidate.label} ${candidate.targetLabel}`,
+            })),
+          ]}
+        />
         {option?.input ? (
           <ControlValueField
             label={`Command ${index + 1} input`}
@@ -430,42 +471,48 @@ function CommandRow({
     );
   }
   return (
-    <fieldset aria-label={`Then command ${index + 1}`}>
-      <legend>Then {index + 1}</legend>
+    <div
+      role="group"
+      className="sc-learner-interactions-command"
+      aria-label={`Then command ${index + 1}`}
+    >
       {field}
-      <Button
-        size="sm"
-        variant="ghost"
-        aria-label={`Move command ${index + 1} earlier`}
-        disabled={index === 0}
-        onClick={() => moveCommand(controller, draft, index, -1)}
-      >
-        Earlier
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        aria-label={`Move command ${index + 1} later`}
-        disabled={index === draft.commands.length - 1}
-        onClick={() => moveCommand(controller, draft, index, 1)}
-      >
-        Later
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        aria-label={`Remove command ${index + 1}`}
-        onClick={() =>
-          controller.updateDraft({
-            ...draft,
-            commands: draft.commands.filter((_, candidate) => candidate !== index),
-          })
-        }
-      >
-        Remove
-      </Button>
+      <div className="sc-learner-interactions-command-actions">
+        {draft.commands.length > 1 ? (
+          <>
+            <IconButton
+              size="sm"
+              aria-label={`Move command ${index + 1} earlier`}
+              disabled={index === 0}
+              onClick={() => moveCommand(controller, draft, index, -1)}
+            >
+              <ArrowUpIcon size={14} aria-hidden />
+            </IconButton>
+            <IconButton
+              size="sm"
+              aria-label={`Move command ${index + 1} later`}
+              disabled={index === draft.commands.length - 1}
+              onClick={() => moveCommand(controller, draft, index, 1)}
+            >
+              <ArrowDownIcon size={14} aria-hidden />
+            </IconButton>
+          </>
+        ) : null}
+        <IconButton
+          size="sm"
+          aria-label={`Remove command ${index + 1}`}
+          onClick={() =>
+            controller.updateDraft({
+              ...draft,
+              commands: draft.commands.filter((_, candidate) => candidate !== index),
+            })
+          }
+        >
+          <TrashIcon size={14} aria-hidden />
+        </IconButton>
+      </div>
       <SourceDiagnostics diagnostics={diagnostics} />
-    </fieldset>
+    </div>
   );
 }
 
@@ -487,15 +534,16 @@ function ControlValueField({
       <>
         <label>
           {label}
-          <select
+          <Select
             aria-label={label}
             value={isValid ? String(value) : ""}
-            onChange={(event) => onChange(event.currentTarget.value === "true")}
-          >
-            {invalidValue === null ? null : <option value="">Choose a replacement</option>}
-            <option value="false">False</option>
-            <option value="true">True</option>
-          </select>
+            placeholder="Choose a replacement"
+            onChange={(next) => onChange(next === "true")}
+            options={[
+              { value: "false", label: "False" },
+              { value: "true", label: "True" },
+            ]}
+          />
         </label>
         {invalidValue === null ? null : (
           <output aria-label={`${controlSourceLabel(label)} invalid saved value`}>
@@ -509,18 +557,16 @@ function ControlValueField({
       <>
         <label>
           {label}
-          <select
+          <Select
             aria-label={label}
             value={isValid ? String(value) : ""}
-            onChange={(event) => onChange(event.currentTarget.value)}
-          >
-            {invalidValue === null ? null : <option value="">Choose a replacement</option>}
-            {definition.options.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            placeholder="Choose a replacement"
+            onChange={onChange}
+            options={definition.options.map((option) => ({
+              value: option.value,
+              label: option.label,
+            }))}
+          />
         </label>
         {invalidValue === null ? null : (
           <output aria-label={`${controlSourceLabel(label)} invalid saved value`}>

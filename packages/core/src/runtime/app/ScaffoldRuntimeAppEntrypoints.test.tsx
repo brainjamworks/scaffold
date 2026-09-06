@@ -29,6 +29,8 @@ const props = {
 } as unknown as ScaffoldLearnerAppProps;
 const authorPreviewRuntimeMount = {
   initialSurfaceId: "surface00001",
+  executionEnabled: true,
+  onSurfaceChangeRequest: vi.fn(),
   programSource: vi.fn(),
   onPresentationPlaybackPortChange: vi.fn(),
   onLearnerInteractionReportsPortChange: vi.fn(),

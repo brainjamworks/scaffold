@@ -1,5 +1,4 @@
 import { animate as animeAnimate } from "animejs";
-import { createLayout as animeCreateLayout } from "animejs/layout";
 
 import type {
   VisualAnimationDriver,
@@ -12,41 +11,6 @@ interface AnimeAnimationHandle {
   seek(timeMs: number, muteCallbacks?: boolean): unknown;
   cancel(): unknown;
 }
-
-interface AnimeLayoutTimeline {
-  seek(timeMs: number, muteCallbacks?: boolean): unknown;
-  cancel(): unknown;
-  complete(muteCallbacks?: boolean): unknown;
-}
-
-interface AnimeLayout {
-  record(): unknown;
-  animate(parameters: Readonly<Record<string, unknown>>): AnimeLayoutTimeline;
-  revert(): unknown;
-}
-
-type AnimeCreateLayout = (
-  root: HTMLElement,
-  parameters?: Readonly<Record<string, unknown>>,
-) => AnimeLayout;
-
-export interface PresentationLayoutAnimationInput {
-  readonly root: HTMLElement;
-  readonly durationMs: number;
-  readonly easing: string;
-  readonly applyLayout: () => void;
-}
-
-export interface PresentationLayoutAnimationHandle {
-  apply(localTimeMs: number): void;
-  cancel(): void;
-  finish(): void;
-  dispose(): void;
-}
-
-export type PresentationLayoutAnimationFactory = (
-  input: PresentationLayoutAnimationInput,
-) => PresentationLayoutAnimationHandle;
 
 type AnimeAnimate = (
   element: HTMLElement,
@@ -94,77 +58,6 @@ export function createAnimeVisualAnimationDriver({
       });
     },
   });
-}
-
-export function createAnimePresentationLayoutAnimation(
-  input: PresentationLayoutAnimationInput,
-  {
-    createLayout = animeCreateLayout as unknown as AnimeCreateLayout,
-  }: { readonly createLayout?: AnimeCreateLayout } = {},
-): PresentationLayoutAnimationHandle {
-  if (!(input.root instanceof HTMLElement)) {
-    throw new Error("Presentation Layout animation requires one HTMLElement root.");
-  }
-  if (!Number.isSafeInteger(input.durationMs) || input.durationMs <= 0) {
-    throw new Error("Presentation Layout animation duration must be a positive safe integer.");
-  }
-  const layout = createLayout(input.root, { children: "*" });
-  layout.record();
-  try {
-    input.applyLayout();
-  } catch (error) {
-    layout.revert();
-    throw error;
-  }
-  return createPresentationLayoutAnimationHandle(
-    input,
-    layout,
-    layout.animate({
-      autoplay: false,
-      duration: input.durationMs,
-      ease: input.easing,
-    }),
-  );
-}
-
-function createPresentationLayoutAnimationHandle(
-  input: PresentationLayoutAnimationInput,
-  layout: AnimeLayout,
-  timeline: AnimeLayoutTimeline,
-): PresentationLayoutAnimationHandle {
-  let cancelled = false;
-  let finished = false;
-  let disposed = false;
-
-  return Object.freeze({
-    apply(localTimeMs: number): void {
-      assertLayoutHandleActive(disposed, "apply");
-      if (!Number.isFinite(localTimeMs) || localTimeMs < 0 || localTimeMs > input.durationMs) {
-        throw new Error("Presentation Layout animation received an invalid seek time.");
-      }
-      timeline.seek(localTimeMs, true);
-    },
-    cancel(): void {
-      if (disposed || cancelled || finished) return;
-      cancelled = true;
-      timeline.cancel();
-    },
-    finish(): void {
-      if (disposed || cancelled || finished) return;
-      finished = true;
-      timeline.complete(true);
-    },
-    dispose(): void {
-      if (disposed) return;
-      disposed = true;
-      if (!cancelled && !finished) timeline.cancel();
-      layout.revert();
-    },
-  });
-}
-
-function assertLayoutHandleActive(disposed: boolean, operation: string): void {
-  if (disposed) throw new Error(`Cannot ${operation} a disposed Presentation Layout animation.`);
 }
 
 function assertAnimationInput(input: VisualAnimationInput): void {

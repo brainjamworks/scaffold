@@ -57,6 +57,7 @@ export function createPresentationPreviewPlaybackPort({
       return Result.ok();
     },
     async seek(timeMs: number) {
+      controls.pause();
       const result = await seek(timeMs);
       if (result.isErr()) {
         if (result.error.reason === "seek-out-of-range") return Result.err(result.error);

@@ -37,7 +37,6 @@ import {
   type PresentationSurfaceRepositioner,
 } from "@/runtime/presentation/presentation-surface-repositioner";
 import { createAnimeVisualAnimationDriver } from "@/runtime/presentation/visual/anime-visual-animation-driver";
-import type { PresentationContentLayoutPort } from "@/runtime/presentation/visual/presentation-content-layout-port";
 import {
   createPresentationVisualRuntime,
   type PresentationVisualRuntime,
@@ -70,9 +69,9 @@ export interface CreateSlideshowSurfaceRuntimeCompositionInput {
   readonly requestSurfaceChange: RequestSurfaceChange;
   readonly surfaceRoot?: HTMLElement;
   readonly getPresentationMotionMode?: () => PresentationMotionMode;
-  readonly contentLayoutPort?: PresentationContentLayoutPort;
   readonly mediaPort?: Pick<MediaPort, "resolve"> | null;
   readonly createNarrationAudioElement?: () => HTMLAudioElement;
+  readonly executionEnabled?: boolean;
 }
 
 export type SlideshowPresentationNarrationError =
@@ -121,6 +120,7 @@ export interface SlideshowSurfaceRuntimeComposition {
   readonly presentationControls?: SlideshowPresentationControls;
   readonly presentationSurfaceExitGuard?: SurfaceExitGuard;
   readonly presentationVisualRuntime?: PresentationVisualRuntime;
+  setExecutionEnabled(enabled: boolean): void;
   seek?(timeMs: number): Promise<SlideshowPresentationSeekResult>;
   dispose(): void;
 }
@@ -134,9 +134,9 @@ export function createSlideshowSurfaceRuntimeComposition({
   requestSurfaceChange,
   surfaceRoot,
   getPresentationMotionMode,
-  contentLayoutPort,
   mediaPort = null,
   createNarrationAudioElement,
+  executionEnabled: initialExecutionEnabled = true,
 }: CreateSlideshowSurfaceRuntimeCompositionInput): SlideshowSurfaceRuntimeComposition {
   assertSlideshowSurfaceRuntimeProgramIdentity(surfaceId, program);
   const learnerRuntime = createSurfaceLearnerInteractionRuntime({
@@ -158,6 +158,7 @@ export function createSlideshowSurfaceRuntimeComposition({
       },
     },
     semanticInteractionOrigin: "learner-interaction-rule",
+    executionEnabled: initialExecutionEnabled,
   });
   let presentationSession: PresentationPlaybackSessionWithReplaceableClock | undefined;
   let narrationController: PresentationSurfaceNarrationController | undefined;
@@ -208,7 +209,6 @@ export function createSlideshowSurfaceRuntimeComposition({
         renderer: createPresentationVisualStateRenderer({
           resolver: createVisualTargetResolver(surfaceRoot),
           driver: createAnimeVisualAnimationDriver(),
-          ...(contentLayoutPort ? { contentLayoutPort } : {}),
         }),
         getMotionMode:
           getPresentationMotionMode ?? (() => resolvePresentationMotionMode(surfaceRoot)),
@@ -239,6 +239,7 @@ export function createSlideshowSurfaceRuntimeComposition({
     throw firstDefect;
   }
   let disposed = false;
+  let executionEnabled = initialExecutionEnabled;
   let presentationOperationGeneration = 0;
   let seekPresentation: SlideshowSurfaceRuntimeComposition["seek"];
   let disposePresentationCoordination = () => undefined;
@@ -301,15 +302,22 @@ export function createSlideshowSurfaceRuntimeComposition({
     };
     const playPresentation = async (): ReturnType<SlideshowPresentationControls["play"]> => {
       assertCompositionNotDisposed(disposed, "play");
+      if (!executionEnabled) return Result.ok();
       if (!narration || usingInternalClock) {
         session.play();
         return Result.ok();
       }
       const generation = ++presentationOperationGeneration;
       const loaded = await ensureNarrationLoaded();
+      if (disposed || generation !== presentationOperationGeneration || !executionEnabled) {
+        return Result.err(cancelledNarrationOperation(surfaceId, "play"));
+      }
       if (loaded.isErr()) return loaded;
       const played = await narration.play();
-      if (disposed || generation !== presentationOperationGeneration) return played;
+      if (disposed || generation !== presentationOperationGeneration || !executionEnabled) {
+        pauseNarration();
+        return Result.err(cancelledNarrationOperation(surfaceId, "play"));
+      }
       if (played.isErr()) {
         rememberNarrationError(played.error);
         return played;
@@ -322,12 +330,19 @@ export function createSlideshowSurfaceRuntimeComposition({
     };
     const advancePresentation = async (): ReturnType<SlideshowPresentationControls["advance"]> => {
       assertCompositionNotDisposed(disposed, "advance");
+      if (!executionEnabled) return Result.ok();
       if (!narration || usingInternalClock) return session.advance();
       const generation = ++presentationOperationGeneration;
       const loaded = await ensureNarrationLoaded();
+      if (disposed || generation !== presentationOperationGeneration || !executionEnabled) {
+        return Result.err(cancelledNarrationOperation(surfaceId, "play"));
+      }
       if (loaded.isErr()) return loaded;
       const played = await narration.play();
-      if (disposed || generation !== presentationOperationGeneration) return played;
+      if (disposed || generation !== presentationOperationGeneration || !executionEnabled) {
+        pauseNarration();
+        return Result.err(cancelledNarrationOperation(surfaceId, "play"));
+      }
       if (played.isErr()) {
         rememberNarrationError(played.error);
         return played;
@@ -437,6 +452,7 @@ export function createSlideshowSurfaceRuntimeComposition({
       advance: advancePresentation,
       continueWithoutNarration() {
         assertCompositionNotDisposed(disposed, "continue without narration in");
+        if (!executionEnabled) return;
         presentationOperationGeneration += 1;
         pauseNarration();
         session.useInternalClock();
@@ -511,6 +527,13 @@ export function createSlideshowSurfaceRuntimeComposition({
     ...(presentationSurfaceExitGuard ? { presentationSurfaceExitGuard } : {}),
     ...(presentationVisualRuntime ? { presentationVisualRuntime } : {}),
     ...(seekPresentation ? { seek: seekPresentation } : {}),
+    setExecutionEnabled(enabled: boolean) {
+      assertCompositionNotDisposed(disposed, "change execution for");
+      if (executionEnabled === enabled) return;
+      executionEnabled = enabled;
+      if (!enabled) presentationControls?.pause();
+      learnerRuntime.setExecutionEnabled(enabled);
+    },
     dispose() {
       if (disposed) return;
       disposed = true;
@@ -549,6 +572,13 @@ export function createSlideshowSurfaceRuntimeComposition({
       if (firstDefect !== undefined) throw firstDefect;
     },
   });
+}
+
+function cancelledNarrationOperation(
+  surfaceId: SurfaceId,
+  operation: "play",
+): PresentationSurfaceNarrationPlayError {
+  return Object.freeze({ reason: "cancelled", surfaceId, operation });
 }
 
 function assertCompositionNotDisposed(disposed: boolean, operation: string): void {

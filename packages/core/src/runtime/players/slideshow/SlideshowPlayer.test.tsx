@@ -640,7 +640,6 @@ describe("SlideshowPlayer", () => {
                       durationMs: 0,
                       targetById: new Map(),
                       segments: Object.freeze([]),
-                      sequenceContainers: Object.freeze([]),
                     }),
                   }),
                 }),
@@ -734,7 +733,6 @@ describe("SlideshowPlayer", () => {
                   durationMs: 0,
                   targetById: new Map(),
                   segments: [],
-                  sequenceContainers: [],
                 },
               },
             },
@@ -777,7 +775,6 @@ describe("SlideshowPlayer", () => {
                 durationMs: 4_000,
                 targetById: new Map(),
                 segments: [],
-                sequenceContainers: [],
               },
             },
           },
@@ -1619,7 +1616,7 @@ describe("SlideshowPlayer", () => {
     expect(menu.closest('[data-slideshow-overlay-owner="content"]')).toBeNull();
   });
 
-  it("hosts narrated play, pause and absolute progress through the composed Surface runtime", async () => {
+  it("hosts narrated play and pause in the slideshow pill without learner scrubbing", async () => {
     const user = userEvent.setup();
     const media = createTestNarrationAudio();
     vi.stubGlobal("Audio", function AudioStub() {
@@ -1637,19 +1634,14 @@ describe("SlideshowPlayer", () => {
     await waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
     media.confirmMetadata(10);
     const play = await screen.findByRole("button", { name: "Play presentation" });
+    expect(play.closest('[data-testid="slideshow-controls"]')).not.toBeNull();
+    expect(screen.queryByRole("slider", { name: "Presentation progress" })).toBeNull();
     await user.click(play);
     await waitFor(() => expect(media.play).toHaveBeenCalledOnce());
     expect(screen.getByRole("button", { name: "Play presentation" })).toBeInTheDocument();
     media.confirmPlay();
 
     await screen.findByRole("button", { name: "Pause presentation" });
-    const progress = screen.getByRole("slider", { name: "Presentation progress" });
-    expect(progress).toHaveAttribute("max", "10000");
-    fireEvent.change(progress, { target: { value: "4000" } });
-    await waitFor(() => expect(media.native.currentTime).toBe(4));
-    media.confirmSeek(4);
-    await waitFor(() => expect(media.play).toHaveBeenCalledTimes(2));
-    media.confirmPlay();
     expect(await screen.findByRole("button", { name: "Pause presentation" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Pause presentation" }));
     expect(await screen.findByRole("button", { name: "Play presentation" })).toBeInTheDocument();
@@ -1795,7 +1787,6 @@ function narratedSurfaceProgram(surfaceId: SurfaceId) {
           durationMs: 10_000,
           targetById: new Map(),
           segments: Object.freeze([]),
-          sequenceContainers: Object.freeze([]),
         }),
       }),
     }),

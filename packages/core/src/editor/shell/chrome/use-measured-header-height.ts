@@ -29,9 +29,8 @@ export function useMeasuredHeaderHeight(
       return;
     }
     applyHeight(header.getBoundingClientRect().height);
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      applyHeight(entry?.contentRect.height ?? header.getBoundingClientRect().height);
+    const observer = new ResizeObserver(() => {
+      applyHeight(header.getBoundingClientRect().height);
     });
     observer.observe(header);
     return () => observer.disconnect();

@@ -41,6 +41,8 @@ export interface EditorBottomPanelProps {
   readonly activeTabId: string;
   readonly onTabChange: (id: string) => void;
   readonly onClose: () => void;
+  /** App-owned controls that remain available while either tab is active. */
+  readonly headerActions?: ReactNode;
   /** Label for the tablist. */
   readonly tabsLabel: string;
   /** Label for the content region. Default "Bottom workspace". */
@@ -102,6 +104,7 @@ export function EditorBottomPanel({
   activeTabId,
   onTabChange,
   onClose,
+  headerActions,
   tabsLabel,
   regionLabel = "Bottom workspace",
   initialHeightPx = BOTTOM_WORKSPACE_DEFAULT_HEIGHT_PX,
@@ -257,7 +260,7 @@ export function EditorBottomPanel({
   return (
     <section
       ref={panelRef}
-      className="sc-editor-bottom-panel sc-editor-bottom-workspace"
+      className="sc-editor-bottom-panel"
       data-state={collapsed ? "collapsed" : "expanded"}
       style={
         {
@@ -268,7 +271,7 @@ export function EditorBottomPanel({
     >
       <button
         type="button"
-        className="sc-editor-bottom-panel-resize-handle sc-editor-bottom-workspace-resize-handle"
+        className="sc-editor-bottom-panel-resize-handle"
         role="separator"
         aria-label="Resize bottom workspace"
         aria-controls={contentId}
@@ -299,10 +302,10 @@ export function EditorBottomPanel({
             </button>
           ))}
         </div>
-        <div
-          className="sc-editor-bottom-panel-header-actions"
-          ref={setHeaderActionsElement}
-        />
+        <div className="sc-editor-bottom-panel-header-actions">
+          {headerActions}
+          <div ref={setHeaderActionsElement} />
+        </div>
         <IconButton
           size="sm"
           className="sc-editor-bottom-panel-close"
@@ -315,7 +318,7 @@ export function EditorBottomPanel({
       <div className="sc-editor-bottom-panel-status" ref={setStatusElement} />
       <div
         id={contentId}
-        className="sc-editor-bottom-panel-scroll sc-editor-bottom-workspace-scroll"
+        className="sc-editor-bottom-panel-scroll"
         role="region"
         aria-label={regionLabel}
         hidden={collapsed}

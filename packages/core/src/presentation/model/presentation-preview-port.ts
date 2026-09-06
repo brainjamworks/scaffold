@@ -1,12 +1,5 @@
-import type { EmbeddedNodeId, ScaffoldDocumentContent } from "@scaffold/contracts";
+import type { EmbeddedNodeId } from "@scaffold/contracts";
 import type { Result as ResultType } from "better-result";
-
-import type { PresentationCompilationError } from "./presentation-compiler";
-
-export interface PresentationPreviewDocument {
-  readonly document: ScaffoldDocumentContent;
-  readonly surfaceId: EmbeddedNodeId;
-}
 
 export type PresentationPreviewPhase =
   | "awaiting-start"
@@ -28,70 +21,17 @@ export type PresentationPreviewSnapshot =
       readonly phase: PresentationPreviewPhase;
       readonly currentTimeMs: number;
       readonly durationMs: number;
-    }
-  | {
-      readonly status: "error";
-      readonly surfaceId: EmbeddedNodeId;
-      readonly error: PresentationPreviewLoadError;
     };
-
-export type PresentationPreviewLoadError =
-  | PresentationCompilationError
-  | {
-      readonly reason: "preview-load-superseded";
-      readonly surfaceId: EmbeddedNodeId;
-    }
-  | {
-      readonly reason: "preview-not-slideshow";
-      readonly mode: "page";
-    }
-  | {
-      readonly reason: "preview-surface-not-current";
-      readonly surfaceId: EmbeddedNodeId;
-      readonly currentSurfaceIds: readonly EmbeddedNodeId[];
-    }
-  | {
-      readonly reason: "preview-surface-not-configured";
-      readonly surfaceId: EmbeddedNodeId;
-    }
-  | {
-      readonly reason: "preview-document-invalid";
-      readonly issues: readonly {
-        readonly path: readonly (string | number)[];
-        readonly message: string;
-      }[];
-    }
-  | { readonly reason: "preview-requires-scaffold-plus" }
-  | {
-      readonly reason: "preview-unsupported-core-format";
-      readonly documentVersion: number;
-      readonly supportedVersion: number;
-    }
-  | {
-      readonly reason: "preview-unavailable-content";
-      readonly unavailableContent: readonly {
-        readonly kind: "block" | "layout" | "surface";
-        readonly capabilityId: string;
-        readonly stableId: string;
-      }[];
-    }
-  | {
-      readonly reason: "preview-projection-warning";
-      readonly warningCount: number;
-    }
-  | { readonly reason: "preview-payload-too-large" }
-  | { readonly reason: "preview-runtime-unavailable"; readonly cause: unknown }
-  | { readonly reason: "preview-services-unavailable"; readonly cause: unknown };
 
 export type PresentationPreviewOperationError =
   | {
       readonly reason: "preview-not-ready";
       readonly operation: "play" | "pause" | "seek";
-      readonly status: Exclude<PresentationPreviewSnapshot["status"], "ready">;
+      readonly status: "idle" | "loading" | "error";
     }
   | {
       readonly reason: "preview-surface-mismatch";
-      readonly operation: "pause";
+      readonly operation: "play" | "pause" | "seek";
       readonly requestedSurfaceId: EmbeddedNodeId;
       readonly liveSurfaceId: EmbeddedNodeId;
     };
@@ -109,7 +49,6 @@ export interface PresentationPreviewSeekReport {
   readonly timeMs: number;
 }
 
-export type PresentationPreviewLoadResult = ResultType<void, PresentationPreviewLoadError>;
 export type PresentationPreviewOperationResult = ResultType<
   void,
   PresentationPreviewOperationError
@@ -125,9 +64,4 @@ export interface PresentationPreviewPlaybackPort {
   play(): PresentationPreviewOperationResult;
   pause(): PresentationPreviewOperationResult;
   seek(timeMs: number): Promise<PresentationPreviewSeekResult>;
-}
-
-/** Framework-neutral author-preview boundary. */
-export interface PresentationPreviewPort extends PresentationPreviewPlaybackPort {
-  loadCurrentDocument(input: PresentationPreviewDocument): Promise<PresentationPreviewLoadResult>;
 }

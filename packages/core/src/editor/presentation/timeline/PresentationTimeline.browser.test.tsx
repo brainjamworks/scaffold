@@ -5,15 +5,12 @@ import type {
   TimelineActionV1,
 } from "@scaffold/contracts";
 import { Editor, type JSONContent } from "@tiptap/core";
+import { UndoRedo } from "@tiptap/extensions";
 import { Result } from "better-result";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vite-plus/test";
 
-import type {
-  SemanticNavigationOptions,
-  SemanticNavigationResult,
-} from "@/document/authoring/semantic-document";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
@@ -21,24 +18,54 @@ import { EditorBottomPanel } from "@/editor/shell/chrome/EditorBottomPanel";
 import { EditorShell } from "@/editor/shell/chrome/EditorShell";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 
-import {
-  PresentationTimelineController,
-  type PresentationTimelineSemanticSelection,
-} from "./presentation-timeline-controller";
+import { PresentationTimelineController } from "./presentation-timeline-controller";
 import type { PresentationTimelineProjection } from "./presentation-timeline-projection";
 import { PresentationTimeline } from "./PresentationTimeline";
-import { PresentationPreviewController } from "../preview/presentation-preview-controller";
-import type {
-  PresentationPreviewDocument,
-  PresentationPreviewPort,
-  PresentationPreviewSnapshot,
-} from "@/presentation/model";
+import type { PresentationPreviewSnapshot } from "@/presentation/model";
+import type { AuthorPreviewTransport } from "@/editor/shell/authoring/author-preview-session-controller";
 
 const SURFACE_ID = nodeId("surface");
 const SELECTED_TARGET_ID = nodeId("target000001");
 const SECTION_ID = nodeId("section");
 
 describe("PresentationTimeline browser layout", () => {
+  it("keeps authoring controls reachable and tracks usable in a bounded panel", async () => {
+    const mounted = mountTimeline(965, 10_000, true, false, true, 360);
+    try {
+      await nextLayout();
+      const panel = requiredElement<HTMLElement>(mounted.host, ".sc-editor-bottom-panel");
+      requiredElement<HTMLElement>(mounted.host, '[aria-label="Add effect to"]');
+      const controls = requiredElement<HTMLElement>(
+        mounted.host,
+        ".sc-editor-bottom-panel-header-actions",
+      );
+      const zoom = requiredElement<HTMLElement>(mounted.host, '[aria-label="Zoom in"]');
+      expect(controls.scrollWidth).toBeLessThanOrEqual(controls.clientWidth + 1);
+      expect(zoom.getBoundingClientRect().right).toBeLessThanOrEqual(
+        panel.getBoundingClientRect().right,
+      );
+      const rows = requiredElement<HTMLElement>(
+        mounted.host,
+        ".sc-presentation-timeline-row-scroll",
+      );
+      expect(rows.clientHeight).toBeGreaterThanOrEqual(64);
+      const inspector = requiredElement<HTMLElement>(
+        mounted.host,
+        ".sc-presentation-action-editor",
+      );
+      const effect = requiredElement<HTMLElement>(inspector, 'select[name="effect"]');
+      const save = requiredElement<HTMLElement>(inspector, 'button[type="submit"]');
+      expect(effect.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+        panel.getBoundingClientRect().bottom,
+      );
+      expect(save.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+        panel.getBoundingClientRect().bottom,
+      );
+      expect(inspector.clientHeight).toBeGreaterThanOrEqual(100);
+    } finally {
+      mounted.destroy();
+    }
+  });
   it.each([
     ["short standard", 1_200, 2_000, false],
     ["long standard", 1_200, 120_000, true],
@@ -52,10 +79,10 @@ describe("PresentationTimeline browser layout", () => {
       try {
         await nextLayout();
         const { host } = mounted;
-        const workspace = requiredElement<HTMLElement>(host, ".sc-editor-bottom-workspace");
+        const workspace = requiredElement<HTMLElement>(host, ".sc-editor-bottom-panel");
         const workspaceScroll = requiredElement<HTMLElement>(
           host,
-          ".sc-editor-bottom-workspace-scroll",
+          ".sc-editor-bottom-panel-scroll",
         );
         const rowScroll = requiredElement<HTMLElement>(
           host,
@@ -158,7 +185,6 @@ describe("PresentationTimeline browser layout", () => {
       const pointedTimeAfter = (zoomed.viewportLeftPx + pointerX) / zoomed.pixelsPerSecond;
       expect(zoomed.pixelsPerSecond).toBeGreaterThan(initial.pixelsPerSecond);
       expect(pointedTimeAfter).toBeCloseTo(pointedTimeBefore, 5);
-      expect(mounted.semanticSelection.selectCalls).toEqual([]);
     } finally {
       mounted.destroy();
     }
@@ -200,6 +226,65 @@ describe("PresentationTimeline browser layout", () => {
           .left,
         1,
       );
+    } finally {
+      mounted.destroy();
+    }
+  });
+
+  it("keeps Preview selection local while an explicit Apply remains canonical and undoable", async () => {
+    const mounted = mountTimeline(1_200, 120_000, true, false, true);
+
+    try {
+      await nextLayout();
+      let documentWrites = 0;
+      mounted.editor!.on("transaction", ({ transaction }) => {
+        if (transaction.docChanged) documentWrites += 1;
+      });
+      const action = requiredElement<HTMLButtonElement>(
+        mounted.host,
+        '.sc-presentation-timeline-action[aria-label^="Emphasize"]',
+      );
+
+      action.click();
+      await nextLayout();
+
+      expect(mounted.controller.getSnapshot()).toMatchObject({
+        selectedTargetId: SELECTED_TARGET_ID,
+        selectedActionId: animateAction(120_000).id,
+      });
+      expect(documentWrites).toBe(0);
+      expect(mounted.previewPort?.playCalls).toBe(0);
+      expect(mounted.previewPort?.seekCalls).toEqual([]);
+      expect(mounted.previewPort?.getSnapshot()).toMatchObject({
+        status: "ready",
+        surfaceId: SURFACE_ID,
+        phase: "awaiting-start",
+      });
+
+      const effect = requiredElement<HTMLSelectElement>(mounted.host, 'select[name="effect"]');
+      effect.value = "pulse";
+      effect.dispatchEvent(new Event("change", { bubbles: true }));
+      const inspector = requiredElement<HTMLElement>(
+        mounted.host,
+        ".sc-presentation-action-editor",
+      );
+      const save = requiredElement<HTMLButtonElement>(inspector, 'button[type="submit"]');
+      const form = save.form;
+      if (!form) throw new Error("Expected the action Apply control to own a form.");
+      form.dispatchEvent(
+        new SubmitEvent("submit", { bubbles: true, cancelable: true, submitter: save }),
+      );
+      await nextLayout();
+
+      const applyError = mounted.host.querySelector<HTMLElement>('[role="alert"]');
+      if (applyError) throw new Error(`Action Apply failed: ${applyError.textContent}`);
+      expect(documentWrites).toBe(1);
+      expect(emphasizeEffect(presentationActions(mounted.editor!)[0]!)).toBe("pulse");
+      expect(mounted.editor!.commands.undo()).toBe(true);
+      expect(emphasizeEffect(presentationActions(mounted.editor!)[0]!)).toBe("outline");
+      expect(mounted.editor!.commands.redo()).toBe(true);
+      expect(emphasizeEffect(presentationActions(mounted.editor!)[0]!)).toBe("pulse");
+      expect(mounted.previewPort?.playCalls).toBe(0);
     } finally {
       mounted.destroy();
     }
@@ -405,26 +490,21 @@ function mountTimeline(
   authoring = false,
   withFeedbackAction = false,
   withPreview = false,
+  panelHeight = 240,
 ) {
   const host = document.createElement("div");
   host.style.width = `${hostWidth}px`;
   host.style.height = "640px";
   document.body.append(host);
-  const semanticSelection = new FakeSemanticSelection(SELECTED_TARGET_ID);
+  const currentProjection = projection(durationMs, 14, withFeedbackAction);
   const controller = new PresentationTimelineController({
-    semanticSelection,
+    initialProjection: currentProjection,
+    initialSelectedTargetId: SELECTED_TARGET_ID,
     initialViewport: { durationMs, viewportWidthPx: 500 },
     zoomBounds: { minPixelsPerSecond: 10, maxPixelsPerSecond: 200 },
   });
   const editor = authoring ? createAuthoringEditor(durationMs, withFeedbackAction) : null;
   const previewPort = withPreview ? new BrowserPreviewPort(durationMs) : null;
-  const previewController = previewPort
-    ? new PresentationPreviewController({ port: previewPort })
-    : null;
-  const previewDocument: PresentationPreviewDocument = {
-    document: { type: "doc" },
-    surfaceId: SURFACE_ID,
-  };
   const root = createRoot(host);
 
   flushSync(() => {
@@ -436,6 +516,7 @@ function mountTimeline(
         stage={<main>Stage</main>}
         bottomWorkspace={
           <EditorBottomPanel
+            initialHeightPx={panelHeight}
             tabsLabel="Surface workspace"
             activeTabId="timeline"
             onTabChange={() => undefined}
@@ -447,10 +528,10 @@ function mountTimeline(
                 content: (
                   <PresentationTimeline
                     controller={controller}
-                    {...(previewController
-                      ? { preview: { controller: previewController, document: previewDocument } }
+                    {...(previewPort
+                      ? { preview: { transport: previewPort, surfaceId: SURFACE_ID } }
                       : {})}
-                    projection={projection(durationMs, 14, withFeedbackAction)}
+                    projection={currentProjection}
                     {...(editor ? { editor } : {})}
                   />
                 ),
@@ -465,52 +546,48 @@ function mountTimeline(
   return {
     host,
     controller,
-    semanticSelection,
     editor,
     previewPort,
     destroy() {
       flushSync(() => root.unmount());
       controller.destroy();
-      previewController?.dispose();
       editor?.destroy();
       host.remove();
     },
   };
 }
 
-class BrowserPreviewPort implements PresentationPreviewPort {
+class BrowserPreviewPort implements AuthorPreviewTransport {
   readonly seekCalls: number[] = [];
   playCalls = 0;
-  #snapshot: PresentationPreviewSnapshot = { status: "idle" };
+  #snapshot: PresentationPreviewSnapshot;
   readonly #listeners = new Set<() => void>();
 
-  constructor(readonly durationMs: number) {}
+  constructor(readonly durationMs: number) {
+    this.#snapshot = {
+      status: "ready",
+      surfaceId: SURFACE_ID,
+      phase: "awaiting-start",
+      currentTimeMs: 0,
+      durationMs,
+    };
+  }
 
   getSnapshot = () => this.#snapshot;
   subscribe = (listener: () => void) => {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
   };
-  async loadCurrentDocument(input: PresentationPreviewDocument) {
-    this.publish({
-      status: "ready",
-      surfaceId: input.surfaceId,
-      phase: "awaiting-start",
-      currentTimeMs: 0,
-      durationMs: this.durationMs,
-    });
-    return Result.ok();
-  }
-  play() {
+  play(_surfaceId: EmbeddedNodeId) {
     this.playCalls += 1;
     this.publish({ ...this.requireReady(), phase: "playing" });
     return Result.ok();
   }
-  pause() {
+  pause(_surfaceId: EmbeddedNodeId) {
     this.publish({ ...this.requireReady(), phase: "paused" });
     return Result.ok();
   }
-  async seek(timeMs: number) {
+  async seek(_surfaceId: EmbeddedNodeId, timeMs: number) {
     this.seekCalls.push(timeMs);
     this.publish({ ...this.requireReady(), phase: "paused", currentTimeMs: timeMs });
     return Result.ok({ kind: "applied" as const, timeMs });
@@ -529,7 +606,10 @@ function createAuthoringEditor(durationMs: number, withFeedbackAction: boolean):
   const composition = createCoreScaffoldAuthoringComposition();
   return new Editor({
     editable: true,
-    extensions: createCourseDocumentAuthoringExtensions({ editable: true, composition }),
+    extensions: [
+      ...createCourseDocumentAuthoringExtensions({ editable: true, composition }),
+      UndoRedo,
+    ],
     content: authoringDocument(durationMs, withFeedbackAction),
   });
 }
@@ -602,6 +682,13 @@ function actionDuration(action: TimelineActionV1): number {
     return action.visual.transition.kind === "instant" ? 0 : action.visual.transition.durationMs;
   }
   return action.visual.durationMs;
+}
+
+function emphasizeEffect(action: TimelineActionV1): "outline" | "pulse" {
+  if (action.kind !== "animate" || action.visual.kind !== "emphasize") {
+    throw new Error("Expected an emphasize action.");
+  }
+  return action.visual.effect;
 }
 
 function projection(
@@ -685,33 +772,6 @@ function feedbackAction(): TimelineActionV1 {
       effect: "pulse",
     },
   };
-}
-
-class FakeSemanticSelection implements PresentationTimelineSemanticSelection {
-  readonly selectCalls: Array<{ id: EmbeddedNodeId; options: SemanticNavigationOptions }> = [];
-  readonly #listeners = new Set<() => void>();
-  #selectedId: EmbeddedNodeId | null;
-
-  constructor(selectedId: EmbeddedNodeId | null) {
-    this.#selectedId = selectedId;
-  }
-
-  getSnapshot = () => ({ selectedId: this.#selectedId });
-
-  subscribe = (listener: () => void) => {
-    this.#listeners.add(listener);
-    return () => this.#listeners.delete(listener);
-  };
-
-  async select(
-    id: EmbeddedNodeId,
-    options: SemanticNavigationOptions,
-  ): Promise<SemanticNavigationResult> {
-    this.selectCalls.push({ id, options });
-    this.#selectedId = id;
-    for (const listener of this.#listeners) listener();
-    return { kind: "reached", id };
-  }
 }
 
 async function nextLayout(): Promise<void> {

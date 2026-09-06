@@ -1,15 +1,6 @@
 import type { EmbeddedDataId, EmbeddedNodeId } from "@scaffold/contracts";
 
-import type {
-  SemanticNavigationOptions,
-  SemanticNavigationResult,
-} from "@/document/authoring/semantic-document";
-
-export interface PresentationTimelineSemanticSelection {
-  getSnapshot(): { readonly selectedId: EmbeddedNodeId | null };
-  subscribe(listener: () => void): () => void;
-  select(id: EmbeddedNodeId, options: SemanticNavigationOptions): Promise<SemanticNavigationResult>;
-}
+import type { PresentationTimelineProjection } from "./presentation-timeline-projection";
 
 export interface PresentationTimelineViewportGeometry {
   readonly durationMs: number;
@@ -57,32 +48,65 @@ export interface PresentationTimelineControllerSnapshot {
 }
 
 export interface CreatePresentationTimelineControllerInput {
-  readonly semanticSelection: PresentationTimelineSemanticSelection;
+  readonly initialProjection: PresentationTimelineProjection;
+  readonly initialSelectedTargetId?: EmbeddedNodeId | null;
   readonly initialViewport: PresentationTimelineViewportGeometry;
   readonly zoomBounds: PresentationTimelineZoomBounds;
 }
 
+export type PresentationTimelineSelectionOutcome =
+  | {
+      readonly kind: "target-selected";
+      readonly targetId: EmbeddedNodeId;
+    }
+  | {
+      readonly kind: "action-selected";
+      readonly actionId: EmbeddedDataId;
+      readonly targetId: EmbeddedNodeId;
+    }
+  | {
+      readonly kind: "target-not-found";
+      readonly surfaceId: EmbeddedNodeId;
+      readonly requestedTargetId: EmbeddedNodeId;
+    }
+  | {
+      readonly kind: "action-not-found";
+      readonly surfaceId: EmbeddedNodeId;
+      readonly requestedActionId: EmbeddedDataId;
+      readonly requestedTargetId: EmbeddedNodeId;
+    }
+  | {
+      readonly kind: "action-target-mismatch";
+      readonly surfaceId: EmbeddedNodeId;
+      readonly requestedActionId: EmbeddedDataId;
+      readonly requestedTargetId: EmbeddedNodeId;
+      readonly actualTargetId: EmbeddedNodeId;
+    };
+
 export class PresentationTimelineController {
   readonly #listeners = new Set<() => void>();
-  readonly #semanticSelection: PresentationTimelineSemanticSelection;
-  readonly #unsubscribeSemanticSelection: () => void;
   readonly #zoomBounds: PresentationTimelineZoomBounds;
-  #selectedActionTargetId: EmbeddedNodeId | null = null;
-  #selectionRequestToken = 0;
+  #projection: PresentationTimelineProjection;
+  #viewportGeometry: PresentationTimelineViewportGeometry;
   #snapshot: PresentationTimelineControllerSnapshot;
   #destroyed = false;
 
   constructor({
-    semanticSelection,
+    initialProjection,
+    initialSelectedTargetId,
     initialViewport,
     zoomBounds,
   }: CreatePresentationTimelineControllerInput) {
     assertZoomBounds(zoomBounds);
-    this.#semanticSelection = semanticSelection;
     this.#zoomBounds = Object.freeze({ ...zoomBounds });
+    this.#projection = initialProjection;
+    this.#viewportGeometry = Object.freeze({ ...initialViewport });
     const viewport = fitPresentationTimelineViewport(initialViewport, zoomBounds);
+    const selectedTargetId = initialSelectedTargetId ?? initialProjection.surfaceId;
     this.#snapshot = freezeSnapshot({
-      selectedTargetId: semanticSelection.getSnapshot().selectedId,
+      selectedTargetId: projectionHasTarget(initialProjection, selectedTargetId)
+        ? selectedTargetId
+        : null,
       selectedActionId: null,
       playheadDraftMs: 0,
       zoomMode: "fit",
@@ -90,9 +114,6 @@ export class PresentationTimelineController {
       viewportLeftPx: viewport.viewportLeftPx,
       editDraft: null,
     });
-    this.#unsubscribeSemanticSelection = semanticSelection.subscribe(
-      this.#handleSemanticSelectionChange,
-    );
   }
 
   readonly getSnapshot = (): PresentationTimelineControllerSnapshot => this.#snapshot;
@@ -107,35 +128,122 @@ export class PresentationTimelineController {
     return this.#snapshot.selectedTargetId === targetId;
   }
 
-  selectTarget(targetId: EmbeddedNodeId): Promise<SemanticNavigationResult> {
-    this.#selectionRequestToken += 1;
-    return this.#selectSemanticTarget(targetId);
-  }
-
-  async selectAction(
-    actionId: EmbeddedDataId,
-    targetId: EmbeddedNodeId,
-  ): Promise<SemanticNavigationResult> {
-    const token = ++this.#selectionRequestToken;
-    const result = await this.#selectSemanticTarget(targetId);
-    if (
-      token === this.#selectionRequestToken &&
-      result.kind === "reached" &&
-      result.id === targetId &&
-      this.#semanticSelection.getSnapshot().selectedId === targetId
-    ) {
-      this.#selectedActionTargetId = targetId;
-      this.#replaceSnapshot({
-        selectedActionId: actionId,
-        editDraft:
-          this.#snapshot.editDraft?.actionId === actionId ? this.#snapshot.editDraft : null,
+  selectTarget(targetId: EmbeddedNodeId): PresentationTimelineSelectionOutcome {
+    if (!projectionHasTarget(this.#projection, targetId)) {
+      return Object.freeze({
+        kind: "target-not-found",
+        surfaceId: this.#projection.surfaceId,
+        requestedTargetId: targetId,
       });
     }
-    return result;
+    this.#replaceSnapshot({
+      selectedTargetId: targetId,
+      selectedActionId: null,
+      editDraft: null,
+    });
+    return Object.freeze({ kind: "target-selected", targetId });
+  }
+
+  selectAction(
+    actionId: EmbeddedDataId,
+    targetId: EmbeddedNodeId,
+  ): PresentationTimelineSelectionOutcome {
+    if (!projectionHasTarget(this.#projection, targetId)) {
+      return Object.freeze({
+        kind: "target-not-found",
+        surfaceId: this.#projection.surfaceId,
+        requestedTargetId: targetId,
+      });
+    }
+    const actualTargetId = projectionActionTarget(this.#projection, actionId);
+    if (!actualTargetId) {
+      return Object.freeze({
+        kind: "action-not-found",
+        surfaceId: this.#projection.surfaceId,
+        requestedActionId: actionId,
+        requestedTargetId: targetId,
+      });
+    }
+    if (actualTargetId !== targetId) {
+      return Object.freeze({
+        kind: "action-target-mismatch",
+        surfaceId: this.#projection.surfaceId,
+        requestedActionId: actionId,
+        requestedTargetId: targetId,
+        actualTargetId,
+      });
+    }
+    this.#replaceSnapshot({
+      selectedTargetId: targetId,
+      selectedActionId: actionId,
+      editDraft: this.#snapshot.editDraft?.actionId === actionId ? this.#snapshot.editDraft : null,
+    });
+    return Object.freeze({ kind: "action-selected", actionId, targetId });
+  }
+
+  setSurface(projection: PresentationTimelineProjection): void {
+    if (this.#destroyed || projection.surfaceId === this.#projection.surfaceId) return;
+    this.#projection = projection;
+    this.#viewportGeometry = Object.freeze({
+      ...this.#viewportGeometry,
+      durationMs: projection.durationMs ?? 0,
+    });
+    const viewport = fitPresentationTimelineViewport(this.#viewportGeometry, this.#zoomBounds);
+    this.#replaceSnapshot({
+      selectedTargetId: projectionHasTarget(projection, projection.surfaceId)
+        ? projection.surfaceId
+        : null,
+      selectedActionId: null,
+      playheadDraftMs: 0,
+      zoomMode: "fit",
+      pixelsPerSecond: viewport.pixelsPerSecond,
+      viewportLeftPx: 0,
+      editDraft: null,
+    });
+  }
+
+  reconcileContent(projection: PresentationTimelineProjection): void {
+    if (this.#destroyed) return;
+    if (projection.surfaceId !== this.#projection.surfaceId) {
+      throw new Error(
+        `Presentation Timeline cannot reconcile Surface "${projection.surfaceId}" while owning "${this.#projection.surfaceId}".`,
+      );
+    }
+    this.#projection = projection;
+    this.#viewportGeometry = Object.freeze({
+      ...this.#viewportGeometry,
+      durationMs: projection.durationMs ?? 0,
+    });
+    const selectedTargetId = this.#snapshot.selectedTargetId;
+    const targetSurvives =
+      selectedTargetId !== null && projectionHasTarget(projection, selectedTargetId);
+    const selectedActionId = this.#snapshot.selectedActionId;
+    const actionSurvives =
+      targetSurvives &&
+      selectedActionId !== null &&
+      projectionActionTarget(projection, selectedActionId) === selectedTargetId;
+    const viewport =
+      this.#snapshot.zoomMode === "fit"
+        ? fitPresentationTimelineViewport(this.#viewportGeometry, this.#zoomBounds)
+        : {
+            pixelsPerSecond: this.#snapshot.pixelsPerSecond,
+            viewportLeftPx: clampViewportLeft(
+              this.#snapshot.viewportLeftPx,
+              this.#viewportGeometry,
+              this.#snapshot.pixelsPerSecond,
+            ),
+          };
+    this.#replaceSnapshot({
+      selectedTargetId: targetSurvives ? selectedTargetId : null,
+      selectedActionId: actionSurvives ? selectedActionId : null,
+      playheadDraftMs: clamp(this.#snapshot.playheadDraftMs, 0, this.#viewportGeometry.durationMs),
+      pixelsPerSecond: viewport.pixelsPerSecond,
+      viewportLeftPx: viewport.viewportLeftPx,
+      editDraft: actionSurvives ? this.#snapshot.editDraft : null,
+    });
   }
 
   clearActionSelection(): void {
-    this.#selectedActionTargetId = null;
     this.#replaceSnapshot({ selectedActionId: null, editDraft: null });
   }
 
@@ -146,6 +254,7 @@ export class PresentationTimelineController {
   }
 
   fit(geometry: PresentationTimelineViewportGeometry): void {
+    this.#viewportGeometry = Object.freeze({ ...geometry });
     const viewport = fitPresentationTimelineViewport(geometry, this.#zoomBounds);
     this.#replaceSnapshot({
       zoomMode: "fit",
@@ -160,6 +269,10 @@ export class PresentationTimelineController {
       "currentPixelsPerSecond" | "currentViewportLeftPx"
     >,
   ): void {
+    this.#viewportGeometry = Object.freeze({
+      durationMs: input.durationMs,
+      viewportWidthPx: input.viewportWidthPx,
+    });
     const viewport = zoomPresentationTimelineViewportAtPointer(
       {
         ...input,
@@ -178,6 +291,7 @@ export class PresentationTimelineController {
   setViewportLeft(leftPx: number, geometry: PresentationTimelineViewportGeometry): void {
     assertViewportGeometry(geometry);
     assertNonNegativeFinite(leftPx, "Presentation Timeline viewport offset");
+    this.#viewportGeometry = Object.freeze({ ...geometry });
     this.#replaceSnapshot({
       viewportLeftPx: clampViewportLeft(leftPx, geometry, this.#snapshot.pixelsPerSecond),
     });
@@ -203,27 +317,7 @@ export class PresentationTimelineController {
   destroy(): void {
     if (this.#destroyed) return;
     this.#destroyed = true;
-    this.#selectionRequestToken += 1;
-    this.#unsubscribeSemanticSelection();
     this.#listeners.clear();
-  }
-
-  readonly #handleSemanticSelectionChange = (): void => {
-    if (this.#destroyed) return;
-    const selectedTargetId = this.#semanticSelection.getSnapshot().selectedId;
-    const keepActionSelection = selectedTargetId === this.#selectedActionTargetId;
-    if (!keepActionSelection) this.#selectedActionTargetId = null;
-    this.#replaceSnapshot({
-      selectedTargetId,
-      ...(keepActionSelection ? {} : { selectedActionId: null, editDraft: null }),
-    });
-  };
-
-  #selectSemanticTarget(targetId: EmbeddedNodeId): Promise<SemanticNavigationResult> {
-    return this.#semanticSelection.select(targetId, {
-      origin: "presentation-timeline",
-      focusEditor: false,
-    });
   }
 
   #replaceSnapshot(patch: Partial<PresentationTimelineControllerSnapshot>): void {
@@ -242,6 +336,28 @@ export class PresentationTimelineController {
     this.#snapshot = freezeSnapshot(next);
     for (const listener of this.#listeners) listener();
   }
+}
+
+function projectionHasTarget(
+  projection: PresentationTimelineProjection,
+  targetId: EmbeddedNodeId,
+): boolean {
+  return projection.rows.some((row) => row.targetId === targetId);
+}
+
+function projectionActionTarget(
+  projection: PresentationTimelineProjection,
+  actionId: EmbeddedDataId,
+): EmbeddedNodeId | null {
+  let targetId: EmbeddedNodeId | null = null;
+  for (const row of projection.rows) {
+    if (!row.actions.some((action) => action.id === actionId)) continue;
+    if (targetId !== null) {
+      throw new Error(`Presentation Timeline action identity "${actionId}" is duplicated.`);
+    }
+    targetId = row.targetId;
+  }
+  return targetId;
 }
 
 export function fitPresentationTimelineViewport(

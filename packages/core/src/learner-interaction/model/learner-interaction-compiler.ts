@@ -16,7 +16,7 @@ import {
   isControlValueValid,
 } from "@/document/control-binding/control-value-validation";
 import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
-import type { SemanticDocumentSnapshot } from "@/document/model/semantic-document/semantic-document-snapshot";
+import type { DocumentTreeSnapshot } from "@/document/model/document-tree/document-tree-snapshot";
 
 import {
   createLearnerInteractionEventKey,
@@ -30,7 +30,7 @@ import {
 export interface CompileLearnerInteractionsInput {
   readonly configuration: LearnerInteractionConfigurationV1 | null;
   readonly courseStructure: ProjectedSlideshowCourseStructure;
-  readonly semanticSnapshot: SemanticDocumentSnapshot;
+  readonly semanticSnapshot: DocumentTreeSnapshot;
   readonly controlCapabilities: ControlCapabilityCatalogue;
 }
 
@@ -188,7 +188,7 @@ function compileEvent(
   reference: ControlEventReferenceV1,
   source: LearnerInteractionRuleSource,
   ruleSurfaceId: EmbeddedNodeId,
-  semanticSnapshot: SemanticDocumentSnapshot,
+  semanticSnapshot: DocumentTreeSnapshot,
   controlCapabilities: ControlCapabilityCatalogue,
   diagnostics: LearnerInteractionCompileDiagnostic[],
 ): CompiledControlEventReference | undefined {
@@ -233,7 +233,7 @@ function compileCondition(
   predicate: ControlStatePredicateV1,
   source: LearnerInteractionRuleSource,
   ruleSurfaceId: EmbeddedNodeId,
-  semanticSnapshot: SemanticDocumentSnapshot,
+  semanticSnapshot: DocumentTreeSnapshot,
   controlCapabilities: ControlCapabilityCatalogue,
   diagnostics: LearnerInteractionCompileDiagnostic[],
 ): CompiledControlStatePredicate | undefined {
@@ -296,7 +296,7 @@ function compileCommand(
   source: LearnerInteractionRuleSource,
   ruleSurfaceId: EmbeddedNodeId,
   courseStructure: ProjectedSlideshowCourseStructure,
-  semanticSnapshot: SemanticDocumentSnapshot,
+  semanticSnapshot: DocumentTreeSnapshot,
   controlCapabilities: ControlCapabilityCatalogue,
   diagnostics: LearnerInteractionCompileDiagnostic[],
 ): CompiledLearnerInteractionCommand | undefined {
@@ -380,7 +380,7 @@ function validateTargetSurface(
   targetId: EmbeddedNodeId,
   source: LearnerInteractionRuleSource,
   ruleSurfaceId: EmbeddedNodeId,
-  semanticSnapshot: SemanticDocumentSnapshot,
+  semanticSnapshot: DocumentTreeSnapshot,
   diagnostics: LearnerInteractionCompileDiagnostic[],
 ): boolean {
   if (!semanticSnapshot.itemById.has(targetId)) {

@@ -61,8 +61,8 @@ describe("EditorShell rail geometry", () => {
       const centre = host.querySelector<HTMLElement>(".sc-editor-centre");
       const stageColumn = host.querySelector<HTMLElement>(".sc-editor-stage-column");
       const stage = host.querySelector<HTMLElement>(".sc-editor-stage");
-      const workspace = host.querySelector<HTMLElement>(".sc-editor-bottom-workspace");
-      const workspaceScroll = host.querySelector<HTMLElement>(".sc-editor-bottom-workspace-scroll");
+      const workspace = host.querySelector<HTMLElement>(".sc-editor-bottom-panel");
+      const workspaceScroll = host.querySelector<HTMLElement>(".sc-editor-bottom-panel-scroll");
       const leftDock = host.querySelector<HTMLElement>('.sc-editor-dock-slot[data-side="left"]');
       const rightDock = host.querySelector<HTMLElement>('.sc-editor-dock-slot[data-side="right"]');
       if (
@@ -167,16 +167,17 @@ describe("EditorShell rail geometry", () => {
       flushSync(() => {
         root.render(
           <EditorShell
+            scrollModel="contained"
             stage={<main>Stage</main>}
             bottomWorkspace={timelinePanel()}
           />,
         );
       });
       const handle = host.querySelector<HTMLButtonElement>(
-        ".sc-editor-bottom-workspace-resize-handle",
+        ".sc-editor-bottom-panel-resize-handle",
       );
       const stage = host.querySelector<HTMLElement>(".sc-editor-stage");
-      const workspace = host.querySelector<HTMLElement>(".sc-editor-bottom-workspace");
+      const workspace = host.querySelector<HTMLElement>(".sc-editor-bottom-panel");
       if (!handle || !stage || !workspace) throw new Error("Expected short shell workspace.");
       flushSync(() => {
         handle.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
@@ -210,16 +211,17 @@ describe("EditorShell rail geometry", () => {
       flushSync(() => {
         root.render(
           <EditorShell
+            scrollModel="contained"
             stage={<main>Stage</main>}
             bottomWorkspace={timelinePanel()}
           />,
         );
       });
       const handle = host.querySelector<HTMLButtonElement>(
-        ".sc-editor-bottom-workspace-resize-handle",
+        ".sc-editor-bottom-panel-resize-handle",
       );
       const stage = host.querySelector<HTMLElement>(".sc-editor-stage");
-      const workspace = host.querySelector<HTMLElement>(".sc-editor-bottom-workspace");
+      const workspace = host.querySelector<HTMLElement>(".sc-editor-bottom-panel");
       if (!handle || !stage || !workspace) throw new Error("Expected short shell workspace.");
       handle.setPointerCapture = () => undefined;
 
@@ -312,15 +314,80 @@ describe("EditorShell rail geometry", () => {
           />,
         );
       });
-      const workspace = host.querySelector<HTMLElement>(".sc-editor-bottom-workspace");
+      const workspace = host.querySelector<HTMLElement>(".sc-editor-bottom-panel");
       if (!workspace) throw new Error("Expected the bottom workspace.");
 
       window.scrollTo(0, 800);
       const workspaceRect = workspace.getBoundingClientRect();
 
       expect(Math.abs(workspaceRect.bottom - window.innerHeight)).toBeLessThanOrEqual(1);
+
+      const stage = host.querySelector<HTMLElement>(".sc-editor-stage");
+      if (!stage) throw new Error("Expected the Stage.");
+      expect(getComputedStyle(stage).paddingBottom).toBe(
+        `${Math.round(workspaceRect.height)}px`,
+      );
     } finally {
       window.scrollTo(0, previousScrollY);
+      flushSync(() => root.unmount());
+      host.remove();
+    }
+  });
+
+  it("keeps 100%-height preview children at the full stage height under the pinned bar", () => {
+    const host = document.createElement("div");
+    host.style.width = "885px";
+    host.style.height = "783px";
+    document.body.append(host);
+    const root = createRoot(host);
+
+    try {
+      flushSync(() => {
+        root.render(
+          <div
+            className="sc-scaffold-authoring-workspace"
+            data-preview-mode="slideshow"
+            style={{ height: "100%" }}
+          >
+            <EditorShell
+              scrollModel="page"
+              stage={
+                <div data-testid="preview-chain" style={{ height: "100%" }}>
+                  <div data-testid="preview-child" style={{ height: "100%" }} />
+                </div>
+              }
+              bottomWorkspace={
+                <EditorBottomPanel
+                  tabsLabel="Surface workspace"
+                  tabs={[
+                    {
+                      id: "timeline",
+                      label: "Timeline",
+                      content: <section>Timeline workspace</section>,
+                    },
+                  ]}
+                  activeTabId="timeline"
+                  onTabChange={() => undefined}
+                  onClose={() => undefined}
+                  initialHeightPx={316}
+                />
+              }
+            />
+          </div>,
+        );
+      });
+
+      const stage = host.querySelector<HTMLElement>(".sc-editor-stage");
+      const child = host.querySelector<HTMLElement>("[data-testid='preview-child']");
+      const workspace = host.querySelector<HTMLElement>(".sc-editor-bottom-panel");
+      if (!stage || !child || !workspace) {
+        throw new Error("Expected the Stage, the preview child, and the bar.");
+      }
+
+      expect(Math.round(workspace.getBoundingClientRect().height)).toBe(316);
+      expect(getComputedStyle(stage).paddingBottom).toBe("0px");
+      expect(child.getBoundingClientRect().height).toBeCloseTo(stage.clientHeight, 0);
+    } finally {
       flushSync(() => root.unmount());
       host.remove();
     }

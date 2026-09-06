@@ -8,23 +8,16 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { EditorBottomPanel } from "@/editor/shell/chrome/EditorBottomPanel";
 
-import type {
-  SemanticNavigationOptions,
-  SemanticNavigationResult,
-} from "@/document/authoring/semantic-document";
-
 import {
   PresentationTimeline,
   PresentationTimelineController,
   type PresentationTimelineProjection,
-  type PresentationTimelineSemanticSelection,
 } from "./index";
-import { PresentationPreviewController } from "../preview/presentation-preview-controller";
 import type {
-  PresentationPreviewDocument,
-  PresentationPreviewPort,
+  PresentationPreviewOperationResult,
   PresentationPreviewSnapshot,
 } from "@/presentation/model";
+import type { AuthorPreviewTransport } from "@/editor/shell/authoring/author-preview-session-controller";
 
 const SURFACE_ID = nodeId("surface");
 const SECOND_SURFACE_ID = nodeId("surface-b");
@@ -35,16 +28,14 @@ const ACTION_B_ID = dataId("action-b");
 
 describe("PresentationTimeline", () => {
   it("renders a fixed target gutter, ruler, action layer, and only one expanded target", () => {
-    const semanticSelection = new FakeSemanticSelection(TARGET_A_ID);
-    const controller = createController(semanticSelection);
+    const editorNavigation = new FakeEditorNavigation(TARGET_A_ID);
+    const controller = createController(editorNavigation);
 
     const { container } = render(
       <PresentationTimeline controller={controller} projection={projection()} />,
     );
 
-    expect(
-      screen.getByRole("region", { name: "Presentation timeline" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Presentation timeline" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Timeline" })).toBeNull();
     expect(
       within(screen.getByRole("region", { name: "Presentation timeline" })).getByRole("button", {
@@ -76,13 +67,8 @@ describe("PresentationTimeline", () => {
 
   it("portals toolbar controls and transient errors into the panel slots", async () => {
     const user = userEvent.setup();
-    const controller = createController(new FakeSemanticSelection(TARGET_A_ID));
+    const controller = createController(new FakeEditorNavigation(TARGET_A_ID));
     const port = new FailingPlayPort();
-    const previewController = new PresentationPreviewController({ port });
-    const input: PresentationPreviewDocument = {
-      document: { type: "doc" },
-      surfaceId: SURFACE_ID,
-    };
     render(
       <EditorBottomPanel
         tabs={[
@@ -92,7 +78,7 @@ describe("PresentationTimeline", () => {
             content: (
               <PresentationTimeline
                 controller={controller}
-                preview={{ controller: previewController, document: input }}
+                preview={{ transport: port, surfaceId: SURFACE_ID }}
                 projection={projection()}
               />
             ),
@@ -106,15 +92,11 @@ describe("PresentationTimeline", () => {
     );
 
     const actions = document.querySelector(".sc-editor-bottom-panel-header-actions");
-    if (!actions) throw new Error("expected panel header actions slot");
-    expect(
-      within(actions).getByRole("button", { name: "Play preview" }),
-    ).toBeInTheDocument();
+    if (!(actions instanceof HTMLElement)) throw new Error("expected panel header actions slot");
+    expect(within(actions).getByRole("button", { name: "Play preview" })).toBeInTheDocument();
     expect(within(actions).getByRole("button", { name: "Fit timeline" })).toBeInTheDocument();
     expect(within(actions).getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
-    expect(
-      document.querySelector(".sc-presentation-timeline-toolbar"),
-    ).toBeNull();
+    expect(document.querySelector(".sc-presentation-timeline-toolbar")).toBeNull();
 
     await user.click(within(actions).getByRole("button", { name: "Play preview" }));
     const alert = await screen.findByRole("alert");
@@ -122,17 +104,16 @@ describe("PresentationTimeline", () => {
     expect(status).toContainElement(alert);
     expect(alert).toHaveTextContent("Preview is still preparing. Try again.");
     const header = document.querySelector(".sc-editor-bottom-panel-header");
-    if (!header) throw new Error("expected panel header row");
+    if (!(header instanceof HTMLElement)) throw new Error("expected panel header row");
     expect(within(header).queryByRole("alert")).toBeNull();
 
-    previewController.dispose();
     controller.destroy();
   });
 
-  it("delegates target and action navigation through the Timeline controller", async () => {
+  it("selects targets and actions locally without editor navigation", async () => {
     const user = userEvent.setup();
-    const semanticSelection = new FakeSemanticSelection(TARGET_A_ID);
-    const controller = createController(semanticSelection);
+    const editorNavigation = new FakeEditorNavigation(TARGET_A_ID);
+    const controller = createController(editorNavigation);
     const { container } = render(
       <PresentationTimeline controller={controller} projection={projection()} />,
     );
@@ -144,20 +125,14 @@ describe("PresentationTimeline", () => {
         "true",
       ),
     );
-    expect(semanticSelection.selectCalls[0]).toEqual({
-      id: TARGET_B_ID,
-      options: { origin: "presentation-timeline", focusEditor: false },
-    });
+    expect(editorNavigation.showTargetCalls).toEqual([]);
 
     const action = screen.getByRole("button", {
       name: /Reveal at 2 seconds on First target/,
     });
     await user.click(action);
     await waitFor(() => expect(action).toHaveAttribute("aria-pressed", "true"));
-    expect(semanticSelection.selectCalls[1]).toEqual({
-      id: TARGET_A_ID,
-      options: { origin: "presentation-timeline", focusEditor: false },
-    });
+    expect(editorNavigation.showTargetCalls).toEqual([]);
     expect(controller.getSnapshot()).toMatchObject({
       selectedTargetId: TARGET_A_ID,
       selectedActionId: ACTION_A_ID,
@@ -166,10 +141,10 @@ describe("PresentationTimeline", () => {
     controller.destroy();
   });
 
-  it("expands collapsed ancestors and reveals a target selected outside the Timeline", async () => {
+  it("expands collapsed ancestors and reveals a target selected locally", async () => {
     const user = userEvent.setup();
-    const semanticSelection = new FakeSemanticSelection(SURFACE_ID);
-    const controller = createController(semanticSelection);
+    const editorNavigation = new FakeEditorNavigation(SURFACE_ID);
+    const controller = createController(editorNavigation);
     const scrollIntoView = vi.fn();
     const originalScrollIntoView = Object.getOwnPropertyDescriptor(
       HTMLElement.prototype,
@@ -187,7 +162,7 @@ describe("PresentationTimeline", () => {
         screen.queryByRole("button", { name: "Select Second target" }),
       ).not.toBeInTheDocument();
 
-      semanticSelection.publish(TARGET_B_ID);
+      controller.selectTarget(TARGET_B_ID);
 
       const selected = await screen.findByRole("button", { name: "Select Second target" });
       expect(selected).toHaveAttribute("aria-pressed", "true");
@@ -208,8 +183,8 @@ describe("PresentationTimeline", () => {
 
   it("fits, zooms around the viewport centre, and shares horizontal scroll with the action layer", async () => {
     const user = userEvent.setup();
-    const semanticSelection = new FakeSemanticSelection(TARGET_A_ID);
-    const controller = createController(semanticSelection);
+    const editorNavigation = new FakeEditorNavigation(TARGET_A_ID);
+    const controller = createController(editorNavigation);
     const { container } = render(
       <PresentationTimeline controller={controller} projection={projection()} />,
     );
@@ -252,8 +227,8 @@ describe("PresentationTimeline", () => {
   });
 
   it("seeks the draft playhead by ruler pointer and keyboard without selecting content", () => {
-    const semanticSelection = new FakeSemanticSelection(TARGET_A_ID);
-    const controller = createController(semanticSelection);
+    const editorNavigation = new FakeEditorNavigation(TARGET_A_ID);
+    const controller = createController(editorNavigation);
     render(<PresentationTimeline controller={controller} projection={projection()} />);
     const playhead = screen.getByRole("slider", {
       name: "Timeline playhead",
@@ -278,13 +253,13 @@ describe("PresentationTimeline", () => {
     expect(playhead).toHaveAttribute("aria-valuenow", "1100");
     fireEvent.keyDown(playhead, { key: "End" });
     expect(playhead).toHaveAttribute("aria-valuenow", "10000");
-    expect(semanticSelection.selectCalls).toEqual([]);
+    expect(editorNavigation.showTargetCalls).toEqual([]);
 
     controller.destroy();
   });
 
   it("clamps the local playhead when the current Surface duration becomes shorter", async () => {
-    const controller = createController(new FakeSemanticSelection(TARGET_A_ID));
+    const controller = createController(new FakeEditorNavigation(TARGET_A_ID));
     controller.setPlayheadDraft(9_000, 10_000);
     const { rerender } = render(
       <PresentationTimeline controller={controller} projection={projection()} />,
@@ -299,8 +274,43 @@ describe("PresentationTimeline", () => {
     controller.destroy();
   });
 
+  it("reconciles canonical removal and undo projections without silently restoring selection", async () => {
+    const controller = createController(new FakeEditorNavigation(TARGET_A_ID));
+    controller.selectAction(ACTION_A_ID, TARGET_A_ID);
+    controller.setEditDraft({ kind: "move-action", actionId: ACTION_A_ID, atMs: 2_500 });
+    const { rerender } = render(
+      <PresentationTimeline controller={controller} projection={projection()} />,
+    );
+
+    rerender(
+      <PresentationTimeline
+        controller={controller}
+        projection={projectionWithoutSelectedAction()}
+      />,
+    );
+    await waitFor(() =>
+      expect(controller.getSnapshot()).toMatchObject({
+        selectedTargetId: TARGET_A_ID,
+        selectedActionId: null,
+        editDraft: null,
+      }),
+    );
+
+    rerender(<PresentationTimeline controller={controller} projection={projection()} />);
+    await waitFor(() => expect(controller.getSnapshot().selectedActionId).toBeNull());
+
+    rerender(
+      <PresentationTimeline
+        controller={controller}
+        projection={projectionWithoutSelectedTarget()}
+      />,
+    );
+    await waitFor(() => expect(controller.getSnapshot().selectedTargetId).toBeNull());
+    controller.destroy();
+  });
+
   it("resets the local playhead when the current Surface identity changes", async () => {
-    const controller = createController(new FakeSemanticSelection(TARGET_A_ID));
+    const controller = createController(new FakeEditorNavigation(TARGET_A_ID));
     controller.setPlayheadDraft(9_000, 10_000);
     const { rerender } = render(
       <PresentationTimeline controller={controller} projection={projection()} />,
@@ -323,25 +333,19 @@ describe("PresentationTimeline", () => {
 
   it("routes Play, Pause, and playhead seeks through the isolated preview controller", async () => {
     const user = userEvent.setup();
-    const semanticSelection = new FakeSemanticSelection(TARGET_A_ID);
-    const controller = createController(semanticSelection);
+    const editorNavigation = new FakeEditorNavigation(TARGET_A_ID);
+    const controller = createController(editorNavigation);
     const port = new FakePreviewPort();
-    const previewController = new PresentationPreviewController({ port });
-    const input: PresentationPreviewDocument = {
-      document: { type: "doc" },
-      surfaceId: SURFACE_ID,
-    };
     render(
       <PresentationTimeline
         controller={controller}
-        preview={{ controller: previewController, document: input }}
+        preview={{ transport: port, surfaceId: SURFACE_ID }}
         projection={projection()}
       />,
     );
 
     await user.click(screen.getByRole("button", { name: "Play preview" }));
     await waitFor(() => expect(port.playCalls).toBe(1));
-    expect(port.loadCalls).toEqual([input]);
     expect(screen.getByRole("button", { name: "Pause preview" })).toBeInTheDocument();
 
     const playhead = screen.getByRole("slider", { name: "Timeline playhead" });
@@ -360,23 +364,34 @@ describe("PresentationTimeline", () => {
     await user.click(screen.getByRole("button", { name: "Pause preview" }));
     expect(port.pauseCalls).toBe(1);
 
-    previewController.dispose();
     controller.destroy();
   });
 
-  it("reloads its selected Surface instead of controlling a navigated preview Surface", async () => {
-    const user = userEvent.setup();
-    const controller = createController(new FakeSemanticSelection(TARGET_A_ID));
+  it("preserves the local playhead when paused Preview first becomes ready", async () => {
+    const controller = createController(new FakeEditorNavigation(TARGET_A_ID));
+    controller.setPlayheadDraft(2_500, 10_000);
     const port = new FakePreviewPort();
-    const previewController = new PresentationPreviewController({ port });
-    const input: PresentationPreviewDocument = {
-      document: { type: "doc" },
-      surfaceId: SURFACE_ID,
-    };
     render(
       <PresentationTimeline
         controller={controller}
-        preview={{ controller: previewController, document: input }}
+        projection={projection()}
+        preview={{ transport: port, surfaceId: SURFACE_ID, active: true }}
+      />,
+    );
+
+    expect(controller.getSnapshot().playheadDraftMs).toBe(2_500);
+    expect(port.playCalls).toBe(0);
+    controller.destroy();
+  });
+
+  it("refuses stale controls instead of controlling a different Preview Surface", async () => {
+    const user = userEvent.setup();
+    const controller = createController(new FakeEditorNavigation(TARGET_A_ID));
+    const port = new FakePreviewPort();
+    render(
+      <PresentationTimeline
+        controller={controller}
+        preview={{ transport: port, surfaceId: SURFACE_ID }}
         projection={projection()}
       />,
     );
@@ -391,7 +406,7 @@ describe("PresentationTimeline", () => {
     });
     const play = await screen.findByRole("button", { name: "Play preview" });
     await user.click(play);
-    await waitFor(() => expect(port.loadCalls).toEqual([input, input]));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Preview moved to another slide");
     expect(port.pauseCalls).toBe(0);
 
     port.publish({
@@ -404,21 +419,19 @@ describe("PresentationTimeline", () => {
     fireEvent.keyDown(screen.getByRole("slider", { name: "Timeline playhead" }), {
       key: "ArrowRight",
     });
-    await waitFor(() => expect(port.loadCalls).toEqual([input, input, input]));
-    expect(port.seekCalls).toEqual([100]);
+    expect(port.seekCalls).toEqual([]);
 
-    previewController.dispose();
     controller.destroy();
   });
 
   it("derives distinct alignment and overlap feedback only while a draft exists", async () => {
-    const semanticSelection = new FakeSemanticSelection(TARGET_A_ID);
-    const controller = createController(semanticSelection);
+    const editorNavigation = new FakeEditorNavigation(TARGET_A_ID);
+    const controller = createController(editorNavigation);
     const currentProjection = projectionWithSecondAction();
     const { container } = render(
       <PresentationTimeline controller={controller} projection={currentProjection} />,
     );
-    await controller.selectAction(ACTION_A_ID, TARGET_A_ID);
+    controller.selectAction(ACTION_A_ID, TARGET_A_ID);
 
     controller.setEditDraft({ kind: "move-action", actionId: ACTION_A_ID, atMs: 2_925 });
     await waitFor(() =>
@@ -449,9 +462,10 @@ describe("PresentationTimeline", () => {
   });
 });
 
-function createController(semanticSelection: PresentationTimelineSemanticSelection) {
+function createController(editorNavigation: FakeEditorNavigation) {
   return new PresentationTimelineController({
-    semanticSelection,
+    initialProjection: projection(),
+    initialSelectedTargetId: editorNavigation.selectedId,
     initialViewport: { durationMs: 10_000, viewportWidthPx: 500 },
     zoomBounds: { minPixelsPerSecond: 10, maxPixelsPerSecond: 200 },
   });
@@ -514,6 +528,24 @@ function projectionForSurface(
       targetId: row.targetId === SURFACE_ID ? surfaceId : row.targetId,
       parentTargetId: row.parentTargetId === SURFACE_ID ? surfaceId : row.parentTargetId,
     })),
+  };
+}
+
+function projectionWithoutSelectedAction(): PresentationTimelineProjection {
+  const current = projection();
+  return {
+    ...current,
+    orderedActionIds: [],
+    rows: current.rows.map((row) => (row.targetId === TARGET_A_ID ? { ...row, actions: [] } : row)),
+  };
+}
+
+function projectionWithoutSelectedTarget(): PresentationTimelineProjection {
+  const current = projection();
+  return {
+    ...current,
+    orderedActionIds: [],
+    rows: current.rows.filter((row) => row.targetId !== TARGET_A_ID),
   };
 }
 
@@ -583,44 +615,26 @@ function capabilities(visualActionIds: readonly ("reveal" | "emphasize")[] = [])
   };
 }
 
-class FakeSemanticSelection implements PresentationTimelineSemanticSelection {
-  readonly selectCalls: Array<{ id: EmbeddedNodeId; options: SemanticNavigationOptions }> = [];
-  readonly #listeners = new Set<() => void>();
-  #selectedId: EmbeddedNodeId | null;
+class FakeEditorNavigation {
+  readonly showTargetCalls: readonly never[] = [];
+  readonly selectedId: EmbeddedNodeId | null;
 
   constructor(selectedId: EmbeddedNodeId | null) {
-    this.#selectedId = selectedId;
-  }
-
-  getSnapshot = () => ({ selectedId: this.#selectedId });
-
-  subscribe = (listener: () => void) => {
-    this.#listeners.add(listener);
-    return () => this.#listeners.delete(listener);
-  };
-
-  async select(
-    id: EmbeddedNodeId,
-    options: SemanticNavigationOptions,
-  ): Promise<SemanticNavigationResult> {
-    this.selectCalls.push({ id, options });
-    this.#selectedId = id;
-    for (const listener of this.#listeners) listener();
-    return { kind: "reached", id };
-  }
-
-  publish(id: EmbeddedNodeId | null): void {
-    this.#selectedId = id;
-    for (const listener of this.#listeners) listener();
+    this.selectedId = selectedId;
   }
 }
 
-class FakePreviewPort implements PresentationPreviewPort {
-  readonly loadCalls: PresentationPreviewDocument[] = [];
+class FakePreviewPort implements AuthorPreviewTransport {
   readonly seekCalls: number[] = [];
   playCalls = 0;
   pauseCalls = 0;
-  #snapshot: PresentationPreviewSnapshot = { status: "idle" };
+  #snapshot: PresentationPreviewSnapshot = {
+    status: "ready",
+    surfaceId: SURFACE_ID,
+    phase: "awaiting-start",
+    currentTimeMs: 0,
+    durationMs: 10_000,
+  };
   readonly #listeners = new Set<() => void>();
 
   getSnapshot = () => this.#snapshot;
@@ -628,30 +642,25 @@ class FakePreviewPort implements PresentationPreviewPort {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
   };
-  async loadCurrentDocument(input: PresentationPreviewDocument) {
-    this.loadCalls.push(input);
-    this.publish({
-      status: "ready",
-      surfaceId: input.surfaceId,
-      phase: "awaiting-start",
-      currentTimeMs: 0,
-      durationMs: 10_000,
-    });
-    return Result.ok();
-  }
-  play() {
+  play(surfaceId: EmbeddedNodeId): PresentationPreviewOperationResult {
+    const mismatch = this.surfaceMismatch("play", surfaceId);
+    if (mismatch) return mismatch;
     this.playCalls += 1;
     const snapshot = this.requireReady();
     this.publish({ ...snapshot, phase: "playing" });
     return Result.ok();
   }
-  pause() {
+  pause(surfaceId: EmbeddedNodeId) {
+    const mismatch = this.surfaceMismatch("pause", surfaceId);
+    if (mismatch) return mismatch;
     this.pauseCalls += 1;
     const snapshot = this.requireReady();
     this.publish({ ...snapshot, phase: "paused" });
     return Result.ok();
   }
-  async seek(timeMs: number) {
+  async seek(surfaceId: EmbeddedNodeId, timeMs: number) {
+    const mismatch = this.surfaceMismatch("seek", surfaceId);
+    if (mismatch) return mismatch;
     this.seekCalls.push(timeMs);
     const snapshot = this.requireReady();
     this.publish({ ...snapshot, currentTimeMs: timeMs, phase: "paused" });
@@ -665,12 +674,27 @@ class FakePreviewPort implements PresentationPreviewPort {
     if (this.#snapshot.status !== "ready") throw new Error("Expected ready preview.");
     return this.#snapshot;
   }
+  private surfaceMismatch(operation: "play" | "pause" | "seek", surfaceId: EmbeddedNodeId) {
+    const snapshot = this.requireReady();
+    return snapshot.surfaceId === surfaceId
+      ? null
+      : Result.err({
+          reason: "preview-surface-mismatch" as const,
+          operation,
+          requestedSurfaceId: surfaceId,
+          liveSurfaceId: snapshot.surfaceId,
+        });
+  }
 }
 
 class FailingPlayPort extends FakePreviewPort {
-  override play() {
+  override play(_surfaceId: EmbeddedNodeId): PresentationPreviewOperationResult {
     this.playCalls += 1;
-    return Result.err({ reason: "preview-not-ready" as const });
+    return Result.err({
+      reason: "preview-not-ready" as const,
+      operation: "play" as const,
+      status: "idle" as const,
+    });
   }
 }
 

@@ -1,22 +1,16 @@
-import type { LearnerInteractionRuleId, ScaffoldDocumentContent } from "@scaffold/contracts";
+import type { LearnerInteractionRuleId } from "@scaffold/contracts";
 import { useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 import {
-  validateLearnerInteractionRuleDraft,
   type LearnerInteractionAuthoringCommandError,
   type LearnerInteractionAuthoringCommandResult,
   type LearnerInteractionAuthoringProjection,
   type ProjectedLearnerInteractionRule,
 } from "../model";
-import {
-  projectLearnerInteractionPreviewReport,
-  type LearnerInteractionPreviewController,
-} from "../preview";
-import type {
-  LearnerInteractionPreviewLoadError,
-  LearnerInteractionTurnReport,
-} from "@/learner-interaction/model";
+import { projectLearnerInteractionPreviewReport } from "../preview";
+import type { AuthorPreviewReports } from "@/editor/shell/authoring/author-preview-session-controller";
+import type { LearnerInteractionTurnReport } from "@/learner-interaction/model";
 import type {
   LearnerInteractionContextChange,
   LearnerInteractionWorkspaceController,
@@ -33,6 +27,7 @@ import {
 import { AppDialog } from "@/ui/components/app/AppDialog/AppDialog";
 import { Button } from "@/ui/components/Button/Button";
 import { IconButton } from "@/ui/components/IconButton/IconButton";
+import { Checkbox } from "@/ui/components/Checkbox/Checkbox";
 import { BottomPanelSlotsContext } from "@/editor/shell/chrome/EditorBottomPanel";
 import { iconXs } from "@/ui/tokens/icon-sizes";
 import "./LearnerInteractionWorkspace.css";
@@ -40,8 +35,8 @@ import "./LearnerInteractionWorkspace.css";
 export interface LearnerInteractionWorkspaceProps {
   readonly controller: LearnerInteractionWorkspaceController;
   readonly projection: LearnerInteractionAuthoringProjection;
-  readonly previewController: LearnerInteractionPreviewController;
-  readonly previewDocument: ScaffoldDocumentContent;
+  readonly previewReports: AuthorPreviewReports;
+  readonly previewActive?: boolean;
   readonly onSetRuleEnabled: (
     ruleId: LearnerInteractionRuleId,
     isEnabled: boolean,
@@ -59,8 +54,8 @@ export interface LearnerInteractionWorkspaceProps {
 export function LearnerInteractionWorkspace({
   controller,
   projection,
-  previewController,
-  previewDocument,
+  previewReports,
+  previewActive = false,
   onSetRuleEnabled,
   onReorderRule,
   onRemoveRule,
@@ -71,16 +66,12 @@ export function LearnerInteractionWorkspace({
     controller.getSnapshot,
     controller.getSnapshot,
   );
-  const previewSnapshot = useSyncExternalStore(
-    previewController.subscribe,
-    previewController.getSnapshot,
-    previewController.getSnapshot,
-  );
   const [latestReport, setLatestReport] = useState<LearnerInteractionTurnReport | null>(null);
   const [commandError, setCommandError] = useState<LearnerInteractionAuthoringCommandError | null>(
     null,
   );
   const [focusSource, setFocusSource] = useState<string | null>(null);
+  const [reportExpanded, setReportExpanded] = useState(false);
   const saveDecisionRef = useRef<HTMLButtonElement>(null);
   const decisionOpenerRef = useRef<HTMLElement | null>(null);
   const focusedRule =
@@ -91,21 +82,13 @@ export function LearnerInteractionWorkspace({
     () => (latestReport ? projectLearnerInteractionPreviewReport(latestReport, projection) : null),
     [latestReport, projection],
   );
-  const draftBlocksPreview =
-    snapshot.status !== "idle" &&
-    (snapshot.status !== "focused-clean" ||
-      validateLearnerInteractionRuleDraft(snapshot.draft).length > 0);
-  const previewDisabled = projection.rules.length === 0 || draftBlocksPreview;
-
   useEffect(
-    () => previewController.subscribeReports((report) => setLatestReport(report)),
-    [previewController, previewSnapshot.status],
+    () => previewReports.subscribeReports((report) => setLatestReport(report)),
+    [previewReports],
   );
   useEffect(() => {
-    if (previewSnapshot.status === "idle" || previewSnapshot.status === "loading") {
-      setLatestReport(null);
-    }
-  }, [previewSnapshot.status]);
+    if (!previewActive) setLatestReport(null);
+  }, [previewActive]);
 
   const applyResult = (result: LearnerInteractionAuthoringCommandResult) => {
     setCommandError(result.isErr() ? result.error : null);
@@ -124,54 +107,19 @@ export function LearnerInteractionWorkspace({
 
   const slots = useContext(BottomPanelSlotsContext);
   const headerActions = (
-    <>
-      {previewSnapshot.status === "idle" || previewSnapshot.status === "error" ? (
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={previewDisabled}
-          onClick={() => {
-            void previewController.loadCurrentDocument({
-              document: previewDocument,
-              surfaceId: projection.surfaceId,
-            });
-          }}
-        >
-          Preview interactions
-        </Button>
-      ) : (
-        <Button
-          size="sm"
-          variant="ghost"
-          aria-label="Close interactions preview"
-          onClick={() => previewController.close()}
-        >
-          {previewSnapshot.status === "loading" ? "Cancel preview" : "Close preview"}
-        </Button>
-      )}
-      <Button
-        size="sm"
-        variant="secondary"
-        disabled={projection.capabilityState === "empty"}
-        onClick={() =>
-          controller.requestContextChange({ kind: "rule", ruleId: null }, () =>
-            controller.startNewRule(),
-          )
-        }
-      >
-        Add rule
-      </Button>
-    </>
+    <Button
+      size="sm"
+      variant="secondary"
+      disabled={projection.capabilityState === "empty"}
+      onClick={() =>
+        controller.requestContextChange({ kind: "rule", ruleId: null }, () =>
+          controller.startNewRule(),
+        )
+      }
+    >
+      Add rule
+    </Button>
   );
-  const statusContent =
-    previewSnapshot.status === "loading" || previewSnapshot.status === "error" ? (
-      <>
-        {previewSnapshot.status === "loading" ? <p role="status">Preparing preview…</p> : null}
-        {previewSnapshot.status === "error" ? (
-          <p role="alert">{previewErrorCopy(previewSnapshot.error)}</p>
-        ) : null}
-      </>
-    ) : null;
 
   return (
     <section className="sc-learner-interactions" aria-label="Interactions">
@@ -185,52 +133,18 @@ export function LearnerInteractionWorkspace({
         </header>
       )}
 
-      {statusContent && slots?.status
-        ? createPortal(statusContent, slots.status)
-        : statusContent}
-
       {projectedReport ? (
-        <section aria-label="Latest interaction turn">
-          <h3>Turn {projectedReport.turnNumber}</h3>
-          <p>{projectedReport.eventSummary}</p>
-          <p>{projectedReport.endSummary}</p>
-          <ul>
-            {projectedReport.rules.map((row) => (
-              <li key={row.ruleId}>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => focusReportSource(row.source)}
-                >
-                  Inspect {row.label} event
-                </Button>{" "}
-                {row.summary}
-                {row.predicates.map((predicate) => (
-                  <div key={predicate.conditionIndex}>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => focusReportSource(predicate.source)}
-                    >
-                      Inspect {row.label} condition {predicate.conditionIndex + 1}
-                    </Button>{" "}
-                    {predicate.summary}
-                  </div>
-                ))}
-              </li>
-            ))}
-            {projectedReport.commands.map((row) => {
-              const ruleIndex = projection.rules.findIndex(({ rule }) => rule.id === row.ruleId);
-              return (
-                <li key={`${row.ruleId}:${row.commandIndex}`}>
-                  <Button size="sm" variant="ghost" onClick={() => focusReportSource(row.source)}>
-                    Inspect Rule {ruleIndex + 1} command {row.commandIndex + 1}
-                  </Button>{" "}
-                  {row.summary}
-                </li>
-              );
-            })}
-          </ul>
+        <section className="sc-learner-interactions-report" aria-label="Latest interaction turn">
+          <details
+            open={reportExpanded}
+            onToggle={(event) => setReportExpanded(event.currentTarget.open)}
+          >
+            <summary>
+              Turn {projectedReport.turnNumber} · {projectedReport.endSummary}
+            </summary>
+            <p>{projectedReport.eventSummary}</p>
+            <p>{projectedReport.endSummary}</p>
+          </details>
         </section>
       ) : null}
 
@@ -251,80 +165,204 @@ export function LearnerInteractionWorkspace({
               const isEnabled = selected ? snapshot.draft.isEnabled : row.rule.isEnabled;
               const firstDiagnostic = row.diagnostics[0];
               return (
-                <li key={row.rule.id} data-diagnostic={row.diagnostics.length > 0 || undefined}>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="sc-learner-interactions-row-edit"
-                    aria-pressed={selected}
-                    aria-label={`Edit ${label}`}
-                    onClick={() => requestFocus(row)}
-                  >
-                    <strong>{label}</strong>
-                    <span>{row.when.option.label}</span>
-                  </Button>
-                  {firstDiagnostic ? (
+                <li
+                  key={row.rule.id}
+                  data-selected={selected}
+                  data-diagnostic={row.diagnostics.length > 0 || undefined}
+                >
+                  <div className="sc-learner-interactions-rule-heading">
                     <Button
-                      variant="danger"
+                      variant="ghost"
                       size="sm"
-                      aria-label={`Repair ${label} (${row.diagnostics.length} issue${row.diagnostics.length === 1 ? "" : "s"})`}
-                      onClick={() => requestFocus(row, sourceKey(firstDiagnostic.source.location))}
+                      className="sc-learner-interactions-row-edit"
+                      aria-pressed={selected}
+                      aria-label={`Edit ${label}`}
+                      onClick={() => requestFocus(row)}
                     >
-                      {row.diagnostics.length} issue{row.diagnostics.length === 1 ? "" : "s"}
+                      <strong>{label}</strong>
                     </Button>
-                  ) : null}
-                  <IconButton
-                    size="sm"
-                    aria-label={`${isEnabled ? "Disable" : "Enable"} ${label}`}
-                    onClick={() => {
-                      if (selected) {
-                        controller.updateDraft({ ...snapshot.draft, isEnabled: !isEnabled });
-                        return;
-                      }
-                      applyResult(onSetRuleEnabled(row.rule.id, !isEnabled));
-                    }}
-                  >
-                    {isEnabled ? (
-                      <CheckCircle size={iconXs} aria-hidden />
+                    {firstDiagnostic ? (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        aria-label={`Repair ${label} (${row.diagnostics.length} issue${row.diagnostics.length === 1 ? "" : "s"})`}
+                        onClick={() =>
+                          requestFocus(row, sourceKey(firstDiagnostic.source.location))
+                        }
+                      >
+                        {row.diagnostics.length} issue{row.diagnostics.length === 1 ? "" : "s"}
+                      </Button>
+                    ) : null}
+                    {selected ? (
+                      <label className="sc-learner-interactions-enabled">
+                        <Checkbox
+                          aria-label="Rule enabled"
+                          checked={isEnabled}
+                          onCheckedChange={(checked) =>
+                            controller.updateDraft({
+                              ...snapshot.draft,
+                              isEnabled: checked === true,
+                            })
+                          }
+                        />
+                        Enabled
+                      </label>
                     ) : (
-                      <Circle size={iconXs} aria-hidden />
+                      <IconButton
+                        size="sm"
+                        aria-label={`${isEnabled ? "Disable" : "Enable"} ${label}`}
+                        onClick={() => {
+                          if (selected) {
+                            controller.updateDraft({ ...snapshot.draft, isEnabled: !isEnabled });
+                            return;
+                          }
+                          applyResult(onSetRuleEnabled(row.rule.id, !isEnabled));
+                        }}
+                      >
+                        {isEnabled ? (
+                          <CheckCircle size={iconXs} aria-hidden />
+                        ) : (
+                          <Circle size={iconXs} aria-hidden />
+                        )}
+                      </IconButton>
                     )}
-                  </IconButton>
-                  <IconButton
-                    size="sm"
-                    aria-label={`Move ${label} earlier`}
-                    disabled={index === 0}
-                    onClick={() => applyResult(onReorderRule(row.rule.id, "earlier"))}
-                  >
-                    <ArrowUp size={iconXs} aria-hidden />
-                  </IconButton>
-                  <IconButton
-                    size="sm"
-                    aria-label={`Move ${label} later`}
-                    disabled={index === projection.rules.length - 1}
-                    onClick={() => applyResult(onReorderRule(row.rule.id, "later"))}
-                  >
-                    <ArrowDown size={iconXs} aria-hidden />
-                  </IconButton>
-                  <IconButton
-                    size="sm"
-                    className="sc-learner-interactions-row-remove"
-                    aria-label={`Remove ${label}`}
-                    onClick={() =>
-                      controller.requestContextChange({ kind: "rule", ruleId: null }, () =>
-                        applyResult(onRemoveRule(row.rule.id)),
-                      )
-                    }
-                  >
-                    <Trash size={iconXs} aria-hidden />
-                  </IconButton>
+                    {projection.rules.length > 1 ? (
+                      <>
+                        <IconButton
+                          size="sm"
+                          aria-label={`Move ${label} earlier`}
+                          disabled={index === 0}
+                          onClick={() => applyResult(onReorderRule(row.rule.id, "earlier"))}
+                        >
+                          <ArrowUp size={iconXs} aria-hidden />
+                        </IconButton>
+                        <IconButton
+                          size="sm"
+                          aria-label={`Move ${label} later`}
+                          disabled={index === projection.rules.length - 1}
+                          onClick={() => applyResult(onReorderRule(row.rule.id, "later"))}
+                        >
+                          <ArrowDown size={iconXs} aria-hidden />
+                        </IconButton>
+                      </>
+                    ) : null}
+                    <IconButton
+                      size="sm"
+                      className="sc-learner-interactions-row-remove"
+                      aria-label={`Remove ${label}`}
+                      onClick={() =>
+                        controller.requestContextChange({ kind: "rule", ruleId: null }, () =>
+                          applyResult(onRemoveRule(row.rule.id)),
+                        )
+                      }
+                    >
+                      <Trash size={iconXs} aria-hidden />
+                    </IconButton>
+                  </div>
+                  {selected ? (
+                    <LearnerInteractionRuleEditor
+                      controller={controller}
+                      draft={snapshot.draft}
+                      projection={projection}
+                      projectedRule={row}
+                      focusSource={focusSource}
+                      onFocusComplete={() => setFocusSource(null)}
+                      errorCopy={authoringErrorCopy}
+                    />
+                  ) : (
+                    <button
+                      className="sc-learner-interactions-reaction-summary"
+                      aria-label={`Edit ${label} responses`}
+                      onClick={() => requestFocus(row)}
+                    >
+                      <span className="sc-learner-interactions-summary-trigger">
+                        <small>When</small>
+                        <span>
+                          {row.when.option.targetLabel}
+                          {row.when.option.type === "selected"
+                            ? " is selected"
+                            : ` — ${row.when.option.label}`}
+                        </span>
+                        {row.conditions.length > 0 ? (
+                          <small>
+                            Only if {row.conditions.length} condition
+                            {row.conditions.length === 1 ? "" : "s"} match
+                          </small>
+                        ) : null}
+                      </span>
+                      <span className="sc-learner-interactions-summary-response">
+                        <small>Then</small>
+                        <span>
+                          {row.commands.map(commandSummary).join(" → ") || "Add a response"}
+                        </span>
+                      </span>
+                    </button>
+                  )}
+                  {projectedReport?.rules
+                    .filter((report) => report.ruleId === row.rule.id)
+                    .map((report) => (
+                      <div className="sc-learner-interactions-rule-report" key={report.ruleId}>
+                        <span>Last run · {report.summary}</span>
+                        {reportExpanded ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setReportExpanded(false);
+                                focusReportSource(report.source);
+                              }}
+                            >
+                              Inspect {label} event
+                            </Button>
+                            {report.predicates.map((predicate) => (
+                              <span key={predicate.conditionIndex}>
+                                {predicate.summary}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setReportExpanded(false);
+                                    focusReportSource(predicate.source);
+                                  }}
+                                >
+                                  Inspect {label} condition {predicate.conditionIndex + 1}
+                                </Button>
+                              </span>
+                            ))}
+                          </>
+                        ) : null}
+                      </div>
+                    ))}
+                  {reportExpanded
+                    ? projectedReport?.commands
+                        .filter((report) => report.ruleId === row.rule.id)
+                        .map((report) => (
+                          <div
+                            className="sc-learner-interactions-rule-report"
+                            key={report.commandIndex}
+                          >
+                            <span>{report.summary}</span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setReportExpanded(false);
+                                focusReportSource(report.source);
+                              }}
+                            >
+                              Inspect {label} command {report.commandIndex + 1}
+                            </Button>
+                          </div>
+                        ))
+                    : null}
                 </li>
               );
             })}
           </ol>
         )}
 
-        {snapshot.status !== "idle" && (snapshot.draft.ruleId === null || focusedRule !== null) ? (
+        {snapshot.status !== "idle" && snapshot.draft.ruleId === null ? (
           <LearnerInteractionRuleEditor
             controller={controller}
             draft={snapshot.draft}
@@ -334,7 +372,7 @@ export function LearnerInteractionWorkspace({
             onFocusComplete={() => setFocusSource(null)}
             errorCopy={authoringErrorCopy}
           />
-        ) : projection.capabilityState === "empty" ? null : (
+        ) : projection.capabilityState === "empty" || projection.rules.length > 0 ? null : (
           <p className="sc-learner-interactions-editor-empty">Choose a rule to edit.</p>
         )}
       </div>
@@ -406,6 +444,17 @@ export function LearnerInteractionWorkspace({
   }
 }
 
+function commandSummary(command: ProjectedLearnerInteractionRule["commands"][number]): string {
+  switch (command.kind) {
+    case "reveal-target":
+      return `Reveal ${command.option.label}`;
+    case "navigate-surface":
+      return `Go to ${command.option.label}`;
+    case "target-command":
+      return `${command.option.label} ${command.option.targetLabel}`;
+  }
+}
+
 function toDraft({ rule }: ProjectedLearnerInteractionRule) {
   return {
     ruleId: rule.id,
@@ -447,33 +496,4 @@ export function authoringErrorCopy(error: LearnerInteractionAuthoringCommandErro
   }
 }
 
-function previewErrorCopy(error: LearnerInteractionPreviewLoadError): string {
-  switch (error.reason) {
-    case "preview-load-superseded":
-      return "A newer interactions preview replaced this request.";
-    case "preview-not-slideshow":
-      return "Interactions preview is available only for Slideshows.";
-    case "preview-surface-not-current":
-      return "The selected Surface is no longer available.";
-    case "preview-surface-not-configured":
-      return "This Surface has no saved interaction rules.";
-    case "preview-document-invalid":
-      return "Repair the document before previewing interactions.";
-    case "preview-requires-scaffold-plus":
-      return "Interactions preview requires Scaffold Plus.";
-    case "preview-unsupported-core-format":
-      return "This document format cannot be previewed here.";
-    case "preview-unavailable-content":
-      return "Some course content is unavailable for preview.";
-    case "preview-projection-warning":
-      return "Resolve publication warnings before previewing interactions.";
-    case "preview-payload-too-large":
-      return "This course is too large to preview.";
-    case "preview-runtime-unavailable":
-      return "The learner preview could not be loaded.";
-    case "preview-services-unavailable":
-      return "The learner preview services could not be prepared.";
-  }
-}
-
-export { validateLearnerInteractionRuleDraft };
+export { validateLearnerInteractionRuleDraft } from "../model";

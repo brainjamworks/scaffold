@@ -280,7 +280,6 @@ function revealTimeline(
           }),
         }),
       ]),
-      sequenceContainers: Object.freeze([]),
     }),
   });
 }

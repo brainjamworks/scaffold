@@ -6,7 +6,9 @@
     --sc-presentation-timeline-compact-row-height: 2rem;
     --sc-presentation-timeline-expanded-row-height: 3.25rem;
 
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     width: 100%;
     height: 100%;
     min-width: 0;
@@ -16,6 +18,54 @@
     background: var(--color-background);
     color: var(--color-text-primary);
     font-family: var(--font-ui);
+  }
+
+  .sc-presentation-timeline[data-authoring="true"] {
+    grid-template-columns: minmax(0, 1fr) 19rem;
+  }
+
+  .sc-presentation-timeline:has(> .sc-presentation-timeline-toolbar) {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .sc-presentation-timeline-toolbar {
+    grid-column: 1 / -1;
+  }
+
+  .sc-presentation-timeline-canvas {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .sc-presentation-timeline-track-tools {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: none;
+    gap: 0.5rem;
+    padding: 0.375rem 0.625rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .sc-presentation-timeline-track-tools select {
+    max-width: 65%;
+    height: 1.75rem;
+    padding-inline: 0.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: 0.75rem;
+  }
+
+  .sc-presentation-timeline-empty {
+    padding: 1rem;
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
   }
 
   .sc-presentation-timeline-toolbar {
@@ -32,6 +82,8 @@
     color: var(--color-text-muted);
     font-family: var(--font-mono);
     font-size: 0.6875rem;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .sc-presentation-timeline-duration-control {
@@ -40,6 +92,7 @@
     gap: 0.375rem;
     margin-inline-start: 0.75rem;
     font-size: 0.6875rem;
+    flex-shrink: 0;
   }
 
   .sc-presentation-timeline-duration-control label {
@@ -70,6 +123,7 @@
     align-items: center;
     gap: 0.125rem;
     margin-inline-start: 0.75rem;
+    flex-shrink: 0;
   }
 
   .sc-presentation-narration-controls .sc-button {
@@ -81,6 +135,7 @@
     align-items: center;
     gap: 0.125rem;
     margin-inline-start: auto;
+    flex-shrink: 0;
   }
 
   .sc-presentation-timeline-zoom-controls .sc-button {
@@ -316,7 +371,7 @@
   }
 
   .sc-presentation-timeline-target-summary {
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
     font-size: 0.6875rem;
   }
 
@@ -374,21 +429,73 @@
   }
 
   .sc-presentation-action-editor {
-    display: grid;
-    flex: 0 0 auto;
-    grid-template-columns: repeat(auto-fit, minmax(6.75rem, 1fr));
-    align-items: end;
+    display: flex;
+    flex-direction: column;
+    flex: 0 1 auto;
+    min-height: 0;
+    height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
     gap: 0.375rem;
     padding: 0.5rem 0.625rem;
-    border-top: 1px solid var(--color-border);
+    border-left: 1px solid var(--color-border);
     background: var(--color-surface);
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
+  }
+
+  .sc-presentation-action-editor-heading {
+    display: flex;
+    flex: none;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding-block: 0.25rem 0.5rem;
+  }
+
+  .sc-presentation-action-editor-heading span {
+    color: var(--color-text-secondary);
+  }
+
+  .sc-presentation-action-editor-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    align-items: end;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: auto;
+    gap: 0.625rem;
+    padding: 0.125rem;
+  }
+
+  .sc-presentation-action-editor-actions {
+    flex: none;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    padding-block: 0.375rem;
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .sc-presentation-action-editor-more > summary {
+    padding: 0.375rem;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+  }
+
+  .sc-presentation-action-editor-more > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
   }
 
   .sc-presentation-action-editor-empty {
     padding: 0.75rem;
     color: var(--color-text-muted);
     font-size: 0.75rem;
+    border-left: 1px solid var(--color-border);
   }
 
   .sc-presentation-action-editor label {
@@ -396,7 +503,7 @@
     min-width: 0;
     flex-direction: column;
     gap: 0.1875rem;
-    color: var(--color-text-muted);
+    color: var(--color-text-secondary);
     font-weight: 600;
   }
 
@@ -426,8 +533,7 @@
   }
 
   .sc-presentation-action-editor input:not([type="checkbox"]),
-  .sc-presentation-action-editor select,
-  .sc-presentation-action-editor button {
+  .sc-presentation-action-editor select {
     min-width: 0;
     height: 1.75rem;
     border: 1px solid var(--color-border);
@@ -442,20 +548,10 @@
     padding-inline: 0.375rem;
   }
 
-  .sc-presentation-action-editor button {
-    padding-inline: 0.5rem;
-    cursor: pointer;
-  }
-
-  .sc-presentation-action-editor button:hover {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-  }
-
   .sc-presentation-action-editor button:focus-visible,
   .sc-presentation-action-editor input:focus-visible,
   .sc-presentation-action-editor select:focus-visible {
-    outline: 2px solid var(--color-focus-ring);
+    outline: 2px solid var(--sc-app-color-focus-outline);
     outline-offset: 1px;
   }
 
@@ -464,5 +560,26 @@
     margin: 0;
     color: var(--color-error-text);
     font-size: 0.6875rem;
+  }
+
+  @container (max-width: 52rem) {
+    .sc-presentation-timeline[data-authoring="true"] {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: 7rem minmax(0, 1fr);
+    }
+
+    .sc-presentation-timeline[data-authoring="true"] > .sc-presentation-action-editor,
+    .sc-presentation-timeline[data-authoring="true"] > .sc-presentation-action-editor-empty {
+      grid-row: 1;
+      border-left: 0;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .sc-presentation-action-editor-fields {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .sc-presentation-action-editor-heading {
+      padding-block: 0;
+    }
   }
 }

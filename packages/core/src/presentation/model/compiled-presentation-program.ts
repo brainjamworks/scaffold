@@ -2,7 +2,6 @@ import type {
   EmbeddedDataId,
   EmbeddedNodeId,
   PresentationConfigurationV1,
-  PresentationContentLayout,
   PresentationVisualIntentV1,
   SurfacePresentationNarrationV1,
   SurfaceTransitionV1,
@@ -63,12 +62,6 @@ export type CompiledPresentationWait =
 export interface CompiledVisualTarget {
   readonly targetId: EmbeddedNodeId;
   readonly initialVisibility: "visible" | "withheld";
-  readonly contentLayout?: {
-    readonly containerId: EmbeddedNodeId;
-    readonly contentLayout: PresentationContentLayout;
-    readonly directChildId: EmbeddedNodeId;
-    readonly directChildIds: readonly EmbeddedNodeId[];
-  };
 }
 
 export type CompiledVisualIntent = PresentationVisualIntentV1;
@@ -81,25 +74,19 @@ export interface CompiledVisualSegment {
   readonly visual: CompiledVisualIntent;
 }
 
-export interface CompiledSequenceContainer {
-  readonly boundaryId: EmbeddedNodeId;
-  readonly directChildIds: readonly EmbeddedNodeId[];
-  readonly initialActiveChildId: EmbeddedNodeId | null;
-}
-
 export interface CompiledSurfacePresentationVisualProgram {
   readonly surfaceId: EmbeddedNodeId;
   readonly durationMs: number;
   readonly targetById: ReadonlyMap<EmbeddedNodeId, CompiledVisualTarget>;
   readonly segments: readonly CompiledVisualSegment[];
-  readonly sequenceContainers: readonly CompiledSequenceContainer[];
 }
 
 export interface CompiledSurfacePresentationTimeline {
   readonly surfaceId: EmbeddedNodeId;
   readonly durationMs: number;
   readonly narration?: SurfacePresentationNarrationV1;
-  readonly transition?: SurfaceTransitionV1;
+  /** How this incoming Surface enters after an approved Surface change; `null` means Cut. */
+  readonly transition: SurfaceTransitionV1 | null;
   readonly cues: readonly CompiledPresentationCue[];
   readonly waits: readonly CompiledPresentationWait[];
   readonly visualProgram: CompiledSurfacePresentationVisualProgram;

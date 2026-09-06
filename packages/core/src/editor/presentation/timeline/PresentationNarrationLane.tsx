@@ -12,7 +12,6 @@ export interface PresentationNarrationLaneProps {
   readonly source: MediaSource;
   readonly pixelsPerSecond: number;
   readonly createAudioElement?: () => HTMLAudioElement;
-  readonly onDurationResolved?: (durationMs: number) => void;
 }
 
 type NarrationMetadataState =
@@ -30,7 +29,6 @@ export function PresentationNarrationLane({
   source,
   pixelsPerSecond,
   createAudioElement = createNarrationAudioElement,
-  onDurationResolved,
 }: PresentationNarrationLaneProps) {
   const mediaPort = useMediaPort();
   const [metadata, setMetadata] = useState<NarrationMetadataState>(() => ({
@@ -56,7 +54,6 @@ export function PresentationNarrationLane({
           return;
         }
         setMetadata({ status: "ready", ...result.value });
-        onDurationResolved?.(result.value.durationMs);
       },
     });
 
@@ -64,7 +61,7 @@ export function PresentationNarrationLane({
       active = false;
       dispose();
     };
-  }, [createAudioElement, mediaPort, onDurationResolved, source]);
+  }, [createAudioElement, mediaPort, source]);
 
   const durationText =
     metadata.status === "ready"

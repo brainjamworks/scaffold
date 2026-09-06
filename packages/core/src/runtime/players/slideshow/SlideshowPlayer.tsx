@@ -1,8 +1,12 @@
 import {
   ArrowLeftIcon as ArrowLeft,
   ArrowRightIcon as ArrowRight,
+  CheckCircleIcon as CheckCircle,
   CornersInIcon as CornersIn,
   CornersOutIcon as CornersOut,
+  CursorClickIcon as CursorClick,
+  PauseIcon as Pause,
+  PlayIcon as Play,
 } from "@phosphor-icons/react";
 import {
   createContext,
@@ -38,8 +42,8 @@ import {
   type SlideshowCanvasScaleState,
 } from "@/editor/surfaces/view/slideshow-canvas";
 import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
-import { iconMd } from "@/ui/tokens/icon-sizes";
-import type { PresentationPreviewPlaybackPort } from "@/presentation/model";
+import { iconLg, iconMd } from "@/ui/tokens/icon-sizes";
+import type { PresentationMotionMode, PresentationPreviewPlaybackPort } from "@/presentation/model";
 import type { LearnerInteractionPreviewReportsPort } from "@/learner-interaction/model";
 
 import {
@@ -48,7 +52,16 @@ import {
 } from "../../renderer/CourseDocumentRuntimeRenderer";
 import type { SlideshowPlayerSizing } from "../player-types";
 import { CourseSectionNavigation } from "./CourseSectionNavigation";
-import { getSlideshowNavigationState, getSlideshowSurfaceStates } from "./slideshow-navigation";
+import {
+  createSlideshowSurfaceTransitionState,
+  getSlideshowNavigationState,
+  getSlideshowSurfaceStates,
+  type SlideshowSurfaceTransitionState,
+} from "./slideshow-navigation";
+import {
+  presentSurfaceTransition,
+  type SurfaceTransitionPresentation,
+} from "./slideshow-surface-transition-presenter";
 import { createPresentationPreviewPlaybackPort } from "./create-presentation-preview-playback-port";
 import { createRequestSurfaceChange, type SurfaceExitPolicy } from "./slideshow-surface-change";
 import type {
@@ -58,7 +71,10 @@ import type {
 import { createSurfaceExitEnvironment } from "./surface-exit-environment";
 import { getSurfaceExitGuidance } from "./surface-exit-guidance";
 import { SurfaceExitEnvironmentProvider } from "./SurfaceExitEnvironmentProvider";
-import { useSlideshowSurfaceRuntime } from "./use-slideshow-surface-runtime";
+import {
+  useSlideshowSurfaceRuntime,
+  type SlideshowContentInteraction,
+} from "./use-slideshow-surface-runtime";
 import "./SlideshowPlayer.css";
 
 interface EmbeddedStageStyle extends CSSProperties {
@@ -119,9 +135,15 @@ export interface SlideshowPlayerProps {
   sizing?: SlideshowPlayerSizing;
   surfaceExitPolicy?: SurfaceExitPolicy;
   surfaceRuntimeProgramSource?: SlideshowSurfaceRuntimeProgramSource;
+  /** Public learner playback defaults to authored auto-start; Author Preview disables it. */
+  autoPlayPresentation?: boolean;
   onRendererReady?: (editor: TiptapEditor) => void;
   onActiveSurfaceChange?: (surfaceId: SurfaceId | null) => void;
+  /** Author Preview asks its Session to prepare a Surface before the player commits it. */
+  onAuthorPreviewSurfaceChangeRequest?: (surfaceId: SurfaceId) => void;
   initialSurfaceId?: SurfaceId;
+  /** Author Preview keeps its retained runtime visible but inert while replacement is pending. */
+  authorPreviewExecutionEnabled?: boolean;
   onPresentationPreviewPortChange?: (port: PresentationPreviewPlaybackPort | null) => void;
   onLearnerInteractionReportsPortChange?: (
     port: LearnerInteractionPreviewReportsPort | null,
@@ -135,9 +157,12 @@ export function SlideshowPlayer({
   sizing = "contained",
   surfaceExitPolicy = "enforce",
   surfaceRuntimeProgramSource,
+  autoPlayPresentation = true,
   onRendererReady,
   onActiveSurfaceChange,
+  onAuthorPreviewSurfaceChangeRequest,
   initialSurfaceId,
+  authorPreviewExecutionEnabled = true,
   onPresentationPreviewPortChange,
   onLearnerInteractionReportsPortChange,
 }: SlideshowPlayerProps) {
@@ -151,6 +176,9 @@ export function SlideshowPlayer({
   }
   const initialActiveSurfaceId = initialSurfaceId ?? structure.surfaceIds[0] ?? null;
   const [activeSurfaceId, setActiveSurfaceId] = useState(initialActiveSurfaceId);
+  const authorPreviewSurfaceSynchronized =
+    initialSurfaceId === undefined || activeSurfaceId === initialSurfaceId;
+  const runtimeExecutionEnabled = authorPreviewExecutionEnabled && authorPreviewSurfaceSynchronized;
   const [runtimeEditorOwner, setRuntimeEditorOwner] = useState<{
     readonly preparedDocument: PreparedRuntimeDocument;
     readonly editor: TiptapEditor;
@@ -178,29 +206,95 @@ export function SlideshowPlayer({
   const pendingSurfaceExitEnvironmentDisposal = useRef<ReturnType<typeof setTimeout> | null>(null);
   const surfaceExitEnvironment = surfaceExitEnvironmentOwner.environment;
   const activeSurfaceIdRef = useRef(activeSurfaceId);
+  const [surfaceTransition, setSurfaceTransition] =
+    useState<SlideshowSurfaceTransitionState | null>(null);
+  const surfaceTransitionPresentation = useRef<SurfaceTransitionPresentation | null>(null);
+  const controlsRef = useRef<HTMLDivElement>(null);
+  /**
+   * The one lifecycle behind every accepted Surface change. The destination becomes the runtime
+   * authority immediately (the outgoing composition disposes, freezing its Session; the incoming
+   * composition mounts at its initial checkpoint and is held there). When the destination owns an
+   * animated transition and motion is allowed, both real Surface roots paint as inert layers until
+   * the pair settles; Cut settles at once. A new accepted request settles the active pair first.
+   */
   const commitSurfaceChange = useCallback(
     (surfaceId: SurfaceId) => {
+      const sourceSurfaceId = activeSurfaceIdRef.current;
+      surfaceTransitionPresentation.current?.settle();
+      const destinationTransition =
+        surfaceRuntimeProgramSource?.(surfaceId)?.presentation?.timeline.transition ?? undefined;
+      const nextTransition =
+        sourceSurfaceId !== null && canvasElement !== null
+          ? createSlideshowSurfaceTransitionState({
+              structure,
+              sourceSurfaceId,
+              destinationSurfaceId: surfaceId,
+              transition: destinationTransition,
+              motionMode: resolveSlideshowMotionMode(canvasElement),
+            })
+          : null;
       surfaceExitEnvironmentOwner.setActiveSurfaceId(surfaceId);
       activeSurfaceIdRef.current = surfaceId;
       setActiveSurfaceId(surfaceId);
+      setSurfaceTransition(nextTransition);
     },
-    [surfaceExitEnvironmentOwner],
+    [canvasElement, structure, surfaceExitEnvironmentOwner, surfaceRuntimeProgramSource],
   );
+  useLayoutEffect(() => {
+    if (!surfaceTransition || !canvasElement) return;
+    const outgoingRoot = resolveSurfaceRoot(canvasElement, surfaceTransition.sourceSurfaceId);
+    const incomingRoot = resolveSurfaceRoot(canvasElement, surfaceTransition.destinationSurfaceId);
+    if (!outgoingRoot || !incomingRoot) {
+      // Without both real roots there is nothing to paint; settle to the destination at once.
+      setSurfaceTransition(null);
+      return;
+    }
+    const presentation = presentSurfaceTransition({
+      transition: surfaceTransition,
+      outgoingRoot,
+      incomingRoot,
+      onSettled() {
+        surfaceTransitionPresentation.current = null;
+        setSurfaceTransition((current) => (current === surfaceTransition ? null : current));
+        restoreFocusToPlayerChrome(canvasElement, controlsRef.current);
+      },
+    });
+    surfaceTransitionPresentation.current = presentation;
+    return () => {
+      if (surfaceTransitionPresentation.current === presentation) {
+        surfaceTransitionPresentation.current = null;
+      }
+      presentation.dispose();
+    };
+  }, [canvasElement, surfaceTransition]);
+  useEffect(() => {
+    if (initialSurfaceId && activeSurfaceIdRef.current !== initialSurfaceId) {
+      commitSurfaceChange(initialSurfaceId);
+    }
+  }, [commitSurfaceChange, initialSurfaceId]);
   const requestSurfaceChange = useMemo(
     () =>
       createRequestSurfaceChange({
         environment: surfaceExitEnvironment,
         getActiveSurfaceId: () => activeSurfaceIdRef.current,
         isKnownSurfaceId: (surfaceId) => structure.surfaceById[surfaceId] !== undefined,
-        commitSurfaceChange,
+        commitSurfaceChange: onAuthorPreviewSurfaceChangeRequest
+          ? onAuthorPreviewSurfaceChangeRequest
+          : commitSurfaceChange,
         surfaceExitPolicy,
       }),
-    [commitSurfaceChange, structure.surfaceById, surfaceExitEnvironment, surfaceExitPolicy],
+    [
+      commitSurfaceChange,
+      onAuthorPreviewSurfaceChangeRequest,
+      structure.surfaceById,
+      surfaceExitEnvironment,
+      surfaceExitPolicy,
+    ],
   );
   const activeSurfaceRoot = useMemo(
     () =>
       runtimeEditor && canvasElement && activeSurfaceId
-        ? resolveActiveSurfaceRoot(canvasElement, activeSurfaceId)
+        ? resolveSurfaceRoot(canvasElement, activeSurfaceId)
         : null,
     [activeSurfaceId, canvasElement, runtimeEditor],
   );
@@ -209,6 +303,9 @@ export function SlideshowPlayer({
     activeSurfaceId,
     nextSurfaceId: navigation.nextSurfaceId,
     activeSurfaceRoot,
+    autoPlayPresentation,
+    presentationHold: surfaceTransition !== null,
+    executionEnabled: runtimeExecutionEnabled,
     editor: runtimeEditor,
     featureViewBaseline,
     ...(surfaceRuntimeProgramSource === undefined
@@ -220,31 +317,39 @@ export function SlideshowPlayer({
   const presentationPreviewPort = useMemo<PresentationPreviewPlaybackPort | null>(() => {
     const controls = surfaceRuntime.presentationControls;
     const seek = surfaceRuntime.seek;
-    if (!controls || !seek || !activeSurfaceId) return null;
+    if (!controls || !seek || !activeSurfaceId || !authorPreviewSurfaceSynchronized) return null;
     return createPresentationPreviewPlaybackPort({ controls, seek, surfaceId: activeSurfaceId });
-  }, [activeSurfaceId, surfaceRuntime.presentationControls, surfaceRuntime.seek]);
+  }, [
+    activeSurfaceId,
+    authorPreviewSurfaceSynchronized,
+    surfaceRuntime.presentationControls,
+    surfaceRuntime.seek,
+  ]);
   useEffect(() => {
     if (!onPresentationPreviewPortChange || !presentationPreviewPort) return;
     onPresentationPreviewPortChange(presentationPreviewPort);
     return () => onPresentationPreviewPortChange(null);
   }, [onPresentationPreviewPortChange, presentationPreviewPort]);
-  const learnerInteractionReportsPort = surfaceRuntime.learnerInteractionReportsPort;
+  const learnerInteractionReportsPort = authorPreviewSurfaceSynchronized
+    ? surfaceRuntime.learnerInteractionReportsPort
+    : undefined;
   useEffect(() => {
     if (!onLearnerInteractionReportsPortChange || !learnerInteractionReportsPort) return;
     onLearnerInteractionReportsPortChange(learnerInteractionReportsPort);
     return () => onLearnerInteractionReportsPortChange(null);
   }, [learnerInteractionReportsPort, onLearnerInteractionReportsPortChange]);
   const slideshowOverlayInstanceId = useId();
+  const contentInteraction: SlideshowContentInteraction =
+    !runtimeExecutionEnabled || surfaceTransition ? "inert" : surfaceRuntime.contentInteraction;
   const slideshowOverlayOwnership = useMemo(
     () =>
       Object.freeze({
         instanceId: slideshowOverlayInstanceId,
-        contentInteraction: surfaceRuntime.contentInteraction,
+        contentInteraction,
       }),
-    [slideshowOverlayInstanceId, surfaceRuntime.contentInteraction],
+    [slideshowOverlayInstanceId, contentInteraction],
   );
-  const controlsRef = useRef<HTMLDivElement>(null);
-  const previousContentInteraction = useRef(surfaceRuntime.contentInteraction);
+  const previousContentInteraction = useRef(contentInteraction);
   const handleRendererReady = useCallback(
     (editor: TiptapEditor) => {
       setRuntimeEditorOwner({ preparedDocument, editor });
@@ -266,12 +371,13 @@ export function SlideshowPlayer({
     getSurfaceExitSnapshot,
   );
   const surfaceNavigationDescriptionId = useId();
-  const surfaceNavigationBlocked =
+  const surfaceExitBlocked =
     surfaceExitPolicy === "enforce" && surfaceExitSnapshot.status === "blocked";
-  const surfaceNavigationGuidance = surfaceNavigationBlocked
+  const surfaceNavigationBlocked = !runtimeExecutionEnabled || surfaceExitBlocked;
+  const surfaceNavigationGuidance = surfaceExitBlocked
     ? getSurfaceExitGuidance(surfaceExitSnapshot.blockers)
     : null;
-  const surfaceNavigationAriaDescribedBy = surfaceNavigationBlocked
+  const surfaceNavigationAriaDescribedBy = surfaceExitBlocked
     ? surfaceNavigationDescriptionId
     : undefined;
   const [fullscreenAvailable, setFullscreenAvailable] = useState(false);
@@ -291,7 +397,34 @@ export function SlideshowPlayer({
   const canContinuePresentation =
     presentationSnapshot?.phase === "held" &&
     (presentationSnapshot.hold.kind === "manual" || presentationSnapshot.hold.status === "ready");
+  const presentationCheckpoint =
+    presentationSnapshot?.phase !== "held"
+      ? null
+      : presentationSnapshot.hold.kind === "manual"
+        ? {
+            kind: "manual" as const,
+            title: "Presentation paused",
+            instruction: "Continue when you’re ready.",
+          }
+        : presentationSnapshot.hold.status === "ready"
+          ? {
+              kind: "ready" as const,
+              title: "Interaction complete",
+              instruction: "Continue when you’re ready.",
+            }
+          : surfaceRuntime.contentInteraction === "enabled"
+            ? {
+                kind: "learner" as const,
+                title: "Your turn",
+                instruction: "Complete the required interaction on this slide to continue.",
+              }
+            : {
+                kind: "settling" as const,
+                title: "Please wait",
+                instruction: "Preparing the next step…",
+              };
   const presentationTransportDisabled =
+    !runtimeExecutionEnabled ||
     presentationSnapshot?.phase === "held" ||
     presentationSnapshot?.phase === "completed" ||
     presentationSnapshot?.phase === "stopped";
@@ -305,7 +438,7 @@ export function SlideshowPlayer({
     : narrationSnapshot?.status === "loading"
       ? "Loading narration…"
       : null;
-  const surfaceStates = getSlideshowSurfaceStates(structure, navigation);
+  const surfaceStates = getSlideshowSurfaceStates(structure, navigation, surfaceTransition);
   const viewSettings = readSurfaceViewSettings(initialContent);
   const courseDocument = initialContent.content?.[0];
   const rawMode = courseDocument?.type === "courseDocument" ? courseDocument.attrs?.mode : null;
@@ -348,8 +481,8 @@ export function SlideshowPlayer({
 
   useLayoutEffect(() => {
     const previous = previousContentInteraction.current;
-    previousContentInteraction.current = surfaceRuntime.contentInteraction;
-    if (previous !== "enabled" || surfaceRuntime.contentInteraction !== "inert") return;
+    previousContentInteraction.current = contentInteraction;
+    if (previous !== "enabled" || contentInteraction !== "inert") return;
 
     const activeElement = canvasElement?.ownerDocument.activeElement;
     if (!canvasElement || !activeElement) return;
@@ -362,7 +495,7 @@ export function SlideshowPlayer({
     if (!focusBelongsToContent) return;
 
     controlsRef.current?.focus({ preventScroll: true });
-  }, [canvasElement, slideshowOverlayInstanceId, surfaceRuntime.contentInteraction]);
+  }, [canvasElement, contentInteraction, slideshowOverlayInstanceId]);
 
   useEffect(() => {
     if (!viewportElement) {
@@ -517,8 +650,9 @@ export function SlideshowPlayer({
                     <div
                       ref={setCanvasElement}
                       className="sc-slideshow-player__canvas"
-                      data-content-interaction={surfaceRuntime.contentInteraction}
-                      inert={surfaceRuntime.contentInteraction === "inert"}
+                      data-content-interaction={contentInteraction}
+                      data-surface-transition={surfaceTransition?.transition.kind}
+                      inert={contentInteraction === "inert"}
                       style={
                         {
                           "--sc-slideshow-canvas-inverse-scale": 1 / scaleState.scale,
@@ -544,60 +678,60 @@ export function SlideshowPlayer({
                       </InteractionDragEnvironmentProvider>
                     </div>
                   </OverlayBoundary>
-                  {presentationControls && presentationSnapshot ? (
+                  {presentationControls &&
+                  presentationSnapshot &&
+                  (presentationCheckpoint || canContinuePresentation || narrationMessage) ? (
                     <div
                       className="sc-slideshow-player__presentation-transport"
                       role="group"
                       aria-label="Presentation playback"
                     >
-                      <span className="sc-slideshow-player__presentation-actions">
-                        <button
-                          type="button"
-                          className="sc-slideshow-player__presentation-button"
-                          disabled={presentationTransportDisabled}
-                          onClick={() => {
-                            if (presentationSnapshot.phase === "playing") {
-                              presentationControls.pause();
-                              return;
-                            }
-                            if (
-                              presentationSnapshot.phase === "awaiting-start" ||
-                              presentationSnapshot.phase === "paused"
-                            ) {
-                              void presentationControls.play();
-                            }
-                          }}
-                        >
-                          {presentationSnapshot.phase === "playing"
-                            ? "Pause presentation"
-                            : "Play presentation"}
-                        </button>
-                        {canContinuePresentation ? (
+                      <div
+                        className="sc-slideshow-player__presentation-checkpoint"
+                        data-kind={presentationCheckpoint?.kind}
+                        aria-live="polite"
+                        aria-atomic="true"
+                      >
+                        {presentationCheckpoint ? (
+                          <>
+                            <span
+                              className="sc-slideshow-player__presentation-checkpoint-icon"
+                              aria-hidden="true"
+                            >
+                              {presentationCheckpoint.kind === "manual" ? (
+                                <Pause size={iconLg} weight="fill" />
+                              ) : presentationCheckpoint.kind === "learner" ? (
+                                <CursorClick size={iconLg} weight="bold" />
+                              ) : presentationCheckpoint.kind === "ready" ? (
+                                <CheckCircle size={iconLg} weight="fill" />
+                              ) : (
+                                <Pause size={iconLg} weight="fill" />
+                              )}
+                            </span>
+                            <span className="sc-slideshow-player__presentation-checkpoint-copy">
+                              <strong>{presentationCheckpoint.title}</strong>
+                              <span>{presentationCheckpoint.instruction}</span>
+                            </span>
+                          </>
+                        ) : null}
+                      </div>
+                      {canContinuePresentation ? (
+                        <span className="sc-slideshow-player__presentation-actions">
                           <button
                             type="button"
                             className="sc-slideshow-player__presentation-button"
-                            onClick={() => void presentationControls.advance()}
+                            data-emphasis="primary"
+                            disabled={!runtimeExecutionEnabled}
+                            onClick={() => {
+                              if (runtimeExecutionEnabled) {
+                                void presentationControls.advance();
+                              }
+                            }}
                           >
                             Continue presentation
                           </button>
-                        ) : null}
-                      </span>
-                      <input
-                        className="sc-slideshow-player__presentation-progress"
-                        type="range"
-                        min={0}
-                        max={presentationSnapshot.durationMs}
-                        step={1}
-                        value={presentationSnapshot.currentTimeMs}
-                        aria-label="Presentation progress"
-                        aria-valuetext={`${formatPresentationTime(presentationSnapshot.currentTimeMs)} of ${formatPresentationTime(presentationSnapshot.durationMs)}`}
-                        onChange={(event) => {
-                          if (!surfaceRuntime.seek) {
-                            throw new Error("Presentation progress requires a reposition owner.");
-                          }
-                          void surfaceRuntime.seek(Number(event.currentTarget.value));
-                        }}
-                      />
+                        </span>
+                      ) : null}
                       {narrationMessage ? (
                         <div
                           className="sc-slideshow-player__narration-status"
@@ -610,7 +744,12 @@ export function SlideshowPlayer({
                                 <button
                                   type="button"
                                   className="sc-slideshow-player__presentation-button"
-                                  onClick={() => void presentationControls.play()}
+                                  disabled={!runtimeExecutionEnabled}
+                                  onClick={() => {
+                                    if (runtimeExecutionEnabled) {
+                                      void presentationControls.play();
+                                    }
+                                  }}
                                 >
                                   Retry narration
                                 </button>
@@ -619,7 +758,12 @@ export function SlideshowPlayer({
                                 <button
                                   type="button"
                                   className="sc-slideshow-player__presentation-button"
-                                  onClick={() => presentationControls.continueWithoutNarration()}
+                                  disabled={!runtimeExecutionEnabled}
+                                  onClick={() => {
+                                    if (runtimeExecutionEnabled) {
+                                      presentationControls.continueWithoutNarration();
+                                    }
+                                  }}
                                 >
                                   Continue without narration
                                 </button>
@@ -643,100 +787,132 @@ export function SlideshowPlayer({
                       aria-label="Slideshow controls"
                       tabIndex={-1}
                     >
-                    <div className="sc-slideshow-player__section-navigation">
-                      <CourseSectionNavigation
-                        currentCourseSection={navigation.currentCourseSection}
-                        courseSectionItems={navigation.courseSectionItems}
-                        disabled={surfaceNavigationBlocked}
-                        {...(surfaceNavigationAriaDescribedBy
-                          ? { ariaDescribedBy: surfaceNavigationAriaDescribedBy }
-                          : {})}
-                        onSelectSurface={(surfaceId) => {
-                          requestSurfaceChange(surfaceId);
-                        }}
-                      />
-                    </div>
-                    <div
-                      className="sc-slideshow-player__navigation"
-                      role="group"
-                      aria-label="Slide navigation"
-                    >
-                      <IconButton
-                        className="sc-slideshow-player__nav-button"
-                        variant="ghost"
-                        size="md"
-                        aria-label="Previous slide"
-                        aria-describedby={surfaceNavigationAriaDescribedBy}
-                        disabled={!navigation.canGoPrevious || surfaceNavigationBlocked}
-                        onClick={() => {
-                          if (navigation.previousSurfaceId) {
-                            requestSurfaceChange(navigation.previousSurfaceId);
-                          }
-                        }}
-                      >
-                        <ArrowLeft size={iconMd} weight="bold" aria-hidden />
-                      </IconButton>
-                      <span
-                        className="sc-slideshow-player__status"
-                        role="status"
-                        aria-live="polite"
-                        aria-atomic="true"
-                      >
-                        {navigation.currentNumber === null
-                          ? "No slides"
-                          : `${navigation.currentNumber} of ${navigation.count}`}
-                      </span>
-                      <IconButton
-                        className="sc-slideshow-player__nav-button"
-                        variant="ghost"
-                        size="md"
-                        aria-label="Next slide"
-                        aria-describedby={nextSurfaceNavigationAriaDescribedBy}
-                        disabled={nextMode === "disabled"}
-                        onClick={() => {
-                          if (nextMode === "navigate" && navigation.nextSurfaceId) {
-                            requestSurfaceChange(navigation.nextSurfaceId);
-                          }
-                        }}
-                      >
-                        <ArrowRight size={iconMd} weight="bold" aria-hidden />
-                      </IconButton>
-                    </div>
-                    <div
-                      className="sc-slideshow-player__utilities"
-                      role={fullscreenAvailable ? "group" : undefined}
-                      aria-label={fullscreenAvailable ? "Slideshow view" : undefined}
-                      aria-hidden={fullscreenAvailable ? undefined : true}
-                    >
-                      {fullscreenAvailable ? (
+                      <div className="sc-slideshow-player__section-navigation">
+                        <CourseSectionNavigation
+                          currentCourseSection={navigation.currentCourseSection}
+                          courseSectionItems={navigation.courseSectionItems}
+                          disabled={surfaceNavigationBlocked}
+                          {...(surfaceNavigationAriaDescribedBy
+                            ? { ariaDescribedBy: surfaceNavigationAriaDescribedBy }
+                            : {})}
+                          onSelectSurface={(surfaceId) => {
+                            requestSurfaceChange(surfaceId);
+                          }}
+                        />
+                      </div>
+                      {presentationControls && presentationSnapshot ? (
                         <IconButton
-                          className="sc-slideshow-player__fullscreen-button"
+                          className="sc-slideshow-player__presentation-pill-button"
                           variant="ghost"
                           size="md"
-                          aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                          aria-pressed={isFullscreen}
-                          disabled={fullscreenPending}
-                          onClick={() => void toggleFullscreen()}
+                          aria-label={
+                            presentationSnapshot.phase === "playing"
+                              ? "Pause presentation"
+                              : "Play presentation"
+                          }
+                          disabled={presentationTransportDisabled}
+                          onClick={() => {
+                            if (!runtimeExecutionEnabled) return;
+                            if (presentationSnapshot.phase === "playing") {
+                              presentationControls.pause();
+                              return;
+                            }
+                            if (
+                              presentationSnapshot.phase === "awaiting-start" ||
+                              presentationSnapshot.phase === "paused"
+                            ) {
+                              void presentationControls.play();
+                            }
+                          }}
                         >
-                          {isFullscreen ? (
-                            <CornersIn size={iconMd} aria-hidden />
+                          {presentationSnapshot.phase === "playing" ? (
+                            <Pause size={iconMd} weight="fill" aria-hidden />
                           ) : (
-                            <CornersOut size={iconMd} aria-hidden />
+                            <Play size={iconMd} weight="fill" aria-hidden />
                           )}
                         </IconButton>
                       ) : null}
+                      <div
+                        className="sc-slideshow-player__navigation"
+                        role="group"
+                        aria-label="Slide navigation"
+                      >
+                        <IconButton
+                          className="sc-slideshow-player__nav-button"
+                          variant="ghost"
+                          size="md"
+                          aria-label="Previous slide"
+                          aria-describedby={surfaceNavigationAriaDescribedBy}
+                          disabled={!navigation.canGoPrevious || surfaceNavigationBlocked}
+                          onClick={() => {
+                            if (navigation.previousSurfaceId) {
+                              requestSurfaceChange(navigation.previousSurfaceId);
+                            }
+                          }}
+                        >
+                          <ArrowLeft size={iconMd} weight="bold" aria-hidden />
+                        </IconButton>
+                        <span
+                          className="sc-slideshow-player__status"
+                          role="status"
+                          aria-live="polite"
+                          aria-atomic="true"
+                        >
+                          {navigation.currentNumber === null
+                            ? "No slides"
+                            : `${navigation.currentNumber} of ${navigation.count}`}
+                        </span>
+                        <IconButton
+                          className="sc-slideshow-player__nav-button"
+                          variant="ghost"
+                          size="md"
+                          aria-label="Next slide"
+                          aria-describedby={nextSurfaceNavigationAriaDescribedBy}
+                          disabled={nextMode === "disabled"}
+                          onClick={() => {
+                            if (nextMode === "navigate" && navigation.nextSurfaceId) {
+                              requestSurfaceChange(navigation.nextSurfaceId);
+                            }
+                          }}
+                        >
+                          <ArrowRight size={iconMd} weight="bold" aria-hidden />
+                        </IconButton>
+                      </div>
+                      <div
+                        className="sc-slideshow-player__utilities"
+                        role={fullscreenAvailable ? "group" : undefined}
+                        aria-label={fullscreenAvailable ? "Slideshow view" : undefined}
+                        aria-hidden={fullscreenAvailable ? undefined : true}
+                      >
+                        {fullscreenAvailable ? (
+                          <IconButton
+                            className="sc-slideshow-player__fullscreen-button"
+                            variant="ghost"
+                            size="md"
+                            aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                            aria-pressed={isFullscreen}
+                            disabled={fullscreenPending}
+                            onClick={() => void toggleFullscreen()}
+                          >
+                            {isFullscreen ? (
+                              <CornersIn size={iconMd} aria-hidden />
+                            ) : (
+                              <CornersOut size={iconMd} aria-hidden />
+                            )}
+                          </IconButton>
+                        ) : null}
+                      </div>
+                      {surfaceNavigationBlocked ? (
+                        <span id={surfaceNavigationDescriptionId} className="sc-sr-only">
+                          {surfaceNavigationGuidance}
+                        </span>
+                      ) : null}
                     </div>
-                    {surfaceNavigationBlocked ? (
-                      <span id={surfaceNavigationDescriptionId} className="sc-sr-only">
-                        {surfaceNavigationGuidance}
+                    {fullscreenError ? (
+                      <span role="status" className="sc-sr-only">
+                        {fullscreenError}
                       </span>
                     ) : null}
-                  </div>
-                  {fullscreenError ? (
-                    <span role="status" className="sc-sr-only">
-                      {fullscreenError}
-                    </span>
-                  ) : null}
                   </div>
                 </OverlayBoundary>
               </SlideshowOverlayOwnershipContext>
@@ -748,17 +924,35 @@ export function SlideshowPlayer({
   );
 }
 
-function resolveActiveSurfaceRoot(
-  canvasElement: HTMLElement,
-  activeSurfaceId: SurfaceId,
-): HTMLElement | null {
+function resolveSurfaceRoot(canvasElement: HTMLElement, surfaceId: SurfaceId): HTMLElement | null {
   const matches = canvasElement.querySelectorAll<HTMLElement>(
-    `[data-node="surface"][data-id="${CSS.escape(activeSurfaceId)}"]`,
+    `[data-node="surface"][data-id="${CSS.escape(surfaceId)}"]`,
   );
   if (matches.length > 1) {
-    throw new Error(`Slideshow rendered duplicate active Surface roots for "${activeSurfaceId}".`);
+    throw new Error(`Slideshow rendered duplicate Surface roots for "${surfaceId}".`);
   }
   return matches[0] ?? null;
+}
+
+function resolveSlideshowMotionMode(element: HTMLElement): PresentationMotionMode {
+  return element.ownerDocument.defaultView?.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    ? "reduced-motion"
+    : "normal";
+}
+
+/** After a Surface change settles, focus must rest on stable chrome, never on either layer. */
+function restoreFocusToPlayerChrome(
+  canvasElement: HTMLElement,
+  controls: HTMLElement | null,
+): void {
+  const ownerDocument = canvasElement.ownerDocument;
+  const activeElement = ownerDocument.activeElement;
+  const focusIsStable =
+    activeElement !== null &&
+    activeElement !== ownerDocument.body &&
+    !canvasElement.contains(activeElement);
+  if (focusIsStable) return;
+  controls?.focus({ preventScroll: true });
 }
 
 function getNarrationFailureMessage(reason: SlideshowPresentationNarrationError["reason"]): string {
@@ -773,11 +967,4 @@ function getNarrationFailureMessage(reason: SlideshowPresentationNarrationError[
     case "cancelled":
       return "Narration was interrupted.";
   }
-}
-
-function formatPresentationTime(timeMs: number): string {
-  const totalSeconds = Math.floor(timeMs / 1_000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }

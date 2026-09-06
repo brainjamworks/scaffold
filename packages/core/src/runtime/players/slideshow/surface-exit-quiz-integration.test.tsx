@@ -134,7 +134,6 @@ describe("Quiz Surface exit integration", () => {
                   durationMs: 50,
                   targetById: new Map(),
                   segments: [],
-                  sequenceContainers: [],
                 },
               },
             },

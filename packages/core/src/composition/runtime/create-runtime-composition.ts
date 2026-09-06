@@ -1,6 +1,5 @@
 import { Extension, type Editor, type Extensions } from "@tiptap/core";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state";
-import { Result } from "better-result";
 
 import { CellRuntimeNode, GridRuntimeNode } from "@/editor/arrangements/grid/runtime/grid-nodes";
 import { createLayoutRuntimeNodes } from "@/editor/arrangements/layout/runtime/layout-nodes";
@@ -30,10 +29,10 @@ import {
   type ProjectedCourseStructure,
 } from "@/document/model/course-structure";
 import {
-  projectSemanticDocument,
-  type SemanticDefinitionLookup,
-  type SemanticDocumentSnapshot,
-} from "@/document/model/semantic-document";
+  buildDocumentTree,
+  type DocumentTreeDefinitionLookup,
+  type DocumentTreeSnapshot,
+} from "@/document/model/document-tree";
 import {
   createSemanticTargetInteractionEnvironment,
   createSemanticTargetInteractionEnvironmentStorageExtension,
@@ -51,18 +50,7 @@ import { SurfaceMultipleChoiceQuestionNode } from "@/editor/surfaces/model/asses
 import { SurfaceMultiselectQuestionNode } from "@/editor/surfaces/model/assessment/surface-multiselect-question-node";
 import { SurfaceQuizNode } from "@/editor/surfaces/model/assessment/surface-quiz-node";
 import { SurfaceSequencingQuestionNode } from "@/editor/surfaces/model/assessment/surface-sequencing-question-node";
-import {
-  ContentLayoutProjectionExtension,
-  clearContentLayoutProjectionMeta,
-  readContentLayoutProjectionDiagnostics,
-  setContentLayoutProjectionBatchMeta,
-} from "@/editor/content-layout/prosemirror/content-layout-projection-extension";
-import type {
-  PresentationContentLayoutError,
-  PresentationContentLayoutPort,
-  PresentationContentLayoutRequest,
-} from "@/runtime/presentation/visual/presentation-content-layout-port";
-import { createPresentationContentLayoutPortStorageExtension } from "@/runtime/presentation/visual/presentation-content-layout-port";
+import { ContentLayoutProjectionExtension } from "@/editor/content-layout/prosemirror/content-layout-projection-extension";
 import { StudentGuard } from "@/runtime/guards/student-guard";
 import {
   RuntimeSurfaceVisibility,
@@ -95,10 +83,7 @@ export function createCourseDocumentRuntimeExtensions({
   return [
     createScaffoldCapabilitiesStorageExtension(composition.capabilities),
     RuntimeSurfaceVisibility,
-    createRuntimeSemanticDocumentExtension(composition.documentSemantics),
-    createPresentationContentLayoutPortStorageExtension({
-      getPort: createPresentationContentLayoutPortForEditor,
-    }),
+    createRuntimeSemanticDocumentExtension(composition.documentTree),
     ContentLayoutProjectionExtension,
     SurfaceCategoriseQuestionNode,
     SurfaceSequencingQuestionNode,
@@ -135,7 +120,7 @@ export function createCourseDocumentRuntimeExtensions({
 }
 
 export interface RuntimeSemanticDocumentSource {
-  readonly semantics: SemanticDocumentSnapshot;
+  readonly semantics: DocumentTreeSnapshot;
   readonly courseStructure: ProjectedCourseStructure;
 }
 
@@ -144,9 +129,9 @@ class RuntimeSemanticDocumentController {
   readonly environment: SemanticTargetInteractionEnvironment;
   readonly #controlBindingRegistry: ControlBindingRegistry;
   #controlCapabilityCatalogue: ControlCapabilityCatalogue | null = null;
-  #controlCapabilityCatalogueSnapshot: SemanticDocumentSnapshot | null = null;
+  #controlCapabilityCatalogueSnapshot: DocumentTreeSnapshot | null = null;
   readonly #environmentOwner: SemanticTargetInteractionEnvironmentOwner;
-  readonly #definitions: SemanticDefinitionLookup;
+  readonly #definitions: DocumentTreeDefinitionLookup;
   #revision = 0;
   #snapshot: RuntimeSemanticDocumentSource | null = null;
   #state: EditorState;
@@ -156,7 +141,7 @@ class RuntimeSemanticDocumentController {
     editor,
     state,
   }: {
-    readonly definitions: SemanticDefinitionLookup;
+    readonly definitions: DocumentTreeDefinitionLookup;
     readonly editor: Editor;
     readonly state: EditorState;
   }) {
@@ -226,7 +211,7 @@ class RuntimeSemanticDocumentController {
   }
 }
 
-function createRuntimeSemanticDocumentExtension(definitions: SemanticDefinitionLookup) {
+function createRuntimeSemanticDocumentExtension(definitions: DocumentTreeDefinitionLookup) {
   return Extension.create({
     name: "runtimeSemanticDocument",
 
@@ -284,122 +269,9 @@ export function getRuntimeSemanticDocumentSourceForEditor(
   return requireRuntimeSemanticDocumentController(editor).getSnapshotSource();
 }
 
-export function createPresentationContentLayoutPortForEditor(
-  editor: Editor,
-): PresentationContentLayoutPort {
-  const controller = requireRuntimeSemanticDocumentController(editor);
-  return Object.freeze({
-    apply(request: PresentationContentLayoutRequest) {
-      const source = controller.getSnapshotSource();
-      const refusal = validatePresentationContentLayoutRequest(request, source);
-      if (refusal) return Result.err(refusal);
-
-      const priorDoc = editor.state.doc;
-      const transaction = setContentLayoutProjectionBatchMeta(editor.state.tr, {
-        snapshot: source.semantics,
-        containers: request.containers,
-      });
-      if (transaction.docChanged) {
-        throw new Error("Presentation content-layout projection attempted to mutate the document.");
-      }
-      editor.view.dispatch(transaction);
-      if (editor.state.doc !== priorDoc) {
-        throw new Error("Presentation content-layout projection mutated the document.");
-      }
-      const diagnostics = readContentLayoutProjectionDiagnostics(editor.state);
-      const unexpected = diagnostics.find(({ kind }) => kind !== "projection-unavailable");
-      if (unexpected) {
-        throw new Error(
-          `Presentation content-layout projection invariant failed: ${diagnosticLabel(unexpected)}.`,
-        );
-      }
-      const projectionUnavailable = diagnostics.find(
-        (diagnostic) => diagnostic.kind === "projection-unavailable",
-      );
-      if (projectionUnavailable?.kind === "projection-unavailable") {
-        return Result.err(
-          Object.freeze({
-            reason: "projection-refused" as const,
-            surfaceId: request.surfaceId,
-            containerId: projectionUnavailable.containerId,
-            issue: projectionUnavailable.issue,
-          }),
-        );
-      }
-      return Result.ok();
-    },
-    clear() {
-      const priorDoc = editor.state.doc;
-      const transaction = clearContentLayoutProjectionMeta(editor.state.tr);
-      if (transaction.docChanged) {
-        throw new Error(
-          "Clearing Presentation content-layout projection attempted to mutate the document.",
-        );
-      }
-      editor.view.dispatch(transaction);
-      if (editor.state.doc !== priorDoc) {
-        throw new Error("Clearing Presentation content-layout projection mutated the document.");
-      }
-    },
-  });
-}
-
-function validatePresentationContentLayoutRequest(
-  request: PresentationContentLayoutRequest,
-  source: RuntimeSemanticDocumentSource,
-): PresentationContentLayoutError | null {
-  if (!source.courseStructure.surfaceIds.includes(request.surfaceId)) {
-    return Object.freeze({
-      reason: "surface-not-current" as const,
-      surfaceId: request.surfaceId,
-      currentSurfaceIds: Object.freeze([...source.courseStructure.surfaceIds]),
-    });
-  }
-  for (const input of request.containers) {
-    const item = source.semantics.itemById.get(input.containerId);
-    const location = source.semantics.locationById.get(input.containerId);
-    if (!item?.presentationContainer || location?.surfaceId !== request.surfaceId) {
-      return Object.freeze({
-        reason: "container-not-current" as const,
-        surfaceId: request.surfaceId,
-        containerId: input.containerId,
-        currentSurfaceId: location?.surfaceId ?? null,
-      });
-    }
-    if (item.presentationContainer.contentLayout !== input.contentLayout) {
-      return Object.freeze({
-        reason: "content-layout-changed" as const,
-        surfaceId: request.surfaceId,
-        containerId: input.containerId,
-        expectedContentLayout: input.contentLayout,
-        currentContentLayout: item.presentationContainer.contentLayout,
-      });
-    }
-    const currentDirectChildIds = item.children.map(({ id }) => id);
-    if (!sameIds(input.directChildIds, currentDirectChildIds)) {
-      return Object.freeze({
-        reason: "direct-children-changed" as const,
-        surfaceId: request.surfaceId,
-        containerId: input.containerId,
-        expectedDirectChildIds: Object.freeze([...input.directChildIds]),
-        currentDirectChildIds: Object.freeze(currentDirectChildIds),
-      });
-    }
-  }
-  return null;
-}
-
-function sameIds(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((id, index) => id === right[index]);
-}
-
-function diagnosticLabel(diagnostic: { readonly kind: string; readonly reason?: string }): string {
-  return diagnostic.reason ? `${diagnostic.kind}/${diagnostic.reason}` : diagnostic.kind;
-}
-
 function projectRuntimeSemanticSnapshot(
   state: EditorState,
-  definitions: SemanticDefinitionLookup,
+  definitions: DocumentTreeDefinitionLookup,
   revision: number,
 ): RuntimeSemanticDocumentSource {
   const courseStructure = projectCourseStructure(state.doc.toJSON());
@@ -407,7 +279,7 @@ function projectRuntimeSemanticSnapshot(
     throw new Error("Cannot project runtime semantics from invalid Course Structure");
   }
   return Object.freeze({
-    semantics: projectSemanticDocument({
+    semantics: buildDocumentTree({
       doc: state.doc,
       courseStructure,
       definitions,

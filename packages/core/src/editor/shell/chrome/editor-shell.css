@@ -67,10 +67,26 @@
   }
 
   /* In the page scroll model the window scrolls, so pin the bar to the viewport bottom. */
-  .sc-editor-shell[data-scroll-model="page"] .sc-editor-bottom-workspace {
+  /* Reserve space under the pinned bar so scrolled page content stays visible above it. */
+  .sc-editor-shell[data-scroll-model="page"] .sc-editor-stage {
+    padding-bottom: var(--sc-editor-bottom-workspace-height, 0px);
+  }
+
+  .sc-editor-shell[data-scroll-model="page"] .sc-editor-bottom-panel {
     position: sticky;
     bottom: 0;
   }
+
+  /* Preview mode constrains the stage to the viewport grid, where 100%-height
+  runtime chains must keep the full stage height — so no scroll clearance
+  inside the stage content box. The workspace marks preview on an ancestor. */
+  .sc-scaffold-authoring-workspace[data-preview-mode]
+    .sc-editor-shell[data-scroll-model="page"]
+    .sc-editor-stage {
+    padding-bottom: 0;
+  }
+
+
 
   .sc-editor-dock-slot {
     min-width: 0;

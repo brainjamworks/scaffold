@@ -1,28 +1,10 @@
-import {
-  PresentationContentLayout,
-  type EmbeddedDataId,
-  type EmbeddedNodeId,
-  type PresentationEasingV1,
-} from "@scaffold/contracts";
+import type { EmbeddedDataId, EmbeddedNodeId, PresentationEasingV1 } from "@scaffold/contracts";
 
 import type {
   CompiledVisualIntent,
-  PresentationFlowSceneState,
-  PresentationSequenceSceneState,
   PresentationTargetSceneState,
   PresentationVisualScene,
 } from "@/presentation/model";
-
-import {
-  createAnimePresentationLayoutAnimation,
-  type PresentationLayoutAnimationFactory,
-  type PresentationLayoutAnimationHandle,
-} from "./anime-visual-animation-driver";
-import type {
-  PresentationContentLayoutError,
-  PresentationContentLayoutPort,
-  PresentationContentLayoutRequest,
-} from "./presentation-content-layout-port";
 import type {
   VisualAnimationDriver,
   VisualAnimationHandle,
@@ -42,7 +24,6 @@ export interface VisualSceneApplicationReport {
   readonly surfaceId: EmbeddedNodeId;
   readonly timeMs: number;
   readonly unavailableTargets: readonly VisualTargetUnavailable[];
-  readonly contentLayoutError?: PresentationContentLayoutError;
 }
 
 export interface PresentationVisualStateRenderer {
@@ -70,51 +51,19 @@ interface ActiveHandle {
   readonly handle: VisualAnimationHandle;
 }
 
-interface ActiveLayoutHandle {
-  readonly segmentId: EmbeddedDataId;
-  readonly root: HTMLElement;
-  readonly durationMs: number;
-  readonly handle: PresentationLayoutAnimationHandle;
-}
-
-type ActiveLayoutTransition =
-  | {
-      readonly kind: "flow";
-      readonly state: PresentationFlowSceneState;
-      readonly transition: NonNullable<PresentationFlowSceneState["transition"]>;
-    }
-  | {
-      readonly kind: "sequence";
-      readonly state: PresentationSequenceSceneState;
-      readonly transition: NonNullable<PresentationSequenceSceneState["transition"]>;
-    };
-
 export function createPresentationVisualStateRenderer({
   resolver,
   driver,
-  contentLayoutPort,
-  createLayoutAnimation = createAnimePresentationLayoutAnimation,
 }: {
   readonly resolver: VisualTargetResolver;
   readonly driver: VisualAnimationDriver;
-  readonly contentLayoutPort?: PresentationContentLayoutPort;
-  readonly createLayoutAnimation?: PresentationLayoutAnimationFactory;
 }): PresentationVisualStateRenderer {
   const baselines = new Map<HTMLElement, ElementBaseline>();
   const activeByTargetId = new Map<EmbeddedNodeId, ActiveHandle>();
-  let activeLayout: ActiveLayoutHandle | null = null;
   let surfaceId: EmbeddedNodeId | null = null;
-  let contentLayoutApplied = false;
   let disposed = false;
 
   function clear(): void {
-    cancelActiveLayout(activeLayout, (next) => {
-      activeLayout = next;
-    });
-    if (contentLayoutApplied) {
-      contentLayoutPort?.clear();
-      contentLayoutApplied = false;
-    }
     for (const active of activeByTargetId.values()) active.handle.cancel();
     activeByTargetId.clear();
     for (const [element, baseline] of baselines) restoreElement(element, baseline);
@@ -132,20 +81,6 @@ export function createPresentationVisualStateRenderer({
       surfaceId = scene.surfaceId;
       const unavailableTargets: VisualTargetUnavailable[] = [];
       const appliedTargetIds = new Set<EmbeddedNodeId>();
-      const contentLayoutError = applyContentLayout({
-        scene,
-        resolver,
-        contentLayoutPort,
-        createLayoutAnimation,
-        getActiveLayout: () => activeLayout,
-        setActiveLayout: (next) => {
-          activeLayout = next;
-        },
-        markContentLayoutApplied: () => {
-          contentLayoutApplied = true;
-        },
-        unavailableTargets,
-      });
 
       for (const state of scene.targetStates.values()) {
         appliedTargetIds.add(state.targetId);
@@ -178,7 +113,6 @@ export function createPresentationVisualStateRenderer({
         surfaceId: scene.surfaceId,
         timeMs: scene.timeMs,
         unavailableTargets: Object.freeze(unavailableTargets),
-        ...(contentLayoutError ? { contentLayoutError } : {}),
       });
     },
     clear,
@@ -188,224 +122,6 @@ export function createPresentationVisualStateRenderer({
       disposed = true;
     },
   });
-}
-
-function applyContentLayout({
-  scene,
-  resolver,
-  contentLayoutPort,
-  createLayoutAnimation,
-  getActiveLayout,
-  setActiveLayout,
-  markContentLayoutApplied,
-  unavailableTargets,
-}: {
-  readonly scene: PresentationVisualScene;
-  readonly resolver: VisualTargetResolver;
-  readonly contentLayoutPort: PresentationContentLayoutPort | undefined;
-  readonly createLayoutAnimation: PresentationLayoutAnimationFactory;
-  readonly getActiveLayout: () => ActiveLayoutHandle | null;
-  readonly setActiveLayout: (next: ActiveLayoutHandle | null) => void;
-  readonly markContentLayoutApplied: () => void;
-  readonly unavailableTargets: VisualTargetUnavailable[];
-}): PresentationContentLayoutError | undefined {
-  const flowStates = scene.flowStates ?? [];
-  if (flowStates.length === 0 && scene.sequenceStates.length === 0) return undefined;
-  if (!contentLayoutPort) {
-    throw new Error("Presentation content-layout state requires its runtime projection port.");
-  }
-
-  const currentRequest = createContentLayoutRequest(scene, flowStates, scene.sequenceStates);
-  const activeTransition = collectActiveLayoutTransition(flowStates, scene.sequenceStates);
-  if (!activeTransition) {
-    settleActiveLayout(getActiveLayout(), setActiveLayout);
-    const result = contentLayoutPort.apply(currentRequest);
-    if (result.isErr()) return result.error;
-    markContentLayoutApplied();
-    return undefined;
-  }
-
-  const { transition } = activeTransition;
-  const durationMs = transition.endMs - transition.startMs;
-  if (!Number.isSafeInteger(durationMs) || durationMs <= 0) {
-    throw new Error("Presentation Layout transition has invalid time bounds.");
-  }
-  const rootResolution = resolver.resolve(scene.surfaceId);
-  if (rootResolution.kind === "unavailable") {
-    cancelActiveLayout(getActiveLayout(), setActiveLayout);
-    unavailableTargets.push(
-      Object.freeze({ targetId: scene.surfaceId, reason: rootResolution.reason }),
-    );
-    const result = contentLayoutPort.apply(currentRequest);
-    if (result.isErr()) return result.error;
-    markContentLayoutApplied();
-    return undefined;
-  }
-
-  const localTimeMs = Math.min(durationMs, Math.max(0, scene.timeMs - transition.startMs));
-  const active = getActiveLayout();
-  if (
-    active?.segmentId === transition.segmentId &&
-    active.root === rootResolution.element &&
-    active.durationMs === durationMs
-  ) {
-    active.handle.apply(localTimeMs);
-    return undefined;
-  }
-  cancelActiveLayout(active, setActiveLayout);
-
-  const previousResult = contentLayoutPort.apply(
-    createContentLayoutRequest(
-      scene,
-      flowStates,
-      scene.sequenceStates,
-      activeTransition,
-      "previous",
-    ),
-  );
-  if (previousResult.isErr()) return previousResult.error;
-  markContentLayoutApplied();
-
-  let nextError: PresentationContentLayoutError | undefined;
-  const handle = createLayoutAnimation({
-    root: rootResolution.element,
-    durationMs,
-    easing: resolveLayoutEasing(transition),
-    applyLayout() {
-      const result = contentLayoutPort.apply(
-        createContentLayoutRequest(
-          scene,
-          flowStates,
-          scene.sequenceStates,
-          activeTransition,
-          "next",
-        ),
-      );
-      if (result.isErr()) {
-        nextError = result.error;
-        return;
-      }
-      markContentLayoutApplied();
-    },
-  });
-  if (nextError) {
-    handle.cancel();
-    handle.dispose();
-    return nextError;
-  }
-  setActiveLayout(
-    Object.freeze({
-      segmentId: transition.segmentId,
-      root: rootResolution.element,
-      durationMs,
-      handle,
-    }),
-  );
-  handle.apply(localTimeMs);
-  return undefined;
-}
-
-function collectActiveLayoutTransition(
-  flowStates: readonly PresentationFlowSceneState[],
-  sequenceStates: readonly PresentationSequenceSceneState[],
-): ActiveLayoutTransition | undefined {
-  const active = [
-    ...flowStates.flatMap((state) =>
-      state.transition ? [{ kind: "flow" as const, state, transition: state.transition }] : [],
-    ),
-    ...sequenceStates.flatMap((state) =>
-      state.transition ? [{ kind: "sequence" as const, state, transition: state.transition }] : [],
-    ),
-  ];
-  if (active.length > 1) {
-    throw new Error("Presentation Surface has overlapping active Layout transitions.");
-  }
-  return active[0];
-}
-
-function createContentLayoutRequest(
-  scene: PresentationVisualScene,
-  flowStates: readonly PresentationFlowSceneState[],
-  sequenceStates: readonly PresentationSequenceSceneState[],
-  override?: ActiveLayoutTransition,
-  phase: "previous" | "next" = "next",
-): PresentationContentLayoutRequest {
-  return Object.freeze({
-    surfaceId: scene.surfaceId,
-    containers: Object.freeze([
-      ...flowStates.map((state) =>
-        Object.freeze({
-          containerId: state.boundaryId,
-          contentLayout: PresentationContentLayout.Flow,
-          directChildIds: state.directChildIds,
-          activeChildId: null,
-          withheldChildIds: resolveFlowWithheldChildIds(state, override, phase),
-        }),
-      ),
-      ...sequenceStates.map((state) =>
-        Object.freeze({
-          containerId: state.boundaryId,
-          contentLayout: PresentationContentLayout.Sequence,
-          directChildIds: state.directChildIds,
-          activeChildId: resolveSequenceActiveChildId(state, override, phase),
-          withheldChildIds: Object.freeze([]),
-        }),
-      ),
-    ]),
-  });
-}
-
-function resolveFlowWithheldChildIds(
-  state: PresentationFlowSceneState,
-  override: ActiveLayoutTransition | undefined,
-  phase: "previous" | "next",
-): readonly EmbeddedNodeId[] {
-  if (override?.kind !== "flow" || override.state !== state) return state.withheldChildIds;
-  return phase === "previous"
-    ? override.transition.previousWithheldChildIds
-    : override.transition.nextWithheldChildIds;
-}
-
-function resolveSequenceActiveChildId(
-  state: PresentationSequenceSceneState,
-  override: ActiveLayoutTransition | undefined,
-  phase: "previous" | "next",
-): EmbeddedNodeId | null {
-  if (override?.kind !== "sequence" || override.state !== state) return state.activeChildId;
-  return phase === "previous"
-    ? override.transition.previousActiveChildId
-    : override.transition.nextActiveChildId;
-}
-
-function resolveLayoutEasing(
-  transition:
-    | NonNullable<PresentationFlowSceneState["transition"]>
-    | NonNullable<PresentationSequenceSceneState["transition"]>,
-): string {
-  if (transition.visual.transition.kind === "instant") {
-    throw new Error("Presentation Layout transition cannot use an instant visibility recipe.");
-  }
-  return resolvePresentationEasing(transition.visual.transition.easing);
-}
-
-function cancelActiveLayout(
-  active: ActiveLayoutHandle | null,
-  setActiveLayout: (next: ActiveLayoutHandle | null) => void,
-): void {
-  if (!active) return;
-  active.handle.cancel();
-  active.handle.dispose();
-  setActiveLayout(null);
-}
-
-function settleActiveLayout(
-  active: ActiveLayoutHandle | null,
-  setActiveLayout: (next: ActiveLayoutHandle | null) => void,
-): void {
-  if (!active) return;
-  active.handle.finish();
-  active.handle.dispose();
-  setActiveLayout(null);
 }
 
 function applyAvailability(

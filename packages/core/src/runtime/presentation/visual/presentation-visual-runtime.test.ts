@@ -1,8 +1,4 @@
-import {
-  EmbeddedDataIdSchema,
-  PresentationContentLayout,
-  type EmbeddedNodeId,
-} from "@scaffold/contracts";
+import { EmbeddedDataIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import type {
@@ -81,25 +77,17 @@ describe("createPresentationVisualRuntime", () => {
     expect(source.subscribe).not.toHaveBeenCalled();
   });
 
-  it("retains typed renderer outcomes for the owning Slideshow runtime", () => {
+  it("retains independent target-resolution outcomes for the owning Slideshow runtime", () => {
     const source = createSnapshotSource(0);
     const unavailableTarget = Object.freeze({
       targetId: TARGET_ID,
       reason: "target-unmounted" as const,
-    });
-    const contentLayoutError = Object.freeze({
-      reason: "content-layout-changed" as const,
-      surfaceId: SURFACE_ID,
-      containerId: TARGET_ID,
-      expectedContentLayout: PresentationContentLayout.Flow,
-      currentContentLayout: PresentationContentLayout.Sequence,
     });
     const renderer = rendererSpy([], (scene) =>
       Object.freeze({
         surfaceId: scene.surfaceId,
         timeMs: scene.timeMs,
         unavailableTargets: Object.freeze([unavailableTarget]),
-        contentLayoutError,
       }),
     );
     const runtime = createPresentationVisualRuntime({
@@ -113,7 +101,6 @@ describe("createPresentationVisualRuntime", () => {
       surfaceId: SURFACE_ID,
       timeMs: 0,
       unavailableTargets: [unavailableTarget],
-      contentLayoutError,
     });
     source.publish(750);
     expect(runtime.getLatestApplicationReport()).toMatchObject({
@@ -213,6 +200,5 @@ function revealProgram(): CompiledSurfacePresentationVisualProgram {
         }),
       }),
     ]),
-    sequenceContainers: Object.freeze([]),
   });
 }

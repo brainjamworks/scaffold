@@ -84,7 +84,6 @@ function presentationTimeline(
       durationMs: 1_000,
       targetById: new Map(),
       segments: [],
-      sequenceContainers: [],
     },
   });
 }

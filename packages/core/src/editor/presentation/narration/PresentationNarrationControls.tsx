@@ -1,7 +1,7 @@
 import { TrashIcon as Trash } from "@phosphor-icons/react";
 import {
   EmbeddedNodeIdSchema,
-  PresentationConfigurationV1Schema,
+  type MediaSource,
   type SurfacePresentationNarrationV1,
 } from "@scaffold/contracts";
 import type { Editor } from "@tiptap/core";
@@ -13,7 +13,6 @@ import {
 } from "@/editor/media/authoring/picker/LazyFilePickerModal";
 import {
   setPresentationSurfaceNarration,
-  setPresentationSurfaceDuration,
   type PresentationAuthoringCommandError,
 } from "@/editor/presentation/model";
 import { presentPresentationAuthoringCommandError } from "@/editor/presentation/timeline/PresentationActionEditor";
@@ -23,10 +22,10 @@ import { IconButton } from "@/ui/components/IconButton/IconButton";
 import { iconXs } from "@/ui/tokens/icon-sizes";
 
 import {
-  presentPresentationNarrationMetadataError,
-  resolvePresentationNarrationMetadata,
-  type PresentationNarrationMetadataError,
-} from "./presentation-narration-metadata";
+  attachPresentationSurfaceNarration,
+  type PresentationNarrationDurationError,
+} from "./presentation-narration-attachment";
+import { presentPresentationNarrationMetadataError } from "./presentation-narration-metadata";
 
 export interface PresentationNarrationControlsProps {
   readonly editor: Editor;
@@ -37,8 +36,8 @@ export interface PresentationNarrationControlsProps {
 /**
  * Attach, replace or remove the narration audio of one Slideshow Surface.
  *
- * Lives in the Timeline toolbar: narration is the audio clock of the
- * Surface's presentation, so it is authored beside the actions it drives.
+ * Attachment and the follow-up Surface-duration expansion belong to the
+ * narration authoring owner; this component only presents their outcomes.
  */
 export function PresentationNarrationControls({
   editor,
@@ -47,57 +46,44 @@ export function PresentationNarrationControls({
 }: PresentationNarrationControlsProps) {
   const mediaPort = useMediaPort();
   const mountedRef = useRef(false);
+  const cancelPendingRef = useRef<(() => void) | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [commandError, setCommandError] = useState<PresentationAuthoringCommandError | null>(null);
-  const [metadataError, setMetadataError] = useState<PresentationNarrationMetadataError | null>(
-    null,
-  );
+  const [error, setError] = useState<PresentationNarrationDurationError | null>(null);
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      // The pending resolution keeps running against the document; only its
+      // presentation here stops with the component.
+      cancelPendingRef.current = null;
     };
   }, []);
 
-  const applyNarration = (next: SurfacePresentationNarrationV1 | null) => {
+  const removeNarration = () => {
     const result = setPresentationSurfaceNarration({
       editor,
       surfaceId: EmbeddedNodeIdSchema.parse(surfaceId),
-      narration: next,
+      narration: null,
     });
-    setCommandError(result.isErr() ? result.error : null);
-    setMetadataError(null);
-    return result.isOk();
+    setError(result.isErr() ? result.error : null);
   };
 
   const handleResolved = (result: FilePickerResult) => {
     const source = narrationSourceFromPickerResult(result);
     if (!source) throw new Error("The audio picker returned no media source.");
-    if (!applyNarration({ source })) return false;
-    const parsedSurfaceId = EmbeddedNodeIdSchema.parse(surfaceId);
-    resolvePresentationNarrationMetadata({
+    const attached = attachPresentationSurfaceNarration({
+      editor,
+      surfaceId: EmbeddedNodeIdSchema.parse(surfaceId),
       source,
       mediaPort,
-      createAudioElement: () => new Audio(),
-      onResult: (metadataResult) => {
-        if (metadataResult.isErr()) {
-          if (mountedRef.current) setMetadataError(metadataResult.error);
-          return;
-        }
-        const current = readSurfaceTimeline(editor, parsedSurfaceId);
-        if (!current || !sameNarrationSource(current.narration?.source, source)) return;
-        if (metadataResult.value.durationMs <= current.durationMs) return;
-        const durationResult = setPresentationSurfaceDuration({
-          editor,
-          surfaceId: parsedSurfaceId,
-          durationMs: metadataResult.value.durationMs,
-        });
-        if (mountedRef.current) {
-          setCommandError(durationResult.isErr() ? durationResult.error : null);
-        }
+      onDurationSettled: (settled) => {
+        if (!mountedRef.current) return;
+        setError(settled.isErr() ? settled.error : null);
       },
     });
-    return true;
+    setError(attached.isErr() ? attached.error : null);
+    if (attached.isOk()) cancelPendingRef.current = attached.value;
+    return attached.isOk();
   };
 
   const pickerTitle = narration ? "Replace narration" : "Add narration";
@@ -108,7 +94,7 @@ export function PresentationNarrationControls({
         {pickerTitle}
       </Button>
       {narration ? (
-        <IconButton size="sm" aria-label="Remove narration" onClick={() => applyNarration(null)}>
+        <IconButton size="sm" aria-label="Remove narration" onClick={removeNarration}>
           <Trash size={iconXs} aria-hidden />
         </IconButton>
       ) : null}
@@ -122,48 +108,26 @@ export function PresentationNarrationControls({
         metadataFields={[]}
         onResolved={handleResolved}
       />
-      {commandError ? (
+      {error ? (
         <span className="sc-presentation-timeline-authoring-error" role="alert">
-          {presentPresentationAuthoringCommandError(commandError)}
-        </span>
-      ) : null}
-      {metadataError ? (
-        <span className="sc-presentation-timeline-authoring-error" role="alert">
-          {presentPresentationNarrationMetadataError(metadataError)}
+          {presentNarrationDurationError(error)}
         </span>
       ) : null}
     </div>
   );
 }
 
-function readSurfaceTimeline(
-  editor: Editor,
-  surfaceId: string,
-): { readonly narration: SurfacePresentationNarrationV1 | null; readonly durationMs: number } | null {
-  const courseDocument = editor.state.doc.firstChild;
-  if (!courseDocument) throw new Error("The Course Document is missing.");
-  const value = courseDocument.attrs["presentation"];
-  if (value === null || value === undefined) return null;
-  const configuration = PresentationConfigurationV1Schema.parse(value);
-  const timeline = configuration.surfaces.find((candidate) => candidate.surfaceId === surfaceId);
-  if (!timeline) return null;
-  return { narration: timeline.narration ?? null, durationMs: timeline.durationMs };
-}
-
-function sameNarrationSource(
-  current: SurfacePresentationNarrationV1["source"] | undefined,
-  expected: SurfacePresentationNarrationV1["source"],
-): boolean {
-  if (!current || current.mode !== expected.mode) return false;
-  if (current.mode === "managed") {
-    return expected.mode === "managed" && current.mediaId === expected.mediaId;
+function presentNarrationDurationError(error: PresentationNarrationDurationError): string {
+  if (
+    error.reason === "narration-source-unavailable" ||
+    error.reason === "narration-duration-unavailable"
+  ) {
+    return presentPresentationNarrationMetadataError(error);
   }
-  return expected.mode === "external" && current.src === expected.src;
+  return presentPresentationAuthoringCommandError(error as PresentationAuthoringCommandError);
 }
 
-function narrationSourceFromPickerResult(
-  result: FilePickerResult,
-): SurfacePresentationNarrationV1["source"] | null {
+function narrationSourceFromPickerResult(result: FilePickerResult): MediaSource | null {
   if (result.source === "upload" && result.upload) {
     return { mode: "managed", mediaId: result.upload.id };
   }

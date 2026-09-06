@@ -169,7 +169,6 @@ function scene(
     surfaceId: SURFACE_ID,
     timeMs: 750,
     targetStates: new Map([[TARGET_ID, state], ...additional]),
-    sequenceStates: [],
   };
 }
 
@@ -177,7 +176,6 @@ function transitionState(progress: number): PresentationTargetSceneState {
   return {
     targetId: TARGET_ID,
     availability: "available",
-    layoutParticipation: "normal",
     paint: {
       kind: "transition",
       segmentId: SEGMENT_ID,
@@ -198,7 +196,6 @@ function withheldState(): PresentationTargetSceneState {
   return {
     targetId: TARGET_ID,
     availability: "withheld",
-    layoutParticipation: "none",
     paint: { kind: "none" },
   };
 }
@@ -207,7 +204,6 @@ function pulseState(): PresentationTargetSceneState {
   return {
     targetId: TARGET_ID,
     availability: "available",
-    layoutParticipation: "normal",
     paint: {
       kind: "transition",
       segmentId: SEGMENT_ID,
@@ -228,7 +224,6 @@ function settledState(
   return {
     targetId,
     availability: "available",
-    layoutParticipation: "normal",
     paint: { kind: "settled" },
   };
 }

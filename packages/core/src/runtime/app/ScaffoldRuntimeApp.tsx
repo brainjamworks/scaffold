@@ -11,7 +11,6 @@ import type { SurfaceExitPolicy } from "../players/slideshow/slideshow-surface-c
 import {
   ContentRuntimeHostWithSurfaceExitPolicy,
   type AuthorPreviewRuntimeMount,
-  type PresentationRuntimePreview,
 } from "./ContentRuntimeHost";
 
 interface ScaffoldRuntimeAppProps {
@@ -23,7 +22,6 @@ interface ScaffoldRuntimeAppProps {
   slideshowSizing?: SlideshowPlayerSizing;
   surfaceExitPolicy: SurfaceExitPolicy;
   authorPreviewRuntimeMount?: AuthorPreviewRuntimeMount;
-  presentationPreview?: PresentationRuntimePreview;
 }
 
 /** @internal Shared implementation for fixed learner and author Preview entry points. */
@@ -36,7 +34,6 @@ export function ScaffoldRuntimeApp({
   slideshowSizing = "embedded",
   surfaceExitPolicy,
   authorPreviewRuntimeMount,
-  presentationPreview,
 }: ScaffoldRuntimeAppProps) {
   const ports = useMemo(
     () => ({
@@ -70,7 +67,6 @@ export function ScaffoldRuntimeApp({
         slideshowSizing={slideshowSizing}
         surfaceExitPolicy={surfaceExitPolicy}
         {...(authorPreviewRuntimeMount ? { authorPreviewRuntimeMount } : {})}
-        {...(presentationPreview ? { presentationPreview } : {})}
       />
     </ScaffoldServicesProvider>
   );

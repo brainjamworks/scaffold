@@ -646,7 +646,7 @@ describe("presentation authoring commands", () => {
     });
   });
 
-  it("rejects overlapping Surface layout transitions across different targets", () => {
+  it("allows overlapping visibility transitions across different targets", () => {
     const editor = createEditor();
     setPresentationSurfaceDuration({
       editor,
@@ -666,13 +666,7 @@ describe("presentation authoring commands", () => {
       action: timedReveal(IDS.secondParagraph, 1_500, 1_000),
     });
 
-    expect(overlapping.isErr() && overlapping.error).toMatchObject({
-      reason: "surface-timed-layout-overlap",
-      surfaceId: IDS.firstSurface,
-      earlierActionId: first.value,
-      earlierTargetId: IDS.firstParagraph,
-      laterTargetId: IDS.secondParagraph,
-    });
+    expect(overlapping.isOk()).toBe(true);
   });
 
   it("returns editor lifecycle and stale coverage failures", () => {

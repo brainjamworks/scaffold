@@ -6,6 +6,7 @@ import type {
 } from "@scaffold/contracts";
 import type { Editor } from "@tiptap/core";
 import { useState, useSyncExternalStore, type FormEvent } from "react";
+import { Button } from "@/ui/components/Button/Button";
 
 import {
   createPresentationAction,
@@ -167,7 +168,7 @@ function ActionForm({
       if (result.isErr()) setError(result.error);
       else {
         setError(null);
-        void controller.selectAction(result.value[1]!, replaceTarget.targetId);
+        controller.selectAction(result.value[1]!, replaceTarget.targetId);
       }
       return;
     }
@@ -185,7 +186,7 @@ function ActionForm({
       if (result.isErr()) setError(result.error);
       else {
         setError(null);
-        void controller.selectAction(result.value, targetId);
+        controller.selectAction(result.value, targetId);
       }
     }
   }
@@ -229,128 +230,160 @@ function ActionForm({
       aria-label={`${targetLabel} action editor`}
       onSubmit={saveAction}
     >
-      {selectedAction ? (
-        <strong>{labelForAction(selectedAction)}</strong>
-      ) : (
+      <header className="sc-presentation-action-editor-heading">
+        <strong>{targetLabel}</strong>
+        <span>{selectedAction ? labelForAction(selectedAction) : "New effect"}</span>
+      </header>
+      <div className="sc-presentation-action-editor-fields">
+        {selectedAction ? (
+          <strong>{labelForAction(selectedAction)}</strong>
+        ) : (
+          <label>
+            Action
+            <select
+              name="actionType"
+              value={choice}
+              onChange={(event) => {
+                const nextChoice = event.currentTarget.value;
+                setChoice(nextChoice);
+                if (nextChoice.startsWith("animate:")) {
+                  const nextVisualKind = nextChoice.slice("animate:".length);
+                  setRecipe(
+                    nextVisualKind === "reveal" || nextVisualKind === "hide"
+                      ? "fade"
+                      : nextVisualKind,
+                  );
+                }
+              }}
+            >
+              {visualChoices.length > 0 ? (
+                <optgroup label="Animate">
+                  {visualChoices.map((kind) => (
+                    <option key={kind} value={`animate:${kind}`}>
+                      {capitalise(kind)}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+              {control?.commands?.length ? (
+                <optgroup label="Trigger">
+                  {control.commands.map((command) => (
+                    <option key={command.type} value={`trigger:${command.type}`}>
+                      {command.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+              {allowManualWait || control?.events?.length || control?.states?.length ? (
+                <optgroup label="Wait">
+                  {allowManualWait ? <option value="wait:manual">Manual wait</option> : null}
+                  {control?.events?.map((event) => (
+                    <option key={`event:${event.type}`} value={`wait:event:${event.type}`}>
+                      Wait for {event.label}
+                    </option>
+                  ))}
+                  {control?.states?.map((state) => (
+                    <option key={`state:${state.key}`} value={`wait:state:${state.key}`}>
+                      Wait until {state.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+            </select>
+          </label>
+        )}
+        {choice.startsWith("animate:") ? (
+          <VisualFields
+            action={selectedAction}
+            visualKind={choice.slice("animate:".length) as PresentationVisualCapabilityId}
+            recipe={recipe}
+            onRecipeChange={setRecipe}
+          />
+        ) : null}
         <label>
-          Action
-          <select
-            name="actionType"
-            value={choice}
-            onChange={(event) => {
-              const nextChoice = event.currentTarget.value;
-              setChoice(nextChoice);
-              if (nextChoice.startsWith("animate:")) {
-                const nextVisualKind = nextChoice.slice("animate:".length);
-                setRecipe(
-                  nextVisualKind === "reveal" || nextVisualKind === "hide"
-                    ? "fade"
-                    : nextVisualKind,
-                );
-              }
-            }}
-          >
-            {visualChoices.length > 0 ? (
-              <optgroup label="Animate">
-                {visualChoices.map((kind) => (
-                  <option key={kind} value={`animate:${kind}`}>
-                    {capitalise(kind)}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
-            {control?.commands?.length ? (
-              <optgroup label="Trigger">
-                {control.commands.map((command) => (
-                  <option key={command.type} value={`trigger:${command.type}`}>
-                    {command.label}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
-            {allowManualWait || control?.events?.length || control?.states?.length ? (
-              <optgroup label="Wait">
-                {allowManualWait ? <option value="wait:manual">Manual wait</option> : null}
-                {control?.events?.map((event) => (
-                  <option key={`event:${event.type}`} value={`wait:event:${event.type}`}>
-                    Wait for {event.label}
-                  </option>
-                ))}
-                {control?.states?.map((state) => (
-                  <option key={`state:${state.key}`} value={`wait:state:${state.key}`}>
-                    Wait until {state.label}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null}
+          Placement
+          <select name="placement" defaultValue="exact">
+            <option value="exact">Exact</option>
+            <option value="with-previous">With previous</option>
+            <option value="after-previous">After previous</option>
           </select>
         </label>
-      )}
-      <label>
-        Placement
-        <select name="placement" defaultValue="exact">
-          <option value="exact">Exact</option>
-          <option value="with-previous">With previous</option>
-          <option value="after-previous">After previous</option>
-        </select>
-      </label>
-      <label>
-        Start (ms)
-        <input
-          name="atMs"
-          type="number"
-          min={0}
-          step={1}
-          defaultValue={selectedAction?.atMs ?? 0}
-        />
-      </label>
-      {selectedCommand?.input ? (
-        <ControlValueField
-          label={selectedCommand.label}
-          definition={selectedCommand.input}
-          value={controlValue}
-        />
-      ) : null}
-      {selectedState ? (
-        <ControlValueField
-          label={`Expected ${selectedState.label}`}
-          definition={selectedState.valueType}
-          value={controlValue}
-        />
-      ) : null}
-      {choice.startsWith("animate:") ? (
-        <VisualFields
-          action={selectedAction}
-          visualKind={choice.slice("animate:".length) as PresentationVisualCapabilityId}
-          recipe={recipe}
-          onRecipeChange={setRecipe}
-        />
-      ) : null}
-      <button type="submit">{selectedAction ? "Save action" : "Add action"}</button>
-      {!selectedAction && replaceTarget ? (
-        <button type="submit" data-intent="replace">
-          Replace with {replaceTarget.label}
-        </button>
-      ) : null}
-      {selectedAction ? (
-        <>
-          <button type="button" onClick={toggleEnabled}>
-            {selectedAction.isEnabled ? "Disable action" : "Enable action"}
-          </button>
-          <button type="button" disabled={!canMoveEarlier} onClick={() => reorderAction("earlier")}>
-            Move earlier
-          </button>
-          <button type="button" disabled={!canMoveLater} onClick={() => reorderAction("later")}>
-            Move later
-          </button>
-          <button type="button" onClick={deleteAction}>
-            Delete action
-          </button>
-          <button type="button" onClick={() => controller.clearActionSelection()}>
-            Cancel
-          </button>
-        </>
-      ) : null}
+        <label>
+          Start (ms)
+          <input
+            name="atMs"
+            type="number"
+            min={0}
+            step={1}
+            defaultValue={selectedAction?.atMs ?? 0}
+          />
+        </label>
+        {selectedCommand?.input ? (
+          <ControlValueField
+            label={selectedCommand.label}
+            definition={selectedCommand.input}
+            value={controlValue}
+          />
+        ) : null}
+        {selectedState ? (
+          <ControlValueField
+            label={`Expected ${selectedState.label}`}
+            definition={selectedState.valueType}
+            value={controlValue}
+          />
+        ) : null}
+      </div>
+      <div className="sc-presentation-action-editor-actions">
+        <Button size="sm" variant="primary" type="submit">
+          {selectedAction ? "Save action" : "Add action"}
+        </Button>
+        {!selectedAction && replaceTarget ? (
+          <Button size="sm" variant="secondary" type="submit" data-intent="replace">
+            Replace with {replaceTarget.label}
+          </Button>
+        ) : null}
+        {selectedAction ? (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              type="button"
+              onClick={() => controller.clearActionSelection()}
+            >
+              Cancel
+            </Button>
+            <details className="sc-presentation-action-editor-more">
+              <summary>More actions</summary>
+              <div>
+                <Button size="sm" variant="ghost" type="button" onClick={toggleEnabled}>
+                  {selectedAction.isEnabled ? "Disable action" : "Enable action"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  type="button"
+                  disabled={!canMoveEarlier}
+                  onClick={() => reorderAction("earlier")}
+                >
+                  Move earlier
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  type="button"
+                  disabled={!canMoveLater}
+                  onClick={() => reorderAction("later")}
+                >
+                  Move later
+                </Button>
+                <Button size="sm" variant="danger" type="button" onClick={deleteAction}>
+                  Delete action
+                </Button>
+              </div>
+            </details>
+          </>
+        ) : null}
+      </div>
       {error ? <p role="alert">{presentPresentationAuthoringCommandError(error)}</p> : null}
     </form>
   );
@@ -832,7 +865,5 @@ export function presentPresentationAuthoringCommandError(
       return `This target no longer supports ${capitalise(error.capability)}.`;
     case "same-target-timed-overlap":
       return "This timed action overlaps another action on the same target.";
-    case "surface-timed-layout-overlap":
-      return "This visibility transition overlaps another layout-changing transition on the Surface.";
   }
 }

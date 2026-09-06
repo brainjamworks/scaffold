@@ -463,7 +463,6 @@ function annotationVisualProgram(
         }),
       }),
     ]),
-    sequenceContainers: Object.freeze([]),
   });
 }
 

@@ -373,7 +373,6 @@ function repositionTimeline(
           }),
         }),
       ]),
-      sequenceContainers: Object.freeze([]),
     }),
   });
 }

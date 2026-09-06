@@ -1,19 +1,13 @@
-import type { Editor as TiptapEditor } from "@tiptap/core";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
-import type { LearnerInteractionPreviewController } from "@/editor/learner-interaction/preview";
 import type { LearnerInteractionWorkspaceController } from "@/editor/learner-interaction/workspace";
-import type { PresentationPreviewController } from "@/editor/presentation/preview";
 
 import {
-  resolvePresentationSurfaceId,
   SurfaceWorkspacesController,
   type SurfaceWorkspacesSnapshot,
-  type WorkspaceSemanticController,
 } from "./surface-workspaces-controller";
-import { FakeWorkspaceSemanticController } from "./testing/fake-workspace-semantic-controller";
 
 const FIRST = EmbeddedNodeIdSchema.parse("workspace001");
 const SECOND = EmbeddedNodeIdSchema.parse("workspace002");
@@ -24,6 +18,7 @@ type GuardRequest =
 
 class FakeInteractionController {
   dirty = false;
+  failSave = false;
   readonly requested: GuardRequest[] = [];
   readonly resolved: Array<"save" | "discard" | "cancel"> = [];
   replaced = 0;
@@ -41,21 +36,28 @@ class FakeInteractionController {
     return "decision-required";
   }
 
-  resolveContextChange(decision: "save" | "discard" | "cancel"): void {
+  resolveContextChange(
+    decision: "save" | "discard" | "cancel",
+  ): "applied" | "cancelled" | "save-failed" | "no-decision" {
     this.resolved.push(decision);
+    if (!this.#pending) return "no-decision";
     if (decision === "cancel") {
       this.#pendingApply = null;
       this.#pending = null;
-      return;
+      return "cancelled";
     }
+    if (decision === "save" && this.failSave) return "save-failed";
+    this.dirty = false;
     const apply = this.#pendingApply;
     this.#pendingApply = null;
     this.#pending = null;
     apply?.();
+    return "applied";
   }
 
   replaceArtifact(): void {
     this.replaced += 1;
+    this.dirty = false;
     this.#pendingApply = null;
     this.#pending = null;
   }
@@ -65,26 +67,7 @@ class FakeInteractionController {
   }
 }
 
-function stubPreview(order: string[], label: string) {
-  let status: "idle" | "active" = "idle";
-  const close = vi.fn(() => {
-    order.push(label);
-  });
-  const controller = {
-    getSnapshot: () => ({ status }),
-    close,
-    subscribe: () => () => undefined,
-  };
-  return {
-    controller,
-    close,
-    setStatus: (next: "idle" | "active") => {
-      status = next;
-    },
-  };
-}
-
-function stubStructure(...ids: typeof FIRST[]): ProjectedSlideshowCourseStructure {
+function stubStructure(...ids: (typeof FIRST)[]): ProjectedSlideshowCourseStructure {
   return {
     kind: "slideshow",
     surfaceIds: ids,
@@ -97,28 +80,16 @@ function setup(options?: {
   readonly workspace?: SurfaceWorkspacesSnapshot["workspace"];
   readonly dirty?: boolean;
 }) {
-  const semantic = new FakeWorkspaceSemanticController([FIRST, SECOND]);
   const interaction = new FakeInteractionController();
   if (options?.dirty) interaction.dirty = true;
-  const order: string[] = [];
-  const presentation = stubPreview(order, "presentation");
-  const learnerPreview = stubPreview(order, "learner");
-  const onClosed = vi.fn(() => {
-    order.push("closed");
-  });
+  const onSurfaceChanged = vi.fn();
+  const onClosed = vi.fn();
   let structure = stubStructure(FIRST, SECOND);
   const controller = new SurfaceWorkspacesController(
     {
-      editor: {} as TiptapEditor,
-      semanticController: semantic as unknown as WorkspaceSemanticController,
       interactionController: interaction as unknown as LearnerInteractionWorkspaceController,
-      presentationPreviewController:
-        presentation.controller as unknown as PresentationPreviewController,
-      learnerInteractionPreviewController:
-        learnerPreview.controller as unknown as LearnerInteractionPreviewController,
       courseStructure: () => structure,
-      requestedSurfaceId: () => resolvePresentationSurfaceId(semantic.getSnapshot(), structure),
-      semanticSnapshot: () => semantic.getSnapshot(),
+      onSurfaceChanged,
       onClosed,
     },
     options?.workspace ?? "timeline",
@@ -126,12 +97,9 @@ function setup(options?: {
   );
   return {
     controller,
-    semantic,
     interaction,
-    presentation,
-    learnerPreview,
+    onSurfaceChanged,
     onClosed,
-    order,
     setStructure: (next: ProjectedSlideshowCourseStructure) => {
       structure = next;
     },
@@ -139,103 +107,121 @@ function setup(options?: {
 }
 
 describe("SurfaceWorkspacesController", () => {
-  it("opens the requested tab on applyRequest and ignores a repeated nonce", () => {
-    const { controller } = setup();
+  it("commits a requested tab only after its pending Surface change is accepted", () => {
+    const { controller, interaction, onSurfaceChanged } = setup({ dirty: true });
 
-    controller.applyRequest({ workspace: "interactions", surfaceId: FIRST, nonce: 1 });
-
-    expect(controller.getSnapshot().workspace).toBe("interactions");
-    expect(controller.getSnapshot().interactionSurfaceId).toBe(FIRST);
-
-    controller.applyRequest({ workspace: "timeline", surfaceId: FIRST, nonce: 1 });
-
-    expect(controller.getSnapshot().workspace).toBe("interactions");
-  });
-
-  it("re-targets on a new nonce and restores the requested surface when it differs", async () => {
-    const { controller, semantic } = setup({ workspace: "interactions" });
-
-    controller.applyRequest({ workspace: "timeline", surfaceId: SECOND, nonce: 7 });
-
-    await vi.waitFor(() => expect(semantic.selectCalls).toContain(SECOND));
-    expect(controller.getSnapshot().workspace).toBe("timeline");
-  });
-
-  it("defers a workspace switch behind a dirty draft until cancel, discard or save", () => {
-    const { controller } = setup({ dirty: true });
-
+    controller.requestSurface(SECOND);
     controller.requestWorkspace("interactions");
 
-    expect(controller.getSnapshot().workspace).toBe("timeline");
-
-    controller.resolveContextChange("cancel");
-
-    expect(controller.getSnapshot().workspace).toBe("timeline");
-
-    controller.requestWorkspace("interactions");
-    controller.resolveContextChange("discard");
-
-    expect(controller.getSnapshot().workspace).toBe("interactions");
-  });
-
-  it("applies a deferred switch on save", () => {
-    const { controller } = setup({ dirty: true });
-
-    controller.requestWorkspace("interactions");
-    controller.resolveContextChange("save");
-
-    expect(controller.getSnapshot().workspace).toBe("interactions");
-  });
-
-  it("restores the outgoing surface when a dirty surface change is cancelled", async () => {
-    const { controller, semantic } = setup({ workspace: "interactions", dirty: true });
-
-    semantic.publish(SECOND);
-    controller.syncRequestedSurface();
-
-    expect(controller.getSnapshot().workspace).toBe("interactions");
-
-    controller.resolveContextChange("cancel");
-
-    await vi.waitFor(() => expect(semantic.selectCalls).toContain(FIRST));
-    expect(controller.getSnapshot().workspace).toBe("interactions");
-  });
-
-  it("closes both previews before reporting closed when clean", () => {
-    const { controller, presentation, learnerPreview, onClosed, order } = setup();
-    presentation.setStatus("active");
-    learnerPreview.setStatus("active");
-
-    controller.requestClose();
-
-    expect(order).toEqual(["presentation", "learner", "closed"]);
-    expect(onClosed).toHaveBeenCalledTimes(1);
-  });
-
-  it("guards requestClose behind a dirty draft", () => {
-    const { controller, onClosed, order } = setup({ dirty: true });
-
-    controller.requestClose();
-
-    expect(onClosed).not.toHaveBeenCalled();
-    expect(order).toEqual([]);
+    expect(controller.getSnapshot()).toMatchObject({
+      workspace: "timeline",
+      surfaceId: FIRST,
+      pendingSurfaceChange: { requestedSurfaceId: SECOND },
+    });
+    expect(interaction.requested).toEqual([{ kind: "surface", surfaceId: SECOND }]);
+    expect(onSurfaceChanged).not.toHaveBeenCalled();
 
     controller.resolveContextChange("discard");
 
-    expect(onClosed).toHaveBeenCalledTimes(1);
+    expect(controller.getSnapshot()).toMatchObject({
+      workspace: "interactions",
+      surfaceId: SECOND,
+      pendingSurfaceChange: null,
+    });
+    expect(interaction.requested).toEqual([
+      { kind: "surface", surfaceId: SECOND },
+      { kind: "workspace", workspace: "interactions" },
+    ]);
+    expect(onSurfaceChanged).toHaveBeenCalledOnce();
   });
 
-  it("keeps a frozen, referentially stable snapshot until state changes", () => {
-    const { controller } = setup();
-
+  it("makes same-surface selection a referentially stable no-op", () => {
+    const { controller, interaction, onSurfaceChanged } = setup();
     const before = controller.getSnapshot();
-    controller.applyRequest({ workspace: "timeline", surfaceId: FIRST, nonce: 99 });
+
+    controller.requestSurface(FIRST);
 
     expect(controller.getSnapshot()).toBe(before);
+    expect(interaction.requested).toEqual([]);
+    expect(onSurfaceChanged).not.toHaveBeenCalled();
+  });
 
-    controller.applyRequest({ workspace: "interactions", surfaceId: FIRST, nonce: 100 });
+  it("keeps the source surface and draft when a guarded change is cancelled", () => {
+    const { controller, interaction, onSurfaceChanged } = setup({ dirty: true });
 
-    expect(controller.getSnapshot()).not.toBe(before);
-    expect(Object.isFrozen(controller.getSnapshot())).toBe(true);
+    controller.requestSurface(SECOND);
+    expect(controller.getSnapshot().pendingSurfaceChange).toEqual({
+      requestedSurfaceId: SECOND,
+    });
+
+    controller.resolveContextChange("cancel");
+
+    expect(controller.getSnapshot()).toMatchObject({
+      surfaceId: FIRST,
+      pendingSurfaceChange: null,
+    });
+    expect(interaction.dirty).toBe(true);
+    expect(onSurfaceChanged).not.toHaveBeenCalled();
+  });
+
+  it.each(["discard", "save"] as const)(
+    "commits a guarded surface change once after accepted %s",
+    (decision) => {
+      const { controller, interaction, onSurfaceChanged } = setup({ dirty: true });
+      controller.requestSurface(SECOND);
+
+      controller.resolveContextChange(decision);
+
+      expect(controller.getSnapshot()).toMatchObject({
+        surfaceId: SECOND,
+        pendingSurfaceChange: null,
+      });
+      expect(interaction.replaced).toBe(1);
+      expect(onSurfaceChanged).toHaveBeenCalledTimes(1);
+      expect(onSurfaceChanged).toHaveBeenCalledWith(SECOND);
+    },
+  );
+
+  it("retains the source surface and pending decision after Save fails", () => {
+    const { controller, interaction, onSurfaceChanged } = setup({ dirty: true });
+    interaction.failSave = true;
+    controller.requestSurface(SECOND);
+
+    controller.resolveContextChange("save");
+
+    expect(controller.getSnapshot()).toMatchObject({
+      surfaceId: FIRST,
+      pendingSurfaceChange: { requestedSurfaceId: SECOND },
+    });
+    expect(interaction.dirty).toBe(true);
+    expect(onSurfaceChanged).not.toHaveBeenCalled();
+  });
+
+  it("invalidates a surface-bound draft when its entire source Surface was removed", () => {
+    const { controller, interaction, onSurfaceChanged, setStructure } = setup({ dirty: true });
+    setStructure(stubStructure(SECOND));
+
+    controller.requestSurface(SECOND);
+
+    expect(controller.getSnapshot().surfaceId).toBe(SECOND);
+    expect(interaction.replaced).toBe(1);
+    expect(interaction.requested).toEqual([]);
+    expect(onSurfaceChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("guards tab switches and explicit close without changing surface ownership", () => {
+    const { controller, onClosed } = setup({ dirty: true });
+
+    controller.requestWorkspace("interactions");
+    controller.resolveContextChange("cancel");
+    expect(controller.getSnapshot().workspace).toBe("timeline");
+
+    controller.requestWorkspace("interactions");
+    controller.resolveContextChange("discard");
+    expect(controller.getSnapshot().workspace).toBe("interactions");
+    expect(controller.getSnapshot().surfaceId).toBe(FIRST);
+
+    controller.requestClose();
+    expect(onClosed).toHaveBeenCalledTimes(1);
   });
 });

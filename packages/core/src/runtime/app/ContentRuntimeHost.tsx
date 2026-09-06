@@ -11,10 +11,7 @@ import {
   compileLearnerInteractions,
   type LearnerInteractionPreviewReportsPort,
 } from "@/learner-interaction/model";
-import type {
-  CompiledPresentationPlaybackProgram,
-  PresentationPreviewPlaybackPort,
-} from "@/presentation/model";
+import type { PresentationPreviewPlaybackPort } from "@/presentation/model";
 import { CourseDocumentAttrsSchema } from "@/schemas/course-document";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import type { ScaffoldColorMode } from "@/theme/state/color-mode";
@@ -57,17 +54,12 @@ export interface ContentRuntimeHostProps {
   onEditorReady?: (editor: TiptapEditor) => void;
 }
 
-/** @internal Neutral author-preview input; public learner hosts never receive this. */
-export interface PresentationRuntimePreview {
-  readonly activeSurfaceId: SurfaceId;
-  readonly program: CompiledPresentationPlaybackProgram;
-  readonly onPortChange: (port: PresentationPreviewPlaybackPort | null) => void;
-}
-
 /** @internal One author-only runtime mount with independent typed consumer connectors. */
 export interface AuthorPreviewRuntimeMount {
   readonly initialSurfaceId: SurfaceId;
-  readonly programSource: SlideshowSurfaceRuntimeProgramSource;
+  readonly executionEnabled: boolean;
+  readonly programSource?: SlideshowSurfaceRuntimeProgramSource;
+  readonly onSurfaceChangeRequest: (surfaceId: SurfaceId) => void;
   readonly onPresentationPlaybackPortChange?: (
     port: PresentationPreviewPlaybackPort | null,
   ) => void;
@@ -94,10 +86,8 @@ export function ContentRuntimeHostWithSurfaceExitPolicy({
   onEditorReady,
   surfaceExitPolicy,
   authorPreviewRuntimeMount,
-  presentationPreview,
 }: ContentRuntimeHostProps & {
   readonly authorPreviewRuntimeMount?: AuthorPreviewRuntimeMount;
-  readonly presentationPreview?: PresentationRuntimePreview;
   readonly surfaceExitPolicy: SurfaceExitPolicy;
 }) {
   const colorMode = useLearnerColorMode(hostColorMode);
@@ -168,7 +158,6 @@ export function ContentRuntimeHostWithSurfaceExitPolicy({
                     runtimeArtifactId={runtimeArtifactId}
                     surfaceExitPolicy={surfaceExitPolicy}
                     {...(authorPreviewRuntimeMount ? { authorPreviewRuntimeMount } : {})}
-                    {...(presentationPreview ? { presentationPreview } : {})}
                     {...(onEditorReady ? { onEditorReady } : {})}
                     {...(slideshowSizing ? { slideshowSizing } : {})}
                   />
@@ -190,7 +179,6 @@ interface HydratedRuntimePlayerProps {
   readonly slideshowSizing?: SlideshowPlayerSizing;
   readonly surfaceExitPolicy: SurfaceExitPolicy;
   readonly authorPreviewRuntimeMount?: AuthorPreviewRuntimeMount;
-  readonly presentationPreview?: PresentationRuntimePreview;
 }
 
 function HydratedRuntimePlayer({
@@ -201,7 +189,6 @@ function HydratedRuntimePlayer({
   slideshowSizing,
   surfaceExitPolicy,
   authorPreviewRuntimeMount,
-  presentationPreview,
 }: HydratedRuntimePlayerProps) {
   const learningEventReporter = useLearningEventReporter();
   const rendererReadyRef = useRef(false);
@@ -210,9 +197,12 @@ function HydratedRuntimePlayer({
     readonly source: SlideshowSurfaceRuntimeProgramSource;
   } | null>(null);
   const surfaceRuntimeProgramSource =
-    runtimeProgramOwner?.preparedDocument === preparedDocument
+    authorPreviewRuntimeMount?.programSource ??
+    (runtimeProgramOwner?.preparedDocument === preparedDocument
       ? runtimeProgramOwner.source
-      : undefined;
+      : undefined);
+  const authorPreviewProgramSource = authorPreviewRuntimeMount?.programSource;
+  const isAuthorPreview = authorPreviewRuntimeMount !== undefined;
   const surfaceIds = playerSelection.structure.surfaceIds;
   const activeSurfaceIdRef = useRef<SurfaceId | null>(surfaceIds[0] ?? null);
   const recordedSurfaceRef = useRef<{
@@ -264,7 +254,7 @@ function HydratedRuntimePlayer({
       rendererReadyRef.current = true;
       recordSurfaceExperienced(activeSurfaceIdRef.current);
       if (playerSelection.player === "slideshow") {
-        let source = authorPreviewRuntimeMount?.programSource;
+        let source = authorPreviewProgramSource;
         if (!source) {
           const semanticSource = getRuntimeSemanticDocumentSourceForEditor(editor);
           if (semanticSource.courseStructure.kind !== "slideshow") {
@@ -283,23 +273,24 @@ function HydratedRuntimePlayer({
             controlCapabilities: getControlCapabilityCatalogueForEditor(editor),
           });
           source = createSlideshowRuntimeProgramSource({
-            ...(presentationPreview ? { presentation: presentationPreview.program } : {}),
             learnerInteractions: compilation.surfaceById,
           });
         }
-        setRuntimeProgramOwner({
-          preparedDocument,
-          source,
-        });
+        if (!isAuthorPreview) {
+          setRuntimeProgramOwner({
+            preparedDocument,
+            source,
+          });
+        }
       }
       onEditorReady?.(editor);
     },
     [
-      authorPreviewRuntimeMount,
+      authorPreviewProgramSource,
+      isAuthorPreview,
       onEditorReady,
       playerSelection.player,
       preparedDocument,
-      presentationPreview,
       recordSurfaceExperienced,
     ],
   );
@@ -329,7 +320,10 @@ function HydratedRuntimePlayer({
         {...(surfaceRuntimeProgramSource ? { surfaceRuntimeProgramSource } : {})}
         {...(authorPreviewRuntimeMount
           ? {
+              autoPlayPresentation: false,
+              authorPreviewExecutionEnabled: authorPreviewRuntimeMount.executionEnabled,
               initialSurfaceId: authorPreviewRuntimeMount.initialSurfaceId,
+              onAuthorPreviewSurfaceChangeRequest: authorPreviewRuntimeMount.onSurfaceChangeRequest,
               ...(authorPreviewRuntimeMount.onPresentationPlaybackPortChange
                 ? {
                     onPresentationPreviewPortChange:
@@ -342,12 +336,6 @@ function HydratedRuntimePlayer({
                       authorPreviewRuntimeMount.onLearnerInteractionReportsPortChange,
                   }
                 : {}),
-            }
-          : {})}
-        {...(presentationPreview
-          ? {
-              initialSurfaceId: presentationPreview.activeSurfaceId,
-              onPresentationPreviewPortChange: presentationPreview.onPortChange,
             }
           : {})}
         {...(slideshowSizing ? { sizing: slideshowSizing } : {})}

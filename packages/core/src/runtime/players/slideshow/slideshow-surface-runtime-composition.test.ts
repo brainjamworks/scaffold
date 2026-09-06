@@ -71,12 +71,6 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
             Object.freeze({
               targetId: TARGET_ID,
               initialVisibility: "withheld" as const,
-              contentLayout: Object.freeze({
-                containerId: SURFACE_ID,
-                contentLayout: "flow" as const,
-                directChildId: TARGET_ID,
-                directChildIds: Object.freeze([TARGET_ID]),
-              }),
             }),
           ],
         ]),
@@ -96,14 +90,9 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
             }),
           }),
         ]),
-        sequenceContainers: Object.freeze([]),
       }),
     }) satisfies CompiledSurfacePresentationTimeline;
 
-    const contentLayoutPort = {
-      apply: vi.fn(() => Result.ok()),
-      clear: vi.fn(),
-    };
     const composition = createSlideshowSurfaceRuntimeComposition({
       surfaceId: SURFACE_ID,
       surfaceRoot,
@@ -131,12 +120,10 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
         },
       },
       requestSurfaceChange: vi.fn(() => Result.ok()),
-      contentLayoutPort,
     });
     composition.presentationControls?.subscribe(() => order.push("session"));
 
     expect(composition.presentationVisualRuntime).toBeDefined();
-    expect(contentLayoutPort.apply).toHaveBeenCalledOnce();
     expect(target).toHaveAttribute("data-presentation-availability", "withheld");
     expect(target).toHaveAttribute("aria-hidden", "true");
     expect(target).toHaveAttribute("inert");
@@ -152,7 +139,6 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     expect(target.style.opacity).toBe("1");
 
     composition.dispose();
-    expect(contentLayoutPort.clear).toHaveBeenCalledOnce();
     expect(target).not.toHaveAttribute("data-presentation-availability");
     expect(target.style.opacity).toBe("");
     surfaceRoot.remove();
@@ -1316,7 +1302,6 @@ function emptyVisualProgram(
     durationMs,
     targetById: new Map(),
     segments: Object.freeze([]),
-    sequenceContainers: Object.freeze([]),
   });
 }
 

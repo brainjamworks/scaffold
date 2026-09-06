@@ -7,15 +7,16 @@ import {
 import { describe, expect, it } from "vite-plus/test";
 
 import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
-import type { SemanticDocumentSnapshot, SemanticItem } from "@/document/model/semantic-document";
+import type { DocumentTreeSnapshot, DocumentTreeItem } from "@/document/model/document-tree";
 
+import { omittedActionIds } from "./presentation-compilation-diagnostic";
 import { compilePresentation, type CompilePresentationInput } from "./presentation-compiler";
 
 const SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
+const SECOND_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00002");
 const TARGET_ID = EmbeddedNodeIdSchema.parse("target000001");
 const SECOND_TARGET_ID = EmbeddedNodeIdSchema.parse("target000002");
 const OWNER_ID = EmbeddedNodeIdSchema.parse("owner0000001");
-const SECOND_OWNER_ID = EmbeddedNodeIdSchema.parse("owner0000002");
 const MISSING_TARGET_ID = EmbeddedNodeIdSchema.parse("gone00000001");
 
 describe("compilePresentation", () => {
@@ -28,7 +29,7 @@ describe("compilePresentation", () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) throw new Error("Expected unconfigured Presentation to compile.");
-    expect(result.value).toBeNull();
+    expect(result.value).toEqual({ program: null, diagnostics: [] });
   });
 
   it("compiles deterministic visual, cue and Wait schedules", () => {
@@ -192,6 +193,19 @@ describe("compilePresentation", () => {
       },
       { reason: "surface-coverage-missing", surfaceId: SURFACE_ID },
     ],
+  ] as const)("returns immutable typed data when %s", (_name, input, expected) => {
+    const result = compilePresentation(input as CompilePresentationInput);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) throw new Error(`Expected ${expected.reason}.`);
+    expect(result.error).toEqual(expected);
+    expect(Object.isFrozen(result.error)).toBe(true);
+    for (const value of Object.values(result.error)) {
+      if (Array.isArray(value)) expect(Object.isFrozen(value)).toBe(true);
+    }
+  });
+
+  it.each([
     [
       "navigation destination not current",
       {
@@ -280,16 +294,148 @@ describe("compilePresentation", () => {
         laterActionId: "action000002",
       },
     ],
-  ] as const)("returns immutable typed data when %s", (_name, input, expected) => {
-    const result = compilePresentation(input as CompilePresentationInput);
+  ] as const)("omits only the drifted action and reports %s", (_name, input, expected) => {
+    const report = compileReport(input as CompilePresentationInput);
 
-    expect(result.isErr()).toBe(true);
-    if (result.isOk()) throw new Error(`Expected ${expected.reason}.`);
-    expect(result.error).toEqual(expected);
-    expect(Object.isFrozen(result.error)).toBe(true);
-    for (const value of Object.values(result.error)) {
-      if (Array.isArray(value)) expect(Object.isFrozen(value)).toBe(true);
-    }
+    expect(report.diagnostics).toEqual([expected]);
+    expect(Object.isFrozen(report.diagnostics)).toBe(true);
+    expect(Object.isFrozen(report.diagnostics[0])).toBe(true);
+    const omitted = omittedActionIds(report.diagnostics[0]!);
+    const surface = report.program!.surfaces[0]!;
+    const compiledIds = [
+      ...surface.cues.map(({ id }) => id),
+      ...surface.waits.map(({ id }) => id),
+      ...surface.visualProgram.segments.map(({ id }) => id),
+    ];
+    for (const actionId of omitted) expect(compiledIds).not.toContain(actionId);
+    expect(compiledIds.length).toBe(
+      input.configuration.surfaces[0]!.actions.length - omitted.length,
+    );
+  });
+
+  it("keeps every independent valid action when one action has drifted", () => {
+    const report = compileReport({
+      configuration: presentationConfiguration([
+        reveal("action000001", 0, 500),
+        trigger("action000002", 500, MISSING_TARGET_ID, "select-tab"),
+        emphasize("action000003", SECOND_TARGET_ID, 1_000, 500),
+        {
+          kind: "manual-wait",
+          id: EmbeddedDataIdSchema.parse("action000004"),
+          isEnabled: true,
+          atMs: 2_000,
+        },
+      ]),
+      courseStructure: courseStructure(),
+      semanticSnapshot: semanticSnapshot(),
+    });
+
+    const surface = report.program!.surfaces[0]!;
+    expect(surface.visualProgram.segments.map(({ id }) => id)).toEqual([
+      "action000001",
+      "action000003",
+    ]);
+    expect(surface.cues).toEqual([]);
+    expect(surface.waits.map(({ id }) => id)).toEqual(["action000004"]);
+    expect(report.diagnostics).toEqual([
+      {
+        reason: "target-not-current",
+        surfaceId: SURFACE_ID,
+        actionId: "action000002",
+        targetId: MISSING_TARGET_ID,
+      },
+    ]);
+  });
+
+  it("orders diagnostics by authored source order and keeps the earlier overlap owner", () => {
+    const report = compileReport({
+      configuration: presentationConfiguration([
+        reveal("action000003", 1_500, 1_000),
+        trigger("action000001", 100, MISSING_TARGET_ID, "select-tab"),
+        reveal("action000002", 1_000, 1_000),
+        hide("action000004", TARGET_ID, 2_400, 500),
+      ]),
+      courseStructure: courseStructure(),
+      semanticSnapshot: semanticSnapshot(),
+    });
+
+    expect(report.diagnostics.map(({ reason }) => reason)).toEqual([
+      "same-target-timed-overlap",
+      "target-not-current",
+    ]);
+    expect(report.diagnostics[0]).toMatchObject({
+      earlierActionId: "action000002",
+      laterActionId: "action000003",
+    });
+    expect(report.program!.surfaces[0]!.visualProgram.segments.map(({ id }) => id)).toEqual([
+      "action000002",
+      "action000004",
+    ]);
+  });
+
+  it("compiles the incoming Surface transition independently of its actions", () => {
+    const configuration = presentationConfiguration([
+      trigger("action000001", 500, MISSING_TARGET_ID, "select-tab"),
+    ]);
+    const transition = { kind: "slide" as const, durationMs: 400 };
+    const report = compileReport({
+      configuration: {
+        ...configuration,
+        surfaces: [{ ...configuration.surfaces[0]!, transition }],
+      },
+      courseStructure: courseStructure(),
+      semanticSnapshot: semanticSnapshot(),
+    });
+
+    const surface = report.program!.surfaces[0]!;
+    expect(surface.transition).toEqual(transition);
+    expect(surface.transition).not.toBe(transition);
+    expect(Object.isFrozen(surface.transition)).toBe(true);
+    expect(surface.cues).toEqual([]);
+  });
+
+  it("treats an absent transition as Cut", () => {
+    const program = compileOk({
+      configuration: presentationConfiguration([]),
+      courseStructure: courseStructure(),
+      semanticSnapshot: semanticSnapshot(),
+    });
+
+    expect(program.surfaces[0]!.transition).toBeNull();
+  });
+
+  it("keeps the transition with its destination Surface when Surfaces are reordered", () => {
+    const first = presentationConfiguration([]).surfaces[0]!;
+    const second = {
+      ...first,
+      surfaceId: SECOND_SURFACE_ID,
+      transition: { kind: "wipe" as const, durationMs: 600 },
+    };
+    const configuration = { ...presentationConfiguration([]), surfaces: [first, second] };
+    const snapshot = twoSurfaceSnapshot();
+
+    const original = compileOk({
+      configuration,
+      courseStructure: twoSurfaceStructure([SURFACE_ID, SECOND_SURFACE_ID]),
+      semanticSnapshot: snapshot,
+    });
+    const reordered = compileOk({
+      configuration,
+      courseStructure: twoSurfaceStructure([SECOND_SURFACE_ID, SURFACE_ID]),
+      semanticSnapshot: snapshot,
+    });
+
+    expect(original.surfaces.map(({ surfaceId, transition }) => [surfaceId, transition])).toEqual([
+      [SURFACE_ID, null],
+      [SECOND_SURFACE_ID, second.transition],
+    ]);
+    expect(reordered.surfaces.map(({ surfaceId, transition }) => [surfaceId, transition])).toEqual(
+      [
+        [SECOND_SURFACE_ID, second.transition],
+        [SURFACE_ID, null],
+      ],
+    );
+    expect(reordered.surfaceById.get(SECOND_SURFACE_ID)?.transition).toEqual(second.transition);
   });
 
   it("keeps impossible semantic ownership observable as a thrown invariant", () => {
@@ -327,40 +473,9 @@ describe("compilePresentation", () => {
   });
 
   it.each([PresentationContentLayout.Flow, PresentationContentLayout.Sequence] as const)(
-    "compiles resolved %s container/direct-child membership",
+    "does not compile legacy %s membership or restrict independent target timing",
     (contentLayout) => {
       const program = compileOk({
-        configuration: presentationConfiguration([reveal("action000001", 1_000, 500)]),
-        courseStructure: courseStructure(),
-        semanticSnapshot: semanticSnapshot({ contentLayout }),
-      });
-      const visualProgram = program.surfaces[0]!.visualProgram;
-      const target = visualProgram.targetById.get(TARGET_ID);
-
-      expect(target?.contentLayout).toEqual({
-        containerId: OWNER_ID,
-        contentLayout,
-        directChildId: TARGET_ID,
-        directChildIds: [TARGET_ID, SECOND_TARGET_ID],
-      });
-      expect(visualProgram.sequenceContainers).toEqual(
-        contentLayout === PresentationContentLayout.Sequence
-          ? [
-              {
-                boundaryId: OWNER_ID,
-                directChildIds: [TARGET_ID, SECOND_TARGET_ID],
-                initialActiveChildId: TARGET_ID,
-              },
-            ]
-          : [],
-      );
-    },
-  );
-
-  it.each([PresentationContentLayout.Flow, PresentationContentLayout.Sequence] as const)(
-    "rejects overlapping timed Reveal/Hide actions within one %s boundary on a Surface",
-    (contentLayout) => {
-      const result = compilePresentation({
         configuration: presentationConfiguration([
           reveal("action000001", 1_000, 1_000),
           hide("action000002", SECOND_TARGET_ID, 1_500, 1_000),
@@ -368,103 +483,73 @@ describe("compilePresentation", () => {
         courseStructure: courseStructure(),
         semanticSnapshot: semanticSnapshot({ contentLayout }),
       });
+      const visualProgram = program.surfaces[0]!.visualProgram;
 
-      expect(result.isErr()).toBe(true);
-      if (result.isOk()) throw new Error("Expected overlapping layout actions to be rejected.");
-      expect(result.error).toEqual({
-        reason: "surface-timed-layout-overlap",
-        surfaceId: SURFACE_ID,
-        earlierActionId: "action000001",
-        earlierTargetId: TARGET_ID,
-        laterActionId: "action000002",
-        laterTargetId: SECOND_TARGET_ID,
+      expect(visualProgram.segments.map(({ id }) => id)).toEqual(["action000001", "action000002"]);
+      expect(visualProgram.targetById.get(TARGET_ID)).toEqual({
+        targetId: TARGET_ID,
+        initialVisibility: "withheld",
       });
-      expect(Object.isFrozen(result.error)).toBe(true);
+      expect(visualProgram.targetById.get(SECOND_TARGET_ID)).toEqual({
+        targetId: SECOND_TARGET_ID,
+        initialVisibility: "visible",
+      });
     },
   );
-
-  it("allows timed layout actions whose half-open intervals only touch", () => {
-    compileOk({
-      configuration: presentationConfiguration([
-        reveal("action000001", 1_000, 500),
-        hide("action000002", SECOND_TARGET_ID, 1_500, 500),
-      ]),
-      courseStructure: courseStructure(),
-      semanticSnapshot: semanticSnapshot({ contentLayout: PresentationContentLayout.Flow }),
-    });
-  });
-
-  it("rejects overlapping Flow transitions in separate containers on one Surface", () => {
-    const result = compilePresentation({
-      configuration: presentationConfiguration([
-        reveal("action000001", 1_000, 1_000),
-        hide("action000002", SECOND_TARGET_ID, 1_500, 1_000),
-      ]),
-      courseStructure: courseStructure(),
-      semanticSnapshot: semanticSnapshot({
-        contentLayout: PresentationContentLayout.Flow,
-        separateTargetContainers: true,
-      }),
-    });
-
-    expect(result.isErr()).toBe(true);
-    if (result.isOk()) throw new Error("Expected Surface layout overlap to be rejected.");
-    expect(result.error).toEqual({
-      reason: "surface-timed-layout-overlap",
-      surfaceId: SURFACE_ID,
-      earlierActionId: "action000001",
-      earlierTargetId: TARGET_ID,
-      laterActionId: "action000002",
-      laterTargetId: SECOND_TARGET_ID,
-    });
-  });
-
-  it("rejects overlapping Flow and Sequence transitions on one Surface", () => {
-    const result = compilePresentation({
-      configuration: presentationConfiguration([
-        reveal("action000001", 1_000, 1_000),
-        hide("action000002", SECOND_TARGET_ID, 1_500, 1_000),
-      ]),
-      courseStructure: courseStructure(),
-      semanticSnapshot: semanticSnapshot({
-        contentLayout: PresentationContentLayout.Flow,
-        secondContentLayout: PresentationContentLayout.Sequence,
-        separateTargetContainers: true,
-      }),
-    });
-
-    expect(result.isErr()).toBe(true);
-    if (result.isOk()) throw new Error("Expected Surface layout overlap to be rejected.");
-    expect(result.error).toMatchObject({
-      reason: "surface-timed-layout-overlap",
-      surfaceId: SURFACE_ID,
-      earlierActionId: "action000001",
-      laterActionId: "action000002",
-    });
-  });
-
-  it("allows overlapping non-layout visual actions within one content-layout boundary", () => {
-    compileOk({
-      configuration: presentationConfiguration([
-        emphasize("action000001", TARGET_ID, 1_000, 1_000),
-        emphasize("action000002", SECOND_TARGET_ID, 1_500, 1_000),
-      ]),
-      courseStructure: courseStructure(),
-      semanticSnapshot: semanticSnapshot({ contentLayout: PresentationContentLayout.Sequence }),
-    });
-  });
 });
 
-function compileOk(input: Parameters<typeof compilePresentation>[0]) {
+function compileReport(input: CompilePresentationInput) {
   const result = compilePresentation(input);
-  expect(result.isOk()).toBe(true);
   if (result.isErr()) {
     throw new Error(
       `Expected Presentation compilation to succeed: ${JSON.stringify(result.error)}`,
     );
   }
-  if (result.value === null) throw new Error("Expected configured Presentation program.");
   return result.value;
+}
+
+function compileOk(input: CompilePresentationInput) {
+  const report = compileReport(input);
+  expect(report.diagnostics).toEqual([]);
+  if (report.program === null) throw new Error("Expected configured Presentation program.");
+  return report.program;
+}
+
+function twoSurfaceStructure(
+  surfaceIds: readonly (typeof SURFACE_ID)[],
+): ProjectedSlideshowCourseStructure {
+  const base = courseStructure();
+  const surfaces = surfaceIds.map((id, index) => ({
+    id,
+    index,
+    courseSectionId: base.courseSections[0]!.id,
+    courseSectionSurfaceIndex: index,
+  }));
+  const section = {
+    ...base.courseSections[0]!,
+    surfaceIds: [...surfaceIds],
+    firstSurfaceId: surfaceIds[0]!,
+  };
+  return {
+    ...base,
+    surfaceIds: [...surfaceIds],
+    surfaces,
+    surfaceById: Object.fromEntries(surfaces.map((surface) => [surface.id, surface])),
+    courseSections: [section],
+    courseSectionById: { [section.id]: section },
+  };
+}
+
+function twoSurfaceSnapshot(): DocumentTreeSnapshot {
+  const base = semanticSnapshot();
+  const secondSurface = semanticItem(SECOND_SURFACE_ID, "surface", []);
+  return {
+    ...base,
+    roots: [...base.roots, secondSurface],
+    itemById: new Map([...base.itemById, [secondSurface.id, secondSurface]]),
+    parentById: new Map([...base.parentById, [secondSurface.id, null]]),
+    locationById: new Map([...base.locationById, [secondSurface.id, location(SURFACE_ID, [])]]),
+  };
 }
 
 function reveal(id: string, atMs: number, durationMs: number, targetId = TARGET_ID) {
@@ -582,36 +667,23 @@ function semanticSnapshot(
     readonly targetSurfaceId?: ReturnType<typeof EmbeddedNodeIdSchema.parse>;
     readonly ownerlessTarget?: boolean;
     readonly contentLayout?: PresentationContentLayout;
-    readonly secondContentLayout?: PresentationContentLayout;
-    readonly separateTargetContainers?: boolean;
   } = {},
-): SemanticDocumentSnapshot {
-  const target = semanticItem(TARGET_ID, "published-child", []);
-  const secondTarget = semanticItem(SECOND_TARGET_ID, "published-child", []);
-  const sourceOwners = options.separateTargetContainers
-    ? [
-        semanticItem(OWNER_ID, "block", [target]),
-        semanticItem(SECOND_OWNER_ID, "block", [secondTarget]),
-      ]
-    : [semanticItem(OWNER_ID, "block", [target, secondTarget])];
-  const owners = sourceOwners.map((owner, index) =>
+): DocumentTreeSnapshot {
+  const target = semanticItem(TARGET_ID, "exposed-child", []);
+  const secondTarget = semanticItem(SECOND_TARGET_ID, "exposed-child", []);
+  const owners = [semanticItem(OWNER_ID, "block", [target, secondTarget])].map((owner) =>
     Object.freeze({
       ...owner,
       presentationContainer:
-        (index === 1
-          ? (options.secondContentLayout ?? options.contentLayout)
-          : options.contentLayout) === undefined
+        options.contentLayout === undefined
           ? null
           : Object.freeze({
-              contentLayout:
-                index === 1
-                  ? (options.secondContentLayout ?? options.contentLayout!)
-                  : options.contentLayout!,
+              contentLayout: options.contentLayout,
             }),
     }),
   );
   const owner = owners[0]!;
-  const secondOwner = options.separateTargetContainers ? owners[1]! : owner;
+  const secondOwner = owner;
   const surfaceWithOwner = Object.freeze(
     semanticItem(SURFACE_ID, "surface", Object.freeze(owners)),
   );
@@ -635,7 +707,6 @@ function semanticSnapshot(
     locationById: new Map([
       [surfaceWithOwner.id, location(SURFACE_ID, [])],
       [owner.id, location(SURFACE_ID, [])],
-      ...(secondOwner === owner ? [] : ([[secondOwner.id, location(SURFACE_ID, [])]] as const)),
       [
         target.id,
         location(
@@ -662,14 +733,14 @@ function semanticSnapshot(
 
 function semanticItem(
   id: ReturnType<typeof EmbeddedNodeIdSchema.parse>,
-  kind: SemanticItem["kind"],
-  children: readonly SemanticItem[],
-): SemanticItem {
+  kind: DocumentTreeItem["kind"],
+  children: readonly DocumentTreeItem[],
+): DocumentTreeItem {
   return {
     id,
     kind,
     nodeType: kind,
-    definitionId: kind === "published-child" ? "owner-block" : kind,
+    definitionId: kind === "exposed-child" ? "owner-block" : kind,
     label: id,
     summary: null,
     presentation: {

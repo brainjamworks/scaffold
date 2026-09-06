@@ -910,6 +910,56 @@ it("aborts active work and suppresses queued and stale reports on idempotent dis
   expect(() => runtime.subscribeReports(listener)).toThrow(/after.*disposal/i);
 });
 
+it("suspends active and queued rule turns without faulting later execution", async () => {
+  const firstReference = eventReference(OWNER_A_ID, TARGET_A_ID, "first");
+  const secondReference = eventReference(OWNER_A_ID, TARGET_A_ID, "second");
+  const ownerEvents = createTestEventSource();
+  const firstExecution = deferred<ControlCommandResult>();
+  const execute = vi.fn(async (request: ControlCommandRequest) => {
+    if (request.type === "first") return await firstExecution.promise;
+    return Result.ok();
+  });
+  const binding = {
+    ownerId: OWNER_A_ID,
+    eventSource: ownerEvents.eventSource,
+    commandExecutor: { execute },
+  };
+  const runtime = createSurfaceLearnerInteractionRuntime({
+    program: programWithBuckets([
+      [firstReference, [commandRule("rule-first-suspended", firstReference)]],
+      [secondReference, [commandRule("rule-second-suspended", secondReference)]],
+    ]),
+    controlBindings: { get: vi.fn(() => binding) },
+    semanticTargets: { activate: vi.fn() },
+    surfaceNavigation: {
+      navigate: vi.fn(async () => Result.err({ reason: "cancelled" as const })),
+    },
+    semanticInteractionOrigin: "learner-interaction-rule",
+  });
+  const listener = vi.fn();
+  runtime.subscribeReports(listener);
+
+  const [activeTurn] = ownerEvents.emit({ targetId: TARGET_A_ID, type: "first" });
+  await flushPromises();
+  ownerEvents.emitVoid({ targetId: TARGET_A_ID, type: "second" });
+  runtime.setExecutionEnabled(false);
+
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(execute.mock.calls[0]?.[0].signal.aborted).toBe(true);
+  firstExecution.resolve(Result.ok());
+  await activeTurn;
+  await flushPromises();
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(listener).not.toHaveBeenCalled();
+
+  runtime.setExecutionEnabled(true);
+  const [recoveredTurn] = ownerEvents.emit({ targetId: TARGET_A_ID, type: "second" });
+  await recoveredTurn;
+  expect(execute).toHaveBeenCalledTimes(2);
+  expect(listener).toHaveBeenCalledOnce();
+  runtime.dispose();
+});
+
 it("surfaces a rejected turn defect and terminates before starting queued work", async () => {
   const firstReference = eventReference(OWNER_A_ID, TARGET_A_ID, "first");
   const secondReference = eventReference(OWNER_A_ID, TARGET_A_ID, "second");

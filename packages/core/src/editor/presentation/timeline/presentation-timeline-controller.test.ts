@@ -1,130 +1,154 @@
-import type { EmbeddedDataId, EmbeddedNodeId } from "@scaffold/contracts";
+import type { EmbeddedDataId, EmbeddedNodeId, TimelineActionV1 } from "@scaffold/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
-
-import type {
-  SemanticNavigationOptions,
-  SemanticNavigationResult,
-} from "@/document/authoring/semantic-document";
 
 import {
   PresentationTimelineController,
   fitPresentationTimelineViewport,
   zoomPresentationTimelineViewportAtPointer,
 } from "./presentation-timeline-controller";
+import type { PresentationTimelineProjection } from "./presentation-timeline-projection";
 
+const SURFACE_A = nodeId("surface-a");
+const SURFACE_B = nodeId("surface-b");
 const TARGET_A = nodeId("target-a");
 const TARGET_B = nodeId("target-b");
 const ACTION_A = dataId("action-a");
-const ACTION_B = dataId("action-b");
 const BOUNDS = { minPixelsPerSecond: 10, maxPixelsPerSecond: 200 } as const;
 
 describe("PresentationTimelineController", () => {
-  it("delegates target and action selection while expanding only the shared selected target", async () => {
-    const semanticSelection = new FakeSemanticSelection(TARGET_A);
-    const controller = createController(semanticSelection);
+  it("selects current projection targets and actions synchronously and locally", () => {
+    const controller = createController();
 
+    expect(controller.selectTarget(TARGET_B)).toEqual({
+      kind: "target-selected",
+      targetId: TARGET_B,
+    });
+    expect(controller.selectAction(ACTION_A, TARGET_A)).toEqual({
+      kind: "action-selected",
+      actionId: ACTION_A,
+      targetId: TARGET_A,
+    });
     expect(controller.getSnapshot()).toMatchObject({
       selectedTargetId: TARGET_A,
-      selectedActionId: null,
+      selectedActionId: ACTION_A,
     });
-    expect(controller.isTargetExpanded(TARGET_A)).toBe(true);
-    expect(controller.isTargetExpanded(TARGET_B)).toBe(false);
-
-    await controller.selectAction(ACTION_B, TARGET_B);
-
-    expect(semanticSelection.selectCalls).toEqual([
-      {
-        id: TARGET_B,
-        options: { origin: "presentation-timeline", focusEditor: false },
-      },
-    ]);
-    expect(controller.getSnapshot()).toMatchObject({
-      selectedTargetId: TARGET_B,
-      selectedActionId: ACTION_B,
-    });
-    expect(controller.isTargetExpanded(TARGET_A)).toBe(false);
-    expect(controller.isTargetExpanded(TARGET_B)).toBe(true);
-
-    semanticSelection.replace(TARGET_A);
-    expect(controller.getSnapshot()).toMatchObject({
-      selectedTargetId: TARGET_A,
-      selectedActionId: null,
-    });
-    controller.destroy();
   });
 
-  it("does not change semantic selection or focus when the playhead moves", () => {
-    const semanticSelection = new FakeSemanticSelection(TARGET_A);
-    const controller = createController(semanticSelection);
+  it("returns reason-specific refusals with requested IDs and retains selection", () => {
+    const controller = createController();
+    controller.selectAction(ACTION_A, TARGET_A);
+    const before = controller.getSnapshot();
+    const missingTarget = nodeId("missing");
+    const missingAction = dataId("missing");
 
-    controller.setPlayheadDraft(3_250, 10_000);
-    expect(controller.getSnapshot().playheadDraftMs).toBe(3_250);
-    expect(semanticSelection.selectCalls).toEqual([]);
-    expect(controller.getSnapshot().selectedTargetId).toBe(TARGET_A);
-
-    controller.setPlayheadDraft(20_000, 10_000);
-    expect(controller.getSnapshot().playheadDraftMs).toBe(10_000);
-    expect(semanticSelection.selectCalls).toEqual([]);
-    controller.destroy();
+    expect(controller.selectTarget(missingTarget)).toEqual({
+      kind: "target-not-found",
+      surfaceId: SURFACE_A,
+      requestedTargetId: missingTarget,
+    });
+    expect(controller.selectAction(missingAction, TARGET_A)).toEqual({
+      kind: "action-not-found",
+      surfaceId: SURFACE_A,
+      requestedActionId: missingAction,
+      requestedTargetId: TARGET_A,
+    });
+    expect(controller.selectAction(ACTION_A, TARGET_B)).toEqual({
+      kind: "action-target-mismatch",
+      surfaceId: SURFACE_A,
+      requestedActionId: ACTION_A,
+      requestedTargetId: TARGET_B,
+      actualTargetId: TARGET_A,
+    });
+    expect(controller.getSnapshot()).toBe(before);
   });
 
-  it("keeps viewport state local with deterministic Fit and pointer-centred bounded zoom", () => {
-    const semanticSelection = new FakeSemanticSelection(null);
-    const controller = createController(semanticSelection);
-
-    expect(controller.getSnapshot()).toMatchObject({
-      zoomMode: "fit",
-      pixelsPerSecond: 50,
-      viewportLeftPx: 0,
-    });
-
+  it("preserves surviving selection and viewport while reconciling content", () => {
+    const controller = createController();
+    controller.selectAction(ACTION_A, TARGET_A);
+    controller.setPlayheadDraft(9_000, 10_000);
     controller.zoomAtPointer({
       requestedPixelsPerSecond: 100,
       pointerX: 125,
       durationMs: 10_000,
       viewportWidthPx: 500,
     });
-    expect(controller.getSnapshot()).toMatchObject({
-      zoomMode: "manual",
-      pixelsPerSecond: 100,
-      viewportLeftPx: 125,
-    });
+    const before = controller.getSnapshot();
 
+    controller.reconcileContent(projection(SURFACE_A, 10_000));
+
+    expect(controller.getSnapshot()).toBe(before);
+  });
+
+  it("clears only a removed action and its gesture draft while keeping its target", () => {
+    const controller = createController();
+    controller.selectAction(ACTION_A, TARGET_A);
+    controller.setEditDraft({ kind: "move-action", actionId: ACTION_A, atMs: 750 });
+
+    controller.reconcileContent(projection(SURFACE_A, 10_000, { actionA: false }));
+
+    expect(controller.getSnapshot()).toMatchObject({
+      selectedTargetId: TARGET_A,
+      selectedActionId: null,
+      editDraft: null,
+    });
+  });
+
+  it("clears invalid target state and clamps playhead and manual viewport", () => {
+    const controller = createController();
+    controller.selectAction(ACTION_A, TARGET_A);
+    controller.setPlayheadDraft(9_000, 10_000);
     controller.zoomAtPointer({
-      requestedPixelsPerSecond: 1_000,
-      pointerX: 50,
+      requestedPixelsPerSecond: 200,
+      pointerX: 250,
       durationMs: 10_000,
       viewportWidthPx: 500,
     });
+    controller.setViewportLeft(1_500, { durationMs: 10_000, viewportWidthPx: 500 });
+
+    controller.reconcileContent(projection(SURFACE_A, 2_000, { actionA: false, targetA: false }));
+
     expect(controller.getSnapshot()).toMatchObject({
+      selectedTargetId: null,
+      selectedActionId: null,
+      editDraft: null,
+      playheadDraftMs: 2_000,
       zoomMode: "manual",
       pixelsPerSecond: 200,
-      viewportLeftPx: 300,
-    });
-
-    controller.setViewportLeft(10_000, { durationMs: 10_000, viewportWidthPx: 500 });
-    expect(controller.getSnapshot().viewportLeftPx).toBe(1_500);
-
-    controller.fit({ durationMs: 100_000, viewportWidthPx: 500 });
-    expect(controller.getSnapshot()).toMatchObject({
-      zoomMode: "fit",
-      pixelsPerSecond: 10,
       viewportLeftPx: 0,
     });
-
-    controller.fit({ durationMs: 100, viewportWidthPx: 500 });
-    expect(controller.getSnapshot()).toMatchObject({
-      zoomMode: "fit",
-      pixelsPerSecond: 200,
-      viewportLeftPx: 0,
-    });
-    controller.destroy();
   });
 
-  it("stores one immutable transient move or resize draft and never persists it", async () => {
-    const semanticSelection = new FakeSemanticSelection(TARGET_A);
-    const controller = createController(semanticSelection);
-    await controller.selectAction(ACTION_A, TARGET_A);
+  it("resets surface-specific state only for an actual Surface change", () => {
+    const controller = createController();
+    controller.selectAction(ACTION_A, TARGET_A);
+    controller.setEditDraft({ kind: "move-action", actionId: ACTION_A, atMs: 750 });
+    controller.setPlayheadDraft(4_000, 10_000);
+    controller.zoomAtPointer({
+      requestedPixelsPerSecond: 100,
+      pointerX: 125,
+      durationMs: 10_000,
+      viewportWidthPx: 500,
+    });
+    const before = controller.getSnapshot();
+
+    controller.setSurface(projection(SURFACE_A, 10_000));
+    expect(controller.getSnapshot()).toBe(before);
+
+    controller.setSurface(projection(SURFACE_B, 20_000));
+    expect(controller.getSnapshot()).toMatchObject({
+      selectedTargetId: SURFACE_B,
+      selectedActionId: null,
+      editDraft: null,
+      playheadDraftMs: 0,
+      zoomMode: "fit",
+      pixelsPerSecond: 25,
+      viewportLeftPx: 0,
+    });
+  });
+
+  it("stores one immutable transient move or resize draft and never persists it", () => {
+    const controller = createController();
+    controller.selectAction(ACTION_A, TARGET_A);
     const listener = vi.fn();
     controller.subscribe(listener);
 
@@ -144,57 +168,49 @@ describe("PresentationTimelineController", () => {
       atMs: 500,
       durationMs: 1_250,
     });
-    expect(controller.getSnapshot().editDraft).toEqual({
-      kind: "resize-action",
-      actionId: ACTION_A,
-      atMs: 500,
-      durationMs: 1_250,
-    });
-
     controller.clearEditDraft();
     expect(controller.getSnapshot().editDraft).toBeNull();
     expect(listener).toHaveBeenCalledTimes(3);
-    controller.destroy();
   });
 
-  it("leaves local action selection unchanged when semantic activation cannot reach its target", async () => {
-    const semanticSelection = new FakeSemanticSelection(TARGET_A);
-    const controller = createController(semanticSelection);
-    await controller.selectAction(ACTION_A, TARGET_A);
-    semanticSelection.nextResult = { kind: "missing", id: TARGET_B };
+  it("keeps viewport state local with deterministic Fit and pointer-centred bounded zoom", () => {
+    const controller = createController();
 
-    await expect(controller.selectAction(ACTION_B, TARGET_B)).resolves.toEqual({
-      kind: "missing",
-      id: TARGET_B,
+    expect(controller.getSnapshot()).toMatchObject({
+      zoomMode: "fit",
+      pixelsPerSecond: 50,
+      viewportLeftPx: 0,
+    });
+    controller.zoomAtPointer({
+      requestedPixelsPerSecond: 100,
+      pointerX: 125,
+      durationMs: 10_000,
+      viewportWidthPx: 500,
     });
     expect(controller.getSnapshot()).toMatchObject({
-      selectedTargetId: TARGET_A,
-      selectedActionId: ACTION_A,
+      zoomMode: "manual",
+      pixelsPerSecond: 100,
+      viewportLeftPx: 125,
     });
-    controller.destroy();
+    controller.setViewportLeft(10_000, { durationMs: 10_000, viewportWidthPx: 500 });
+    expect(controller.getSnapshot().viewportLeftPx).toBe(500);
+    controller.fit({ durationMs: 100_000, viewportWidthPx: 500 });
+    expect(controller.getSnapshot()).toMatchObject({
+      zoomMode: "fit",
+      pixelsPerSecond: 10,
+      viewportLeftPx: 0,
+    });
   });
 });
 
 describe("presentation Timeline viewport math", () => {
-  it("clamps Fit to the minimum pixels per second", () => {
+  it("clamps Fit at both zoom bounds and supports zero duration", () => {
     expect(
       fitPresentationTimelineViewport({ durationMs: 100_000, viewportWidthPx: 500 }, BOUNDS),
     ).toEqual({ pixelsPerSecond: 10, viewportLeftPx: 0 });
-  });
-
-  it("preserves an in-range Fit", () => {
-    expect(
-      fitPresentationTimelineViewport({ durationMs: 10_000, viewportWidthPx: 500 }, BOUNDS),
-    ).toEqual({ pixelsPerSecond: 50, viewportLeftPx: 0 });
-  });
-
-  it("clamps Fit to the maximum pixels per second", () => {
     expect(
       fitPresentationTimelineViewport({ durationMs: 100, viewportWidthPx: 500 }, BOUNDS),
     ).toEqual({ pixelsPerSecond: 200, viewportLeftPx: 0 });
-  });
-
-  it("fits zero duration at the minimum pixels per second", () => {
     expect(
       fitPresentationTimelineViewport({ durationMs: 0, viewportWidthPx: 500 }, BOUNDS),
     ).toEqual({ pixelsPerSecond: 10, viewportLeftPx: 0 });
@@ -214,63 +230,79 @@ describe("presentation Timeline viewport math", () => {
         BOUNDS,
       ),
     ).toEqual({ pixelsPerSecond: 100, viewportLeftPx: 400 });
-
-    expect(
-      zoomPresentationTimelineViewportAtPointer(
-        {
-          currentPixelsPerSecond: 100,
-          currentViewportLeftPx: 0,
-          requestedPixelsPerSecond: 5,
-          pointerX: 250,
-          durationMs: 20_000,
-          viewportWidthPx: 500,
-        },
-        BOUNDS,
-      ),
-    ).toEqual({ pixelsPerSecond: 10, viewportLeftPx: 0 });
   });
 });
 
-function createController(semanticSelection: FakeSemanticSelection) {
+function createController() {
   return new PresentationTimelineController({
-    semanticSelection,
+    initialProjection: projection(SURFACE_A, 10_000),
+    initialSelectedTargetId: TARGET_A,
     initialViewport: { durationMs: 10_000, viewportWidthPx: 500 },
     zoomBounds: BOUNDS,
   });
 }
 
-class FakeSemanticSelection {
-  readonly selectCalls: Array<{ id: EmbeddedNodeId; options: SemanticNavigationOptions }> = [];
-  readonly #listeners = new Set<() => void>();
-  nextResult: SemanticNavigationResult | null = null;
-  #selectedId: EmbeddedNodeId | null;
-
-  constructor(selectedId: EmbeddedNodeId | null) {
-    this.#selectedId = selectedId;
-  }
-
-  getSnapshot = () => ({ selectedId: this.#selectedId });
-
-  subscribe = (listener: () => void) => {
-    this.#listeners.add(listener);
-    return () => this.#listeners.delete(listener);
+function projection(
+  surfaceId: EmbeddedNodeId,
+  durationMs: number,
+  options: { readonly targetA?: boolean; readonly actionA?: boolean } = {},
+): PresentationTimelineProjection {
+  const targetA = options.targetA ?? true;
+  const actionA = options.actionA ?? true;
+  const action = animateAction();
+  return {
+    surfaceId,
+    configurationState: "present",
+    durationMs,
+    narration: null,
+    transition: null,
+    orderedActionIds: actionA ? [ACTION_A] : [],
+    diagnostics: [],
+    rows: [
+      row(surfaceId, null, []),
+      ...(targetA ? [row(TARGET_A, surfaceId, actionA ? [action] : [])] : []),
+      row(TARGET_B, surfaceId, []),
+    ],
   };
+}
 
-  async select(
-    itemId: EmbeddedNodeId,
-    options: SemanticNavigationOptions,
-  ): Promise<SemanticNavigationResult> {
-    this.selectCalls.push({ id: itemId, options });
-    const result = this.nextResult ?? ({ kind: "reached", id: itemId } as const);
-    this.nextResult = null;
-    if (result.kind === "reached") this.replace(result.id);
-    return result;
-  }
+function row(
+  targetId: EmbeddedNodeId,
+  parentTargetId: EmbeddedNodeId | null,
+  actions: readonly TimelineActionV1[],
+): PresentationTimelineProjection["rows"][number] {
+  return {
+    targetId,
+    parentTargetId,
+    depth: parentTargetId ? 1 : 0,
+    semanticKind: parentTargetId ? "block" : "surface",
+    label: targetId,
+    summary: null,
+    capabilities: {
+      visualActionIds: [],
+      reconstructableCommandTypes: [],
+      disabledReason: null,
+    },
+    actions,
+  };
+}
 
-  replace(selectedId: EmbeddedNodeId | null): void {
-    this.#selectedId = selectedId;
-    for (const listener of this.#listeners) listener();
-  }
+function animateAction(): TimelineActionV1 {
+  return {
+    kind: "animate",
+    id: ACTION_A,
+    targetId: TARGET_A,
+    isEnabled: true,
+    atMs: 1_000,
+    visual: {
+      kind: "reveal",
+      transition: {
+        kind: "fade",
+        durationMs: 500,
+        easing: { kind: "preset", preset: "linear" },
+      },
+    },
+  };
 }
 
 function nodeId(value: string): EmbeddedNodeId {

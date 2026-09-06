@@ -1,48 +1,32 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
-import type { Editor as TiptapEditor } from "@tiptap/core";
 
 import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
-import { resolveSemanticTargetSurfaceId } from "@/document/model/semantic-document";
-import type {
-  getSemanticDocumentControllerForEditor,
-  SemanticNavigationResult,
-  useSemanticDocumentControllerSnapshot,
-} from "@/document/authoring/semantic-document";
-import type { SemanticDocumentControllerSnapshot } from "@/document/authoring/semantic-document/semantic-document-controller";
+import { resolveDocumentItemSurfaceId } from "@/document/model/document-tree";
+import type { useDocumentTreeSnapshot } from "@/document/authoring/document-tree";
+import type { useEditorSelectionSnapshot } from "@/document/authoring/editor-navigation";
 import type {
   LearnerInteractionWorkspaceController,
   LearnerInteractionWorkspaceSnapshot,
 } from "@/editor/learner-interaction/workspace";
-import type { LearnerInteractionPreviewController } from "@/editor/learner-interaction/preview";
-import type { PresentationPreviewController } from "@/editor/presentation/preview";
-
-import type { SurfaceWorkspaceRequest } from "./surface-workspace-request";
 
 export interface SurfaceWorkspacesSnapshot {
   readonly workspace: "timeline" | "interactions";
-  readonly interactionSurfaceId: EmbeddedNodeId;
-  readonly pendingSurfaceChange: PendingInteractionSurfaceChange | null;
+  readonly surfaceId: EmbeddedNodeId;
+  readonly pendingSurfaceChange: PendingSurfaceChange | null;
 }
 
 export interface SurfaceWorkspacesControllerDeps {
-  readonly editor: TiptapEditor;
-  readonly semanticController: WorkspaceSemanticController;
   readonly interactionController: LearnerInteractionWorkspaceController;
-  readonly presentationPreviewController: PresentationPreviewController;
-  readonly learnerInteractionPreviewController: LearnerInteractionPreviewController;
   readonly courseStructure: () => ProjectedSlideshowCourseStructure;
-  readonly requestedSurfaceId: () => EmbeddedNodeId;
-  readonly semanticSnapshot: () => WorkspaceSemanticSnapshot;
+  readonly onSurfaceChanged: (surfaceId: EmbeddedNodeId) => void;
   readonly onClosed: () => void;
 }
 
-export type WorkspaceSemanticController = ReturnType<typeof getSemanticDocumentControllerForEditor>;
-export type WorkspaceSemanticSnapshot = SemanticDocumentControllerSnapshot;
+export type WorkspaceDocumentTreeSnapshot = ReturnType<typeof useDocumentTreeSnapshot>;
+export type WorkspaceEditorSelectionSnapshot = ReturnType<typeof useEditorSelectionSnapshot>;
 
-export interface PendingInteractionSurfaceChange {
-  phase: "decision" | "applying";
+export interface PendingSurfaceChange {
   readonly requestedSurfaceId: EmbeddedNodeId;
-  readonly requestedTargetId: EmbeddedNodeId;
 }
 
 export const IDLE_LEARNER_INTERACTION_WORKSPACE_SNAPSHOT: LearnerInteractionWorkspaceSnapshot =
@@ -54,120 +38,19 @@ export const IDLE_LEARNER_INTERACTION_WORKSPACE_SNAPSHOT: LearnerInteractionWork
     saveError: null,
   });
 
-async function restoreInteractionSurface(
-  semanticController: WorkspaceSemanticController,
-  courseStructure: ProjectedSlideshowCourseStructure,
-  surfaceId: EmbeddedNodeId,
-): Promise<boolean> {
-  return selectInteractionSurfaceTarget(semanticController, courseStructure, surfaceId, surfaceId);
-}
-
-async function applyInteractionSurfaceChange(
-  semanticController: WorkspaceSemanticController,
-  interactionController: LearnerInteractionWorkspaceController,
-  interactionSurfaceIdRef: { current: EmbeddedNodeId },
-  pendingSurfaceChangeRef: { current: PendingInteractionSurfaceChange | null },
-  change: PendingInteractionSurfaceChange,
-  courseStructure: ProjectedSlideshowCourseStructure,
-  refreshInteractionSurface: (update: (revision: number) => number) => void,
-): Promise<void> {
-  if (pendingSurfaceChangeRef.current !== change) return;
-  change.phase = "applying";
-  const reached = await selectInteractionSurfaceTarget(
-    semanticController,
-    courseStructure,
-    change.requestedTargetId,
-    change.requestedSurfaceId,
-  );
-  if (pendingSurfaceChangeRef.current !== change) return;
-  pendingSurfaceChangeRef.current = null;
-  if (reached) {
-    interactionSurfaceIdRef.current = change.requestedSurfaceId;
-    refreshInteractionSurface((revision) => revision + 1);
-    interactionController.replaceArtifact();
-    return;
-  }
-  const currentSurfaceId = resolvePresentationSurfaceId(
-    semanticController.getSnapshot(),
-    courseStructure,
-  );
-  if (!currentSurfaceId) {
-    throw new Error("Slideshow authoring lost its current semantic Surface.");
-  }
-  interactionSurfaceIdRef.current = currentSurfaceId;
-  refreshInteractionSurface((revision) => revision + 1);
-  interactionController.replaceArtifact();
-}
-
-async function cancelInteractionSurfaceChange(
-  semanticController: WorkspaceSemanticController,
-  interactionController: LearnerInteractionWorkspaceController,
-  interactionSurfaceIdRef: { current: EmbeddedNodeId },
-  pendingSurfaceChangeRef: { current: PendingInteractionSurfaceChange | null },
-  courseStructure: ProjectedSlideshowCourseStructure,
-): Promise<void> {
-  const outgoingSurfaceId = interactionSurfaceIdRef.current;
-  if (!(await restoreInteractionSurface(semanticController, courseStructure, outgoingSurfaceId))) {
-    return;
-  }
-  pendingSurfaceChangeRef.current = null;
-  interactionController.resolveContextChange("cancel");
-}
-
-async function selectInteractionSurfaceTarget(
-  semanticController: WorkspaceSemanticController,
-  courseStructure: ProjectedSlideshowCourseStructure,
-  targetId: EmbeddedNodeId,
-  surfaceId: EmbeddedNodeId,
-): Promise<boolean> {
-  const before = semanticController.getSnapshot();
-  if (
-    before.selectedId === targetId &&
-    resolvePresentationSurfaceId(before, courseStructure) === surfaceId
-  ) {
-    return true;
-  }
-  const result = await semanticController.select(targetId, {
-    origin: "presentation-timeline",
-    focusEditor: false,
-  });
-  return navigationReachedSurface(result, surfaceId, semanticController, courseStructure);
-}
-
-function navigationReachedSurface(
-  result: SemanticNavigationResult,
-  surfaceId: EmbeddedNodeId,
-  semanticController: WorkspaceSemanticController,
-  courseStructure: ProjectedSlideshowCourseStructure,
-): boolean {
-  switch (result.kind) {
-    case "reached":
-    case "reached-owner":
-      return (
-        resolvePresentationSurfaceId(semanticController.getSnapshot(), courseStructure) ===
-        surfaceId
-      );
-    case "missing":
-    case "interrupted":
-      return false;
-  }
-}
-
 export function resolvePresentationSurfaceId(
-  snapshot: ReturnType<typeof useSemanticDocumentControllerSnapshot>,
+  selection: WorkspaceEditorSelectionSnapshot,
+  tree: WorkspaceDocumentTreeSnapshot,
   courseStructure: ProjectedSlideshowCourseStructure,
 ): EmbeddedNodeId | null {
-  if (!snapshot.selectedId) return courseStructure.surfaceIds[0] ?? null;
-  return resolveSemanticTargetSurfaceId(snapshot.selectedId, snapshot.semantics, courseStructure);
+  if (!selection.selectedId) return courseStructure.surfaceIds[0] ?? null;
+  return resolveDocumentItemSurfaceId(selection.selectedId, tree, courseStructure);
 }
 
 export class SurfaceWorkspacesController {
   readonly #listeners = new Set<() => void>();
   readonly #deps: SurfaceWorkspacesControllerDeps;
-  readonly #surfaceIdRef: { current: EmbeddedNodeId };
-  readonly #pendingChangeRef: { current: PendingInteractionSurfaceChange | null };
-  #workspace: SurfaceWorkspacesSnapshot["workspace"];
-  #appliedRequestNonce: number | null = null;
+  #pendingRequestedWorkspace: SurfaceWorkspacesSnapshot["workspace"] | null = null;
   #snapshot: SurfaceWorkspacesSnapshot;
   #disposed = false;
 
@@ -177,12 +60,9 @@ export class SurfaceWorkspacesController {
     initialSurfaceId: EmbeddedNodeId,
   ) {
     this.#deps = deps;
-    this.#surfaceIdRef = { current: initialSurfaceId };
-    this.#pendingChangeRef = { current: null };
-    this.#workspace = initialWorkspace;
-    this.#snapshot = Object.freeze({
+    this.#snapshot = freezeSnapshot({
       workspace: initialWorkspace,
-      interactionSurfaceId: initialSurfaceId,
+      surfaceId: initialSurfaceId,
       pendingSurfaceChange: null,
     });
   }
@@ -196,90 +76,43 @@ export class SurfaceWorkspacesController {
   };
 
   requestWorkspace(next: SurfaceWorkspacesSnapshot["workspace"]): void {
-    if (this.#disposed || next === this.#workspace) return;
+    if (this.#disposed || next === this.#snapshot.workspace) return;
+    if (this.#snapshot.pendingSurfaceChange) {
+      this.#pendingRequestedWorkspace = next;
+      return;
+    }
     this.#deps.interactionController.requestContextChange(
       { kind: "workspace", workspace: next },
-      () => {
-        if (
-          next !== "interactions" &&
-          this.#deps.learnerInteractionPreviewController.getSnapshot().status !== "idle"
-        ) {
-          this.#deps.learnerInteractionPreviewController.close();
-        }
-        this.#workspace = next;
-        if (next === "interactions") {
-          this.#surfaceIdRef.current = this.#deps.requestedSurfaceId();
-        }
-        this.#update();
-      },
+      () => this.#replaceSnapshot({ workspace: next }),
     );
   }
 
-  applyRequest(request: SurfaceWorkspaceRequest): void {
-    if (this.#disposed || this.#appliedRequestNonce === request.nonce) return;
-    this.#appliedRequestNonce = request.nonce;
+  requestSurface(surfaceId: EmbeddedNodeId): void {
+    if (this.#disposed || surfaceId === this.#snapshot.surfaceId) return;
     const courseStructure = this.#deps.courseStructure();
-    if (
-      request.surfaceId !== this.#deps.requestedSurfaceId() &&
-      courseStructure.surfaceById[request.surfaceId]
-    ) {
-      void restoreInteractionSurface(
-        this.#deps.semanticController,
-        courseStructure,
-        request.surfaceId,
-      );
+    if (!courseStructure.surfaceById[surfaceId]) {
+      throw new Error(`Surface workspace cannot select missing Surface "${surfaceId}".`);
     }
-    this.requestWorkspace(request.workspace);
-  }
+    if (this.#snapshot.pendingSurfaceChange) return;
 
-  syncRequestedSurface(): void {
-    if (this.#disposed) return;
-    const { interactionController, semanticController } = this.#deps;
-    const courseStructure = this.#deps.courseStructure();
-    const requestedSurfaceId = this.#deps.requestedSurfaceId();
-    const semanticSnapshot = this.#deps.semanticSnapshot();
-    if (this.#workspace !== "interactions" || requestedSurfaceId === this.#surfaceIdRef.current) {
+    if (!courseStructure.surfaceById[this.#snapshot.surfaceId]) {
+      this.#deps.interactionController.replaceArtifact();
+      this.#commitSurface(surfaceId);
       return;
     }
-    const outgoingSurfaceId = this.#surfaceIdRef.current;
-    if (!semanticSnapshot.semantics.itemById.has(outgoingSurfaceId)) {
-      this.#pendingChangeRef.current = null;
-      this.#surfaceIdRef.current = requestedSurfaceId;
-      interactionController.replaceArtifact();
-      this.#update();
-      return;
-    }
-    const pending = this.#pendingChangeRef.current;
-    if (pending) {
-      if (pending.phase === "decision") {
-        void restoreInteractionSurface(semanticController, courseStructure, outgoingSurfaceId);
-      }
-      return;
-    }
-    const requestedTargetId = semanticSnapshot.selectedId ?? requestedSurfaceId;
-    const change: PendingInteractionSurfaceChange = {
-      phase: "decision",
-      requestedSurfaceId,
-      requestedTargetId,
-    };
-    this.#pendingChangeRef.current = change;
-    const result = interactionController.requestContextChange(
-      { kind: "surface", surfaceId: requestedSurfaceId },
+
+    const change = Object.freeze({ requestedSurfaceId: surfaceId });
+    this.#replaceSnapshot({ pendingSurfaceChange: change });
+    const result = this.#deps.interactionController.requestContextChange(
+      { kind: "surface", surfaceId },
       () => {
-        void applyInteractionSurfaceChange(
-          semanticController,
-          interactionController,
-          this.#surfaceIdRef,
-          this.#pendingChangeRef,
-          change,
-          courseStructure,
-          () => this.#update(),
-        );
+        if (this.#snapshot.pendingSurfaceChange !== change) return;
+        this.#deps.interactionController.replaceArtifact();
+        this.#commitSurface(surfaceId);
       },
     );
-    if (result === "decision-required") {
-      void restoreInteractionSurface(semanticController, courseStructure, outgoingSurfaceId);
-      this.#update();
+    if (result === "applied" && this.#snapshot.pendingSurfaceChange === change) {
+      throw new Error("Surface workspace context change applied without committing its Surface.");
     }
   }
 
@@ -287,52 +120,66 @@ export class SurfaceWorkspacesController {
     if (this.#disposed) return;
     const interactionController = this.#deps.interactionController;
     const pending = interactionController.getSnapshot().pendingContextChange;
-    if (decision !== "cancel" || pending?.kind !== "surface") {
-      interactionController.resolveContextChange(decision);
+    if (decision === "cancel" && pending?.kind === "surface") {
+      this.#pendingRequestedWorkspace = null;
+      this.#replaceSnapshot({ pendingSurfaceChange: null });
+      interactionController.resolveContextChange("cancel");
       return;
     }
-    void cancelInteractionSurfaceChange(
-      this.#deps.semanticController,
-      interactionController,
-      this.#surfaceIdRef,
-      this.#pendingChangeRef,
-      this.#deps.courseStructure(),
-    );
+
+    const result = interactionController.resolveContextChange(decision);
+    if (result === "save-failed") return;
+    if (result === "applied" && this.#snapshot.pendingSurfaceChange === null) {
+      const pendingWorkspace = this.#takePendingRequestedWorkspace();
+      if (pendingWorkspace) this.requestWorkspace(pendingWorkspace);
+    }
   }
 
   requestClose(): void {
     if (this.#disposed) return;
-    const {
-      interactionController,
-      learnerInteractionPreviewController,
-      presentationPreviewController,
-    } = this.#deps;
-    const finish = () => {
-      if (presentationPreviewController.getSnapshot().status !== "idle") {
-        presentationPreviewController.close();
-      }
-      if (learnerInteractionPreviewController.getSnapshot().status !== "idle") {
-        learnerInteractionPreviewController.close();
-      }
-      this.#deps.onClosed();
-    };
-    interactionController.requestContextChange({ kind: "workspace", workspace: "timeline" }, finish);
+    this.#deps.interactionController.requestContextChange(
+      { kind: "workspace", workspace: "timeline" },
+      this.#deps.onClosed,
+    );
   }
 
   dispose(): void {
     if (this.#disposed) return;
     this.#disposed = true;
+    this.#pendingRequestedWorkspace = null;
     this.#listeners.clear();
   }
 
-  #update(): void {
-    this.#snapshot = Object.freeze({
-      workspace: this.#workspace,
-      interactionSurfaceId: this.#surfaceIdRef.current,
-      pendingSurfaceChange: this.#pendingChangeRef.current,
-    });
+  #commitSurface(surfaceId: EmbeddedNodeId): void {
+    if (this.#disposed || surfaceId === this.#snapshot.surfaceId) return;
+    this.#replaceSnapshot({ surfaceId, pendingSurfaceChange: null });
+    this.#deps.onSurfaceChanged(surfaceId);
+    const pendingWorkspace = this.#takePendingRequestedWorkspace();
+    if (pendingWorkspace) this.requestWorkspace(pendingWorkspace);
+  }
+
+  #takePendingRequestedWorkspace(): SurfaceWorkspacesSnapshot["workspace"] | null {
+    const workspace = this.#pendingRequestedWorkspace;
+    this.#pendingRequestedWorkspace = null;
+    return workspace;
+  }
+
+  #replaceSnapshot(patch: Partial<SurfaceWorkspacesSnapshot>): void {
+    const next = { ...this.#snapshot, ...patch };
+    if (
+      next.workspace === this.#snapshot.workspace &&
+      next.surfaceId === this.#snapshot.surfaceId &&
+      next.pendingSurfaceChange === this.#snapshot.pendingSurfaceChange
+    ) {
+      return;
+    }
+    this.#snapshot = freezeSnapshot(next);
     if (!this.#disposed) {
       for (const listener of this.#listeners) listener();
     }
   }
+}
+
+function freezeSnapshot(snapshot: SurfaceWorkspacesSnapshot): SurfaceWorkspacesSnapshot {
+  return Object.freeze(snapshot);
 }

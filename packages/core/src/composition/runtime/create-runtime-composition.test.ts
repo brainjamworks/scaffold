@@ -727,7 +727,7 @@ function controlledHostBlockCapability(nodeType: string): BlockCapability {
       nodeType,
       title: "Controlled runtime block",
       ...(capability.definition.frame ? { frame: capability.definition.frame } : {}),
-      documentSemantics: { describe: () => ({ label: "Controlled runtime block" }) },
+      documentTree: { describe: () => ({ label: "Controlled runtime block" }) },
       control: {
         owner: {
           events: [{ type: "changed", label: "Changed" }],

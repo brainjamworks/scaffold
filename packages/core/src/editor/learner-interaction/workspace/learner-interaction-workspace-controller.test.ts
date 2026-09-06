@@ -92,16 +92,14 @@ describe("LearnerInteractionWorkspaceController", () => {
 
   it("saves before applying a deferred context change and adopts a generated rule ID", () => {
     const saveDraft = vi.fn(() => Result.ok(IDS.createdRule));
-    const closePreview = vi.fn();
     const apply = vi.fn();
-    const controller = new LearnerInteractionWorkspaceController({ saveDraft, closePreview });
+    const controller = new LearnerInteractionWorkspaceController({ saveDraft });
     controller.startNewRule();
     controller.updateDraft(draft(null));
     controller.requestContextChange({ kind: "workspace", workspace: "timeline" }, apply);
 
     expect(controller.resolveContextChange("save")).toBe("applied");
     expect(saveDraft).toHaveBeenCalledWith(draft(null));
-    expect(closePreview).toHaveBeenCalledOnce();
     expect(apply).toHaveBeenCalledOnce();
     expect(controller.getSnapshot()).toMatchObject({
       status: "focused-clean",
@@ -165,17 +163,14 @@ describe("LearnerInteractionWorkspaceController", () => {
   });
 
   it("saves and discards without a pending context request", () => {
-    const closePreview = vi.fn();
     const controller = new LearnerInteractionWorkspaceController({
       saveDraft: () => Result.ok(IDS.rule),
-      closePreview,
     });
     controller.focusRule(draft());
     controller.updateDraft({ ...draft(), isEnabled: false });
 
     expect(controller.save()).toBe("saved");
     expect(controller.getSnapshot().status).toBe("focused-clean");
-    expect(closePreview).toHaveBeenCalledOnce();
     controller.updateDraft({ ...draft(), isEnabled: true });
     controller.discard();
     expect(controller.getSnapshot()).toMatchObject({
@@ -184,11 +179,10 @@ describe("LearnerInteractionWorkspaceController", () => {
     });
   });
 
-  it("replacement and disposal discard without prompting and close preview once", () => {
-    const closePreview = vi.fn();
+  it("replacement and disposal discard without prompting", () => {
     const saveDraft = vi.fn(() => Result.ok(IDS.rule));
     const apply = vi.fn();
-    const controller = new LearnerInteractionWorkspaceController({ saveDraft, closePreview });
+    const controller = new LearnerInteractionWorkspaceController({ saveDraft });
     controller.focusRule(draft());
     controller.updateDraft({ ...draft(), isEnabled: false });
     controller.requestContextChange({ kind: "surface", surfaceId: IDS.otherSurface }, apply);
@@ -202,13 +196,11 @@ describe("LearnerInteractionWorkspaceController", () => {
     });
     expect(saveDraft).not.toHaveBeenCalled();
     expect(apply).not.toHaveBeenCalled();
-    expect(closePreview).toHaveBeenCalledOnce();
 
     controller.dispose();
     controller.dispose();
     controller.startNewRule();
     controller.updateDraft(draft(null));
-    expect(closePreview).toHaveBeenCalledTimes(2);
     expect(controller.getSnapshot().status).toBe("idle");
   });
 });

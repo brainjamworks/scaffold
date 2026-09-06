@@ -11,7 +11,7 @@ import type { Editor } from "@tiptap/core";
 import { Result, type Result as ResultType } from "better-result";
 
 import { projectAuthoringCourseStructure } from "@/document/authoring/course-structure/project-authoring-course-structure";
-import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document/semantic-document-storage";
+import { getDocumentTreeForEditor } from "@/document/authoring/document-tree/document-tree-storage";
 import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";
 import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
 import {
@@ -117,12 +117,12 @@ export function saveLearnerInteractionRule({
     rule,
     prepared.value.courseStructure,
   );
-  const controller = getSemanticDocumentControllerForEditor(editor);
+  const controller = getDocumentTreeForEditor(editor);
   const compilation = compileLearnerInteractions({
     configuration: candidate,
     courseStructure: prepared.value.courseStructure,
-    semanticSnapshot: controller.getSnapshot().semantics,
-    controlCapabilities: controller.getControlCapabilityCatalogue(),
+    semanticSnapshot: controller.getSnapshot(),
+    controlCapabilities: controller.getControlCapabilities(),
   });
   const diagnostics = compilation.diagnostics.filter(
     ({ source }) => source.surfaceId === surfaceId && source.ruleId === ruleId,

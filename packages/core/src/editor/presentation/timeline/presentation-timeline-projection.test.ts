@@ -7,10 +7,10 @@ import {
 import { describe, expect, it } from "vite-plus/test";
 
 import type {
-  SemanticDocumentSnapshot,
-  SemanticItem,
-  SemanticLocation,
-} from "@/document/model/semantic-document";
+  DocumentTreeSnapshot,
+  DocumentTreeItem,
+  DocumentItemLocation,
+} from "@/document/model/document-tree";
 
 import { projectPresentationTimeline } from "./presentation-timeline-projection";
 
@@ -36,10 +36,10 @@ describe("projectPresentationTimeline", () => {
                 actionIds: ["reveal", "emphasize"],
                 reconstructableCommandTypes: ["select-tab"],
                 children: [
-                  semanticItem(IDS.member, "published-child", {
+                  semanticItem(IDS.member, "exposed-child", {
                     actionIds: ["reveal"],
                   }),
-                  semanticItem(IDS.passive, "published-child"),
+                  semanticItem(IDS.passive, "exposed-child"),
                 ],
               }),
             ],
@@ -112,10 +112,10 @@ describe("projectPresentationTimeline", () => {
       semanticItem(IDS.surface, "surface", {
         children: [
           semanticItem(IDS.owner, "block", { actionIds: ["emphasize"] }),
-          semanticItem(IDS.member, "published-child", {
+          semanticItem(IDS.member, "exposed-child", {
             reconstructableCommandTypes: ["select-tab"],
           }),
-          semanticItem(IDS.passive, "published-child"),
+          semanticItem(IDS.passive, "exposed-child"),
         ],
       }),
     ]);
@@ -142,7 +142,7 @@ describe("projectPresentationTimeline", () => {
     const semantics = semanticSnapshot([
       semanticItem(IDS.surface, "surface", { children: [currentTarget] }),
       semanticItem(IDS.otherSurface, "surface", {
-        children: [semanticItem(IDS.member, "published-child", { actionIds: ["reveal"] })],
+        children: [semanticItem(IDS.member, "exposed-child", { actionIds: ["reveal"] })],
       }),
     ]);
     const missingTarget = animate("missing-target", IDS.missing, "reveal", 100);
@@ -238,7 +238,7 @@ describe("projectPresentationTimeline", () => {
 
     expect(() => projectPresentationTimeline(IDS.surface, semantics, malformed)).toThrow();
 
-    const brokenSnapshot: SemanticDocumentSnapshot = {
+    const brokenSnapshot: DocumentTreeSnapshot = {
       ...semantics,
       itemById: new Map([[IDS.surface, { ...surface, id: IDS.otherSurface }]]),
     };
@@ -327,13 +327,13 @@ function learnerWait(value: string, targetId: EmbeddedNodeId, atMs: number): Tim
   };
 }
 
-function semanticSnapshot(roots: readonly SemanticItem[]): SemanticDocumentSnapshot {
-  const itemById = new Map<EmbeddedNodeId, SemanticItem>();
+function semanticSnapshot(roots: readonly DocumentTreeItem[]): DocumentTreeSnapshot {
+  const itemById = new Map<EmbeddedNodeId, DocumentTreeItem>();
   const parentById = new Map<EmbeddedNodeId, EmbeddedNodeId | null>();
-  const locationById = new Map<EmbeddedNodeId, SemanticLocation>();
+  const locationById = new Map<EmbeddedNodeId, DocumentItemLocation>();
 
   const visit = (
-    item: SemanticItem,
+    item: DocumentTreeItem,
     parentId: EmbeddedNodeId | null,
     surfaceId: EmbeddedNodeId | null,
   ) => {
@@ -367,13 +367,13 @@ function semanticSnapshot(roots: readonly SemanticItem[]): SemanticDocumentSnaps
 
 function semanticItem(
   itemId: EmbeddedNodeId,
-  kind: SemanticItem["kind"],
+  kind: DocumentTreeItem["kind"],
   input: {
-    readonly actionIds?: SemanticItem["presentation"]["actionIds"];
+    readonly actionIds?: DocumentTreeItem["presentation"]["actionIds"];
     readonly reconstructableCommandTypes?: readonly string[];
-    readonly children?: readonly SemanticItem[];
+    readonly children?: readonly DocumentTreeItem[];
   } = {},
-): SemanticItem {
+): DocumentTreeItem {
   return {
     id: itemId,
     kind,

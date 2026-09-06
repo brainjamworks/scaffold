@@ -13,7 +13,7 @@ import type {
   ControlStateValueTypeDefinition,
 } from "@/document/control-binding/control-definition";
 import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
-import type { SemanticDocumentSnapshot } from "@/document/model/semantic-document";
+import type { DocumentTreeSnapshot } from "@/document/model/document-tree";
 import {
   compileLearnerInteractions,
   type LearnerInteractionCompileDiagnostic,
@@ -115,7 +115,7 @@ export interface ProjectLearnerInteractionAuthoringInput {
   readonly configuration: LearnerInteractionConfigurationV1 | null;
   readonly surfaceId: EmbeddedNodeId;
   readonly courseStructure: ProjectedSlideshowCourseStructure;
-  readonly semanticSnapshot: SemanticDocumentSnapshot;
+  readonly semanticSnapshot: DocumentTreeSnapshot;
   readonly controlCapabilities: ControlCapabilityCatalogue;
 }
 
@@ -252,7 +252,7 @@ interface ProjectRuleInput {
   readonly rule: LearnerInteractionRuleV1;
   readonly surfaceId: EmbeddedNodeId;
   readonly diagnostics: readonly LearnerInteractionCompileDiagnostic[];
-  readonly semanticSnapshot: SemanticDocumentSnapshot;
+  readonly semanticSnapshot: DocumentTreeSnapshot;
   readonly controlCapabilities: ControlCapabilityCatalogue;
   readonly whenEvents: readonly LearnerInteractionEventOption[];
   readonly conditionStates: readonly LearnerInteractionStateOption[];
@@ -356,7 +356,7 @@ function projectCommandSource(
 
 function unavailableEventOption(
   reference: ControlEventReferenceV1,
-  snapshot: SemanticDocumentSnapshot,
+  snapshot: DocumentTreeSnapshot,
   catalogue: ControlCapabilityCatalogue,
 ): LearnerInteractionEventOption {
   const capabilities = currentCapabilities(reference.targetId, snapshot, catalogue);
@@ -373,7 +373,7 @@ function unavailableEventOption(
 
 function unavailableStateOption(
   predicate: ControlStatePredicateV1,
-  snapshot: SemanticDocumentSnapshot,
+  snapshot: DocumentTreeSnapshot,
   catalogue: ControlCapabilityCatalogue,
 ): LearnerInteractionStateOption {
   const state = currentCapabilities(predicate.targetId, snapshot, catalogue)?.states?.find(
@@ -392,7 +392,7 @@ function unavailableStateOption(
 function unavailableTargetCommandOption(
   targetId: EmbeddedNodeId,
   type: string,
-  snapshot: SemanticDocumentSnapshot,
+  snapshot: DocumentTreeSnapshot,
   catalogue: ControlCapabilityCatalogue,
 ): LearnerInteractionTargetCommandOption {
   const command = currentCapabilities(targetId, snapshot, catalogue)?.commands?.find(
@@ -410,7 +410,7 @@ function unavailableTargetCommandOption(
 
 function currentCapabilities(
   targetId: EmbeddedNodeId,
-  snapshot: SemanticDocumentSnapshot,
+  snapshot: DocumentTreeSnapshot,
   catalogue: ControlCapabilityCatalogue,
 ) {
   if (!snapshot.itemById.has(targetId)) return undefined;
@@ -429,7 +429,7 @@ function currentCapabilities(
   return resolved.value.capabilities;
 }
 
-function currentLabel(targetId: EmbeddedNodeId, snapshot: SemanticDocumentSnapshot): string {
+function currentLabel(targetId: EmbeddedNodeId, snapshot: DocumentTreeSnapshot): string {
   return snapshot.itemById.get(targetId)?.label ?? targetId;
 }
 

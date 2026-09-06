@@ -14,7 +14,7 @@ import type {
 } from "@/document/control-binding/control-capability-catalogue";
 import type { ControlCapabilitySetDefinition } from "@/document/control-binding/control-definition";
 import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
-import type { SemanticDocumentSnapshot, SemanticItem } from "@/document/model/semantic-document";
+import type { DocumentTreeSnapshot, DocumentTreeItem } from "@/document/model/document-tree";
 
 import { projectLearnerInteractionAuthoring } from "./learner-interaction-authoring-projection";
 
@@ -273,15 +273,15 @@ describe("projectLearnerInteractionAuthoring", () => {
 
 function semanticSnapshot({
   includeEventAndCommands = true,
-}: { readonly includeEventAndCommands?: boolean } = {}): SemanticDocumentSnapshot {
+}: { readonly includeEventAndCommands?: boolean } = {}): DocumentTreeSnapshot {
   const currentChildren = [
     ...(includeEventAndCommands
       ? [
-          item(EVENT_TARGET_ID, "Hidden trigger", "published-child"),
+          item(EVENT_TARGET_ID, "Hidden trigger", "exposed-child"),
           item(COMMAND_TARGET_ID, "Command target", "block"),
         ]
       : []),
-    item(STATE_TARGET_ID, "State target", "published-child"),
+    item(STATE_TARGET_ID, "State target", "exposed-child"),
     item(PASSIVE_TARGET_ID, "Passive content", "rich-text"),
   ];
   const currentSurface = item(SURFACE_ID, "Current Surface", "surface", currentChildren);
@@ -319,9 +319,9 @@ function semanticSnapshot({
 function item(
   id: EmbeddedNodeId,
   label: string,
-  kind: SemanticItem["kind"],
-  children: readonly SemanticItem[] = [],
-): SemanticItem {
+  kind: DocumentTreeItem["kind"],
+  children: readonly DocumentTreeItem[] = [],
+): DocumentTreeItem {
   return Object.freeze({
     id,
     kind,

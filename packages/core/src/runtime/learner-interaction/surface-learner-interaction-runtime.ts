@@ -31,6 +31,7 @@ export interface CreateSurfaceLearnerInteractionRuntimeInput {
     SemanticInteractionOrigin,
     "author-preview" | "learner-interaction-rule"
   >;
+  readonly executionEnabled?: boolean;
 }
 
 export interface SurfaceLearnerInteractionNavigationContext {
@@ -48,6 +49,7 @@ export interface SurfaceLearnerInteractionNavigationPort {
 export interface SurfaceLearnerInteractionRuntime
   extends PresentationGatePort, PresentationGateObservationPort {
   subscribeReports(listener: (report: LearnerInteractionTurnReport) => void): () => void;
+  setExecutionEnabled(enabled: boolean): void;
   dispose(): void;
 }
 
@@ -61,6 +63,7 @@ export function createSurfaceLearnerInteractionRuntime({
   semanticTargets,
   surfaceNavigation,
   semanticInteractionOrigin,
+  executionEnabled: initialExecutionEnabled = true,
 }: CreateSurfaceLearnerInteractionRuntimeInput): SurfaceLearnerInteractionRuntime {
   const eventSources = requireStaticEventSources(program, controlBindings);
   const unsubscribeOwners: (() => void)[] = [];
@@ -68,7 +71,9 @@ export function createSurfaceLearnerInteractionRuntime({
   const gateObservationListeners = new Set<() => void>();
   const queuedEvents: QueuedLearnerEvent[] = [];
   const disposalReason = new Error("Surface Learner Interaction runtime was disposed.");
+  const executionGateReason = new Error("Surface Learner Interaction execution was suspended.");
   let phase: RuntimePhase = "active";
+  let executionEnabled = initialExecutionEnabled;
   let draining = false;
   let nextTurnNumber = 1;
   let currentOperation: AbortController | undefined;
@@ -203,6 +208,14 @@ export function createSurfaceLearnerInteractionRuntime({
       };
     },
 
+    setExecutionEnabled(enabled) {
+      if (phase !== "active" || executionEnabled === enabled) return;
+      executionEnabled = enabled;
+      if (enabled) return;
+      queuedEvents.length = 0;
+      currentOperation?.abort(executionGateReason);
+    },
+
     dispose() {
       if (phase !== "active") return;
       phase = "disposed";
@@ -232,7 +245,7 @@ export function createSurfaceLearnerInteractionRuntime({
   return Object.freeze(runtime);
 
   function receiveEvent(ownerId: EmbeddedNodeId, event: ControlEvent): Promise<void> | undefined {
-    if (phase !== "active") return;
+    if (phase !== "active" || !executionEnabled) return;
     const queued: QueuedLearnerEvent = {
       ownerId,
       event: { targetId: event.targetId, type: event.type },
@@ -265,6 +278,7 @@ export function createSurfaceLearnerInteractionRuntime({
       (error: unknown) => {
         draining = false;
         if (phase === "disposed" && error === disposalReason) return;
+        if (error === executionGateReason) return;
         try {
           terminate("faulted");
         } catch (terminationDefect) {

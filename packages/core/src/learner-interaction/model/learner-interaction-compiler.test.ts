@@ -14,9 +14,9 @@ import type {
 import type { ControlCapabilitySetDefinition } from "@/document/control-binding/control-definition";
 import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
 import type {
-  SemanticDocumentSnapshot,
-  SemanticItem,
-} from "@/document/model/semantic-document/semantic-document-snapshot";
+  DocumentTreeSnapshot,
+  DocumentTreeItem,
+} from "@/document/model/document-tree/document-tree-snapshot";
 
 import {
   compileLearnerInteractions,
@@ -497,15 +497,15 @@ function courseStructure(): ProjectedSlideshowCourseStructure {
   };
 }
 
-function semanticSnapshot(): SemanticDocumentSnapshot {
+function semanticSnapshot(): DocumentTreeSnapshot {
   const targets = [
     semanticItem(SURFACE_ID, "surface"),
     semanticItem(SECOND_SURFACE_ID, "surface"),
-    semanticItem(EVENT_TARGET_ID, "published-child"),
-    semanticItem(STATE_TARGET_ID, "published-child"),
-    semanticItem(COMMAND_TARGET_ID, "published-child"),
-    semanticItem(PASSIVE_TARGET_ID, "published-child"),
-    semanticItem(OUTSIDE_TARGET_ID, "published-child"),
+    semanticItem(EVENT_TARGET_ID, "exposed-child"),
+    semanticItem(STATE_TARGET_ID, "exposed-child"),
+    semanticItem(COMMAND_TARGET_ID, "exposed-child"),
+    semanticItem(PASSIVE_TARGET_ID, "exposed-child"),
+    semanticItem(OUTSIDE_TARGET_ID, "exposed-child"),
   ];
   return {
     revision: 1,
@@ -534,13 +534,13 @@ function semanticSnapshot(): SemanticDocumentSnapshot {
 
 function semanticItem(
   id: ReturnType<typeof EmbeddedNodeIdSchema.parse>,
-  kind: SemanticItem["kind"],
-): SemanticItem {
+  kind: DocumentTreeItem["kind"],
+): DocumentTreeItem {
   return {
     id,
     kind,
     nodeType: kind,
-    definitionId: kind === "published-child" ? null : kind,
+    definitionId: kind === "exposed-child" ? null : kind,
     label: id,
     summary: null,
     presentation: { actionIds: [], disabledReason: null },

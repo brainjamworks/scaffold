@@ -1,14 +1,16 @@
 // @vitest-environment happy-dom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
   EmbeddedNodeIdSchema,
   type EmbeddedNodeId,
   type LearnerInteractionRuleId,
+  type ScaffoldDocumentContent,
 } from "@scaffold/contracts";
+import { Result, type Result as ResultType } from "better-result";
 import userEvent from "@testing-library/user-event";
 import type { JSONContent } from "@tiptap/core";
-import { StrictMode } from "react";
+import { StrictMode, useCallback, useMemo, useSyncExternalStore } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
@@ -42,12 +44,88 @@ import {
   type ContentRuntimeHostProps,
 } from "./ContentRuntimeHost";
 import type { LearnerInteractionPreviewReportsPort } from "@/learner-interaction/model";
+import type { PresentationPreviewPlaybackPort } from "@/presentation/model";
 import type { SlideshowSurfaceRuntimeProgramSource } from "../players/slideshow/slideshow-surface-runtime-composition";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import type { LearningEventSession } from "../learning-events/session";
+import type { PreparedAuthorPreview } from "@/editor/shell/authoring/author-preview-preparation";
+import {
+  AuthorPreviewSessionController,
+  type AuthorPreviewFailure,
+} from "@/editor/shell/authoring/author-preview-session-controller";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
 const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
+
+function MountedAuthorPreviewSession({
+  controller,
+  onPlaybackPortChange,
+  onReportsPortChange,
+}: {
+  readonly controller: AuthorPreviewSessionController;
+  readonly onPlaybackPortChange?: (port: PresentationPreviewPlaybackPort | null) => void;
+  readonly onReportsPortChange?: (port: LearnerInteractionPreviewReportsPort | null) => void;
+}) {
+  const snapshot = useSyncExternalStore(
+    controller.subscribe,
+    controller.getSnapshot,
+    controller.getSnapshot,
+  );
+  const active =
+    snapshot.status === "preview" ||
+    snapshot.status === "refreshing" ||
+    snapshot.status === "refresh-failed"
+      ? snapshot.active
+      : null;
+  const requestSurfaceChange = useCallback(
+    (surfaceId: EmbeddedNodeId) => {
+      void controller.showSurface(surfaceId);
+    },
+    [controller],
+  );
+  const runtimeGeneration = active?.runtimeGeneration ?? null;
+  const connectPlayback = useCallback(
+    (port: PresentationPreviewPlaybackPort | null) => {
+      onPlaybackPortChange?.(port);
+      if (runtimeGeneration !== null) {
+        controller.connectPresentationPlayback(runtimeGeneration, port);
+      }
+    },
+    [controller, onPlaybackPortChange, runtimeGeneration],
+  );
+  const connectReports = useCallback(
+    (port: LearnerInteractionPreviewReportsPort | null) => {
+      onReportsPortChange?.(port);
+      if (runtimeGeneration !== null) {
+        controller.connectLearnerInteractionReports(runtimeGeneration, port);
+      }
+    },
+    [controller, onReportsPortChange, runtimeGeneration],
+  );
+  const learnerContent = active?.content.learnerContent ?? null;
+  const publication = useMemo(
+    () => (learnerContent ? ({ status: "supported", learnerContent } as const) : null),
+    [learnerContent],
+  );
+  if (!active) return null;
+  return (
+    <ContentRuntimeHostWithSurfaceExitPolicy
+      artifactId="artifact-real-author-preview"
+      composition={runtimeComposition}
+      publication={publication!}
+      authorPreviewRuntimeMount={{
+        initialSurfaceId: active.surfaceId,
+        executionEnabled: snapshot.status === "preview",
+        onSurfaceChangeRequest: requestSurfaceChange,
+        ...(active.program ? { programSource: active.program } : {}),
+        onPresentationPlaybackPortChange: connectPlayback,
+        onLearnerInteractionReportsPortChange: connectReports,
+      }}
+      productAccess={coreProductAccess}
+      surfaceExitPolicy="observe-only"
+    />
+  );
+}
 
 type TestContentRuntimeHostProps = Omit<
   ContentRuntimeHostProps,
@@ -971,37 +1049,45 @@ describe("ContentRuntimeHost", () => {
     expect(surfaceRuntimeLifecycle.disposed).toHaveBeenCalledWith(replacementOwner);
   });
 
-  it("connects author Preview transport to the selected isolated Slideshow Surface", async () => {
+  it("routes previous and next author navigation through the real Preview Session", async () => {
     const user = userEvent.setup();
     const content = presentationPreviewDocument();
     normalizeRuntimeFixtureIds(content);
-    const authorPreviewRuntimeMount = presentationAuthorPreviewRuntimeMount(
+    const programSource = presentationAuthorPreviewRuntimeMount(SECOND_SLIDESHOW_SURFACE_ID, [
+      FIRST_SLIDESHOW_SURFACE_ID,
       SECOND_SLIDESHOW_SURFACE_ID,
-      [FIRST_SLIDESHOW_SURFACE_ID, SECOND_SLIDESHOW_SURFACE_ID],
-    );
-    let previewPort: Parameters<
-      NonNullable<AuthorPreviewRuntimeMount["onPresentationPlaybackPortChange"]>
-    >[0] = null;
-    const onPortChange = vi.fn((port: typeof previewPort) => {
-      previewPort = port;
+    ]).programSource!;
+    const services = {} as PreparedAuthorPreview["services"];
+    const controller = new AuthorPreviewSessionController({
+      prepare: async (_input, retainedServices) =>
+        Result.ok({
+          content: { learnerContent: content, assessmentGroups: [], assessmentTargets: [] },
+          services: retainedServices ?? services,
+          program: programSource,
+        }),
     });
-
-    const { unmount } = render(
-      <ContentRuntimeHostWithSurfaceExitPolicy
-        artifactId="artifact-preview"
-        composition={runtimeComposition}
-        publication={{ status: "supported", learnerContent: content }}
-        authorPreviewRuntimeMount={{
-          ...authorPreviewRuntimeMount,
-          onPresentationPlaybackPortChange: onPortChange,
-        }}
-        productAccess={coreProductAccess}
-        surfaceExitPolicy="observe-only"
-      />,
+    await controller.enter(
+      {
+        revision: 1,
+        artifact: {
+          id: "artifact-real-author-preview",
+          title: "Navigation",
+          mode: "slideshow",
+          content: content as ScaffoldDocumentContent,
+        },
+      },
+      SECOND_SLIDESHOW_SURFACE_ID,
     );
 
-    await waitFor(() => expect(previewPort).not.toBeNull());
-    expect(previewPort!.getSnapshot()).toMatchObject({
+    const { unmount } = render(<MountedAuthorPreviewSession controller={controller} />);
+
+    await waitFor(() =>
+      expect(controller.transport.getSnapshot()).toMatchObject({
+        status: "ready",
+        surfaceId: SECOND_SLIDESHOW_SURFACE_ID,
+      }),
+    );
+    expect(controller.transport.getSnapshot()).toMatchObject({
       status: "ready",
       surfaceId: SECOND_SLIDESHOW_SURFACE_ID,
       phase: "awaiting-start",
@@ -1012,22 +1098,308 @@ describe("ContentRuntimeHost", () => {
       "true",
     );
 
-    expect(previewPort!.play().isOk()).toBe(true);
-    expect(previewPort!.getSnapshot()).toMatchObject({ phase: "playing" });
-    const seek = await previewPort!.seek(500);
+    expect(controller.transport.play(SECOND_SLIDESHOW_SURFACE_ID).isOk()).toBe(true);
+    expect(controller.transport.getSnapshot()).toMatchObject({ phase: "playing" });
+    const seek = await controller.transport.seek(SECOND_SLIDESHOW_SURFACE_ID, 500);
     expect(seek).toMatchObject({ value: { kind: "applied", timeMs: 500 } });
-    expect(previewPort!.getSnapshot()).toMatchObject({ phase: "paused", currentTimeMs: 500 });
+    expect(controller.transport.getSnapshot()).toMatchObject({
+      phase: "paused",
+      currentTimeMs: 500,
+    });
 
     await user.click(screen.getByRole("button", { name: "Previous slide" }));
     await waitFor(() =>
-      expect(previewPort?.getSnapshot()).toMatchObject({
+      expect(controller.transport.getSnapshot()).toMatchObject({
         status: "ready",
         surfaceId: FIRST_SLIDESHOW_SURFACE_ID,
       }),
     );
+    expect(controller.getSnapshot()).toMatchObject({
+      status: "preview",
+      active: { surfaceId: FIRST_SLIDESHOW_SURFACE_ID },
+    });
+
+    expect(controller.transport.play(FIRST_SLIDESHOW_SURFACE_ID).isOk()).toBe(true);
+    await waitFor(
+      () => expect(screen.getByRole("button", { name: "Next slide" })).not.toBeDisabled(),
+      { timeout: 2_000 },
+    );
+    await user.click(screen.getByRole("button", { name: "Next slide" }));
+    await waitFor(() =>
+      expect(controller.transport.getSnapshot()).toMatchObject({
+        status: "ready",
+        surfaceId: SECOND_SLIDESHOW_SURFACE_ID,
+      }),
+    );
+    expect(controller.getSnapshot()).toMatchObject({
+      status: "preview",
+      active: { surfaceId: SECOND_SLIDESHOW_SURFACE_ID },
+    });
 
     unmount();
-    expect(onPortChange).toHaveBeenLastCalledWith(null);
+    controller.dispose();
+  });
+
+  it("gates the retained real runtime through pending and failed refresh, then recovers paused", async () => {
+    const user = userEvent.setup();
+    const content = slideshowDocumentWithPortableLearnerRules();
+    normalizeRuntimeFixtureIds(content);
+    const presentationSource = presentationAuthorPreviewRuntimeMount(FIRST_SLIDESHOW_SURFACE_ID, [
+      FIRST_SLIDESHOW_SURFACE_ID,
+      SECOND_SLIDESHOW_SURFACE_ID,
+    ]).programSource!;
+    const interactionSource = learnerInteractionPreviewProgramSource();
+    const programSource: SlideshowSurfaceRuntimeProgramSource = (surfaceId) => {
+      const presentation = presentationSource(surfaceId);
+      const baseInteractions = interactionSource(surfaceId);
+      let learnerInteractions: typeof baseInteractions;
+      if (baseInteractions?.learnerInteractions) {
+        const rulesByEvent = new Map(baseInteractions.learnerInteractions.rulesByEvent);
+        rulesByEvent.set(JSON.stringify([LEARNER_TABS_ID, LEARNER_PRACTICE_ID, "selected"]), [
+          {
+            id: "rule00000001" as LearnerInteractionRuleId,
+            when: {
+              ownerId: LEARNER_TABS_ID,
+              targetId: LEARNER_PRACTICE_ID,
+              type: "selected",
+            },
+            conditions: [],
+            commands: [
+              {
+                kind: "navigate-surface",
+                surfaceId: SECOND_SLIDESHOW_SURFACE_ID,
+              },
+            ],
+          },
+        ]);
+        learnerInteractions = {
+          learnerInteractions: { ...baseInteractions.learnerInteractions, rulesByEvent },
+        };
+      }
+      if (!presentation && !learnerInteractions) return undefined;
+      return { ...presentation, ...learnerInteractions };
+    };
+    const services = {} as PreparedAuthorPreview["services"];
+    const pendingRefresh = deferred<ResultType<PreparedAuthorPreview, AuthorPreviewFailure>>();
+    let preparationCall = 0;
+    const controller = new AuthorPreviewSessionController({
+      prepare: async (input, retainedServices) => {
+        preparationCall += 1;
+        if (preparationCall === 2) return pendingRefresh.promise;
+        return Result.ok({
+          content: {
+            learnerContent: input.document,
+            assessmentGroups: [],
+            assessmentTargets: [],
+          },
+          services: retainedServices ?? services,
+          program: programSource,
+        });
+      },
+    });
+    const documentSnapshot = (revision: number, document: ScaffoldDocumentContent) => ({
+      revision,
+      artifact: {
+        id: "artifact-real-author-preview",
+        title: "Refresh gate",
+        mode: "slideshow" as const,
+        content: document,
+      },
+    });
+    await controller.enter(
+      documentSnapshot(1, content as ScaffoldDocumentContent),
+      FIRST_SLIDESHOW_SURFACE_ID,
+    );
+
+    let retainedPlayback: PresentationPreviewPlaybackPort | null = null;
+    const staleRuntimeReports = vi.fn();
+    let unsubscribeStaleReports: () => void = () => undefined;
+    const { unmount } = render(
+      <MountedAuthorPreviewSession
+        controller={controller}
+        onPlaybackPortChange={(port) => {
+          retainedPlayback ??= port;
+        }}
+        onReportsPortChange={(port) => {
+          if (!port || staleRuntimeReports.mock.calls.length > 0) return;
+          unsubscribeStaleReports();
+          unsubscribeStaleReports = port.subscribeReports(staleRuntimeReports);
+        }}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(controller.transport.getSnapshot()).toMatchObject({
+        status: "ready",
+        surfaceId: FIRST_SLIDESHOW_SURFACE_ID,
+      }),
+    );
+    expect(retainedPlayback).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "Play presentation" }));
+    expect(retainedPlayback!.getSnapshot()).toMatchObject({ phase: "playing" });
+    const initialRuntimeOwner = surfaceRuntimeLifecycle.created.mock.lastCall?.[1];
+    const initialRuntimeCount = surfaceRuntimeLifecycle.created.mock.calls.length;
+
+    const changedJson = structuredClone(content) as JSONContent;
+    const changedAttrs = changedJson.content?.[0]?.attrs as Record<string, unknown> | undefined;
+    const changedConfiguration = changedAttrs?.["learnerInteractions"] as
+      | { surfaces?: Array<{ rules?: Array<{ isEnabled?: boolean }> }> }
+      | undefined;
+    if (!changedConfiguration?.surfaces?.[0]?.rules?.[0]) {
+      throw new Error("Expected learner configuration for refresh gating.");
+    }
+    changedConfiguration.surfaces[0].rules[0].isEnabled = false;
+    act(() => {
+      controller.observeDocument({
+        status: "valid",
+        snapshot: documentSnapshot(2, changedJson as ScaffoldDocumentContent),
+      });
+    });
+
+    expect(controller.getSnapshot()).toMatchObject({ status: "refreshing" });
+    expect(retainedPlayback!.getSnapshot()).toMatchObject({ phase: "paused" });
+    const play = screen.getByRole("button", { name: "Play presentation" });
+    expect(play).toBeDisabled();
+    expect(retainedPlayback!.play().isOk()).toBe(true);
+    expect(retainedPlayback!.getSnapshot()).toMatchObject({ phase: "paused" });
+    document.querySelectorAll<HTMLElement>("[inert]").forEach((element) => {
+      element.removeAttribute("inert");
+    });
+    await user.click(screen.getByRole("tab", { name: "Overview" }));
+    await user.click(screen.getByRole("tab", { name: "Practice" }));
+    await Promise.resolve();
+    expect(staleRuntimeReports).not.toHaveBeenCalled();
+    expect(retainedPlayback!.getSnapshot()).toMatchObject({ phase: "paused" });
+
+    act(() => {
+      pendingRefresh.resolve(
+        Result.err({ reason: "preview-runtime-unavailable", cause: "offline" }),
+      );
+    });
+    await waitFor(() =>
+      expect(controller.getSnapshot()).toMatchObject({ status: "refresh-failed" }),
+    );
+    expect(screen.getByRole("button", { name: "Play presentation" })).toBeDisabled();
+    expect(retainedPlayback!.play().isOk()).toBe(true);
+    expect(retainedPlayback!.getSnapshot()).toMatchObject({ phase: "paused" });
+    document.querySelectorAll<HTMLElement>("[inert]").forEach((element) => {
+      element.removeAttribute("inert");
+    });
+    await user.click(screen.getByRole("tab", { name: "Overview" }));
+    await user.click(screen.getByRole("tab", { name: "Practice" }));
+    await Promise.resolve();
+    expect(staleRuntimeReports).not.toHaveBeenCalled();
+    expect(surfaceRuntimeLifecycle.disposed).not.toHaveBeenCalledWith(initialRuntimeOwner);
+
+    const recoveredReports = vi.fn();
+    controller.reports.subscribeReports(recoveredReports);
+    act(() => {
+      controller.observeDocument({
+        status: "valid",
+        snapshot: documentSnapshot(3, content as ScaffoldDocumentContent),
+      });
+    });
+    await waitFor(() =>
+      expect(controller.transport.getSnapshot()).toMatchObject({
+        status: "ready",
+        surfaceId: FIRST_SLIDESHOW_SURFACE_ID,
+        phase: "awaiting-start",
+        currentTimeMs: 0,
+      }),
+    );
+    expect(controller.getSnapshot()).toMatchObject({
+      status: "preview",
+      active: { surfaceId: FIRST_SLIDESHOW_SURFACE_ID, services },
+    });
+    expect(screen.getByRole("button", { name: "Play presentation" })).not.toBeDisabled();
+    await waitFor(() =>
+      expect(surfaceRuntimeLifecycle.disposed).toHaveBeenCalledWith(initialRuntimeOwner),
+    );
+    expect(surfaceRuntimeLifecycle.created).toHaveBeenCalledTimes(initialRuntimeCount + 1);
+    expect(runtimeStoreFactories.assessment).toHaveBeenCalledTimes(1);
+    expect(runtimeStoreFactories.learnerActivity).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole("tab", { name: "Overview" }));
+    await user.click(screen.getByRole("tab", { name: "Practice" }));
+    await waitFor(() => expect(recoveredReports).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(controller.transport.getSnapshot()).toMatchObject({
+        status: "ready",
+        surfaceId: SECOND_SLIDESHOW_SURFACE_ID,
+      }),
+    );
+    expect(controller.getSnapshot()).toMatchObject({
+      status: "preview",
+      active: { surfaceId: SECOND_SLIDESHOW_SURFACE_ID },
+    });
+
+    unsubscribeStaleReports();
+    unmount();
+    controller.dispose();
+  });
+
+  it("resets only the current author-preview Surface while retaining the course attempt", async () => {
+    const content = presentationPreviewDocument();
+    normalizeRuntimeFixtureIds(content);
+    const ports: PresentationPreviewPlaybackPort[] = [];
+    const onPortChange = vi.fn((port: PresentationPreviewPlaybackPort | null) => {
+      if (port) ports.push(port);
+    });
+    const initialMount = presentationAuthorPreviewRuntimeMount(FIRST_SLIDESHOW_SURFACE_ID, [
+      FIRST_SLIDESHOW_SURFACE_ID,
+      SECOND_SLIDESHOW_SURFACE_ID,
+    ]);
+    const { rerender } = render(
+      <ContentRuntimeHostWithSurfaceExitPolicy
+        artifactId="artifact-preview-refresh"
+        composition={runtimeComposition}
+        publication={{ status: "supported", learnerContent: content }}
+        authorPreviewRuntimeMount={{
+          ...initialMount,
+          onPresentationPlaybackPortChange: onPortChange,
+        }}
+        productAccess={coreProductAccess}
+        surfaceExitPolicy="observe-only"
+      />,
+    );
+
+    await waitFor(() => expect(ports).toHaveLength(1));
+    expect(runtimeStoreFactories.assessment).toHaveBeenCalledTimes(1);
+    expect(runtimeStoreFactories.learnerActivity).toHaveBeenCalledTimes(1);
+    const initialRuntimeOwner = surfaceRuntimeLifecycle.created.mock.lastCall?.[1];
+    const initialRuntimeCount = surfaceRuntimeLifecycle.created.mock.calls.length;
+    expect(ports[0]!.play().isOk()).toBe(true);
+    const replacementMount = presentationAuthorPreviewRuntimeMount(FIRST_SLIDESHOW_SURFACE_ID, [
+      FIRST_SLIDESHOW_SURFACE_ID,
+      SECOND_SLIDESHOW_SURFACE_ID,
+    ]);
+    rerender(
+      <ContentRuntimeHostWithSurfaceExitPolicy
+        artifactId="artifact-preview-refresh"
+        composition={runtimeComposition}
+        publication={{ status: "supported", learnerContent: content }}
+        authorPreviewRuntimeMount={{
+          ...replacementMount,
+          onPresentationPlaybackPortChange: onPortChange,
+        }}
+        productAccess={coreProductAccess}
+        surfaceExitPolicy="observe-only"
+      />,
+    );
+
+    await waitFor(() => expect(ports).toHaveLength(2));
+    await waitFor(() =>
+      expect(surfaceRuntimeLifecycle.disposed).toHaveBeenCalledWith(initialRuntimeOwner),
+    );
+    expect(surfaceRuntimeLifecycle.created).toHaveBeenCalledTimes(initialRuntimeCount + 1);
+    expect(runtimeStoreFactories.assessment).toHaveBeenCalledTimes(1);
+    expect(runtimeStoreFactories.learnerActivity).toHaveBeenCalledTimes(1);
+    expect(ports[1]).not.toBe(ports[0]);
+    expect(ports[1]!.getSnapshot()).toMatchObject({
+      phase: "awaiting-start",
+      currentTimeMs: 0,
+      surfaceId: FIRST_SLIDESHOW_SURFACE_ID,
+    });
   });
 
   it("connects real learner turn reports without a Presentation transport", async () => {
@@ -1044,6 +1416,8 @@ describe("ContentRuntimeHost", () => {
         artifactId="artifact-interaction-preview"
         authorPreviewRuntimeMount={{
           initialSurfaceId: FIRST_SLIDESHOW_SURFACE_ID,
+          executionEnabled: true,
+          onSurfaceChangeRequest: vi.fn(),
           programSource: learnerInteractionPreviewProgramSource(),
           onLearnerInteractionReportsPortChange: onReportsPortChange,
           onPresentationPlaybackPortChange: onPresentationPortChange,
@@ -2718,6 +3092,7 @@ function presentationAuthorPreviewRuntimeMount(
   const surfaces = surfaceIds.map((surfaceId) => ({
     surfaceId,
     durationMs: 1_000,
+    transition: null,
     cues: [],
     waits: [],
     visualProgram: {
@@ -2725,11 +3100,12 @@ function presentationAuthorPreviewRuntimeMount(
       durationMs: 1_000,
       targetById: new Map(),
       segments: [],
-      sequenceContainers: [],
     },
   }));
   return {
     initialSurfaceId: activeSurfaceId,
+    executionEnabled: true,
+    onSurfaceChangeRequest: vi.fn(),
     programSource: (surfaceId) => {
       const timeline = surfaces.find((surface) => surface.surfaceId === surfaceId);
       return timeline ? { presentation: { timeline, autoAdvance: false } } : undefined;

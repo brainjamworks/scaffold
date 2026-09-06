@@ -15,7 +15,7 @@ import type { Editor } from "@tiptap/core";
 import { Result, type Result as ResultType } from "better-result";
 
 import { projectAuthoringCourseStructure } from "@/document/authoring/course-structure/project-authoring-course-structure";
-import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document/semantic-document-storage";
+import { getDocumentTreeForEditor } from "@/document/authoring/document-tree/document-tree-storage";
 import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";
 import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
 import { compilePresentation, type PresentationCompilationError } from "@/presentation/model";
@@ -591,7 +591,7 @@ function validateAndDispatch(
   validateActionIds?: readonly EmbeddedDataId[],
 ): PresentationAuthoringCommandResult {
   const configuration = PresentationConfigurationV1Schema.parse(candidate);
-  const semanticSnapshot = getSemanticDocumentControllerForEditor(editor).getSnapshot().semantics;
+  const semanticSnapshot = getDocumentTreeForEditor(editor).getSnapshot();
   const configurations = validateActionIds?.length
     ? validateActionIds.map((actionId) => configurationWithEnabledAction(configuration, actionId))
     : [configuration];

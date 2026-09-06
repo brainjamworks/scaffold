@@ -1,6 +1,14 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import type { Editor as TiptapEditor } from "@tiptap/core";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { flushSync } from "react-dom";
 
 import { getControlBindingRegistryForEditor } from "@/document/control-binding";
@@ -10,7 +18,6 @@ import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import type { PresentationGateObservationSnapshot } from "@/runtime/presentation/presentation-progression-gate";
 import type { PresentationPlaybackSnapshot } from "@/runtime/presentation/presentation-playback-session";
 import type { PresentationFeatureViewBaselinePort } from "@/runtime/presentation/presentation-surface-repositioner";
-import { getPresentationContentLayoutPortForEditor } from "@/runtime/presentation/visual/presentation-content-layout-port";
 import type { LearnerInteractionPreviewReportsPort } from "@/learner-interaction/model";
 
 import type { RequestSurfaceChange } from "./slideshow-surface-change";
@@ -62,6 +69,10 @@ interface UseSlideshowSurfaceRuntimeInput {
   readonly activeSurfaceId: SurfaceId | null;
   readonly nextSurfaceId: SurfaceId | null;
   readonly activeSurfaceRoot: HTMLElement | null;
+  readonly autoPlayPresentation?: boolean;
+  readonly executionEnabled?: boolean;
+  /** While a whole-Surface transition paints, the incoming Session stays at its checkpoint. */
+  readonly presentationHold?: boolean;
   readonly editor: TiptapEditor | null;
   readonly featureViewBaseline: PresentationFeatureViewBaselinePort;
   readonly programSource?: SlideshowSurfaceRuntimeProgramSource;
@@ -85,6 +96,9 @@ export function useSlideshowSurfaceRuntime({
   activeSurfaceId,
   nextSurfaceId,
   activeSurfaceRoot,
+  autoPlayPresentation = true,
+  executionEnabled = true,
+  presentationHold = false,
   editor,
   featureViewBaseline,
   programSource,
@@ -92,6 +106,8 @@ export function useSlideshowSurfaceRuntime({
   surfaceExitEnvironment,
 }: UseSlideshowSurfaceRuntimeInput): SlideshowSurfaceRuntimeState {
   const mediaPort = useMediaPort();
+  const executionEnabledRef = useRef(executionEnabled);
+  executionEnabledRef.current = executionEnabled;
   const program = useMemo(() => {
     if (activeSurfaceId === null || programSource === undefined) return undefined;
     const resolvedProgram = programSource(activeSurfaceId);
@@ -136,8 +152,8 @@ export function useSlideshowSurfaceRuntime({
           semanticTargets,
           featureViewBaseline,
           requestSurfaceChange,
+          executionEnabled: executionEnabledRef.current,
           mediaPort,
-          contentLayoutPort: getPresentationContentLayoutPortForEditor(editor),
           ...(activeSurfaceRoot === null ? {} : { surfaceRoot: activeSurfaceRoot }),
         });
         composition = nextComposition;
@@ -224,6 +240,9 @@ export function useSlideshowSurfaceRuntime({
 
   const presentationControls = currentRuntime?.composition.presentationControls;
   const currentComposition = currentRuntime?.composition;
+  useLayoutEffect(() => {
+    currentComposition?.setExecutionEnabled(executionEnabled);
+  }, [currentComposition, executionEnabled]);
   const seek = useMemo(
     () => currentComposition?.seek?.bind(currentComposition),
     [currentComposition],
@@ -281,7 +300,14 @@ export function useSlideshowSurfaceRuntime({
   );
 
   useEffect(() => {
-    if (!program?.presentation?.autoAdvance || !presentationControls || !presentationSnapshot) {
+    if (
+      !autoPlayPresentation ||
+      !executionEnabled ||
+      presentationHold ||
+      !program?.presentation?.autoAdvance ||
+      !presentationControls ||
+      !presentationSnapshot
+    ) {
       return;
     }
     if (presentationSnapshot.phase === "awaiting-start") {
@@ -293,6 +319,9 @@ export function useSlideshowSurfaceRuntime({
     }
   }, [
     nextSurfaceId,
+    autoPlayPresentation,
+    executionEnabled,
+    presentationHold,
     presentationControls,
     presentationSnapshot,
     program?.presentation?.autoAdvance,
@@ -307,17 +336,19 @@ export function useSlideshowSurfaceRuntime({
     return {
       status: "pending",
       nextMode: "disabled",
-      contentInteraction: program.presentation ? "inert" : "enabled",
+      contentInteraction: !executionEnabled || program.presentation ? "inert" : "enabled",
     };
   }
   return {
     status: "ready",
-    nextMode: derivePresentationNextMode(presentationSnapshot),
-    contentInteraction: deriveContentInteraction(
-      presentationSnapshot,
-      gateObservation,
-      program.presentation !== undefined,
-    ),
+    nextMode: executionEnabled ? derivePresentationNextMode(presentationSnapshot) : "disabled",
+    contentInteraction: executionEnabled
+      ? deriveContentInteraction(
+          presentationSnapshot,
+          gateObservation,
+          program.presentation !== undefined,
+        )
+      : "inert",
     ...(presentationControls ? { presentationControls } : {}),
     ...(narrationSnapshot ? { narration: narrationSnapshot } : {}),
     ...(seek ? { seek } : {}),

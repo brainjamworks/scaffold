@@ -10,10 +10,10 @@ import {
 } from "@scaffold/contracts";
 
 import type {
-  SemanticDocumentSnapshot,
-  SemanticItem,
-  SemanticItemKind,
-} from "@/document/model/semantic-document";
+  DocumentTreeSnapshot,
+  DocumentTreeItem,
+  DocumentTreeItemKind,
+} from "@/document/model/document-tree";
 
 export interface PresentationTimelineRowCapabilities {
   readonly visualActionIds: readonly PresentationVisualCapabilityId[];
@@ -25,7 +25,7 @@ export interface PresentationTimelineRow {
   readonly targetId: EmbeddedNodeId;
   readonly parentTargetId: EmbeddedNodeId | null;
   readonly depth: number;
-  readonly semanticKind: SemanticItemKind;
+  readonly semanticKind: DocumentTreeItemKind;
   readonly label: string;
   readonly summary: string | null;
   readonly capabilities: PresentationTimelineRowCapabilities;
@@ -84,7 +84,7 @@ const EMPTY_STRINGS = Object.freeze([]) as readonly string[];
 /** Derives one current-Surface authoring view without creating or changing portable data. */
 export function projectPresentationTimeline(
   surfaceId: EmbeddedNodeId,
-  semanticSnapshot: SemanticDocumentSnapshot,
+  semanticSnapshot: DocumentTreeSnapshot,
   configuration: PresentationConfigurationV1 | null,
 ): PresentationTimelineProjection {
   if (configuration) PresentationConfigurationV1Schema.parse(configuration);
@@ -170,7 +170,7 @@ export function projectPresentationTimeline(
     if (targetId === surfaceId) surfaceActions.push(action);
     else appendAction(actionsByTargetId, targetId, action);
     if (action.kind === "animate") {
-      const target = requireSemanticItem(semanticSnapshot, targetId);
+      const target = requireDocumentTreeItem(semanticSnapshot, targetId);
       if (!target.presentation.actionIds.includes(action.visual.kind)) {
         diagnostics.push(
           Object.freeze({
@@ -203,7 +203,7 @@ export function projectPresentationTimeline(
 }
 
 function visitRows(
-  item: SemanticItem,
+  item: DocumentTreeItem,
   parentTargetId: EmbeddedNodeId | null,
   depth: number,
   addressedTargetIds: ReadonlySet<EmbeddedNodeId>,
@@ -240,7 +240,7 @@ function visitRows(
   }
 }
 
-function isPresentationEligible(item: SemanticItem): boolean {
+function isPresentationEligible(item: DocumentTreeItem): boolean {
   return (
     item.presentation.disabledReason === null &&
     (item.presentation.actionIds.length > 0 ||
@@ -253,7 +253,7 @@ function diagnoseTargetReference(
   targetId: EmbeddedNodeId,
   surfaceId: EmbeddedNodeId,
   subtreeIds: ReadonlySet<EmbeddedNodeId>,
-  semanticSnapshot: SemanticDocumentSnapshot,
+  semanticSnapshot: DocumentTreeSnapshot,
   diagnostics: PresentationTimelineProjectionDiagnostic[],
 ): "current" | "missing" | "another-surface" {
   if (subtreeIds.has(targetId)) return "current";
@@ -287,12 +287,12 @@ function diagnoseTargetReference(
 }
 
 function collectSurfaceSubtreeIds(
-  surface: SemanticItem,
-  snapshot: SemanticDocumentSnapshot,
+  surface: DocumentTreeItem,
+  snapshot: DocumentTreeSnapshot,
 ): ReadonlySet<EmbeddedNodeId> {
   const ids = new Set<EmbeddedNodeId>();
 
-  const visit = (item: SemanticItem, expectedParentId: EmbeddedNodeId | null): void => {
+  const visit = (item: DocumentTreeItem, expectedParentId: EmbeddedNodeId | null): void => {
     if (ids.has(item.id)) {
       throw new Error(`Semantic Surface subtree contains duplicate identity "${item.id}".`);
     }
@@ -315,7 +315,7 @@ function collectSurfaceSubtreeIds(
   return ids;
 }
 
-function assertSemanticIdentities(snapshot: SemanticDocumentSnapshot): void {
+function assertSemanticIdentities(snapshot: DocumentTreeSnapshot): void {
   for (const [id, item] of snapshot.itemById) {
     if (item.id !== id) {
       throw new Error(`Semantic item identity "${id}" does not match "${item.id}".`);
@@ -323,10 +323,10 @@ function assertSemanticIdentities(snapshot: SemanticDocumentSnapshot): void {
   }
 }
 
-function requireSemanticItem(
-  snapshot: SemanticDocumentSnapshot,
+function requireDocumentTreeItem(
+  snapshot: DocumentTreeSnapshot,
   targetId: EmbeddedNodeId,
-): SemanticItem {
+): DocumentTreeItem {
   const item = snapshot.itemById.get(targetId);
   if (!item) throw new Error(`Current Semantic target "${targetId}" is missing.`);
   return item;

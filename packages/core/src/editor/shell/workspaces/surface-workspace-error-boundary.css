@@ -1,0 +1,16 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-surface-workspace-error {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 1rem;
+    color: var(--color-text-primary);
+  }
+
+  .sc-surface-workspace-error > p {
+    margin: 0;
+  }
+}

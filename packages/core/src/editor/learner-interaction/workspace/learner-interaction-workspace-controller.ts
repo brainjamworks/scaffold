@@ -44,7 +44,6 @@ export interface CreateLearnerInteractionWorkspaceControllerInput {
   readonly saveDraft: (
     draft: LearnerInteractionRuleDraft,
   ) => LearnerInteractionAuthoringCommandResult<LearnerInteractionRuleId>;
-  readonly closePreview?: () => void;
 }
 
 const EMPTY_DRAFT = freezeDraft({
@@ -66,14 +65,12 @@ const IDLE_SNAPSHOT: IdleSnapshot = Object.freeze({
 export class LearnerInteractionWorkspaceController {
   readonly #listeners = new Set<() => void>();
   readonly #saveDraft: CreateLearnerInteractionWorkspaceControllerInput["saveDraft"];
-  readonly #closePreview: () => void;
   #snapshot: LearnerInteractionWorkspaceSnapshot = IDLE_SNAPSHOT;
   #pendingApply: (() => void) | null = null;
   #disposed = false;
 
-  constructor({ saveDraft, closePreview }: CreateLearnerInteractionWorkspaceControllerInput) {
+  constructor({ saveDraft }: CreateLearnerInteractionWorkspaceControllerInput) {
     this.#saveDraft = saveDraft;
-    this.#closePreview = closePreview ?? (() => undefined);
   }
 
   readonly getSnapshot = (): LearnerInteractionWorkspaceSnapshot => this.#snapshot;
@@ -109,7 +106,6 @@ export class LearnerInteractionWorkspaceController {
       return "save-failed";
     }
     const saved = freezeDraft({ ...this.#snapshot.draft, ruleId: result.value });
-    this.#closePreview();
     this.#setFocused(saved, saved, null);
     return "saved";
   }
@@ -165,7 +161,6 @@ export class LearnerInteractionWorkspaceController {
     if (this.#disposed) return;
     this.#pendingApply = null;
     this.#replaceSnapshot(IDLE_SNAPSHOT);
-    this.#closePreview();
   }
 
   dispose(): void {
@@ -173,7 +168,6 @@ export class LearnerInteractionWorkspaceController {
     this.#disposed = true;
     this.#pendingApply = null;
     this.#snapshot = IDLE_SNAPSHOT;
-    this.#closePreview();
     this.#listeners.clear();
   }
 

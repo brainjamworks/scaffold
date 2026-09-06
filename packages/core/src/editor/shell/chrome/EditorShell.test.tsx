@@ -94,7 +94,7 @@ describe("EditorShell", () => {
     const { container } = render(<EditorShell stage={<main>Stage</main>} />);
 
     expect(container.querySelector(".sc-editor-centre")).not.toBeNull();
-    expect(container.querySelector(".sc-editor-bottom-workspace")).toBeNull();
+    expect(container.querySelector(".sc-editor-bottom-panel")).toBeNull();
   });
 
   it("places a wide navigator dock on the left while preserving the wide right dock", () => {
