@@ -2,9 +2,7 @@
 
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { EditorState } from "@tiptap/pm/state";
 import { describe, expect, it } from "vite-plus/test";
-import { PresentationContentLayout } from "@scaffold/contracts";
 
 import {
   CellAuthoringNode,
@@ -28,7 +26,7 @@ import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity"
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createDocumentTreeDefinitionLookup } from "@/composition/model/document-tree-definition-lookup";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
-import { CONTENT_LAYOUT_ATTR } from "@/editor/content-layout/model/content-layout-attribute";
+import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 
 import {
   applyMovementIntent as applyMovementIntentWithLookup,
@@ -262,20 +260,16 @@ function tabsLayout(content: JSONContent[] = [paragraph()]): JSONContent {
   };
 }
 
-function region(
-  id: string,
-  content: JSONContent[],
-  attrs: Record<string, unknown> = {},
-): JSONContent {
+function region(id: string, content: JSONContent[]): JSONContent {
   return {
     type: "region",
-    attrs: { id, ...attrs },
+    attrs: { id },
     content: content.length ? content : [paragraph()],
   };
 }
 
-function cell(content: JSONContent[], attrs: Record<string, unknown> = {}): JSONContent {
-  return { type: "cell", attrs, content: content.length ? content : [paragraph()] };
+function cell(content: JSONContent[]): JSONContent {
+  return { type: "cell", content: content.length ? content : [paragraph()] };
 }
 
 function grid(cells: JSONContent[]): JSONContent {
@@ -303,8 +297,15 @@ function courseDocument(content: JSONContent[], surfaceVariant = "page-default")
 function makeEditor(
   content: JSONContent[],
   surfaceVariant = "page-default",
-  options: { includeCapabilities?: boolean } = {},
+  options: { includeCapabilities?: boolean; layoutRegistry?: LayoutRegistry } = {},
 ) {
+  const capabilities = options.layoutRegistry
+    ? Object.freeze({
+        ...testCapabilities,
+        layouts: Object.freeze({ registry: options.layoutRegistry }),
+      })
+    : testCapabilities;
+
   return new Editor({
     extensions: [
       DocumentNode,
@@ -316,7 +317,7 @@ function makeEditor(
       createTestNodeIdentityExtension(),
       ...(options.includeCapabilities === false
         ? []
-        : [createScaffoldCapabilitiesStorageExtension(testCapabilities)]),
+        : [createScaffoldCapabilitiesStorageExtension(capabilities)]),
       ExtendedParagraph,
       CourseDocumentNode,
       createCourseSectionNode(),
@@ -634,71 +635,6 @@ describe("drag movement commands", () => {
     editor.destroy();
   });
 
-  it("moves a fill block into an occupied Sequence region and repairs its source", () => {
-    const editor = makeEditor([
-      region("source-region", [fillBlock("a")]),
-      region("sequence-region", [fillBlock("b")], {
-        [CONTENT_LAYOUT_ATTR]: PresentationContentLayout.Sequence,
-      }),
-    ]);
-    const sourcePos = nodePos(editor, FILL_TEST_BLOCK, "a");
-    const intent = new InsertInsideTarget(movementTarget(editor, "region", "sequence-region"));
-
-    expect(canApplyMovementIntent(editor, sourcePos, intent)).toBe(true);
-    expect(applyMovementIntent(editor, sourcePos, intent)).toBe(true);
-
-    expect(regionChildren(editor, "source-region").map((child) => child.type)).toEqual([
-      "paragraph",
-    ]);
-    expect(regionChildren(editor, "sequence-region").map((child) => child.type)).toEqual([
-      FILL_TEST_BLOCK,
-      FILL_TEST_BLOCK,
-    ]);
-    expect(regionChildren(editor, "sequence-region").map((child) => child.attrs?.["id"])).toEqual([
-      "b",
-      "a",
-    ]);
-    expect(
-      nodeTypesInJson(editor.getJSON()).filter((type) => type === FILL_TEST_BLOCK),
-    ).toHaveLength(2);
-    editor.destroy();
-  });
-
-  it("throws for an invalid contentLayout on an active bounded movement target", () => {
-    const editor = makeEditor([
-      region("source-region", [fillBlock("a")]),
-      region("invalid-region", [fillBlock("b")], {
-        [CONTENT_LAYOUT_ATTR]: PresentationContentLayout.Flow,
-      }),
-    ]);
-    const invalidTargetPos = nodePos(editor, "region", "invalid-region");
-    const targetNode = editor.state.doc.nodeAt(invalidTargetPos);
-    if (!targetNode) throw new Error("Expected invalid movement target");
-
-    const invalidTarget = targetNode.type.create(
-      { ...targetNode.attrs, [CONTENT_LAYOUT_ATTR]: "unsupported" },
-      targetNode.content,
-      targetNode.marks,
-    );
-    const invalidDoc = editor.state.tr.replaceWith(
-      invalidTargetPos,
-      invalidTargetPos + targetNode.nodeSize,
-      invalidTarget,
-    ).doc;
-    const invalidEditor = {
-      schema: editor.schema,
-      state: EditorState.create({ doc: invalidDoc, schema: editor.schema }),
-      storage: editor.storage,
-    } as unknown as Editor;
-
-    const sourcePos = nodePos(editor, FILL_TEST_BLOCK, "a");
-    const intent = new InsertInsideTarget(movementTarget(editor, "region", "invalid-region"));
-
-    expect(invalidDoc.nodeAt(invalidTargetPos)?.attrs[CONTENT_LAYOUT_ATTR]).toBe("unsupported");
-    expect(() => canApplyMovementIntent(invalidEditor, sourcePos, intent)).toThrow();
-    editor.destroy();
-  });
-
   it("moves a fill block below a fill tabs layout in a page-flow cell", () => {
     const editor = makeEditor([fillBlock("a"), grid([cell([tabsLayout()])])]);
     const sourcePos = nodePos(editor, FILL_TEST_BLOCK, "a");
@@ -731,29 +667,30 @@ describe("drag movement commands", () => {
     editor.destroy();
   });
 
-  it("moves a fill block below a fill tabs layout in an active Sequence cell", () => {
-    const editor = makeEditor([
-      fillBlock("a"),
-      region("sequence-region", [
-        grid([
-          cell([tabsLayout()], {
-            [CONTENT_LAYOUT_ATTR]: PresentationContentLayout.Sequence,
-          }),
-        ]),
-      ]),
-    ]);
+  it("keeps a bounded-layout registry defect observable", () => {
+    const defect = new Error("movement layout registry programming defect");
+    const layoutRegistry = {
+      ...builtInLayoutRegistry,
+      getForNode() {
+        throw defect;
+      },
+    };
+    const editor = makeEditor(
+      [fillBlock("a"), region("target-region", [tabsLayout(), paragraph()])],
+      "page-default",
+      { layoutRegistry },
+    );
     const sourcePos = nodePos(editor, FILL_TEST_BLOCK, "a");
-    const intent = new InsertAfterTarget(movementTarget(editor, "layout"));
+    const intent = new InsertInsideTarget(movementTarget(editor, "region", "target-region"));
+    let observed: unknown;
 
-    expect(canApplyMovementIntent(editor, sourcePos, intent)).toBe(true);
-    expect(applyMovementIntent(editor, sourcePos, intent)).toBe(true);
+    try {
+      canApplyMovementIntent(editor, sourcePos, intent);
+    } catch (error) {
+      observed = error;
+    }
 
-    const targetCell = regionChildren(editor, "sequence-region")[0]?.content?.[0];
-    expect(targetCell?.content?.map((child) => child.type)).toEqual(["layout", FILL_TEST_BLOCK]);
-    expect(targetCell?.content?.[1]?.attrs?.["id"]).toBe("a");
-    expect(
-      nodeTypesInJson(editor.getJSON()).filter((type) => type === FILL_TEST_BLOCK),
-    ).toHaveLength(1);
+    expect(observed).toBe(defect);
     editor.destroy();
   });
 

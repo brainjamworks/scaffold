@@ -11,10 +11,7 @@ import type {
   DocumentTreeSnapshot,
   DocumentTreeItem,
 } from "@/document/model/document-tree/document-tree-snapshot";
-import {
-  normalizeControlDefinition,
-  type ControlDefinition,
-} from "./control-definition";
+import { normalizeControlDefinition, type ControlDefinition } from "./control-definition";
 import { createControlCapabilityCatalogue } from "./control-capability-catalogue";
 
 const IDS = {
@@ -270,14 +267,12 @@ describe("createControlCapabilityCatalogue", () => {
     });
 
     expect(catalogue.requireOwnerControlDefinition(IDS.layoutAlpha)).toBe(LAYOUT_ALPHA_CONTROL);
-    expect(
-      catalogue.requireOwnedTargetCapabilities(IDS.layoutAlpha, IDS.sectionAlpha),
-    ).toBe(LAYOUT_ALPHA_CONTROL.semanticChildren!["section"]);
+    expect(catalogue.requireOwnedTargetCapabilities(IDS.layoutAlpha, IDS.sectionAlpha)).toBe(
+      LAYOUT_ALPHA_CONTROL.semanticChildren!["section"],
+    );
     expect(() =>
       catalogue.requireOwnedTargetCapabilities(IDS.layoutBeta, IDS.sectionAlpha),
-    ).toThrow(
-      `Control target "${IDS.sectionAlpha}" does not belong to owner "${IDS.layoutBeta}".`,
-    );
+    ).toThrow(`Control target "${IDS.sectionAlpha}" does not belong to owner "${IDS.layoutBeta}".`);
     expect(() => catalogue.requireOwnerControlDefinition(IDS.sectionAlpha)).toThrow(
       `Control owner "${IDS.sectionAlpha}" is not a current semantic owner.`,
     );
@@ -310,12 +305,8 @@ describe("createControlCapabilityCatalogue", () => {
     expect(firstTarget.isOk()).toBe(true);
     expect(secondTarget.isOk()).toBe(true);
     if (firstTarget.isErr() || secondTarget.isErr()) return;
-    expect(firstTarget.value.capabilities).toBe(
-      LAYOUT_ALPHA_CONTROL.semanticChildren!["section"],
-    );
-    expect(secondTarget.value.capabilities).toBe(
-      LAYOUT_BETA_CONTROL.semanticChildren!["section"],
-    );
+    expect(firstTarget.value.capabilities).toBe(LAYOUT_ALPHA_CONTROL.semanticChildren!["section"]);
+    expect(secondTarget.value.capabilities).toBe(LAYOUT_BETA_CONTROL.semanticChildren!["section"]);
     expect(firstTarget.value).not.toBe(secondTarget.value);
     expect(Object.isFrozen(first)).toBe(true);
     expect(Object.isFrozen(second)).toBe(true);
@@ -344,7 +335,9 @@ describe("createControlCapabilityCatalogue", () => {
         snapshot: snapshot(10, [owner]),
         definitions: createDefinitions(),
       }),
-    ).toThrow('Semantic owner "layoutAlpha01" references missing Layout definition "missing-layout".');
+    ).toThrow(
+      'Semantic owner "layoutAlpha01" references missing Layout definition "missing-layout".',
+    );
   });
 });
 
@@ -352,19 +345,10 @@ function createFixture(revision: number): {
   readonly snapshot: DocumentTreeSnapshot;
   readonly definitions: DocumentTreeDefinitionLookup;
 } {
-  const passiveItem = item(
-    IDS.passiveItem,
-    "exposed-child",
-    "block_item",
-    "passive_block",
-  );
-  const passiveBlock = item(
-    IDS.passiveBlock,
-    "block",
-    "passive_block",
-    "passive_block",
-    [passiveItem],
-  );
+  const passiveItem = item(IDS.passiveItem, "exposed-child", "block_item", "passive_block");
+  const passiveBlock = item(IDS.passiveBlock, "block", "passive_block", "passive_block", [
+    passiveItem,
+  ]);
   const block = item(IDS.block, "block", "controlled_block", "controlled_block", [
     item(IDS.blockItem, "exposed-child", "block_item", "controlled_block"),
   ]);
@@ -466,15 +450,11 @@ function item(
     label: nodeType,
     summary: null,
     presentation: Object.freeze({ actionIds: Object.freeze([]), disabledReason: null }),
-    presentationContainer: null,
     children: Object.freeze([...children]),
   });
 }
 
-function snapshot(
-  revision: number,
-  roots: readonly DocumentTreeItem[],
-): DocumentTreeSnapshot {
+function snapshot(revision: number, roots: readonly DocumentTreeItem[]): DocumentTreeSnapshot {
   const itemById = new Map<EmbeddedNodeId, DocumentTreeItem>();
   const parentById = new Map<EmbeddedNodeId, EmbeddedNodeId | null>();
   const visit = (semanticItem: DocumentTreeItem, parentId: EmbeddedNodeId | null) => {

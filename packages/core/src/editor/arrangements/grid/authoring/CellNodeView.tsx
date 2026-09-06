@@ -1,8 +1,12 @@
-import { NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react";
+import {
+  NodeViewContent,
+  NodeViewWrapper,
+  useEditorState,
+  type NodeViewProps,
+} from "@tiptap/react";
 
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import { BoundedScrollHint } from "@/editor/bounded-containers/view/bounded-scroll";
-import { ContentLayoutNodeViewContent } from "@/editor/content-layout/view/ContentLayoutNodeViewContent";
 import {
   authoringChromeActiveAttributes,
   structuralAuthoringFrameAttributes,
@@ -61,7 +65,7 @@ export function CellNodeView(props: CellNodeViewProps) {
       )}
     >
       <div data-bounded-scroll-frame="">
-        <ContentLayoutNodeViewContent data-bounded-scroll="" className="sc-grid-cell__content" />
+        <NodeViewContent data-bounded-scroll="" className="sc-grid-cell__content" />
         <BoundedScrollHint editable />
       </div>
     </NodeViewWrapper>

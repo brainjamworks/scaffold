@@ -1,5 +1,5 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type { NodeViewContentProps, NodeViewProps } from "@tiptap/react";
+import type { NodeViewProps } from "@tiptap/react";
 import type { ComponentType } from "react";
 
 export interface LayoutRuntimeViewProps extends NodeViewProps {
@@ -8,7 +8,6 @@ export interface LayoutRuntimeViewProps extends NodeViewProps {
 }
 
 export interface SectionRuntimeViewProps extends NodeViewProps {
-  ContentRoot: ComponentType<NodeViewContentProps>;
   layoutRuntimeView: RegisteredLayoutRuntimeView | null;
   layoutNode: ProseMirrorNode | null;
   isEmpty: boolean;

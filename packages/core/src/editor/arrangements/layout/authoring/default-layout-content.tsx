@@ -10,7 +10,7 @@ type DefaultLayoutContentProps = Pick<
 
 type DefaultSectionContentProps = Pick<
   SectionComponentProps,
-  "ContentRoot" | "editable" | "isEmpty" | "layoutDefinition" | "layoutNode" | "node"
+  "editable" | "isEmpty" | "layoutDefinition" | "layoutNode" | "node"
 >;
 
 export function DefaultLayoutContent({
@@ -36,8 +36,8 @@ export function DefaultLayoutContent({
   );
 }
 
-export function DefaultSectionContent(props: DefaultSectionContentProps) {
+export function DefaultSectionContent(_props: DefaultSectionContentProps) {
   return (
-    <props.ContentRoot className="sc-layout-section__content sc-layout-section-authoring__content" />
+    <NodeViewContent className="sc-layout-section__content sc-layout-section-authoring__content" />
   );
 }

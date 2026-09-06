@@ -1,9 +1,4 @@
-import {
-  EmbeddedNodeIdSchema,
-  PresentationContentLayout,
-  PresentationContentLayoutSchema,
-  type EmbeddedNodeId,
-} from "@scaffold/contracts";
+import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { Schema, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -70,7 +65,6 @@ const schema = new Schema({
       attrs: {
         id: { default: null },
         role: { default: "main" },
-        contentLayout: contentLayoutAttr(),
         semanticLabel: { default: null },
       },
     },
@@ -89,7 +83,6 @@ const schema = new Schema({
         id: { default: null },
         label: { default: null },
         role: { default: null },
-        contentLayout: contentLayoutAttr(),
         semanticLabel: { default: null },
       },
     },
@@ -104,7 +97,6 @@ const schema = new Schema({
       selectable: false,
       attrs: {
         id: { default: null },
-        contentLayout: contentLayoutAttr(),
         semanticLabel: { default: null },
       },
     },
@@ -415,142 +407,6 @@ describe("Core structural semantic projection", () => {
     expectPrivateDocumentTreeIds(snapshot, [IDS.privateParagraph]);
   });
 
-  it("publishes only eligible Slideshow container layouts and preserves indexes", () => {
-    const doc = documentNode("slideshow", [
-      node("courseSection", IDS.courseSection, { title: "Practice" }),
-      node("surface", IDS.surface1, { variant: "slide-content" }, [
-        node("region", IDS.region, { contentLayout: PresentationContentLayout.Sequence }, [
-          node("grid", IDS.grid, {}, [
-            node("cell", IDS.cell1, { contentLayout: PresentationContentLayout.Sequence }, [
-              node("paragraph", IDS.cellParagraph, {}, [], "Sequence cell prose"),
-            ]),
-            node("cell", IDS.cell2, {}, [
-              node("layout", IDS.layout, { variant: "tabs" }, [
-                node(
-                  "section",
-                  IDS.layoutSection1,
-                  { label: "Sequence panel", contentLayout: PresentationContentLayout.Sequence },
-                  [node("host_block", IDS.block1)],
-                ),
-              ]),
-            ]),
-          ]),
-        ]),
-      ]),
-    ]);
-
-    const snapshot = project(doc, 15);
-
-    expect(tree(snapshot.roots)).toEqual([
-      [
-        "csection0001:course-section:Practice",
-        [
-          [
-            "surface00001:surface:Slide",
-            [
-              [
-                "region000001:region:Main",
-                [
-                  [
-                    "grid00000001:grid:Grid",
-                    [
-                      ["cell00000001:cell:Cell 1", ["cellpara0001:rich-text:Sequence cell prose"]],
-                      [
-                        "cell00000002:cell:Cell 2",
-                        [
-                          [
-                            "layout000001:layout:Tabs",
-                            [
-                              [
-                                "lsection0001:layout-section:Sequence panel",
-                                ["block0000001:block:Host card"],
-                              ],
-                            ],
-                          ],
-                        ],
-                      ],
-                    ],
-                  ],
-                ],
-              ],
-            ],
-          ],
-        ],
-      ],
-    ]);
-    expect(presentationContainer(snapshot, IDS.region)).toEqual({
-      contentLayout: PresentationContentLayout.Sequence,
-    });
-    expect(presentationContainer(snapshot, IDS.cell1)).toEqual({
-      contentLayout: PresentationContentLayout.Sequence,
-    });
-    expect(presentationContainer(snapshot, IDS.cell2)).toEqual({
-      contentLayout: PresentationContentLayout.Flow,
-    });
-    expect(presentationContainer(snapshot, IDS.layoutSection1)).toEqual({
-      contentLayout: PresentationContentLayout.Sequence,
-    });
-    for (const id of [
-      IDS.courseSection,
-      IDS.surface1,
-      IDS.grid,
-      IDS.layout,
-      IDS.cellParagraph,
-      IDS.block1,
-    ]) {
-      expect(presentationContainer(snapshot, id)).toBeNull();
-    }
-    expect(snapshot.parentById.get(IDS.region)).toBe(IDS.surface1);
-    expect(snapshot.parentById.get(IDS.grid)).toBe(IDS.region);
-    expect(snapshot.parentById.get(IDS.cell1)).toBe(IDS.grid);
-    expect(snapshot.parentById.get(IDS.layout)).toBe(IDS.cell2);
-    expect(snapshot.parentById.get(IDS.layoutSection1)).toBe(IDS.layout);
-    expect(snapshot.parentById.get(IDS.block1)).toBe(IDS.layoutSection1);
-  });
-
-  it("keeps eligible Page container layouts null", () => {
-    const doc = documentNode("page", [
-      node("surface", IDS.surface1, { variant: "page-default" }, [
-        node("region", IDS.region, { contentLayout: PresentationContentLayout.Sequence }, [
-          node("grid", IDS.grid, {}, [
-            node("cell", IDS.cell1, { contentLayout: PresentationContentLayout.Sequence }, [
-              node("layout", IDS.layout, { variant: "tabs" }, [
-                node(
-                  "section",
-                  IDS.layoutSection1,
-                  { contentLayout: PresentationContentLayout.Sequence },
-                  [node("paragraph", IDS.cellParagraph)],
-                ),
-              ]),
-            ]),
-          ]),
-        ]),
-      ]),
-    ]);
-
-    const snapshot = project(doc, 16);
-
-    for (const id of [IDS.region, IDS.cell1, IDS.layoutSection1]) {
-      expect(presentationContainer(snapshot, id)).toBeNull();
-    }
-    expect(
-      [...snapshot.itemById.values()].every((item) => item.presentationContainer === null),
-    ).toBe(true);
-  });
-
-  it("rejects an invalid eligible layout reaching semantic projection", () => {
-    const doc = documentNode("slideshow", [
-      node("courseSection", IDS.courseSection, { title: "Practice" }),
-      node("surface", IDS.surface1, { variant: "slide-content" }, [
-        node("region", IDS.region, { contentLayout: "unsupported" }, [
-          node("paragraph", IDS.cellParagraph),
-        ]),
-      ]),
-    ]);
-
-    expect(() => project(doc, 17)).toThrow(/invalid contentLayout/);
-  });
-
   it("applies authored labels before descriptions and derived labels across every projection path", () => {
     const doc = documentNode("slideshow", [
       node("courseSection", IDS.courseSection, {
@@ -758,17 +614,4 @@ function semanticTreeIds(items: ReturnType<typeof project>["roots"]): EmbeddedNo
 
 function id(value: string): EmbeddedNodeId {
   return EmbeddedNodeIdSchema.parse(value);
-}
-
-function contentLayoutAttr() {
-  return {
-    default: PresentationContentLayout.Flow,
-    validate(value: unknown) {
-      PresentationContentLayoutSchema.parse(value);
-    },
-  };
-}
-
-function presentationContainer(snapshot: ReturnType<typeof project>, itemId: EmbeddedNodeId) {
-  return snapshot.itemById.get(itemId)?.presentationContainer;
 }

@@ -153,7 +153,7 @@ export function PaginatedSectionRuntimeView(props: SectionRuntimeViewProps) {
       className="sc-course-paginated__panel"
     >
       <div data-bounded-scroll-frame="">
-        <props.ContentRoot
+        <NodeViewContent
           data-bounded-scroll=""
           className="sc-layout-section__content sc-course-paginated__page-content"
         />

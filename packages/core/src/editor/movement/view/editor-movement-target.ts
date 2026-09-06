@@ -1,7 +1,6 @@
 import type { Editor } from "@tiptap/core";
 
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
-import { readContentLayoutMovementState } from "@/editor/content-layout/view/content-layout-projection-dom";
 import { AUTHORING_FRAME_WRAPPER_ATTR } from "@/editor/interactions/dom/authoring-chrome";
 import {
   AUTHORING_FRAME_ATTR,
@@ -39,8 +38,6 @@ export function resolveV2MovementTargetFromDescriptor(
 
   const dom = editor.view.nodeDOM(descriptor.pos);
   if (!(dom instanceof Element)) return null;
-  if (readContentLayoutMovementState(dom).kind === "unavailable") return null;
-
   const element = resolveBlockMovementAnchorElement(dom, descriptor);
   if (!element) return null;
 

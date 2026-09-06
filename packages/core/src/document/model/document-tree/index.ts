@@ -32,10 +32,6 @@ export type {
   DocumentTreeItemKind,
   DocumentItemPresentationCapability,
 } from "./document-tree-snapshot";
-export {
-  resolveDocumentItemPresentationContainer,
-  type ResolvedDocumentItemPresentationContainer,
-} from "./document-item-presentation-container";
 export { normalizeDocumentTreeDefinition } from "./normalize-document-tree-definition";
 export { buildDocumentTree, type BuildDocumentTreeInput } from "./build-document-tree";
 export { resolveDocumentItemSurfaceId } from "./document-item-surface-resolution";

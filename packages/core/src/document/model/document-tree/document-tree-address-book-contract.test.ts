@@ -20,7 +20,6 @@ const SEMANTIC_ITEM_KEYS = [
   "label",
   "nodeType",
   "presentation",
-  "presentationContainer",
   "summary",
 ] as const;
 
@@ -123,7 +122,6 @@ describe("semantic presentation address book", () => {
             actionIds: VISUAL_MEMBER_OWNER_TYPES.has(family.ownerNodeType) ? VISUAL_ACTION_IDS : [],
             disabledReason: null,
           },
-          presentationContainer: null,
           children: [],
         });
         expect(item.label.length).toBeLessThanOrEqual(MAX_SEMANTIC_LABEL_LENGTH);

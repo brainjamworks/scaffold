@@ -55,9 +55,7 @@ const AccordionPanelNode = structuralContainerNode(
   "accordion_section_panel",
   "div[data-accordion-panel]",
 );
-const RegionNode = structuralContainerNode("region", "div[data-region]").extend({
-  addAttributes: () => ({ contentLayout: { default: "flow" } }),
-});
+const RegionNode = structuralContainerNode("region", "div[data-region]");
 const GridNode = structuralContainerNode("grid", "div[data-grid]", "cell+");
 const CellNode = structuralContainerNode("cell", "div[data-cell]");
 const FlashcardNode = structuralContainerNode(
@@ -650,7 +648,7 @@ describe("structural clipboard policy", () => {
       destinationId: "region000001",
       container: {
         type: "region",
-        attrs: { id: "region000001", contentLayout: "flow" },
+        attrs: { id: "region000001" },
         content: [{ type: "paragraph", attrs: { id: "target-par01" } }],
       },
     },

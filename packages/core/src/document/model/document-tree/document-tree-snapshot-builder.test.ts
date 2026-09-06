@@ -16,12 +16,12 @@ describe("semantic snapshot builder", () => {
     const builder = createDocumentTreeSnapshotBuilder({ revision: 7, mode: "page" });
 
     builder.addItem({
-      item: item(ROOT_ID, "surface", "surface", "Page", null),
+      item: item(ROOT_ID, "surface", "surface", "Page"),
       parentId: null,
       location: location(ROOT_ID, "surface", 1, 20, { kind: "node", pos: 1 }, ROOT_ID),
     });
     builder.addItem({
-      item: item(CHILD_ID, "block", "host_card", "Card", null),
+      item: item(CHILD_ID, "block", "host_card", "Card"),
       parentId: ROOT_ID,
       location: location(CHILD_ID, "host_card", 2, 8, { kind: "node", pos: 2 }, ROOT_ID),
     });
@@ -39,7 +39,7 @@ describe("semantic snapshot builder", () => {
   it("rejects duplicate item IDs", () => {
     const builder = createDocumentTreeSnapshotBuilder({ revision: 1, mode: "page" });
     const input = {
-      item: item(ROOT_ID, "surface", "surface", "Page", null),
+      item: item(ROOT_ID, "surface", "surface", "Page"),
       parentId: null,
       location: location(ROOT_ID, "surface", 1, 20, { kind: "node", pos: 1 }, ROOT_ID),
     } as const;
@@ -54,12 +54,12 @@ describe("semantic snapshot builder", () => {
   it("rejects cycles and missing parent edges", () => {
     const cycle = createDocumentTreeSnapshotBuilder({ revision: 1, mode: "page" });
     cycle.addItem({
-      item: item(ROOT_ID, "surface", "surface", "Page", null),
+      item: item(ROOT_ID, "surface", "surface", "Page"),
       parentId: CHILD_ID,
       location: location(ROOT_ID, "surface", 1, 20, { kind: "node", pos: 1 }, ROOT_ID),
     });
     cycle.addItem({
-      item: item(CHILD_ID, "block", "host_card", "Card", null),
+      item: item(CHILD_ID, "block", "host_card", "Card"),
       parentId: ROOT_ID,
       location: location(CHILD_ID, "host_card", 2, 8, { kind: "node", pos: 2 }, ROOT_ID),
     });
@@ -70,7 +70,7 @@ describe("semantic snapshot builder", () => {
 
     const missingParent = createDocumentTreeSnapshotBuilder({ revision: 1, mode: "page" });
     missingParent.addItem({
-      item: item(CHILD_ID, "block", "host_card", "Card", null),
+      item: item(CHILD_ID, "block", "host_card", "Card"),
       parentId: ROOT_ID,
       location: location(CHILD_ID, "host_card", 2, 8, { kind: "node", pos: 2 }, ROOT_ID),
     });
@@ -83,7 +83,7 @@ describe("semantic snapshot builder", () => {
   it("rejects invalid ranges and selection targets", () => {
     const builder = createDocumentTreeSnapshotBuilder({ revision: 1, mode: "page" });
     builder.addItem({
-      item: item(ROOT_ID, "surface", "surface", "Page", null),
+      item: item(ROOT_ID, "surface", "surface", "Page"),
       parentId: null,
       location: location(ROOT_ID, "surface", 5, 10, { kind: "text", from: 4, to: 7 }, ROOT_ID),
     });
@@ -96,12 +96,12 @@ describe("semantic snapshot builder", () => {
   it("accepts only a semantic ancestor as an authoring anchor", () => {
     const valid = createDocumentTreeSnapshotBuilder({ revision: 1, mode: "page" });
     valid.addItem({
-      item: item(ROOT_ID, "surface", "surface", "Page", null),
+      item: item(ROOT_ID, "surface", "surface", "Page"),
       parentId: null,
       location: location(ROOT_ID, "surface", 1, 20, { kind: "node", pos: 1 }, ROOT_ID),
     });
     valid.addItem({
-      item: item(CHILD_ID, "exposed-child", "annotation", "Annotation", null),
+      item: item(CHILD_ID, "exposed-child", "annotation", "Annotation"),
       parentId: ROOT_ID,
       location: {
         ...location(CHILD_ID, "annotation", 2, 8, { kind: "node", pos: 2 }, ROOT_ID),
@@ -113,7 +113,7 @@ describe("semantic snapshot builder", () => {
 
     const invalid = createDocumentTreeSnapshotBuilder({ revision: 1, mode: "page" });
     invalid.addItem({
-      item: item(ROOT_ID, "surface", "surface", "Page", null),
+      item: item(ROOT_ID, "surface", "surface", "Page"),
       parentId: null,
       location: {
         ...location(ROOT_ID, "surface", 1, 20, { kind: "node", pos: 1 }, ROOT_ID),
@@ -140,7 +140,7 @@ describe("semantic snapshot builder", () => {
 
     builder.addItem({
       item: {
-        ...item(ROOT_ID, "surface", "surface", "Slide", null),
+        ...item(ROOT_ID, "surface", "surface", "Slide"),
         presentation: {
           actionIds,
           disabledReason: null,
@@ -181,30 +181,12 @@ describe("semantic snapshot builder", () => {
     expect(() => (snapshot.roots as unknown as unknown[]).push("mutable")).toThrow();
   });
 
-  it("copies and freezes a non-null presentation container with its item", () => {
-    const builder = createDocumentTreeSnapshotBuilder({ revision: 3, mode: "slideshow" });
-    const presentationContainer = { contentLayout: "sequence" as const };
-
-    builder.addItem({
-      item: item(ROOT_ID, "surface", "surface", "Slide", presentationContainer),
-      parentId: null,
-      location: location(ROOT_ID, "surface", 1, 20, { kind: "node", pos: 1 }, ROOT_ID),
-    });
-
-    const snapshot = builder.build();
-    const published = snapshot.roots[0]?.presentationContainer;
-
-    expect(published).toEqual(presentationContainer);
-    expect(published).not.toBe(presentationContainer);
-    expect(Object.isFrozen(published)).toBe(true);
-  });
-
   it("uses a typed checked failure for malformed item identities", () => {
     const builder = createDocumentTreeSnapshotBuilder({ revision: 1, mode: "page" });
 
     expect(() =>
       builder.addItem({
-        item: item("invalid" as EmbeddedNodeId, "surface", "surface", "Page", null),
+        item: item("invalid" as EmbeddedNodeId, "surface", "surface", "Page"),
         parentId: null,
         location: location(
           "invalid" as EmbeddedNodeId,
@@ -224,7 +206,6 @@ function item(
   kind: DocumentTreeSnapshotItemInput["kind"],
   nodeType: string,
   label: string,
-  presentationContainer: DocumentTreeSnapshotItemInput["presentationContainer"],
 ): DocumentTreeSnapshotItemInput {
   return {
     id,
@@ -234,7 +215,6 @@ function item(
     label,
     summary: null,
     presentation: { actionIds: [] as const, disabledReason: null },
-    presentationContainer,
   };
 }
 

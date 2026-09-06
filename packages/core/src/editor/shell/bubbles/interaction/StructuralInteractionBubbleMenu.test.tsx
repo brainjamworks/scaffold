@@ -43,10 +43,7 @@ import {
 } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { InteractionProvider } from "@/editor/interactions/targets/facade/interaction-provider";
 import { createInteractionStore } from "@/editor/interactions/targets/facade/interaction-store";
-import {
-  resolveStructuralChromeTargetDescriptor,
-  type StructuralChromeTargetDescriptor,
-} from "@/editor/interactions/targets/prosemirror/projection/structural-chrome-target-projection";
+import type { StructuralChromeTargetDescriptor } from "@/editor/interactions/targets/prosemirror/projection/structural-chrome-target-projection";
 import { structuralMenuAnchorId } from "@/editor/interactions/interaction-bubble/structural-bubble-anchor";
 
 import {
@@ -62,7 +59,6 @@ import {
 } from "@/editor/interactions/interaction-bubble";
 import { gridStructuralInteractionBubbleRendererBindings } from "@/editor/arrangements/grid/authoring/grid-bubble-controls";
 import { layoutStructuralInteractionBubbleRendererBindings } from "@/editor/arrangements/layout/authoring/layout-bubble-controls";
-import { contentLayoutRegionStructuralInteractionBubbleRendererBindings } from "@/editor/content-layout/authoring/content-layout-region-bubble-renderer";
 
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
@@ -430,32 +426,10 @@ describe("resolveStructuralInteractionBubbleModel", () => {
     expect(container.querySelectorAll(".sc-menu-separator")).toHaveLength(1);
   });
 
-  it("binds the content layout adapter to Region without claiming other structural kinds", () => {
-    const editor = makeEditor(regionContent());
-    const gridEditor = makeEditor(gridContent());
-    const [binding] = contentLayoutRegionStructuralInteractionBubbleRendererBindings;
-    const regionDescriptor = resolveStructuralChromeTargetDescriptor(
-      editor.state,
-      structuralRef(editor, InteractionTargetKind.Region, "region-a"),
-    );
-    const cellDescriptor = resolveStructuralChromeTargetDescriptor(
-      gridEditor.state,
-      structuralRef(gridEditor, InteractionTargetKind.Cell, "cell-a"),
-    );
-    const validRegionDescriptor = regionDescriptor
-      ? { ...regionDescriptor, id: "region000001" }
-      : null;
-
-    expect(binding?.kind).toBe(InteractionTargetKind.Region);
-    expect(binding?.renderer({ descriptor: validRegionDescriptor!, editor })).not.toBeNull();
-    expect(binding?.renderer({ descriptor: cellDescriptor!, editor: gridEditor })).toBeNull();
-  });
-
-  it("keeps one independent renderer binding for each structural owner", () => {
+  it("keeps one independent renderer binding for each arrangement owner", () => {
     const bindings = [
       ...gridStructuralInteractionBubbleRendererBindings,
       ...layoutStructuralInteractionBubbleRendererBindings,
-      ...contentLayoutRegionStructuralInteractionBubbleRendererBindings,
     ];
     const renderers = createStructuralInteractionBubbleRendererMap(bindings);
     const bindingForKind = (kind: InteractionTargetKind) => {
@@ -468,7 +442,6 @@ describe("resolveStructuralInteractionBubbleModel", () => {
     expect(bindings.filter(({ kind }) => kind === InteractionTargetKind.Cell)).toHaveLength(1);
     expect(bindings.filter(({ kind }) => kind === InteractionTargetKind.Layout)).toHaveLength(1);
     expect(bindings.filter(({ kind }) => kind === InteractionTargetKind.Section)).toHaveLength(1);
-    expect(bindings.filter(({ kind }) => kind === InteractionTargetKind.Region)).toHaveLength(1);
     expect(renderers.get(InteractionTargetKind.Grid)).toBe(
       bindingForKind(InteractionTargetKind.Grid).renderer,
     );
@@ -481,9 +454,7 @@ describe("resolveStructuralInteractionBubbleModel", () => {
     expect(renderers.get(InteractionTargetKind.Section)).toBe(
       bindingForKind(InteractionTargetKind.Section).renderer,
     );
-    expect(renderers.get(InteractionTargetKind.Region)).toBe(
-      bindingForKind(InteractionTargetKind.Region).renderer,
-    );
+    expect(renderers.get(InteractionTargetKind.Region)).toBeUndefined();
   });
 
   it("keeps both common Region axes without an owner renderer", async () => {

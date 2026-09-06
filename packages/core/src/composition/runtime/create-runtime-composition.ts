@@ -50,7 +50,6 @@ import { SurfaceMultipleChoiceQuestionNode } from "@/editor/surfaces/model/asses
 import { SurfaceMultiselectQuestionNode } from "@/editor/surfaces/model/assessment/surface-multiselect-question-node";
 import { SurfaceQuizNode } from "@/editor/surfaces/model/assessment/surface-quiz-node";
 import { SurfaceSequencingQuestionNode } from "@/editor/surfaces/model/assessment/surface-sequencing-question-node";
-import { ContentLayoutProjectionExtension } from "@/editor/content-layout/prosemirror/content-layout-projection-extension";
 import { StudentGuard } from "@/runtime/guards/student-guard";
 import {
   RuntimeSurfaceVisibility,
@@ -84,7 +83,6 @@ export function createCourseDocumentRuntimeExtensions({
     createScaffoldCapabilitiesStorageExtension(composition.capabilities),
     RuntimeSurfaceVisibility,
     createRuntimeSemanticDocumentExtension(composition.documentTree),
-    ContentLayoutProjectionExtension,
     SurfaceCategoriseQuestionNode,
     SurfaceSequencingQuestionNode,
     SurfaceMatchingQuestionNode,

@@ -3,7 +3,6 @@
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { PresentationContentLayout } from "@scaffold/contracts";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { GridNode, CellNode } from "@/editor/arrangements/grid/model/grid-nodes";
@@ -20,11 +19,8 @@ import {
   allowsBoundedContainerRootInsertionAtPosition as allowsBoundedContainerRootInsertionAtPositionWithLookup,
   isActiveBoundedContainerAtPosition as isActiveBoundedContainerAtPositionWithLookup,
   isFillOccupantNode as isFillOccupantNodeWithLookup,
-  resolveBoundedFillInsertionPolicyAtPosition as resolveBoundedFillInsertionPolicyAtPositionWithLookup,
   resolveActiveBoundedPlacement as resolveActiveBoundedPlacementWithLookup,
 } from "./bounded-container-placement";
-import { CONTENT_LAYOUT_ATTR } from "@/editor/content-layout/model/content-layout-attribute";
-import { resolveBoundedContainerOccupancyPolicy } from "@/editor/content-layout/model/content-layout-bounded-placement";
 
 const editors: Editor[] = [];
 const TEST_STAGED_CHILD_GROUP = "test_staged_bounded_child";
@@ -104,28 +100,13 @@ function isFillOccupantNode(node: Parameters<typeof isFillOccupantNodeWithLookup
 function allowsBoundedContainerRootInsertionAtPosition(
   input: Omit<
     Parameters<typeof allowsBoundedContainerRootInsertionAtPositionWithLookup>[0],
-    "blockDefinitions" | "layoutDefinitions" | "resolveBoundedContainerOccupancyPolicy"
+    "blockDefinitions" | "layoutDefinitions"
   >,
 ) {
   return allowsBoundedContainerRootInsertionAtPositionWithLookup({
     ...input,
     blockDefinitions: testBlockRegistry,
     layoutDefinitions: builtInLayoutRegistry,
-    resolveBoundedContainerOccupancyPolicy,
-  });
-}
-
-function resolveBoundedFillInsertionPolicyAtPosition(
-  input: Omit<
-    Parameters<typeof resolveBoundedFillInsertionPolicyAtPositionWithLookup>[0],
-    "blockDefinitions" | "layoutDefinitions" | "resolveBoundedContainerOccupancyPolicy"
-  >,
-) {
-  return resolveBoundedFillInsertionPolicyAtPositionWithLookup({
-    ...input,
-    blockDefinitions: testBlockRegistry,
-    layoutDefinitions: builtInLayoutRegistry,
-    resolveBoundedContainerOccupancyPolicy,
   });
 }
 
@@ -162,132 +143,7 @@ afterEach(() => {
 });
 
 describe("bounded container placement", () => {
-  it("allows root insertion when Sequence permits an existing fill occupant", () => {
-    const editor = makeEditor([
-      {
-        type: "region",
-        attrs: {
-          id: "region-a",
-          [CONTENT_LAYOUT_ATTR]: PresentationContentLayout.Sequence,
-        },
-        content: [grid()],
-      },
-    ]);
-
-    expect(
-      allowsBoundedContainerRootInsertionAtPosition({
-        doc: editor.state.doc,
-        pos: firstNodePos(editor, "region"),
-      }),
-    ).toBe(true);
-  });
-
-  it("resolves Sequence fill insertion to the already-checked range", () => {
-    const editor = makeEditor([
-      {
-        type: "region",
-        attrs: {
-          id: "region-a",
-          [CONTENT_LAYOUT_ATTR]: PresentationContentLayout.Sequence,
-        },
-        content: [grid()],
-      },
-    ]);
-
-    const policy = resolveBoundedFillInsertionPolicyAtPosition({
-      doc: editor.state.doc,
-      pos: firstNodePos(editor, "region"),
-    });
-
-    expect(policy).toEqual({ kind: "insert-at-checked-range" });
-    expect(Object.isFrozen(policy)).toBe(true);
-  });
-
-  it("resolves default Flow or exclusive occupancy to empty-placeholder replacement", () => {
-    const editor = makeEditor([
-      {
-        type: "region",
-        attrs: { id: "region-a" },
-        content: [paragraph()],
-      },
-    ]);
-    const pos = firstNodePos(editor, "region");
-
-    const defaultPolicy = resolveBoundedFillInsertionPolicyAtPosition({
-      doc: editor.state.doc,
-      pos,
-    });
-    const exclusivePolicy = resolveBoundedFillInsertionPolicyAtPositionWithLookup({
-      blockDefinitions: testBlockRegistry,
-      doc: editor.state.doc,
-      layoutDefinitions: builtInLayoutRegistry,
-      pos,
-      resolveBoundedContainerOccupancyPolicy: () => ({ kind: "exclusive-fill" }),
-    });
-
-    expect(defaultPolicy).toEqual({ kind: "replace-empty-placeholder" });
-    expect(exclusivePolicy).toEqual({ kind: "replace-empty-placeholder" });
-    expect(Object.isFrozen(defaultPolicy)).toBe(true);
-    expect(Object.isFrozen(exclusivePolicy)).toBe(true);
-  });
-
-  it("returns not-active for non-bounded and invalid fill positions", () => {
-    const editor = makeEditor([paragraph()]);
-
-    const nonBoundedPolicy = resolveBoundedFillInsertionPolicyAtPosition({
-      doc: editor.state.doc,
-      pos: firstNodePos(editor, "paragraph"),
-    });
-    const invalidPositionPolicy = resolveBoundedFillInsertionPolicyAtPosition({
-      doc: editor.state.doc,
-      pos: -1,
-    });
-
-    expect(nonBoundedPolicy).toEqual({ kind: "not-active-bounded-container" });
-    expect(invalidPositionPolicy).toEqual({ kind: "not-active-bounded-container" });
-    expect(Object.isFrozen(nonBoundedPolicy)).toBe(true);
-    expect(Object.isFrozen(invalidPositionPolicy)).toBe(true);
-  });
-
-  it("consults root occupancy only after resolving an active bounded container", () => {
-    const calls: string[] = [];
-    const resolver = () => {
-      calls.push("active");
-      return { kind: "shared-fill" as const };
-    };
-    const nonBoundedEditor = makeEditor([paragraph()]);
-    const boundedEditor = makeEditor([
-      {
-        type: "region",
-        attrs: { id: "region-a" },
-        content: [grid()],
-      },
-    ]);
-
-    expect(
-      allowsBoundedContainerRootInsertionAtPositionWithLookup({
-        blockDefinitions: testBlockRegistry,
-        doc: nonBoundedEditor.state.doc,
-        layoutDefinitions: builtInLayoutRegistry,
-        pos: firstNodePos(nonBoundedEditor, "paragraph"),
-        resolveBoundedContainerOccupancyPolicy: resolver,
-      }),
-    ).toBe(true);
-    expect(calls).toEqual([]);
-
-    expect(
-      allowsBoundedContainerRootInsertionAtPositionWithLookup({
-        blockDefinitions: testBlockRegistry,
-        doc: boundedEditor.state.doc,
-        layoutDefinitions: builtInLayoutRegistry,
-        pos: firstNodePos(boundedEditor, "region"),
-        resolveBoundedContainerOccupancyPolicy: resolver,
-      }),
-    ).toBe(true);
-    expect(calls).toEqual(["active"]);
-  });
-
-  it("keeps exclusive root insertion open without a direct fill and closed with one", () => {
+  it("keeps root insertion open without a direct fill and closed with one", () => {
     const emptyEditor = makeEditor([
       {
         type: "region",

@@ -18,8 +18,6 @@ import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
-import { resolveBoundedContainerOccupancyPolicy } from "@/editor/content-layout/model/content-layout-bounded-placement";
-
 import {
   allowsBoundedContainerRootInsertionAtPosition as allowsBoundedContainerRootInsertionAtPositionWithLookup,
   isActiveBoundedContainerAtPosition as isActiveBoundedContainerAtPositionWithLookup,
@@ -52,14 +50,13 @@ const testBlockRegistry = createBlockRegistry([
 function allowsBoundedContainerRootInsertionAtPosition(
   input: Omit<
     Parameters<typeof allowsBoundedContainerRootInsertionAtPositionWithLookup>[0],
-    "blockDefinitions" | "layoutDefinitions" | "resolveBoundedContainerOccupancyPolicy"
+    "blockDefinitions" | "layoutDefinitions"
   >,
 ) {
   return allowsBoundedContainerRootInsertionAtPositionWithLookup({
     ...input,
     blockDefinitions: testBlockRegistry,
     layoutDefinitions: builtInLayoutRegistry,
-    resolveBoundedContainerOccupancyPolicy,
   });
 }
 

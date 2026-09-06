@@ -12,7 +12,6 @@ import {
 import { publishInteractionOwnerSnapshot } from "@/editor/interactions/targets/prosemirror/facade/interaction-owner-snapshot-publisher";
 import { STRUCTURAL_INSERTION_PARENT_TYPES } from "@/editor/prosemirror/placeholder/structural-insertion-parent-types";
 import { allowsBoundedContainerRootInsertionAtPosition } from "@/editor/bounded-containers/model/bounded-container-placement";
-import { resolveBoundedContainerOccupancyPolicy } from "@/editor/content-layout/model/content-layout-bounded-placement";
 import { allowsSurfaceRootInsertion } from "@/editor/surfaces/model/policies/surface-root-insertion-policy";
 import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-variant-registry";
 
@@ -106,7 +105,6 @@ export function resolveEmptyInsertionTarget(
       doc: state.doc,
       layoutDefinitions,
       pos: insertionParentPos,
-      resolveBoundedContainerOccupancyPolicy,
     })
   ) {
     return null;
@@ -262,7 +260,6 @@ function insertEmptyParagraphForBlankParentClick(
       doc: view.state.doc,
       layoutDefinitions,
       pos: parentContext.pos,
-      resolveBoundedContainerOccupancyPolicy,
     })
   ) {
     return null;

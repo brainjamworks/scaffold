@@ -5,9 +5,9 @@ import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import {
   allowsBoundedContainerRootInsertionAtPosition,
-  resolveBoundedFillInsertionPolicyAtPosition,
+  isActiveBoundedContainerAtPosition,
+  type BoundedContainerType,
 } from "@/editor/bounded-containers/model/bounded-container-placement";
-import { resolveBoundedContainerOccupancyPolicy } from "@/editor/content-layout/model/content-layout-bounded-placement";
 import { allowsSurfaceRootInsertionAtPosition } from "@/editor/surfaces/model/policies/surface-root-insertion-policy";
 import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-variant-registry";
 
@@ -63,54 +63,41 @@ export function resolveInsertActionPlacement({
       doc,
       layoutDefinitions,
       pos: parentPos,
-      resolveBoundedContainerOccupancyPolicy,
     })
   ) {
     return { ok: false };
   }
 
   if (item.boundedPlacement !== "fill") return { ok: true, range };
-  const fillInsertionPolicy = resolveBoundedFillInsertionPolicyAtPosition({
-    blockDefinitions,
-    doc,
-    layoutDefinitions,
-    pos: parentPos,
-    resolveBoundedContainerOccupancyPolicy,
-  });
   if (
-    fillInsertionPolicy.kind === "not-active-bounded-container" ||
-    fillInsertionPolicy.kind === "insert-at-checked-range"
+    !isActiveBoundedContainer(parent.type.name, doc, parentPos, blockDefinitions, layoutDefinitions)
   ) {
     return { ok: true, range };
   }
 
-  try {
-    if (!$from.parent.isTextblock || $from.parent.type.name !== "paragraph") {
-      return { ok: false };
-    }
-    if (parent.childCount !== 1 || parent.firstChild !== $from.parent) {
-      return { ok: false };
-    }
-    if ($from.parent.content.size > 0 && intent !== "slash-trigger-replacement") {
-      return { ok: false };
-    }
-
-    const contentFrom = $from.start($from.depth);
-    const contentTo = contentFrom + $from.parent.content.size;
-    if (range.from !== contentFrom || range.to !== contentTo) {
-      return { ok: false };
-    }
-
-    return {
-      ok: true,
-      range: {
-        from: $from.before($from.depth),
-        to: $from.after($from.depth),
-      },
-    };
-  } catch {
+  if (!$from.parent.isTextblock || $from.parent.type.name !== "paragraph") {
     return { ok: false };
   }
+  if (parent.childCount !== 1 || parent.firstChild !== $from.parent) {
+    return { ok: false };
+  }
+  if ($from.parent.content.size > 0 && intent !== "slash-trigger-replacement") {
+    return { ok: false };
+  }
+
+  const contentFrom = $from.start($from.depth);
+  const contentTo = contentFrom + $from.parent.content.size;
+  if (range.from !== contentFrom || range.to !== contentTo) {
+    return { ok: false };
+  }
+
+  return {
+    ok: true,
+    range: {
+      from: $from.before($from.depth),
+      to: $from.after($from.depth),
+    },
+  };
 }
 
 function resolveInsertionContext(
@@ -118,21 +105,17 @@ function resolveInsertionContext(
   range: InsertActionRange,
   nodeType: NodeType,
 ) {
-  try {
-    const $from = doc.resolve(range.from);
-    const parentDepth = $from.parent.isTextblock && $from.depth > 0 ? $from.depth - 1 : $from.depth;
-    const parent = $from.node(parentDepth);
-    const index = $from.index(parentDepth);
-    if (!parent.contentMatchAt(index).matchType(nodeType)) return null;
+  const $from = doc.resolve(range.from);
+  const parentDepth = $from.parent.isTextblock && $from.depth > 0 ? $from.depth - 1 : $from.depth;
+  const parent = $from.node(parentDepth);
+  const index = $from.index(parentDepth);
+  if (!parent.contentMatchAt(index).matchType(nodeType)) return null;
 
-    return {
-      $from,
-      parent,
-      parentPos: parentDepth > 0 ? $from.before(parentDepth) : 0,
-    };
-  } catch {
-    return null;
-  }
+  return {
+    $from,
+    parent,
+    parentPos: parentDepth > 0 ? $from.before(parentDepth) : 0,
+  };
 }
 
 function isValidRange(range: InsertActionRange, docSize: number): boolean {
@@ -143,4 +126,25 @@ function isValidRange(range: InsertActionRange, docSize: number): boolean {
     range.from <= range.to &&
     range.to <= docSize
   );
+}
+
+function isActiveBoundedContainer(
+  nodeType: string,
+  doc: Editor["state"]["doc"],
+  pos: number,
+  blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
+): boolean {
+  if (!isBoundedContainerType(nodeType)) return false;
+  return isActiveBoundedContainerAtPosition({
+    blockDefinitions,
+    containerType: nodeType,
+    doc,
+    layoutDefinitions,
+    pos,
+  });
+}
+
+function isBoundedContainerType(nodeType: string): nodeType is BoundedContainerType {
+  return nodeType === "cell" || nodeType === "region" || nodeType === "section";
 }

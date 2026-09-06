@@ -14,7 +14,7 @@ import { createRepresentativeDocumentTreeFixture } from "@/document/model/docume
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
-import { createStructuralInteractionTargetActivationTransaction } from "@/editor/interactions/targets/prosemirror/activation/interaction-activation-dispatch";
+import { createInteractionTargetActivationTransaction } from "@/editor/interactions/targets/prosemirror/activation/interaction-activation-dispatch";
 
 import { createDocumentAuthoringLifecycle } from "../document-authoring-lifecycle";
 import type { EditorNavigationController } from "./editor-navigation-controller";
@@ -111,53 +111,44 @@ describe("projectEditorSelection", () => {
 });
 
 describe("EditorNavigationController selection", () => {
-  it("attaches editor semantic intent to canonical structural activation without changing the document", () => {
+  it.each([
+    InteractionTargetKind.Region,
+    InteractionTargetKind.Cell,
+    InteractionTargetKind.Section,
+  ] as const)("records explicit %s selection when the descendant caret stays put", (kind) => {
     const context = createContext();
-    const layoutId = context.fixture.surfaces[0]!.layout;
-    const paragraphId = context.fixture.surfaces[0]!.repeatedParagraphs[0];
-    const paragraphFrom = findPosition(context.state.doc, paragraphId);
-    const paragraphNode = context.state.doc.nodeAt(paragraphFrom);
-    if (!paragraphNode) throw new Error("Expected active paragraph");
-    const state = context.state.apply(
-      context.state.tr.setSelection(TextSelection.create(context.state.doc, paragraphFrom + 1)),
-    );
+    const surface = context.fixture.surfaces[0]!;
+    const id =
+      kind === InteractionTargetKind.Region
+        ? surface.region
+        : kind === InteractionTargetKind.Cell
+          ? surface.cells[0]
+          : surface.layoutSection;
+    const pos = findPosition(context.state.doc, id);
+    const caret = TextSelection.near(context.state.doc.resolve(pos + 1));
+    const state = context.state.apply(context.state.tr.setSelection(caret));
     const controller = createNavigation(state, context.fixture.definitions);
-    const documentBefore = state.doc.toJSON();
-
-    const resolution = createStructuralInteractionTargetActivationTransaction(
+    const transaction = createInteractionTargetActivationTransaction(
       state,
-      {
-        id: layoutId,
-        kind: InteractionTargetKind.Layout,
-        pos: findPosition(state.doc, layoutId),
-      },
-      {
-        kind: "retain-active-child",
-        activeChildId: paragraphId,
-        activeRange: { from: paragraphFrom, to: paragraphFrom + paragraphNode.nodeSize },
-        selectionTarget: { kind: "text", from: paragraphFrom + 1, to: paragraphFrom + 1 },
-      },
+      { id, kind, pos },
+      "structural",
+      { preferredPos: caret.from },
     );
+    if (!transaction) throw new Error("Expected ordinary structural activation");
 
-    expect(resolution.kind).toBe("transaction");
-    if (resolution.kind !== "transaction") throw new Error("Expected structural activation");
-    expect(readEditorSelectionTransactionMeta(resolution.transaction)).toEqual({
-      intendedId: layoutId,
+    expect(transaction.selection.eq(state.selection)).toBe(true);
+    expect(transaction.docChanged).toBe(false);
+    expect(transaction.steps).toHaveLength(0);
+    expect(readEditorSelectionTransactionMeta(transaction)).toEqual({
+      intendedId: id,
       origin: "editor",
     });
-    expect(resolution.transaction.docChanged).toBe(false);
-    expect(resolution.transaction.selectionSet).toBe(false);
-    expect(resolution.transaction.steps).toHaveLength(0);
-    expect(resolution.transaction.doc.toJSON()).toEqual(documentBefore);
-    controller.applySelectionTransaction(
-      resolution.transaction,
-      state.apply(resolution.transaction),
-    );
-    expectSelection(controller, layoutId, "editor");
+    controller.applySelectionTransaction(transaction, state.apply(transaction));
+    expectSelection(controller, id, "editor");
   });
 
   it.each([undefined, "layout-a"])(
-    "does not attach structural semantic intent for invalid stable ID %s",
+    "does not attach structural editor intent for invalid stable ID %s",
     (targetId) => {
       const context = createContext();
       const layoutId = context.fixture.surfaces[0]!.layout;
@@ -167,38 +158,18 @@ describe("EditorNavigationController selection", () => {
         ...(targetId === undefined ? {} : { id: targetId }),
       } as const;
 
-      const resolution = createStructuralInteractionTargetActivationTransaction(
+      const transaction = createInteractionTargetActivationTransaction(
         context.state,
         target,
-        { kind: "pointer-within-target" },
+        "structural",
       );
 
-      expect(resolution.kind).toBe("transaction");
-      if (resolution.kind !== "transaction") throw new Error("Expected structural activation");
-      expect(readEditorSelectionTransactionMeta(resolution.transaction)).toBeNull();
+      if (!transaction) throw new Error("Expected ordinary structural activation");
+      expect(readEditorSelectionTransactionMeta(transaction)).toBeNull();
     },
   );
 
-  it("records content-layout selection intent without changing the document", () => {
-    const context = createContext();
-    const controller = createNavigation(context.state, context.fixture.definitions);
-    const paragraphId = context.fixture.surfaces[0]!.repeatedParagraphs[0];
-    const transaction = context.state.tr.setSelection(
-      TextSelection.create(context.state.doc, findPosition(context.state.doc, paragraphId) + 1),
-    );
-    setEditorSelectionTransactionMeta(transaction, {
-      intendedId: paragraphId,
-      origin: "content-layout",
-    });
-
-    const nextState = context.state.apply(transaction);
-    controller.applySelectionTransaction(transaction, nextState);
-
-    expect(transaction.docChanged).toBe(false);
-    expectSelection(controller, paragraphId, "content-layout");
-  });
-
-  it.each(["content-layout", "document-outline", "presentation-timeline"] as const)(
+  it.each(["document-outline", "presentation-timeline"] as const)(
     "preserves later %s intent over editor structural intent on one transaction",
     (origin) => {
       const context = createContext();

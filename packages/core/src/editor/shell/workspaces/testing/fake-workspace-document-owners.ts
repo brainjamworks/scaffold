@@ -107,7 +107,6 @@ function createTree(
     label: `Slide ${index + 1}`,
     summary: null,
     presentation: { actionIds: [], disabledReason: null },
-    presentationContainer: null,
     children: [],
   }));
   const courseSection: DocumentTreeItem | null = courseSectionId
@@ -119,7 +118,6 @@ function createTree(
         label: "Section 1",
         summary: null,
         presentation: { actionIds: [], disabledReason: null },
-        presentationContainer: null,
         children: items,
       }
     : null;

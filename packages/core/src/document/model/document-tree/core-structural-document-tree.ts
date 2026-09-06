@@ -1,9 +1,4 @@
-import {
-  EmbeddedNodeIdSchema,
-  PresentationContentLayoutSchema,
-  type EmbeddedNodeId,
-  type PresentationContentLayout,
-} from "@scaffold/contracts";
+import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import type { ProjectedCourseStructure } from "../course-structure/course-structure-projection";
@@ -17,7 +12,6 @@ import {
   SECTION_NODE_TYPE,
   SURFACE_NODE_TYPE,
 } from "../nodes/structural-node-types";
-import { CONTENT_LAYOUT_ATTR } from "../nodes/presentation-container-attributes";
 import type {
   DocumentTreeDefinitionLookup,
   DocumentTreeLayoutDefinition,
@@ -41,7 +35,6 @@ import type {
   DocumentTreeSnapshotBuilder,
   DocumentTreeSnapshotItemInput,
 } from "./document-tree-snapshot-builder";
-import type { DocumentItemPresentationContainer } from "./document-tree-snapshot";
 
 const NODE_TYPES = Object.freeze({
   courseSection: COURSE_SECTION_NODE_TYPE,
@@ -263,7 +256,6 @@ function projectPublishedChildren(input: {
               : {}),
             disabledReason: resolved.candidate.presentation?.disabledReason ?? null,
           },
-          presentationContainer: null,
         },
         parentId,
         location: {
@@ -314,7 +306,7 @@ function classifyNode(
       throw new Error(`Course Structure does not contain unavailable Surface ${id}.`);
     }
     return classified(
-      item(id, unavailableRoot.kind, nodeType, null, unavailableRoot.label, undefined, null),
+      item(id, unavailableRoot.kind, nodeType, null, unavailableRoot.label, undefined),
       unavailableSurface?.courseSectionId ?? context.parentId,
       unavailableRoot.kind === "surface" ? id : context.surfaceId,
       undefined,
@@ -328,7 +320,7 @@ function classifyNode(
     const section = courseStructure.courseSectionById[id];
     if (!section) throw new Error(`Course Structure does not contain Course Section ${id}.`);
     return classified(
-      item(id, "course-section", nodeType, null, section.title, undefined, null),
+      item(id, "course-section", nodeType, null, section.title, undefined),
       null,
       null,
     );
@@ -351,7 +343,6 @@ function classifyNode(
         definition
           ? (definition.documentTree?.presentation ?? visualPresentationDefinition)
           : undefined,
-        null,
       ),
       projectedSurface.courseSectionId,
       id,
@@ -375,7 +366,6 @@ function classifyNode(
         definition
           ? (definition.documentTree?.presentation ?? visualPresentationDefinition)
           : undefined,
-        null,
       ),
       context.parentId,
       context.surfaceId,
@@ -398,7 +388,6 @@ function classifyNode(
         definition
           ? (definition.section?.documentTree?.presentation ?? visualPresentationDefinition)
           : undefined,
-        projectPresentationContainer(node, courseStructure.mode),
       ),
       context.parentId,
       context.surfaceId,
@@ -411,15 +400,7 @@ function classifyNode(
     const id = requireNodeId(node);
     const role = readNonEmptyString(node.attrs["role"]) ?? "main";
     return classified(
-      item(
-        id,
-        "region",
-        nodeType,
-        null,
-        humanize(role),
-        undefined,
-        projectPresentationContainer(node, courseStructure.mode),
-      ),
+      item(id, "region", nodeType, null, humanize(role), undefined),
       context.parentId,
       context.surfaceId,
       undefined,
@@ -430,7 +411,7 @@ function classifyNode(
   if (nodeType === NODE_TYPES.grid) {
     const id = requireNodeId(node);
     return classified(
-      item(id, "grid", nodeType, null, "Grid", undefined, null),
+      item(id, "grid", nodeType, null, "Grid", undefined),
       context.parentId,
       context.surfaceId,
     );
@@ -439,15 +420,7 @@ function classifyNode(
   if (nodeType === NODE_TYPES.cell && context.parentNodeType === NODE_TYPES.grid) {
     const id = requireNodeId(node);
     return classified(
-      item(
-        id,
-        "cell",
-        nodeType,
-        null,
-        `Cell ${context.siblingTypeOrdinal}`,
-        undefined,
-        projectPresentationContainer(node, courseStructure.mode),
-      ),
+      item(id, "cell", nodeType, null, `Cell ${context.siblingTypeOrdinal}`, undefined),
       context.parentId,
       context.surfaceId,
       undefined,
@@ -474,7 +447,6 @@ function classifyNode(
       excludesPresentation
         ? undefined
         : (block.documentTree?.presentation ?? visualPresentationDefinition),
-      null,
     ),
     context.parentId,
     context.surfaceId,
@@ -520,7 +492,6 @@ function item(
   definitionId: string | null,
   label: string,
   presentation: DocumentItemPresentation | undefined,
-  presentationContainer: DocumentItemPresentationContainer | null,
 ): DocumentTreeSnapshotItemInput {
   return {
     id,
@@ -536,31 +507,7 @@ function item(
         : {}),
       disabledReason: presentation?.disabledReason ?? null,
     },
-    presentationContainer,
   };
-}
-
-function projectPresentationContainer(
-  node: ProseMirrorNode,
-  mode: "page" | "slideshow",
-): DocumentItemPresentationContainer | null {
-  if (mode === "page") return null;
-  if (
-    node.type.name !== NODE_TYPES.region &&
-    node.type.name !== NODE_TYPES.cell &&
-    node.type.name !== NODE_TYPES.layoutSection
-  ) {
-    return null;
-  }
-  return { contentLayout: decodePresentationContentLayout(node) };
-}
-
-function decodePresentationContentLayout(node: ProseMirrorNode): PresentationContentLayout {
-  const parsed = PresentationContentLayoutSchema.safeParse(node.attrs[CONTENT_LAYOUT_ATTR]);
-  if (!parsed.success) {
-    throw new Error(`Document tree build encountered invalid contentLayout on ${node.type.name}.`);
-  }
-  return parsed.data;
 }
 
 function requireNodeId(node: ProseMirrorNode): EmbeddedNodeId {

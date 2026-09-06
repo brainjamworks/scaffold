@@ -1,5 +1,4 @@
 import { AUTHORING_FRAME_WRAPPER_ATTR } from "@/editor/interactions/dom/authoring-chrome";
-import { readContentLayoutMovementState } from "@/editor/content-layout/view/content-layout-projection-dom";
 import {
   AuthoringFrameKind,
   resolveAuthoringFrameElement,
@@ -67,8 +66,6 @@ export function resolveStructureMovementTargetPresentation(
   blockDefinitions: BlockDefinitionLookup,
 ): MovementTargetPresentation | null {
   if (!context) return null;
-  if (readContentLayoutMovementState(dom).kind === "unavailable") return null;
-
   if (context.nodeType.name === "surface") {
     const element = dom.matches(SURFACE_ANCHOR_SELECTOR)
       ? dom
@@ -102,7 +99,6 @@ export function resolveStructureMovementTargetPresentation(
 export function resolveContainedMovementTargetPresentation(
   dom: Element,
 ): MovementTargetPresentation | null {
-  if (readContentLayoutMovementState(dom).kind === "unavailable") return null;
   const selector = `[${CONTAINED_MOVEMENT_TARGET_ATTR}]`;
   const element = dom.matches(selector) ? dom : dom.querySelector(selector);
   return element ? { axis: readMovementTargetAxis(element), element } : null;

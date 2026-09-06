@@ -24,10 +24,6 @@ import {
   resolveInteractionActivationIntentFromMouseDown,
 } from "./activation/interaction-activation-intent";
 import { resolveInteractionContextOwnerFromMouseDown } from "./activation/interaction-context-owner";
-import {
-  resolveDefaultStructuralActivationPlacement,
-  type StructuralActivationPlacementResolver,
-} from "./activation/structural-activation-placement";
 import { createInteractionOwnerCommandPorts } from "./facade/interaction-facade-command-ports";
 import {
   createScaffoldInteractionOwnerStorage,
@@ -54,14 +50,7 @@ import {
  * document-level pointers outside the editor dismiss ephemeral owners while
  * preserving authoring chrome.
  */
-export interface ScaffoldInteractionOwnerExtensionOptions {
-  readonly resolveStructuralActivationPlacement?: StructuralActivationPlacementResolver;
-}
-
-export function createScaffoldInteractionOwnerExtension(
-  blockDefinitions: BlockDefinitionLookup,
-  options: ScaffoldInteractionOwnerExtensionOptions = {},
-) {
+export function createScaffoldInteractionOwnerExtension(blockDefinitions: BlockDefinitionLookup) {
   return Extension.create<Record<string, never>, ScaffoldInteractionOwnerStorage>({
     name: "scaffoldInteractionOwner",
 
@@ -70,9 +59,7 @@ export function createScaffoldInteractionOwnerExtension(
     },
 
     addProseMirrorPlugins() {
-      return [
-        createScaffoldInteractionOwnerPlugin(this.storage.facadeStore, blockDefinitions, options),
-      ];
+      return [createScaffoldInteractionOwnerPlugin(this.storage.facadeStore, blockDefinitions)];
     },
   });
 }
@@ -80,11 +67,8 @@ export function createScaffoldInteractionOwnerExtension(
 export function createScaffoldInteractionOwnerPlugin(
   facade: InteractionStore,
   blockDefinitions: BlockDefinitionLookup,
-  options: ScaffoldInteractionOwnerExtensionOptions = {},
 ): Plugin<InteractionOwnerPluginState> {
   let authoringChromeSessionActive = true;
-  const resolveStructuralActivationPlacement =
-    options.resolveStructuralActivationPlacement ?? resolveDefaultStructuralActivationPlacement;
 
   return new Plugin<InteractionOwnerPluginState>({
     key: interactionOwnerPluginKey,
@@ -201,7 +185,6 @@ export function createScaffoldInteractionOwnerPlugin(
         );
         applyInteractionActivationIntent(view, intent, event, {
           contextOwner,
-          resolveStructuralActivationPlacement,
         });
       };
       view.dom.addEventListener("mousedown", classifyEditorMouseDown, true);

@@ -1,9 +1,8 @@
 // @vitest-environment happy-dom
 
-import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
@@ -26,17 +25,10 @@ import {
   EMPTY_INTERACTION_OWNER_PLUGIN_STATE,
   interactionOwnerPluginKey,
 } from "../state/interaction-owner-plugin-state";
-import type {
-  StructuralActivationPlacementResolution,
-  StructuralActivationPlacementResolver,
-} from "./structural-activation-placement";
 
 const BLOCK = "v2_activation_workflow_block";
 const DELEGATE_PARENT = "v2_activation_workflow_delegate_parent";
 const EMBEDDED_CHILD = "v2_activation_workflow_embedded_child";
-const RETAINED_CELL_ID = EmbeddedNodeIdSchema.parse("cell-target1");
-const ACTIVE_CHILD_ID = EmbeddedNodeIdSchema.parse("active-child");
-const UNAVAILABLE_TARGET_ID = EmbeddedNodeIdSchema.parse("target-miss1");
 
 const blockDefinition = defineBlock({
   nodeType: BLOCK,
@@ -131,7 +123,7 @@ function paragraph(text: string): JSONContent {
   return { type: "paragraph", content: [{ type: "text", text }] };
 }
 
-function fullContent(cellId = "cell-a"): JSONContent {
+function fullContent(): JSONContent {
   return {
     type: "doc",
     content: [
@@ -157,7 +149,7 @@ function fullContent(cellId = "cell-a"): JSONContent {
                         content: [
                           {
                             type: "cell",
-                            attrs: { id: cellId },
+                            attrs: { id: "cell-a" },
                             content: [paragraph("cell text")],
                           },
                         ],
@@ -194,10 +186,7 @@ function fullContent(cellId = "cell-a"): JSONContent {
   };
 }
 
-function makeEditor(
-  resolveStructuralActivationPlacement?: StructuralActivationPlacementResolver,
-  cellId = "cell-a",
-): Editor {
+function makeEditor(): Editor {
   const element = document.createElement("div");
   document.body.appendChild(element);
   return new Editor({
@@ -214,12 +203,9 @@ function makeEditor(
       TestDelegateParentNode,
       TestEmbeddedChildNode,
       createScaffoldCapabilitiesStorageExtension(testCapabilities),
-      createScaffoldInteractionOwnerExtension(
-        testBlockRegistry,
-        resolveStructuralActivationPlacement ? { resolveStructuralActivationPlacement } : {},
-      ),
+      createScaffoldInteractionOwnerExtension(testBlockRegistry),
     ],
-    content: fullContent(cellId),
+    content: fullContent(),
   });
 }
 
@@ -233,10 +219,8 @@ function frameElement(editor: Editor, id: string): Element {
   return found;
 }
 
-function mouseDownOn(target: Element): MouseEvent {
-  const event = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
-  target.dispatchEvent(event);
-  return event;
+function mouseDownOn(target: Element): void {
+  target.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
 }
 
 function pluginState(editor: Editor) {
@@ -319,133 +303,6 @@ describe("v2 activation workflows", () => {
       kind: InteractionTargetKind.Cell,
     });
     expect(selectionMode(editor)).not.toBe(CourseSelectionMode.NodeSelection);
-    editor.destroy();
-  });
-
-  it("threads retained-child placement through extension-owned DOM activation", () => {
-    let editor: Editor;
-    const resolveStructuralActivationPlacement = vi.fn<StructuralActivationPlacementResolver>(
-      () => {
-        const from = textPos(editor, "cell text") - 1;
-        const paragraph = editor.state.doc.nodeAt(from);
-        if (!paragraph) throw new Error("missing active paragraph");
-        return {
-          kind: "retain-active-child",
-          activeChildId: ACTIVE_CHILD_ID,
-          activeRange: { from, to: from + paragraph.nodeSize },
-          selectionTarget: { kind: "text", from: from + 1, to: from + 1 },
-        };
-      },
-    );
-    editor = makeEditor(resolveStructuralActivationPlacement, RETAINED_CELL_ID);
-    editor.commands.setTextSelection(textPos(editor, "block text") + 2);
-    const posAtCoords = vi.spyOn(editor.view, "posAtCoords");
-
-    mouseDownOn(frameElement(editor, RETAINED_CELL_ID));
-
-    const cellTextPos = textPos(editor, "cell text");
-    expect(resolveStructuralActivationPlacement).toHaveBeenCalledWith({
-      state: expect.anything(),
-      target: expect.objectContaining({
-        id: RETAINED_CELL_ID,
-        kind: InteractionTargetKind.Cell,
-      }),
-    });
-    expect(resolveStructuralActivationPlacement).toHaveBeenCalledOnce();
-    expect(editor.state.selection.from).toBe(cellTextPos);
-    expect(editor.state.selection.to).toBe(cellTextPos);
-    expect(posAtCoords).not.toHaveBeenCalled();
-    expect(pluginState(editor).explicitOwner).toMatchObject({
-      id: RETAINED_CELL_ID,
-      kind: InteractionTargetKind.Cell,
-    });
-    posAtCoords.mockRestore();
-    editor.destroy();
-  });
-
-  it("cancels unavailable structural activation in the extension-owned DOM workflow", () => {
-    const resolution = Object.freeze({
-      kind: "placement-unavailable" as const,
-      issue: Object.freeze({
-        kind: "retained-child-unavailable" as const,
-        targetId: UNAVAILABLE_TARGET_ID,
-        activeChildId: ACTIVE_CHILD_ID,
-      }),
-    }) satisfies StructuralActivationPlacementResolution;
-    const resolveStructuralActivationPlacement = vi.fn<StructuralActivationPlacementResolver>(
-      () => resolution,
-    );
-    const editor = makeEditor(resolveStructuralActivationPlacement);
-    editor.commands.setTextSelection(textPos(editor, "block text") + 2);
-    const documentBefore = editor.state.doc;
-    const selectionBefore = editor.state.selection;
-    const ownerBefore = pluginState(editor);
-    const activeElementBefore = document.activeElement;
-    const dispatch = vi.spyOn(editor.view, "dispatch");
-    const focus = vi.spyOn(editor.view, "focus");
-    const posAtCoords = vi.spyOn(editor.view, "posAtCoords");
-
-    const event = mouseDownOn(frameElement(editor, "cell-a"));
-
-    expect(event.defaultPrevented).toBe(true);
-    expect(resolveStructuralActivationPlacement).toHaveBeenCalledOnce();
-    expect(dispatch).not.toHaveBeenCalled();
-    expect(focus).not.toHaveBeenCalled();
-    expect(posAtCoords).not.toHaveBeenCalled();
-    expect(editor.state.doc).toBe(documentBefore);
-    expect(editor.state.selection.eq(selectionBefore)).toBe(true);
-    expect(pluginState(editor)).toBe(ownerBefore);
-    expect(document.activeElement).toBe(activeElementBefore);
-    dispatch.mockRestore();
-    focus.mockRestore();
-    posAtCoords.mockRestore();
-    editor.destroy();
-  });
-
-  it("cancels structural activation before a throwing resolver in the DOM workflow", () => {
-    const defect = new Error("structural placement resolver defect");
-    const event = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
-    const preventDefault = vi.spyOn(event, "preventDefault");
-    let defaultPreventedAtResolver: boolean | null = null;
-    const resolveStructuralActivationPlacement = vi.fn<StructuralActivationPlacementResolver>(
-      () => {
-        defaultPreventedAtResolver = event.defaultPrevented;
-        throw defect;
-      },
-    );
-    const editor = makeEditor(resolveStructuralActivationPlacement);
-    editor.commands.setTextSelection(textPos(editor, "block text") + 2);
-    const documentBefore = editor.state.doc;
-    const selectionBefore = editor.state.selection;
-    const ownerBefore = pluginState(editor);
-    const activeElementBefore = document.activeElement;
-    const dispatch = vi.spyOn(editor.view, "dispatch");
-    const focus = vi.spyOn(editor.view, "focus");
-    const posAtCoords = vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
-    let thrown: unknown;
-
-    try {
-      frameElement(editor, "cell-a").dispatchEvent(event);
-    } catch (error) {
-      thrown = error;
-    }
-
-    expect(thrown).toBe(defect);
-    expect(defaultPreventedAtResolver).toBe(true);
-    expect(event.defaultPrevented).toBe(true);
-    expect(preventDefault).toHaveBeenCalledOnce();
-    expect(resolveStructuralActivationPlacement).toHaveBeenCalledOnce();
-    expect(dispatch).not.toHaveBeenCalled();
-    expect(focus).not.toHaveBeenCalled();
-    expect(posAtCoords).not.toHaveBeenCalled();
-    expect(editor.state.doc).toBe(documentBefore);
-    expect(editor.state.selection.eq(selectionBefore)).toBe(true);
-    expect(pluginState(editor)).toBe(ownerBefore);
-    expect(document.activeElement).toBe(activeElementBefore);
-    preventDefault.mockRestore();
-    dispatch.mockRestore();
-    focus.mockRestore();
-    posAtCoords.mockRestore();
     editor.destroy();
   });
 

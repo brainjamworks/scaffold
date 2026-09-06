@@ -6,16 +6,11 @@ import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Fragment } from "@tiptap/pm/model";
 import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
 import { AppNotificationsProvider } from "@/ui/components/app/AppNotifications/AppNotifications";
-import {
-  EmbeddedNodeIdSchema,
-  PresentationContentLayout,
-  type EmbeddedNodeId,
-} from "@scaffold/contracts";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
@@ -61,7 +56,6 @@ import {
   resolveStructuralInteractionBubbleModel,
 } from "@/editor/shell/bubbles/interaction/StructuralInteractionBubbleMenu";
 import { createStructuralInteractionBubbleRendererMap } from "@/editor/interactions/interaction-bubble";
-import { readContentLayoutAuthoringState } from "@/editor/content-layout/prosemirror/content-layout-authoring-extension";
 import { getDocumentTreeForEditor } from "@/document/authoring/document-tree";
 
 import { createGridAuthoringNodes } from "../authoring/grid-nodes";
@@ -92,8 +86,6 @@ const REAL_CELL_IDS = Object.freeze({
   surface: EmbeddedNodeIdSchema.parse("surface00001"),
   slideTitle: EmbeddedNodeIdSchema.parse("slidetitle01"),
 });
-const FLOW = PresentationContentLayout.Flow;
-const SEQUENCE = PresentationContentLayout.Sequence;
 
 const testBlockRegistry = createBlockRegistry([
   ...builtInBlockRegistry.definitions,
@@ -194,7 +186,7 @@ function createRealCellDocument(): JSONContent {
         { type: "slide_title", attrs: { id: REAL_CELL_IDS.slideTitle } },
         {
           type: "region",
-          attrs: { contentLayout: FLOW, id: REAL_CELL_IDS.region, role: "main" },
+          attrs: { id: REAL_CELL_IDS.region, role: "main" },
           content: [
             {
               type: "grid",
@@ -202,7 +194,7 @@ function createRealCellDocument(): JSONContent {
               content: [
                 {
                   type: "cell",
-                  attrs: { contentLayout: FLOW, id: REAL_CELL_IDS.cell },
+                  attrs: { id: REAL_CELL_IDS.cell },
                   content: [
                     { type: "paragraph", attrs: { id: REAL_CELL_IDS.first } },
                     { type: "paragraph", attrs: { id: REAL_CELL_IDS.second } },
@@ -491,12 +483,6 @@ function renderGridMenuForTest(editor: Editor, snapshot: GridMenuSnapshot) {
     children: interaction,
   });
   return render(createElement(Tooltip.Provider, { delayDuration: 0, children: notifications }));
-}
-
-function contentLayoutProjectionFor(editor: Editor, containerId: EmbeddedNodeId) {
-  return readContentLayoutAuthoringState(editor.state).projectionInputs.find(
-    (input) => input.containerId === containerId,
-  );
 }
 
 function readButtonLabels(container: HTMLElement): string[] {
@@ -1656,9 +1642,7 @@ describe("grid arrangement nodes", () => {
     const editor = await makeRealCellEditor();
     const documentTree = getDocumentTreeForEditor(editor);
     await waitFor(() => {
-      expect(documentTree.getSnapshot().itemById.has(REAL_CELL_IDS.cell)).toBe(
-        true,
-      );
+      expect(documentTree.getSnapshot().itemById.has(REAL_CELL_IDS.cell)).toBe(true);
     });
 
     const cellDescriptor = resolveStructuralChromeTargetDescriptor(editor.state, {
@@ -1675,33 +1659,12 @@ describe("grid arrangement nodes", () => {
     expect(cellSnapshot).toMatchObject({ cellId: REAL_CELL_IDS.cell, kind: "cell" });
 
     const cellMenu = renderGridMenuForTest(editor, cellSnapshot);
-    const cellScope = within(cellMenu.container);
-    expect(cellScope.getByRole("radio", { name: "Flow" })).toBeInTheDocument();
     expect(readButtonLabels(cellMenu.container)).toEqual([
-      "Flow",
-      "Sequence",
       "Add column left",
       "Add column right",
       "Delete cell",
     ]);
-    expect(cellMenu.container.querySelectorAll(".sc-menu-separator")).toHaveLength(2);
-
-    const user = userEvent.setup();
-    await user.click(cellScope.getByRole("radio", { name: "Sequence" }));
-    await waitFor(() => expect(cellScope.getByText("1 of 2")).toBeInTheDocument());
-    expect(contentLayoutProjectionFor(editor, REAL_CELL_IDS.cell)).toMatchObject({
-      containerId: REAL_CELL_IDS.cell,
-      contentLayout: SEQUENCE,
-    });
-    expect(contentLayoutProjectionFor(editor, REAL_CELL_IDS.region)).toMatchObject({
-      containerId: REAL_CELL_IDS.region,
-      contentLayout: FLOW,
-    });
-
-    await user.click(cellScope.getByRole("button", { name: "Next sequence child" }));
-    await waitFor(() => expect(cellScope.getByText("2 of 2")).toBeInTheDocument());
-    await user.click(cellScope.getByRole("button", { name: "Previous sequence child" }));
-    await waitFor(() => expect(cellScope.getByText("1 of 2")).toBeInTheDocument());
+    expect(cellMenu.container.querySelectorAll(".sc-menu-separator")).toHaveLength(1);
     cellMenu.unmount();
 
     const gridDescriptor = resolveStructuralChromeTargetDescriptor(editor.state, {
@@ -1717,50 +1680,11 @@ describe("grid arrangement nodes", () => {
 
     const gridMenu = renderGridMenuForTest(editor, gridSnapshot);
     const gridScope = within(gridMenu.container);
-    expect(gridScope.queryByRole("radio", { name: "Flow" })).toBeNull();
     const gridCells = gridScope.getByRole("combobox", { name: "Grid cells" });
     const deleteGrid = gridScope.getByRole("button", { name: "Delete grid" });
     expect(isBefore(gridCells, deleteGrid)).toBe(true);
     expect(gridMenu.container.querySelectorAll(".sc-menu-separator")).toHaveLength(1);
     gridMenu.unmount();
-    editor.destroy();
-  });
-
-  it("omits only shared controls for missing or invalid Cell IDs", () => {
-    const editor = makeCourseEditorWithSurfaceContent([
-      {
-        type: "grid",
-        attrs: { columnWidths: [1], id: "grid00000001" },
-        content: [
-          {
-            type: "cell",
-            attrs: { id: "cell00000001" },
-            content: [{ type: "paragraph" }],
-          },
-        ],
-      },
-    ]);
-    const descriptor = resolveStructuralChromeTargetDescriptor(editor.state, {
-      id: "cell00000001",
-      kind: InteractionTargetKind.Cell,
-      pos: firstNodePosByAttr(editor, "cell", "id", "cell00000001"),
-    });
-    if (!descriptor) throw new Error("Missing Cell descriptor");
-    const snapshot = resolveGridMenuSnapshot(descriptor);
-    if (!snapshot || snapshot.kind !== "cell") throw new Error("Missing Cell snapshot");
-
-    for (const cellId of [null, "not-an-embedded-id"] as const) {
-      const menu = renderGridMenuForTest(editor, { ...snapshot, cellId });
-      const scope = within(menu.container);
-      expect(scope.queryByRole("group", { name: /Content layout controls/ })).toBeNull();
-      expect(readButtonLabels(menu.container)).toEqual([
-        "Add column left",
-        "Add column right",
-        "Delete cell",
-      ]);
-      expect(menu.container.querySelectorAll(".sc-menu-separator")).toHaveLength(1);
-      menu.unmount();
-    }
     editor.destroy();
   });
 

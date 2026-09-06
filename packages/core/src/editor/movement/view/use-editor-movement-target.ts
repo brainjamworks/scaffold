@@ -2,7 +2,6 @@ import type { Editor } from "@tiptap/core";
 import { useEffect, useState } from "react";
 
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
-import { readContentLayoutMovementState } from "@/editor/content-layout/view/content-layout-projection-dom";
 import { resolveAuthoringFrameElement } from "@/editor/interactions/dom/authoring-frame";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { getInteractionFacadeStoreForEditor } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-storage";
@@ -97,8 +96,6 @@ function resolveStructuralMovementTargetAtPos(
 
   const dom = editor.view.nodeDOM(context.pos);
   if (!(dom instanceof Element)) return null;
-  if (readContentLayoutMovementState(dom).kind === "unavailable") return null;
-
   const id = context.node.attrs["id"];
   const element =
     (typeof id === "string" && id.trim()

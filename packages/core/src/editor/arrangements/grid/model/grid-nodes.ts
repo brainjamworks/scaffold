@@ -6,7 +6,6 @@ import {
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
 import { CELL_NODE_TYPE, GRID_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
-import { contentLayoutAttribute } from "@/editor/content-layout/model/content-layout-attribute";
 import { boundedPlacementAttributes } from "@/editor/frame/model/bounded-placement";
 import { isGridCellEmpty, isGridCellVerticalPosition } from "./grid-model";
 
@@ -82,7 +81,6 @@ export function createCellNode(options: CellNodeOptions = {}) {
 
     addAttributes() {
       return {
-        ...contentLayoutAttribute,
         verticalPosition: {
           default: "top",
           parseHTML: (element: HTMLElement) =>

@@ -1,9 +1,7 @@
 import { CopyIcon as Copy, GearSixIcon as Gear, TrashIcon as Trash } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/react";
-import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
-import { ContentLayoutBubbleControls } from "@/editor/content-layout/authoring/ContentLayoutBubbleControls";
 import { ConfigurationMenuControls } from "@/editor/shell/bubbles/interaction/menu-controls/ConfigurationMenuControls";
 import {
   MenuIconButton,
@@ -66,9 +64,6 @@ export function LayoutMenuBubbleContent({
   const settingsOwnerTarget = useInteractionSnapshot().owners.settingsOwner.target;
   if (!snapshot) return null;
 
-  const sectionId =
-    snapshot.kind === "section" ? EmbeddedNodeIdSchema.safeParse(snapshot.sectionId) : null;
-
   const quickMenu =
     snapshot.kind === "layout"
       ? snapshot.layoutDefinition?.quickMenu
@@ -106,12 +101,6 @@ export function LayoutMenuBubbleContent({
   );
   return (
     <>
-      {sectionId?.success ? (
-        <>
-          <ContentLayoutBubbleControls containerId={sectionId.data} editor={editor} />
-          <MenuSeparator />
-        </>
-      ) : null}
       <MenuIconButton icon={Copy} label={duplicateLabel} onClick={duplicateTarget} />
       <MenuIconButton destructive icon={Trash} label={deleteLabel} onClick={deleteTarget} />
       {hasDefinitionControls ? <MenuSeparator /> : null}

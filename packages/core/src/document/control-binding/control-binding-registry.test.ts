@@ -764,7 +764,6 @@ function semanticItem(
     label: nodeType,
     summary: null,
     presentation: Object.freeze({ actionIds: Object.freeze([]), disabledReason: null }),
-    presentationContainer: null,
     children: Object.freeze(children),
   });
 }

@@ -161,7 +161,6 @@ function semanticItem(id: typeof SURFACE_ID, kind: DocumentTreeItem["kind"]): Do
     label: id,
     summary: null,
     presentation: { actionIds: [], disabledReason: null },
-    presentationContainer: null,
     children: [],
   };
 }

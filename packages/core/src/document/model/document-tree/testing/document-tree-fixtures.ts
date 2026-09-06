@@ -1,9 +1,4 @@
-import {
-  EmbeddedNodeIdSchema,
-  PresentationContentLayout,
-  PresentationContentLayoutSchema,
-  type EmbeddedNodeId,
-} from "@scaffold/contracts";
+import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { Schema, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import {
@@ -39,7 +34,6 @@ const schema = new Schema({
       attrs: {
         id: { default: null },
         role: { default: "main" },
-        contentLayout: contentLayoutAttr(),
       },
     },
     layout: {
@@ -52,7 +46,6 @@ const schema = new Schema({
       attrs: {
         id: { default: null },
         label: { default: null },
-        contentLayout: contentLayoutAttr(),
       },
     },
     grid: {
@@ -64,7 +57,7 @@ const schema = new Schema({
     cell: {
       content: "block+",
       selectable: false,
-      attrs: { id: { default: null }, contentLayout: contentLayoutAttr() },
+      attrs: { id: { default: null } },
     },
     owner_block: {
       group: "block",
@@ -134,13 +127,6 @@ const schema = new Schema({
     },
   },
 });
-
-function contentLayoutAttr() {
-  return {
-    default: PresentationContentLayout.Flow,
-    validate: (value: unknown) => PresentationContentLayoutSchema.parse(value),
-  };
-}
 
 export interface DocumentTreeFixtureCallbackCounts {
   layoutSection: number;

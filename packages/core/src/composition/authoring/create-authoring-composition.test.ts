@@ -24,11 +24,7 @@ import {
 } from "@/editor/arrangements/grid/authoring/grid-nodes";
 import { builtInBlockAuthoringBindings } from "@/editor/blocks/authoring-block-extensions";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import { resolveContentLayoutStructuralActivationPlacement } from "@/editor/content-layout/authoring/content-layout-structural-activation-placement";
-import * as interactionOwnerExtension from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
-import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
-import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
@@ -53,7 +49,6 @@ const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 const AUTHORING_ONLY_EXTENSION_NAMES = [
   "semanticDocumentController",
-  "contentLayoutAuthoring",
   "scaffoldInteractionOwner",
   "scaffoldStructuralClipboardPolicy",
   "placeholder",
@@ -683,59 +678,9 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       .filter((name): name is string => typeof name === "string");
 
     expect(authoringExtensionNames).not.toContain("studentGuard");
-
     for (const authoringOnlyName of AUTHORING_ONLY_EXTENSION_NAMES) {
       expect(authoringExtensionNames).toContain(authoringOnlyName);
     }
-  });
-
-  it("installs the authoring coordinator after its projection dependencies without leaking to runtime", () => {
-    const authoringExtensionNames = createCourseDocumentAuthoringExtensions({
-      editable: true,
-      composition: coreAuthoringComposition,
-    })
-      .map((extension) => extension.name)
-      .filter((name): name is string => typeof name === "string");
-    const semanticIndex = authoringExtensionNames.indexOf("semanticDocumentController");
-    const projectionIndex = authoringExtensionNames.indexOf("contentLayoutProjection");
-    const authoringIndex = authoringExtensionNames.indexOf("contentLayoutAuthoring");
-
-    expect(semanticIndex).toBeGreaterThanOrEqual(0);
-    expect(projectionIndex).toBe(semanticIndex + 1);
-    expect(authoringIndex).toBe(projectionIndex + 1);
-
-    const runtimeExtensionNames = createCourseDocumentRuntimeExtensions({
-      composition: createCoreScaffoldRuntimeComposition(),
-    })
-      .map((extension) => extension.name)
-      .filter((name): name is string => typeof name === "string");
-
-    expect(runtimeExtensionNames).toContain("contentLayoutProjection");
-    expect(runtimeExtensionNames).not.toContain("semanticDocumentController");
-    expect(runtimeExtensionNames).not.toContain("contentLayoutAuthoring");
-  });
-
-  it("injects one Content Layout structural placement adapter at authoring composition only", () => {
-    const createInteractionOwner = vi.spyOn(
-      interactionOwnerExtension,
-      "createScaffoldInteractionOwnerExtension",
-    );
-
-    createCourseDocumentAuthoringExtensions({
-      editable: true,
-      composition: coreAuthoringComposition,
-    });
-    createCourseDocumentRuntimeExtensions({
-      composition: createCoreScaffoldRuntimeComposition(),
-    });
-
-    expect(createInteractionOwner).toHaveBeenCalledOnce();
-    expect(createInteractionOwner).toHaveBeenCalledWith(
-      coreAuthoringComposition.capabilities.blocks.registry,
-      {
-        resolveStructuralActivationPlacement: resolveContentLayoutStructuralActivationPlacement,
-      },
-    );
   });
 
   it("keeps the owner extension store editor-owned", () => {

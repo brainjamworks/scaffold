@@ -24,7 +24,6 @@ import {
   createUnavailableContentAuthoringExtensions,
 } from "@/document/authoring/unavailable-content";
 import { createDocumentAuthoringExtension } from "@/document/authoring/document-authoring-extension";
-import { resolveContentLayoutStructuralActivationPlacement } from "@/editor/content-layout/authoring/content-layout-structural-activation-placement";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
@@ -49,8 +48,6 @@ import { SurfaceMultipleChoiceQuestionNode } from "@/editor/surfaces/model/asses
 import { SurfaceMultiselectQuestionNode } from "@/editor/surfaces/model/assessment/surface-multiselect-question-node";
 import { SurfaceQuizNode } from "@/editor/surfaces/model/assessment/surface-quiz-node";
 import { SurfaceSequencingQuestionNode } from "@/editor/surfaces/model/assessment/surface-sequencing-question-node";
-import { ContentLayoutAuthoringExtension } from "@/editor/content-layout/prosemirror/content-layout-authoring-extension";
-import { ContentLayoutProjectionExtension } from "@/editor/content-layout/prosemirror/content-layout-projection-extension";
 import "@/editor/surfaces/authoring/AuthoringSlideDividers.css";
 import "@/editor/rich-text/view/text-alignment.css";
 
@@ -182,8 +179,6 @@ export function createCourseDocumentAuthoringExtensions({
   return [
     createScaffoldCapabilitiesStorageExtension(composition.capabilities),
     createDocumentAuthoringExtension(composition.documentTree),
-    ContentLayoutProjectionExtension,
-    ContentLayoutAuthoringExtension,
     createScaffoldAuthoringCataloguesStorageExtension(composition.catalogues),
     createCourseStructureCommandsExtension(),
     ...baseExtensions,
@@ -199,9 +194,7 @@ export function createCourseDocumentAuthoringExtensions({
     SurfaceDragDropQuestionNode,
     SurfaceFillBlanksQuestionNode,
     SurfaceQuizNode,
-    createScaffoldInteractionOwnerExtension(blockRegistry, {
-      resolveStructuralActivationPlacement: resolveContentLayoutStructuralActivationPlacement,
-    }),
+    createScaffoldInteractionOwnerExtension(blockRegistry),
     createStructuralClipboardPolicy({
       blockDefinitions: blockRegistry,
       identityRewrites: composition.capabilities.contentIdentity.rewrites,

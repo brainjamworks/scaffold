@@ -42,11 +42,7 @@ describe("Course Outline Surface drop targets", () => {
   });
 
   it("emits explicit destinations for adjacent and trailing empty Course Sections", () => {
-    const roots = [
-      section("one", [surface("a")]),
-      section("two", []),
-      section("three", []),
-    ];
+    const roots = [section("one", [surface("a")]), section("two", []), section("three", [])];
 
     expect(deriveCourseOutlineSurfaceDropTargets(roots, id("a"))).toEqual(
       expect.arrayContaining([
@@ -88,7 +84,6 @@ function item(
     label: value,
     summary: null,
     presentation: { actionIds: [], disabledReason: null },
-    presentationContainer: null,
     children,
   };
 }

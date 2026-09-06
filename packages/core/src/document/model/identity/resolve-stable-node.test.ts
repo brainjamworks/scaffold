@@ -4,7 +4,7 @@ import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { resolveStableNode, resolveStableNodeById } from "./resolve-stable-node";
+import { resolveStableNode } from "./resolve-stable-node";
 
 const StableTarget = Node.create({
   name: "stable_target",
@@ -105,33 +105,6 @@ describe("resolveStableNode", () => {
     editor.view.dispatch(editor.state.tr.insert(0, paragraph));
 
     expect(resolveReadyPosition(editor, identity)).toBe(paragraph.nodeSize);
-  });
-});
-
-describe("resolveStableNodeById", () => {
-  it("resolves one node without requiring an expected type", () => {
-    const editor = makeEditor([otherTarget("target-a")]);
-
-    const result = resolveStableNodeById(editor.state.doc, "target-a");
-
-    expect(result.status).toBe("ready");
-    if (result.status !== "ready") throw new Error("Expected a ready resolution");
-    expect(result.node.type.name).toBe("other_target");
-    expect(result.pos).toBe(0);
-  });
-
-  it("reports a missing stable id", () => {
-    const editor = makeEditor([stableTarget("target-a")]);
-
-    expect(resolveStableNodeById(editor.state.doc, "missing")).toEqual({ status: "missing" });
-  });
-
-  it("reports a duplicate stable id", () => {
-    const editor = makeEditor([stableTarget("target-a"), otherTarget("target-a")]);
-
-    expect(resolveStableNodeById(editor.state.doc, "target-a")).toEqual({
-      status: "duplicate",
-    });
   });
 });
 

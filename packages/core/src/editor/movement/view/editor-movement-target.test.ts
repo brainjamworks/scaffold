@@ -10,11 +10,6 @@ import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { resolveBlockChromeTargetDescriptor as resolveBlockChromeTargetDescriptorWithLookup } from "@/editor/interactions/targets/prosemirror/projection/block-chrome-target-projection";
 import {
-  CONTENT_LAYOUT_PROJECTION_DOM_ATTRS,
-  readContentLayoutMovementState,
-} from "@/editor/content-layout/view/content-layout-projection-dom";
-
-import {
   resolveV2MovementTargetFromDescriptor as resolveV2MovementTargetFromDescriptorWithLookup,
   resolveV2MovementTargetFromRef as resolveV2MovementTargetFromRefWithLookup,
 } from "./editor-movement-target";
@@ -162,25 +157,6 @@ describe("resolveV2MovementTargetFromDescriptor", () => {
       .querySelector('[data-authoring-frame="block"][data-id="block-a"]')
       ?.removeAttribute("data-authoring-frame");
 
-    expect(resolveV2MovementTargetFromDescriptor(editor, descriptor)).toBeNull();
-    editor.destroy();
-  });
-
-  it("declines an exact shared-position owner with its structured unavailable reason", () => {
-    const editor = makeEditor();
-    const descriptor = resolveBlockChromeTargetDescriptor(editor.state, {
-      id: "block-a",
-      kind: InteractionTargetKind.Block,
-    });
-    if (!descriptor) throw new Error("missing descriptor");
-    const dom = editor.view.nodeDOM(descriptor.pos);
-    if (!(dom instanceof Element)) throw new Error("missing block DOM");
-    dom.setAttribute(CONTENT_LAYOUT_PROJECTION_DOM_ATTRS.geometry, "shared-position");
-
-    expect(readContentLayoutMovementState(dom)).toEqual({
-      kind: "unavailable",
-      reason: "sequence-shared-position",
-    });
     expect(resolveV2MovementTargetFromDescriptor(editor, descriptor)).toBeNull();
     editor.destroy();
   });

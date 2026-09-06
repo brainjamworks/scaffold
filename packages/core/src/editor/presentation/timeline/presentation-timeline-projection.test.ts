@@ -388,7 +388,6 @@ function semanticItem(
         : {}),
       disabledReason: null,
     },
-    presentationContainer: null,
     children: input.children ?? [],
   };
 }

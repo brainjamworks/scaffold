@@ -4,13 +4,12 @@ import { PluginKey, Transaction } from "@tiptap/pm/state";
 export type EditorSelectionOrigin =
   | "editor"
   | "component"
-  | "content-layout"
   | "document-outline"
   | "presentation-timeline";
 
 export interface EditorSelectionTransactionMeta {
   readonly intendedId: EmbeddedNodeId;
-  readonly origin: "editor" | "content-layout" | "document-outline" | "presentation-timeline";
+  readonly origin: "editor" | "document-outline" | "presentation-timeline";
 }
 
 const editorSelectionTransactionKey = new PluginKey<EditorSelectionTransactionMeta>(

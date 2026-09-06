@@ -1,5 +1,4 @@
 import { CircleIcon } from "@phosphor-icons/react";
-import { PresentationContentLayout } from "@scaffold/contracts";
 import { Schema, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { describe, expect, it } from "vite-plus/test";
@@ -7,7 +6,6 @@ import { describe, expect, it } from "vite-plus/test";
 import { createLayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
-import { CONTENT_LAYOUT_ATTR } from "@/editor/content-layout/model/content-layout-attribute";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 
 import type {
@@ -274,58 +272,6 @@ describe("structural fragment placement", () => {
     });
   });
 
-  it("allows adjacent placement beside an occupied Sequence Region", () => {
-    const doc = courseDoc("slideshow", [
-      surface("slide-open", [
-        {
-          type: "region",
-          attrs: {
-            id: IDS.region,
-            [CONTENT_LAYOUT_ATTR]: PresentationContentLayout.Sequence,
-          },
-          content: [{ type: "fill_block", attrs: { id: IDS.blockA } }],
-        },
-      ]),
-    ]);
-    const selection = NodeSelection.create(doc, findPosById(doc, IDS.blockA));
-    const fragment = validated("block", {
-      type: "fill_block",
-      attrs: { id: IDS.blockB },
-    });
-    const beforeDocument = doc.toJSON();
-
-    expect(
-      resolveStructuralFragmentPlacement({
-        fragment,
-        doc,
-        destination: { kind: "selection", selection },
-        capabilities,
-      }),
-    ).toEqual({
-      status: "ok",
-      placement: {
-        kind: "range",
-        range: { from: selection.to, to: selection.to },
-      },
-    });
-    expect(doc.toJSON()).toEqual(beforeDocument);
-  });
-
-  it("throws when an eligible bounded Region has an invalid contentLayout", () => {
-    const doc = courseDoc("slideshow", [
-      surface("slide-open", [
-        {
-          type: "region",
-          attrs: { id: IDS.region, [CONTENT_LAYOUT_ATTR]: "unsupported" },
-          content: [{ type: "fill_block", attrs: { id: IDS.blockA } }],
-        },
-      ]),
-    ]);
-    const selection = NodeSelection.create(doc, findPosById(doc, IDS.blockA));
-
-    expect(() => placeBlock(doc, selection)).toThrow();
-  });
-
   it("checks the actual source node type against the adjacent parent schema", () => {
     const doc = courseDoc("slideshow", [
       surface("slide-open", [
@@ -532,11 +478,7 @@ function createSchema(): Schema {
         attrs: { id, variant: { default: null }, settings: { default: {} } },
         content: "(block | arrangement)+",
       },
-      region: {
-        group: "arrangement",
-        attrs: { id, [CONTENT_LAYOUT_ATTR]: { default: PresentationContentLayout.Flow } },
-        content: "block+",
-      },
+      region: { group: "arrangement", attrs: { id }, content: "block+" },
       layout: {
         group: "block arrangement",
         attrs: { id, variant: { default: null }, options: { default: {} } },

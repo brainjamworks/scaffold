@@ -10,7 +10,6 @@ import {
 import type {
   DocumentTreeSnapshot,
   DocumentTreeItem,
-  DocumentItemPresentationContainer,
   DocumentItemPresentationCapability,
 } from "./document-tree-snapshot";
 
@@ -116,7 +115,6 @@ export function createDocumentTreeSnapshotBuilder(input: {
           ...record.item,
           label: finalLabelById.get(id)!,
           presentation: freezePresentation(record.item.presentation),
-          presentationContainer: freezePresentationContainer(record.item.presentationContainer),
           children,
         });
         itemById.set(id, item);
@@ -274,13 +272,6 @@ function freezePresentation(
       : {}),
     disabledReason: presentation.disabledReason,
   });
-}
-
-function freezePresentationContainer(
-  presentationContainer: DocumentItemPresentationContainer | null,
-): DocumentItemPresentationContainer | null {
-  if (presentationContainer === null) return null;
-  return Object.freeze({ ...presentationContainer });
 }
 
 function freezeLocation(location: DocumentItemLocation): DocumentItemLocation {

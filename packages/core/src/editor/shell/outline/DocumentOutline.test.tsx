@@ -578,7 +578,6 @@ function item(
     label,
     summary,
     presentation: { actionIds: [], disabledReason: null },
-    presentationContainer: null,
     children,
   };
 }

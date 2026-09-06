@@ -186,22 +186,15 @@ describe("compileLearnerInteractions", () => {
     expect(Object.isFrozen(rules?.[0]?.commands)).toBe(true);
   });
 
-  it.each(MAP_MUTATIONS)(
-    "prevents %s from mutating the compilation Surface lookup",
-    (mutation) => {
-      const { compilation, program } = compileSingleRule();
-      const entries = [...compilation.surfaceById];
-      const args =
-        mutation === "set"
-          ? [SECOND_SURFACE_ID, program]
-          : mutation === "delete"
-            ? [SURFACE_ID]
-            : [];
+  it.each(MAP_MUTATIONS)("prevents %s from mutating the compilation Surface lookup", (mutation) => {
+    const { compilation, program } = compileSingleRule();
+    const entries = [...compilation.surfaceById];
+    const args =
+      mutation === "set" ? [SECOND_SURFACE_ID, program] : mutation === "delete" ? [SURFACE_ID] : [];
 
-      expect(() => invokeMapMutation(compilation.surfaceById, mutation, args)).toThrow(TypeError);
-      expect([...compilation.surfaceById]).toEqual(entries);
-    },
-  );
+    expect(() => invokeMapMutation(compilation.surfaceById, mutation, args)).toThrow(TypeError);
+    expect([...compilation.surfaceById]).toEqual(entries);
+  });
 
   it.each(MAP_MUTATIONS)("prevents %s from mutating a Surface event lookup", (mutation) => {
     const { eventKey, program, rules } = compileSingleRule();
@@ -544,7 +537,6 @@ function semanticItem(
     label: id,
     summary: null,
     presentation: { actionIds: [], disabledReason: null },
-    presentationContainer: null,
     children: [],
   };
 }

@@ -2,7 +2,6 @@ import type { NodeViewRenderer } from "@tiptap/core";
 import { NodeViewContent, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
 
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
-import { ContentLayoutNodeViewContent } from "@/editor/content-layout/view/ContentLayoutNodeViewContent";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 
 import type { RegisteredLayoutDefinition } from "../model/layout-definition";
@@ -61,7 +60,6 @@ export function createSectionRuntimeNodeView(
     const variant = layoutOwner.definition?.id ?? layoutOwner.runtimeView?.id ?? "section";
     const viewProps: SectionRuntimeViewProps = {
       ...props,
-      ContentRoot: ContentLayoutNodeViewContent,
       layoutRuntimeView: layoutOwner.runtimeView,
       layoutNode: layoutOwner.node,
       isEmpty,
@@ -85,9 +83,9 @@ function DefaultLayoutRuntimeContent() {
   return <NodeViewContent className="sc-layout-runtime__content" />;
 }
 
-function DefaultSectionRuntimeContent(props: Pick<SectionRuntimeViewProps, "ContentRoot">) {
+function DefaultSectionRuntimeContent() {
   return (
-    <props.ContentRoot className="sc-layout-section__content sc-layout-section-runtime__content" />
+    <NodeViewContent className="sc-layout-section__content sc-layout-section-runtime__content" />
   );
 }
 

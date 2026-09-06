@@ -1,8 +1,4 @@
-import type {
-  EmbeddedNodeId,
-  PresentationContentLayout,
-  PresentationVisualCapabilityId,
-} from "@scaffold/contracts";
+import type { EmbeddedNodeId, PresentationVisualCapabilityId } from "@scaffold/contracts";
 
 import type { DocumentItemLocation } from "./document-item-location";
 import type { DocumentTreeBuildDiagnostic } from "./document-tree-build-diagnostic";
@@ -25,10 +21,6 @@ export interface DocumentItemPresentationCapability {
   readonly disabledReason: string | null;
 }
 
-export interface DocumentItemPresentationContainer {
-  readonly contentLayout: PresentationContentLayout;
-}
-
 export interface DocumentTreeItem {
   readonly id: EmbeddedNodeId;
   readonly kind: DocumentTreeItemKind;
@@ -37,7 +29,6 @@ export interface DocumentTreeItem {
   readonly label: string;
   readonly summary: string | null;
   readonly presentation: DocumentItemPresentationCapability;
-  readonly presentationContainer: DocumentItemPresentationContainer | null;
   readonly children: readonly DocumentTreeItem[];
 }
 

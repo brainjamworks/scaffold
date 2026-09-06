@@ -580,7 +580,6 @@ function presentationPreviewDocument(surfaceId: EmbeddedNodeId): {
     label: "Preview slide",
     summary: null,
     presentation: { actionIds: [], disabledReason: null },
-    presentationContainer: null,
     children: [],
   };
   const semantics = {

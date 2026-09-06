@@ -16,7 +16,6 @@ import {
 } from "@/document/model/content-model/content-groups";
 import { BoundedScrollHint } from "@/editor/bounded-containers/view/bounded-scroll";
 import "@/editor/bounded-containers/view/bounded-container.css";
-import { ContentLayoutNodeViewContent } from "@/editor/content-layout/view/ContentLayoutNodeViewContent";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 
@@ -182,7 +181,7 @@ function AccordionSectionPanelView(props: NodeViewProps) {
       className="sc-course-accordion__panel"
     >
       <div data-bounded-scroll-frame="">
-        <ContentLayoutNodeViewContent
+        <NodeViewContent
           data-bounded-scroll=""
           className="sc-layout-section__content sc-course-accordion__panel-content"
         />

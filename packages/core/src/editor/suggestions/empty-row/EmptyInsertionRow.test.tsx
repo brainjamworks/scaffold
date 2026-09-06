@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 
 import { CircleIcon } from "@phosphor-icons/react";
-import { PresentationContentLayout } from "@scaffold/contracts";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -17,9 +16,7 @@ import {
 } from "@/composition/application/create-scaffold-application";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
-import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import { CONTENT_LAYOUT_ATTR } from "@/editor/content-layout/model/content-layout-attribute";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { createInteractionOwnerCommandPorts } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-command-ports";
@@ -1164,103 +1161,7 @@ describe("EmptyInsertionRow", () => {
 
     editor.destroy();
   });
-
-  it("keeps insertion available after a Sequence fill occupant", async () => {
-    const flowEditor = makeEditor(
-      boundedCellWithFillDocument(PresentationContentLayout.Flow),
-      false,
-    );
-    const sequenceEditor = makeEditor(
-      boundedCellWithFillDocument(PresentationContentLayout.Sequence),
-      false,
-    );
-    renderEditorContent(flowEditor);
-    renderEditorContent(sequenceEditor);
-
-    const flowCellElement = await waitFor(() =>
-      nodeElement(flowEditor, nodePos(flowEditor, "cell")),
-    );
-    const flowLayoutElement = nodeElement(flowEditor, nodePos(flowEditor, "layout"));
-    const sequenceCellElement = nodeElement(sequenceEditor, nodePos(sequenceEditor, "cell"));
-    const sequenceLayoutElement = nodeElement(sequenceEditor, nodePos(sequenceEditor, "layout"));
-    stubRect(flowCellElement, { bottom: 420, left: 0, right: 420, top: 0 });
-    stubRect(flowLayoutElement, { bottom: 140, left: 16, right: 404, top: 16 });
-    stubRect(sequenceCellElement, { bottom: 420, left: 0, right: 420, top: 0 });
-    stubRect(sequenceLayoutElement, { bottom: 140, left: 16, right: 404, top: 16 });
-
-    fireEvent.mouseDown(flowCellElement, {
-      button: 0,
-      clientX: 80,
-      clientY: 260,
-    });
-    fireEvent.mouseDown(sequenceCellElement, {
-      button: 0,
-      clientX: 80,
-      clientY: 260,
-    });
-
-    expect(firstCellContentTypes(flowEditor)).toEqual(["layout"]);
-    expect(resolveEmptyInsertionTarget(flowEditor.state)?.parentType).not.toBe("cell");
-    expect(firstCellContentTypes(sequenceEditor)).toEqual(["layout", "paragraph"]);
-    expect(resolveEmptyInsertionTarget(sequenceEditor.state)).toMatchObject({
-      parentType: "cell",
-    });
-    await waitFor(() => {
-      expect(document.body.querySelector("[data-empty-insertion-row]")).not.toBeNull();
-    });
-
-    flowEditor.destroy();
-    sequenceEditor.destroy();
-  });
 });
-
-function boundedCellWithFillDocument(contentLayout: PresentationContentLayout): JSONContent {
-  return {
-    type: "doc",
-    content: [
-      {
-        type: "courseDocument",
-        content: [
-          {
-            type: "surface",
-            attrs: { id: createEmbeddedNodeId(), variant: "page-default" },
-            content: [
-              {
-                type: "region",
-                attrs: { id: createEmbeddedNodeId(), role: "main" },
-                content: [
-                  {
-                    type: "grid",
-                    attrs: { id: createEmbeddedNodeId() },
-                    content: [
-                      {
-                        type: "cell",
-                        attrs: { id: createEmbeddedNodeId(), [CONTENT_LAYOUT_ATTR]: contentLayout },
-                        content: [
-                          {
-                            type: "layout",
-                            attrs: { id: createEmbeddedNodeId(), variant: "tabs" },
-                            content: [
-                              {
-                                type: "section",
-                                attrs: { id: createEmbeddedNodeId(), role: "tab-panel" },
-                                content: [{ type: "paragraph" }],
-                              },
-                            ],
-                          },
-                        ],
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  };
-}
 
 function hostPlacementBlockCapability(
   nodeType: string,

@@ -1,4 +1,5 @@
 import {
+  NodeViewContent,
   NodeViewWrapper,
   ReactNodeViewRenderer,
   useEditorState,
@@ -7,7 +8,6 @@ import {
 
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
-import { ContentLayoutNodeViewContent } from "@/editor/content-layout/view/ContentLayoutNodeViewContent";
 import {
   authoringChromeActiveAttributes,
   structuralAuthoringFrameAttributes,
@@ -70,7 +70,7 @@ function RegionAuthoringNodeView(props: NodeViewProps) {
       )}
     >
       <div data-bounded-scroll-frame="">
-        <ContentLayoutNodeViewContent data-bounded-scroll="" className="sc-region__content" />
+        <NodeViewContent data-bounded-scroll="" className="sc-region__content" />
         <BoundedScrollHint editable />
       </div>
     </NodeViewWrapper>

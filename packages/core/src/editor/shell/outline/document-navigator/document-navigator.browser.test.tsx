@@ -96,7 +96,6 @@ function item(
     label,
     summary: null,
     presentation: { actionIds: [], disabledReason: null },
-    presentationContainer: null,
     children,
   };
 }

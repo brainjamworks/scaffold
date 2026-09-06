@@ -177,7 +177,7 @@ export function TabsSectionRuntimeView(props: SectionRuntimeViewProps) {
       className="sc-course-tabs__panel"
     >
       <div data-bounded-scroll-frame="">
-        <props.ContentRoot
+        <NodeViewContent
           data-bounded-scroll=""
           className="sc-layout-section__content sc-course-tabs__panel-content"
         />

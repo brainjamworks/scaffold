@@ -1,7 +1,6 @@
 import {
   EmbeddedDataIdSchema,
   EmbeddedNodeIdSchema,
-  PresentationContentLayout,
   type PresentationConfigurationV1,
 } from "@scaffold/contracts";
 import { describe, expect, it } from "vite-plus/test";
@@ -429,12 +428,10 @@ describe("compilePresentation", () => {
       [SURFACE_ID, null],
       [SECOND_SURFACE_ID, second.transition],
     ]);
-    expect(reordered.surfaces.map(({ surfaceId, transition }) => [surfaceId, transition])).toEqual(
-      [
-        [SECOND_SURFACE_ID, second.transition],
-        [SURFACE_ID, null],
-      ],
-    );
+    expect(reordered.surfaces.map(({ surfaceId, transition }) => [surfaceId, transition])).toEqual([
+      [SECOND_SURFACE_ID, second.transition],
+      [SURFACE_ID, null],
+    ]);
     expect(reordered.surfaceById.get(SECOND_SURFACE_ID)?.transition).toEqual(second.transition);
   });
 
@@ -471,31 +468,6 @@ describe("compilePresentation", () => {
       program.surfaces[0]?.visualProgram.targetById.get(SECOND_TARGET_ID)?.initialVisibility,
     ).toBe("withheld");
   });
-
-  it.each([PresentationContentLayout.Flow, PresentationContentLayout.Sequence] as const)(
-    "does not compile legacy %s membership or restrict independent target timing",
-    (contentLayout) => {
-      const program = compileOk({
-        configuration: presentationConfiguration([
-          reveal("action000001", 1_000, 1_000),
-          hide("action000002", SECOND_TARGET_ID, 1_500, 1_000),
-        ]),
-        courseStructure: courseStructure(),
-        semanticSnapshot: semanticSnapshot({ contentLayout }),
-      });
-      const visualProgram = program.surfaces[0]!.visualProgram;
-
-      expect(visualProgram.segments.map(({ id }) => id)).toEqual(["action000001", "action000002"]);
-      expect(visualProgram.targetById.get(TARGET_ID)).toEqual({
-        targetId: TARGET_ID,
-        initialVisibility: "withheld",
-      });
-      expect(visualProgram.targetById.get(SECOND_TARGET_ID)).toEqual({
-        targetId: SECOND_TARGET_ID,
-        initialVisibility: "visible",
-      });
-    },
-  );
 });
 
 function compileReport(input: CompilePresentationInput) {
@@ -666,22 +638,11 @@ function semanticSnapshot(
   options: {
     readonly targetSurfaceId?: ReturnType<typeof EmbeddedNodeIdSchema.parse>;
     readonly ownerlessTarget?: boolean;
-    readonly contentLayout?: PresentationContentLayout;
   } = {},
 ): DocumentTreeSnapshot {
   const target = semanticItem(TARGET_ID, "exposed-child", []);
   const secondTarget = semanticItem(SECOND_TARGET_ID, "exposed-child", []);
-  const owners = [semanticItem(OWNER_ID, "block", [target, secondTarget])].map((owner) =>
-    Object.freeze({
-      ...owner,
-      presentationContainer:
-        options.contentLayout === undefined
-          ? null
-          : Object.freeze({
-              contentLayout: options.contentLayout,
-            }),
-    }),
-  );
+  const owners = [semanticItem(OWNER_ID, "block", [target, secondTarget])];
   const owner = owners[0]!;
   const secondOwner = owner;
   const surfaceWithOwner = Object.freeze(
@@ -744,12 +705,10 @@ function semanticItem(
     label: id,
     summary: null,
     presentation: {
-      actionIds:
-        id === TARGET_ID || id === SECOND_TARGET_ID ? ["reveal", "hide", "emphasize"] : [],
+      actionIds: id === TARGET_ID || id === SECOND_TARGET_ID ? ["reveal", "hide", "emphasize"] : [],
       ...(id === TARGET_ID ? { reconstructableCommandTypes: ["select-tab"] } : {}),
       disabledReason: null,
     },
-    presentationContainer: null,
     children,
   };
 }

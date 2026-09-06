@@ -121,10 +121,7 @@ export function createInteractionsFixtureContent(): JSONContent {
   });
   const region = content.content?.find((child) => child.type === "region");
   if (!region) throw new Error("Expected a main region in the content slide template.");
-  region.content = [
-    ...(region.content ?? []),
-    withFixtureNodeIds(createTabsContent({ tabs: 2 })),
-  ];
+  region.content = [...(region.content ?? []), withFixtureNodeIds(createTabsContent({ tabs: 2 }))];
   assignMissingNodeIds(cover);
   assignMissingNodeIds(content);
 
@@ -234,7 +231,6 @@ function toDocumentTreeItem(node: FixtureSemanticNode): DocumentTreeItem {
     label: node.label,
     summary: null,
     presentation: Object.freeze({ actionIds: Object.freeze([]), disabledReason: null }),
-    presentationContainer: null,
     children: Object.freeze([]),
   });
 }
@@ -274,9 +270,7 @@ function createFixtureControlCapabilities(sectionIds: ReadonlySet<EmbeddedNodeId
       );
       return command
         ? Result.ok({ targetId, ownerId: target.value.ownerId, command })
-        : Result.err(
-            Object.freeze({ reason: "command-not-declared" as const, targetId, type }),
-          );
+        : Result.err(Object.freeze({ reason: "command-not-declared" as const, targetId, type }));
     },
     requireOwnedTargetCapabilities(ownerId: EmbeddedNodeId, targetId: EmbeddedNodeId) {
       if (ownerId === INTERACTIONS_FIXTURE_IDS.tabsLayout && sectionIds.has(targetId)) {
@@ -329,9 +323,8 @@ export function projectInteractionsFixture(content: unknown): ProjectedInteracti
     INTERACTIONS_FIXTURE_IDS.tabOne,
     INTERACTIONS_FIXTURE_IDS.tabTwo,
   ]);
-  const configuration = (parsed.content?.[0]?.attrs?.["learnerInteractions"] ?? null) as
-    | LearnerInteractionConfigurationV1
-    | null;
+  const configuration = (parsed.content?.[0]?.attrs?.["learnerInteractions"] ??
+    null) as LearnerInteractionConfigurationV1 | null;
   const projection = projectLearnerInteractionAuthoring({
     configuration: configuration ?? null,
     surfaceId,

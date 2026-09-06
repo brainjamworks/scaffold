@@ -3,7 +3,6 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { ReactNodeViewRenderer, useEditorState, type NodeViewProps } from "@tiptap/react";
 
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
-import { ContentLayoutNodeViewContent } from "@/editor/content-layout/view/ContentLayoutNodeViewContent";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { cn } from "@/lib/cn";
@@ -77,7 +76,6 @@ export function createSectionAuthoringNodeView(
     const View = view?.section ?? DefaultSectionContent;
     const viewProps: SectionComponentProps = {
       ...props,
-      ContentRoot: ContentLayoutNodeViewContent,
       blockDefinitions,
       layoutDefinition: layoutOwner.definition,
       layoutNode: layoutOwner.node,

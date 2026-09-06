@@ -1,9 +1,4 @@
-import {
-  EmbeddedNodeIdSchema,
-  PresentationContentLayout,
-  PresentationContentLayoutSchema,
-  type EmbeddedNodeId,
-} from "@scaffold/contracts";
+import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { Schema, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -40,10 +35,6 @@ const schema = new Schema({
       attrs: {
         id: { default: null },
         role: { default: "main" },
-        contentLayout: {
-          default: PresentationContentLayout.Flow,
-          validate: (value: unknown) => PresentationContentLayoutSchema.parse(value),
-        },
       },
     },
     heading: {
@@ -286,9 +277,7 @@ function project(doc: ProseMirrorNode) {
           ? {
               id: definition.id,
               title: definition.title,
-              ...(definition.documentTree
-                ? { documentTree: definition.documentTree }
-                : {}),
+              ...(definition.documentTree ? { documentTree: definition.documentTree } : {}),
             }
           : undefined;
       },
