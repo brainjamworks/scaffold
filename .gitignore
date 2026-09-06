@@ -30,6 +30,14 @@ coverage/
 tmp/
 scratch/
 screenshots/
+/09-after-set.png
+/10-authoring-img.png
+/authoring-dragdrop.png
+/authoring-fresh-build.png
+/dragdrop-fixed.png
+/hotspot-slide-live.png
+/preview-atlas-dragdrop.png
+/preview-flow-dragdrop.png
 playwright-report/
 test-results/
 
