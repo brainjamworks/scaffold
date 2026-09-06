@@ -32,5 +32,15 @@ export {
   type ProjectedSlideshowCourseSurface,
   type ProjectedSlideshowCourseStructure,
 } from "@/document/model/course-structure/course-structure-projection";
+export {
+  INTERACTIONS_FIXTURE_ARTIFACT_ID,
+  INTERACTIONS_FIXTURE_IDS,
+  createInteractionsFixtureArtifact,
+  createInteractionsFixtureContent,
+  projectInteractionsFixture,
+  type InteractionsFixtureArtifact,
+  type InteractionsFixtureIds,
+  type ProjectedInteractionsFixture,
+} from "@/editor/learner-interaction/workspace/interactions-fixture";
 export type { CourseSectionId, SurfaceId } from "@/document/model/course-structure/types";
 export { readCourseDocumentFormatVersion } from "@/document/model/validation";

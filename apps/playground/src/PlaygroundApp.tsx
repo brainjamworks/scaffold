@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { ScaffoldAuthoringEntry } from "@scaffold/core/authoring";
 import { createScaffoldApplication } from "@scaffold/core/extensions";
+import {
+  INTERACTIONS_FIXTURE_ARTIFACT_ID,
+  createInteractionsFixtureArtifact,
+} from "@scaffold/core/format";
 import type { ScaffoldAuthoringArtifact } from "@scaffold/core/ports";
 
 import { browserMediaPort } from "./ports/browserMediaPort";
@@ -78,9 +82,23 @@ export function PlaygroundApp({
 
     void browserPersistencePort
       .loadArtifact(artifactId)
-      .then((persisted) => {
+      .then(async (persisted) => {
         if (cancelled) return;
-        setArtifact(persisted?.artifact ?? null);
+        if (persisted?.artifact) {
+          setArtifact(persisted.artifact);
+          return;
+        }
+        if (artifactId === INTERACTIONS_FIXTURE_ARTIFACT_ID) {
+          const seed = createInteractionsFixtureArtifact();
+          const saved = await browserPersistencePort.saveArtifact({ artifact: seed });
+          if (saved.isErr()) {
+            setArtifact(null);
+            return;
+          }
+          if (!cancelled) setArtifact(seed);
+          return;
+        }
+        setArtifact(null);
       })
       .catch(() => {
         if (cancelled) return;

@@ -6,7 +6,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { createScaffoldDocumentContent } from "@scaffold/core/format";
-import type { ArtifactSavePayload } from "@scaffold/core/ports";
+import { artifactSaveSucceeded, type ArtifactPersistencePort } from "@scaffold/core/ports";
 import type { StoredArtifact } from "./ports/browserStorageDb";
 
 interface BrowserPreviewProjection {
@@ -25,9 +25,7 @@ const mocks = vi.hoisted(() => {
     previewProjectionReaders: [] as Array<() => unknown>,
     previewAssessmentPorts: [] as Array<{ type: string; projectionIndex: number }>,
     requestPersistentStorage: vi.fn(async () => false),
-    saveArtifact: vi.fn(async (_payload: ArtifactSavePayload) => ({
-      artifactRevision: "revision-1",
-    })),
+    saveArtifact: vi.fn<ArtifactPersistencePort["saveArtifact"]>(),
     learnerPublicationPort: {
       getStatus: vi.fn(),
       publish: vi.fn(),
@@ -119,7 +117,9 @@ vi.mock("@scaffold/core/authoring", async () => {
         typeof props["hostHeaderActions"] === "function"
           ? props["hostHeaderActions"]({
               preview,
-              saveNow: async () => true,
+              saveNow: async () => {
+                throw new Error("unused test Save action");
+              },
               saveState: "idle",
               title,
             })
@@ -223,6 +223,7 @@ vi.mock("./ports/browserStorageDb", () => ({
 import { PlaygroundApp } from "./PlaygroundApp";
 
 beforeEach(() => {
+  mocks.saveArtifact.mockResolvedValue(artifactSaveSucceeded({ artifactRevision: "revision-1" }));
   mocks.learnerPreviewContent = createLearnerPreviewContent();
 });
 
@@ -395,7 +396,14 @@ describe("PlaygroundApp preview boundary", () => {
     expect(hostHeaderActions).toBeTypeOf("function");
     const slots = (
       hostHeaderActions as (context: Record<string, unknown>) => Record<string, unknown>
-    )({ preview: false, saveNow: async () => true, saveState: "idle", title: "Stored draft" });
+    )({
+      preview: false,
+      saveNow: async () => {
+        throw new Error("unused test Save action");
+      },
+      saveState: "idle",
+      title: "Stored draft",
+    });
     expect(Object.keys(slots)).toEqual(["utility"]);
     expect(slots["utility"]).toBeDefined();
     expect(slots["beforePublish"]).toBeUndefined();
