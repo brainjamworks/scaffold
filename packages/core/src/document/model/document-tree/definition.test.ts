@@ -127,7 +127,10 @@ describe("document tree definition contracts", () => {
     const layout = Object.freeze({
       id: "host-layout",
       title: "Host layout",
-      section: Object.freeze({ label: "Panel" }),
+      section: Object.freeze({
+        label: "Panel",
+        compositionSlot: Object.freeze({ kind: "direct" as const }),
+      }),
     }) satisfies DocumentTreeLayoutDefinition;
     const surface = Object.freeze({
       id: "host-surface",

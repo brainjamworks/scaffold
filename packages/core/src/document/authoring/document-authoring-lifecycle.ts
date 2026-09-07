@@ -63,6 +63,7 @@ export function createDocumentAuthoringLifecycle(
     getDocumentTree: documentTree.getSnapshot,
     getCourseStructure: documentTree.getCourseStructure,
     targetInteractions: targetInteractionOwner.environment.coordinator,
+    layerActivationRegistry: targetInteractionOwner.environment.registry,
     onEnvironmentChanged: (environment) => {
       navigationEnvironment = environment;
     },

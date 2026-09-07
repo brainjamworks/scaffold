@@ -236,6 +236,9 @@ function isActivationRelationship(value: unknown): value is DocumentItemActivati
     EmbeddedNodeIdSchema.safeParse(relationship.childId).success &&
     (relationship.ownerKind === "surface" ||
       relationship.ownerKind === "layout" ||
+      relationship.ownerKind === "region" ||
+      relationship.ownerKind === "cell" ||
+      relationship.ownerKind === "section" ||
       relationship.ownerKind === "block")
   );
 }
@@ -247,6 +250,9 @@ function ownerMatchesKind(
 ): boolean {
   if (ownerKind === "surface") return node.type.name === "surface";
   if (ownerKind === "layout") return node.type.name === "layout";
+  if (ownerKind === "region") return node.type.name === "region";
+  if (ownerKind === "cell") return node.type.name === "cell";
+  if (ownerKind === "section") return node.type.name === "section";
   return definitions.blocks.get(node.type.name) !== undefined;
 }
 

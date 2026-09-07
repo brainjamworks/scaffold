@@ -43,6 +43,8 @@ describe("createDocumentTreeDefinitionLookup", () => {
         section: {
           label: "Panel",
           addLabel: "Add panel",
+          compositionSlot: { kind: "child", nodeType: "host_panel" },
+          structure: { kind: "ordered-children", nodeTypes: ["host_title", "host_panel"] },
           documentTree: { projectChildren },
           create: () => ({ type: "section" }),
         },
@@ -92,6 +94,8 @@ describe("createDocumentTreeDefinitionLookup", () => {
       control: layouts.getById("host-semantic-layout")?.control,
       section: {
         label: "Panel",
+        compositionSlot: { kind: "child", nodeType: "host_panel" },
+        structure: { kind: "ordered-children", nodeTypes: ["host_title", "host_panel"] },
         documentTree: layouts.getById("host-semantic-layout")?.section?.documentTree,
       },
     });
@@ -107,6 +111,12 @@ describe("createDocumentTreeDefinitionLookup", () => {
     expect(Object.isFrozen(lookup)).toBe(true);
     expect(Object.isFrozen(lookup.blocks)).toBe(true);
     expect(Object.isFrozen(semanticBlock)).toBe(true);
+    expect(
+      Object.isFrozen(lookup.layouts.get("host-semantic-layout")?.section?.compositionSlot),
+    ).toBe(true);
+    expect(
+      Object.isFrozen(lookup.layouts.get("host-semantic-layout")?.section?.structure?.nodeTypes),
+    ).toBe(true);
     expect(semanticBlock?.control).toBe(block.control);
     expect(Object.isFrozen(semanticBlock?.control)).toBe(true);
     expect(describe).not.toHaveBeenCalled();

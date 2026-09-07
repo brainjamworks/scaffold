@@ -105,6 +105,7 @@ describe("SemanticActivationRegistry", () => {
       { kind: "revealed", ...bindingFacts },
       { kind: "already-visible", ...bindingFacts },
       { kind: "refused", ...bindingFacts, reason: "authority-boundary" },
+      { kind: "refused", ...bindingFacts, reason: "hidden-layer-ancestor" },
       { kind: "refused", ...bindingFacts, reason: "origin-not-supported" },
       { kind: "refused", ...bindingFacts, reason: "learner-interaction-precedence" },
       { kind: "unavailable", ...bindingFacts, reason: "owner-unmounted" },
@@ -145,9 +146,9 @@ describe("SemanticActivationRegistry", () => {
     const resolution = registry.resolve(OWNER_ID);
     if (resolution.kind !== "resolved") throw new Error("expected mounted binding");
 
-    await expect(
-      resolution.binding.activate(activationRequest("document-outline")),
-    ).rejects.toBe(defect);
+    await expect(resolution.binding.activate(activationRequest("document-outline"))).rejects.toBe(
+      defect,
+    );
   });
 });
 

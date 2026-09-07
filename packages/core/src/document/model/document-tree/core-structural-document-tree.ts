@@ -7,6 +7,7 @@ import {
   CELL_NODE_TYPE,
   COURSE_SECTION_NODE_TYPE,
   GRID_NODE_TYPE,
+  LAYER_NODE_TYPE,
   LAYOUT_NODE_TYPE,
   REGION_NODE_TYPE,
   SECTION_NODE_TYPE,
@@ -44,7 +45,18 @@ const NODE_TYPES = Object.freeze({
   region: REGION_NODE_TYPE,
   grid: GRID_NODE_TYPE,
   cell: CELL_NODE_TYPE,
+  layer: LAYER_NODE_TYPE,
 });
+
+type LayerActivationOwnerKind = Extract<
+  DocumentItemActivation["ownerKind"],
+  "region" | "cell" | "section"
+>;
+
+interface LayerActivationOwner {
+  readonly ownerId: EmbeddedNodeId;
+  readonly ownerKind: LayerActivationOwnerKind;
+}
 
 export interface ProjectCoreStructuralItemsInput {
   readonly doc: ProseMirrorNode;
@@ -61,6 +73,10 @@ interface TraversalContext {
   readonly layoutDefinition: DocumentTreeLayoutDefinition | undefined;
   readonly siblingTypeOrdinal: number;
   readonly activationPath: readonly DocumentItemActivation[];
+  /** Logical owner when the current node is a direct Layer in its physical slot. */
+  readonly layerOwner: LayerActivationOwner | null;
+  /** Logical owner when the current transparent node is a declared physical slot. */
+  readonly physicalSlotOwner: LayerActivationOwner | null;
 }
 
 interface ClassifiedNode {
@@ -92,6 +108,7 @@ export function projectCoreStructuralItems({
     const classified = classifyNode(node, context, courseStructure, definitions, builder);
     const parentId = classified?.item.id ?? context.parentId;
     const surfaceId = classified?.surfaceId ?? context.surfaceId;
+    const activationPath = activationPathForNode(node, context);
 
     if (classified) {
       if (builder.hasItem(classified.item.id)) return;
@@ -128,7 +145,7 @@ export function projectCoreStructuralItems({
             node.type.spec.selectable === false ? { kind: "near", pos } : { kind: "node", pos },
           surfaceId,
           authoringAnchorId: null,
-          activationPath: context.activationPath,
+          activationPath,
         },
       });
       if (ownerContext) {
@@ -136,7 +153,7 @@ export function projectCoreStructuralItems({
           owner: ownerContext,
           candidates: buildOwnerDocumentTreeChildren(ownerContext, definitions, nodeIndex, builder),
           surfaceId,
-          inheritedActivationPath: context.activationPath,
+          inheritedActivationPath: activationPath,
           definitions,
           builder,
           courseStructure,
@@ -147,6 +164,7 @@ export function projectCoreStructuralItems({
     }
 
     const typeCounts = new Map<string, number>();
+    const physicalSlotOwner = resolvePhysicalSlotOwner(node, classified, context);
     let offset = 0;
     node.forEach((child) => {
       const ordinal = (typeCounts.get(child.type.name) ?? 0) + 1;
@@ -157,7 +175,9 @@ export function projectCoreStructuralItems({
         parentNodeType: node.type.name,
         layoutDefinition: classified?.layoutDefinition,
         siblingTypeOrdinal: ordinal,
-        activationPath: context.activationPath,
+        activationPath,
+        layerOwner: child.type.name === NODE_TYPES.layer ? physicalSlotOwner : null,
+        physicalSlotOwner: resolveDeclaredChildSlotOwner(node, child, classified),
       });
       offset += child.nodeSize;
     });
@@ -170,6 +190,8 @@ export function projectCoreStructuralItems({
     layoutDefinition: undefined,
     siblingTypeOrdinal: 1,
     activationPath: [],
+    layerOwner: null,
+    physicalSlotOwner: null,
   });
 }
 
@@ -211,6 +233,11 @@ function projectPublishedChildren(input: {
           : undefined,
       siblingTypeOrdinal: 1,
       activationPath,
+      layerOwner:
+        resolved.node.type.name === NODE_TYPES.layer
+          ? resolvePublishedLayerOwner(input.owner, resolved, input.definitions)
+          : null,
+      physicalSlotOwner: null,
     };
     const structural = classifyNode(
       resolved.node,
@@ -391,7 +418,7 @@ function classifyNode(
       ),
       context.parentId,
       context.surfaceId,
-      undefined,
+      definition,
       withDefaultRichTextPublication(definition?.section?.documentTree),
     );
   }
@@ -401,6 +428,17 @@ function classifyNode(
     const role = readNonEmptyString(node.attrs["role"]) ?? "main";
     return classified(
       item(id, "region", nodeType, null, humanize(role), undefined),
+      context.parentId,
+      context.surfaceId,
+      undefined,
+      standardRichTextDocumentTree,
+    );
+  }
+
+  if (nodeType === NODE_TYPES.layer) {
+    const id = requireNodeId(node);
+    return classified(
+      item(id, "layer", nodeType, null, `Layer ${context.siblingTypeOrdinal}`, undefined),
       context.parentId,
       context.surfaceId,
       undefined,
@@ -472,6 +510,87 @@ function classified(
     documentTree,
     closesTraversal,
   };
+}
+
+function activationPathForNode(
+  node: ProseMirrorNode,
+  context: TraversalContext,
+): readonly DocumentItemActivation[] {
+  if (node.type.name !== NODE_TYPES.layer) return context.activationPath;
+  const layerId = requireNodeId(node);
+  const owner = context.layerOwner;
+  if (!owner) {
+    throw new Error(`Layer "${layerId}" has no declared logical owner relationship.`);
+  }
+  return Object.freeze([
+    ...context.activationPath,
+    Object.freeze({
+      ownerId: owner.ownerId,
+      childId: layerId,
+      ownerKind: owner.ownerKind,
+    }),
+  ]);
+}
+
+function resolvePhysicalSlotOwner(
+  node: ProseMirrorNode,
+  classifiedNode: ClassifiedNode | null,
+  context: TraversalContext,
+): LayerActivationOwner | null {
+  if (context.physicalSlotOwner) return context.physicalSlotOwner;
+  if (!classifiedNode) return null;
+
+  const ownerKind = logicalOwnerKind(node.type.name);
+  if (!ownerKind) return null;
+  if (ownerKind === "section") {
+    const declaration = classifiedNode.layoutDefinition?.section?.compositionSlot;
+    if (!declaration || declaration.kind !== "direct") return null;
+  }
+  return Object.freeze({ ownerId: classifiedNode.item.id, ownerKind });
+}
+
+function resolveDeclaredChildSlotOwner(
+  parent: ProseMirrorNode,
+  child: ProseMirrorNode,
+  classifiedParent: ClassifiedNode | null,
+): LayerActivationOwner | null {
+  if (parent.type.name !== NODE_TYPES.layoutSection || !classifiedParent) return null;
+  const declaration = classifiedParent.layoutDefinition?.section?.compositionSlot;
+  if (!declaration || declaration.kind !== "child" || child.type.name !== declaration.nodeType) {
+    return null;
+  }
+  const ownerKind = logicalOwnerKind(parent.type.name);
+  if (ownerKind !== "section") return null;
+  return Object.freeze({ ownerId: classifiedParent.item.id, ownerKind });
+}
+
+function resolvePublishedLayerOwner(
+  owner: DocumentTreeOwnerContext,
+  layer: ResolvedExposedDocumentChild,
+  definitions: DocumentTreeDefinitionLookup,
+): LayerActivationOwner | null {
+  const ownerKind = logicalOwnerKind(owner.nodeType);
+  if (!ownerKind) return null;
+
+  if (ownerKind !== "section") {
+    return layer.parentNodeType === owner.nodeType
+      ? Object.freeze({ ownerId: owner.id, ownerKind })
+      : null;
+  }
+
+  const declaration = definitions.layouts.get(owner.definitionId)?.section?.compositionSlot;
+  if (!declaration) return null;
+  const expectedParentType = declaration.kind === "direct" ? owner.nodeType : declaration.nodeType;
+  return layer.parentNodeType === expectedParentType
+    ? Object.freeze({ ownerId: owner.id, ownerKind })
+    : null;
+}
+
+function logicalOwnerKind(nodeType: string): LayerActivationOwnerKind | null {
+  if (nodeType === NODE_TYPES.region) return "region";
+  if (nodeType === NODE_TYPES.cell) return "cell";
+  if (nodeType === NODE_TYPES.layoutSection) return "section";
+  return null;
 }
 
 function withDefaultRichTextPublication(

@@ -59,7 +59,7 @@ export interface DocumentItemPresentation {
 export interface DocumentItemActivation {
   readonly ownerId: EmbeddedNodeId;
   readonly childId: EmbeddedNodeId;
-  readonly ownerKind: "surface" | "layout" | "block";
+  readonly ownerKind: "surface" | "layout" | "region" | "cell" | "section" | "block";
 }
 
 export interface ExposedDocumentChild {

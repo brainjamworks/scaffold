@@ -7,6 +7,7 @@ import type {
 } from "./definition";
 import type { DocumentTreeDefinitionLookup } from "./definition-lookup";
 import { projectStandardRichText } from "./rich-text-document-tree-children";
+import { LAYER_NODE_TYPE } from "../nodes/structural-node-types";
 
 export function createDocumentTreeBuildHelpers(
   owner: ProseMirrorNode,
@@ -89,6 +90,7 @@ function isStructuralRoot(
   }
   if (node.type.name === "section") return parent.type.name === "layout";
   if (node.type.name === "grid") return true;
+  if (node.type.name === LAYER_NODE_TYPE) return true;
   return node.type.name === "cell" && parent.type.name === "grid";
 }
 

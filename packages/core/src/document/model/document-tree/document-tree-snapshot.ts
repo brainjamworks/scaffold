@@ -9,6 +9,7 @@ export type DocumentTreeItemKind =
   | "layout"
   | "layout-section"
   | "region"
+  | "layer"
   | "grid"
   | "cell"
   | "block"

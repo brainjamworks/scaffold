@@ -96,6 +96,20 @@ describe("Tabs Control Binding", () => {
     expect(binding.stateReader?.read({ targetId: SECOND_SECTION_ID, key: "selected" })).toBe(false);
 
     const semanticEnvironment = getSemanticTargetInteractionEnvironmentForEditor(editor);
+    const secondParagraphId = "paraCtrl0002" as EmbeddedNodeId;
+    await expect(
+      semanticEnvironment.coordinator.activate(secondParagraphId, {
+        origin: "configured-presentation",
+      }),
+    ).resolves.toMatchObject({
+      kind: "refused",
+      requestedId: secondParagraphId,
+      ownerId: LAYOUT_ID,
+      childId: SECOND_SECTION_ID,
+      reason: "authority-boundary",
+    });
+    expect(binding.stateReader?.read({ targetId: SECOND_SECTION_ID, key: "selected" })).toBe(false);
+
     await expect(
       semanticEnvironment.coordinator.activate(SECOND_SECTION_ID, {
         origin: "configured-presentation",
@@ -106,6 +120,11 @@ describe("Tabs Control Binding", () => {
         true,
       ),
     );
+    await expect(
+      semanticEnvironment.coordinator.activate(secondParagraphId, {
+        origin: "learner-interaction-rule",
+      }),
+    ).resolves.toEqual({ kind: "reached", requestedId: secondParagraphId });
     expect(events).toEqual([]);
 
     const commandResult = await binding.commandExecutor?.execute({
@@ -177,14 +196,12 @@ describe("Tabs Control Binding", () => {
         { targetId: FIRST_SECTION_ID, type: "selected" },
         { targetId: SECOND_SECTION_ID, type: "selected" },
       ]);
-      expect(document.activeElement).toBe(
-        screen.getByRole("tab", { name: "Practice revised" }),
-      );
+      expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Practice revised" }));
     });
 
-    expect(() =>
-      binding.stateReader?.read({ targetId: FIRST_SECTION_ID, key: "unknown" }),
-    ).toThrow(`Control state "unknown" is not declared for target "${FIRST_SECTION_ID}".`);
+    expect(() => binding.stateReader?.read({ targetId: FIRST_SECTION_ID, key: "unknown" })).toThrow(
+      `Control state "unknown" is not declared for target "${FIRST_SECTION_ID}".`,
+    );
     await expect(
       binding.commandExecutor?.execute({
         targetId: FIRST_SECTION_ID,
@@ -232,9 +249,7 @@ describe("Tabs Control Binding", () => {
     await user.click(screen.getByRole("button", { name: "Add tab" }));
     await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(3));
     expect(registry.get(LAYOUT_ID)).toBe(binding);
-    expect(binding.stateReader?.read({ targetId: SECOND_SECTION_ID, key: "selected" })).toBe(
-      false,
-    );
+    expect(binding.stateReader?.read({ targetId: SECOND_SECTION_ID, key: "selected" })).toBe(false);
 
     const commandResult = await binding.commandExecutor?.execute({
       targetId: FIRST_SECTION_ID,

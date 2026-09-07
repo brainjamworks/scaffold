@@ -12,7 +12,18 @@ export interface DocumentTreeBlockDefinition {
 
 export interface DocumentTreeLayoutSectionDefinition {
   readonly label: string;
+  readonly compositionSlot: DocumentTreeLayoutSectionCompositionSlot;
+  readonly structure?: DocumentTreeLayoutSectionStructure;
   readonly documentTree?: DocumentTreeDefinition;
+}
+
+export type DocumentTreeLayoutSectionCompositionSlot =
+  | Readonly<{ kind: "direct" }>
+  | Readonly<{ kind: "child"; nodeType: string }>;
+
+export interface DocumentTreeLayoutSectionStructure {
+  readonly kind: "ordered-children";
+  readonly nodeTypes: readonly [string, ...string[]];
 }
 
 export interface DocumentTreeLayoutDefinition {

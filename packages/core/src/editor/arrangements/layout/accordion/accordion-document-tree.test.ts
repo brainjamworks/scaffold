@@ -213,13 +213,15 @@ function definitions(): DocumentTreeDefinitionLookup {
           ? {
               id: definition.id,
               title: definition.title,
-              ...(definition.documentTree
-                ? { documentTree: definition.documentTree }
-                : {}),
+              ...(definition.documentTree ? { documentTree: definition.documentTree } : {}),
               ...(definition.section
                 ? {
                     section: {
                       label: definition.section.label,
+                      compositionSlot: definition.section.compositionSlot,
+                      ...(definition.section.structure
+                        ? { structure: definition.section.structure }
+                        : {}),
                       ...(definition.section.documentTree
                         ? { documentTree: definition.section.documentTree }
                         : {}),
@@ -237,9 +239,7 @@ function definitions(): DocumentTreeDefinitionLookup {
           ? {
               id: definition.id,
               title: definition.title,
-              ...(definition.documentTree
-                ? { documentTree: definition.documentTree }
-                : {}),
+              ...(definition.documentTree ? { documentTree: definition.documentTree } : {}),
             }
           : undefined;
       },

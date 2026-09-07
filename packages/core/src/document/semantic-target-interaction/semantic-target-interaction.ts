@@ -34,6 +34,7 @@ export type SemanticActivationOutcome =
       readonly childId: EmbeddedNodeId;
       readonly reason:
         | "authority-boundary"
+        | "hidden-layer-ancestor"
         | "origin-not-supported"
         | "learner-interaction-precedence";
     }

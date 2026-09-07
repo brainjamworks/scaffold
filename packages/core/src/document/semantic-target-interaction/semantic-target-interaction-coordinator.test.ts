@@ -1,10 +1,7 @@
 import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import type {
-  DocumentItemActivation,
-  DocumentTreeSnapshot,
-} from "@/document/model/document-tree";
+import type { DocumentItemActivation, DocumentTreeSnapshot } from "@/document/model/document-tree";
 import { createRepresentativeDocumentTreeFixture } from "@/document/model/document-tree/testing/document-tree-fixtures";
 import { buildDocumentTree } from "@/document/model/document-tree";
 
@@ -107,6 +104,65 @@ describe("SemanticTargetInteractionCoordinator", () => {
     expect(harness.presentSurface).not.toHaveBeenCalled();
   });
 
+  it("withholds hidden Layer ancestors for playback but permits explicit and already-visible paths", async () => {
+    const outerLayer = relationship("region000001", "layer0000001", "region");
+    const innerLayout = relationship("layout000001", "section00001", "layout");
+    const harness = createHarness([outerLayer, innerLayout]);
+    let outerOpen = false;
+    const innerActivation = vi.fn(async () => ({
+      kind: "already-visible" as const,
+      ownerId: innerLayout.ownerId,
+      childId: innerLayout.childId,
+    }));
+    harness.registry.register({
+      ownerId: outerLayer.ownerId,
+      activate: async ({ origin }) => {
+        if (outerOpen) {
+          return {
+            kind: "already-visible" as const,
+            ownerId: outerLayer.ownerId,
+            childId: outerLayer.childId,
+          };
+        }
+        if (origin === "document-outline" || origin === "presentation-timeline") {
+          outerOpen = true;
+          return {
+            kind: "revealed" as const,
+            ownerId: outerLayer.ownerId,
+            childId: outerLayer.childId,
+          };
+        }
+        return {
+          kind: "refused" as const,
+          ownerId: outerLayer.ownerId,
+          childId: outerLayer.childId,
+          reason: "hidden-layer-ancestor" as const,
+        };
+      },
+    });
+    harness.registry.register({ ownerId: innerLayout.ownerId, activate: innerActivation });
+
+    await expect(
+      harness.coordinator.activate(harness.targetId, { origin: "configured-presentation" }),
+    ).resolves.toEqual({
+      kind: "refused",
+      requestedId: harness.targetId,
+      ownerId: outerLayer.ownerId,
+      childId: outerLayer.childId,
+      nearestReachableOwnerId: harness.parentId,
+      reason: "hidden-layer-ancestor",
+    });
+    expect(innerActivation).not.toHaveBeenCalled();
+
+    await expect(
+      harness.coordinator.activate(harness.targetId, { origin: "document-outline" }),
+    ).resolves.toEqual({ kind: "reached", requestedId: harness.targetId });
+    await expect(
+      harness.coordinator.activate(harness.targetId, { origin: "learner-interaction-rule" }),
+    ).resolves.toEqual({ kind: "reached", requestedId: harness.targetId });
+    expect(innerActivation).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
     ["owner-unmounted", "registry"],
     ["child-missing", "binding"],
@@ -157,6 +213,7 @@ describe("SemanticTargetInteractionCoordinator", () => {
 
   it.each([
     "authority-boundary",
+    "hidden-layer-ancestor",
     "origin-not-supported",
     "learner-interaction-precedence",
   ] as const)("preserves refused reason %s", async (reason) => {

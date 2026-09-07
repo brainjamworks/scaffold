@@ -4,6 +4,10 @@ import type { EditorState, Transaction } from "@tiptap/pm/state";
 import type { ProjectedCourseStructure } from "@/document/model/course-structure";
 import type { DocumentTreeSnapshot } from "@/document/model/document-tree";
 import type { SemanticTargetInteractionCoordinator } from "@/document/semantic-target-interaction";
+import {
+  AuthoringLayerState,
+  type AuthoringLayerActivationRegistry,
+} from "@/document/authoring/layers/authoring-layer-state";
 
 import {
   EditorNavigationCoordinator,
@@ -28,12 +32,14 @@ export interface CreateEditorNavigationControllerInput {
   readonly getDocumentTree: () => DocumentTreeSnapshot;
   readonly getCourseStructure: () => ProjectedCourseStructure;
   readonly targetInteractions: SemanticTargetInteractionCoordinator;
+  readonly layerActivationRegistry: AuthoringLayerActivationRegistry;
   readonly onEnvironmentChanged?: (environment: EditorNavigationEnvironment | null) => void;
   readonly editor?: EditorNavigationEditor;
   readonly environment?: EditorNavigationEnvironment;
 }
 
 export class EditorNavigationController {
+  readonly authoringLayers: AuthoringLayerState;
   readonly #getDocumentTree: () => DocumentTreeSnapshot;
   readonly #listeners = new Set<() => void>();
   readonly #navigation: EditorNavigationCoordinator;
@@ -47,6 +53,7 @@ export class EditorNavigationController {
     getDocumentTree,
     getCourseStructure,
     targetInteractions,
+    layerActivationRegistry,
     onEnvironmentChanged = () => undefined,
     editor,
     environment,
@@ -56,6 +63,11 @@ export class EditorNavigationController {
     this.#documentTree = getDocumentTree();
     const selectedId = projectEditorSelection(state.selection, this.#documentTree.itemById);
     this.#snapshot = createSelectionSnapshot(selectedId, selectedId ? "editor" : null);
+    this.authoringLayers = new AuthoringLayerState({
+      documentTree: this.#documentTree,
+      activationRegistry: layerActivationRegistry,
+    });
+    if (selectedId) this.authoringLayers.openAncestorsForTarget(this.#documentTree, selectedId);
     this.#navigation = new EditorNavigationCoordinator({
       targetInteractions,
       getDocumentTree,
@@ -106,11 +118,13 @@ export class EditorNavigationController {
     }
 
     const tree = this.#getDocumentTree();
+    if (transaction.docChanged) this.authoringLayers.reconcile(tree);
     let selectedId = transaction.docChanged
       ? reconcileSelectedId(previous.selectedId, this.#documentTree, tree)
       : previous.selectedId;
     let selectionOrigin = selectedId ? previous.selectionOrigin : null;
 
+    let shouldOpenSelectionAncestors = false;
     if (
       transaction.docChanged &&
       !transaction.selectionSet &&
@@ -118,6 +132,7 @@ export class EditorNavigationController {
     ) {
       selectedId = projectEditorSelection(state.selection, tree.itemById);
       selectionOrigin = selectedId ? "editor" : null;
+      shouldOpenSelectionAncestors = true;
     } else if (transaction.selectionSet || transactionMeta) {
       if (transactionMeta && tree.itemById.has(transactionMeta.intendedId)) {
         selectedId = transactionMeta.intendedId;
@@ -126,9 +141,13 @@ export class EditorNavigationController {
         selectedId = projectEditorSelection(state.selection, tree.itemById);
         selectionOrigin = selectedId ? "editor" : null;
       }
+      shouldOpenSelectionAncestors = true;
     }
 
     this.#documentTree = tree;
+    if (selectedId && shouldOpenSelectionAncestors) {
+      this.authoringLayers.openAncestorsForTarget(tree, selectedId);
+    }
     if (selectedId === previous.selectedId && selectionOrigin === previous.selectionOrigin) return;
     this.#snapshot = createSelectionSnapshot(selectedId, selectionOrigin);
     for (const listener of this.#listeners) listener();
@@ -152,6 +171,7 @@ export class EditorNavigationController {
     if (this.#disposed) return;
     this.#disposed = true;
     this.#navigation.dispose();
+    this.authoringLayers.dispose();
     this.#onEnvironmentChanged(null);
     this.#listeners.clear();
   }

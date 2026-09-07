@@ -465,6 +465,7 @@ function representativeDefinitions(
         documentTree: { presentation: { actionIds: ["reveal"] } },
         section: {
           label: "Panel",
+          compositionSlot: { kind: "direct" },
           documentTree: {
             presentation: { actionIds: ["reveal"] },
             projectChildren: ({ helpers }: DocumentTreeChildrenInput) => {
@@ -504,6 +505,7 @@ function scaleDefinitions(
           title: "Columns",
           section: {
             label: "Panel",
+            compositionSlot: { kind: "direct" },
             documentTree: {
               projectChildren: ({ helpers }) => {
                 callbackCounts.layoutSection += 1;

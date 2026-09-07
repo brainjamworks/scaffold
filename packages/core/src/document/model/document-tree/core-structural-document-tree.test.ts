@@ -3,8 +3,10 @@ import { Schema, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { describe, expect, it } from "vite-plus/test";
 
 import { projectCourseStructure } from "../course-structure/course-structure-projection";
+import type { DocumentTreeChildrenInput } from "./definition";
 import type { DocumentTreeDefinitionLookup } from "./definition-lookup";
 import { buildDocumentTree } from "./build-document-tree";
+import { hiddenLayoutSectionDocumentTree } from "@/editor/arrangements/layout/shared/model/layout-semantic-publication";
 
 const IDS = {
   course: id("course000001"),
@@ -24,6 +26,19 @@ const IDS = {
   block2: id("block0000002"),
   privateWrapper: id("private00001"),
   privateParagraph: id("privatepara1"),
+  outerLayer1: id("layer0000001"),
+  outerLayer2: id("layer0000002"),
+  innerLayer1: id("layer0000003"),
+  innerLayer2: id("layer0000004"),
+  cellLayer1: id("layer0000005"),
+  cellLayer2: id("layer0000006"),
+  accordionLayer1: id("layer0000007"),
+  accordionLayer2: id("layer0000008"),
+  targetParagraph: id("targetpara01"),
+  accordionLayout: id("layout000002"),
+  accordionSection: id("lsection0003"),
+  accordionTitle: id("acctitle0001"),
+  accordionPanel: id("accpanel0001"),
 } as const;
 
 const schema = new Schema({
@@ -125,7 +140,160 @@ const schema = new Schema({
 
 const definitions = createDefinitions();
 
+const layerSchema = new Schema({
+  nodes: {
+    doc: { content: "courseDocument" },
+    text: { group: "inline" },
+    courseDocument: {
+      content: "block+",
+      attrs: { id: { default: null }, mode: { default: "page" } },
+    },
+    surface: {
+      group: "block",
+      content: "block+",
+      selectable: false,
+      attrs: { id: { default: null }, variant: { default: null } },
+    },
+    region: {
+      group: "block",
+      content: "layer+",
+      selectable: false,
+      attrs: { id: { default: null }, role: { default: "main" } },
+    },
+    layer: {
+      content: "(paragraph | block)+",
+      selectable: false,
+      attrs: { id: { default: null } },
+    },
+    layout: {
+      group: "block",
+      content: "section+",
+      attrs: { id: { default: null }, variant: { default: null } },
+    },
+    section: {
+      content: "layer+ | (accordion_section_title accordion_section_panel)",
+      attrs: { id: { default: null }, label: { default: null } },
+    },
+    accordion_section_title: {
+      content: "paragraph+",
+      attrs: { id: { default: null } },
+    },
+    accordion_section_panel: {
+      content: "layer+",
+      attrs: { id: { default: null } },
+    },
+    grid: {
+      group: "block",
+      content: "cell+",
+      selectable: false,
+      attrs: { id: { default: null } },
+    },
+    cell: {
+      content: "layer+",
+      selectable: false,
+      attrs: { id: { default: null } },
+    },
+    paragraph: {
+      group: "block",
+      content: "inline*",
+      attrs: { id: { default: null } },
+    },
+  },
+});
+
 describe("Core structural semantic projection", () => {
+  it("publishes inactive Layers under every logical owner with ordered nested activation", () => {
+    const paragraph = (paragraphId: EmbeddedNodeId, text: string) =>
+      layerSchema.node("paragraph", { id: paragraphId }, [layerSchema.text(text)]);
+    const layer = (layerId: EmbeddedNodeId, content: readonly ProseMirrorNode[]) =>
+      layerSchema.node("layer", { id: layerId }, content);
+    const accordion = layerSchema.node(
+      "layout",
+      { id: IDS.accordionLayout, variant: "accordion" },
+      [
+        layerSchema.node("section", { id: IDS.accordionSection }, [
+          layerSchema.node("accordion_section_title", { id: IDS.accordionTitle }, [
+            paragraph(id("titlepara001"), "Details"),
+          ]),
+          layerSchema.node("accordion_section_panel", { id: IDS.accordionPanel }, [
+            layer(IDS.accordionLayer1, [paragraph(id("accpara00001"), "First")]),
+            layer(IDS.accordionLayer2, [paragraph(id("accpara00002"), "Second")]),
+          ]),
+        ]),
+      ],
+    );
+    const tabs = layerSchema.node("layout", { id: IDS.layout, variant: "tabs" }, [
+      layerSchema.node("section", { id: IDS.layoutSection1 }, [
+        layer(IDS.innerLayer1, [paragraph(id("innerpara001"), "Inactive tab composition")]),
+        layer(IDS.innerLayer2, [
+          layerSchema.node("grid", { id: IDS.grid }, [
+            layerSchema.node("cell", { id: IDS.cell1 }, [
+              layer(IDS.cellLayer1, [paragraph(id("cellpara0001"), "Inactive cell")]),
+              layer(IDS.cellLayer2, [paragraph(IDS.targetParagraph, "Nested target")]),
+            ]),
+          ]),
+        ]),
+      ]),
+      layerSchema.node("section", { id: IDS.layoutSection2 }, [
+        layer(id("layer0000009"), [paragraph(id("innerpara002"), "Other tab")]),
+      ]),
+    ]);
+    const doc = layerSchema.node("doc", null, [
+      layerSchema.node("courseDocument", { id: IDS.course, mode: "page" }, [
+        layerSchema.node("surface", { id: IDS.surface1, variant: "page-default" }, [
+          layerSchema.node("region", { id: IDS.region, role: "main" }, [
+            layer(IDS.outerLayer1, [accordion]),
+            layer(IDS.outerLayer2, [tabs]),
+          ]),
+        ]),
+      ]),
+    ]);
+
+    const snapshot = project(doc, 19, createLayerDefinitions());
+
+    expect(snapshot.itemById.get(IDS.region)?.children.map(({ id: childId }) => childId)).toEqual([
+      IDS.outerLayer1,
+      IDS.outerLayer2,
+    ]);
+    expect(
+      snapshot.itemById.get(IDS.layoutSection1)?.children.map(({ id: childId }) => childId),
+    ).toEqual([IDS.innerLayer1, IDS.innerLayer2]);
+    expect(snapshot.itemById.get(IDS.cell1)?.children.map(({ id: childId }) => childId)).toEqual([
+      IDS.cellLayer1,
+      IDS.cellLayer2,
+    ]);
+    expect(snapshot.parentById.get(IDS.accordionLayer1)).toBe(IDS.accordionSection);
+    expect(snapshot.parentById.get(IDS.accordionLayer2)).toBe(IDS.accordionSection);
+    expect(snapshot.itemById.has(IDS.accordionTitle)).toBe(false);
+    expect(snapshot.itemById.has(IDS.accordionPanel)).toBe(false);
+
+    expect(snapshot.locationById.get(IDS.innerLayer2)?.activationPath).toEqual([
+      { ownerId: IDS.region, childId: IDS.outerLayer2, ownerKind: "region" },
+      { ownerId: IDS.layout, childId: IDS.layoutSection1, ownerKind: "layout" },
+      { ownerId: IDS.layoutSection1, childId: IDS.innerLayer2, ownerKind: "section" },
+    ]);
+    expect(snapshot.locationById.get(IDS.targetParagraph)?.activationPath).toEqual([
+      { ownerId: IDS.region, childId: IDS.outerLayer2, ownerKind: "region" },
+      { ownerId: IDS.layout, childId: IDS.layoutSection1, ownerKind: "layout" },
+      { ownerId: IDS.layoutSection1, childId: IDS.innerLayer2, ownerKind: "section" },
+      { ownerId: IDS.cell1, childId: IDS.cellLayer2, ownerKind: "cell" },
+    ]);
+    expect(snapshot.locationById.get(IDS.accordionLayer2)?.activationPath).toEqual([
+      { ownerId: IDS.region, childId: IDS.outerLayer1, ownerKind: "region" },
+      {
+        ownerId: IDS.accordionLayout,
+        childId: IDS.accordionSection,
+        ownerKind: "layout",
+      },
+      {
+        ownerId: IDS.accordionSection,
+        childId: IDS.accordionLayer2,
+        ownerKind: "section",
+      },
+    ]);
+    expect(snapshot.diagnostics).toEqual([]);
+  });
+
   it("projects a page through transparent wrappers and closes mounted Block roots", () => {
     const doc = documentNode("page", [
       node("surface", IDS.surface1, { variant: "page-default" }, [
@@ -271,16 +439,19 @@ describe("Core structural semantic projection", () => {
                 reconstructableCommandTypes: ["activate"],
               },
             },
-            section: {
-              ...definition.section,
-              label: definition.section?.label ?? "Panel",
-              documentTree: {
-                presentation: {
-                  actionIds: ["emphasize"] as const,
-                  reconstructableCommandTypes: ["select"],
-                },
-              },
-            },
+            ...(definition.section
+              ? {
+                  section: {
+                    ...definition.section,
+                    documentTree: {
+                      presentation: {
+                        actionIds: ["emphasize"] as const,
+                        reconstructableCommandTypes: ["select"],
+                      },
+                    },
+                  },
+                }
+              : {}),
           };
         },
       }),
@@ -504,7 +675,16 @@ function createDefinitions(): DocumentTreeDefinitionLookup {
     ["host_block", { nodeType: "host_block", title: "Host card", isAssessment: false }],
     ["nested_block", { nodeType: "nested_block", title: "Nested card", isAssessment: false }],
   ]);
-  const layouts = new Map([["tabs", { id: "tabs", title: "Tabs", section: { label: "Panel" } }]]);
+  const layouts = new Map([
+    [
+      "tabs",
+      {
+        id: "tabs",
+        title: "Tabs",
+        section: { label: "Panel", compositionSlot: { kind: "direct" as const } },
+      },
+    ],
+  ]);
   const surfaces = new Map([
     ["page-default", { id: "page-default", title: "Page" }],
     ["slide-content", { id: "slide-content", title: "Slide" }],
@@ -513,6 +693,52 @@ function createDefinitions(): DocumentTreeDefinitionLookup {
     blocks: Object.freeze({ get: (nodeType: string) => blocks.get(nodeType) }),
     layouts: Object.freeze({ get: (variant: string) => layouts.get(variant) }),
     surfaces: Object.freeze({ get: (variant: string) => surfaces.get(variant) }),
+  });
+}
+
+function createLayerDefinitions(): DocumentTreeDefinitionLookup {
+  const accordionSectionDocumentTree = {
+    projectChildren: ({ owner, helpers }: DocumentTreeChildrenInput) =>
+      helpers.projectStructuralChildren(owner),
+  };
+  return Object.freeze({
+    blocks: Object.freeze({ get: () => undefined }),
+    layouts: Object.freeze({
+      get: (variant: string) => {
+        if (variant === "tabs") {
+          return {
+            id: "tabs",
+            title: "Tabs",
+            documentTree: hiddenLayoutSectionDocumentTree,
+            section: { label: "Tab", compositionSlot: { kind: "direct" as const } },
+          };
+        }
+        if (variant === "accordion") {
+          return {
+            id: "accordion",
+            title: "Accordion",
+            documentTree: hiddenLayoutSectionDocumentTree,
+            section: {
+              label: "Accordion section",
+              compositionSlot: {
+                kind: "child" as const,
+                nodeType: "accordion_section_panel",
+              },
+              structure: {
+                kind: "ordered-children" as const,
+                nodeTypes: ["accordion_section_title", "accordion_section_panel"] as const,
+              },
+              documentTree: accordionSectionDocumentTree,
+            },
+          };
+        }
+        return undefined;
+      },
+    }),
+    surfaces: Object.freeze({
+      get: (variant: string) =>
+        variant === "page-default" ? { id: variant, title: "Page" } : undefined,
+    }),
   });
 }
 

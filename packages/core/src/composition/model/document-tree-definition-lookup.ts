@@ -81,6 +81,18 @@ function createDocumentTreeLayoutSection(
 ): DocumentTreeLayoutSectionDefinition {
   return Object.freeze({
     label: section.label,
+    compositionSlot: Object.freeze({ ...section.compositionSlot }),
+    ...(section.structure
+      ? {
+          structure: Object.freeze({
+            ...section.structure,
+            nodeTypes: Object.freeze([...section.structure.nodeTypes]) as readonly [
+              string,
+              ...string[],
+            ],
+          }),
+        }
+      : {}),
     ...(section.documentTree ? { documentTree: section.documentTree } : {}),
   });
 }

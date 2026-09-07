@@ -15,6 +15,8 @@ export type {
   DocumentTreeDefinitionLookup,
   DocumentTreeLayoutDefinition,
   DocumentTreeLayoutSectionDefinition,
+  DocumentTreeLayoutSectionCompositionSlot,
+  DocumentTreeLayoutSectionStructure,
   DocumentTreeSurfaceDefinition,
 } from "./definition-lookup";
 export type {

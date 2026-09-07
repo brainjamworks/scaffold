@@ -52,6 +52,7 @@ export function semanticLabelFallback(kind: DocumentTreeItemKind, nodeType: stri
   if (kind === "layout") return "Layout";
   if (kind === "layout-section") return "Section";
   if (kind === "region") return "Region";
+  if (kind === "layer") return "Layer";
   if (kind === "grid") return "Grid";
   if (kind === "cell") return "Cell";
   if (kind === "block") return "Block";

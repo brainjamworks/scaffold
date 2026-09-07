@@ -7,6 +7,7 @@ import { SECTION_NODE_TYPE } from "@/document/model/nodes/structural-node-types"
 import {
   tryGetSemanticTargetInteractionEnvironmentForEditor,
   type SemanticActivationOutcome,
+  type SemanticInteractionOrigin,
 } from "@/document/semantic-target-interaction";
 
 export interface UseLayoutSemanticActivationBindingInput {
@@ -42,7 +43,7 @@ export function useLayoutSemanticActivationBinding({
     const ownerId = semanticLayoutId.data;
     const unregister = registry.register({
       ownerId,
-      activate: async ({ relationship, signal }) => {
+      activate: async ({ requestedId, relationship, origin, signal }) => {
         const childId = relationship.childId;
         if (pendingReveal) {
           pendingReveal.finish(outcome("interrupted", ownerId, pendingReveal.childId));
@@ -53,6 +54,9 @@ export function useLayoutSemanticActivationBinding({
         }
         if (isCommittedVisible(editor, behaviorRef.current, childId)) {
           return outcome("already-visible", ownerId, childId);
+        }
+        if (requestedId !== childId && !isExplicitAuthoringOrigin(origin)) {
+          return refused(ownerId, childId, "authority-boundary");
         }
 
         return new Promise<SemanticActivationOutcome>((resolve) => {
@@ -150,6 +154,18 @@ function unavailable(
   reason: "owner-unmounted" | "child-missing" | "temporarily-unavailable",
 ): SemanticActivationOutcome {
   return Object.freeze({ kind: "unavailable", ownerId, childId, reason });
+}
+
+function refused(
+  ownerId: EmbeddedNodeId,
+  childId: EmbeddedNodeId,
+  reason: "authority-boundary",
+): SemanticActivationOutcome {
+  return Object.freeze({ kind: "refused", ownerId, childId, reason });
+}
+
+function isExplicitAuthoringOrigin(origin: SemanticInteractionOrigin): boolean {
+  return origin === "document-outline" || origin === "presentation-timeline";
 }
 
 interface LayoutSemanticVisibilityBehavior {
