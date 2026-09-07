@@ -1,6 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createBlankLayer } from "@/document/model/layers/layer-construction";
 
 export function createPaginatedContent(options: Record<string, unknown> | undefined): JSONContent {
   const pageCount = readPositiveInteger(options?.["pages"] ?? options?.["sections"], 2);
@@ -23,7 +24,7 @@ export function createPaginatedPage(index: number): JSONContent {
       role: "page",
       label: `Page ${index + 1}`,
     },
-    content: [{ type: "paragraph" }],
+    content: [createBlankLayer()],
   };
 }
 

@@ -1,7 +1,7 @@
 import { GridFourIcon as GridFour } from "@phosphor-icons/react";
 
-import { editableRegionContentJSON } from "@/document/model/content-model/editable-region";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createBlankLayer } from "@/document/model/layers/layer-construction";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 
 function createGridInsertContent() {
@@ -11,7 +11,7 @@ function createGridInsertContent() {
     content: Array.from({ length: 2 }, () => ({
       type: "cell",
       attrs: { id: createEmbeddedNodeId() },
-      content: editableRegionContentJSON(),
+      content: [createBlankLayer()],
     })),
   };
 }

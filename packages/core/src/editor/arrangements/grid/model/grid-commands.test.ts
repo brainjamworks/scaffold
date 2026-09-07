@@ -7,6 +7,11 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import {
+  createBlankLayer,
+  createLayerWithContent,
+} from "@/document/model/layers/layer-construction";
+import { LayerNode } from "@/document/model/layers/layer-node";
+import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
 } from "@/editor/arrangements/layout/authoring/layout-nodes";
@@ -39,7 +44,7 @@ import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 const TestBlockNode = Node.create({
   name: "test_block",
-  group: "block",
+  group: "block assessment_question",
   atom: true,
   selectable: true,
   draggable: true,
@@ -71,7 +76,8 @@ function makeEditor() {
       StarterKit.configure({ undoRedo: false, paragraph: false }),
       ExtendedParagraph,
       GridAuthoringNode,
-      CellAuthoringNode,
+      CellAuthoringNode.extend({ content: "layer+" }),
+      LayerNode,
       LayoutAuthoringNode,
       SectionAuthoringNode,
       createTestNodeIdentityExtension(),
@@ -94,7 +100,8 @@ function makeCourseEditor(content: JSONContent[] = []) {
       SurfaceNode,
       RegionNode,
       GridAuthoringNode,
-      CellAuthoringNode,
+      CellAuthoringNode.extend({ content: "layer+" }),
+      LayerNode,
       LayoutAuthoringNode,
       SectionAuthoringNode,
       TestBlockNode,
@@ -130,7 +137,7 @@ function cell(content: JSONContent[], attrs: Record<string, unknown> = {}): JSON
   return {
     type: "cell",
     attrs,
-    content: content.length ? content : [paragraph()],
+    content: [content.length ? createLayerWithContent(content) : createBlankLayer()],
   };
 }
 
@@ -184,10 +191,14 @@ function firstGridInDoc(doc: ProseMirrorNode): ProseMirrorNode {
 }
 
 function cellBlockIds(cellNode: JSONContent): string[] {
-  return (cellNode.content ?? [])
+  return walk(cellNode)
     .filter((child) => child.type === "test_block")
     .map((child) => child.attrs?.["id"])
     .filter((id): id is string => typeof id === "string");
+}
+
+function walk(root: JSONContent): JSONContent[] {
+  return [root, ...(root.content?.flatMap(walk) ?? [])];
 }
 
 function surfaceChildren(editor: Editor): JSONContent[] {
@@ -250,9 +261,9 @@ describe("grid command templates", () => {
       type: "grid",
       attrs: { columnWidths: [1, 1, 1] },
       content: [
-        { type: "cell", content: [{ type: "paragraph" }] },
-        { type: "cell", content: [{ type: "paragraph" }] },
-        { type: "cell", content: [{ type: "paragraph" }] },
+        { type: "cell", content: [{ type: "layer", content: [{ type: "paragraph" }] }] },
+        { type: "cell", content: [{ type: "layer", content: [{ type: "paragraph" }] }] },
+        { type: "cell", content: [{ type: "layer", content: [{ type: "paragraph" }] }] },
       ],
     });
     expect(template && isGridCellEmpty(template.child(0))).toBe(true);
@@ -361,7 +372,11 @@ describe("grid transaction commands", () => {
       "cell",
     ]);
     expect(
-      insertedGrid.content?.every((cellNode) => cellNode.content?.[0]?.type === "paragraph"),
+      insertedGrid.content?.every(
+        (cellNode) =>
+          cellNode.content?.[0]?.type === "layer" &&
+          cellNode.content[0].content?.[0]?.type === "paragraph",
+      ),
     ).toBe(true);
 
     editor.destroy();
@@ -577,8 +592,29 @@ describe("grid transaction commands", () => {
     expect((firstGrid(editor).content ?? []).map(cellBlockIds)).toEqual([["a"], ["b"]]);
     expect(blockIds(editor)).toEqual(["a", "b"]);
 
+    const existingIds = new Set(
+      walk(firstGrid(editor))
+        .map((node) => node.attrs?.["id"])
+        .filter((id): id is string => typeof id === "string"),
+    );
     expect(addGridCellAtEnd(editor, nodePos(editor, "grid", "grid-1"))).toBe(true);
     expect(firstGrid(editor).content).toHaveLength(3);
+    const appendedCell = firstGrid(editor).content?.[2];
+    const appendedLayer = appendedCell?.content?.[0];
+    const appendedParagraph = appendedLayer?.content?.[0];
+    const appendedIds = [
+      appendedCell?.attrs?.["id"],
+      appendedLayer?.attrs?.["id"],
+      appendedParagraph?.attrs?.["id"],
+    ];
+    expect(appendedLayer).toMatchObject({
+      type: "layer",
+      content: [{ type: "paragraph" }],
+    });
+    expect(appendedIds).toEqual(
+      appendedIds.map(() => expect.stringMatching(/^[0-9A-Z_a-z-]{12}$/)),
+    );
+    expect(appendedIds.some((id) => typeof id === "string" && existingIds.has(id))).toBe(false);
 
     expect(setGridCellCountAt(editor, nodePos(editor, "grid", "grid-1"), 1)).toBe(false);
     expect(firstGrid(editor).content).toHaveLength(3);

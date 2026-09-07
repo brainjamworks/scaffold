@@ -1,6 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createBlankLayer } from "@/document/model/layers/layer-construction";
 
 export function createAccordionContent(options: Record<string, unknown> | undefined): JSONContent {
   const variant = parseAccordionVariant(options?.["variant"]);
@@ -55,7 +56,8 @@ function createAccordionSectionTitle(label: string): JSONContent {
 function createAccordionSectionPanel(): JSONContent {
   return {
     type: "accordion_section_panel",
-    content: [{ type: "paragraph" }],
+    attrs: { id: createEmbeddedNodeId() },
+    content: [createBlankLayer()],
   };
 }
 

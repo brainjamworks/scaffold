@@ -10,6 +10,9 @@ import {
 } from "@/editor/arrangements/layout/authoring/layout-nodes";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
+import { LayerNode } from "@/document/model/layers/layer-node";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 import { CellAuthoringNode, GridAuthoringNode } from "../authoring/grid-nodes";
 import {
@@ -22,7 +25,7 @@ import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 
 const TestBlockNode = Node.create({
   name: "test_block",
-  group: "block",
+  group: "block assessment_question",
   atom: true,
   selectable: true,
 
@@ -79,7 +82,7 @@ function layout(content: JSONContent[]): JSONContent {
 }
 
 function cell(content: JSONContent[]): JSONContent {
-  return { type: "cell", content };
+  return { type: "cell", content: [createLayerWithContent(content)] };
 }
 
 function grid(cells: JSONContent[]): JSONContent {
@@ -105,10 +108,12 @@ function makeEditor(content: JSONContent[]) {
       SurfaceNode,
       RegionNode,
       GridAuthoringNode,
-      CellAuthoringNode,
+      CellAuthoringNode.extend({ content: "layer+" }),
+      LayerNode,
       LayoutAuthoringNode,
       SectionAuthoringNode,
       TestBlockNode,
+      createTestNodeIdentityExtension(),
     ],
     content: {
       type: "doc",
@@ -153,16 +158,20 @@ function gridCellsFromDoc(editor: Editor, doc = editor.state.doc): JSONContent[]
 }
 
 function cellBlockIds(cellNode: JSONContent): string[] {
-  return (cellNode.content ?? [])
+  return walk(cellNode)
     .filter((child) => child.type === "test_block")
     .map((child) => child.attrs?.["id"])
     .filter((id): id is string => typeof id === "string");
 }
 
 function cellBlockAttrs(cellNode: JSONContent): Record<string, unknown>[] {
-  return (cellNode.content ?? [])
+  return walk(cellNode)
     .filter((child) => child.type === "test_block")
     .map((child) => child.attrs ?? {});
+}
+
+function walk(root: JSONContent): JSONContent[] {
+  return [root, ...(root.content?.flatMap(walk) ?? [])];
 }
 
 describe("grid drop rules", () => {

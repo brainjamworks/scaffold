@@ -1,9 +1,14 @@
+import type { JSONContent } from "@tiptap/core";
 import type { Schema, Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Fragment } from "@tiptap/pm/model";
 
-import { createEditableRegionFragment } from "@/document/model/content-model/editable-region";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import {
+  createBlankLayer,
+  createLayerWithContent,
+} from "@/document/model/layers/layer-construction";
+import { GRID_NODE_TYPE, LAYER_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
 import {
   VerticalContentPositionSchema,
   type VerticalContentPosition,
@@ -151,13 +156,21 @@ export function createGridCell(
   content: Fragment | ProseMirrorNode | null = null,
 ): ProseMirrorNode | null {
   const cellType = schema.nodes.cell;
-  if (!cellType) return null;
+  if (!cellType || !schema.nodes[LAYER_NODE_TYPE]) return null;
 
-  const fragment =
-    content === null ? createEditableCellFragment(schema) : contentToFragment(content);
-  if (!cellType.validContent(fragment)) return null;
+  const suppliedContent = content === null ? null : contentToFragment(content);
+  if (suppliedContent && hasDirectGrid(suppliedContent)) return null;
 
-  return cellType.createChecked({ id: createEmbeddedNodeId() }, fragment);
+  const layerJson =
+    suppliedContent === null || suppliedContent.childCount === 0
+      ? createBlankLayer()
+      : createLayerWithContent(suppliedContent.toJSON() as JSONContent[]);
+  const layer = schema.nodeFromJSON(layerJson);
+  layer.check();
+  const layerFragment = Fragment.from(layer);
+  if (!cellType.validContent(layerFragment)) return null;
+
+  return cellType.createChecked({ id: createEmbeddedNodeId() }, layerFragment);
 }
 
 export function isGridCellEmpty(cell: ProseMirrorNode): boolean {
@@ -190,8 +203,11 @@ function contentToFragment(content: Fragment | ProseMirrorNode | null): Fragment
   return content instanceof Fragment ? content : Fragment.from(content);
 }
 
-function createEditableCellFragment(schema: Schema): Fragment {
-  return createEditableRegionFragment(schema);
+function hasDirectGrid(content: Fragment): boolean {
+  for (let index = 0; index < content.childCount; index += 1) {
+    if (content.child(index).type.name === GRID_NODE_TYPE) return true;
+  }
+  return false;
 }
 
 function everyChild(

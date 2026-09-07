@@ -1,6 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createBlankLayer } from "@/document/model/layers/layer-construction";
 
 export function createTabsContent(options: Record<string, unknown> | undefined): JSONContent {
   const variant = parseTabsVariant(options?.["variant"]);
@@ -30,7 +31,7 @@ export function createTabSection(index: number, label: string | undefined): JSON
       label: resolvedLabel,
       options: { label: resolvedLabel },
     },
-    content: [{ type: "paragraph" }],
+    content: [createBlankLayer()],
   };
 }
 

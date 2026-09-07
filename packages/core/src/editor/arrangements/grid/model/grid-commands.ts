@@ -7,6 +7,7 @@ import {
   insertNodeChecked,
   type CheckedMutationResult,
 } from "@/document/model/commands/checked-transactions";
+import { LAYER_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
 import { isValidDocPos } from "@/editor/prosemirror/position/document-position";
 
 import {
@@ -307,8 +308,11 @@ export function removeGridCellAndUnwrapRemainingInTransaction(
   }
 
   const remainingCell = grid.child(cellIndex === 0 ? 1 : 0);
+  if (remainingCell.childCount !== 1 || remainingCell.firstChild?.type.name !== LAYER_NODE_TYPE) {
+    return null;
+  }
   try {
-    tr.replaceWith(gridPos, gridPos + grid.nodeSize, remainingCell.content);
+    tr.replaceWith(gridPos, gridPos + grid.nodeSize, remainingCell.firstChild.content);
     tr.doc.check();
     return tr;
   } catch {

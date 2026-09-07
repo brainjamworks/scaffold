@@ -613,30 +613,64 @@ describe("cloneJsonWithNewStableIds", () => {
     expect(assessment["correctOptionId"]).not.toBe("choice-a");
   });
 
-  it("regenerates structural cell and section ids", () => {
-    const layoutClone = cloneJsonWithNewStableIds({
+  it("regenerates structural Cell, Section, Layer, and descendant ids without changing content", () => {
+    const layoutSource: JSONContent = {
       type: "layout",
       attrs: { id: "layout-original" },
       content: [
         {
           type: "section",
-          attrs: { id: "section-original" },
+          attrs: { id: "section-original", label: "Overview" },
+          content: [
+            {
+              type: "layer",
+              attrs: { id: "layout-layer-original" },
+              content: [
+                {
+                  type: "paragraph",
+                  attrs: { id: "layout-paragraph-original" },
+                  content: [{ type: "text", text: "Authored layout content" }],
+                },
+              ],
+            },
+          ],
         },
       ],
-    });
-    const gridClone = cloneJsonWithNewStableIds({
+    };
+    const gridSource: JSONContent = {
       type: "grid",
       attrs: { id: "grid-original" },
       content: [
         {
           type: "cell",
           attrs: { id: "cell-original" },
+          content: [
+            {
+              type: "layer",
+              attrs: { id: "grid-layer-original" },
+              content: [
+                {
+                  type: "paragraph",
+                  attrs: { id: "grid-paragraph-original" },
+                  content: [{ type: "text", text: "Authored grid content" }],
+                },
+              ],
+            },
+          ],
         },
       ],
-    });
+    };
+    const layoutBefore = structuredClone(layoutSource);
+    const gridBefore = structuredClone(gridSource);
+    const layoutClone = cloneJsonWithNewStableIds(layoutSource);
+    const gridClone = cloneJsonWithNewStableIds(gridSource);
 
     const section = firstNodeByType(layoutClone, "section");
     const cell = firstNodeByType(gridClone, "cell");
+    const layoutLayer = firstNodeByType(layoutClone, "layer");
+    const gridLayer = firstNodeByType(gridClone, "layer");
+    const layoutParagraph = firstNodeByType(layoutClone, "paragraph");
+    const gridParagraph = firstNodeByType(gridClone, "paragraph");
 
     expect(layoutClone.attrs?.["id"]).toEqual(expect.stringMatching(STABLE_ID_PATTERN));
     expect(section?.attrs?.["id"]).toEqual(expect.stringMatching(STABLE_ID_PATTERN));
@@ -644,6 +678,15 @@ describe("cloneJsonWithNewStableIds", () => {
     expect(cell?.attrs?.["id"]).toEqual(expect.stringMatching(STABLE_ID_PATTERN));
     expect(section?.attrs?.["id"]).not.toBe("section-original");
     expect(cell?.attrs?.["id"]).not.toBe("cell-original");
+    expect(layoutLayer?.attrs?.["id"]).not.toBe("layout-layer-original");
+    expect(gridLayer?.attrs?.["id"]).not.toBe("grid-layer-original");
+    expect(layoutParagraph?.attrs?.["id"]).not.toBe("layout-paragraph-original");
+    expect(gridParagraph?.attrs?.["id"]).not.toBe("grid-paragraph-original");
+    expect(section?.attrs?.["label"]).toBe("Overview");
+    expect(layoutParagraph?.content?.[0]?.text).toBe("Authored layout content");
+    expect(gridParagraph?.content?.[0]?.text).toBe("Authored grid content");
+    expect(layoutSource).toEqual(layoutBefore);
+    expect(gridSource).toEqual(gridBefore);
   });
 
   it("regenerates gallery block and item ids", () => {
@@ -768,9 +811,13 @@ describe("cloneJsonWithNewStableIds", () => {
       expect([...firstCopyIds, ...secondCopyIds]).not.toContain(family.unrelatedSiblingId);
 
       const sourceDocument = family.createDocument();
-      const sibling = requireDocumentTreeLifecycleNodeById(sourceDocument, family.unrelatedSiblingId).node;
+      const sibling = requireDocumentTreeLifecycleNodeById(
+        sourceDocument,
+        family.unrelatedSiblingId,
+      ).node;
       const firstCopyNode = DOCUMENT_TREE_LIFECYCLE_AUTHORING_STATE.schema.nodeFromJSON(firstCopy);
-      const secondCopyNode = DOCUMENT_TREE_LIFECYCLE_AUTHORING_STATE.schema.nodeFromJSON(secondCopy);
+      const secondCopyNode =
+        DOCUMENT_TREE_LIFECYCLE_AUTHORING_STATE.schema.nodeFromJSON(secondCopy);
       const combined = createDocumentTreeLifecycleDocument([
         sourceOwner,
         firstCopyNode,

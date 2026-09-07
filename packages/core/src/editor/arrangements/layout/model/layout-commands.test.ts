@@ -9,6 +9,11 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import {
+  createBlankLayer,
+  createLayerWithContent,
+} from "@/document/model/layers/layer-construction";
+import { LayerNode } from "@/document/model/layers/layer-node";
+import {
   CourseSelectionMode,
   resolveCourseSelectionFacts,
 } from "@/editor/selection/selection-facts";
@@ -51,7 +56,7 @@ const missingIdsLayoutDefinition = {
       {
         type: "section",
         attrs: { role: "test" },
-        content: [{ type: "paragraph" }],
+        content: [createBlankLayer()],
       },
     ],
   }),
@@ -61,7 +66,7 @@ const missingIdsLayoutDefinition = {
     create: () => ({
       type: "section",
       attrs: { role: "test" },
-      content: [{ type: "paragraph" }],
+      content: [createBlankLayer()],
     }),
   },
 } satisfies LayoutDefinition;
@@ -77,7 +82,7 @@ const placeholderLayoutDefinition = {
   createContent: () => ({
     type: "layout",
     attrs: { variant: "test-layout-placeholders" },
-    content: [{ type: "section", content: [{ type: "paragraph" }] }],
+    content: [{ type: "section", content: [createBlankLayer()] }],
   }),
 } satisfies LayoutDefinition;
 
@@ -93,7 +98,7 @@ const EMPTY_IDENTITY_REWRITES = Object.freeze({
 
 const TestBlockNode = Node.create({
   name: "test_block",
-  group: "block",
+  group: "block assessment_question",
   atom: true,
 
   addAttributes() {
@@ -138,9 +143,12 @@ function makeEditor() {
       StarterKit.configure({ undoRedo: false, paragraph: false }),
       ExtendedParagraph,
       LayoutAuthoringNode,
-      SectionAuthoringNode,
+      SectionAuthoringNode.extend({
+        content: "layer+ | (accordion_section_title accordion_section_panel)",
+      }),
       AccordionSectionTitleNode,
-      AccordionSectionPanelNode,
+      AccordionSectionPanelNode.extend({ content: "layer+" }),
+      LayerNode,
       TestSectionArrangementNode,
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
     ],
@@ -162,9 +170,12 @@ function makeCourseEditor(content: JSONContent[]) {
       SurfaceNode,
       RegionNode,
       LayoutAuthoringNode,
-      SectionAuthoringNode,
+      SectionAuthoringNode.extend({
+        content: "layer+ | (accordion_section_title accordion_section_panel)",
+      }),
       AccordionSectionTitleNode,
-      AccordionSectionPanelNode,
+      AccordionSectionPanelNode.extend({ content: "layer+" }),
+      LayerNode,
       TestBlockNode,
       TestSectionArrangementNode,
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
@@ -192,7 +203,11 @@ function block(id: string): JSONContent {
 }
 
 function section(id: string, content: JSONContent[]): JSONContent {
-  return { type: "section", attrs: { id, role: "column" }, content };
+  return {
+    type: "section",
+    attrs: { id, role: "column" },
+    content: [createLayerWithContent(content)],
+  };
 }
 
 function layout(content: JSONContent[], options: Record<string, unknown> = {}) {
@@ -244,9 +259,14 @@ function sectionIds(layoutNode: JSONContent): string[] {
 }
 
 function sectionBlockIds(sectionNode: JSONContent): string[] {
-  return (sectionNode.content ?? [])
+  return walk(sectionNode)
+    .filter((node) => node.type === "test_block")
     .map((node) => node.attrs?.["id"])
     .filter((id): id is string => typeof id === "string");
+}
+
+function walk(root: JSONContent): JSONContent[] {
+  return [root, ...(root.content?.flatMap(walk) ?? [])];
 }
 
 function expectLayoutAndSectionIds(node: JSONContent | null | undefined) {
@@ -291,7 +311,7 @@ describe("layout command templates", () => {
             label: "Overview",
             options: { label: "Overview" },
           },
-          content: [{ type: "paragraph" }],
+          content: [{ type: "layer", content: [{ type: "paragraph" }] }],
         },
         {
           type: "section",
@@ -347,7 +367,7 @@ describe("layout command templates", () => {
             },
             {
               type: "accordion_section_panel",
-              content: [{ type: "paragraph" }],
+              content: [{ type: "layer", content: [{ type: "paragraph" }] }],
             },
           ],
         },
@@ -369,7 +389,7 @@ describe("layout command templates", () => {
             },
             {
               type: "accordion_section_panel",
-              content: [{ type: "paragraph" }],
+              content: [{ type: "layer", content: [{ type: "paragraph" }] }],
             },
           ],
         },
@@ -405,10 +425,12 @@ describe("bounded Section vertical position commands", () => {
                 type: "section",
                 attrs: { id: "section-a", role: "tab-panel", label: "Overview" },
                 content: [
-                  {
-                    type: "test_block",
-                    attrs: { id: "block-a", horizontalAlignment: "right" },
-                  },
+                  createLayerWithContent([
+                    {
+                      type: "test_block",
+                      attrs: { id: "block-a", horizontalAlignment: "right" },
+                    },
+                  ]),
                 ],
               },
             ],
@@ -433,7 +455,7 @@ describe("bounded Section vertical position commands", () => {
       role: "tab-panel",
       verticalPosition: "middle",
     });
-    expect(editor.state.doc.nodeAt(sectionPos)?.firstChild?.attrs).toMatchObject({
+    expect(editor.state.doc.nodeAt(sectionPos)?.firstChild?.firstChild?.attrs).toMatchObject({
       horizontalAlignment: "right",
       id: "block-a",
     });
@@ -597,7 +619,7 @@ describe("layout section reorder commands", () => {
           {
             type: "section",
             attrs: { id: "section-a", role: "test" },
-            content: [{ type: "paragraph" }],
+            content: [createBlankLayer()],
           },
         ],
       },
@@ -629,7 +651,7 @@ describe("layout section reorder commands", () => {
               role: "tab-panel",
               options: { label: "Tab 1" },
             },
-            content: [{ type: "paragraph" }],
+            content: [createBlankLayer()],
           },
         ],
       },
@@ -661,7 +683,7 @@ describe("layout section reorder commands", () => {
               role: "tab-panel",
               options: { label: "Tab 1" },
             },
-            content: [{ type: "paragraph" }],
+            content: [createBlankLayer()],
           },
           {
             type: "section",
@@ -670,7 +692,7 @@ describe("layout section reorder commands", () => {
               role: "tab-panel",
               options: { label: "Tab 2" },
             },
-            content: [{ type: "paragraph" }],
+            content: [createBlankLayer()],
           },
         ],
       },
@@ -690,12 +712,51 @@ describe("layout section reorder commands", () => {
         label: "Tab 3",
         options: { label: "Tab 3" },
       },
-      content: [{ type: "paragraph" }],
+      content: [{ type: "layer", content: [{ type: "paragraph" }] }],
     });
     expect(tabs.content?.[2]?.attrs?.["id"]).toEqual(expect.stringMatching(/^[0-9A-Z_a-z-]{12}$/));
     expect(resolveCourseSelectionFacts(editor.state.selection).selectionMode).not.toBe(
       CourseSelectionMode.NodeSelection,
     );
+
+    editor.destroy();
+  });
+
+  it.each([
+    { layoutId: "paginated", options: { pages: 1 }, role: "page" },
+    { layoutId: "accordion", options: { sections: 1 }, role: "accordion-panel" },
+  ])("appends a fresh Layer through the $layoutId definition", ({ layoutId, options, role }) => {
+    const definition = testLayoutRegistry.getById(layoutId);
+    if (!definition) throw new Error(`Missing ${layoutId} definition`);
+    const initial = definition.createContent({ options });
+    const originalIds = new Set(
+      walk(initial)
+        .map((node) => node.attrs?.["id"])
+        .filter((id): id is string => typeof id === "string"),
+    );
+    const editor = makeCourseEditor([initial]);
+    const layoutPos = nodePos(editor, "layout", initial.attrs?.["id"] as string);
+
+    expect(appendLayoutSectionAt(editor, layoutPos, testLayoutRegistry)).toBe(true);
+
+    const addedSection = layoutAt(editor).content?.[1];
+    const physicalSlot =
+      layoutId === "accordion"
+        ? addedSection?.content?.find((node) => node.type === "accordion_section_panel")
+        : addedSection;
+    const layer = physicalSlot?.content?.[0];
+    const paragraph = layer?.content?.[0];
+    expect(addedSection?.attrs?.["role"]).toBe(role);
+    expect(layer).toMatchObject({ type: "layer", content: [{ type: "paragraph" }] });
+
+    const addedIds = [
+      addedSection?.attrs?.["id"],
+      ...(layoutId === "accordion" ? [physicalSlot?.attrs?.["id"]] : []),
+      layer?.attrs?.["id"],
+      paragraph?.attrs?.["id"],
+    ];
+    expect(addedIds).toEqual(addedIds.map(() => expect.stringMatching(/^[0-9A-Z_a-z-]{12}$/)));
+    expect(addedIds.some((id) => typeof id === "string" && originalIds.has(id))).toBe(false);
 
     editor.destroy();
   });
@@ -717,7 +778,7 @@ describe("layout section reorder commands", () => {
               role: "tab-panel",
               options: { label: "Tab 1" },
             },
-            content: [{ type: "paragraph" }],
+            content: [createBlankLayer()],
           },
         ],
       },
@@ -739,6 +800,7 @@ describe("layout section reorder commands", () => {
   });
 
   it("duplicates a whole layout with fresh layout and section ids", () => {
+    const sourceLayer = createLayerWithContent([block("a")]);
     const editor = makeCourseEditor([
       {
         type: "layout",
@@ -755,7 +817,7 @@ describe("layout section reorder commands", () => {
               role: "tab-panel",
               options: { label: "Tab 1" },
             },
-            content: [block("a")],
+            content: [sourceLayer],
           },
         ],
       },
@@ -775,6 +837,10 @@ describe("layout section reorder commands", () => {
       options: { variant: "default" },
     });
     expect(children[1]?.content?.[0]?.attrs?.["id"]).not.toBe("section-a");
+    expect(children[1]?.content?.[0]?.content?.[0]?.attrs?.["id"]).not.toBe(
+      sourceLayer.attrs?.["id"],
+    );
+    expect(children[1]?.content?.[0]?.content?.[0]?.content?.[0]?.attrs?.["id"]).not.toBe("a");
 
     editor.destroy();
   });
@@ -830,7 +896,7 @@ describe("layout section reorder commands", () => {
     expect(duplicateLayoutAt(editor, nodePos(editor, "layout"), identityRewrites)).toBe(true);
 
     const layouts = surfaceChildren(editor).filter((node) => node.type === "layout");
-    const clonedBlock = layouts[1]?.content?.[0]?.content?.[0];
+    const clonedBlock = layouts[1]?.content?.[0]?.content?.[0]?.content?.[0];
     expect(rewrite).toHaveBeenCalledOnce();
     expect(clonedBlock?.attrs?.["id"]).not.toBe("block-a");
     expect(clonedBlock?.attrs?.["data"]).toEqual({
@@ -869,7 +935,7 @@ describe("layout section reorder commands", () => {
       duplicateLayoutSectionAt(editor, nodePos(editor, "section", "section-a"), identityRewrites),
     ).toBe(true);
 
-    const clonedBlock = layoutAt(editor).content?.[1]?.content?.[0];
+    const clonedBlock = layoutAt(editor).content?.[1]?.content?.[0]?.content?.[0];
     expect(rewrite).toHaveBeenCalledOnce();
     expect(clonedBlock?.attrs?.["id"]).not.toBe("block-a");
     expect(clonedBlock?.attrs?.["data"]?.nodeRef).toBe(clonedBlock?.attrs?.["id"]);
@@ -878,9 +944,7 @@ describe("layout section reorder commands", () => {
   });
 
   it("exposes an identity rewrite invariant without mutating the editor", () => {
-    const editor = makeCourseEditor([
-      layout([section("section-a", [block("block-a")])]),
-    ]);
+    const editor = makeCourseEditor([layout([section("section-a", [block("block-a")])])]);
     const before = editor.getJSON();
     const identityRewrites = Object.freeze({
       getByNodeType: (nodeType: string) =>
@@ -890,9 +954,9 @@ describe("layout section reorder commands", () => {
       hasNodeType: (nodeType: string) => nodeType === "test_block",
     });
 
-    expect(() =>
-      duplicateLayoutAt(editor, nodePos(editor, "layout"), identityRewrites),
-    ).toThrow(/Content identity rewrite for "test_block" changed a node type/);
+    expect(() => duplicateLayoutAt(editor, nodePos(editor, "layout"), identityRewrites)).toThrow(
+      /Content identity rewrite for "test_block" changed a node type/,
+    );
     expect(editor.getJSON()).toEqual(before);
 
     editor.destroy();
