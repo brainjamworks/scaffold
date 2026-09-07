@@ -1,3 +1,4 @@
+import { createBlankLayer } from "@/document/model/layers/layer-construction";
 import { SurfaceSettingsSchema } from "@/schemas/course-document";
 
 import { defineSlideCompositionSurface } from "../slide-composition-definition";
@@ -63,8 +64,8 @@ export const slideTwoStackedSurfaceDefinition = defineSlideCompositionSurface({
     attrs: { id: surfaceId, variant: "slide-two-stacked", settings: DEFAULT_SETTINGS },
     content: [
       { type: "slide_title" },
-      { type: "region", attrs: { role: "primary" }, content: [{ type: "paragraph" }] },
-      { type: "region", attrs: { role: "secondary" }, content: [{ type: "paragraph" }] },
+      { type: "region", attrs: { role: "primary" }, content: [createBlankLayer()] },
+      { type: "region", attrs: { role: "secondary" }, content: [createBlankLayer()] },
     ],
   }),
 });

@@ -1,3 +1,4 @@
+import { createBlankLayer } from "@/document/model/layers/layer-construction";
 import { SurfaceSettingsSchema } from "@/schemas/course-document";
 
 import { defineSlideCompositionSurface } from "../slide-composition-definition";
@@ -44,7 +45,7 @@ export const slideCentredStageSurfaceDefinition = defineSlideCompositionSurface(
     attrs: { id: surfaceId, variant: "slide-centred-stage", settings: DEFAULT_SETTINGS },
     content: [
       { type: "slide_title" },
-      { type: "region", attrs: { role: "main" }, content: [{ type: "paragraph" }] },
+      { type: "region", attrs: { role: "main" }, content: [createBlankLayer()] },
     ],
   }),
 });

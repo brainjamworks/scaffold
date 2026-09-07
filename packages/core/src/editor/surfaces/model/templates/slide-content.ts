@@ -1,3 +1,4 @@
+import { createBlankLayer } from "@/document/model/layers/layer-construction";
 import { SurfaceSettingsSchema } from "@/schemas/course-document";
 
 import { defineSlideCompositionSurface } from "../slide-composition-definition";
@@ -53,7 +54,7 @@ export const slideContentSurfaceDefinition = defineSlideCompositionSurface({
       {
         type: "region",
         attrs: { role: "main" },
-        content: [{ type: "paragraph" }],
+        content: [createBlankLayer()],
       },
     ],
   }),
