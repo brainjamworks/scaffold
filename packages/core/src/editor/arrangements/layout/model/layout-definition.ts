@@ -3,10 +3,7 @@ import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model";
 import type { Icon } from "@phosphor-icons/react";
 
 import type { ConfigurationDefinition } from "@/editor/configuration/definition";
-import {
-  normalizeControlDefinition,
-  type ControlDefinition,
-} from "@/document/control-binding";
+import { normalizeControlDefinition, type ControlDefinition } from "@/document/control-binding";
 import {
   normalizeDocumentTreeDefinition,
   type DocumentTreeDefinition,
@@ -28,6 +25,15 @@ export interface CreateLayoutSectionInput {
   options?: Record<string, unknown>;
 }
 
+export type LayoutSectionCompositionSlot =
+  | Readonly<{ kind: "direct" }>
+  | Readonly<{ kind: "child"; nodeType: string }>;
+
+export type LayoutSectionStructure = Readonly<{
+  kind: "ordered-children";
+  nodeTypes: readonly [string, ...string[]];
+}>;
+
 export interface LayoutSectionDefinition {
   /** Label used by generic layout chrome, e.g. "event", "tab", "section". */
   readonly label: string;
@@ -35,6 +41,10 @@ export interface LayoutSectionDefinition {
   readonly addLabel: string;
   readonly configuration?: ConfigurationDefinition;
   readonly documentTree?: DocumentTreeDefinition;
+  /** Declares where this Layout variant's Section-owned composition lives. */
+  readonly compositionSlot?: LayoutSectionCompositionSlot;
+  /** Optional feature-owned direct-child structure for contextual validation. */
+  readonly structure?: LayoutSectionStructure;
   readonly create: (input: CreateLayoutSectionInput) => JSONContent;
 }
 
@@ -81,6 +91,7 @@ export interface LayoutDefinition {
 }
 
 export interface RegisteredLayoutSectionDefinition extends LayoutSectionDefinition {
+  readonly compositionSlot: LayoutSectionCompositionSlot;
   readonly quickMenu?: QuickMenuDefinition;
   readonly settingsSheet?: NodeSettingsSheetDefinition;
 }
@@ -93,11 +104,15 @@ export interface RegisteredLayoutDefinition extends LayoutDefinition {
 }
 
 export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefinition {
-  const { control: controlInput, ...definitionWithoutControl } = definition;
+  const {
+    control: controlInput,
+    section: sectionInput,
+    ...definitionWithoutControlAndSection
+  } = definition;
   const quickMenu = deriveQuickMenuDefinition(definition.configuration);
   const settingsSheet = deriveSettingsSheetDefinition(definition.configuration);
-  const sectionQuickMenu = deriveQuickMenuDefinition(definition.section?.configuration);
-  const sectionSettingsSheet = deriveSettingsSheetDefinition(definition.section?.configuration);
+  const sectionQuickMenu = deriveQuickMenuDefinition(sectionInput?.configuration);
+  const sectionSettingsSheet = deriveSettingsSheetDefinition(sectionInput?.configuration);
   const documentTree = normalizeDocumentTreeDefinition(definition.documentTree);
   const control = normalizeControlDefinition(controlInput);
   const keywords = definition.keywords ? Object.freeze([...definition.keywords]) : undefined;
@@ -110,13 +125,25 @@ export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefi
   const registeredSectionSettingsSheet = sectionSettingsSheet
     ? Object.freeze({ nodeType: "section", ...sectionSettingsSheet })
     : undefined;
-  const section = definition.section
-    ? (() => {
-        const sectionDocumentTree = normalizeDocumentTreeDefinition(
-          definition.section.documentTree,
-        );
+  const section: RegisteredLayoutSectionDefinition | undefined = sectionInput
+    ? ((): RegisteredLayoutSectionDefinition => {
+        const sectionDocumentTree = normalizeDocumentTreeDefinition(sectionInput.documentTree);
+        const compositionSlot = Object.freeze({
+          ...(sectionInput.compositionSlot ?? { kind: "direct" }),
+        });
+        const structure = sectionInput.structure
+          ? Object.freeze({
+              ...sectionInput.structure,
+              nodeTypes: Object.freeze([...sectionInput.structure.nodeTypes]) as readonly [
+                string,
+                ...string[],
+              ],
+            })
+          : undefined;
         return Object.freeze({
-          ...definition.section,
+          ...sectionInput,
+          compositionSlot,
+          ...(structure ? { structure } : {}),
           ...(sectionQuickMenu ? { quickMenu: sectionQuickMenu } : {}),
           ...(registeredSectionSettingsSheet
             ? { settingsSheet: registeredSectionSettingsSheet }
@@ -126,7 +153,7 @@ export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefi
       })()
     : undefined;
   return Object.freeze({
-    ...definitionWithoutControl,
+    ...definitionWithoutControlAndSection,
     nodeType: "layout",
     ...(keywords ? { keywords } : {}),
     ...(placeholders ? { placeholders } : {}),

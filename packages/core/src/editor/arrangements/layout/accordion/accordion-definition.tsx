@@ -138,6 +138,11 @@ export const accordionLayoutDefinition = {
   section: {
     label: "Accordion section",
     addLabel: "Add section",
+    compositionSlot: { kind: "child", nodeType: "accordion_section_panel" },
+    structure: {
+      kind: "ordered-children",
+      nodeTypes: ["accordion_section_title", "accordion_section_panel"],
+    },
     documentTree: accordionSectionDocumentTree,
     create: ({ index }) => createAccordionSection(index, `Section ${index + 1}`, false),
     configuration: defineConfiguration({
