@@ -1,5 +1,6 @@
 import type { Editor as TiptapEditor } from "@tiptap/core";
 
+import { requireLayerMutationAccessForState } from "@/document/authoring/layers/layer-editing-boundaries";
 import { replaceRangeWithNodeChecked } from "@/document/model/commands/checked-transactions";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { isInlineReplacementRange } from "@/editor/rich-text/model/inline-replacement-range";
@@ -75,6 +76,7 @@ export function canApplyVocabularyTermToEditor(
     from: target.from,
     to: target.to,
     node,
+    layerAccess: requireLayerMutationAccessForState(editor.state),
   });
   if (!result.ok) return false;
 
@@ -120,6 +122,7 @@ export function applyVocabularyTermToEditor(
     from: target.from,
     to: target.to,
     node,
+    layerAccess: requireLayerMutationAccessForState(editor.state),
   });
   if (!result.ok) return false;
   if (!setNodeSelectionInTransaction(result.tr, target.from)) return false;

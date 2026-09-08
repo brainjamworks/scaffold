@@ -1,5 +1,15 @@
 import type { Schema, Node as ProseMirrorNode, NodeType } from "@tiptap/pm/model";
+import type { EmbeddedNodeId } from "@scaffold/contracts";
 
+import {
+  resolveExplicitLayerEditingTarget,
+  resolveLayerEditingTarget,
+  validateImplicitLayerEditRange,
+  type LayerEditingBoundaryError,
+  type LayerEditingBoundaryResult,
+  type LayerEditingContext,
+  type LayerEditingTarget,
+} from "@/document/authoring/layers/layer-editing-boundaries";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 
 export type MovementAncestor = {
@@ -25,6 +35,51 @@ export type StructureMovementPolicy = {
   sourceTypes: ReadonlySet<NodeType>;
   targetTypes: ReadonlySet<NodeType>;
 };
+
+export type LayerMovementDestinationResult = LayerEditingBoundaryResult<LayerEditingTarget>;
+
+/**
+ * Resolves an owner-targeted content move to its physical Layer. Omitting
+ * `layerId` is an ordinary authoring move; supplying it is an explicit move.
+ */
+export function resolveLayerMovementDestination(
+  input:
+    | (LayerEditingContext & {
+        readonly doc: ProseMirrorNode;
+        readonly ownerId: EmbeddedNodeId;
+        readonly layerId?: never;
+        readonly capturedSlotId?: EmbeddedNodeId;
+      })
+    | {
+        readonly doc: ProseMirrorNode;
+        readonly ownerId: EmbeddedNodeId;
+        readonly layerId: EmbeddedNodeId;
+        readonly capturedSlotId?: EmbeddedNodeId;
+        readonly layoutDefinitions: LayerEditingContext["layoutDefinitions"];
+      },
+): LayerMovementDestinationResult {
+  if ("layerId" in input) {
+    return resolveExplicitLayerEditingTarget({
+      doc: input.doc,
+      ownerId: input.ownerId,
+      layerId: input.layerId,
+      ...(input.capturedSlotId ? { capturedSlotId: input.capturedSlotId } : {}),
+      layoutDefinitions: input.layoutDefinitions,
+    });
+  }
+  return resolveLayerEditingTarget(input);
+}
+
+export function validateLayerMovementEndpoint(
+  input: LayerEditingContext & {
+    readonly doc: ProseMirrorNode;
+    readonly from: number;
+    readonly to: number;
+  },
+): LayerEditingBoundaryError | null {
+  const result = validateImplicitLayerEditRange(input);
+  return result.status === "error" ? result.error : null;
+}
 
 const STRUCTURE_MOVEMENT_SOURCE_NODE_NAMES = ["layout", "section"] as const;
 const STRUCTURE_MOVEMENT_TARGET_NODE_NAMES = [

@@ -63,14 +63,58 @@ export interface ResolveLayerOwnerSlotInput {
   readonly doc: ProseMirrorNode;
   readonly ownerId: EmbeddedNodeId;
   readonly layoutDefinitions: LayoutRegistry;
+  readonly index?: LayerOwnerSlotIndex;
+}
+
+export interface LayerOwnerSlotIndexEntry {
+  readonly node: ProseMirrorNode;
+  readonly pos: number;
+}
+
+/** Document-snapshot-local derived lookup used while validating one transaction. */
+export interface LayerOwnerSlotIndex {
+  readonly doc: ProseMirrorNode;
+  readonly nodeById: ReadonlyMap<EmbeddedNodeId, LayerOwnerSlotIndexEntry>;
+  readonly duplicateIds: ReadonlySet<EmbeddedNodeId>;
+  readonly layerEntries: readonly LayerOwnerSlotIndexEntry[];
+}
+
+export function createLayerOwnerSlotIndex(doc: ProseMirrorNode): LayerOwnerSlotIndex {
+  const nodeById = new Map<EmbeddedNodeId, LayerOwnerSlotIndexEntry>();
+  const duplicateIds = new Set<EmbeddedNodeId>();
+  const layerEntries: LayerOwnerSlotIndexEntry[] = [];
+  doc.descendants((node, pos) => {
+    if (node.type.name === LAYER_NODE_TYPE) layerEntries.push(Object.freeze({ node, pos }));
+    const id = node.attrs["id"];
+    if (typeof id !== "string" || id.length === 0) return true;
+    if (nodeById.has(id as EmbeddedNodeId)) {
+      duplicateIds.add(id as EmbeddedNodeId);
+      return true;
+    }
+    nodeById.set(id as EmbeddedNodeId, Object.freeze({ node, pos }));
+    return true;
+  });
+  return Object.freeze({
+    doc,
+    nodeById,
+    duplicateIds,
+    layerEntries: Object.freeze(layerEntries),
+  });
 }
 
 export function resolveLayerOwnerSlot({
   doc,
   ownerId,
   layoutDefinitions,
+  index = createLayerOwnerSlotIndex(doc),
 }: ResolveLayerOwnerSlotInput): LayerOwnerSlotResolution {
-  const ownerMatch = findUniqueNodeById(doc, ownerId);
+  if (index.doc !== doc) {
+    throw new Error("Layer owner-slot index belongs to a different document snapshot.");
+  }
+  if (index.duplicateIds.has(ownerId)) {
+    throw new Error(`Duplicate document identity "${ownerId}".`);
+  }
+  const ownerMatch = index.nodeById.get(ownerId) ?? null;
   if (!ownerMatch) {
     return Object.freeze({
       status: "error",
@@ -125,20 +169,6 @@ export function resolveLayerOwnerSlot({
       policy: policyForOwner(logicalOwner.nodeType),
     }),
   });
-}
-
-function findUniqueNodeById(
-  doc: ProseMirrorNode,
-  id: EmbeddedNodeId,
-): { readonly node: ProseMirrorNode; readonly pos: number } | null {
-  let match: { readonly node: ProseMirrorNode; readonly pos: number } | null = null;
-  doc.descendants((node, pos) => {
-    if (node.attrs["id"] !== id) return true;
-    if (match) throw new Error(`Duplicate document identity "${id}".`);
-    match = { node, pos };
-    return true;
-  });
-  return match;
 }
 
 function resolvePhysicalSlot(

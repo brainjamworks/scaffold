@@ -2,16 +2,28 @@
 
 import { Editor, type JSONContent } from "@tiptap/core";
 import type { Icon } from "@phosphor-icons/react";
+import { Schema, type Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { EditorState, TextSelection } from "@tiptap/pm/state";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import {
+  resolveLayerEditingTarget,
+  validateLayerContentPlacement,
+  type LayerEditingContext,
+} from "@/document/authoring/layers/layer-editing-boundaries";
 import { gridInsertAction } from "@/editor/arrangements/grid/model/grid-insert-action";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { createLayoutInsertAction } from "@/editor/arrangements/layout/model/layout-definition";
 import { tabsLayoutDefinition } from "@/editor/arrangements/layout/tabs/tabs-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import {
+  allowsBoundedContainerRootInsertionAtPosition,
+  isActiveBoundedContainerAtPosition,
+} from "@/editor/bounded-containers/model/bounded-container-placement";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 
@@ -39,6 +51,148 @@ afterEach(() => {
 });
 
 describe("resolveInsertActionPlacement", () => {
+  it("uses the open Layer only and ignores a hidden fill sibling", () => {
+    const doc = layerSchema.node("doc", null, [
+      layerSurface([
+        layerNode("layer0000001", [layerParagraph("paragraph001")]),
+        layerNode("layer0000002", [layerGrid("grid00000001")]),
+      ]),
+    ]);
+    const editor = editorFacade(doc, "paragraph001");
+    const context = layerContext([["region000001", "layer0000001"]]);
+    const before = doc.toJSON();
+
+    expect(
+      resolveInsertActionPlacement({
+        blockDefinitions: builtInBlockRegistry,
+        editor,
+        item: ordinaryInsertAction,
+        layerEditingContext: context,
+        layoutDefinitions: builtInLayoutRegistry,
+        surfaceVariants: builtInSurfaceVariantRegistry,
+      }),
+    ).toEqual({
+      ok: true,
+      range: { from: editor.state.selection.from, to: editor.state.selection.to },
+    });
+    expect(doc.toJSON()).toEqual(before);
+  });
+
+  it("refuses an implicit inactive target and direct Grid-in-Cell with typed facts", () => {
+    const regionDoc = layerSchema.node("doc", null, [
+      layerSurface([
+        layerNode("layer0000001", [layerParagraph("paragraph001")]),
+        layerNode("layer0000002", [layerParagraph("paragraph002")]),
+      ]),
+    ]);
+    const hiddenEditor = editorFacade(regionDoc, "paragraph002");
+    const regionContext = layerContext([["region000001", "layer0000001"]]);
+
+    expect(
+      resolveInsertActionPlacement({
+        blockDefinitions: builtInBlockRegistry,
+        editor: hiddenEditor,
+        item: ordinaryInsertAction,
+        layerEditingContext: regionContext,
+        layoutDefinitions: builtInLayoutRegistry,
+        surfaceVariants: builtInSurfaceVariantRegistry,
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        reason: "inactive-layer-target",
+        ownerId: "region000001",
+        targetLayerId: "layer0000002",
+        currentOpenLayerId: "layer0000001",
+      },
+    });
+
+    const cellDoc = layeredCellDocument();
+    const cellEditor = editorFacade(cellDoc, "paragraph003");
+    const cellContext = layerContext([
+      ["region000001", "layer0000001"],
+      ["cell00000001", "celllayer001"],
+    ]);
+    const before = cellDoc.toJSON();
+    expect(
+      resolveInsertActionPlacement({
+        blockDefinitions: builtInBlockRegistry,
+        editor: cellEditor,
+        item: gridInsertAction,
+        layerEditingContext: cellContext,
+        layoutDefinitions: builtInLayoutRegistry,
+        surfaceVariants: builtInSurfaceVariantRegistry,
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        reason: "content-incompatible",
+        ownerId: "cell00000001",
+        layerId: "celllayer001",
+        contentType: "grid",
+        rule: "grid-not-allowed-in-cell",
+      },
+    });
+    expect(cellDoc.toJSON()).toEqual(before);
+  });
+
+  it("allows a whole Layout to replace the empty paragraph in an open Cell Layer", () => {
+    const doc = layeredCellDocument();
+    const editor = editorFacade(doc, "paragraph003");
+    const context = layerContext([
+      ["region000001", "layer0000001"],
+      ["cell00000001", "celllayer001"],
+    ]);
+    const target = resolveLayerEditingTarget({
+      ...context,
+      doc,
+      ownerId: EmbeddedNodeIdSchema.parse("cell00000001"),
+    });
+    if (target.status === "error") throw new Error(target.error.reason);
+    const paragraphRange = nodeRangeById(doc, "paragraph003");
+    expect({ from: target.value.contentFrom, to: target.value.contentTo }).toEqual(paragraphRange);
+    expect(
+      allowsBoundedContainerRootInsertionAtPosition({
+        blockDefinitions: builtInBlockRegistry,
+        doc,
+        layoutDefinitions: builtInLayoutRegistry,
+        pos: target.value.pos,
+      }),
+    ).toBe(true);
+    expect(
+      isActiveBoundedContainerAtPosition({
+        blockDefinitions: builtInBlockRegistry,
+        containerType: "cell",
+        doc,
+        layoutDefinitions: builtInLayoutRegistry,
+        pos: target.value.pos,
+      }),
+    ).toBe(true);
+    expect(
+      validateLayerContentPlacement({
+        target: target.value,
+        contentType: "layout",
+        contentIsFillOccupant: true,
+        existingChildIsFillOccupant: () => false,
+        ...paragraphRange,
+      }),
+    ).toMatchObject({ status: "ready" });
+
+    expect(
+      resolveInsertActionPlacement({
+        blockDefinitions: builtInBlockRegistry,
+        editor,
+        item: cellFillInsertAction,
+        layerEditingContext: context,
+        layoutDefinitions: builtInLayoutRegistry,
+        surfaceVariants: builtInSurfaceVariantRegistry,
+      }),
+    ).toEqual({
+      ok: true,
+      range: paragraphRange,
+    });
+  });
+
   it.each(["region", "cell", "section"] as const)(
     "refuses an ordinary action after an existing fill occupant in a bounded %s",
     (containerType) => {
@@ -316,3 +470,92 @@ function nodeRangeForParagraphOwnedBy(editor: Editor, parentType: BoundedContain
   if (!range) throw new Error(`expected a paragraph owned by ${parentType}`);
   return range;
 }
+
+function editorFacade(doc: ProseMirrorNode, paragraphId: string): Editor {
+  const paragraph = nodeRangeById(doc, paragraphId);
+  const state = EditorState.create({
+    doc,
+    selection: TextSelection.create(doc, paragraph.from + 1),
+  });
+  return { state, schema: layerSchema } as Editor;
+}
+
+function layerContext(entries: readonly (readonly [string, string])[]): LayerEditingContext {
+  return {
+    layoutDefinitions: builtInLayoutRegistry,
+    openLayerByOwnerId: new Map(
+      entries.map(([ownerId, layerId]) => [
+        EmbeddedNodeIdSchema.parse(ownerId),
+        EmbeddedNodeIdSchema.parse(layerId),
+      ]),
+    ),
+  };
+}
+
+function layerSurface(layers: readonly ProseMirrorNode[]): ProseMirrorNode {
+  return layerSchema.node("surface", { id: "surface00001", variant: "slide-content" }, [
+    layerSchema.node("region", { id: "region000001" }, layers),
+  ]);
+}
+
+function layeredCellDocument(): ProseMirrorNode {
+  return layerSchema.node("doc", null, [
+    layerSurface([
+      layerNode("layer0000001", [
+        layerSchema.node("grid", { id: "grid00000001" }, [
+          layerSchema.node("cell", { id: "cell00000001" }, [
+            layerNode("celllayer001", [layerParagraph("paragraph003")]),
+          ]),
+        ]),
+      ]),
+    ]),
+  ]);
+}
+
+function layerNode(id: string, content: readonly ProseMirrorNode[]): ProseMirrorNode {
+  return layerSchema.node("layer", { id }, content);
+}
+
+function layerParagraph(id: string): ProseMirrorNode {
+  return layerSchema.node("paragraph", { id });
+}
+
+function layerGrid(id: string): ProseMirrorNode {
+  return layerSchema.node("grid", { id }, [
+    layerSchema.node("cell", { id: "cell00000002" }, [
+      layerNode("celllayer002", [layerParagraph("paragraph004")]),
+    ]),
+  ]);
+}
+
+function nodeRangeById(doc: ProseMirrorNode, id: string): { from: number; to: number } {
+  let range: { from: number; to: number } | null = null;
+  doc.descendants((node, pos) => {
+    if (node.attrs["id"] !== id) return true;
+    range = { from: pos, to: pos + node.nodeSize };
+    return false;
+  });
+  if (!range) throw new Error(`Missing fixture node "${id}".`);
+  return range;
+}
+
+const layerSchema = new Schema({
+  nodes: {
+    doc: { content: "surface+" },
+    text: { group: "inline" },
+    surface: {
+      content: "region+",
+      attrs: { id: { default: null }, variant: { default: null } },
+    },
+    region: { content: "layer+", attrs: { id: { default: null } } },
+    layer: { content: "(paragraph | grid | layout)+", attrs: { id: { default: null } } },
+    paragraph: { content: "inline*", attrs: { id: { default: null } } },
+    grid: { content: "cell+", attrs: { id: { default: null } } },
+    cell: { content: "layer+", attrs: { id: { default: null } } },
+    layout: {
+      content: "section+",
+      attrs: { id: { default: null }, variant: { default: "tabs" } },
+    },
+    section: { content: "layer+", attrs: { id: { default: null } } },
+  },
+});

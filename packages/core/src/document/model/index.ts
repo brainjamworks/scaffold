@@ -8,6 +8,10 @@ export {
   type CheckedMutationIssue,
   type CheckedMutationResult,
 } from "./commands/checked-transactions";
+export {
+  NON_LAYER_DOCUMENT_MUTATION_ACCESS,
+  type LayerMutationAccess,
+} from "../authoring/layers/layer-editing-boundaries";
 export * from "./content-model";
 export type {
   CourseSectionId,

@@ -3,8 +3,18 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { Selection } from "@tiptap/pm/state";
 
 import type { SurfaceDestination } from "@/document/model/course-structure/types";
+import {
+  resolveLayerTargetAtPosition,
+  validateImplicitLayerEditRange,
+  validateLayerContentPlacement,
+  type LayerEditingBoundaryError,
+  type LayerEditingContext,
+} from "@/document/authoring/layers/layer-editing-boundaries";
 import type { InsertActionRange } from "@/editor/insertion/insert-action";
-import { allowsBoundedContainerRootInsertionAtPosition } from "@/editor/bounded-containers/model/bounded-container-placement";
+import {
+  allowsBoundedContainerRootInsertionAtPosition,
+  isFillOccupantNode,
+} from "@/editor/bounded-containers/model/bounded-container-placement";
 import { isNodeSelection, isTextSelection } from "@/editor/selection/selection-facts";
 import { allowsSurfaceRootInsertionAtPosition } from "@/editor/surfaces/model/policies/surface-root-insertion-policy";
 
@@ -38,13 +48,19 @@ export type StructuralFragmentPlacementRefusalReason =
 
 export type StructuralFragmentPlacementResult =
   | { readonly status: "ok"; readonly placement: StructuralFragmentPlacement }
-  | { readonly status: "refused"; readonly reason: StructuralFragmentPlacementRefusalReason };
+  | { readonly status: "refused"; readonly reason: StructuralFragmentPlacementRefusalReason }
+  | {
+      readonly status: "refused";
+      readonly reason: "layer_editing_refused";
+      readonly error: LayerEditingBoundaryError;
+    };
 
 export function resolveStructuralFragmentPlacement(input: {
   readonly fragment: ValidatedStructuralFragment;
   readonly doc: ProseMirrorNode;
   readonly destination: StructuralFragmentPlacementDestination;
   readonly capabilities: StructuralFragmentCapabilityRegistries;
+  readonly layerEditingContext?: LayerEditingContext;
 }): StructuralFragmentPlacementResult {
   if (input.fragment.node.type.schema !== input.doc.type.schema) {
     return refused("source_schema_mismatch");
@@ -60,6 +76,7 @@ function resolveAdjacentPlacement(input: {
   readonly doc: ProseMirrorNode;
   readonly destination: StructuralFragmentPlacementDestination;
   readonly capabilities: StructuralFragmentCapabilityRegistries;
+  readonly layerEditingContext?: LayerEditingContext;
 }): StructuralFragmentPlacementResult {
   if (input.destination.kind !== "selection" && input.destination.kind !== "text-caret") {
     return refused("destination_kind_mismatch");
@@ -109,6 +126,26 @@ function resolveAdjacentPlacement(input: {
     return refused("surface_root_insertion_refused");
   }
 
+  let layerTarget = null;
+  if (input.layerEditingContext) {
+    const boundary = validateImplicitLayerEditRange({
+      ...input.layerEditingContext,
+      doc: input.doc,
+      from: checkedRange.from,
+      to: checkedRange.to,
+    });
+    if (boundary.status === "error") return layerRefused(boundary.error);
+    layerTarget = boundary.value.at(-1) ?? null;
+  } else if (
+    resolveLayerTargetAtPosition({
+      doc: input.doc,
+      pos: checkedRange.parentPos,
+      layoutDefinitions: input.capabilities.layouts,
+    })
+  ) {
+    throw new Error("Layer-aware structural paste requires the document authoring lifecycle.");
+  }
+
   try {
     if (
       !checkedRange.parent.contentMatchAt(checkedRange.index).matchType(input.fragment.node.type)
@@ -117,6 +154,23 @@ function resolveAdjacentPlacement(input: {
     }
   } catch {
     return refused("invalid_destination_selection");
+  }
+
+  if (layerTarget) {
+    const contentPlacement = validateLayerContentPlacement({
+      target: layerTarget,
+      contentType: input.fragment.node.type.name,
+      contentIsFillOccupant: isFillOccupantNode(
+        input.fragment.node,
+        input.capabilities.blocks,
+        input.capabilities.layouts,
+      ),
+      existingChildIsFillOccupant: (child) =>
+        isFillOccupantNode(child, input.capabilities.blocks, input.capabilities.layouts),
+      from: checkedRange.from,
+      to: checkedRange.to,
+    });
+    if (contentPlacement.status === "error") return layerRefused(contentPlacement.error);
   }
 
   if (
@@ -165,7 +219,10 @@ function resolveTextCaretRange(
       directChildDepth === $from.depth && $from.parent.content.size === 0;
     const index = replaceEmptyTextblock ? $from.index(depth) : $from.indexAfter(depth);
     const replaceTo = replaceEmptyTextblock ? index + 1 : index;
-    if (!parent.canReplaceWith(index, replaceTo, fragment.type)) continue;
+    if (!parent.canReplaceWith(index, replaceTo, fragment.type)) {
+      if (parent.type.name === "layer") return null;
+      continue;
+    }
 
     const from = replaceEmptyTextblock ? $from.before($from.depth) : $from.after(directChildDepth);
     return {
@@ -185,6 +242,7 @@ function resolveSurfacePlacement(input: {
   readonly doc: ProseMirrorNode;
   readonly destination: StructuralFragmentPlacementDestination;
   readonly capabilities: StructuralFragmentCapabilityRegistries;
+  readonly layerEditingContext?: LayerEditingContext;
 }): StructuralFragmentPlacementResult {
   if (input.destination.kind !== "surface") return refused("destination_kind_mismatch");
 
@@ -240,4 +298,8 @@ function refused(
   reason: StructuralFragmentPlacementRefusalReason,
 ): StructuralFragmentPlacementResult {
   return { status: "refused", reason };
+}
+
+function layerRefused(error: LayerEditingBoundaryError): StructuralFragmentPlacementResult {
+  return { status: "refused", reason: "layer_editing_refused", error };
 }

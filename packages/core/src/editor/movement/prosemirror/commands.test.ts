@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
-import { Editor, Node, type JSONContent } from "@tiptap/core";
+import { Editor, Extension, Node, type JSONContent } from "@tiptap/core";
+import { Plugin } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -25,6 +26,9 @@ import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createDocumentTreeDefinitionLookup } from "@/composition/model/document-tree-definition-lookup";
+import { createDocumentAuthoringExtension } from "@/document/authoring/document-authoring-extension";
+import { createLayerEditingBoundaryExtension } from "@/document/authoring/layers/layer-editing-boundaries";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 
@@ -333,6 +337,87 @@ function makeEditor(
     ],
     content: courseDocument(content, surfaceVariant),
   });
+}
+
+function makeLayerMovementEditor(
+  options: {
+    readonly content?: JSONContent[];
+    readonly includeLifecycle?: boolean;
+    readonly rejectDocumentChanges?: boolean;
+  } = {},
+): Editor {
+  return new Editor({
+    extensions: [
+      DocumentNode,
+      StarterKit.configure({
+        document: false,
+        paragraph: false,
+        undoRedo: false,
+      }),
+      createTestNodeIdentityExtension(),
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
+      ...(options.includeLifecycle === false
+        ? []
+        : [createDocumentAuthoringExtension(testCapabilities.documentTree)]),
+      createLayerEditingBoundaryExtension(testBlockRegistry, builtInLayoutRegistry),
+      ...(options.rejectDocumentChanges
+        ? [
+            Extension.create({
+              name: "rejectMovementTestTransactions",
+              addProseMirrorPlugins: () => [
+                new Plugin({ filterTransaction: (transaction) => !transaction.docChanged }),
+              ],
+            }),
+          ]
+        : []),
+      ExtendedParagraph,
+      CourseDocumentNode,
+      createCourseSectionNode(),
+      SurfaceNode,
+      RegionAuthoringNode.extend({ content: "layer+" }),
+      GridAuthoringNode,
+      CellAuthoringNode.extend({ content: "layer+" }),
+      LayoutAuthoringNode,
+      SectionAuthoringNode.extend({ content: "layer+" }),
+      LayerNode,
+      TestBlockNode,
+      FillTestBlockNode,
+      MovementTestAssessmentQuestionNode,
+    ],
+    content: courseDocument(
+      options.content ?? [
+        layeredRegion("region000001", [
+          {
+            type: "layer",
+            attrs: { id: "layer0000001" },
+            content: [block("block0000001")],
+          },
+        ]),
+        layeredRegion("region000002", [
+          {
+            type: "layer",
+            attrs: { id: "layer0000002" },
+            content: [{ type: "paragraph", attrs: { id: "paragraph001" } }],
+          },
+          {
+            type: "layer",
+            attrs: { id: "layer0000003" },
+            content: [block("block0000002")],
+          },
+        ]),
+      ],
+    ),
+  });
+}
+
+function layeredRegion(id: string, layers: JSONContent[]): JSONContent {
+  return { type: "region", attrs: { id }, content: layers };
+}
+
+function layerChildren(editor: Editor, layerId: string): JSONContent[] {
+  const layer = editor.state.doc.nodeAt(nodePos(editor, "layer", layerId));
+  if (!layer) throw new Error(`Missing Layer "${layerId}".`);
+  return (layer.toJSON().content ?? []) as JSONContent[];
 }
 
 function nodePos(editor: Editor, type: string, id?: string): number {
@@ -726,6 +811,206 @@ describe("drag movement commands", () => {
       "test_block",
     ]);
     expect(idsInDocument(editor)).toEqual(["a"]);
+    editor.destroy();
+  });
+
+  it("moves content into the destination owner's open Layer and preserves hidden siblings", () => {
+    const editor = makeLayerMovementEditor();
+    const sourcePos = nodePos(editor, "test_block", "block0000001");
+
+    expect(
+      applyMovementIntent(
+        editor,
+        sourcePos,
+        new InsertInsideTarget(movementTarget(editor, "region", "region000002")),
+      ),
+    ).toBe(true);
+
+    expect(nodePos(editor, "test_block", "block0000001")).toBeGreaterThan(sourcePos);
+    expect(layerChildren(editor, "layer0000001").map((node) => node.type)).toEqual(["paragraph"]);
+    expect(layerChildren(editor, "layer0000002").map((node) => node.attrs?.["id"])).toEqual([
+      "block0000001",
+    ]);
+    expect(layerChildren(editor, "layer0000003").map((node) => node.attrs?.["id"])).toEqual([
+      "block0000002",
+    ]);
+    editor.destroy();
+  });
+
+  it("refuses movement from an inactive Layer without dispatching a transaction", () => {
+    const editor = makeLayerMovementEditor();
+    const before = editor.getJSON();
+    let transactions = 0;
+    editor.on("transaction", () => {
+      transactions += 1;
+    });
+
+    expect(
+      canApplyMovementIntent(
+        editor,
+        nodePos(editor, "test_block", "block0000001"),
+        new CreateGridBeforeBlock(blockTarget(editor, "block0000002")),
+      ),
+    ).toBe(false);
+    expect(
+      applyMovementIntent(
+        editor,
+        nodePos(editor, "test_block", "block0000002"),
+        new InsertInsideTarget(movementTarget(editor, "region", "region000001")),
+      ),
+    ).toBe(false);
+    expect(editor.getJSON()).toEqual(before);
+    expect(transactions).toBe(0);
+    editor.destroy();
+  });
+
+  it("applies a side move through the Layer guard and preserves the hidden alternative", () => {
+    const editor = makeLayerMovementEditor({
+      content: [
+        layeredRegion("region000001", [
+          {
+            type: "layer",
+            attrs: { id: "layer0000001" },
+            content: [block("block0000001"), block("block0000002")],
+          },
+          {
+            type: "layer",
+            attrs: { id: "layer0000002" },
+            content: [block("block0000003")],
+          },
+        ]),
+      ],
+    });
+    let transactions = 0;
+    editor.on("transaction", () => {
+      transactions += 1;
+    });
+
+    expect(
+      applyMovementIntent(
+        editor,
+        nodePos(editor, "test_block", "block0000001"),
+        new CreateGridBeforeBlock(blockTarget(editor, "block0000002")),
+      ),
+    ).toBe(true);
+    expect(transactions).toBe(1);
+    expect(layerChildren(editor, "layer0000001").map((node) => node.type)).toEqual(["grid"]);
+    expect(layerChildren(editor, "layer0000002").map((node) => node.attrs?.["id"])).toEqual([
+      "block0000003",
+    ]);
+    expect(idsInDocument(editor)).toEqual(["block0000001", "block0000002", "block0000003"]);
+    editor.destroy();
+  });
+
+  it("refuses a side move into an inactive Layer before dispatch", () => {
+    const editor = makeLayerMovementEditor({
+      content: [
+        layeredRegion("region000001", [
+          {
+            type: "layer",
+            attrs: { id: "layer0000001" },
+            content: [block("block0000001")],
+          },
+          {
+            type: "layer",
+            attrs: { id: "layer0000002" },
+            content: [block("block0000002")],
+          },
+        ]),
+      ],
+    });
+    const before = editor.getJSON();
+    let transactions = 0;
+    editor.on("transaction", () => {
+      transactions += 1;
+    });
+
+    expect(
+      applyMovementIntent(
+        editor,
+        nodePos(editor, "test_block", "block0000001"),
+        new CreateGridBeforeBlock(blockTarget(editor, "block0000002")),
+      ),
+    ).toBe(false);
+    expect(transactions).toBe(0);
+    expect(editor.getJSON()).toEqual(before);
+    editor.destroy();
+  });
+
+  it("refuses a stale side destination without dispatching the move", () => {
+    const editor = makeLayerMovementEditor({
+      content: [
+        layeredRegion("region000001", [
+          {
+            type: "layer",
+            attrs: { id: "layer0000001" },
+            content: [block("block0000001"), block("block0000002")],
+          },
+        ]),
+      ],
+    });
+    const staleTarget = blockTarget(editor, "block0000002");
+    const targetPos = nodePos(editor, "test_block", "block0000002");
+    const target = editor.state.doc.nodeAt(targetPos);
+    if (!target) throw new Error("Missing movement target.");
+    editor.view.dispatch(
+      editor.state.tr.setNodeMarkup(targetPos, undefined, { ...target.attrs, changed: true }),
+    );
+    const before = editor.getJSON();
+    let transactions = 0;
+    editor.on("transaction", () => {
+      transactions += 1;
+    });
+
+    expect(
+      applyMovementIntent(
+        editor,
+        nodePos(editor, "test_block", "block0000001"),
+        new CreateGridBeforeBlock(staleTarget),
+      ),
+    ).toBe(false);
+    expect(transactions).toBe(0);
+    expect(editor.getJSON()).toEqual(before);
+    editor.destroy();
+  });
+
+  it("keeps missing Layer authoring authority observable during destination validation", () => {
+    const editor = makeLayerMovementEditor({
+      includeLifecycle: false,
+      content: [
+        block("block0000001"),
+        layeredRegion("region000001", [
+          {
+            type: "layer",
+            attrs: { id: "layer0000001" },
+            content: [block("block0000002")],
+          },
+        ]),
+      ],
+    });
+
+    expect(() =>
+      canApplyMovementIntent(
+        editor,
+        nodePos(editor, "test_block", "block0000001"),
+        new CreateGridBeforeBlock(blockTarget(editor, "block0000002")),
+      ),
+    ).toThrow("Layer-aware movement requires the document authoring lifecycle.");
+    editor.destroy();
+  });
+
+  it("reports false when a later transaction filter refuses an otherwise valid move", () => {
+    const editor = makeLayerMovementEditor({ rejectDocumentChanges: true });
+    const before = editor.getJSON();
+    const intent = new InsertInsideTarget(movementTarget(editor, "region", "region000002"));
+
+    expect(
+      canApplyMovementIntent(editor, nodePos(editor, "test_block", "block0000001"), intent),
+    ).toBe(true);
+    expect(applyMovementIntent(editor, nodePos(editor, "test_block", "block0000001"), intent)).toBe(
+      false,
+    );
+    expect(editor.getJSON()).toEqual(before);
     editor.destroy();
   });
 

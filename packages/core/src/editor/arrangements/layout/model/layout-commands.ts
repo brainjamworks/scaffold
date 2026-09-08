@@ -3,6 +3,8 @@ import type { Schema, Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Fragment } from "@tiptap/pm/model";
 import type { Transaction } from "@tiptap/pm/state";
 
+import type { EmbeddedNodeId } from "@scaffold/contracts";
+import { authorizeExplicitLayerStructuralSteps } from "@/document/authoring/layers/layer-editing-boundaries";
 import { isActiveBoundedContainerAtPosition } from "@/editor/bounded-containers/model/bounded-container-placement";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import {
@@ -81,6 +83,7 @@ export function appendLayoutSectionAt(
     const insertPos = layoutPos + layout.nodeSize - 1;
     const tr = editor.state.tr.insert(insertPos, section);
     tr.doc.check();
+    authorizeLayoutSteps(tr, layout);
     setNonDestructiveSelectionNearInTransaction(tr, insertPos + 1);
     editor.view.dispatch(tr.scrollIntoView());
     return true;
@@ -103,6 +106,7 @@ export function duplicateLayoutAt(
     const clone = editor.state.schema.nodeFromJSON(cloneJson);
     const insertPos = layoutPos + layout.nodeSize;
     const tr = editor.state.tr.insert(insertPos, clone);
+    authorizeLayoutSteps(tr, clone);
     if (!setNodeSelectionInTransaction(tr, insertPos)) return false;
     return dispatchChecked(editor, tr);
   } catch {
@@ -117,6 +121,7 @@ export function deleteLayoutAt(editor: Editor, layoutPos: number): boolean {
 
   try {
     const tr = editor.state.tr.delete(layoutPos, layoutPos + layout.nodeSize);
+    authorizeLayoutSteps(tr, layout);
     return dispatchChecked(editor, tr);
   } catch {
     return false;
@@ -137,6 +142,7 @@ export function duplicateLayoutSectionAt(
     const clone = editor.state.schema.nodeFromJSON(cloneJson);
     const insertPos = sectionPos + section.nodeSize;
     const tr = editor.state.tr.insert(insertPos, clone);
+    authorizeLayoutSteps(tr, clone);
     if (!setNodeSelectionInTransaction(tr, insertPos)) return false;
     return dispatchChecked(editor, tr);
   } catch {
@@ -157,6 +163,7 @@ export function deleteLayoutSectionAt(editor: Editor, sectionPos: number): boole
       owner.node.childCount === 1
         ? editor.state.tr.delete(owner.pos, owner.pos + owner.node.nodeSize)
         : editor.state.tr.delete(sectionPos, sectionPos + section.nodeSize);
+    authorizeLayoutSteps(tr, owner.node.childCount === 1 ? owner.node : section);
     return dispatchChecked(editor, tr);
   } catch {
     return false;
@@ -231,6 +238,9 @@ export function reorderLayoutSectionAt(
     targetIndex,
   );
   if (!tr) return false;
+  const layout = editor.state.doc.nodeAt(targetLayoutPos);
+  if (!layout || layout.type.name !== "layout") return false;
+  authorizeLayoutSteps(tr, layout);
 
   try {
     if (tr.doc.eq(editor.state.doc)) return false;
@@ -327,9 +337,21 @@ function dispatchChecked(editor: Editor, tr: Transaction): boolean {
 
   try {
     tr.doc.check();
+    const before = editor.state.doc;
     editor.view.dispatch(tr.scrollIntoView());
-    return true;
+    return !editor.state.doc.eq(before);
   } catch {
     return false;
   }
+}
+
+function authorizeLayoutSteps(tr: Transaction, root: ProseMirrorNode): void {
+  const id = root.attrs["id"];
+  if (typeof id !== "string" || id.length === 0) {
+    throw new Error("Layout structural operation requires a stable root identity.");
+  }
+  authorizeExplicitLayerStructuralSteps(tr, {
+    fromStep: 0,
+    rootIds: [id as EmbeddedNodeId],
+  });
 }

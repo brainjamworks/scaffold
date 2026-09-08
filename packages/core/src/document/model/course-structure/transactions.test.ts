@@ -3,15 +3,16 @@
 import {
   EmbeddedDataIdSchema,
   EmbeddedNodeIdSchema,
+  type EmbeddedNodeId,
   type LearnerInteractionConfigurationV1,
   type LearnerInteractionRuleV1,
   type PresentationConfigurationV1,
   type SurfacePresentationTimelineV1,
 } from "@scaffold/contracts";
-import { Editor, Node, type JSONContent } from "@tiptap/core";
+import { Editor, Extension, Node, type JSONContent } from "@tiptap/core";
 import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
-import type { Transaction } from "@tiptap/pm/state";
+import { Plugin, type Transaction } from "@tiptap/pm/state";
 import { z } from "zod";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -21,11 +22,13 @@ import {
   type ResolvableBlockCapability,
 } from "@/composition/model/resolved-scaffold-capabilities";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
+import { allowsLayerEditingTransaction } from "@/document/authoring/layers/layer-editing-boundaries";
 import {
   authoringCourseDocumentContentExpression,
   createUnavailableContentAuthoringExtensions,
 } from "@/document/authoring/unavailable-content";
 import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { CourseDocumentNode, DocumentNode, createCourseSectionNode } from "@/document/model/nodes";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
@@ -337,6 +340,68 @@ describe("Course Structure Tiptap commands", () => {
       "copysurf0002",
       SECTION_2,
       SURFACE_3,
+    ]);
+  });
+
+  it("authorizes actual Course Section rename, delete, and duplicate commands through the Layer filter", () => {
+    const rename = makeLayeredEditor(
+      [
+        section(SECTION_1, "One"),
+        layeredSurface(SURFACE_1, "region000001", "layer0000001", "Alpha"),
+        section(SECTION_2, "Two"),
+        layeredSurface(SURFACE_2, "region000002", "layer0000002", "Beta"),
+      ],
+      [],
+    );
+    expect(
+      runCommand(rename, {
+        type: "course-section.rename",
+        courseSectionId: SECTION_1,
+        title: "Renamed",
+      }),
+    ).toBe(true);
+    expect(courseChildren(rename)[0]?.attrs?.["title"]).toBe("Renamed");
+
+    const remove = makeLayeredEditor(
+      [
+        section(SECTION_1, "One"),
+        layeredSurface(SURFACE_1, "region000001", "layer0000001", "Alpha"),
+        section(SECTION_2, "Two"),
+        layeredSurface(SURFACE_2, "region000002", "layer0000002", "Beta"),
+      ],
+      [],
+    );
+    expect(
+      runCommand(remove, {
+        type: "course-section.delete",
+        courseSectionId: SECTION_1,
+        expectedSurfaceIds: [SURFACE_1],
+      }),
+    ).toBe(true);
+    expect(childIdentity(remove)).toEqual([SECTION_2, SURFACE_2]);
+
+    const duplicate = makeLayeredEditor(
+      [
+        section(SECTION_1, "One"),
+        layeredSurface(SURFACE_1, "region000001", "layer0000001", "Alpha"),
+        section(SECTION_2, "Two"),
+        layeredSurface(SURFACE_2, "region000002", "layer0000002", "Beta"),
+      ],
+      ["copysect0001", "copysurf0001", "copyregn0001", "copylayer001"],
+    );
+    expect(
+      runCommand(duplicate, {
+        type: "course-section.duplicate",
+        courseSectionId: SECTION_1,
+      }),
+    ).toBe(true);
+    expect(childIdentity(duplicate)).toEqual([
+      SECTION_1,
+      SURFACE_1,
+      "copysect0001",
+      "copysurf0001",
+      SECTION_2,
+      SURFACE_2,
     ]);
   });
 
@@ -1087,11 +1152,7 @@ describe("Course Structure Learner Interaction lifecycle", () => {
   });
 
   it("leaves the root absent on ordinary documents", () => {
-    const editor = makeEditor(
-      [section(SECTION_1, "One"), surface(SURFACE_1)],
-      "slideshow",
-      [],
-    );
+    const editor = makeEditor([section(SECTION_1, "One"), surface(SURFACE_1)], "slideshow", []);
 
     expect(
       runCommand(editor, {
@@ -1132,6 +1193,9 @@ function makeEditor(
   blockCapabilities: readonly ResolvableBlockCapability[] = [],
   presentationConfiguration: PresentationConfigurationV1 | null = null,
   learnerInteractionConfiguration: LearnerInteractionConfigurationV1 | null = null,
+  layerBoundary?: Readonly<{
+    openLayerByOwnerId: ReadonlyMap<EmbeddedNodeId, EmbeddedNodeId>;
+  }>,
 ): Editor {
   const remainingIds = [...ids];
   const capabilities = resolveScaffoldCapabilities({
@@ -1147,8 +1211,9 @@ function makeEditor(
       ExtendedParagraph,
       TestCourseDocumentNode,
       createCourseSectionNode(),
-      SurfaceNode,
-      RegionNode,
+      layerBoundary ? SurfaceNode.extend({ content: "region+" }) : SurfaceNode,
+      layerBoundary ? RegionNode.extend({ content: "layer+" }) : RegionNode,
+      ...(layerBoundary ? [LayerNode] : []),
       TestArrangementNode,
       CopyFixtureNode,
       ...createUnavailableContentAuthoringExtensions(),
@@ -1160,11 +1225,51 @@ function makeEditor(
           return id;
         },
       }),
+      ...(layerBoundary
+        ? [
+            Extension.create({
+              name: "testLayerEditingBoundary",
+              addProseMirrorPlugins() {
+                return [
+                  new Plugin({
+                    filterTransaction: (transaction, state) =>
+                      allowsLayerEditingTransaction({
+                        blockDefinitions: capabilities.blocks.registry,
+                        layoutDefinitions: capabilities.layouts.registry,
+                        openLayerByOwnerId: layerBoundary.openLayerByOwnerId,
+                        transaction,
+                        state,
+                      }),
+                  }),
+                ];
+              },
+            }),
+          ]
+        : []),
     ],
     content: document(mode, children, presentationConfiguration, learnerInteractionConfiguration),
   });
   editors.push(editor);
   return editor;
+}
+
+function makeLayeredEditor(children: JSONContent[], ids: string[]): Editor {
+  const openLayerByOwnerId = new Map<EmbeddedNodeId, EmbeddedNodeId>();
+  for (const child of children) {
+    if (child.type !== "surface") continue;
+    const region = child.content?.[0];
+    const layer = region?.content?.[0];
+    const ownerId = region?.attrs?.["id"];
+    const layerId = layer?.attrs?.["id"];
+    if (typeof ownerId !== "string" || typeof layerId !== "string") {
+      throw new Error("Layered Course Structure fixture requires Region and Layer identities.");
+    }
+    openLayerByOwnerId.set(
+      EmbeddedNodeIdSchema.parse(ownerId),
+      EmbeddedNodeIdSchema.parse(layerId),
+    );
+  }
+  return makeEditor(children, "slideshow", ids, [], null, null, { openLayerByOwnerId });
 }
 
 function runCommand(editor: Editor, command: CourseStructureCommand): boolean {
@@ -1297,6 +1402,22 @@ function surface(
     attrs: { id, title: null, variant, settings: {}, notes: null },
     content,
   };
+}
+
+function layeredSurface(id: string, regionId: string, layerId: string, text: string): JSONContent {
+  return surface(id, [
+    {
+      type: "region",
+      attrs: { id: regionId },
+      content: [
+        {
+          type: "layer",
+          attrs: { id: layerId },
+          content: paragraph(text),
+        },
+      ],
+    },
+  ]);
 }
 
 function unavailableSurface(id: string): JSONContent {

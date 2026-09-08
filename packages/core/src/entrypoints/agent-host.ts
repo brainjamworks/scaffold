@@ -41,6 +41,10 @@ export {
   type CheckedMutationResult,
 } from "@/document/model/commands/checked-transactions";
 export {
+  NON_LAYER_DOCUMENT_MUTATION_ACCESS,
+  type LayerMutationAccess,
+} from "@/document/authoring/layers/layer-editing-boundaries";
+export {
   createGridTemplate,
   type GridTemplateOptions,
 } from "@/editor/arrangements/grid/model/grid-model";

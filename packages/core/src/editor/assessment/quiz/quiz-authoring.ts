@@ -5,6 +5,7 @@ import { Fragment } from "@tiptap/pm/model";
 
 import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
+import { requireLayerMutationAccessForState } from "@/document/authoring/layers/layer-editing-boundaries";
 import {
   deleteNodeChecked,
   replaceRangeWithNodeChecked,
@@ -79,6 +80,7 @@ export function addQuizQuestion({
     from: insertAt,
     node: question,
     to: insertAt,
+    layerAccess: requireLayerMutationAccessForState(editor.state),
   });
   if (!result.ok) return null;
 
@@ -201,6 +203,7 @@ export function deleteQuizQuestion({
   const result = deleteNodeChecked({
     tr: editor.state.tr,
     pos: childPos,
+    layerAccess: requireLayerMutationAccessForState(editor.state),
   });
   if (!result.ok) return null;
 

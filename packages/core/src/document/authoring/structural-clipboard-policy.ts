@@ -9,6 +9,7 @@ import type { SurfaceVariantRegistry } from "@/editor/surfaces/model/surface-var
 import { resolveSelectionOwnerBlock } from "@/editor/selection/block-context";
 import { isNodeSelection, isTextSelection } from "@/editor/selection/selection-facts";
 import { replaceRangeWithNodeChecked } from "@/document/model/commands/checked-transactions";
+import { requireLayerMutationAccessForState } from "@/document/authoring/layers/layer-editing-boundaries";
 import {
   cloneJsonWithNewStableIds,
   type ContentIdentityRewriteLookup,
@@ -145,61 +146,66 @@ export function createStructuralClipboardPolicy({
         if (carrier.status === "invalid") return true;
 
         const validated = validateStructuralFragment({
-            fragment: carrier.fragment,
-            schema: view.state.schema,
-            capabilities,
+          fragment: carrier.fragment,
+          schema: view.state.schema,
+          capabilities,
+        });
+        if (validated.status === "refused") return true;
+
+        const destination =
+          carrier.fragment.rootKind === "surface"
+            ? resolveSurfacePasteDestination(view.state.selection.$from, view.state.selection.$to)
+            : resolveStructuralPasteDestination(view.state, blockDefinitions, layoutDefinitions);
+        if (!destination) return true;
+
+        const layerAccess = requireLayerMutationAccessForState(view.state);
+        const layerEditingContext =
+          layerAccess.kind === "implicit-authoring" ? layerAccess.context : null;
+        const placement = resolveStructuralFragmentPlacement({
+          fragment: validated.value,
+          doc: view.state.doc,
+          destination,
+          capabilities,
+          ...(layerEditingContext ? { layerEditingContext } : {}),
+        });
+        if (placement.status === "refused") return true;
+
+        const repairedJson = cloneJsonWithNewStableIds(validated.value.source, {
+          identityRewrites,
+        });
+        const repaired = validateStructuralFragment({
+          fragment: {
+            ...carrier.fragment,
+            content: repairedJson as StructuralFragmentContent,
+          },
+          schema: view.state.schema,
+          capabilities,
+        });
+        if (repaired.status === "refused") return true;
+        const repairedNode = repaired.value.node;
+
+        if (placement.placement.kind === "surface") {
+          editor.commands.applyCourseStructureCommand({
+            type: "surface.insert",
+            surface: repairedNode,
+            destination: placement.placement.destination,
           });
-          if (validated.status === "refused") return true;
-
-          const destination =
-            carrier.fragment.rootKind === "surface"
-              ? resolveSurfacePasteDestination(view.state.selection.$from, view.state.selection.$to)
-              : resolveStructuralPasteDestination(view.state, blockDefinitions, layoutDefinitions);
-          if (!destination) return true;
-
-          const placement = resolveStructuralFragmentPlacement({
-            fragment: validated.value,
-            doc: view.state.doc,
-            destination,
-            capabilities,
-          });
-          if (placement.status === "refused") return true;
-
-          const repairedJson = cloneJsonWithNewStableIds(validated.value.source, {
-            identityRewrites,
-          });
-          const repaired = validateStructuralFragment({
-            fragment: {
-              ...carrier.fragment,
-              content: repairedJson as StructuralFragmentContent,
-            },
-            schema: view.state.schema,
-            capabilities,
-          });
-          if (repaired.status === "refused") return true;
-          const repairedNode = repaired.value.node;
-
-          if (placement.placement.kind === "surface") {
-            editor.commands.applyCourseStructureCommand({
-              type: "surface.insert",
-              surface: repairedNode,
-              destination: placement.placement.destination,
-            });
-            return true;
-          }
-
-          const mutation = replaceRangeWithNodeChecked({
-            tr: view.state.tr,
-            from: placement.placement.range.from,
-            to: placement.placement.range.to,
-            node: repairedNode,
-          });
-          if (!mutation.ok) return true;
-
-          view.dispatch(
-            mutation.tr.setMeta("paste", true).setMeta("uiEvent", "paste").scrollIntoView(),
-          );
           return true;
+        }
+
+        const mutation = replaceRangeWithNodeChecked({
+          tr: view.state.tr,
+          from: placement.placement.range.from,
+          to: placement.placement.range.to,
+          node: repairedNode,
+          layerAccess,
+        });
+        if (!mutation.ok) return true;
+
+        view.dispatch(
+          mutation.tr.setMeta("paste", true).setMeta("uiEvent", "paste").scrollIntoView(),
+        );
+        return true;
       };
 
       const handleCapturedEvent = (

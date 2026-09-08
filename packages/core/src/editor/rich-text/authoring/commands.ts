@@ -1,5 +1,6 @@
 import type { Editor } from "@tiptap/core";
 
+import { requireLayerMutationAccessForState } from "@/document/authoring/layers/layer-editing-boundaries";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { isNodeSelection } from "@/editor/selection/selection-facts";
 import { setNodeSelectionInTransaction } from "@/editor/selection/selection-transactions";
@@ -88,6 +89,7 @@ export function applyInlineMathToEditor(
     from: target.from,
     to: target.to,
     node,
+    layerAccess: requireLayerMutationAccessForState(editor.state),
   });
   if (!result.ok) return false;
   if (!setNodeSelectionInTransaction(result.tr, target.from)) return false;
@@ -165,6 +167,7 @@ export function canApplyInlineIconToEditor(
     from: target.from,
     to: target.to,
     node,
+    layerAccess: requireLayerMutationAccessForState(editor.state),
   });
 
   return result.ok && setNodeSelectionInTransaction(result.tr, target.from);
@@ -208,6 +211,7 @@ export function applyInlineIconToEditor(
     from: target.from,
     to: target.to,
     node,
+    layerAccess: requireLayerMutationAccessForState(editor.state),
   });
   if (!result.ok) return false;
   if (!setNodeSelectionInTransaction(result.tr, target.from)) return false;
@@ -245,6 +249,7 @@ export function clearInlineIconFromEditor(editor: Editor, target: InlineIconTarg
   const result = deleteNodeChecked({
     tr: editor.state.tr,
     pos: target.from,
+    layerAccess: requireLayerMutationAccessForState(editor.state),
   });
   if (!result.ok) return false;
   editor.view.dispatch(result.tr.scrollIntoView());

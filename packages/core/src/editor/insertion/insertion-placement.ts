@@ -1,11 +1,21 @@
 import type { Editor } from "@tiptap/core";
 import type { NodeType } from "@tiptap/pm/model";
 
+import {
+  readLayerEditingContextForState,
+  resolveLayerTargetAtPosition,
+  validateImplicitLayerEditRange,
+  validateLayerContentPlacement,
+  type LayerEditingBoundaryError,
+  type LayerEditingContext,
+  type LayerEditingTarget,
+} from "@/document/authoring/layers/layer-editing-boundaries";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import {
   allowsBoundedContainerRootInsertionAtPosition,
   isActiveBoundedContainerAtPosition,
+  isFillOccupantNode,
   type BoundedContainerType,
 } from "@/editor/bounded-containers/model/bounded-container-placement";
 import { allowsSurfaceRootInsertionAtPosition } from "@/editor/surfaces/model/policies/surface-root-insertion-policy";
@@ -21,13 +31,15 @@ export interface InsertActionPlacementDependencies {
 
 export type InsertActionPlacementResult =
   | { readonly ok: true; readonly range: InsertActionRange }
-  | { readonly ok: false };
+  | { readonly ok: false }
+  | { readonly ok: false; readonly error: LayerEditingBoundaryError };
 
 export function resolveInsertActionPlacement({
   blockDefinitions,
   editor,
   intent = "ordinary",
   item,
+  layerEditingContext: explicitLayerEditingContext,
   layoutDefinitions,
   range: explicitRange,
   surfaceVariants,
@@ -35,6 +47,7 @@ export function resolveInsertActionPlacement({
   readonly editor: Editor;
   readonly intent?: InsertActionIntent;
   readonly item: InsertAction;
+  readonly layerEditingContext?: LayerEditingContext;
   readonly range?: InsertActionRange;
 }): InsertActionPlacementResult {
   const { doc } = editor.state;
@@ -56,6 +69,22 @@ export function resolveInsertActionPlacement({
   const insertionContext = resolveInsertionContext(doc, range, nodeType);
   if (!insertionContext) return { ok: false };
   const { $from, parent, parentPos } = insertionContext;
+  const layerEditingContext =
+    explicitLayerEditingContext ??
+    readLayerEditingContextForState(editor.state, layoutDefinitions, blockDefinitions);
+  let layerTarget: LayerEditingTarget | null = null;
+  if (layerEditingContext) {
+    const boundary = validateImplicitLayerEditRange({
+      ...layerEditingContext,
+      doc,
+      from: range.from,
+      to: range.to,
+    });
+    if (boundary.status === "error") return { ok: false, error: boundary.error };
+    layerTarget = boundary.value.at(-1) ?? null;
+  } else if (resolveLayerTargetAtPosition({ doc, pos: parentPos, layoutDefinitions })) {
+    throw new Error("Layer-aware insertion requires the document authoring lifecycle.");
+  }
 
   if (
     !allowsBoundedContainerRootInsertionAtPosition({
@@ -65,14 +94,26 @@ export function resolveInsertActionPlacement({
       pos: parentPos,
     })
   ) {
+    const layerError = validateLayerPlacement(range);
+    if (layerError) return { ok: false, error: layerError };
     return { ok: false };
   }
 
-  if (item.boundedPlacement !== "fill") return { ok: true, range };
+  if (item.boundedPlacement !== "fill") {
+    const layerError = validateLayerPlacement(range);
+    return layerError ? { ok: false, error: layerError } : { ok: true, range };
+  }
   if (
-    !isActiveBoundedContainer(parent.type.name, doc, parentPos, blockDefinitions, layoutDefinitions)
+    !isActiveBoundedContainer(
+      layerTarget?.ownerSlot.logicalOwner.nodeType ?? parent.type.name,
+      doc,
+      parentPos,
+      blockDefinitions,
+      layoutDefinitions,
+    )
   ) {
-    return { ok: true, range };
+    const layerError = validateLayerPlacement(range);
+    return layerError ? { ok: false, error: layerError } : { ok: true, range };
   }
 
   if (!$from.parent.isTextblock || $from.parent.type.name !== "paragraph") {
@@ -91,13 +132,28 @@ export function resolveInsertActionPlacement({
     return { ok: false };
   }
 
-  return {
-    ok: true,
-    range: {
-      from: $from.before($from.depth),
-      to: $from.after($from.depth),
-    },
+  const replacementRange = {
+    from: $from.before($from.depth),
+    to: $from.after($from.depth),
   };
+  const layerError = validateLayerPlacement(replacementRange);
+  return layerError ? { ok: false, error: layerError } : { ok: true, range: replacementRange };
+
+  function validateLayerPlacement(
+    checkedRange: InsertActionRange,
+  ): LayerEditingBoundaryError | null {
+    if (!layerTarget) return null;
+    const contentPlacement = validateLayerContentPlacement({
+      target: layerTarget,
+      contentType: item.nodeType,
+      contentIsFillOccupant: item.boundedPlacement === "fill",
+      existingChildIsFillOccupant: (child) =>
+        isFillOccupantNode(child, blockDefinitions, layoutDefinitions),
+      from: checkedRange.from,
+      to: checkedRange.to,
+    });
+    return contentPlacement.status === "error" ? contentPlacement.error : null;
+  }
 }
 
 function resolveInsertionContext(

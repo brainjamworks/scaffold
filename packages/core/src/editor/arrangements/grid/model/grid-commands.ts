@@ -1,8 +1,14 @@
+import type { EmbeddedNodeId } from "@scaffold/contracts";
 import type { Editor } from "@tiptap/core";
 import type { Schema, Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { Transaction } from "@tiptap/pm/state";
 import type { Transform } from "@tiptap/pm/transform";
 
+import {
+  authorizeExplicitLayerStructuralSteps,
+  requireLayerMutationAccessForState,
+  type LayerMutationAccess,
+} from "@/document/authoring/layers/layer-editing-boundaries";
 import {
   insertNodeChecked,
   type CheckedMutationResult,
@@ -31,11 +37,14 @@ export function insertGridAt(
   pos: number,
   options: GridTemplateOptions = {},
 ): boolean {
+  if (!isValidDocPos(editor.state.doc, pos)) return false;
+  if (!createGridTemplate(editor.schema, options)) return false;
   const result = insertGridChecked({
     tr: editor.state.tr,
     schema: editor.schema,
     pos,
     options,
+    layerAccess: requireLayerMutationAccessForState(editor.state),
   });
   if (!result.ok) return false;
 
@@ -47,11 +56,13 @@ export function insertGridChecked<TTransform extends Transform>({
   schema,
   pos,
   options = {},
+  layerAccess,
 }: {
   tr: TTransform;
   schema: Schema;
   pos: number;
   options?: GridTemplateOptions;
+  layerAccess: LayerMutationAccess;
 }): CheckedMutationResult<TTransform> {
   const grid = createGridTemplate(schema, options);
   if (!grid) {
@@ -64,7 +75,7 @@ export function insertGridChecked<TTransform extends Transform>({
     };
   }
 
-  return insertNodeChecked({ tr, pos, node: grid });
+  return insertNodeChecked({ tr, pos, node: grid, layerAccess });
 }
 
 export function addGridCellAt(
@@ -86,6 +97,10 @@ export function addGridCellAt(
   const insertIndex = side === "left" ? cellIndex : cellIndex + 1;
   const tr = insertGridCellInTransaction(editor.state.tr, gridPos, insertIndex, cell);
   if (!tr) return false;
+  authorizeExplicitLayerStructuralSteps(tr, {
+    fromStep: 0,
+    rootIds: [requireStableGridId(grid)],
+  });
 
   return dispatchChecked(editor, tr);
 }
@@ -112,6 +127,10 @@ export function deleteGridAt(editor: Editor, gridPos: number): boolean {
   try {
     const tr = editor.state.tr.delete(gridPos, gridPos + grid.nodeSize);
     tr.doc.check();
+    authorizeExplicitLayerStructuralSteps(tr, {
+      fromStep: 0,
+      rootIds: [requireStableGridId(grid)],
+    });
     return dispatchChecked(editor, tr);
   } catch {
     return false;
@@ -137,6 +156,10 @@ export function deleteGridCellAt(editor: Editor, gridPos: number, cellIndex: num
       ? removeGridCellAndUnwrapRemainingInTransaction(editor.state.tr, gridPos, cellIndex)
       : removeGridCellInTransaction(editor.state.tr, gridPos, cellIndex);
   if (!tr) return false;
+  authorizeExplicitLayerStructuralSteps(tr, {
+    fromStep: 0,
+    rootIds: [requireStableGridId(grid)],
+  });
 
   return dispatchChecked(editor, tr);
 }
@@ -200,6 +223,10 @@ export function setGridCellCountAt(editor: Editor, gridPos: number, cellCount: n
       tr = insertGridCellInTransaction(tr, tr.mapping.map(gridPos, -1), count, cell);
       if (!tr) return false;
     }
+    authorizeExplicitLayerStructuralSteps(tr, {
+      fromStep: 0,
+      rootIds: [requireStableGridId(grid)],
+    });
     return dispatchChecked(editor, tr);
   }
 
@@ -210,6 +237,10 @@ export function setGridCellCountAt(editor: Editor, gridPos: number, cellCount: n
     if (!tr) return false;
   }
 
+  authorizeExplicitLayerStructuralSteps(tr, {
+    fromStep: 0,
+    rootIds: [requireStableGridId(grid)],
+  });
   return dispatchChecked(editor, tr);
 }
 
@@ -386,4 +417,12 @@ function dispatchChecked(editor: Editor, tr: Transaction): boolean {
   } catch {
     return false;
   }
+}
+
+function requireStableGridId(grid: ProseMirrorNode) {
+  const id = grid.attrs["id"];
+  if (typeof id !== "string" || id.length === 0) {
+    throw new Error("Grid structural operation requires a stable Grid identity.");
+  }
+  return id as EmbeddedNodeId;
 }

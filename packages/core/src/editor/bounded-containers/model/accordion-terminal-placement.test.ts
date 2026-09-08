@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import {
   AccordionSectionPanelNode,
@@ -18,6 +19,7 @@ import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
 import {
   allowsBoundedContainerRootInsertionAtPosition as allowsBoundedContainerRootInsertionAtPositionWithLookup,
   isActiveBoundedContainerAtPosition as isActiveBoundedContainerAtPositionWithLookup,
@@ -29,7 +31,7 @@ const editors: Editor[] = [];
 
 const TestFillNode = Node.create({
   name: TEST_FILL_NODE,
-  group: "block",
+  group: "block assessment_question",
   atom: true,
   renderHTML() {
     return ["div", { "data-node": TEST_FILL_NODE }];
@@ -91,6 +93,25 @@ afterEach(() => {
 });
 
 describe("accordion terminal bounded placement", () => {
+  it("keeps a Layer inside the declared Accordion panel terminal and in normal flow", () => {
+    const editor = makeLayerEditor();
+
+    expect(
+      resolveActiveBoundedPlacement({
+        capability: "fill",
+        doc: editor.state.doc,
+        pos: firstNodePos(editor, TEST_FILL_NODE),
+      }),
+    ).toBeUndefined();
+    expect(
+      isActiveBoundedContainerAtPosition({
+        containerType: "section",
+        doc: editor.state.doc,
+        pos: nodePosById(editor, "panel-layer1"),
+      }),
+    ).toBe(false);
+  });
+
   it("keeps a bounded accordion section in normal flow", () => {
     const editor = makeEditor([
       accordionLayout([{ type: TEST_FILL_NODE }, paragraph("Normal-flow sibling")]),
@@ -210,6 +231,99 @@ function makeEditor(regionContent: JSONContent[]): Editor {
   });
   editors.push(editor);
   return editor;
+}
+
+function makeLayerEditor(): Editor {
+  const editor = new Editor({
+    extensions: [
+      DocumentNode,
+      StarterKit.configure({
+        document: false,
+        paragraph: false,
+        undoRedo: false,
+      }),
+      createTestNodeIdentityExtension(),
+      ExtendedParagraph,
+      CourseDocumentNode,
+      createCourseSectionNode(),
+      SurfaceNode,
+      RegionNode.extend({ content: "layer+" }),
+      GridNode,
+      CellNode.extend({ content: "layer+" }),
+      LayoutNode,
+      SectionNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode.extend({ content: "layer+" }),
+      LayerNode,
+      TestFillNode,
+    ],
+    content: {
+      type: "doc",
+      content: [
+        {
+          type: "courseDocument",
+          attrs: { mode: "slideshow" },
+          content: [
+            {
+              type: "surface",
+              attrs: { id: "surface00001", variant: "slide-content" },
+              content: [
+                {
+                  type: "region",
+                  attrs: { id: "region000001" },
+                  content: [
+                    {
+                      type: "layer",
+                      attrs: { id: "outer-layer1" },
+                      content: [
+                        {
+                          type: "layout",
+                          attrs: { id: "layout000001", variant: "accordion" },
+                          content: [
+                            {
+                              type: "section",
+                              attrs: { id: "section00001" },
+                              content: [
+                                accordionTitle("Assessment"),
+                                {
+                                  type: "accordion_section_panel",
+                                  attrs: { id: "panel0000001" },
+                                  content: [
+                                    {
+                                      type: "layer",
+                                      attrs: { id: "panel-layer1" },
+                                      content: [{ type: TEST_FILL_NODE }],
+                                    },
+                                  ],
+                                },
+                              ],
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  });
+  editors.push(editor);
+  return editor;
+}
+
+function nodePosById(editor: Editor, id: string): number {
+  let found: number | null = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (node.attrs["id"] !== id) return true;
+    found = pos;
+    return false;
+  });
+  if (found === null) throw new Error(`Missing fixture node "${id}".`);
+  return found;
 }
 
 function accordionLayout(content: JSONContent[]): JSONContent {

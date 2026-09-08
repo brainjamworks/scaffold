@@ -3,6 +3,10 @@ import type { Schema, Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Selection, type Transaction } from "@tiptap/pm/state";
 import type { Transform } from "@tiptap/pm/transform";
 
+import {
+  requireLayerMutationAccessForState,
+  type LayerMutationAccess,
+} from "@/document/authoring/layers/layer-editing-boundaries";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import {
@@ -82,6 +86,7 @@ export function replaceRangeWithCatalogNodeChecked<TTransform extends Transform>
   from,
   to,
   contentOverride,
+  layerAccess,
 }: {
   catalog: InsertCatalog;
   tr: TTransform;
@@ -90,6 +95,7 @@ export function replaceRangeWithCatalogNodeChecked<TTransform extends Transform>
   from: number;
   to: number;
   contentOverride?: JSONContent;
+  layerAccess: LayerMutationAccess;
 }): ReplaceRangeWithCatalogNodeCheckedResult<TTransform> {
   const nodeResult = createCatalogNodeChecked({
     catalog,
@@ -105,6 +111,7 @@ export function replaceRangeWithCatalogNodeChecked<TTransform extends Transform>
     tr,
     from,
     to,
+    layerAccess,
   });
 }
 
@@ -141,14 +148,16 @@ function replaceRangeWithCheckedNode<TTransform extends Transform>({
   tr,
   from,
   to,
+  layerAccess,
 }: {
   action: InsertAction;
   node: ProseMirrorNode;
   tr: TTransform;
   from: number;
   to: number;
+  layerAccess: LayerMutationAccess;
 }): ReplaceRangeWithCatalogNodeCheckedResult<TTransform> {
-  const replaceResult = replaceRangeWithNodeChecked({ tr, from, to, node });
+  const replaceResult = replaceRangeWithNodeChecked({ tr, from, to, node, layerAccess });
   if (!replaceResult.ok) return replaceResult;
   return { ok: true, item: action, node, tr: replaceResult.tr };
 }
@@ -196,6 +205,7 @@ export function insertCatalogItemChecked(
     tr: editor.state.tr,
     from: placement.range.from,
     to: placement.range.to,
+    layerAccess: requireLayerMutationAccessForState(editor.state),
   });
   if (!result.ok) return false;
   if (result.tr.doc.eq(editor.state.doc)) return false;

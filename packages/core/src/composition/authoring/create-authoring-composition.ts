@@ -24,6 +24,7 @@ import {
   createUnavailableContentAuthoringExtensions,
 } from "@/document/authoring/unavailable-content";
 import { createDocumentAuthoringExtension } from "@/document/authoring/document-authoring-extension";
+import { createLayerEditingBoundaryExtension } from "@/document/authoring/layers/layer-editing-boundaries";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
@@ -179,6 +180,7 @@ export function createCourseDocumentAuthoringExtensions({
   return [
     createScaffoldCapabilitiesStorageExtension(composition.capabilities),
     createDocumentAuthoringExtension(composition.documentTree),
+    createLayerEditingBoundaryExtension(blockRegistry, layoutRegistry),
     createScaffoldAuthoringCataloguesStorageExtension(composition.catalogues),
     createCourseStructureCommandsExtension(),
     ...baseExtensions,

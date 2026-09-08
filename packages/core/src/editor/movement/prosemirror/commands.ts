@@ -1,8 +1,17 @@
 import type { Editor } from "@tiptap/core";
+import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { Fragment, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { Transaction } from "@tiptap/pm/state";
 
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
+import {
+  authorizeExplicitLayerStructuralSteps,
+  readLayerEditingContextForState,
+  resolveLayerTargetAtPosition,
+  validateImplicitLayerEditRange,
+  validateLayerContentPlacement,
+  type LayerEditingContext,
+} from "@/document/authoring/layers/layer-editing-boundaries";
 import { createEditableTextblock } from "@/document/model/content-model/editable-region";
 import { buildGridBesideDropTransaction } from "@/editor/arrangements/grid/model/grid-drop-rules";
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
@@ -43,7 +52,9 @@ import {
   canApplyStructureMovementBoundary,
   canStartStructureMovement,
   createStructureMovementPolicy,
+  resolveLayerMovementDestination,
   resolveMovementNodeContext,
+  validateLayerMovementEndpoint,
 } from "../model/movement-policy";
 
 type DirectMoveIntent = InsertBeforeTarget | InsertAfterTarget | InsertInsideTarget;
@@ -73,8 +84,9 @@ export function applyMovementIntent(
   const tr = buildMovementTransaction(editor, sourcePos, intent, blockDefinitions, surfaceVariants);
   if (!tr) return false;
 
+  const before = editor.state.doc;
   editor.view.dispatch(tr.scrollIntoView());
-  return true;
+  return !editor.state.doc.eq(before);
 }
 
 export function canApplyContainedMovementIntent(
@@ -104,42 +116,214 @@ function buildMovementTransaction(
   const sourceNode = doc.nodeAt(sourcePos);
   const targetNode = intent.target.node;
   const targetPos = intent.target.pos;
+  const layoutDefinitions = documentContainsLayer(doc)
+    ? getScaffoldCapabilitiesForEditor(editor).layouts.registry
+    : null;
+  const layerEditingContext = layoutDefinitions
+    ? readLayerEditingContextForState(editor.state, layoutDefinitions, blockDefinitions)
+    : null;
   const movementPolicy = createStructureMovementPolicy(editor.schema, blockDefinitions);
   const sourceContext = resolveMovementNodeContext(doc, sourcePos);
 
   if (!sourceNode || !targetNode) return null;
+  if (doc.nodeAt(targetPos) !== targetNode) return null;
   if (sourcePos === targetPos) return null;
   if (!canStartStructureMovement(movementPolicy, sourceContext)) return null;
   if (!canMoveSurfaceStructureNode(doc, sourcePos, surfaceVariants)) return null;
   if (containsPosition(sourcePos, sourceNode, targetPos)) return null;
   if (!canApplyStructureMovementBoundary(doc, sourcePos, targetPos)) return null;
+  if (layerEditingContext) {
+    const sourceBoundary = validateLayerMovementEndpoint({
+      ...layerEditingContext,
+      doc,
+      from: sourcePos,
+      to: sourcePos,
+    });
+    if (sourceBoundary) return null;
+  } else if (
+    layoutDefinitions &&
+    resolveLayerTargetAtPosition({ doc, pos: sourcePos, layoutDefinitions })
+  ) {
+    throw new Error("Layer-aware movement requires the document authoring lifecycle.");
+  }
+
+  const resolvedDirectTarget = isDirectMoveIntent(intent)
+    ? resolveDirectMoveTarget(doc, targetNode, targetPos, intent, layerEditingContext)
+    : null;
+  if (isDirectMoveIntent(intent) && !resolvedDirectTarget) return null;
+
+  const sideTarget = isSideMovementIntent(intent) ? gridSideTarget(editor, intent) : null;
+  if (isSideMovementIntent(intent) && !sideTarget) return null;
+  if (sideTarget) {
+    if (layerEditingContext) {
+      const destinationBoundary = validateLayerMovementEndpoint({
+        ...layerEditingContext,
+        doc,
+        from: sideTarget.pos,
+        to: sideTarget.pos,
+      });
+      if (destinationBoundary) return null;
+    } else if (
+      layoutDefinitions &&
+      resolveLayerTargetAtPosition({ doc, pos: sideTarget.pos, layoutDefinitions })
+    ) {
+      throw new Error("Layer-aware movement requires the document authoring lifecycle.");
+    }
+  }
 
   const boundedMovePlacement = isDirectMoveIntent(intent)
-    ? resolveBoundedMovePlacementForIntent(editor, sourceNode, targetNode, intent, blockDefinitions)
+    ? resolveBoundedMovePlacementForIntent(
+        editor,
+        sourceNode,
+        resolvedDirectTarget!.node,
+        resolvedDirectTarget!.pos,
+        intent,
+        blockDefinitions,
+      )
     : true;
 
+  if (isDirectMoveIntent(intent)) {
+    const destinationRange = directMoveDestinationRange(
+      resolvedDirectTarget!.node,
+      resolvedDirectTarget!.pos,
+      intent,
+      sourceNode,
+    );
+    if (
+      !allowsLayerMoveDestination({
+        blockDefinitions,
+        doc,
+        from: destinationRange.from,
+        to: destinationRange.to,
+        layerEditingContext,
+        layoutDefinitions,
+        sourceNode,
+      })
+    ) {
+      return null;
+    }
+  }
+
+  let tr: Transaction | null;
   try {
-    const tr = isDirectMoveIntent(intent)
+    tr = isDirectMoveIntent(intent)
       ? buildDirectMoveTransaction(
           editor,
           sourcePos,
           sourceNode,
-          targetNode,
+          resolvedDirectTarget!.node,
+          resolvedDirectTarget!.pos,
           intent,
           boundedMovePlacement,
           surfaceVariants,
         )
       : isSideMovementIntent(intent)
-        ? buildGridSideMovementTransaction(editor, sourcePos, sourceNode, intent)
+        ? buildGridSideMovementTransaction(editor, sourcePos, sourceNode, intent, sideTarget!)
         : null;
-
-    if (!tr || tr.doc.eq(editor.state.doc)) return null;
-
-    tr.doc.check();
-    return tr;
   } catch {
     return null;
   }
+  if (!tr || tr.doc.eq(editor.state.doc)) return null;
+
+  tr.doc.check();
+  if (isSideMovementIntent(intent)) {
+    authorizeExplicitLayerStructuralSteps(tr, {
+      fromStep: 0,
+      rootIds: sideMovementAuthorizationRootIds(
+        doc,
+        tr.doc,
+        sourceNode,
+        sourcePos,
+        sideTarget!,
+        layoutDefinitions,
+      ),
+    });
+  } else if (containsLayer(sourceNode)) {
+    const sourceOwnerId = layoutDefinitions
+      ? resolveLayerTargetAtPosition({ doc, pos: sourcePos, layoutDefinitions })?.ownerSlot
+          .logicalOwner.id
+      : null;
+    authorizeExplicitLayerStructuralSteps(tr, {
+      fromStep: 0,
+      rootIds: [requireStableNodeId(sourceNode), ...(sourceOwnerId ? [sourceOwnerId] : [])],
+    });
+  }
+  return tr;
+}
+
+function resolveDirectMoveTarget(
+  doc: ProseMirrorNode,
+  targetNode: ProseMirrorNode,
+  targetPos: number,
+  intent: DirectMoveIntent,
+  layerEditingContext: LayerEditingContext | null,
+): { readonly node: ProseMirrorNode; readonly pos: number } | null {
+  if (!(intent instanceof InsertInsideTarget) || !isLayerLogicalOwner(targetNode)) {
+    return { node: targetNode, pos: targetPos };
+  }
+  if (!mayHaveOwnedLayerComposition(targetNode)) {
+    return { node: targetNode, pos: targetPos };
+  }
+  if (!layerEditingContext) {
+    throw new Error("Layer-aware movement requires the document authoring lifecycle.");
+  }
+  const ownerId = requireStableNodeId(targetNode);
+  const destination = resolveLayerMovementDestination({
+    ...layerEditingContext,
+    doc,
+    ownerId,
+  });
+  if (destination.status === "error") return null;
+  return { node: destination.value.layer, pos: destination.value.pos };
+}
+
+function allowsLayerMoveDestination({
+  blockDefinitions,
+  doc,
+  from,
+  to,
+  layerEditingContext,
+  layoutDefinitions,
+  sourceNode,
+}: {
+  readonly blockDefinitions: BlockDefinitionLookup;
+  readonly doc: ProseMirrorNode;
+  readonly from: number;
+  readonly to: number;
+  readonly layerEditingContext: LayerEditingContext | null;
+  readonly layoutDefinitions: LayoutRegistry | null;
+  readonly sourceNode: ProseMirrorNode;
+}): boolean {
+  if (!layerEditingContext) {
+    if (layoutDefinitions && resolveLayerTargetAtPosition({ doc, pos: from, layoutDefinitions })) {
+      throw new Error("Layer-aware movement requires the document authoring lifecycle.");
+    }
+    return true;
+  }
+  if (!layoutDefinitions) {
+    throw new Error("Layer editing context is missing Layout definitions.");
+  }
+
+  const boundary = validateImplicitLayerEditRange({
+    ...layerEditingContext,
+    doc,
+    from,
+    to,
+  });
+  if (boundary.status === "error") return false;
+  const target = boundary.value.at(-1);
+  if (!target) return true;
+  return (
+    validateLayerContentPlacement({
+      target,
+      contentType: sourceNode.type.name,
+      contentIsFillOccupant: isFillOccupantNode(sourceNode, blockDefinitions, layoutDefinitions),
+      existingChildIsFillOccupant: (child) =>
+        isFillOccupantNode(child, blockDefinitions, layoutDefinitions),
+      from,
+      to,
+    }).status === "ready"
+  );
 }
 
 function buildDirectMoveTransaction(
@@ -147,27 +331,35 @@ function buildDirectMoveTransaction(
   sourcePos: number,
   sourceNode: ProseMirrorNode,
   targetNode: ProseMirrorNode,
+  targetPos: number,
   intent: DirectMoveIntent,
   boundedMovePlacement: boolean,
   surfaceVariants: SurfaceVariantLookup,
 ): Transaction | null {
+  const insertPos =
+    intent instanceof InsertBeforeTarget
+      ? targetPos
+      : intent instanceof InsertAfterTarget
+        ? targetPos + targetNode.nodeSize
+        : targetPos + targetNode.nodeSize - 1;
+  const targetPlaceholder =
+    intent instanceof InsertInsideTarget
+      ? emptyTargetPlaceholderForMove(targetPos, targetNode, sourceNode)
+      : null;
   if (
-    !canInsertForMove(editor, sourceNode, targetNode, intent, boundedMovePlacement, surfaceVariants)
+    !canInsertForMove(
+      editor,
+      sourceNode,
+      targetNode,
+      targetPos,
+      intent,
+      boundedMovePlacement,
+      surfaceVariants,
+    )
   ) {
     return null;
   }
 
-  const insertPos =
-    intent instanceof InsertBeforeTarget
-      ? intent.target.pos
-      : intent instanceof InsertAfterTarget
-        ? intent.target.pos + targetNode.nodeSize
-        : intent.target.pos + targetNode.nodeSize - 1;
-
-  const targetPlaceholder =
-    intent instanceof InsertInsideTarget
-      ? emptyTargetPlaceholderForMove(intent.target.pos, targetNode, sourceNode)
-      : null;
   if (targetPlaceholder) {
     return deleteAndReplace(
       editor.state.tr,
@@ -182,10 +374,33 @@ function buildDirectMoveTransaction(
   return deleteAndInsert(editor.state.tr, sourcePos, sourceNode, insertPos, sourceNode);
 }
 
+function directMoveDestinationRange(
+  targetNode: ProseMirrorNode,
+  targetPos: number,
+  intent: DirectMoveIntent,
+  sourceNode: ProseMirrorNode,
+): Readonly<{ from: number; to: number }> {
+  const insertPos =
+    intent instanceof InsertBeforeTarget
+      ? targetPos
+      : intent instanceof InsertAfterTarget
+        ? targetPos + targetNode.nodeSize
+        : targetPos + targetNode.nodeSize - 1;
+  const placeholder =
+    intent instanceof InsertInsideTarget
+      ? emptyTargetPlaceholderForMove(targetPos, targetNode, sourceNode)
+      : null;
+  return Object.freeze({
+    from: placeholder?.pos ?? insertPos,
+    to: placeholder ? placeholder.pos + placeholder.node.nodeSize : insertPos,
+  });
+}
+
 function canInsertForMove(
   editor: Editor,
   sourceNode: ProseMirrorNode,
   targetNode: ProseMirrorNode,
+  targetPos: number,
   intent: DirectMoveIntent,
   boundedMovePlacement: boolean,
   surfaceVariants: SurfaceVariantLookup,
@@ -207,7 +422,7 @@ function canInsertForMove(
     return targetNode.canReplace(targetNode.childCount, targetNode.childCount, fragment);
   }
 
-  const targetResolved = editor.state.doc.resolve(intent.target.pos);
+  const targetResolved = editor.state.doc.resolve(targetPos);
   const parent = targetResolved.parent;
   if (!allowsSurfaceRootInsertion(parent, surfaceVariants)) return false;
 
@@ -232,6 +447,7 @@ function resolveBoundedMovePlacementForIntent(
   editor: Editor,
   sourceNode: ProseMirrorNode,
   targetNode: ProseMirrorNode,
+  targetPos: number,
   intent: DirectMoveIntent,
   blockDefinitions: BlockDefinitionLookup,
 ): boolean {
@@ -240,12 +456,12 @@ function resolveBoundedMovePlacementForIntent(
       editor,
       sourceNode,
       targetNode,
-      intent.target.pos,
+      targetPos,
       blockDefinitions,
     );
   }
 
-  const targetParent = resolveMoveTargetParent(editor.state.doc, intent.target.pos);
+  const targetParent = resolveMoveTargetParent(editor.state.doc, targetPos);
   if (!targetParent) return false;
 
   return allowsBoundedMovePlacementForTarget(
@@ -297,6 +513,7 @@ function mayBeBoundedMoveTarget(
 ): boolean {
   return (
     isBoundedContainerType(node.type.name) ||
+    node.type.name === "layer" ||
     blockDefinitions.getByNodeType(node.type.name)?.stagedBoundedHost !== undefined
   );
 }
@@ -316,6 +533,7 @@ function allowsBoundedMovePlacement({
   targetNode: ProseMirrorNode;
   targetPos: number;
 }): boolean {
+  const layerTarget = resolveLayerTargetAtPosition({ doc, pos: targetPos, layoutDefinitions });
   if (
     !allowsBoundedContainerRootInsertionAtPosition({
       blockDefinitions,
@@ -328,11 +546,12 @@ function allowsBoundedMovePlacement({
   }
 
   if (!isFillOccupantNode(sourceNode, blockDefinitions, layoutDefinitions)) return true;
-  if (!isBoundedContainerType(targetNode.type.name)) return true;
+  const boundedContainerType = layerTarget?.ownerSlot.logicalOwner.nodeType ?? targetNode.type.name;
+  if (!isBoundedContainerType(boundedContainerType)) return true;
   if (
     !isActiveBoundedContainerAtPosition({
       blockDefinitions,
-      containerType: targetNode.type.name,
+      containerType: boundedContainerType,
       doc,
       layoutDefinitions,
       pos: targetPos,
@@ -342,9 +561,9 @@ function allowsBoundedMovePlacement({
   }
 
   return (
-    targetNode.childCount === 1 &&
-    targetNode.firstChild?.type.name === "paragraph" &&
-    targetNode.firstChild.content.size === 0
+    (layerTarget?.layer ?? targetNode).childCount === 1 &&
+    (layerTarget?.layer ?? targetNode).firstChild?.type.name === "paragraph" &&
+    (layerTarget?.layer ?? targetNode).firstChild?.content.size === 0
   );
 }
 
@@ -357,10 +576,9 @@ function buildGridSideMovementTransaction(
   sourcePos: number,
   sourceNode: ProseMirrorNode,
   intent: SideMovementIntent,
+  sideTarget: { readonly node: ProseMirrorNode; readonly pos: number },
 ): Transaction | null {
   const side = gridSideForIntent(intent);
-  const sideTarget = gridSideTarget(editor, intent);
-  if (!sideTarget) return null;
 
   return buildGridBesideDropTransaction({
     editor,
@@ -407,6 +625,70 @@ function gridSideTarget(
   if (!cellNode || cellNode.type.name !== "cell") return null;
 
   return { node: cellNode, pos: cellPos };
+}
+
+function sideMovementAuthorizationRootIds(
+  before: ProseMirrorNode,
+  after: ProseMirrorNode,
+  sourceNode: ProseMirrorNode,
+  sourcePos: number,
+  sideTarget: { readonly node: ProseMirrorNode; readonly pos: number },
+  layoutDefinitions: LayoutRegistry | null,
+): readonly EmbeddedNodeId[] {
+  const ids = new Set<EmbeddedNodeId>([
+    requireStableNodeId(sourceNode),
+    requireStableNodeId(sideTarget.node),
+  ]);
+  const targetGrid = findAncestorAtPosition(before, sideTarget.pos, "grid");
+  if (targetGrid) ids.add(requireStableNodeId(targetGrid));
+  if (layoutDefinitions) {
+    const sourceOwner = resolveLayerTargetAtPosition({
+      doc: before,
+      pos: sourcePos,
+      layoutDefinitions,
+    });
+    const targetOwner = resolveLayerTargetAtPosition({
+      doc: before,
+      pos: sideTarget.pos,
+      layoutDefinitions,
+    });
+    if (sourceOwner) ids.add(sourceOwner.ownerSlot.logicalOwner.id);
+    if (targetOwner) ids.add(targetOwner.ownerSlot.logicalOwner.id);
+  }
+
+  const beforeIds = collectStableIds(before);
+  after.descendants((node) => {
+    if (node.type.name !== "grid") return true;
+    const id = requireStableNodeId(node);
+    if (!beforeIds.has(id)) ids.add(id);
+    return true;
+  });
+  return Object.freeze([...ids]);
+}
+
+function findAncestorAtPosition(
+  doc: ProseMirrorNode,
+  pos: number,
+  nodeType: string,
+): ProseMirrorNode | null {
+  const direct = doc.nodeAt(pos);
+  if (direct?.type.name === nodeType) return direct;
+  const resolved = doc.resolve(pos);
+  for (let depth = resolved.depth; depth > 0; depth -= 1) {
+    const node = resolved.node(depth);
+    if (node.type.name === nodeType) return node;
+  }
+  return null;
+}
+
+function collectStableIds(doc: ProseMirrorNode): ReadonlySet<EmbeddedNodeId> {
+  const ids = new Set<EmbeddedNodeId>();
+  doc.descendants((node) => {
+    const id = node.attrs["id"];
+    if (typeof id === "string" && id.length > 0) ids.add(id as EmbeddedNodeId);
+    return true;
+  });
+  return ids;
 }
 
 function isDirectMoveIntent(intent: AnyMovementIntent): intent is DirectMoveIntent {
@@ -487,7 +769,7 @@ function emptyTargetPlaceholderForMove(
   if (!placeholder) return null;
 
   const child = targetNode.child(0);
-  if (!child.eq(placeholder)) return null;
+  if (child.type !== placeholder.type || child.content.size > 0) return null;
   if (!targetNode.canReplace(0, 1, Fragment.from(sourceNode))) return null;
 
   return { node: child, pos: targetPos + 1 };
@@ -509,4 +791,49 @@ function emptySourceParentReplacement(
 
 function containsPosition(parentPos: number, parentNode: ProseMirrorNode, pos: number): boolean {
   return pos > parentPos && pos < parentPos + parentNode.nodeSize;
+}
+
+function isLayerLogicalOwner(node: ProseMirrorNode): boolean {
+  return node.type.name === "region" || node.type.name === "cell" || node.type.name === "section";
+}
+
+function mayHaveOwnedLayerComposition(node: ProseMirrorNode): boolean {
+  if (node.type.name === "region" || node.type.name === "cell") {
+    return node.firstChild?.type.name === "layer";
+  }
+  if (node.type.name !== "section") return false;
+  if (node.firstChild?.type.name === "layer") return true;
+  for (let index = 0; index < node.childCount; index += 1) {
+    const child = node.child(index);
+    if (child.firstChild?.type.name === "layer") return true;
+  }
+  return false;
+}
+
+function containsLayer(node: ProseMirrorNode): boolean {
+  let found = false;
+  node.descendants((child) => {
+    if (child.type.name !== "layer") return true;
+    found = true;
+    return false;
+  });
+  return found;
+}
+
+function requireStableNodeId(node: ProseMirrorNode): EmbeddedNodeId {
+  const id = node.attrs["id"];
+  if (typeof id !== "string" || id.length === 0) {
+    throw new Error(`Structural node "${node.type.name}" has no stable identity.`);
+  }
+  return id as EmbeddedNodeId;
+}
+
+function documentContainsLayer(doc: ProseMirrorNode): boolean {
+  let found = false;
+  doc.descendants((node) => {
+    if (node.type.name !== "layer") return true;
+    found = true;
+    return false;
+  });
+  return found;
 }

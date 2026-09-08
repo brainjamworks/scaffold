@@ -1,5 +1,9 @@
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model";
 
+import {
+  isLayerFillOccupantNode,
+  resolveLayerTargetAtPosition,
+} from "@/document/authoring/layers/layer-editing-boundaries";
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { BoundedPlacement } from "@/editor/frame/model/bounded-placement";
@@ -11,13 +15,7 @@ export function isFillOccupantNode(
   blockDefinitions: BlockDefinitionLookup,
   layoutDefinitions: LayoutRegistry,
 ): boolean {
-  if (node.type.name === "grid") return true;
-
-  if (node.type.name === "layout") {
-    return layoutDefinitions.getForNode(node)?.boundedPlacement === "fill";
-  }
-
-  return blockDefinitions.getByNodeType(node.type.name)?.boundedPlacement === "fill";
+  return isLayerFillOccupantNode(node, blockDefinitions, layoutDefinitions);
 }
 
 export function resolveActiveBoundedPlacement(input: {
@@ -31,23 +29,20 @@ export function resolveActiveBoundedPlacement(input: {
   if (!input.capability || typeof pos !== "number" || !Number.isInteger(pos)) {
     return undefined;
   }
+  if (pos < 0 || pos > input.doc.content.size) return undefined;
 
-  try {
-    const resolved = input.doc.resolve(pos);
-    const child = input.doc.nodeAt(pos);
-    return child &&
-      isActiveBoundedParentForChild(
-        resolved,
-        resolved.depth,
-        input.blockDefinitions,
-        input.layoutDefinitions,
-        child,
-      )
-      ? input.capability
-      : undefined;
-  } catch {
-    return undefined;
-  }
+  const resolved = input.doc.resolve(pos);
+  const child = input.doc.nodeAt(pos);
+  return child &&
+    isActiveBoundedParentForChild(
+      resolved,
+      resolved.depth,
+      input.blockDefinitions,
+      input.layoutDefinitions,
+      child,
+    )
+    ? input.capability
+    : undefined;
 }
 
 export function resolveActiveBoundedPlacementForNodeView(input: {
@@ -59,17 +54,19 @@ export function resolveActiveBoundedPlacementForNodeView(input: {
 }): BoundedPlacement | undefined {
   if (typeof input.getPos !== "function") return undefined;
 
+  let pos: number | undefined;
   try {
-    return resolveActiveBoundedPlacement({
-      blockDefinitions: input.blockDefinitions,
-      capability: input.capability,
-      doc: input.doc,
-      layoutDefinitions: input.layoutDefinitions,
-      pos: input.getPos(),
-    });
+    pos = input.getPos();
   } catch {
     return undefined;
   }
+  return resolveActiveBoundedPlacement({
+    blockDefinitions: input.blockDefinitions,
+    capability: input.capability,
+    doc: input.doc,
+    layoutDefinitions: input.layoutDefinitions,
+    pos,
+  });
 }
 
 export function mayHaveBoundedContainerParentForNodeView(input: {
@@ -104,7 +101,11 @@ export function allowsBoundedContainerRootInsertionAtPosition(input: {
     input.layoutDefinitions,
   );
   if (!container) return true;
-  return !hasDirectFillOccupant(container, input.blockDefinitions, input.layoutDefinitions);
+  return !hasDirectFillOccupant(
+    container.composition,
+    input.blockDefinitions,
+    input.layoutDefinitions,
+  );
 }
 
 export function isActiveBoundedContainerAtPosition(input: {
@@ -120,7 +121,12 @@ export function isActiveBoundedContainerAtPosition(input: {
     input.blockDefinitions,
     input.layoutDefinitions,
   );
-  return container?.type.name === input.containerType;
+  return container?.owner.type.name === input.containerType;
+}
+
+interface ActiveBoundedContainer {
+  readonly owner: ProseMirrorNode;
+  readonly composition: ProseMirrorNode;
 }
 
 function resolveActiveBoundedContainer(
@@ -128,21 +134,33 @@ function resolveActiveBoundedContainer(
   pos: number | null | undefined,
   blockDefinitions: BlockDefinitionLookup,
   layoutDefinitions: LayoutRegistry,
-): ProseMirrorNode | null {
+): ActiveBoundedContainer | null {
   if (typeof pos !== "number" || !Number.isInteger(pos)) return null;
+  if (pos < 0 || pos > doc.content.size) return null;
 
-  try {
-    const node = doc.nodeAt(pos);
-    if (
-      !node ||
-      !isActiveBoundedContainerNodeAtPosition(doc, node, pos, blockDefinitions, layoutDefinitions)
-    ) {
-      return null;
-    }
-    return node;
-  } catch {
-    return null;
+  const node = doc.nodeAt(pos);
+  if (
+    node &&
+    isActiveBoundedContainerNodeAtPosition(doc, node, pos, blockDefinitions, layoutDefinitions)
+  ) {
+    return { owner: node, composition: node };
   }
+
+  const layerTarget = resolveLayerTargetAtPosition({ doc, pos, layoutDefinitions });
+  if (layerTarget) {
+    const owner = layerTarget.ownerSlot.logicalOwner;
+    return isActiveBoundedContainerNodeAtPosition(
+      doc,
+      owner.node,
+      owner.pos,
+      blockDefinitions,
+      layoutDefinitions,
+    )
+      ? { owner: owner.node, composition: layerTarget.layer }
+      : null;
+  }
+
+  return null;
 }
 
 function isActiveBoundedContainerNodeAtPosition(
@@ -211,6 +229,24 @@ function isActiveBoundedParentForChild(
   if (parentDepth < 0) return false;
 
   const parent = resolved.node(parentDepth);
+  if (parent.type.name === "layer") {
+    const layerPos = resolved.before(parentDepth);
+    const target = resolveLayerTargetAtPosition({
+      doc: resolved.doc,
+      pos: layerPos,
+      layoutDefinitions,
+    });
+    if (!target) {
+      throw new Error(`Layer at position ${layerPos} has no declared logical owner.`);
+    }
+    return isActiveBoundedContainerNodeAtPosition(
+      resolved.doc,
+      target.ownerSlot.logicalOwner.node,
+      target.ownerSlot.logicalOwner.pos,
+      blockDefinitions,
+      layoutDefinitions,
+    );
+  }
   if (parent.type.name === "region") return true;
 
   if (parent.type.name === "cell") {

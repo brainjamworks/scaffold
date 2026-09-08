@@ -3,10 +3,12 @@ import { Schema, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { describe, expect, it } from "vite-plus/test";
 
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { createLayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
+import type { LayerEditingContext } from "@/document/authoring/layers/layer-editing-boundaries";
 
 import type {
   StructuralFragmentContent,
@@ -33,12 +35,94 @@ const IDS = {
   container: "contain000001",
   privateHost: "private000001",
   privateShell: "shell0000001",
+  layerA: "layer0000001",
+  layerB: "layer0000002",
 } as const;
 
 const schema = createSchema();
 const capabilities = createCapabilities();
 
 describe("structural fragment placement", () => {
+  it("places into the open Layer without letting a hidden fill alternative affect policy", () => {
+    const doc = courseDoc("slideshow", [
+      surface("slide-open", [
+        region([
+          layer(IDS.layerA, [coreBlock(IDS.blockA)]),
+          layer(IDS.layerB, [{ type: "fill_block", attrs: { id: "fill00000001" } }]),
+        ]),
+      ]),
+    ]);
+    const selection = NodeSelection.create(doc, findPosById(doc, IDS.blockA));
+
+    expect(
+      resolveStructuralFragmentPlacement({
+        fragment: validated("block", coreBlock(IDS.blockB)),
+        doc,
+        destination: { kind: "selection", selection },
+        capabilities,
+        layerEditingContext: editingContext([[IDS.region, IDS.layerA]]),
+      }),
+    ).toEqual({
+      status: "ok",
+      placement: {
+        kind: "range",
+        range: { from: selection.to, to: selection.to },
+      },
+    });
+  });
+
+  it("refuses paste into an inactive or fill-occupied Layer with typed facts", () => {
+    const doc = courseDoc("slideshow", [
+      surface("slide-open", [
+        region([
+          layer(IDS.layerA, [{ type: "fill_block", attrs: { id: "fill00000001" } }]),
+          layer(IDS.layerB, [coreBlock(IDS.blockA)]),
+        ]),
+      ]),
+    ]);
+    const context = editingContext([[IDS.region, IDS.layerA]]);
+    const hiddenSelection = NodeSelection.create(doc, findPosById(doc, IDS.blockA));
+    expect(
+      resolveStructuralFragmentPlacement({
+        fragment: validated("block", coreBlock(IDS.blockB)),
+        doc,
+        destination: { kind: "selection", selection: hiddenSelection },
+        capabilities,
+        layerEditingContext: context,
+      }),
+    ).toEqual({
+      status: "refused",
+      reason: "layer_editing_refused",
+      error: {
+        reason: "inactive-layer-target",
+        ownerId: IDS.region,
+        targetLayerId: IDS.layerB,
+        currentOpenLayerId: IDS.layerA,
+      },
+    });
+
+    const fillSelection = NodeSelection.create(doc, findPosById(doc, "fill00000001"));
+    expect(
+      resolveStructuralFragmentPlacement({
+        fragment: validated("block", coreBlock(IDS.blockB)),
+        doc,
+        destination: { kind: "selection", selection: fillSelection },
+        capabilities,
+        layerEditingContext: context,
+      }),
+    ).toEqual({
+      status: "refused",
+      reason: "layer_editing_refused",
+      error: {
+        reason: "content-incompatible",
+        ownerId: IDS.region,
+        layerId: IDS.layerA,
+        contentType: "core_block",
+        rule: "fill-occupant-must-be-exclusive",
+      },
+    });
+  });
+
   it.each(["block", "layout"] as const)(
     "places a validated %s immediately after one exact selected structural root",
     (rootKind) => {
@@ -478,7 +562,8 @@ function createSchema(): Schema {
         attrs: { id, variant: { default: null }, settings: { default: {} } },
         content: "(block | arrangement)+",
       },
-      region: { group: "arrangement", attrs: { id }, content: "block+" },
+      region: { group: "arrangement", attrs: { id }, content: "block+ | layer+" },
+      layer: { attrs: { id }, content: "(block | arrangement)+" },
       layout: {
         group: "block arrangement",
         attrs: { id, variant: { default: null }, options: { default: {} } },
@@ -518,6 +603,29 @@ function surface(
   id: string = IDS.surfaceA,
 ): StructuralFragmentContent {
   return { type: "surface", attrs: { id, variant, settings: {} }, content };
+}
+
+function region(content: readonly StructuralFragmentContent[]): StructuralFragmentContent {
+  return { type: "region", attrs: { id: IDS.region }, content };
+}
+
+function layer(
+  id: string,
+  content: readonly StructuralFragmentContent[],
+): StructuralFragmentContent {
+  return { type: "layer", attrs: { id }, content };
+}
+
+function editingContext(entries: readonly (readonly [string, string])[]): LayerEditingContext {
+  return {
+    layoutDefinitions: capabilities.layouts,
+    openLayerByOwnerId: new Map(
+      entries.map(([ownerId, layerId]) => [
+        EmbeddedNodeIdSchema.parse(ownerId),
+        EmbeddedNodeIdSchema.parse(layerId),
+      ]),
+    ),
+  };
 }
 
 function coreBlock(

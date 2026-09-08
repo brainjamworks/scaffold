@@ -1,6 +1,7 @@
 import { CopyIcon as Copy } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/react";
 
+import { requireLayerMutationAccessForState } from "@/document/authoring/layers/layer-editing-boundaries";
 import { duplicateNodeChecked } from "@/document/model/commands/checked-transactions";
 import type { ContentIdentityRewriteLookup } from "@/document/model/identity/clone-with-new-ids";
 import { MenuIconButton } from "@/editor/shell/bubbles/interaction/menu-controls/MenuControls";
@@ -25,6 +26,7 @@ export function DuplicateBlock({ identityRewrites, editor, pos }: DuplicateBlock
       pos,
       regenerateNodeIds: true,
       identityRewrites,
+      layerAccess: requireLayerMutationAccessForState(editor.state),
     });
     if (result.ok) {
       editor.view.dispatch(result.tr.scrollIntoView());

@@ -5,6 +5,8 @@ import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
+import { resolveLayerTargetAtPosition } from "@/document/authoring/layers/layer-editing-boundaries";
 import { GridNode, CellNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
@@ -12,6 +14,7 @@ import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 
@@ -58,7 +61,7 @@ const TestStagedIntermediateNode = Node.create({
 
 const TestIneligibleChildNode = Node.create({
   name: TEST_INELIGIBLE_CHILD_TYPE,
-  group: "block",
+  group: "block assessment_question",
   atom: true,
   renderHTML() {
     return ["div", { "data-node": TEST_INELIGIBLE_CHILD_TYPE }];
@@ -143,6 +146,79 @@ afterEach(() => {
 });
 
 describe("bounded container placement", () => {
+  it("reads fill occupancy from the addressed Layer without consuming hidden siblings", () => {
+    const editor = makeLayerEditor([
+      layer("layer0000001", [paragraph("Visible composition")]),
+      layer("layer0000002", [grid()]),
+    ]);
+    expect(
+      resolveLayerTargetAtPosition({
+        doc: editor.state.doc,
+        pos: nodePosById(editor, "layer0000002"),
+        layoutDefinitions: builtInLayoutRegistry,
+      }),
+    ).toMatchObject({ layerId: "layer0000002" });
+
+    expect(
+      allowsBoundedContainerRootInsertionAtPosition({
+        doc: editor.state.doc,
+        pos: nodePosById(editor, "layer0000001"),
+      }),
+    ).toBe(true);
+    expect(
+      allowsBoundedContainerRootInsertionAtPosition({
+        doc: editor.state.doc,
+        pos: nodePosById(editor, "layer0000002"),
+      }),
+    ).toBe(false);
+    expect(
+      resolveActiveBoundedPlacement({
+        capability: "fill",
+        doc: editor.state.doc,
+        pos: firstNodePos(editor, "paragraph"),
+      }),
+    ).toBe("fill");
+  });
+
+  it("hands a whole fill Layout through its Layer to the logical Region", () => {
+    const editor = makeLayerEditor([layer("layer0000001", [tabsLayout()])]);
+
+    expect(
+      resolveActiveBoundedPlacement({
+        capability: "fill",
+        doc: editor.state.doc,
+        pos: firstNodePos(editor, "layout"),
+      }),
+    ).toBe("fill");
+  });
+
+  it("resolves an exact layered Section before its enclosing Region Layer", () => {
+    const editor = makeLayerEditor([
+      layer("layer0000001", [
+        layoutWithSection("tabs", [layer("layer0000004", [paragraph("Section content")])]),
+      ]),
+    ]);
+    const sectionPos = nodePosById(editor, "section-tabs");
+
+    expect(
+      isActiveBoundedContainerAtPosition({
+        containerType: "section",
+        doc: editor.state.doc,
+        pos: sectionPos,
+      }),
+    ).toBe(true);
+    expect(
+      resolveLayerTargetAtPosition({
+        doc: editor.state.doc,
+        pos: firstNodePos(editor, "paragraph"),
+        layoutDefinitions: builtInLayoutRegistry,
+      }),
+    ).toMatchObject({
+      ownerSlot: { logicalOwner: { id: "section-tabs" } },
+      layerId: "layer0000004",
+    });
+  });
+
   it("keeps root insertion open without a direct fill and closed with one", () => {
     const emptyEditor = makeEditor([
       {
@@ -515,6 +591,73 @@ function makeEditor(surfaceContent: JSONContent[]): Editor {
   });
   editors.push(editor);
   return editor;
+}
+
+function makeLayerEditor(layers: JSONContent[]): Editor {
+  const editor = new Editor({
+    extensions: [
+      DocumentNode,
+      StarterKit.configure({
+        document: false,
+        paragraph: false,
+        undoRedo: false,
+      }),
+      ExtendedParagraph,
+      createTestNodeIdentityExtension(),
+      CourseDocumentNode,
+      createCourseSectionNode(),
+      SurfaceNode,
+      RegionNode.extend({ content: "layer+" }),
+      GridNode,
+      CellNode.extend({ content: "layer+" }),
+      LayoutNode,
+      SectionNode.extend({ content: "layer+" }),
+      LayerNode,
+      TestStagedHostNode,
+      TestStagedIntermediateNode,
+      TestStagedChildNode,
+      TestIneligibleChildNode,
+    ],
+    content: {
+      type: "doc",
+      content: [
+        {
+          type: "courseDocument",
+          attrs: { mode: "slideshow" },
+          content: [
+            {
+              type: "surface",
+              attrs: { id: "surface00001", variant: "slide-content" },
+              content: [
+                {
+                  type: "region",
+                  attrs: { id: "region000001" },
+                  content: layers,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  });
+  editors.push(editor);
+  return editor;
+}
+
+function layer(id: string, content: JSONContent[]): JSONContent {
+  return { type: "layer", attrs: { id }, content };
+}
+
+function nodePosById(editor: Editor, id: string): number {
+  let found: number | null = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (node.attrs["id"] !== id) return true;
+    found = pos;
+    return false;
+  });
+  if (found === null) throw new Error(`Missing fixture node "${id}".`);
+  return found;
 }
 
 function firstNode(editor: Editor, nodeType: string) {

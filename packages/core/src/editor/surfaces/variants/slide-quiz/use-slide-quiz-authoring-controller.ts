@@ -2,6 +2,7 @@ import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { useMemo, useState } from "react";
 
+import { requireLayerMutationAccessForState } from "@/document/authoring/layers/layer-editing-boundaries";
 import { replaceRangeWithNodeChecked } from "@/document/model/commands/checked-transactions";
 import {
   deleteQuizQuestion,
@@ -81,6 +82,7 @@ export function useSlideQuizAuthoringController({
           from: insertAt,
           node: question,
           to: insertAt,
+          layerAccess: requireLayerMutationAccessForState(editor.state),
         });
         if (!result.ok) return;
         editor.view.dispatch(result.tr.scrollIntoView());

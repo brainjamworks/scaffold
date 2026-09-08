@@ -13,6 +13,7 @@ import {
   createLayerWithContent,
 } from "@/document/model/layers/layer-construction";
 import { LayerNode } from "@/document/model/layers/layer-node";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import {
   CourseSelectionMode,
   resolveCourseSelectionFacts,
@@ -155,7 +156,10 @@ function makeEditor() {
   });
 }
 
-function makeCourseEditor(content: JSONContent[]) {
+function makeCourseEditor(
+  content: JSONContent[],
+  options: { readonly layeredRegions?: boolean } = {},
+) {
   return new Editor({
     extensions: [
       DocumentNode,
@@ -168,7 +172,7 @@ function makeCourseEditor(content: JSONContent[]) {
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
-      RegionNode,
+      options.layeredRegions ? RegionNode.extend({ content: "layer+" }) : RegionNode,
       LayoutAuthoringNode,
       SectionAuthoringNode.extend({
         content: "layer+ | (accordion_section_title accordion_section_panel)",
@@ -214,6 +218,7 @@ function layout(content: JSONContent[], options: Record<string, unknown> = {}) {
   return {
     type: "layout",
     attrs: {
+      id: createEmbeddedNodeId(),
       variant: "columns",
       options: { columns: content.length, ...options },
     },
@@ -412,33 +417,38 @@ describe("layout command templates", () => {
 
 describe("bounded Section vertical position commands", () => {
   it("updates an active handoff Section while preserving attrs and content", () => {
-    const editor = makeCourseEditor([
-      {
-        type: "region",
-        attrs: { id: "region-a" },
-        content: [
-          {
-            type: "layout",
-            attrs: { id: "layout-tabs", variant: "tabs" },
-            content: [
+    const editor = makeCourseEditor(
+      [
+        {
+          type: "region",
+          attrs: { id: "region000001" },
+          content: [
+            createLayerWithContent([
               {
-                type: "section",
-                attrs: { id: "section-a", role: "tab-panel", label: "Overview" },
+                type: "layout",
+                attrs: { id: "layout-tabs", variant: "tabs" },
                 content: [
-                  createLayerWithContent([
-                    {
-                      type: "test_block",
-                      attrs: { id: "block-a", horizontalAlignment: "right" },
-                    },
-                  ]),
+                  {
+                    type: "section",
+                    attrs: { id: "section00001", role: "tab-panel", label: "Overview" },
+                    content: [
+                      createLayerWithContent([
+                        {
+                          type: "test_block",
+                          attrs: { id: "block-a", horizontalAlignment: "right" },
+                        },
+                      ]),
+                    ],
+                  },
                 ],
               },
-            ],
-          },
-        ],
-      },
-    ]);
-    const sectionPos = nodePos(editor, "section", "section-a");
+            ]),
+          ],
+        },
+      ],
+      { layeredRegions: true },
+    );
+    const sectionPos = nodePos(editor, "section", "section00001");
 
     expect(
       setLayoutSectionVerticalPositionAt(
@@ -450,7 +460,7 @@ describe("bounded Section vertical position commands", () => {
       ),
     ).toBe(true);
     expect(editor.state.doc.nodeAt(sectionPos)?.attrs).toMatchObject({
-      id: "section-a",
+      id: "section00001",
       label: "Overview",
       role: "tab-panel",
       verticalPosition: "middle",

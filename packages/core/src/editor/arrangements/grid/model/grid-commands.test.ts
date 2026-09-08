@@ -5,6 +5,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
 
+import { NON_LAYER_DOCUMENT_MUTATION_ACCESS } from "@/document/authoring/layers/layer-editing-boundaries";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import {
   createBlankLayer,
@@ -316,6 +317,7 @@ describe("grid transaction commands", () => {
       schema: editor.schema,
       pos: surfaceInsertPos(editor),
       options: { columns: 3 },
+      layerAccess: NON_LAYER_DOCUMENT_MUTATION_ACCESS,
     });
 
     expect(result.ok).toBe(true);
@@ -334,6 +336,7 @@ describe("grid transaction commands", () => {
       schema: editor.schema,
       pos: surfaceInsertPos(editor),
       options: { columns: 7 },
+      layerAccess: NON_LAYER_DOCUMENT_MUTATION_ACCESS,
     });
     expect(invalidTemplate).toEqual({
       ok: false,
@@ -345,6 +348,7 @@ describe("grid transaction commands", () => {
       schema: editor.schema,
       pos: editor.state.doc.content.size + 10,
       options: { columns: 2 },
+      layerAccess: NON_LAYER_DOCUMENT_MUTATION_ACCESS,
     });
     expect(invalidPosition).toEqual({
       ok: false,
