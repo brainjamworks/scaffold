@@ -40,6 +40,16 @@
     min-width: 0;
     --sc-layout-section-inset: var(--sc-container-inset);
     --sc-layout-section-flow-gap: var(--sc-container-flow-gap);
+    --sc-layer-flow-alignment: start;
+    --sc-layer-flow-gap: var(--sc-layout-section-flow-gap);
+  }
+
+  .sc-layout-section[data-vertical-content-position="middle"] {
+    --sc-layer-flow-alignment: safe center;
+  }
+
+  .sc-layout-section[data-vertical-content-position="bottom"] {
+    --sc-layer-flow-alignment: safe end;
   }
 
   .sc-layout-section__content {

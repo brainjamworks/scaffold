@@ -101,15 +101,11 @@ function tabsDocument(): JSONContent {
               {
                 type: "layout",
                 attrs: {
-                  id: "layout-tabs",
+                  id: createEmbeddedNodeId(),
                   variant: "tabs",
                   options: { label: "Lesson sections", variant: "default" },
                 },
-                content: [
-                  tabSection("tab-a", "Overview"),
-                  tabSection("tab-b", "Practice"),
-                  tabSection("tab-c", "Review"),
-                ],
+                content: [tabSection("Overview"), tabSection("Practice"), tabSection("Review")],
               },
             ],
           }
@@ -119,21 +115,37 @@ function tabsDocument(): JSONContent {
   const content = createScaffoldDocumentContent({
     mode: "slideshow",
     surfaceId: "surface-tabs",
+    initialCourseSectionTitle: "Bounded Region geometry",
   });
   const courseDocument = content.content?.[0];
   if (courseDocument?.type !== "courseDocument") {
     throw new Error("Could not create bounded Region browser fixture.");
   }
-  courseDocument.content = [populatedSurface];
+  const courseSection = courseDocument.content?.find((node) => node.type === "courseSection");
+  if (!courseSection) throw new Error("Could not create the browser fixture Course Section.");
+  assignMissingIds(populatedSurface);
+  courseDocument.content = [courseSection, populatedSurface];
   return content;
 }
 
-function tabSection(id: string, label: string): JSONContent {
+function tabSection(label: string): JSONContent {
   return {
     type: "section",
-    attrs: { id, role: "tab-panel", options: { label } },
+    attrs: { id: createEmbeddedNodeId(), role: "tab-panel", options: { label } },
     content: [{ type: "paragraph" }],
   };
+}
+
+function assignMissingIds(root: JSONContent): void {
+  const stack = [root];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (!node) throw new Error("Bounded Region ID traversal lost its node.");
+    if (node.type !== "text") {
+      node.attrs = { ...node.attrs, id: node.attrs?.["id"] ?? createEmbeddedNodeId() };
+    }
+    for (const child of node.content ?? []) stack.push(child);
+  }
 }
 
 function requiredElement(root: ParentNode, selector: string): HTMLElement {

@@ -1,0 +1,36 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-layer[data-layer-state="active"] {
+    box-sizing: border-box;
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    align-self: start;
+    gap: var(--sc-layer-flow-gap, 0);
+  }
+
+  .sc-layer[data-layer-state="inactive"] {
+    display: none !important;
+  }
+
+  .sc-layer[data-layer-state="active"][data-layer-composition="fill"] {
+    align-self: stretch;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .sc-layer[data-layer-state="active"][data-layer-composition="fill"]
+    > [data-node-view-content]
+    > [data-node-view-content-react]
+    > .react-renderer
+    > [data-bounded-placement="fill"] {
+    align-self: stretch;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+  }
+}

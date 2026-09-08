@@ -35,6 +35,28 @@
     height: 100%;
   }
 
+  [data-bounded-scroll]:has(> .react-renderer > .sc-layer[data-layer-state="active"]),
+  [data-bounded-scroll]:has(
+    > [data-node-view-content-react] > .react-renderer > .sc-layer[data-layer-state="active"]
+  ) {
+    display: grid;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    grid-template-rows: max-content;
+  }
+
+  [data-bounded-scroll]:has(
+    > .react-renderer > .sc-layer[data-layer-state="active"][data-layer-composition="flow"]
+  ),
+  [data-bounded-scroll]:has(
+    > [data-node-view-content-react]
+      > .react-renderer
+      > .sc-layer[data-layer-state="active"][data-layer-composition="flow"]
+  ) {
+    align-content: var(--sc-layer-flow-alignment, start);
+  }
+
   [data-bounded-scroll][data-bounded-scroll-overflow]:not([data-bounded-scroll-end]) {
     mask-image: linear-gradient(
       to bottom,
@@ -123,8 +145,18 @@
     [data-bounded-viewport]:has(> * > .react-renderer > [data-bounded-placement="fill"]),
   [data-node="region"]
     [data-bounded-placement="fill"]
+    [data-bounded-viewport]:has(> [data-node-view-content-react] > [data-bounded-placement="fill"]),
+  [data-node="region"]
+    [data-bounded-placement="fill"]
     [data-bounded-viewport]:has(
-      > [data-node-view-content-react] > [data-bounded-placement="fill"]
+      > .react-renderer > .sc-layer[data-layer-state="active"][data-layer-composition="fill"]
+    ),
+  [data-node="region"]
+    [data-bounded-placement="fill"]
+    [data-bounded-viewport]:has(
+      > [data-node-view-content-react]
+        > .react-renderer
+        > .sc-layer[data-layer-state="active"][data-layer-composition="fill"]
     ) {
     height: 100%;
     overflow: hidden;
@@ -162,6 +194,14 @@
   [data-bounded-scroll]:has(> [data-node-view-content-react] > [data-bounded-placement="fill"]),
   [data-bounded-scroll]:has(
     > [data-node-view-content-react] > .react-renderer > [data-bounded-placement="fill"]
+  ),
+  [data-bounded-scroll]:has(
+    > .react-renderer > .sc-layer[data-layer-state="active"][data-layer-composition="fill"]
+  ),
+  [data-bounded-scroll]:has(
+    > [data-node-view-content-react]
+      > .react-renderer
+      > .sc-layer[data-layer-state="active"][data-layer-composition="fill"]
   ) {
     display: grid;
     height: 100%;
@@ -184,7 +224,14 @@
   }
 
   [data-bounded-scroll] > *:has(> .react-renderer > [data-bounded-placement="fill"]),
-  [data-bounded-scroll] > * > .react-renderer:has(> [data-bounded-placement="fill"]) {
+  [data-bounded-scroll] > * > .react-renderer:has(> [data-bounded-placement="fill"]),
+  [data-bounded-scroll]
+    > .react-renderer
+    > .sc-layer[data-layer-state="active"][data-layer-composition="fill"],
+  [data-bounded-scroll]
+    > [data-node-view-content-react]
+    > .react-renderer
+    > .sc-layer[data-layer-state="active"][data-layer-composition="fill"] {
     height: 100%;
     min-height: 0;
     max-height: 100%;

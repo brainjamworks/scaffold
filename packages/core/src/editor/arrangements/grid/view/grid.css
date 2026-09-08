@@ -32,6 +32,8 @@
   .sc-grid-cell {
     --sc-grid-cell-inset: 0.25rem;
     --sc-grid-cell-flow-gap: var(--sc-container-flow-gap);
+    --sc-layer-flow-alignment: start;
+    --sc-layer-flow-gap: var(--sc-grid-cell-flow-gap);
 
     position: relative;
     display: flex;
@@ -48,10 +50,14 @@
   }
 
   .sc-grid-cell[data-vertical-content-position="middle"] {
+    --sc-layer-flow-alignment: safe center;
+
     justify-content: center;
   }
 
   .sc-grid-cell[data-vertical-content-position="bottom"] {
+    --sc-layer-flow-alignment: safe end;
+
     justify-content: flex-end;
   }
 
@@ -67,16 +73,36 @@
     height: 100%;
   }
 
-  .sc-grid-cell[data-vertical-content-position="middle"] [data-bounded-scroll] {
+  .sc-grid-cell[data-vertical-content-position="middle"]
+    > [data-bounded-scroll-frame]
+    > [data-bounded-scroll] {
     align-content: center;
   }
 
-  .sc-grid-cell[data-vertical-content-position="bottom"] [data-bounded-scroll] {
+  .sc-grid-cell[data-vertical-content-position="bottom"]
+    > [data-bounded-scroll-frame]
+    > [data-bounded-scroll] {
     align-content: end;
   }
 
   .sc-grid-cell__content > *,
   .sc-grid-cell__content > [data-node-view-content-react] > * {
+    margin-block: 0;
+  }
+
+  .sc-grid-cell__content
+    > .react-renderer
+    > .sc-layer
+    > [data-node-view-content]
+    > [data-node-view-content-react]
+    > *,
+  .sc-grid-cell__content
+    > [data-node-view-content-react]
+    > .react-renderer
+    > .sc-layer
+    > [data-node-view-content]
+    > [data-node-view-content-react]
+    > * {
     margin-block: 0;
   }
 }
