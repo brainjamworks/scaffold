@@ -3,12 +3,14 @@ import {
   EmbeddedNodeIdSchema,
   type PresentationConfigurationV1,
 } from "@scaffold/contracts";
+import { Result } from "better-result";
 import { describe, expect, it } from "vite-plus/test";
 
 import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
+import type { ControlCapabilityCatalogue } from "@/document/control-binding";
 import type { DocumentTreeSnapshot, DocumentTreeItem } from "@/document/model/document-tree";
 
-import { omittedActionIds } from "./presentation-compilation-diagnostic";
+import { blocksPresentationSurface, omittedActionIds } from "./presentation-compilation-diagnostic";
 import { compilePresentation, type CompilePresentationInput } from "./presentation-compiler";
 
 const SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
@@ -17,6 +19,9 @@ const TARGET_ID = EmbeddedNodeIdSchema.parse("target000001");
 const SECOND_TARGET_ID = EmbeddedNodeIdSchema.parse("target000002");
 const OWNER_ID = EmbeddedNodeIdSchema.parse("owner0000001");
 const MISSING_TARGET_ID = EmbeddedNodeIdSchema.parse("gone00000001");
+const LAYER_OWNER_ID = EmbeddedNodeIdSchema.parse("region000001");
+const LAYER_A_ID = EmbeddedNodeIdSchema.parse("layer0000001");
+const LAYER_B_ID = EmbeddedNodeIdSchema.parse("layer0000002");
 
 describe("compilePresentation", () => {
   it("returns ordinary unconfigured state when Presentation is absent", () => {
@@ -24,11 +29,12 @@ describe("compilePresentation", () => {
       configuration: undefined,
       courseStructure: courseStructure(),
       semanticSnapshot: semanticSnapshot(),
+      controlCapabilities: controlCapabilities(),
     });
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) throw new Error("Expected unconfigured Presentation to compile.");
-    expect(result.value).toEqual({ program: null, diagnostics: [] });
+    expect(result.value).toEqual({ program: null, surfaces: [], diagnostics: [] });
   });
 
   it("compiles deterministic visual, cue and Wait schedules", () => {
@@ -39,6 +45,7 @@ describe("compilePresentation", () => {
         id: EmbeddedDataIdSchema.parse("action000002"),
         isEnabled: true,
         atMs: 2_000,
+        boundary: "before-actions",
       },
       {
         kind: "trigger",
@@ -52,6 +59,7 @@ describe("compilePresentation", () => {
         id: EmbeddedDataIdSchema.parse("action000004"),
         isEnabled: true,
         atMs: 2_000,
+        boundary: "after-actions",
         requirement: { kind: "event", targetId: TARGET_ID, type: "selected" },
       },
       {
@@ -85,6 +93,10 @@ describe("compilePresentation", () => {
       "consume",
     ]);
     expect(surface?.waits.map((wait) => wait.id)).toEqual(["action000002", "action000004"]);
+    expect(surface?.waits.map((wait) => wait.boundary)).toEqual([
+      "before-actions",
+      "after-actions",
+    ]);
     expect(surface?.waits[1]).toMatchObject({
       requirement: { kind: "event", ownerId: OWNER_ID, targetId: TARGET_ID, type: "selected" },
     });
@@ -193,7 +205,10 @@ describe("compilePresentation", () => {
       { reason: "surface-coverage-missing", surfaceId: SURFACE_ID },
     ],
   ] as const)("returns immutable typed data when %s", (_name, input, expected) => {
-    const result = compilePresentation(input as CompilePresentationInput);
+    const result = compilePresentation({
+      ...(input as unknown as Omit<CompilePresentationInput, "controlCapabilities">),
+      controlCapabilities: controlCapabilities(),
+    });
 
     expect(result.isErr()).toBe(true);
     if (result.isOk()) throw new Error(`Expected ${expected.reason}.`);
@@ -237,9 +252,9 @@ describe("compilePresentation", () => {
         semanticSnapshot: semanticSnapshot(),
       },
       {
-        reason: "target-not-current",
+        reason: "referenced-target-missing",
         surfaceId: SURFACE_ID,
-        actionId: "action000001",
+        source: { kind: "trigger-command", actionId: "action000001" },
         targetId: MISSING_TARGET_ID,
       },
     ],
@@ -251,11 +266,11 @@ describe("compilePresentation", () => {
         semanticSnapshot: semanticSnapshot({ targetSurfaceId: MISSING_TARGET_ID }),
       },
       {
-        reason: "target-moved-to-another-surface",
-        surfaceId: SURFACE_ID,
-        currentSurfaceId: MISSING_TARGET_ID,
-        actionId: "action000001",
+        reason: "target-moved-surface",
+        source: { kind: "visual-effect", actionId: "action000001" },
         targetId: TARGET_ID,
+        expectedSurfaceId: SURFACE_ID,
+        actualSurfaceId: MISSING_TARGET_ID,
       },
     ],
     [
@@ -300,19 +315,24 @@ describe("compilePresentation", () => {
     expect(Object.isFrozen(report.diagnostics)).toBe(true);
     expect(Object.isFrozen(report.diagnostics[0])).toBe(true);
     const omitted = omittedActionIds(report.diagnostics[0]!);
-    const surface = report.program!.surfaces[0]!;
-    const compiledIds = [
-      ...surface.cues.map(({ id }) => id),
-      ...surface.waits.map(({ id }) => id),
-      ...surface.visualProgram.segments.map(({ id }) => id),
-    ];
-    for (const actionId of omitted) expect(compiledIds).not.toContain(actionId);
-    expect(compiledIds.length).toBe(
-      input.configuration.surfaces[0]!.actions.length - omitted.length,
-    );
+    if (blocksPresentationSurface(report.diagnostics[0]!)) {
+      expect(report.program).toBeNull();
+      expect(report.surfaces[0]).toMatchObject({ status: "blocked", surfaceId: SURFACE_ID });
+    } else {
+      const surface = report.program!.surfaces[0]!;
+      const compiledIds = [
+        ...surface.cues.map(({ id }) => id),
+        ...surface.waits.map(({ id }) => id),
+        ...surface.visualProgram.segments.map(({ id }) => id),
+      ];
+      for (const actionId of omitted) expect(compiledIds).not.toContain(actionId);
+      expect(compiledIds.length).toBe(
+        input.configuration.surfaces[0]!.actions.length - omitted.length,
+      );
+    }
   });
 
-  it("keeps every independent valid action when one action has drifted", () => {
+  it("does not expose a usable partial Surface when one required action has drifted", () => {
     const report = compileReport({
       configuration: presentationConfiguration([
         reveal("action000001", 0, 500),
@@ -323,24 +343,20 @@ describe("compilePresentation", () => {
           id: EmbeddedDataIdSchema.parse("action000004"),
           isEnabled: true,
           atMs: 2_000,
+          boundary: "after-actions",
         },
       ]),
       courseStructure: courseStructure(),
       semanticSnapshot: semanticSnapshot(),
     });
 
-    const surface = report.program!.surfaces[0]!;
-    expect(surface.visualProgram.segments.map(({ id }) => id)).toEqual([
-      "action000001",
-      "action000003",
-    ]);
-    expect(surface.cues).toEqual([]);
-    expect(surface.waits.map(({ id }) => id)).toEqual(["action000004"]);
+    expect(report.program).toBeNull();
+    expect(report.surfaces).toMatchObject([{ status: "blocked", surfaceId: SURFACE_ID }]);
     expect(report.diagnostics).toEqual([
       {
-        reason: "target-not-current",
+        reason: "referenced-target-missing",
         surfaceId: SURFACE_ID,
-        actionId: "action000002",
+        source: { kind: "trigger-command", actionId: "action000002" },
         targetId: MISSING_TARGET_ID,
       },
     ]);
@@ -360,21 +376,18 @@ describe("compilePresentation", () => {
 
     expect(report.diagnostics.map(({ reason }) => reason)).toEqual([
       "same-target-timed-overlap",
-      "target-not-current",
+      "referenced-target-missing",
     ]);
     expect(report.diagnostics[0]).toMatchObject({
       earlierActionId: "action000002",
       laterActionId: "action000003",
     });
-    expect(report.program!.surfaces[0]!.visualProgram.segments.map(({ id }) => id)).toEqual([
-      "action000002",
-      "action000004",
-    ]);
+    expect(report.program).toBeNull();
   });
 
   it("compiles the incoming Surface transition independently of its actions", () => {
     const configuration = presentationConfiguration([
-      trigger("action000001", 500, MISSING_TARGET_ID, "select-tab"),
+      { ...instantReveal("action000001", 500), targetId: MISSING_TARGET_ID },
     ]);
     const transition = { kind: "slide" as const, durationMs: 400 };
     const report = compileReport({
@@ -390,7 +403,7 @@ describe("compilePresentation", () => {
     expect(surface.transition).toEqual(transition);
     expect(surface.transition).not.toBe(transition);
     expect(Object.isFrozen(surface.transition)).toBe(true);
-    expect(surface.cues).toEqual([]);
+    expect(surface.visualProgram.segments).toEqual([]);
   });
 
   it("treats an absent transition as Cut", () => {
@@ -435,16 +448,136 @@ describe("compilePresentation", () => {
     expect(reordered.surfaceById.get(SECOND_SURFACE_ID)?.transition).toEqual(second.transition);
   });
 
-  it("keeps impossible semantic ownership observable as a thrown invariant", () => {
+  it("preserves a valid independent Surface while blocking the whole playback program", () => {
+    const first = presentationConfiguration([
+      trigger("action000001", 500, MISSING_TARGET_ID, "select-tab"),
+    ]).surfaces[0]!;
+    const second = { ...first, surfaceId: SECOND_SURFACE_ID, actions: [] };
+    const report = compileReport({
+      configuration: { ...presentationConfiguration([]), surfaces: [first, second] },
+      courseStructure: twoSurfaceStructure([SURFACE_ID, SECOND_SURFACE_ID]),
+      semanticSnapshot: twoSurfaceSnapshot(),
+    });
+
+    expect(report.program).toBeNull();
+    expect(report.surfaces[0]).toMatchObject({ status: "blocked", surfaceId: SURFACE_ID });
+    expect(report.surfaces[1]).toMatchObject({ status: "playable", surfaceId: SECOND_SURFACE_ID });
+    const secondOutcome = report.surfaces[1]!;
+    if (secondOutcome.status !== "playable") throw new Error("Expected playable second Surface.");
+    expect(secondOutcome.program.surfaceId).toBe(SECOND_SURFACE_ID);
+  });
+
+  it.each([
+    [
+      "missing learner target",
+      learnerWait("action000001", {
+        kind: "event",
+        targetId: MISSING_TARGET_ID,
+        type: "selected",
+      }),
+      "referenced-target-missing",
+    ],
+    [
+      "undeclared learner event",
+      learnerWait("action000001", { kind: "event", targetId: TARGET_ID, type: "unknown" }),
+      "unavailable-required-capability",
+    ],
+    [
+      "invalid required state value",
+      learnerWait("action000001", {
+        kind: "state",
+        targetId: TARGET_ID,
+        key: "complete",
+        equals: "yes",
+      }),
+      "required-state-value-invalid",
+    ],
+    [
+      "undeclared trigger command",
+      trigger("action000001", 500, TARGET_ID, "unknown"),
+      "trigger-command-unavailable",
+    ],
+    [
+      "invalid trigger command input",
+      {
+        ...trigger("action000001", 500, TARGET_ID, "select-tab"),
+        command: {
+          kind: "target-command" as const,
+          targetId: TARGET_ID,
+          type: "select-tab",
+          input: "unexpected",
+        },
+      },
+      "trigger-command-input-invalid",
+    ],
+  ] as const)("blocks required work for %s", (_name, action, reason) => {
+    const report = compileReport({
+      configuration: presentationConfiguration([action]),
+      courseStructure: courseStructure(),
+      semanticSnapshot: semanticSnapshot(),
+    });
+
+    expect(report.program).toBeNull();
+    expect(report.surfaces[0]).toMatchObject({ status: "blocked" });
+    expect(report.diagnostics).toEqual([expect.objectContaining({ reason })]);
+  });
+
+  it("blocks an event Wait that is statically excluded by its boundary Layer selection", () => {
+    const configuration = presentationConfiguration([
+      learnerWait("action000001", {
+        kind: "event",
+        targetId: TARGET_ID,
+        type: "selected",
+      }),
+    ]);
+    configuration.surfaces[0]!.layerTracks = [
+      {
+        ownerId: LAYER_OWNER_ID,
+        initialLayerId: LAYER_B_ID,
+        switches: [
+          { id: EmbeddedDataIdSchema.parse("switch000001"), atMs: 500, layerId: LAYER_A_ID },
+        ],
+      },
+    ];
+    const wait = configuration.surfaces[0]!.actions[0];
+    if (wait?.kind !== "learner-wait") throw new Error("Expected learner Wait fixture.");
+    wait.boundary = "before-actions";
+
+    const report = compileReport({
+      configuration,
+      courseStructure: courseStructure(),
+      semanticSnapshot: layeredSemanticSnapshot(),
+    });
+
+    expect(report.program).toBeNull();
+    expect(report.diagnostics).toContainEqual({
+      reason: "required-event-layer-unavailable",
+      surfaceId: SURFACE_ID,
+      waitId: "action000001",
+      targetId: TARGET_ID,
+      ownerId: LAYER_OWNER_ID,
+      requiredLayerId: LAYER_A_ID,
+      selectedLayerId: LAYER_B_ID,
+      atMs: 500,
+      boundary: "before-actions",
+    });
+  });
+
+  it("keeps a capability catalogue identity defect observable as a thrown invariant", () => {
+    const capabilities = controlCapabilities();
     expect(() =>
       compilePresentation({
         configuration: presentationConfiguration([
           trigger("action000001", 500, TARGET_ID, "select-tab"),
         ]),
         courseStructure: courseStructure(),
-        semanticSnapshot: semanticSnapshot({ ownerlessTarget: true }),
+        semanticSnapshot: semanticSnapshot(),
+        controlCapabilities: {
+          ...capabilities,
+          resolveCommand: (targetId) => Result.err({ reason: "target-not-public", targetId }),
+        },
       }),
-    ).toThrow(/no semantic owner/);
+    ).toThrow(/lost public target/);
   });
 
   it("compiles Replace as independent adjacent Hide and Reveal segments", () => {
@@ -470,8 +603,14 @@ describe("compilePresentation", () => {
   });
 });
 
-function compileReport(input: CompilePresentationInput) {
-  const result = compilePresentation(input);
+type FixtureCompileInput = Omit<CompilePresentationInput, "controlCapabilities"> &
+  Partial<Pick<CompilePresentationInput, "controlCapabilities">>;
+
+function compileReport(input: FixtureCompileInput) {
+  const result = compilePresentation({
+    ...input,
+    controlCapabilities: input.controlCapabilities ?? controlCapabilities(),
+  });
   if (result.isErr()) {
     throw new Error(
       `Expected Presentation compilation to succeed: ${JSON.stringify(result.error)}`,
@@ -480,7 +619,7 @@ function compileReport(input: CompilePresentationInput) {
   return result.value;
 }
 
-function compileOk(input: CompilePresentationInput) {
+function compileOk(input: FixtureCompileInput) {
   const report = compileReport(input);
   expect(report.diagnostics).toEqual([]);
   if (report.program === null) throw new Error("Expected configured Presentation program.");
@@ -598,6 +737,23 @@ function trigger(
   };
 }
 
+function learnerWait(
+  id: string,
+  requirement: Extract<
+    PresentationConfigurationV1["surfaces"][number]["actions"][number],
+    { kind: "learner-wait" }
+  >["requirement"],
+) {
+  return {
+    kind: "learner-wait" as const,
+    id: EmbeddedDataIdSchema.parse(id),
+    isEnabled: true,
+    atMs: 500,
+    boundary: "after-actions" as const,
+    requirement,
+  };
+}
+
 function presentationConfiguration(
   actions: PresentationConfigurationV1["surfaces"][number]["actions"],
 ): PresentationConfigurationV1 {
@@ -605,7 +761,7 @@ function presentationConfiguration(
     schemaVersion: 1,
     autoAdvance: false,
     allowPrevious: true,
-    surfaces: [{ surfaceId: SURFACE_ID, durationMs: 5_000, actions }],
+    surfaces: [{ surfaceId: SURFACE_ID, durationMs: 5_000, layerTracks: [], actions }],
   };
 }
 
@@ -692,6 +848,41 @@ function semanticSnapshot(
   };
 }
 
+function layeredSemanticSnapshot(): DocumentTreeSnapshot {
+  const base = semanticSnapshot();
+  const owner = base.itemById.get(OWNER_ID)!;
+  const layerA = semanticItem(LAYER_A_ID, "layer", [owner]);
+  const layerB = semanticItem(LAYER_B_ID, "layer", []);
+  const layerOwner = semanticItem(LAYER_OWNER_ID, "region", [layerA, layerB]);
+  const surface = semanticItem(SURFACE_ID, "surface", [layerOwner]);
+  return {
+    ...base,
+    roots: [surface],
+    itemById: new Map([
+      ...base.itemById,
+      [surface.id, surface],
+      [layerOwner.id, layerOwner],
+      [layerA.id, layerA],
+      [layerB.id, layerB],
+    ]),
+    parentById: new Map([
+      ...base.parentById,
+      [surface.id, null],
+      [layerOwner.id, surface.id],
+      [layerA.id, layerOwner.id],
+      [layerB.id, layerOwner.id],
+      [owner.id, layerA.id],
+    ]),
+    locationById: new Map([
+      ...base.locationById,
+      [surface.id, location(SURFACE_ID, [])],
+      [layerOwner.id, location(SURFACE_ID, [])],
+      [layerA.id, location(SURFACE_ID, [])],
+      [layerB.id, location(SURFACE_ID, [])],
+    ]),
+  };
+}
+
 function semanticItem(
   id: ReturnType<typeof EmbeddedNodeIdSchema.parse>,
   kind: DocumentTreeItem["kind"],
@@ -730,5 +921,43 @@ function location(
     surfaceId,
     authoringAnchorId: null,
     activationPath,
+  };
+}
+
+function controlCapabilities(): ControlCapabilityCatalogue {
+  return {
+    resolve(targetId) {
+      if (targetId !== TARGET_ID && targetId !== SECOND_TARGET_ID) {
+        return Result.err({ reason: "target-not-public", targetId });
+      }
+      return Result.ok({
+        targetId,
+        ownerId: OWNER_ID,
+        capabilities: {
+          events: [{ type: "selected", label: "Selected" }],
+          states: [{ key: "complete", label: "Complete", valueType: { kind: "boolean" } }],
+          commands: [
+            { type: "select-tab", label: "Select tab" },
+            { type: "play-audio", label: "Play audio" },
+          ],
+        },
+      });
+    },
+    resolveCommand(targetId, type) {
+      const target = this.resolve(targetId);
+      if (target.isErr()) return target;
+      const command = target.value.capabilities.commands?.find(
+        (candidate) => candidate.type === type,
+      );
+      return command
+        ? Result.ok({ targetId, ownerId: OWNER_ID, command })
+        : Result.err({ reason: "command-not-declared", targetId, type });
+    },
+    requireOwnerControlDefinition() {
+      throw new Error("not used by Presentation compiler tests");
+    },
+    requireOwnedTargetCapabilities() {
+      throw new Error("not used by Presentation compiler tests");
+    },
   };
 }

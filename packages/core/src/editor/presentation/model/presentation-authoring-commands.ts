@@ -18,7 +18,13 @@ import { projectAuthoringCourseStructure } from "@/document/authoring/course-str
 import { getDocumentTreeForEditor } from "@/document/authoring/document-tree/document-tree-storage";
 import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";
 import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
-import { compilePresentation, type PresentationCompilationError } from "@/presentation/model";
+import {
+  compilePresentation,
+  omittedActionIds,
+  preparePresentationConfiguration,
+  type PresentationCompilationDiagnostic,
+  type PresentationCompilationError,
+} from "@/presentation/model";
 
 type PresentationAuthoringCompilationError = Exclude<
   PresentationCompilationError,
@@ -43,6 +49,15 @@ export type PresentationAuthoringCommandError =
       readonly surfaceId: EmbeddedNodeId;
       readonly durationMs: number;
       readonly blockingActionId: EmbeddedDataId;
+      readonly requiredDurationMs: number;
+    }
+  | {
+      readonly reason: "surface-duration-before-layer-switch";
+      readonly surfaceId: EmbeddedNodeId;
+      readonly durationMs: number;
+      readonly ownerId: EmbeddedNodeId;
+      readonly switchId: EmbeddedDataId;
+      readonly switchAtMs: number;
       readonly requiredDurationMs: number;
     }
   | {
@@ -99,6 +114,12 @@ export type PresentationAuthoringCommandError =
       readonly actionId: EmbeddedDataId;
       readonly atMs: number;
       readonly direction: "earlier" | "later";
+    }
+  | {
+      readonly reason: "action-compilation-invalid";
+      readonly surfaceId: EmbeddedNodeId;
+      readonly actionId: EmbeddedDataId;
+      readonly diagnostics: readonly PresentationCompilationDiagnostic[];
     }
   | PresentationAuthoringCompilationError;
 
@@ -237,13 +258,17 @@ export function setPresentationActionEnabled({
 }: ActionCommandInput & { readonly isEnabled: boolean }): PresentationAuthoringCommandResult {
   const prepared = prepareActionMutation(editor, surfaceId, actionId);
   if (prepared.isErr()) return Result.err(prepared.error);
-  const actions = prepared.value.timeline.actions.map((action) =>
-    action.id === actionId ? { ...action, isEnabled } : action,
-  );
+  const action = prepared.value.timeline.actions[prepared.value.actionIndex]!;
+  const replacement = { ...action, isEnabled };
+  const schedule = validateActionSchedule(prepared.value.timeline, replacement, actionId);
+  if (schedule.isErr()) return Result.err(schedule.error);
+  const actions = [...prepared.value.timeline.actions];
+  actions[prepared.value.actionIndex] = replacement;
   return validateAndDispatch(
     editor,
     replaceTimeline(prepared.value.configuration, prepared.value.timeline, actions),
     prepared.value.courseStructure,
+    isEnabled ? [actionId] : undefined,
   );
 }
 
@@ -308,10 +333,32 @@ export function setPresentationSurfaceDuration({
     );
   }
 
-  const configuration = source.configuration ?? createConfiguration(source.currentSurfaceIds);
+  const preparedConfiguration = preparePresentationConfiguration(
+    source.configuration,
+    source.currentSurfaceIds,
+  );
+  if (preparedConfiguration.isErr()) return Result.err(preparedConfiguration.error);
+  const configuration = preparedConfiguration.value;
   const timeline = configuration.surfaces.find((surface) => surface.surfaceId === surfaceId);
   if (!timeline) {
     throw new Error(`Presentation configuration has no Timeline for Surface "${surfaceId}".`);
+  }
+  const blockingSwitch = timeline.layerTracks
+    .flatMap(({ ownerId, switches }) => switches.map((entry) => ({ ownerId, entry })))
+    .filter(({ entry }) => entry.atMs >= durationMs)
+    .sort((left, right) => right.entry.atMs - left.entry.atMs)[0];
+  if (blockingSwitch) {
+    return Result.err(
+      Object.freeze({
+        reason: "surface-duration-before-layer-switch",
+        surfaceId,
+        durationMs,
+        ownerId: blockingSwitch.ownerId,
+        switchId: blockingSwitch.entry.id,
+        switchAtMs: blockingSwitch.entry.atMs,
+        requiredDurationMs: blockingSwitch.entry.atMs + 1,
+      }),
+    );
   }
   const blockingAction = timeline.actions
     .map((action) => ({ action, endMs: action.atMs + actionDuration(action) }))
@@ -423,7 +470,12 @@ function prepareSurfaceMutation(
       }),
     );
   }
-  const configuration = source.configuration ?? createConfiguration(source.currentSurfaceIds);
+  const preparedConfiguration = preparePresentationConfiguration(
+    source.configuration,
+    source.currentSurfaceIds,
+  );
+  if (preparedConfiguration.isErr()) return Result.err(preparedConfiguration.error);
+  const configuration = preparedConfiguration.value;
   const timeline = configuration.surfaces.find((candidate) => candidate.surfaceId === surfaceId);
   if (!timeline) {
     throw new Error(`Presentation configuration has no Timeline for Surface "${surfaceId}".`);
@@ -481,19 +533,6 @@ function readPresentationSource(editor: Editor): {
   };
 }
 
-function createConfiguration(surfaceIds: readonly EmbeddedNodeId[]): PresentationConfigurationV1 {
-  return {
-    schemaVersion: 1,
-    autoAdvance: false,
-    allowPrevious: true,
-    surfaces: surfaceIds.map(createEmptyTimeline),
-  };
-}
-
-function createEmptyTimeline(surfaceId: EmbeddedNodeId): SurfacePresentationTimelineV1 {
-  return { surfaceId, durationMs: 0, actions: [] };
-}
-
 function createUnusedActionId(
   configuration: PresentationConfigurationV1,
   reserved: readonly EmbeddedDataId[] = [],
@@ -536,10 +575,13 @@ function validateActionSchedule(
       }),
     );
   }
-  if (action.kind !== "manual-wait" && action.kind !== "learner-wait") return Result.ok();
+  if ((action.kind !== "manual-wait" && action.kind !== "learner-wait") || !action.isEnabled) {
+    return Result.ok();
+  }
   const blocking = timeline.actions.find(
     (candidate) =>
       candidate.id !== replacedActionId &&
+      candidate.isEnabled &&
       (candidate.kind === "manual-wait" || candidate.kind === "learner-wait") &&
       candidate.atMs === action.atMs,
   );
@@ -591,7 +633,9 @@ function validateAndDispatch(
   validateActionIds?: readonly EmbeddedDataId[],
 ): PresentationAuthoringCommandResult {
   const configuration = PresentationConfigurationV1Schema.parse(candidate);
-  const semanticSnapshot = getDocumentTreeForEditor(editor).getSnapshot();
+  const documentTree = getDocumentTreeForEditor(editor);
+  const semanticSnapshot = documentTree.getSnapshot();
+  const controlCapabilities = documentTree.getControlCapabilities();
   const configurations = validateActionIds?.length
     ? validateActionIds.map((actionId) => configurationWithEnabledAction(configuration, actionId))
     : [configuration];
@@ -600,6 +644,7 @@ function validateAndDispatch(
       configuration: configurationToCompile,
       courseStructure,
       semanticSnapshot,
+      controlCapabilities,
     });
     if (compiled.isErr()) {
       if (compiled.error.reason === "surface-coverage-missing") {
@@ -609,9 +654,44 @@ function validateAndDispatch(
       }
       return Result.err(compiled.error);
     }
+    if (validateActionIds?.length) {
+      for (const actionId of validateActionIds) {
+        const actionDiagnostics = compiled.value.diagnostics.filter((diagnostic) =>
+          diagnosticInvolvesCheckedAction(diagnostic, actionId),
+        );
+        if (actionDiagnostics.length > 0) {
+          const surfaceId = configurationToCompile.surfaces.find((timeline) =>
+            timeline.actions.some(({ id }) => id === actionId),
+          )?.surfaceId;
+          if (!surfaceId) {
+            throw new Error(
+              `Presentation action "${actionId}" lost its Surface during validation.`,
+            );
+          }
+          return Result.err(
+            Object.freeze({
+              reason: "action-compilation-invalid",
+              surfaceId,
+              actionId,
+              diagnostics: Object.freeze(actionDiagnostics),
+            }),
+          );
+        }
+      }
+    }
   }
   dispatchPresentation(editor, configuration);
   return Result.ok();
+}
+
+function diagnosticInvolvesCheckedAction(
+  diagnostic: PresentationCompilationDiagnostic,
+  actionId: EmbeddedDataId,
+): boolean {
+  if (diagnostic.reason === "same-target-timed-overlap") {
+    return diagnostic.earlierActionId === actionId || diagnostic.laterActionId === actionId;
+  }
+  return omittedActionIds(diagnostic).includes(actionId);
 }
 
 function configurationWithEnabledAction(

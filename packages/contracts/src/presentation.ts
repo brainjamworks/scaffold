@@ -8,11 +8,7 @@ const PositiveDurationMsSchema = SafeTimeMsSchema.min(1);
 const NonBlankCapabilityNameSchema = z.string().trim().min(1);
 const ControlValueSchema = z.union([z.boolean(), z.string(), z.number().finite()]);
 
-export const PresentationVisualCapabilityIdSchema = z.enum([
-  "reveal",
-  "hide",
-  "emphasize",
-]);
+export const PresentationVisualCapabilityIdSchema = z.enum(["reveal", "hide", "emphasize"]);
 export type PresentationVisualCapabilityId = z.infer<typeof PresentationVisualCapabilityIdSchema>;
 
 const PresentationPresetEasingV1Schema = z
@@ -109,9 +105,7 @@ const TimelineTriggerCommandV1Schema = z.discriminatedUnion("kind", [
       input: ControlValueSchema.optional(),
     })
     .strict(),
-  z
-    .object({ kind: z.literal("navigate-surface"), surfaceId: EmbeddedNodeIdSchema })
-    .strict(),
+  z.object({ kind: z.literal("navigate-surface"), surfaceId: EmbeddedNodeIdSchema }).strict(),
 ]);
 export type TimelineTriggerCommandV1 = z.infer<typeof TimelineTriggerCommandV1Schema>;
 
@@ -125,6 +119,9 @@ export const TimelineTriggerActionV1Schema = z
   })
   .strict();
 export type TimelineTriggerActionV1 = z.infer<typeof TimelineTriggerActionV1Schema>;
+
+export const PresentationWaitBoundaryV1Schema = z.enum(["before-actions", "after-actions"]);
+export type PresentationWaitBoundaryV1 = z.infer<typeof PresentationWaitBoundaryV1Schema>;
 
 const LearnerRequirementV1Schema = z.discriminatedUnion("kind", [
   z
@@ -152,6 +149,7 @@ export const TimelineWaitActionV1Schema = z.discriminatedUnion("kind", [
       id: EmbeddedDataIdSchema,
       isEnabled: z.boolean(),
       atMs: SafeTimeMsSchema,
+      boundary: PresentationWaitBoundaryV1Schema,
     })
     .strict(),
   z
@@ -160,6 +158,7 @@ export const TimelineWaitActionV1Schema = z.discriminatedUnion("kind", [
       id: EmbeddedDataIdSchema,
       isEnabled: z.boolean(),
       atMs: SafeTimeMsSchema,
+      boundary: PresentationWaitBoundaryV1Schema,
       requirement: LearnerRequirementV1Schema,
     })
     .strict(),
@@ -173,6 +172,24 @@ export const TimelineActionV1Schema = z.union([
 ]);
 export type TimelineActionV1 = z.infer<typeof TimelineActionV1Schema>;
 
+export const OwnerLayerSwitchV1Schema = z
+  .object({
+    id: EmbeddedDataIdSchema,
+    atMs: SafeTimeMsSchema,
+    layerId: EmbeddedNodeIdSchema,
+  })
+  .strict();
+export type OwnerLayerSwitchV1 = z.infer<typeof OwnerLayerSwitchV1Schema>;
+
+export const OwnerLayerTrackV1Schema = z
+  .object({
+    ownerId: EmbeddedNodeIdSchema,
+    initialLayerId: EmbeddedNodeIdSchema,
+    switches: z.array(OwnerLayerSwitchV1Schema),
+  })
+  .strict();
+export type OwnerLayerTrackV1 = z.infer<typeof OwnerLayerTrackV1Schema>;
+
 const StrictMediaSourceSchema = z.discriminatedUnion("mode", [
   ExternalMediaSourceSchema.strict(),
   ManagedMediaSourceSchema.strict(),
@@ -180,9 +197,7 @@ const StrictMediaSourceSchema = z.discriminatedUnion("mode", [
 export const SurfacePresentationNarrationV1Schema = z
   .object({ source: StrictMediaSourceSchema })
   .strict();
-export type SurfacePresentationNarrationV1 = z.infer<
-  typeof SurfacePresentationNarrationV1Schema
->;
+export type SurfacePresentationNarrationV1 = z.infer<typeof SurfacePresentationNarrationV1Schema>;
 
 export const SurfaceTransitionV1Schema = z
   .object({
@@ -198,24 +213,69 @@ export const SurfacePresentationTimelineV1Schema = z
     durationMs: SafeTimeMsSchema,
     narration: SurfacePresentationNarrationV1Schema.optional(),
     transition: SurfaceTransitionV1Schema.optional(),
+    layerTracks: z.array(OwnerLayerTrackV1Schema),
     actions: z.array(TimelineActionV1Schema),
   })
   .strict()
   .superRefine((surface, context) => {
     const waitTimes = new Set<number>();
+    const trackOwnerIds = new Set<string>();
+    for (const [trackIndex, track] of surface.layerTracks.entries()) {
+      if (trackOwnerIds.has(track.ownerId)) {
+        addIssue(
+          context,
+          ["layerTracks", trackIndex, "ownerId"],
+          "Only one Layer track may target an owner.",
+        );
+      }
+      trackOwnerIds.add(track.ownerId);
+
+      const switchTimes = new Set<number>();
+      let selectedLayerId: string | null = track.initialLayerId;
+      const ordered = track.switches
+        .map((entry, index) => ({ entry, index }))
+        .sort((left, right) => left.entry.atMs - right.entry.atMs || left.index - right.index);
+      const switchCountByTime = new Map<number, number>();
+      for (const { entry } of ordered) {
+        switchCountByTime.set(entry.atMs, (switchCountByTime.get(entry.atMs) ?? 0) + 1);
+      }
+      for (const { entry, index } of ordered) {
+        if (!(entry.atMs > 0 && entry.atMs < surface.durationMs)) {
+          addIssue(
+            context,
+            ["layerTracks", trackIndex, "switches", index, "atMs"],
+            "Layer switch time must be after zero and before the Surface endpoint.",
+          );
+        }
+        const timeConflicts = switchCountByTime.get(entry.atMs)! > 1;
+        if (switchTimes.has(entry.atMs)) {
+          addIssue(
+            context,
+            ["layerTracks", trackIndex, "switches", index, "atMs"],
+            "Only one Layer switch may use an owner timestamp.",
+          );
+        }
+        switchTimes.add(entry.atMs);
+        if (!timeConflicts && selectedLayerId !== null && entry.layerId === selectedLayerId) {
+          addIssue(
+            context,
+            ["layerTracks", trackIndex, "switches", index, "layerId"],
+            "Layer switch must change the selected Layer.",
+          );
+        }
+        selectedLayerId = timeConflicts ? null : entry.layerId;
+      }
+    }
     for (const [index, action] of surface.actions.entries()) {
       if (action.atMs > surface.durationMs) {
         addIssue(context, ["actions", index, "atMs"], "Action time exceeds Surface duration.");
       }
       const durationMs = durationOf(action);
       if (durationMs !== 0 && action.atMs + durationMs > surface.durationMs) {
-        addIssue(
-          context,
-          ["actions", index],
-          "Timed action must end within the Surface duration.",
-        );
+        addIssue(context, ["actions", index], "Timed action must end within the Surface duration.");
       }
       if (action.kind === "manual-wait" || action.kind === "learner-wait") {
+        if (!action.isEnabled) continue;
         if (waitTimes.has(action.atMs)) {
           addIssue(context, ["actions", index, "atMs"], "Only one Wait may use a timestamp.");
         }
@@ -223,9 +283,7 @@ export const SurfacePresentationTimelineV1Schema = z
       }
     }
   });
-export type SurfacePresentationTimelineV1 = z.infer<
-  typeof SurfacePresentationTimelineV1Schema
->;
+export type SurfacePresentationTimelineV1 = z.infer<typeof SurfacePresentationTimelineV1Schema>;
 
 export const PresentationConfigurationV1Schema = z
   .object({
@@ -237,21 +295,33 @@ export const PresentationConfigurationV1Schema = z
   .strict()
   .superRefine((configuration, context) => {
     const surfaceIds = new Set<string>();
-    const actionIds = new Set<string>();
+    const presentationDataIds = new Set<string>();
     for (const [surfaceIndex, surface] of configuration.surfaces.entries()) {
       if (surfaceIds.has(surface.surfaceId)) {
         addIssue(context, ["surfaces", surfaceIndex, "surfaceId"], "Surface IDs must be unique.");
       }
       surfaceIds.add(surface.surfaceId);
+      for (const [trackIndex, track] of surface.layerTracks.entries()) {
+        for (const [switchIndex, entry] of track.switches.entries()) {
+          if (presentationDataIds.has(entry.id)) {
+            addIssue(
+              context,
+              ["surfaces", surfaceIndex, "layerTracks", trackIndex, "switches", switchIndex, "id"],
+              "Presentation data IDs must be unique.",
+            );
+          }
+          presentationDataIds.add(entry.id);
+        }
+      }
       for (const [actionIndex, action] of surface.actions.entries()) {
-        if (actionIds.has(action.id)) {
+        if (presentationDataIds.has(action.id)) {
           addIssue(
             context,
             ["surfaces", surfaceIndex, "actions", actionIndex, "id"],
-            "Presentation action IDs must be unique.",
+            "Presentation data IDs must be unique.",
           );
         }
-        actionIds.add(action.id);
+        presentationDataIds.add(action.id);
       }
     }
   });

@@ -106,10 +106,21 @@ export async function prepareAuthorPreview(
       configuration: PresentationConfigurationV1Schema.parse(presentationValue),
       courseStructure: structure as Extract<typeof structure, { readonly kind: "slideshow" }>,
       semanticSnapshot: compilation.documentTree,
+      controlCapabilities: compilation.controlCapabilities,
     });
     if (compiled.isErr()) return Result.err(compiled.error);
     if (!compiled.value.program) {
-      throw new Error("Configured Author Preview Presentation compiled without a program.");
+      const blocked = compiled.value.surfaces.filter(({ status }) => status === "blocked");
+      if (blocked.length === 0) {
+        throw new Error("Configured Author Preview Presentation compiled without a program.");
+      }
+      return Result.err(
+        Object.freeze({
+          reason: "surface-compilation-blocked" as const,
+          surfaceIds: Object.freeze(blocked.map(({ surfaceId }) => surfaceId)),
+          diagnostics: compiled.value.diagnostics,
+        }),
+      );
     }
     presentation = compiled.value.program;
   }

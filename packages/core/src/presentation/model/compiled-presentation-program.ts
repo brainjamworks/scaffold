@@ -1,7 +1,9 @@
 import type {
   EmbeddedDataId,
   EmbeddedNodeId,
+  OwnerLayerSwitchV1,
   PresentationConfigurationV1,
+  PresentationWaitBoundaryV1,
   PresentationVisualIntentV1,
   SurfacePresentationNarrationV1,
   SurfaceTransitionV1,
@@ -51,13 +53,21 @@ export type CompiledPresentationWait =
       readonly kind: "manual-wait";
       readonly id: EmbeddedDataId;
       readonly atMs: number;
+      readonly boundary: PresentationWaitBoundaryV1;
     }
   | {
       readonly kind: "learner-wait";
       readonly id: EmbeddedDataId;
       readonly atMs: number;
+      readonly boundary: PresentationWaitBoundaryV1;
       readonly requirement: CompiledLearnerRequirement;
     };
+
+export interface CompiledOwnerLayerTrack {
+  readonly ownerId: EmbeddedNodeId;
+  readonly initialLayerId: EmbeddedNodeId;
+  readonly switches: readonly OwnerLayerSwitchV1[];
+}
 
 export interface CompiledVisualTarget {
   readonly targetId: EmbeddedNodeId;
@@ -89,6 +99,8 @@ export interface CompiledSurfacePresentationTimeline {
   readonly transition: SurfaceTransitionV1 | null;
   readonly cues: readonly CompiledPresentationCue[];
   readonly waits: readonly CompiledPresentationWait[];
+  readonly layerTracks: readonly CompiledOwnerLayerTrack[];
+  readonly layerTrackByOwnerId: ReadonlyMap<EmbeddedNodeId, CompiledOwnerLayerTrack>;
   readonly visualProgram: CompiledSurfacePresentationVisualProgram;
 }
 

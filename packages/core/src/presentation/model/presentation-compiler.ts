@@ -8,11 +8,17 @@ import type {
   TimelineAnimateActionV1,
 } from "@scaffold/contracts";
 
+import type { ControlCapabilityCatalogue } from "@/document/control-binding";
+import {
+  isControlCommandInputValid,
+  isControlValueValid,
+} from "@/document/control-binding/control-value-validation";
 import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
 import type { DocumentTreeSnapshot, DocumentTreeItem } from "@/document/model/document-tree";
 
 import type {
   CompiledLearnerRequirement,
+  CompiledOwnerLayerTrack,
   CompiledPresentationCommand,
   CompiledPresentationCue,
   CompiledPresentationPlaybackProgram,
@@ -26,24 +32,27 @@ import type {
   PresentationCompilationDiagnostic,
   PresentationCompilationReport,
 } from "./presentation-compilation-diagnostic";
+import { blocksPresentationSurface } from "./presentation-compilation-diagnostic";
+import {
+  type PresentationSurfaceCoverageError,
+  validatePresentationSurfaceCoverage,
+} from "./presentation-configuration";
+import { compilePresentationLayerTracks } from "./presentation-layer-track";
 
 export interface CompilePresentationInput {
   readonly configuration: PresentationConfigurationV1 | null | undefined;
   readonly courseStructure: ProjectedSlideshowCourseStructure;
   readonly semanticSnapshot: DocumentTreeSnapshot;
+  readonly controlCapabilities: ControlCapabilityCatalogue;
 }
 
 /**
  * Whole-program failures: the configuration no longer describes the current
- * Slideshow Surfaces, so no Surface program can be trusted. Per-action drift is
- * reported as {@link PresentationCompilationDiagnostic} instead.
+ * Slideshow Surfaces, so no Surface program can be trusted. Surface-local
+ * authoring drift is reported as {@link PresentationCompilationDiagnostic}.
  */
 export type PresentationCompilationError =
-  | {
-      readonly reason: "surface-coverage-stale";
-      readonly configuredSurfaceIds: readonly EmbeddedNodeId[];
-      readonly currentSurfaceIds: readonly EmbeddedNodeId[];
-    }
+  | PresentationSurfaceCoverageError
   | {
       readonly reason: "surface-coverage-missing";
       readonly surfaceId: EmbeddedNodeId;
@@ -59,20 +68,29 @@ interface Scheduled<T> {
   readonly sourceOrder: number;
 }
 
+type PresentationReferenceSource =
+  | { readonly kind: "visual-effect"; readonly actionId: EmbeddedDataId }
+  | { readonly kind: "trigger-command"; readonly actionId: EmbeddedDataId }
+  | { readonly kind: "learner-wait"; readonly waitId: EmbeddedDataId };
+
 type ActionOutcome<T> = ResultType<T, PresentationCompilationDiagnostic>;
 
 interface CompiledSurface {
   readonly timeline: CompiledSurfacePresentationTimeline;
   readonly diagnostics: readonly PresentationCompilationDiagnostic[];
+  readonly blocked: boolean;
 }
 
 export function compilePresentation({
   configuration,
   courseStructure,
   semanticSnapshot,
+  controlCapabilities,
 }: CompilePresentationInput): PresentationCompilationResult {
   if (configuration === null || configuration === undefined) {
-    return Result.ok(Object.freeze({ program: null, diagnostics: Object.freeze([]) }));
+    return Result.ok(
+      Object.freeze({ program: null, surfaces: Object.freeze([]), diagnostics: Object.freeze([]) }),
+    );
   }
   const coverage = validateSurfaceCoverage(configuration, courseStructure, semanticSnapshot);
   if (coverage.isErr()) return Result.err(coverage.error);
@@ -81,20 +99,54 @@ export function compilePresentation({
     configuration.surfaces.map((surface) => [surface.surfaceId, surface]),
   );
   const surfaces: CompiledSurfacePresentationTimeline[] = [];
+  const outcomes: PresentationCompilationReport["surfaces"][number][] = [];
   const diagnostics: PresentationCompilationDiagnostic[] = [];
   for (const surfaceId of courseStructure.surfaceIds) {
-    const compiled = compileSurface(sourceBySurfaceId.get(surfaceId)!, semanticSnapshot);
-    surfaces.push(compiled.timeline);
+    const compiled = compileSurface(
+      sourceBySurfaceId.get(surfaceId)!,
+      semanticSnapshot,
+      controlCapabilities,
+      new Set(courseStructure.surfaceIds),
+    );
+    if (compiled.blocked) {
+      outcomes.push(
+        Object.freeze({
+          status: "blocked" as const,
+          surfaceId,
+          diagnostics: compiled.diagnostics,
+        }),
+      );
+    } else {
+      surfaces.push(compiled.timeline);
+      outcomes.push(
+        Object.freeze({
+          status: "playable" as const,
+          surfaceId,
+          program: compiled.timeline,
+          diagnostics: compiled.diagnostics,
+        }),
+      );
+    }
     diagnostics.push(...compiled.diagnostics);
   }
-  const program: CompiledPresentationPlaybackProgram = Object.freeze({
-    schemaVersion: configuration.schemaVersion,
-    autoAdvance: configuration.autoAdvance,
-    allowPrevious: configuration.allowPrevious,
-    surfaces: Object.freeze(surfaces),
-    surfaceById: new Map(surfaces.map((surface) => [surface.surfaceId, surface])),
-  });
-  return Result.ok(Object.freeze({ program, diagnostics: Object.freeze(diagnostics) }));
+  const program: CompiledPresentationPlaybackProgram | null = outcomes.some(
+    ({ status }) => status === "blocked",
+  )
+    ? null
+    : Object.freeze({
+        schemaVersion: configuration.schemaVersion,
+        autoAdvance: configuration.autoAdvance,
+        allowPrevious: configuration.allowPrevious,
+        surfaces: Object.freeze(surfaces),
+        surfaceById: new Map(surfaces.map((surface) => [surface.surfaceId, surface])),
+      });
+  return Result.ok(
+    Object.freeze({
+      program,
+      surfaces: Object.freeze(outcomes),
+      diagnostics: Object.freeze(diagnostics),
+    }),
+  );
 }
 
 function validateSurfaceCoverage(
@@ -102,21 +154,9 @@ function validateSurfaceCoverage(
   courseStructure: ProjectedSlideshowCourseStructure,
   semanticSnapshot: DocumentTreeSnapshot,
 ): ResultType<void, PresentationCompilationError> {
-  const configuredSurfaceIds = configuration.surfaces.map(({ surfaceId }) => surfaceId);
   const currentSurfaceIds = [...courseStructure.surfaceIds];
-  const configuredIds = new Set(configuredSurfaceIds);
-  if (
-    configuredSurfaceIds.length !== currentSurfaceIds.length ||
-    currentSurfaceIds.some((surfaceId) => !configuredIds.has(surfaceId))
-  ) {
-    return Result.err(
-      Object.freeze({
-        reason: "surface-coverage-stale" as const,
-        configuredSurfaceIds: Object.freeze(configuredSurfaceIds),
-        currentSurfaceIds: Object.freeze(currentSurfaceIds),
-      }),
-    );
-  }
+  const coverage = validatePresentationSurfaceCoverage(configuration, currentSurfaceIds);
+  if (coverage.isErr()) return Result.err(coverage.error);
   for (const surfaceId of courseStructure.surfaceIds) {
     const item = semanticSnapshot.itemById.get(surfaceId);
     if (!item || item.kind !== "surface") {
@@ -129,6 +169,8 @@ function validateSurfaceCoverage(
 function compileSurface(
   source: SurfacePresentationTimelineV1,
   snapshot: DocumentTreeSnapshot,
+  controlCapabilities: ControlCapabilityCatalogue,
+  currentSurfaceIds: ReadonlySet<EmbeddedNodeId>,
 ): CompiledSurface {
   assertSafeTime(source.durationMs, `Surface "${source.surfaceId}" duration`);
   const enabled = source.actions
@@ -142,18 +184,34 @@ function compileSurface(
   const report = (diagnostic: PresentationCompilationDiagnostic, sourceOrder: number): void => {
     diagnostics.push({ value: diagnostic, sourceOrder });
   };
+  const compiledLayers = compilePresentationLayerTracks(source, snapshot);
+  compiledLayers.diagnostics.forEach((diagnostic, sourceOrder) =>
+    report(diagnostic, -compiledLayers.diagnostics.length + sourceOrder),
+  );
 
   for (const { value: action, sourceOrder } of enabled) {
     switch (action.kind) {
       case "trigger": {
-        const cue = compileCue(action, source.surfaceId, snapshot);
+        const cue = compileCue(
+          action,
+          source.surfaceId,
+          snapshot,
+          controlCapabilities,
+          currentSurfaceIds,
+        );
         if (cue.isErr()) report(cue.error, sourceOrder);
         else cues.push({ value: cue.value, sourceOrder });
         break;
       }
       case "manual-wait":
       case "learner-wait": {
-        const wait = compileWait(action, source.surfaceId, snapshot);
+        const wait = compileWait(
+          action,
+          source.surfaceId,
+          snapshot,
+          controlCapabilities,
+          compiledLayers.trackByOwnerId,
+        );
         if (wait.isErr()) report(wait.error, sourceOrder);
         else waits.push({ value: wait.value, sourceOrder });
         break;
@@ -172,15 +230,19 @@ function compileSurface(
     transition: source.transition ? Object.freeze({ ...source.transition }) : null,
     cues: sortScheduled(cues),
     waits: sortScheduled(waits),
+    layerTracks: compiledLayers.tracks,
+    layerTrackByOwnerId: compiledLayers.trackByOwnerId,
     visualProgram,
   });
+  const frozenDiagnostics = Object.freeze(
+    [...diagnostics]
+      .sort((left, right) => left.sourceOrder - right.sourceOrder)
+      .map(({ value }) => value),
+  );
   return {
     timeline,
-    diagnostics: Object.freeze(
-      [...diagnostics]
-        .sort((left, right) => left.sourceOrder - right.sourceOrder)
-        .map(({ value }) => value),
-    ),
+    diagnostics: frozenDiagnostics,
+    blocked: frozenDiagnostics.some(blocksPresentationSurface),
   };
 }
 
@@ -188,12 +250,18 @@ function compileCue(
   action: Extract<TimelineActionV1, { kind: "trigger" }>,
   surfaceId: EmbeddedNodeId,
   snapshot: DocumentTreeSnapshot,
+  controlCapabilities: ControlCapabilityCatalogue,
+  currentSurfaceIds: ReadonlySet<EmbeddedNodeId>,
 ): ActionOutcome<CompiledPresentationCue> {
   const { command } = action;
   let compiledCommand: CompiledPresentationCommand;
   if (command.kind === "navigate-surface") {
     const destination = snapshot.itemById.get(command.surfaceId);
-    if (!destination || destination.kind !== "surface") {
+    if (
+      !currentSurfaceIds.has(command.surfaceId) ||
+      !destination ||
+      destination.kind !== "surface"
+    ) {
       return Result.err(
         Object.freeze({
           reason: "navigation-destination-not-current" as const,
@@ -205,11 +273,45 @@ function compileCue(
     }
     compiledCommand = Object.freeze({ ...command });
   } else {
-    const target = resolveTargetOnSurface(snapshot, command.targetId, surfaceId, action.id);
+    const target = resolveTargetOnSurface(snapshot, command.targetId, surfaceId, {
+      kind: "trigger-command",
+      actionId: action.id,
+    });
     if (target.isErr()) return Result.err(target.error);
+    const resolved = controlCapabilities.resolveCommand(command.targetId, command.type);
+    if (resolved.isErr()) {
+      assertCatalogueTargetRemainsPublic(resolved.error.reason, command.targetId);
+      return Result.err(
+        Object.freeze({
+          reason: "trigger-command-unavailable" as const,
+          surfaceId,
+          actionId: action.id,
+          targetId: command.targetId,
+          type: command.type,
+        }),
+      );
+    }
+    assertResolvedControlTarget(resolved.value.targetId, command.targetId);
+    const hasInput = Object.hasOwn(command, "input");
+    if (!isControlCommandInputValid(command.input, resolved.value.command.input, hasInput)) {
+      return Result.err(
+        Object.freeze({
+          reason: "trigger-command-input-invalid" as const,
+          surfaceId,
+          actionId: action.id,
+          targetId: command.targetId,
+          type: command.type,
+          input: Object.freeze(
+            command.input === undefined
+              ? { kind: "absent" as const }
+              : { kind: "value" as const, value: command.input },
+          ),
+        }),
+      );
+    }
     compiledCommand = Object.freeze({
       kind: "target-command",
-      ownerId: resolveOwnerId(snapshot, command.targetId),
+      ownerId: resolved.value.ownerId,
       targetId: command.targetId,
       type: command.type,
       ...(command.input === undefined ? {} : { input: command.input }),
@@ -241,22 +343,65 @@ function compileWait(
   action: Extract<TimelineActionV1, { kind: "manual-wait" | "learner-wait" }>,
   surfaceId: EmbeddedNodeId,
   snapshot: DocumentTreeSnapshot,
+  controlCapabilities: ControlCapabilityCatalogue,
+  layerTrackByOwnerId: ReadonlyMap<EmbeddedNodeId, CompiledOwnerLayerTrack>,
 ): ActionOutcome<CompiledPresentationWait> {
   if (action.kind === "manual-wait") {
-    return Result.ok(Object.freeze({ kind: action.kind, id: action.id, atMs: action.atMs }));
+    return Result.ok(
+      Object.freeze({
+        kind: action.kind,
+        id: action.id,
+        atMs: action.atMs,
+        boundary: action.boundary,
+      }),
+    );
   }
   const { requirement } = action;
-  const target = resolveTargetOnSurface(snapshot, requirement.targetId, surfaceId, action.id);
+  const target = resolveTargetOnSurface(snapshot, requirement.targetId, surfaceId, {
+    kind: "learner-wait",
+    waitId: action.id,
+  });
   if (target.isErr()) return Result.err(target.error);
+  const resolved = controlCapabilities.resolve(requirement.targetId);
+  if (resolved.isErr()) {
+    assertCatalogueTargetRemainsPublic(resolved.error.reason, requirement.targetId);
+    return Result.err(unavailableWaitCapability(action, surfaceId));
+  }
+  assertResolvedControlTarget(resolved.value.targetId, requirement.targetId);
+  if (requirement.kind === "event") {
+    if (!resolved.value.capabilities.events?.some(({ type }) => type === requirement.type)) {
+      return Result.err(unavailableWaitCapability(action, surfaceId));
+    }
+  } else {
+    const state = resolved.value.capabilities.states?.find(({ key }) => key === requirement.key);
+    if (!state) return Result.err(unavailableWaitCapability(action, surfaceId));
+    if (!isControlValueValid(requirement.equals, state.valueType)) {
+      return Result.err(
+        Object.freeze({
+          reason: "required-state-value-invalid" as const,
+          surfaceId,
+          waitId: action.id,
+          targetId: requirement.targetId,
+          key: requirement.key,
+          value: requirement.equals,
+        }),
+      );
+    }
+  }
+  if (requirement.kind === "event") {
+    const unreachable = findUnavailableRequiredLayer(action, snapshot, layerTrackByOwnerId);
+    if (unreachable) return Result.err(unreachable);
+  }
   const compiledRequirement: CompiledLearnerRequirement = Object.freeze({
     ...requirement,
-    ownerId: resolveOwnerId(snapshot, requirement.targetId),
+    ownerId: resolved.value.ownerId,
   });
   return Result.ok(
     Object.freeze({
       kind: action.kind,
       id: action.id,
       atMs: action.atMs,
+      boundary: action.boundary,
       requirement: compiledRequirement,
     }),
   );
@@ -371,7 +516,10 @@ function resolveVisualTarget(
   surfaceId: EmbeddedNodeId,
   snapshot: DocumentTreeSnapshot,
 ): ActionOutcome<DocumentTreeItem> {
-  const target = resolveTargetOnSurface(snapshot, action.targetId, surfaceId, action.id);
+  const target = resolveTargetOnSurface(snapshot, action.targetId, surfaceId, {
+    kind: "visual-effect",
+    actionId: action.id,
+  });
   if (target.isErr()) return Result.err(target.error);
   if (!target.value.presentation.actionIds.includes(action.visual.kind)) {
     return Result.err(
@@ -391,12 +539,17 @@ function resolveTargetOnSurface(
   snapshot: DocumentTreeSnapshot,
   targetId: EmbeddedNodeId,
   surfaceId: EmbeddedNodeId,
-  actionId: EmbeddedDataId,
+  source: PresentationReferenceSource,
 ): ActionOutcome<DocumentTreeItem> {
   const target = snapshot.itemById.get(targetId);
   if (!target) {
     return Result.err(
-      Object.freeze({ reason: "target-not-current" as const, surfaceId, actionId, targetId }),
+      Object.freeze({
+        reason: "referenced-target-missing" as const,
+        surfaceId,
+        source: Object.freeze(source),
+        targetId,
+      }),
     );
   }
   const location = snapshot.locationById.get(targetId);
@@ -409,29 +562,99 @@ function resolveTargetOnSurface(
   if (location.surfaceId !== surfaceId) {
     return Result.err(
       Object.freeze({
-        reason: "target-moved-to-another-surface" as const,
-        surfaceId,
-        currentSurfaceId: location.surfaceId,
-        actionId,
+        reason: "target-moved-surface" as const,
+        source: Object.freeze(source),
         targetId,
+        expectedSurfaceId: surfaceId,
+        actualSurfaceId: location.surfaceId,
       }),
     );
   }
   return Result.ok(target);
 }
 
-function resolveOwnerId(
+function unavailableWaitCapability(
+  action: Extract<TimelineActionV1, { kind: "learner-wait" }>,
+  surfaceId: EmbeddedNodeId,
+): Extract<PresentationCompilationDiagnostic, { reason: "unavailable-required-capability" }> {
+  const capability =
+    action.requirement.kind === "event"
+      ? Object.freeze({ kind: "event" as const, type: action.requirement.type })
+      : Object.freeze({ kind: "state" as const, key: action.requirement.key });
+  return Object.freeze({
+    reason: "unavailable-required-capability",
+    surfaceId,
+    waitId: action.id,
+    targetId: action.requirement.targetId,
+    capability,
+  });
+}
+
+function findUnavailableRequiredLayer(
+  action: Extract<TimelineActionV1, { kind: "learner-wait" }>,
   snapshot: DocumentTreeSnapshot,
-  targetId: EmbeddedNodeId,
-): EmbeddedNodeId {
-  const target = snapshot.itemById.get(targetId)!;
-  if (target.kind === "surface" || target.kind === "layout" || target.kind === "block") {
-    return targetId;
+  layerTrackByOwnerId: ReadonlyMap<EmbeddedNodeId, CompiledOwnerLayerTrack>,
+): Extract<
+  PresentationCompilationDiagnostic,
+  { reason: "required-event-layer-unavailable" }
+> | null {
+  let currentId: EmbeddedNodeId | null = action.requirement.targetId;
+  while (currentId !== null) {
+    const item = snapshot.itemById.get(currentId);
+    if (!item) throw new Error(`Presentation target ancestry lost current item "${currentId}".`);
+    if (item.kind === "layer") {
+      const ownerId = snapshot.parentById.get(item.id);
+      if (ownerId === undefined || ownerId === null) {
+        throw new Error(`Layer "${item.id}" has no logical owner.`);
+      }
+      const track = layerTrackByOwnerId.get(ownerId);
+      if (track) {
+        const selectedLayerId = selectedLayerAtBoundary(track, action.atMs, action.boundary);
+        if (selectedLayerId !== item.id) {
+          return Object.freeze({
+            reason: "required-event-layer-unavailable",
+            surfaceId: snapshot.locationById.get(action.requirement.targetId)!.surfaceId!,
+            waitId: action.id,
+            targetId: action.requirement.targetId,
+            ownerId,
+            requiredLayerId: item.id,
+            selectedLayerId,
+            atMs: action.atMs,
+            boundary: action.boundary,
+          });
+        }
+      }
+    }
+    currentId = snapshot.parentById.get(currentId) ?? null;
   }
-  const activationPath = snapshot.locationById.get(targetId)?.activationPath;
-  const ownerId = activationPath?.at(-1)?.ownerId;
-  if (!ownerId) throw new Error(`Presentation target "${targetId}" has no semantic owner.`);
-  return ownerId;
+  return null;
+}
+
+function selectedLayerAtBoundary(
+  track: CompiledOwnerLayerTrack,
+  atMs: number,
+  boundary: "before-actions" | "after-actions",
+): EmbeddedNodeId {
+  let selected = track.initialLayerId;
+  for (const entry of track.switches) {
+    if (entry.atMs > atMs || (entry.atMs === atMs && boundary === "before-actions")) break;
+    selected = entry.layerId;
+  }
+  return selected;
+}
+
+function assertCatalogueTargetRemainsPublic(reason: string, targetId: EmbeddedNodeId): void {
+  if (reason === "target-not-public") {
+    throw new Error(`Control capability catalogue lost public target "${targetId}".`);
+  }
+}
+
+function assertResolvedControlTarget(actualId: EmbeddedNodeId, expectedId: EmbeddedNodeId): void {
+  if (actualId !== expectedId) {
+    throw new Error(
+      `Control capability catalogue resolved target "${actualId}" instead of "${expectedId}".`,
+    );
+  }
 }
 
 function visualDuration(action: TimelineAnimateActionV1): number {

@@ -14,6 +14,7 @@ import type {
 } from "@/learner-interaction/model";
 import type {
   PresentationCompilationError,
+  PresentationPlaybackBlockedError,
   PresentationPreviewOperationError,
   PresentationPreviewOperationResult,
   PresentationPreviewPlaybackPort,
@@ -37,6 +38,7 @@ export interface AuthorPreviewPreparationInput {
 
 export type AuthorPreviewFailure =
   | PresentationCompilationError
+  | PresentationPlaybackBlockedError
   | { readonly reason: "preview-not-active"; readonly surfaceId: EmbeddedNodeId }
   | { readonly reason: "preview-load-superseded"; readonly surfaceId: EmbeddedNodeId }
   | { readonly reason: "preview-not-slideshow"; readonly mode: "page" }

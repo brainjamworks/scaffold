@@ -8,13 +8,16 @@ import {
 
 const SURFACE_ID = "surface00001";
 const TARGET_ID = "target000001";
+const OWNER_ID = "owner0000001";
+const LAYER_ID = "layer0000001";
+const SECOND_LAYER_ID = "layer0000002";
 
 function configuration(actions: readonly unknown[] = []): unknown {
   return {
     schemaVersion: 1,
     autoAdvance: false,
     allowPrevious: true,
-    surfaces: [{ surfaceId: SURFACE_ID, durationMs: 10_000, actions }],
+    surfaces: [{ surfaceId: SURFACE_ID, durationMs: 10_000, layerTracks: [], actions }],
   };
 }
 
@@ -84,12 +87,19 @@ describe("PresentationConfigurationV1", () => {
         atMs: 6_000,
         command: { kind: "navigate-surface", surfaceId: "surface00002" },
       },
-      { kind: "manual-wait", id: "action000007", isEnabled: true, atMs: 7_000 },
+      {
+        kind: "manual-wait",
+        id: "action000007",
+        isEnabled: true,
+        atMs: 7_000,
+        boundary: "before-actions",
+      },
       {
         kind: "learner-wait",
         id: "action000008",
         isEnabled: true,
         atMs: 8_000,
+        boundary: "after-actions",
         requirement: { kind: "event", targetId: TARGET_ID, type: "selected" },
       },
       {
@@ -97,6 +107,7 @@ describe("PresentationConfigurationV1", () => {
         id: "action000009",
         isEnabled: true,
         atMs: 10_000,
+        boundary: "after-actions",
         requirement: { kind: "state", targetId: TARGET_ID, key: "complete", equals: true },
       },
     ]);
@@ -183,6 +194,7 @@ describe("PresentationConfigurationV1", () => {
             id: "action000001",
             isEnabled: true,
             atMs: 0,
+            boundary: "before-actions",
             [field]: value,
           },
         ]),
@@ -221,8 +233,19 @@ describe("PresentationConfigurationV1", () => {
   });
 
   it("rejects duplicate Surface and action identities", () => {
-    const action = { kind: "manual-wait", id: "action000001", isEnabled: true, atMs: 0 };
-    const baseSurface = { surfaceId: SURFACE_ID, durationMs: 10_000, actions: [action, action] };
+    const action = {
+      kind: "manual-wait",
+      id: "action000001",
+      isEnabled: true,
+      atMs: 0,
+      boundary: "before-actions",
+    };
+    const baseSurface = {
+      surfaceId: SURFACE_ID,
+      durationMs: 10_000,
+      layerTracks: [],
+      actions: [action, action],
+    };
 
     expect(
       PresentationConfigurationV1Schema.safeParse({
@@ -267,6 +290,7 @@ describe("PresentationConfigurationV1", () => {
           {
             surfaceId: SURFACE_ID,
             durationMs: 10_000,
+            layerTracks: [],
             narration: {
               source: {
                 mode: "external",
@@ -281,5 +305,101 @@ describe("PresentationConfigurationV1", () => {
     ]) {
       expect(PresentationConfigurationV1Schema.safeParse(value).success).toBe(false);
     }
+  });
+
+  it("requires explicit Wait boundary with no legacy default", () => {
+    expect(
+      PresentationConfigurationV1Schema.safeParse(
+        configuration([{ kind: "manual-wait", id: "action000001", isEnabled: true, atMs: 100 }]),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("allows disabled Waits to share a timestamp but rejects two enabled Waits", () => {
+    const first = {
+      kind: "manual-wait",
+      id: "action000001",
+      isEnabled: true,
+      atMs: 100,
+      boundary: "before-actions",
+    };
+    expect(
+      PresentationConfigurationV1Schema.safeParse(
+        configuration([first, { ...first, id: "action000002", isEnabled: false }]),
+      ).success,
+    ).toBe(true);
+    expect(
+      PresentationConfigurationV1Schema.safeParse(
+        configuration([first, { ...first, id: "action000002" }]),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("parses the current portable Layer track and rejects invalid schedules", () => {
+    const base = configuration();
+    const surface = (base as { surfaces: Record<string, unknown>[] }).surfaces[0]!;
+    const track = {
+      ownerId: OWNER_ID,
+      initialLayerId: LAYER_ID,
+      switches: [{ id: "switch000001", atMs: 5_000, layerId: SECOND_LAYER_ID }],
+    };
+    expect(
+      PresentationConfigurationV1Schema.safeParse({
+        ...(base as Record<string, unknown>),
+        surfaces: [{ ...surface, layerTracks: [track] }],
+      }).success,
+    ).toBe(true);
+
+    for (const invalidTrack of [
+      { ...track, switches: [{ ...track.switches[0], atMs: 0 }] },
+      { ...track, switches: [{ ...track.switches[0], atMs: 10_000 }] },
+      { ...track, switches: [{ ...track.switches[0], layerId: LAYER_ID }] },
+      { ...track, switches: [...track.switches, { ...track.switches[0], id: "switch000002" }] },
+    ]) {
+      expect(
+        PresentationConfigurationV1Schema.safeParse({
+          ...(base as Record<string, unknown>),
+          surfaces: [{ ...surface, layerTracks: [invalidTrack] }],
+        }).success,
+      ).toBe(false);
+    }
+
+    expect(
+      PresentationConfigurationV1Schema.safeParse({
+        ...(base as Record<string, unknown>),
+        surfaces: [{ ...surface, layerTracks: [track, track] }],
+      }).success,
+    ).toBe(false);
+
+    expect(
+      PresentationConfigurationV1Schema.safeParse({
+        ...(base as Record<string, unknown>),
+        surfaces: [
+          {
+            ...surface,
+            layerTracks: [
+              track,
+              {
+                ...track,
+                ownerId: "owner0000002",
+                switches: [{ ...track.switches[0], id: "switch000002" }],
+              },
+            ],
+          },
+        ],
+      }).success,
+    ).toBe(true);
+
+    expect(
+      PresentationConfigurationV1Schema.safeParse({
+        ...(base as Record<string, unknown>),
+        surfaces: [
+          {
+            ...surface,
+            layerTracks: [{ ...track, startMs: 0, memberLayerIds: [LAYER_ID] }],
+          },
+        ],
+      }).success,
+    ).toBe(false);
   });
 });
