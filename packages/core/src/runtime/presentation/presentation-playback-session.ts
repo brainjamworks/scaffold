@@ -1,6 +1,9 @@
 import { Result, type Result as ResultType } from "better-result";
 
-import type { PresentationPlaybackPosition } from "@/presentation/model";
+import {
+  createPresentationPlaybackPosition,
+  type PresentationPlaybackPosition,
+} from "@/presentation/model";
 
 import type {
   CompiledInternalClockSurfaceTimeline,
@@ -17,6 +20,7 @@ import {
 import {
   createPresentationPlaybackMachine,
   type PresentationAdvancementLifecycle,
+  type PresentationRepositionInterruptionReason,
 } from "./presentation-playback-machine";
 import type { PresentationGatePort } from "./presentation-progression-gate";
 
@@ -43,6 +47,7 @@ export type PresentationHold =
 
 export interface PresentationOutstandingLearnerWait {
   readonly waitId: PresentationWaitId;
+  readonly position: PresentationPlaybackPosition;
 }
 
 interface PresentationPlaybackSnapshotBase {
@@ -73,6 +78,10 @@ export interface PresentationSeekError {
 }
 
 export type PresentationSeekResult = ResultType<void, PresentationSeekError>;
+export type PresentationSeekPositionResult = ResultType<
+  PresentationPlaybackPosition,
+  PresentationSeekError
+>;
 
 export type PresentationAdvanceError =
   | {
@@ -92,7 +101,8 @@ export interface PresentationPlaybackSession {
   subscribeCueReports(listener: (report: PresentationCueReport) => void): () => void;
   play(): void;
   pause(): void;
-  seek(timeMs: number): PresentationSeekResult;
+  resolveSeekPosition(timeMs: number): PresentationSeekPositionResult;
+  seek(position: PresentationPlaybackPosition): void;
   advance(): PresentationAdvanceResult;
   restart(): void;
   stop(): void;
@@ -105,6 +115,7 @@ export interface PresentationPlaybackSessionWithReplaceableClock extends Present
   beginMediaStart(): void;
   beginAdvanceMediaStart(): PresentationAdvanceResult;
   cancelMediaStart(): void;
+  beginReposition(reason: PresentationRepositionInterruptionReason): void;
 }
 
 export interface CreatePresentationPlaybackSessionInput {
@@ -160,11 +171,12 @@ function freezeHold(hold: PresentationHold): PresentationHold {
 
 function freezeSnapshot(
   snapshot: PresentationPlaybackMachineProjection,
+  timeline: CompiledInternalClockSurfaceTimeline,
 ): PresentationPlaybackSnapshot {
   const outstandingLearnerWait =
     snapshot.outstandingLearnerWaitId === null
       ? null
-      : Object.freeze({ waitId: snapshot.outstandingLearnerWaitId });
+      : freezeOutstandingLearnerWait(snapshot.outstandingLearnerWaitId, timeline);
   const base = {
     phase: snapshot.phase,
     runNumber: snapshot.runNumber,
@@ -185,6 +197,40 @@ function freezeSnapshot(
     throw new Error(`Presentation ${snapshot.phase} snapshot unexpectedly contains a hold.`);
   }
   return Object.freeze({ ...base, phase: snapshot.phase });
+}
+
+function freezeOutstandingLearnerWait(
+  waitId: PresentationWaitId,
+  timeline: CompiledInternalClockSurfaceTimeline,
+): PresentationOutstandingLearnerWait {
+  const wait = timeline.waits.find((candidate) => candidate.id === waitId);
+  if (wait?.kind !== "learner-wait") {
+    throw new Error(`Outstanding learner Wait "${waitId}" is absent from its Timeline.`);
+  }
+  return Object.freeze({
+    waitId,
+    position: createPresentationPlaybackPosition(wait.atMs, wait.boundary),
+  });
+}
+
+export function resolvePresentationSeekPosition(
+  timeline: CompiledInternalClockSurfaceTimeline,
+  timeMs: number,
+): PresentationSeekPositionResult {
+  if (!Number.isSafeInteger(timeMs)) {
+    throw new Error("Presentation Seek time must be an integer number of milliseconds.");
+  }
+  if (timeMs < 0 || timeMs > timeline.durationMs) {
+    return Result.err(
+      Object.freeze({
+        reason: "seek-out-of-range" as const,
+        requestedTimeMs: timeMs,
+        durationMs: timeline.durationMs,
+      }),
+    );
+  }
+  const wait = timeline.waits.find((candidate) => candidate.atMs === timeMs);
+  return Result.ok(createPresentationPlaybackPosition(timeMs, wait?.boundary ?? "after-actions"));
 }
 
 function advanceErrorFor(snapshot: PresentationPlaybackSnapshot): PresentationAdvanceError | null {
@@ -223,10 +269,10 @@ export function createPresentationPlaybackSession({
       for (const listener of [...cueReportListeners]) listener(report);
     },
   });
-  let snapshot = freezeSnapshot(machine.getSnapshot());
+  let snapshot = freezeSnapshot(machine.getSnapshot(), timeline);
 
   const unsubscribeFromMachine = machine.subscribe((machineSnapshot) => {
-    const nextSnapshot = freezeSnapshot(machineSnapshot);
+    const nextSnapshot = freezeSnapshot(machineSnapshot, timeline);
     if (!snapshotsAreEqual(snapshot, nextSnapshot)) {
       snapshot = nextSnapshot;
       for (const listener of [...listeners]) listener();
@@ -287,24 +333,19 @@ export function createPresentationPlaybackSession({
       assertNotStopped("pause");
       machine.pause();
     },
-    seek(timeMs: number): PresentationSeekResult {
+    resolveSeekPosition(timeMs: number): PresentationSeekPositionResult {
       assertNotDisposed("seek");
       assertNotStopped("seek");
-      if (!Number.isSafeInteger(timeMs)) {
-        throw new Error("Presentation Seek time must be an integer number of milliseconds.");
+      return resolvePresentationSeekPosition(timeline, timeMs);
+    },
+    seek(position: PresentationPlaybackPosition): void {
+      assertNotDisposed("seek");
+      assertNotStopped("seek");
+      const validated = createPresentationPlaybackPosition(position.timeMs, position.side);
+      if (validated.timeMs > snapshot.durationMs) {
+        throw new Error("Resolved Presentation Seek position exceeds its Timeline duration.");
       }
-      if (timeMs < 0 || timeMs > snapshot.durationMs) {
-        return Result.err(
-          Object.freeze({
-            reason: "seek-out-of-range" as const,
-            requestedTimeMs: timeMs,
-            durationMs: snapshot.durationMs,
-          }),
-        );
-      }
-
-      machine.seek(timeMs);
-      return Result.ok();
+      machine.seek(validated);
     },
     advance(): PresentationAdvanceResult {
       assertNotDisposed("advance");
@@ -334,6 +375,11 @@ export function createPresentationPlaybackSession({
     cancelMediaStart() {
       assertNotDisposed("cancel media start for");
       machine.cancelMediaStart();
+    },
+    beginReposition(reason: PresentationRepositionInterruptionReason) {
+      assertNotDisposed("begin repositioning");
+      assertNotStopped("begin repositioning");
+      machine.beginReposition(reason);
     },
     restart() {
       assertNotDisposed("restart");

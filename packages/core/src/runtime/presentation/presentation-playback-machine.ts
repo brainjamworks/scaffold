@@ -52,6 +52,10 @@ type PresentationPlaybackMachineHold =
     };
 
 type PresentationCueInterruptionReason = "seek" | "restart" | "stop";
+export type PresentationRepositionInterruptionReason = Extract<
+  PresentationCueInterruptionReason,
+  "seek" | "restart"
+>;
 
 interface PresentationPlaybackMachineContext {
   readonly surfaceId: string;
@@ -80,10 +84,14 @@ type PresentationPlaybackMachineEvent =
   | { readonly type: "advance"; readonly anchorClockTimeMs: number }
   | {
       readonly type: "seek";
-      readonly timeMs: number;
+      readonly position: PresentationPlaybackPosition;
       readonly anchorClockTimeMs: number;
     }
   | { readonly type: "restart" }
+  | {
+      readonly type: "reposition-started";
+      readonly reason: PresentationRepositionInterruptionReason;
+    }
   | { readonly type: "stop" }
   | { readonly type: "clock-tick"; readonly projectedTimeMs: number }
   | { readonly type: "cue-worker-drained"; readonly runNumber: number }
@@ -161,7 +169,8 @@ interface PresentationPlaybackMachine {
   confirmBoundaryReleasePublished(runNumber: number): void;
   beginMediaStart(): void;
   cancelMediaStart(): void;
-  seek(timeMs: number): void;
+  seek(position: PresentationPlaybackPosition): void;
+  beginReposition(reason: PresentationRepositionInterruptionReason): void;
   restart(): void;
   stop(): void;
   dispose(): void;
@@ -291,11 +300,11 @@ const presentationCueWorker = fromCallback<PresentationCueWorkerEvent, Presentat
   },
 );
 
-function seekTimeFrom(event: PresentationPlaybackMachineEvent): number {
+function seekPositionFrom(event: PresentationPlaybackMachineEvent): PresentationPlaybackPosition {
   if (event.type !== "seek") {
     throw new Error(`Presentation Seek action received unexpected event "${event.type}".`);
   }
-  return event.timeMs;
+  return event.position;
 }
 
 function anchorClockTimeFrom(event: PresentationPlaybackMachineEvent): number {
@@ -367,15 +376,23 @@ function consumedCueIdsWith(
 
 function consumedCueIdsAfterSeek(
   context: PresentationPlaybackMachineContext,
-  timeMs: number,
+  position: PresentationPlaybackPosition,
 ): ReadonlySet<string> {
-  const movedForward = timeMs > context.position.timeMs;
+  const movedForward = comparePresentationPlaybackPositions(position, context.position) > 0;
   return new Set(
     context.cues
       .filter((cue) =>
         cue.seekBehavior === "reconstruct-state"
-          ? cue.atMs <= timeMs
-          : context.consumedCueIds.has(cue.id) || (movedForward && cue.atMs <= timeMs),
+          ? comparePresentationPlaybackPositions(
+              presentationActionStartPosition(cue.atMs),
+              position,
+            ) <= 0
+          : context.consumedCueIds.has(cue.id) ||
+            (movedForward &&
+              comparePresentationPlaybackPositions(
+                presentationActionStartPosition(cue.atMs),
+                position,
+              ) <= 0),
       )
       .map((cue) => cue.id),
   );
@@ -390,11 +407,14 @@ type CompiledLearnerPresentationWait = Extract<
   { readonly kind: "learner-wait" }
 >;
 
-function waitAtCurrentTime(
+function waitAtPlayBoundary(
   context: PresentationPlaybackMachineContext,
 ): CompiledPresentationWait | undefined {
   return context.waits.find(
-    (wait) => wait.atMs === context.position.timeMs && !context.passedWaitIds.has(wait.id),
+    (wait) =>
+      wait.atMs === context.position.timeMs &&
+      comparePresentationPlaybackPositions(waitPosition(wait), context.position) >= 0 &&
+      !context.passedWaitIds.has(wait.id),
   );
 }
 
@@ -411,14 +431,6 @@ function crossedWait(
       ) <= 0 &&
       !context.passedWaitIds.has(wait.id),
   );
-}
-
-function positionAfterSeek(
-  context: PresentationPlaybackMachineContext,
-  timeMs: number,
-): PresentationPlaybackPosition {
-  if (timeMs === context.position.timeMs) return context.position;
-  return createPresentationPlaybackPosition(timeMs, "after-actions");
 }
 
 function pendingManualWait(
@@ -460,10 +472,12 @@ function nextOutstandingLearnerWaitId(
 
 function outstandingLearnerWaitIdAfterSeek(
   context: PresentationPlaybackMachineContext,
-  timeMs: number,
+  position: PresentationPlaybackPosition,
 ): PresentationWaitId | null {
   const rearmedWait = context.waits.find(
-    (wait) => wait.kind === "learner-wait" && wait.atMs >= timeMs,
+    (wait) =>
+      wait.kind === "learner-wait" &&
+      comparePresentationPlaybackPositions(waitPosition(wait), position) >= 0,
   );
   if (!rearmedWait) return context.outstandingLearnerWaitId;
   if (!context.outstandingLearnerWaitId) return rearmedWait.id;
@@ -491,11 +505,14 @@ const presentationPlaybackMachineSetup = setup({
   },
   guards: {
     atDuration: ({ context }) => context.position.timeMs === context.durationMs,
-    hasWaitAtCurrentTime: ({ context }) => waitAtCurrentTime(context) !== undefined,
+    hasWaitAtPlayBoundary: ({ context }) => waitAtPlayBoundary(context) !== undefined,
     seekAtWait: ({ context, event }) =>
-      context.waits.some((wait) => wait.atMs === seekTimeFrom(event)),
-    seekAtDuration: ({ context, event }) => seekTimeFrom(event) === context.durationMs,
-    seekAtStart: ({ event }) => seekTimeFrom(event) === 0,
+      context.waits.some(
+        (wait) =>
+          comparePresentationPlaybackPositions(waitPosition(wait), seekPositionFrom(event)) === 0,
+      ),
+    seekAtDuration: ({ context, event }) => seekPositionFrom(event).timeMs === context.durationMs,
+    seekAtStart: ({ event }) => seekPositionFrom(event).timeMs === 0,
     clockCrossedWait: ({ context, event }) =>
       crossedWait(context, projectedTimeFrom(event)) !== undefined,
     clockReachedDuration: ({ context, event }) => projectedTimeFrom(event) === context.durationMs,
@@ -540,16 +557,16 @@ const presentationPlaybackMachineSetup = setup({
       position: ({ event }) =>
         createPresentationPlaybackPosition(projectedTimeFrom(event), "after-actions"),
     }),
-    applySeek: assign(({ context, event }) => ({
-      position: positionAfterSeek(context, seekTimeFrom(event)),
+    applySeek: assign(({ event }) => ({
+      position: seekPositionFrom(event),
       mediaStartPending: false,
     })),
-    applyPlayingSeek: assign(({ context, event }) => {
-      const timeMs = seekTimeFrom(event);
+    applyPlayingSeek: assign(({ event }) => {
+      const position = seekPositionFrom(event);
       return {
-        position: positionAfterSeek(context, timeMs),
+        position,
         anchorClockTimeMs: anchorClockTimeFrom(event),
-        anchorPresentationTimeMs: timeMs,
+        anchorPresentationTimeMs: position.timeMs,
         mediaStartPending: false,
       };
     }),
@@ -579,10 +596,10 @@ const presentationPlaybackMachineSetup = setup({
         surfaceId: context.surfaceId,
       });
     }),
-    settleAtCurrentWait: enqueueActions(({ context, enqueue }) => {
-      const wait = waitAtCurrentTime(context);
+    settleAtPlayBoundary: enqueueActions(({ context, enqueue }) => {
+      const wait = waitAtPlayBoundary(context);
       if (!wait) {
-        throw new Error("Presentation could not select the current Wait.");
+        throw new Error("Presentation could not select the Play-boundary Wait.");
       }
       const position = waitPosition(wait);
       const cues = unconsumedCuesThrough(context, position);
@@ -655,15 +672,20 @@ const presentationPlaybackMachineSetup = setup({
       });
     }),
     consumeSeekCues: assign({
-      consumedCueIds: ({ context, event }) => consumedCueIdsAfterSeek(context, seekTimeFrom(event)),
+      consumedCueIds: ({ context, event }) =>
+        consumedCueIdsAfterSeek(context, seekPositionFrom(event)),
     }),
     reconcileWaitPassageForSeek: assign(({ context, event }) => {
-      const timeMs = seekTimeFrom(event);
+      const position = seekPositionFrom(event);
       return {
         passedWaitIds: new Set(
-          context.waits.filter((wait) => wait.atMs < timeMs).map((wait) => wait.id),
+          context.waits
+            .filter(
+              (wait) => comparePresentationPlaybackPositions(waitPosition(wait), position) < 0,
+            )
+            .map((wait) => wait.id),
         ),
-        outstandingLearnerWaitId: outstandingLearnerWaitIdAfterSeek(context, timeMs),
+        outstandingLearnerWaitId: outstandingLearnerWaitIdAfterSeek(context, position),
       };
     }),
     interruptForSeek: sendTo("cueWorker", ({ context }) => ({
@@ -676,6 +698,16 @@ const presentationPlaybackMachineSetup = setup({
       runNumber: context.runNumber,
       reason: "restart" as const,
     })),
+    interruptForReposition: sendTo("cueWorker", ({ context, event }) => {
+      if (event.type !== "reposition-started") {
+        throw new Error("Presentation reposition interruption received an unexpected event.");
+      }
+      return {
+        type: "interrupt-cues" as const,
+        runNumber: context.runNumber,
+        reason: event.reason,
+      };
+    }),
     interruptForStop: sendTo("cueWorker", ({ context }) => ({
       type: "interrupt-cues" as const,
       runNumber: context.runNumber,
@@ -793,6 +825,7 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
       target: ".stopped",
       actions: ["interruptForStop", "cancelMediaStart"],
     },
+    "reposition-started": { actions: "interruptForReposition" },
     "cue-worker-defect": { actions: "throwWorkerDefect" },
     "media-start-requested": { actions: "requestMediaStart" },
     "media-start-cancelled": { actions: "cancelMediaStart" },
@@ -802,9 +835,9 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
       on: {
         play: [
           {
-            guard: "hasWaitAtCurrentTime",
+            guard: "hasWaitAtPlayBoundary",
             target: "settling-wait-cues",
-            actions: "settleAtCurrentWait",
+            actions: "settleAtPlayBoundary",
           },
           { guard: "atDuration", target: "completed", actions: "cancelMediaStart" },
           {
@@ -916,6 +949,10 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
     "settling-cues": {
       on: {
         "cue-worker-drained": { guard: "drainedCurrentRun", target: "completed" },
+        "reposition-started": {
+          target: "paused",
+          actions: ["interruptForReposition", "clearPendingWait", "cancelMediaStart"],
+        },
         seek: [
           {
             guard: "seekAtWait",
@@ -955,6 +992,10 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
           { guard: "drainedCurrentRunAtManualWait", target: "held-manual" },
           { guard: "drainedCurrentRunAtLearnerWait", target: "held-learner-waiting" },
         ],
+        "reposition-started": {
+          target: "paused",
+          actions: ["interruptForReposition", "clearPendingWait", "cancelMediaStart"],
+        },
         seek: fixedWaitStateSeekTransitions,
       },
     },
@@ -1067,6 +1108,10 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
         ],
       },
       on: {
+        "reposition-started": {
+          target: "paused",
+          actions: ["interruptForReposition", "clearPendingWait", "cancelMediaStart"],
+        },
         seek: fixedWaitStateSeekTransitions,
       },
     },
@@ -1100,9 +1145,9 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
       on: {
         play: [
           {
-            guard: "hasWaitAtCurrentTime",
+            guard: "hasWaitAtPlayBoundary",
             target: "settling-wait-cues",
-            actions: "settleAtCurrentWait",
+            actions: "settleAtPlayBoundary",
           },
           { guard: "atDuration", target: "completed", actions: "cancelMediaStart" },
           {
@@ -1290,16 +1335,19 @@ export function createPresentationPlaybackMachine(
       actor.send({ type: "boundary-release-published", runNumber }),
     beginMediaStart: () => actor.send({ type: "media-start-requested" }),
     cancelMediaStart: () => actor.send({ type: "media-start-cancelled" }),
-    seek: (timeMs: number) => {
+    seek: (position: PresentationPlaybackPosition) => {
       const snapshot = actor.getSnapshot();
       const needsAnchor =
-        readMachinePhase(snapshot.value) === "playing" && timeMs < snapshot.context.durationMs;
+        readMachinePhase(snapshot.value) === "playing" &&
+        position.timeMs < snapshot.context.durationMs;
       actor.send({
         type: "seek",
-        timeMs,
+        position,
         anchorClockTimeMs: needsAnchor ? finiteClockReadingFrom(input.clockSource) : 0,
       });
     },
+    beginReposition: (reason: PresentationRepositionInterruptionReason) =>
+      actor.send({ type: "reposition-started", reason }),
     restart: () => actor.send({ type: "restart" }),
     stop: () => actor.send({ type: "stop" }),
     dispose: () => actor.stop(),

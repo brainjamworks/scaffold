@@ -1,16 +1,25 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 
+import {
+  comparePresentationPlaybackPositions,
+  presentationActionStartPosition,
+  type PresentationPlaybackPosition,
+} from "@/presentation/model";
+
 import type {
   CompiledInternalClockSurfaceTimeline,
   CompiledPresentationCue,
 } from "./compiled-presentation-program";
 import type {
   PresentationCueExecutionOutcome,
-  PresentationCueExecutor,
+  PresentationFeatureStateReconstructor,
 } from "./presentation-cue-executor";
 
 export interface PresentationFeatureViewBaselinePort {
-  replaceForOwners(ownerIds: readonly EmbeddedNodeId[]): void;
+  replaceForOwners(
+    ownerIds: readonly EmbeddedNodeId[],
+    options: { readonly signal: AbortSignal },
+  ): void | Promise<void>;
 }
 
 export interface PresentationRepositionCueReport {
@@ -22,28 +31,29 @@ export interface PresentationRepositionCueReport {
 export type PresentationRepositionReport =
   | {
       readonly kind: "applied";
-      readonly timeMs: number;
+      readonly position: PresentationPlaybackPosition;
       readonly cueReports: readonly PresentationRepositionCueReport[];
     }
   | {
       readonly kind: "superseded";
-      readonly timeMs: number;
+      readonly position: PresentationPlaybackPosition;
       readonly cueReports: readonly PresentationRepositionCueReport[];
     };
 
 export interface PresentationSurfaceRepositioner {
-  reposition(timeMs: number): Promise<PresentationRepositionReport>;
+  reposition(position: PresentationPlaybackPosition): Promise<PresentationRepositionReport>;
+  cancel(): void;
   dispose(): void;
 }
 
 export function createPresentationSurfaceRepositioner({
   timeline,
   featureViewBaseline,
-  cueExecutor,
+  featureStateReconstructor,
 }: {
   readonly timeline: CompiledInternalClockSurfaceTimeline;
   readonly featureViewBaseline: PresentationFeatureViewBaselinePort;
-  readonly cueExecutor: PresentationCueExecutor;
+  readonly featureStateReconstructor: PresentationFeatureStateReconstructor;
 }): PresentationSurfaceRepositioner {
   const reconstructableCues = timeline.cues.filter(
     (cue) => cue.seekBehavior === "reconstruct-state",
@@ -56,9 +66,11 @@ export function createPresentationSurfaceRepositioner({
   let disposed = false;
 
   return Object.freeze({
-    async reposition(timeMs: number): Promise<PresentationRepositionReport> {
+    async reposition(
+      position: PresentationPlaybackPosition,
+    ): Promise<PresentationRepositionReport> {
       if (disposed) throw new Error("Disposed presentation repositioner cannot reposition.");
-      assertRepositionTime(timeMs, timeline.durationMs);
+      assertRepositionPosition(position, timeline.durationMs);
       activeController?.abort();
       const generation = ++requestGeneration;
       const cueReports: PresentationRepositionCueReport[] = [];
@@ -68,28 +80,44 @@ export function createPresentationSurfaceRepositioner({
         disposed || generation !== requestGeneration || controller.signal.aborted;
 
       try {
-        featureViewBaseline.replaceForOwners(reconstructableOwnerIds);
+        const baselineReplacement = featureViewBaseline.replaceForOwners(reconstructableOwnerIds, {
+          signal: controller.signal,
+        });
+        if (baselineReplacement) await baselineReplacement;
+        if (isSuperseded()) return freezeReport("superseded", position, cueReports);
         for (const cue of reconstructableCues) {
-          if (isSuperseded()) return freezeReport("superseded", timeMs, cueReports);
-          if (cue.atMs > timeMs) break;
+          if (isSuperseded()) return freezeReport("superseded", position, cueReports);
+          if (
+            comparePresentationPlaybackPositions(
+              presentationActionStartPosition(cue.atMs),
+              position,
+            ) > 0
+          ) {
+            break;
+          }
 
           let outcome: PresentationCueExecutionOutcome;
           try {
-            outcome = await cueExecutor.execute({
+            outcome = await featureStateReconstructor.reconstruct({
               command: cue.command,
               signal: controller.signal,
             });
           } catch (error) {
-            if (isSuperseded()) return freezeReport("superseded", timeMs, cueReports);
+            if (isSuperseded()) return freezeReport("superseded", position, cueReports);
             throw error;
           }
-          if (isSuperseded()) return freezeReport("superseded", timeMs, cueReports);
+          if (isSuperseded()) return freezeReport("superseded", position, cueReports);
           cueReports.push(freezeCueReport(cue, outcome));
         }
-        return freezeReport("applied", timeMs, cueReports);
+        return freezeReport("applied", position, cueReports);
       } finally {
         if (activeController === controller) activeController = undefined;
       }
+    },
+    cancel(): void {
+      requestGeneration += 1;
+      activeController?.abort();
+      activeController = undefined;
     },
     dispose(): void {
       if (disposed) return;
@@ -122,16 +150,30 @@ function freezeOutcome(outcome: PresentationCueExecutionOutcome): PresentationCu
 
 function freezeReport(
   kind: PresentationRepositionReport["kind"],
-  timeMs: number,
+  position: PresentationPlaybackPosition,
   cueReports: readonly PresentationRepositionCueReport[],
 ): PresentationRepositionReport {
-  return Object.freeze({ kind, timeMs, cueReports: Object.freeze([...cueReports]) });
+  return Object.freeze({
+    kind,
+    position: Object.freeze({ ...position }),
+    cueReports: Object.freeze([...cueReports]),
+  });
 }
 
-function assertRepositionTime(timeMs: number, durationMs: number): void {
-  if (!Number.isSafeInteger(timeMs) || timeMs < 0 || timeMs > durationMs) {
+function assertRepositionPosition(
+  position: PresentationPlaybackPosition,
+  durationMs: number,
+): void {
+  if (
+    !Number.isSafeInteger(position.timeMs) ||
+    position.timeMs < 0 ||
+    position.timeMs > durationMs
+  ) {
     throw new Error(
       `Presentation reposition time must be a safe integer between 0 and ${durationMs}.`,
     );
+  }
+  if (position.side !== "before-actions" && position.side !== "after-actions") {
+    throw new Error(`Presentation reposition side "${String(position.side)}" is invalid.`);
   }
 }

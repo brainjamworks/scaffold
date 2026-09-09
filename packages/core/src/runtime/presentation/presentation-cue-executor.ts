@@ -52,6 +52,16 @@ export interface PresentationCueExecutor {
   }): Promise<PresentationCueExecutionOutcome>;
 }
 
+export interface PresentationFeatureStateReconstructor {
+  reconstruct(input: {
+    readonly command: PresentationTargetCommand;
+    readonly signal: AbortSignal;
+  }): Promise<PresentationCueExecutionOutcome>;
+}
+
+export type PresentationCueExecutionOwner = PresentationCueExecutor &
+  PresentationFeatureStateReconstructor;
+
 export function createPresentationCueExecutor({
   semanticTargets,
   controlBindings,
@@ -60,37 +70,58 @@ export function createPresentationCueExecutor({
   readonly semanticTargets: Pick<SemanticTargetInteractionCoordinator, "activate">;
   readonly controlBindings: Pick<ControlBindingRegistry, "get">;
   readonly origin: SemanticInteractionOrigin;
-}): PresentationCueExecutor {
-  const executor: PresentationCueExecutor = {
+}): PresentationCueExecutionOwner {
+  const activateTarget = async (
+    command: PresentationTargetCommand,
+    signal: AbortSignal,
+  ): Promise<Extract<
+    PresentationCueExecutionOutcome,
+    { readonly kind: "target-not-reached" }
+  > | null> => {
+    const targetResult = await semanticTargets.activate(command.targetId, { origin, signal });
+    if (targetResult.kind !== "reached") {
+      return { kind: "target-not-reached" as const, result: targetResult };
+    }
+    if (targetResult.requestedId !== command.targetId) {
+      throw new Error(`Presentation reached target identity does not match "${command.targetId}".`);
+    }
+    return null;
+  };
+  const executeAgainstBinding = async (
+    command: PresentationTargetCommand,
+    signal: AbortSignal,
+    binding: ReturnType<typeof controlBindings.get>,
+  ): Promise<PresentationCueExecutionOutcome> => {
+    if (!binding) {
+      throw new Error(`Presentation owner "${command.ownerId}" has no current Control Binding.`);
+    }
+    const commandExecutor = binding.commandExecutor;
+    if (!commandExecutor) {
+      throw new Error(`Presentation owner "${command.ownerId}" has no Command Executor.`);
+    }
+    const commandResult = await commandExecutor.execute({
+      targetId: command.targetId,
+      type: command.type,
+      ...(Object.hasOwn(command, "input") ? { input: command.input } : {}),
+      signal,
+    });
+    if (commandResult.isErr()) {
+      return { kind: "control-command-error", error: commandResult.error };
+    }
+    return { kind: "succeeded" };
+  };
+  const executor: PresentationCueExecutionOwner = {
     async execute({ command, signal }) {
-      const targetResult = await semanticTargets.activate(command.targetId, { origin, signal });
-      if (targetResult.kind !== "reached") {
-        return { kind: "target-not-reached", result: targetResult };
-      }
-      if (targetResult.requestedId !== command.targetId) {
-        throw new Error(
-          `Presentation reached target identity does not match "${command.targetId}".`,
-        );
-      }
-
-      const binding = controlBindings.get(command.ownerId);
-      if (!binding) {
-        throw new Error(`Presentation owner "${command.ownerId}" has no current Control Binding.`);
-      }
-      const commandExecutor = binding.commandExecutor;
-      if (!commandExecutor) {
-        throw new Error(`Presentation owner "${command.ownerId}" has no Command Executor.`);
-      }
-      const commandResult = await commandExecutor.execute({
-        targetId: command.targetId,
-        type: command.type,
-        ...(Object.hasOwn(command, "input") ? { input: command.input } : {}),
-        signal,
-      });
-      if (commandResult.isErr()) {
-        return { kind: "control-command-error", error: commandResult.error };
-      }
-      return { kind: "succeeded" };
+      const targetOutcome = await activateTarget(command, signal);
+      if (targetOutcome) return targetOutcome;
+      return executeAgainstBinding(command, signal, controlBindings.get(command.ownerId));
+    },
+    async reconstruct({ command, signal }) {
+      const currentBinding = controlBindings.get(command.ownerId);
+      if (currentBinding) return executeAgainstBinding(command, signal, currentBinding);
+      const targetOutcome = await activateTarget(command, signal);
+      if (targetOutcome) return targetOutcome;
+      return executeAgainstBinding(command, signal, controlBindings.get(command.ownerId));
     },
   };
   return Object.freeze(executor);

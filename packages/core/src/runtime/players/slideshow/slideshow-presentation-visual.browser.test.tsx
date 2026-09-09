@@ -94,7 +94,10 @@ describe("Slideshow Presentation visual playback", () => {
     if (restart.isErr()) {
       throw new Error(`Expected Restart to succeed, received ${restart.error.reason}.`);
     }
-    expect(restart.value).toMatchObject({ kind: "applied", timeMs: 0 });
+    expect(restart.value).toMatchObject({
+      kind: "applied",
+      position: { timeMs: 0, side: "before-actions" },
+    });
     expect(session.getSnapshot()).toMatchObject({
       phase: "awaiting-start",
       position: { timeMs: 0 },
@@ -199,7 +202,12 @@ async function mountTracer({
       />
     </CourseThemeProvider>,
   );
-  await waitForCondition(() => editor && compositionProbe.current?.presentationVisualRuntime);
+  await waitForCondition(
+    () =>
+      editor &&
+      compositionProbe.current?.presentationVisualRuntime &&
+      buttonByNameOrNull("Play presentation"),
+  );
   return { surfaceId, targetId };
 }
 
@@ -307,7 +315,10 @@ async function expectAppliedSeek(
   if (result.isErr()) {
     throw new Error(`Expected Seek to succeed, received ${result.error.reason}.`);
   }
-  expect(result.value).toMatchObject({ kind: "applied", timeMs });
+  expect(result.value).toMatchObject({
+    kind: "applied",
+    position: { timeMs, side: "after-actions" },
+  });
 }
 
 async function mountedTarget(targetId: EmbeddedNodeId): Promise<HTMLElement> {

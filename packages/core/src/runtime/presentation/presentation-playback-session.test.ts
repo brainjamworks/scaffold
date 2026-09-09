@@ -292,6 +292,13 @@ function expectSeekOk(result: PresentationSeekResult): void {
   if (result.isErr()) throw new Error(`Expected successful Seek: ${JSON.stringify(result.error)}`);
 }
 
+function seek(session: PresentationPlaybackSession, timeMs: number): PresentationSeekResult {
+  const position = session.resolveSeekPosition(timeMs);
+  if (position.isErr()) return position;
+  session.seek(position.value);
+  return Result.ok();
+}
+
 function expectAdvanceOk(result: PresentationAdvanceResult): void {
   expect(result.isOk()).toBe(true);
   if (result.isErr())
@@ -337,7 +344,7 @@ function expectDisposedSessionDefects(
     ["subscribeCueReports", () => session.subscribeCueReports(() => undefined)],
     ["play", () => session.play()],
     ["pause", () => session.pause()],
-    ["seek", () => session.seek(0)],
+    ["seek", () => seek(session, 0)],
     ["advance", () => session.advance()],
     ["restart", () => session.restart()],
     ["stop", () => session.stop()],
@@ -346,6 +353,7 @@ function expectDisposedSessionDefects(
     ["beginMediaStart", () => session.beginMediaStart()],
     ["beginAdvanceMediaStart", () => session.beginAdvanceMediaStart()],
     ["cancelMediaStart", () => session.cancelMediaStart()],
+    ["beginReposition", () => session.beginReposition("seek")],
   ];
 
   for (const [operation, invoke] of operations) {
@@ -354,33 +362,30 @@ function expectDisposedSessionDefects(
 }
 
 describe("createPresentationCueExecutor", () => {
-  it("prepares the target before a fresh binding lookup and executes the exact command", async () => {
+  it("confirms semantic reachability before ordinary execution through a mounted owner", async () => {
     const ownerId = "owner-current" as EmbeddedNodeId;
     const targetId = "target-current" as EmbeddedNodeId;
     const signal = new AbortController().signal;
     const order: string[] = [];
     const eventSubscribe = vi.fn();
-    const staleExecute = vi.fn(async () => Result.ok());
     const execute = vi.fn(async (_request: ControlCommandRequest) => {
       order.push("execute");
       return Result.ok();
     });
-    let currentBinding: ControlBinding = { ownerId, commandExecutor: { execute: staleExecute } };
     const semanticTargets = {
       activate: vi.fn(async () => {
         order.push("activate");
-        currentBinding = {
-          ownerId,
-          commandExecutor: { execute },
-          eventSource: { subscribe: eventSubscribe },
-        };
         return { kind: "reached" as const, requestedId: targetId };
       }),
     };
     const controlBindings = {
       get: vi.fn(() => {
         order.push("get");
-        return currentBinding;
+        return {
+          ownerId,
+          commandExecutor: { execute },
+          eventSource: { subscribe: eventSubscribe },
+        };
       }),
     };
     const executor = createPresentationCueExecutor({
@@ -405,8 +410,102 @@ describe("createPresentationCueExecutor", () => {
     expect(controlBindings.get).toHaveBeenCalledWith(ownerId);
     expect(execute).toHaveBeenCalledWith({ targetId, type: "show-answer", signal });
     expect(Object.hasOwn(execute.mock.calls[0]?.[0] ?? {}, "input")).toBe(false);
-    expect(staleExecute).not.toHaveBeenCalled();
     expect(eventSubscribe).not.toHaveBeenCalled();
+  });
+
+  it("reconstructs through an already mounted owner without reactivating its semantic target", async () => {
+    const ownerId = "owner-current" as EmbeddedNodeId;
+    const targetId = "target-current" as EmbeddedNodeId;
+    const signal = new AbortController().signal;
+    const execute = vi.fn(async () => Result.ok());
+    const semanticTargets = {
+      activate: vi.fn(async () => ({ kind: "reached" as const, requestedId: targetId })),
+    };
+    const controlBindings = {
+      get: vi.fn(() => ({ ownerId, commandExecutor: { execute } })),
+    };
+    const executor = createPresentationCueExecutor({
+      semanticTargets,
+      controlBindings,
+      origin: "configured-presentation",
+    });
+
+    await expect(
+      executor.reconstruct({
+        command: { kind: "target-command", ownerId, targetId, type: "select" },
+        signal,
+      }),
+    ).resolves.toEqual({ kind: "succeeded" });
+
+    expect(controlBindings.get).toHaveBeenCalledOnce();
+    expect(semanticTargets.activate).not.toHaveBeenCalled();
+    expect(execute).toHaveBeenCalledWith({ targetId, type: "select", signal });
+  });
+
+  it("does not let a mounted binding bypass an ordinary semantic authority refusal", async () => {
+    const ownerId = "owner-hidden" as EmbeddedNodeId;
+    const targetId = "target-hidden" as EmbeddedNodeId;
+    const childId = "hidden-tab" as EmbeddedNodeId;
+    const execute = vi.fn(async () => Result.ok());
+    const refusal = {
+      kind: "refused" as const,
+      requestedId: targetId,
+      ownerId,
+      childId,
+      nearestReachableOwnerId: null,
+      reason: "authority-boundary" as const,
+    };
+    const controlBindings = {
+      get: vi.fn(() => ({ ownerId, commandExecutor: { execute } })),
+    };
+    const executor = createPresentationCueExecutor({
+      semanticTargets: { activate: vi.fn(async () => refusal) },
+      controlBindings,
+      origin: "configured-presentation",
+    });
+
+    await expect(
+      executor.execute({
+        command: { kind: "target-command", ownerId, targetId, type: "play" },
+        signal: new AbortController().signal,
+      }),
+    ).resolves.toEqual({ kind: "target-not-reached", result: refusal });
+    expect(controlBindings.get).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("uses semantic reachability to mount an absent owner before command lookup", async () => {
+    const ownerId = "owner-later" as EmbeddedNodeId;
+    const targetId = "target-later" as EmbeddedNodeId;
+    const signal = new AbortController().signal;
+    const execute = vi.fn(async () => Result.ok());
+    let binding: ControlBinding | undefined;
+    const semanticTargets = {
+      activate: vi.fn(async () => {
+        binding = { ownerId, commandExecutor: { execute } };
+        return { kind: "reached" as const, requestedId: targetId };
+      }),
+    };
+    const controlBindings = { get: vi.fn(() => binding) };
+    const executor = createPresentationCueExecutor({
+      semanticTargets,
+      controlBindings,
+      origin: "configured-presentation",
+    });
+
+    await expect(
+      executor.execute({
+        command: { kind: "target-command", ownerId, targetId, type: "show-answer" },
+        signal,
+      }),
+    ).resolves.toEqual({ kind: "succeeded" });
+
+    expect(semanticTargets.activate).toHaveBeenCalledWith(targetId, {
+      origin: "configured-presentation",
+      signal,
+    });
+    expect(controlBindings.get).toHaveBeenCalledOnce();
+    expect(execute).toHaveBeenCalledWith({ targetId, type: "show-answer", signal });
   });
 
   it.each([
@@ -435,7 +534,7 @@ describe("createPresentationCueExecutor", () => {
       requestedId: "target-semantic" as EmbeddedNodeId,
     },
   ] satisfies readonly Exclude<SemanticTargetInteractionResult, { readonly kind: "reached" }>[])(
-    "maps semantic $kind without reading Control Bindings",
+    "maps semantic $kind after finding no mounted Control Binding",
     async (targetResult) => {
       const controlBindings = { get: vi.fn() };
       const executor = createPresentationCueExecutor({
@@ -517,11 +616,15 @@ describe("createPresentationCueExecutor", () => {
         ),
       },
       controlBindings: {
-        get: vi.fn(() => ({
-          ownerId: secondCue.command.ownerId,
-          commandExecutor: { execute },
-          eventSource: { subscribe: eventSubscribe },
-        })),
+        get: vi.fn((ownerId) =>
+          ownerId === secondCue.command.ownerId
+            ? {
+                ownerId: secondCue.command.ownerId,
+                commandExecutor: { execute },
+                eventSource: { subscribe: eventSubscribe },
+              }
+            : undefined,
+        ),
       },
       origin: "author-preview",
     });
@@ -700,9 +803,27 @@ describe("createPresentationPlaybackSession", () => {
     expect(manualOnly.session.getSnapshot().outstandingLearnerWait).toBeNull();
     expect(learnerWaits.session.getSnapshot().outstandingLearnerWait).toEqual({
       waitId: waitId("learner-first"),
+      position: { timeMs: 100, side: "before-actions" },
     });
     expect(Object.isFrozen(learnerWaits.session.getSnapshot().outstandingLearnerWait)).toBe(true);
     expect(learnerWaits.gateWaitUntilSatisfied).not.toHaveBeenCalled();
+  });
+
+  it("resolves exact Wait seeks to their authored side and ordinary seeks after actions", () => {
+    const { session } = createHarness(400, [], createDeferredCueExecutor(), [
+      beforeManualWait("before", 100),
+      afterManualWait("after", 200),
+    ]);
+
+    expect(session.resolveSeekPosition(100)).toMatchObject({
+      value: { timeMs: 100, side: "before-actions" },
+    });
+    expect(session.resolveSeekPosition(200)).toMatchObject({
+      value: { timeMs: 200, side: "after-actions" },
+    });
+    expect(session.resolveSeekPosition(150)).toMatchObject({
+      value: { timeMs: 150, side: "after-actions" },
+    });
   });
 
   it("passes an event requirement to the gate only after every due cue settles", async () => {
@@ -835,7 +956,7 @@ describe("createPresentationPlaybackSession", () => {
     const abortListener = vi.fn();
     observation.signal.addEventListener("abort", abortListener);
 
-    expectSeekOk(session.seek(50));
+    expectSeekOk(seek(session, 50));
 
     expect(observation.signal.aborted).toBe(true);
     expect(abortListener).toHaveBeenCalledTimes(1);
@@ -908,7 +1029,7 @@ describe("createPresentationPlaybackSession", () => {
     const oldObservation = deferredGatePort.pending[0];
     if (!oldObservation) throw new Error("Expected the old learner observation.");
 
-    expectSeekOk(session.seek(50));
+    expectSeekOk(seek(session, 50));
     session.play();
     manualClock.emitAt(1_150);
     await Promise.resolve();
@@ -1155,6 +1276,45 @@ describe("createPresentationPlaybackSession", () => {
     expect(Object.isFrozen(duplicateAdvance.error)).toBe(true);
   });
 
+  it("settles an after-actions time-zero Wait and due cue on initial and restarted Play", async () => {
+    const { deferredCueExecutor, session } = createHarness(
+      1_000,
+      [cue("zero-due", 0)],
+      createDeferredCueExecutor(),
+      [afterManualWait("zero-after", 0)],
+    );
+
+    session.play();
+    expect(deferredCueExecutor.pending).toHaveLength(1);
+    await settleCue(deferredCueExecutor.pending[0]!);
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      runNumber: 1,
+      position: { timeMs: 0, side: "after-actions" },
+      hold: { kind: "manual", waitId: waitId("zero-after") },
+    });
+    session.play();
+    expect(deferredCueExecutor.pending).toHaveLength(1);
+
+    expectAdvanceOk(session.advance());
+    session.restart();
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "awaiting-start",
+      runNumber: 2,
+      position: { timeMs: 0, side: "before-actions" },
+    });
+
+    session.play();
+    expect(deferredCueExecutor.pending).toHaveLength(2);
+    await settleCue(deferredCueExecutor.pending[1]!);
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      runNumber: 2,
+      position: { timeMs: 0, side: "after-actions" },
+      hold: { kind: "manual", waitId: waitId("zero-after") },
+    });
+  });
+
   it("keeps a time-zero consume cue pending on the before-actions side until release", async () => {
     const { deferredCueExecutor, session } = createHarness(
       1_000,
@@ -1163,7 +1323,7 @@ describe("createPresentationPlaybackSession", () => {
       [beforeManualWait("zero", 0)],
     );
 
-    expectSeekOk(session.seek(0));
+    expectSeekOk(seek(session, 0));
     expect(session.getSnapshot()).toMatchObject({
       phase: "awaiting-start",
       position: { timeMs: 0 },
@@ -1179,6 +1339,11 @@ describe("createPresentationPlaybackSession", () => {
 
     expectAdvanceOk(session.advance());
     expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
+      "command-state-zero",
+    ]);
+    await settleCue(deferredCueExecutor.pending[0]!);
+    expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
+      "command-state-zero",
       "command-consume-zero",
     ]);
   });
@@ -1347,7 +1512,7 @@ describe("createPresentationPlaybackSession", () => {
       }
       expect(session.getSnapshot().phase).toBe("held");
 
-      expectSeekOk(session.seek(50));
+      expectSeekOk(seek(session, 50));
 
       expect(session.getSnapshot()).toMatchObject({
         phase: "paused",
@@ -1576,6 +1741,49 @@ describe("createPresentationPlaybackSession", () => {
     expect(session.getSnapshot()).toMatchObject({ phase: "completed", position: { timeMs: 100 } });
   });
 
+  it("resumes endpoint completion after reposition interrupts cue settlement", async () => {
+    const { deferredCueExecutor, manualClock, session } = createHarness(100, [cue("at-end", 100)]);
+    const reports: PresentationCueReport[] = [];
+    session.subscribeCueReports((report) => reports.push(report));
+
+    session.play();
+    manualClock.emitAt(1_100);
+    const atEnd = deferredCueExecutor.pending[0];
+    if (!atEnd) throw new Error("Expected the endpoint cue.");
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "playing",
+      advancement: "suspended",
+      position: { timeMs: 100, side: "after-actions" },
+    });
+
+    session.beginReposition("seek");
+    expect(atEnd.signal.aborted).toBe(true);
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "paused",
+      advancement: "suspended",
+      position: { timeMs: 100, side: "after-actions" },
+    });
+    expect(reports).toEqual([
+      {
+        runNumber: 1,
+        surfaceId: "surface-1",
+        cueId: "at-end",
+        scheduledAtMs: 100,
+        outcome: { kind: "session-interrupted", reason: "seek" },
+      },
+    ]);
+
+    await settleCue(atEnd);
+    session.pause();
+    session.play();
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "completed",
+      position: { timeMs: 100, side: "after-actions" },
+    });
+    expect(deferredCueExecutor.pending).toHaveLength(1);
+    expect(reports).toHaveLength(1);
+  });
+
   it("rearms only future reconstructable cues after backward Seek", async () => {
     const { deferredCueExecutor, manualClock, session } = createHarness(500, [
       cue("zero", 0),
@@ -1583,8 +1791,8 @@ describe("createPresentationPlaybackSession", () => {
       cue("middle", 200),
     ]);
 
-    expectSeekOk(session.seek(200));
-    expectSeekOk(session.seek(50));
+    expectSeekOk(seek(session, 200));
+    expectSeekOk(seek(session, 50));
     expect(deferredCueExecutor.pending).toHaveLength(0);
 
     session.play();
@@ -1598,6 +1806,72 @@ describe("createPresentationPlaybackSession", () => {
     expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
       "command-early",
     ]);
+  });
+
+  it("uses position side for exact cue consumption and same-millisecond reversal", async () => {
+    const deferredCueExecutor = createDeferredCueExecutor();
+    const { session } = createHarness(
+      300,
+      [cue("state", 100, "reconstruct-state"), cue("one-shot", 100, "consume")],
+      deferredCueExecutor,
+      [beforeManualWait("boundary", 100)],
+    );
+    const boundary = session.resolveSeekPosition(100);
+    if (boundary.isErr()) throw new Error("Expected the boundary position.");
+
+    session.seek(boundary.value);
+    session.play();
+    await Promise.resolve();
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      position: { timeMs: 100, side: "before-actions" },
+    });
+    expect(deferredCueExecutor.pending).toHaveLength(0);
+
+    expectAdvanceOk(session.advance());
+    expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
+      "command-state",
+    ]);
+    await settleCue(deferredCueExecutor.pending[0]!);
+    expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
+      "command-state",
+      "command-one-shot",
+    ]);
+    await settleCue(deferredCueExecutor.pending[1]!);
+    session.pause();
+
+    session.seek(boundary.value);
+    session.play();
+    await Promise.resolve();
+    expectAdvanceOk(session.advance());
+    expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
+      "command-state",
+      "command-one-shot",
+      "command-state",
+    ]);
+  });
+
+  it("consumes exact after-actions cues without firing them and keeps the Wait eligible", async () => {
+    const deferredCueExecutor = createDeferredCueExecutor();
+    const { session } = createHarness(
+      300,
+      [cue("state", 100, "reconstruct-state"), cue("one-shot", 100, "consume")],
+      deferredCueExecutor,
+      [afterManualWait("boundary", 100)],
+    );
+
+    expectSeekOk(seek(session, 100));
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "paused",
+      position: { timeMs: 100, side: "after-actions" },
+    });
+    session.play();
+    await Promise.resolve();
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "manual", waitId: waitId("boundary") },
+    });
+    expect(deferredCueExecutor.pending).toHaveLength(0);
   });
 
   it("bypasses Wait playback on forward Seek without satisfying learner requirements", async () => {
@@ -1624,7 +1898,7 @@ describe("createPresentationPlaybackSession", () => {
       ],
     );
 
-    expectSeekOk(session.seek(250));
+    expectSeekOk(seek(session, 250));
     expect(session.getSnapshot()).toMatchObject({
       phase: "paused",
       position: { timeMs: 250 },
@@ -1649,6 +1923,7 @@ describe("createPresentationPlaybackSession", () => {
     await settleGate(reachedObservation);
     expect(session.getSnapshot().outstandingLearnerWait).toEqual({
       waitId: waitId("skipped-learner"),
+      position: { timeMs: 100, side: "before-actions" },
     });
   });
 
@@ -1703,7 +1978,7 @@ describe("createPresentationPlaybackSession", () => {
       expect(deferredGatePort.pending).toHaveLength(1);
       session.pause();
 
-      expectSeekOk(session.seek(50));
+      expectSeekOk(seek(session, 50));
       expect(session.getSnapshot()).toMatchObject({
         phase: "paused",
         position: { timeMs: 50 },
@@ -1730,7 +2005,7 @@ describe("createPresentationPlaybackSession", () => {
       beforeManualWait("endpoint", 100),
     ]);
 
-    expectSeekOk(session.seek(100));
+    expectSeekOk(seek(session, 100));
     expect(session.getSnapshot()).toMatchObject({ phase: "paused", position: { timeMs: 100 } });
     expect(manualClock.activeSubscriptions).toBe(0);
 
@@ -1752,7 +2027,7 @@ describe("createPresentationPlaybackSession", () => {
     await Promise.resolve();
     const heldSnapshot = session.getSnapshot();
 
-    const result = session.seek(201);
+    const result = seek(session, 201);
     expect(result.isErr()).toBe(true);
     if (result.isOk()) throw new Error("Expected an out-of-range Seek to fail.");
     expect(result.error).toEqual({
@@ -1946,7 +2221,7 @@ describe("createPresentationPlaybackSession", () => {
     {
       operation: "Seek",
       reason: "seek",
-      interrupt: (session: PresentationPlaybackSession) => session.seek(50),
+      interrupt: (session: PresentationPlaybackSession) => seek(session, 50),
     },
     {
       operation: "Stop",
@@ -1984,7 +2259,7 @@ describe("createPresentationPlaybackSession", () => {
     {
       operation: "Seek",
       reason: "seek",
-      leave: (session: PresentationPlaybackSession) => expectSeekOk(session.seek(50)),
+      leave: (session: PresentationPlaybackSession) => expectSeekOk(seek(session, 50)),
       expectedSnapshot: {
         phase: "paused",
         position: { timeMs: 50 },
@@ -2071,7 +2346,7 @@ describe("createPresentationPlaybackSession", () => {
     const oldCue = deferredCueExecutor.pending[0];
     if (!oldCue) throw new Error("Expected the abandoned cue execution.");
 
-    expectSeekOk(session.seek(50));
+    expectSeekOk(seek(session, 50));
     session.play();
     manualClock.emitAt(1_150);
     await Promise.resolve();
@@ -2233,11 +2508,13 @@ describe("createPresentationPlaybackSession", () => {
       "advance",
       "beginAdvanceMediaStart",
       "beginMediaStart",
+      "beginReposition",
       "cancelMediaStart",
       "dispose",
       "getSnapshot",
       "pause",
       "play",
+      "resolveSeekPosition",
       "restart",
       "seek",
       "stop",
@@ -2355,7 +2632,7 @@ describe("createPresentationPlaybackSession", () => {
 
     session.pause();
     narration.publish("playing", 600);
-    expectSeekOk(session.seek(600));
+    expectSeekOk(seek(session, 600));
     session.play();
     narration.publish("playing", 650);
     manualClock.emitAt(1_104);
@@ -2437,7 +2714,7 @@ describe("createPresentationPlaybackSession", () => {
     const playingSeek = createHarness();
     playingSeek.session.play();
     playingSeek.manualClock.setNowMs(Number.NEGATIVE_INFINITY);
-    expect(() => playingSeek.session.seek(200)).toThrowError(/finite/i);
+    expect(() => seek(playingSeek.session, 200)).toThrowError(/finite/i);
   });
 
   it("rejects a clock projection behind the last confirmed playhead", () => {
@@ -2472,10 +2749,14 @@ describe("createPresentationPlaybackSession", () => {
     const { manualClock, session } = createHarness();
     const initialSnapshot = session.getSnapshot();
 
-    expectSeekOk(session.seek(0));
-    expect(session.getSnapshot()).toBe(initialSnapshot);
+    expectSeekOk(seek(session, 0));
+    expect(session.getSnapshot()).not.toBe(initialSnapshot);
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "awaiting-start",
+      position: { timeMs: 0, side: "after-actions" },
+    });
 
-    expectSeekOk(session.seek(250));
+    expectSeekOk(seek(session, 250));
     expect(session.getSnapshot()).toMatchObject({ phase: "paused", position: { timeMs: 250 } });
 
     session.play();
@@ -2483,7 +2764,7 @@ describe("createPresentationPlaybackSession", () => {
     expect(session.getSnapshot().position.timeMs).toBe(350);
 
     manualClock.setNowMs(1_250);
-    expectSeekOk(session.seek(400));
+    expectSeekOk(seek(session, 400));
     expect(session.getSnapshot()).toMatchObject({ phase: "playing", position: { timeMs: 400 } });
     expect(manualClock.activeSubscriptions).toBe(1);
     expect(manualClock.subscriptionsStarted).toBe(2);
@@ -2492,19 +2773,19 @@ describe("createPresentationPlaybackSession", () => {
     expect(session.getSnapshot().position.timeMs).toBe(450);
     session.pause();
 
-    expectSeekOk(session.seek(200));
+    expectSeekOk(seek(session, 200));
     expect(session.getSnapshot()).toMatchObject({ phase: "paused", position: { timeMs: 200 } });
 
-    expectSeekOk(session.seek(1_000));
+    expectSeekOk(seek(session, 1_000));
     expect(session.getSnapshot()).toMatchObject({
       phase: "completed",
       position: { timeMs: 1_000 },
     });
 
-    expectSeekOk(session.seek(600));
+    expectSeekOk(seek(session, 600));
     expect(session.getSnapshot()).toMatchObject({ phase: "paused", position: { timeMs: 600 } });
 
-    expectSeekOk(session.seek(1_000));
+    expectSeekOk(seek(session, 1_000));
     expect(session.getSnapshot()).toMatchObject({
       phase: "completed",
       position: { timeMs: 1_000 },
@@ -2519,7 +2800,7 @@ describe("createPresentationPlaybackSession", () => {
     const subscriptionsBeforeRejection = manualClock.subscriptionsStarted;
 
     for (const requestedTimeMs of [-1, 1_001]) {
-      const result = session.seek(requestedTimeMs);
+      const result = seek(session, requestedTimeMs);
       expect(result.isErr()).toBe(true);
       if (result.isOk()) throw new Error("Expected out-of-range Seek to fail.");
       expect(result.error).toEqual({
@@ -2554,7 +2835,7 @@ describe("createPresentationPlaybackSession", () => {
     expect(session.getSnapshot()).toBe(stoppedSnapshot);
     expect(() => session.play()).toThrowError(/stopped/i);
     expect(() => session.pause()).toThrowError(/stopped/i);
-    expect(() => session.seek(100)).toThrowError(/stopped/i);
+    expect(() => seek(session, 100)).toThrowError(/stopped/i);
     expect(session.getSnapshot()).toBe(stoppedSnapshot);
 
     session.restart();

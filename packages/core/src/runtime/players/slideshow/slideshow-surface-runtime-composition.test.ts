@@ -25,6 +25,7 @@ import { createRequestSurfaceChange } from "./slideshow-surface-change";
 
 import {
   createSlideshowSurfaceRuntimeComposition,
+  type SlideshowPresentationControls,
   type SlideshowSurfaceRuntimeProgram,
   type SlideshowSurfaceRuntimeProgramSource,
 } from "./slideshow-surface-runtime-composition";
@@ -135,7 +136,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     expect(composition.presentationControls).not.toHaveProperty("seek");
     const seek = await composition.seek?.(1_000);
     expect(seek?.isOk()).toBe(true);
-    expect(order).toEqual([`baseline:${OWNER_ID}`, "activate", "execute", "session"]);
+    expect(order).toEqual([`baseline:${OWNER_ID}`, "execute", "session"]);
     expect(target).toHaveAttribute("data-presentation-availability", "available");
     expect(target).not.toHaveAttribute("aria-hidden");
     expect(target).not.toHaveAttribute("inert");
@@ -235,12 +236,163 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     pendingCommand.resolve(Result.ok());
 
     expect(second?.isOk()).toBe(true);
-    await expect(first).resolves.toMatchObject({ value: { kind: "superseded", timeMs: 100 } });
+    await expect(first).resolves.toMatchObject({
+      value: { kind: "superseded", position: { timeMs: 100, side: "after-actions" } },
+    });
     expect(composition.presentationControls?.getSnapshot()).toMatchObject({
       position: { timeMs: 0 },
     });
     expect(featureState).toBe("baseline");
     expect(featureViewBaseline.replaceForOwners).toHaveBeenCalledTimes(2);
+    composition.dispose();
+  });
+
+  it.each([
+    {
+      operation: "Pause",
+      interrupt: (controls: SlideshowPresentationControls) => controls.pause(),
+      phase: "awaiting-start",
+    },
+    {
+      operation: "Stop",
+      interrupt: (controls: SlideshowPresentationControls) => controls.stop(),
+      phase: "stopped",
+    },
+  ] as const)(
+    "$operation cancels pending baseline reconstruction before feature commands dispatch",
+    async ({ interrupt, phase }) => {
+      const baseline = deferred<void>();
+      const execute = vi.fn(async () => Result.ok());
+      let featureState = "initial";
+      const reconstructableTimeline = Object.freeze({
+        ...timeline(SURFACE_ID),
+        cues: Object.freeze([
+          Object.freeze({
+            id: EmbeddedDataIdSchema.parse("cancelcue001"),
+            atMs: 100,
+            command: Object.freeze({
+              kind: "target-command" as const,
+              ownerId: OWNER_ID,
+              targetId: TARGET_ID,
+              type: "select",
+            }),
+            seekBehavior: "reconstruct-state" as const,
+          }),
+        ]),
+      });
+      const composition = createSlideshowSurfaceRuntimeComposition({
+        surfaceId: SURFACE_ID,
+        program: { presentation: { timeline: reconstructableTimeline, autoAdvance: false } },
+        controlBindings: {
+          get: () => ({ ownerId: OWNER_ID, commandExecutor: { execute } }),
+        },
+        semanticTargets: {
+          activate: vi.fn(async (requestedId: EmbeddedNodeId) => ({
+            kind: "reached" as const,
+            requestedId,
+          })),
+        },
+        featureViewBaseline: {
+          replaceForOwners: vi.fn(() => {
+            featureState = "baseline";
+            return baseline.promise;
+          }),
+        },
+        requestSurfaceChange: vi.fn(() => Result.ok()),
+      });
+      const controls = composition.presentationControls;
+      if (!controls || !composition.seek) throw new Error("Expected Presentation controls.");
+
+      const pendingSeek = composition.seek(100);
+      await flushPromises();
+      interrupt(controls);
+      baseline.resolve();
+
+      await expect(pendingSeek).resolves.toMatchObject({
+        value: { kind: "superseded", position: { timeMs: 100, side: "after-actions" } },
+      });
+      expect(featureState).toBe("baseline");
+      expect(execute).not.toHaveBeenCalled();
+      expect(controls.getSnapshot()).toMatchObject({
+        phase,
+        position: { timeMs: 0, side: "before-actions" },
+      });
+      composition.dispose();
+    },
+  );
+
+  it("resumes an accepted Wait after Pause cancels a seek during cue settlement", async () => {
+    const cueExecution = deferred<ControlCommandResult>();
+    const baseline = deferred<void>();
+    const execute = vi.fn(async () => cueExecution.promise);
+    const settlementTimeline = Object.freeze({
+      ...emptyPresentationTimeline(SURFACE_ID, 300),
+      cues: Object.freeze([
+        Object.freeze({
+          id: EmbeddedDataIdSchema.parse("settlecue001"),
+          atMs: 0,
+          command: Object.freeze({
+            kind: "target-command" as const,
+            ownerId: OWNER_ID,
+            targetId: TARGET_ID,
+            type: "show",
+          }),
+          seekBehavior: "consume" as const,
+        }),
+      ]),
+      waits: Object.freeze([
+        Object.freeze({
+          kind: "manual-wait" as const,
+          id: "settle-wait" as PresentationWaitId,
+          atMs: 0,
+          boundary: "after-actions" as const,
+        }),
+      ]),
+    });
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: { presentation: { timeline: settlementTimeline, autoAdvance: false } },
+      controlBindings: {
+        get: () => ({ ownerId: OWNER_ID, commandExecutor: { execute } }),
+      },
+      semanticTargets: {
+        activate: vi.fn(async (requestedId: EmbeddedNodeId) => ({
+          kind: "reached" as const,
+          requestedId,
+        })),
+      },
+      featureViewBaseline: { replaceForOwners: () => baseline.promise },
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+    });
+    const controls = composition.presentationControls;
+    if (!controls || !composition.seek) throw new Error("Expected Presentation controls.");
+
+    await controls.play();
+    await flushPromises();
+    expect(execute).toHaveBeenCalledOnce();
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "playing",
+      advancement: "suspended",
+      position: { timeMs: 0, side: "after-actions" },
+    });
+
+    const pendingSeek = composition.seek(200);
+    await flushPromises();
+    controls.pause();
+    baseline.resolve();
+    await expect(pendingSeek).resolves.toMatchObject({ value: { kind: "superseded" } });
+    cueExecution.resolve(Result.ok());
+    await flushPromises();
+
+    await controls.play();
+    await flushPromises();
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "held",
+      advancement: "suspended",
+      position: { timeMs: 0, side: "after-actions" },
+      hold: { kind: "manual", waitId: "settle-wait" },
+    });
+    expect(execute).toHaveBeenCalledOnce();
     composition.dispose();
   });
 
@@ -299,7 +451,9 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
 
     const restart = await controls.restart();
 
-    expect(restart).toMatchObject({ value: { kind: "applied", timeMs: 0 } });
+    expect(restart).toMatchObject({
+      value: { kind: "applied", position: { timeMs: 0, side: "before-actions" } },
+    });
     expect(featureState).toBe("baseline");
     expect(controls.getSnapshot()).toMatchObject({
       phase: "awaiting-start",
@@ -371,7 +525,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     expect(commandSignal?.aborted).toBe(true);
     pendingCommand.resolve(Result.ok());
     await expect(pendingSeek).resolves.toMatchObject({
-      value: { kind: "superseded", timeMs: 100 },
+      value: { kind: "superseded", position: { timeMs: 100, side: "after-actions" } },
     });
     expect(featureState).toBe("baseline");
     expect(sessionUpdates).not.toHaveBeenCalled();
@@ -512,7 +666,9 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     expect(controls.getSnapshot()).toMatchObject({ phase: "paused", position: { timeMs: 4_000 } });
     media.confirmPlay();
 
-    expect(await seeking).toMatchObject({ value: { kind: "applied", timeMs: 4_000 } });
+    expect(await seeking).toMatchObject({
+      value: { kind: "applied", position: { timeMs: 4_000, side: "after-actions" } },
+    });
     expect(controls.getSnapshot()).toMatchObject({
       phase: "playing",
       position: { timeMs: 4_000 },
@@ -856,6 +1012,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     expect((await session.advance()).isOk()).toBe(true);
     await flushPromises();
 
+    expect(activate).toHaveBeenCalledOnce();
     expect(activate).toHaveBeenCalledWith(TARGET_ID, {
       origin: "configured-presentation",
       signal: expect.any(AbortSignal),
@@ -882,6 +1039,231 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
       phase: "playing",
       position: { timeMs: 0, side: "after-actions" },
     });
+    composition.dispose();
+  });
+
+  it("returns a skipped event requirement to its authored side and observes only a new event", async () => {
+    const events = createTestEventSource();
+    const when = { ownerId: OWNER_ID, targetId: TARGET_ID, type: "selected" } as const;
+    const binding = { ownerId: OWNER_ID, eventSource: events.eventSource };
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: {
+        presentation: {
+          timeline: Object.freeze({
+            ...emptyPresentationTimeline(SURFACE_ID, 300),
+            waits: Object.freeze([
+              Object.freeze({
+                kind: "learner-wait" as const,
+                id: "return-event" as PresentationWaitId,
+                atMs: 100,
+                boundary: "before-actions" as const,
+                requirement: Object.freeze({ kind: "event" as const, ...when }),
+              }),
+            ]),
+          }),
+          autoAdvance: false,
+        },
+      },
+      controlBindings: { get: () => binding },
+      semanticTargets: { activate: vi.fn() },
+      featureViewBaseline: emptyFeatureViewBaseline(),
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+    });
+    const controls = composition.presentationControls;
+    const guard = composition.presentationSurfaceExitGuard;
+    if (!controls || !composition.seek || !guard) {
+      throw new Error("Expected Presentation controls and exit guard.");
+    }
+
+    await events.emit({ targetId: TARGET_ID, type: "selected" });
+    await composition.seek(200);
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "paused",
+      position: { timeMs: 200, side: "after-actions" },
+      outstandingLearnerWait: {
+        waitId: "return-event",
+        position: { timeMs: 100, side: "before-actions" },
+      },
+    });
+    expect(guard.getSnapshot()).toMatchObject({ status: "blocked" });
+
+    const returned = await controls.returnToOutstandingCheckpoint();
+    expect(returned).toMatchObject({
+      value: {
+        kind: "applied",
+        position: { timeMs: 100, side: "before-actions" },
+      },
+    });
+    await flushPromises();
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", status: "waiting" },
+    });
+
+    await events.emit({ targetId: TARGET_ID, type: "selected" });
+    await flushPromises();
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", status: "ready" },
+      outstandingLearnerWait: null,
+    });
+    expect(guard.getSnapshot()).toEqual({ status: "allowed" });
+    composition.dispose();
+  });
+
+  it("interrupts the outgoing event observation before asynchronous seek reconstruction", async () => {
+    const events = createTestEventSource();
+    const baseline = deferred<void>();
+    let blockBaseline = false;
+    const binding = { ownerId: OWNER_ID, eventSource: events.eventSource };
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: {
+        presentation: {
+          timeline: Object.freeze({
+            ...emptyPresentationTimeline(SURFACE_ID, 300),
+            waits: Object.freeze([
+              Object.freeze({
+                kind: "learner-wait" as const,
+                id: "return-event" as PresentationWaitId,
+                atMs: 100,
+                boundary: "before-actions" as const,
+                requirement: Object.freeze({
+                  kind: "event" as const,
+                  ownerId: OWNER_ID,
+                  targetId: TARGET_ID,
+                  type: "selected",
+                }),
+              }),
+            ]),
+          }),
+          autoAdvance: false,
+        },
+      },
+      controlBindings: { get: () => binding },
+      semanticTargets: { activate: vi.fn() },
+      featureViewBaseline: {
+        replaceForOwners: () => (blockBaseline ? baseline.promise : undefined),
+      },
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+    });
+    const controls = composition.presentationControls;
+    const guard = composition.presentationSurfaceExitGuard;
+    if (!controls || !composition.seek || !guard) {
+      throw new Error("Expected Presentation controls and exit guard.");
+    }
+
+    await composition.seek(100);
+    await controls.play();
+    await flushPromises();
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", status: "waiting" },
+    });
+    controls.pause();
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", status: "waiting" },
+    });
+
+    blockBaseline = true;
+    const pendingSeek = composition.seek(200);
+    await flushPromises();
+    await events.emit({ targetId: TARGET_ID, type: "selected" });
+    await flushPromises();
+
+    expect(controls.getSnapshot()).toMatchObject({
+      outstandingLearnerWait: { waitId: "return-event" },
+    });
+    expect(guard.getSnapshot()).toMatchObject({ status: "blocked" });
+    baseline.resolve();
+    await pendingSeek;
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "paused",
+      position: { timeMs: 200, side: "after-actions" },
+      outstandingLearnerWait: { waitId: "return-event" },
+    });
+    expect(guard.getSnapshot()).toMatchObject({ status: "blocked" });
+    composition.dispose();
+  });
+
+  it("re-reads feature-owned state when returning to a skipped state requirement", async () => {
+    const events = createTestEventSource();
+    let complete = false;
+    const binding = {
+      ownerId: OWNER_ID,
+      eventSource: events.eventSource,
+      stateReader: {
+        read: vi.fn(() => complete),
+      },
+    };
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: {
+        presentation: {
+          timeline: Object.freeze({
+            ...emptyPresentationTimeline(SURFACE_ID, 300),
+            waits: Object.freeze([
+              Object.freeze({
+                kind: "learner-wait" as const,
+                id: "return-state" as PresentationWaitId,
+                atMs: 100,
+                boundary: "after-actions" as const,
+                requirement: Object.freeze({
+                  kind: "state" as const,
+                  ownerId: OWNER_ID,
+                  targetId: TARGET_ID,
+                  key: "complete",
+                  equals: true,
+                }),
+              }),
+            ]),
+          }),
+          autoAdvance: false,
+        },
+      },
+      controlBindings: { get: () => binding },
+      semanticTargets: { activate: vi.fn() },
+      featureViewBaseline: emptyFeatureViewBaseline(),
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+    });
+    const controls = composition.presentationControls;
+    if (!controls || !composition.seek) throw new Error("Expected Presentation controls.");
+
+    await composition.seek(200);
+    complete = true;
+    await controls.returnToOutstandingCheckpoint();
+    await flushPromises();
+
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", status: "ready" },
+      position: { timeMs: 100, side: "after-actions" },
+      outstandingLearnerWait: null,
+    });
+    composition.dispose();
+  });
+
+  it("returns a typed refusal when there is no outstanding learner checkpoint", async () => {
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: { presentation: { timeline: timeline(SURFACE_ID), autoAdvance: false } },
+      controlBindings: { get: vi.fn() },
+      semanticTargets: { activate: vi.fn() },
+      featureViewBaseline: emptyFeatureViewBaseline(),
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+    });
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+
+    const returned = await controls.returnToOutstandingCheckpoint();
+
+    expect(returned.isErr() && returned.error).toEqual({
+      reason: "no-outstanding-learner-wait",
+      surfaceId: SURFACE_ID,
+    });
+    expect(returned.isErr() && Object.isFrozen(returned.error)).toBe(true);
     composition.dispose();
   });
 

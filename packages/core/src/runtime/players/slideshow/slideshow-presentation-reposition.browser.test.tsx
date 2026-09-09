@@ -96,7 +96,7 @@ describe("Slideshow Presentation feature reconstruction", () => {
     expect(target.isConnected).toBe(false);
   });
 
-  it("reconstructs the time-zero Tabs view on initial entry, Restart and Surface return", async () => {
+  it("resolves the authored time-zero side on entry, Restart and Surface return", async () => {
     const fixture = await mountTracer({ selectDetailsAtZero: true });
     const target = await mountedTarget(fixture.revealTargetId);
     const overview = requiredTab("Overview");
@@ -117,10 +117,13 @@ describe("Slideshow Presentation feature reconstruction", () => {
     if (restart.isErr()) {
       throw new Error(`Expected Restart to succeed, received ${restart.error.reason}.`);
     }
-    expect(restart.value).toMatchObject({ kind: "applied", timeMs: 0 });
+    expect(restart.value).toMatchObject({
+      kind: "applied",
+      position: { timeMs: 0, side: "before-actions" },
+    });
     await expectScene({
-      selected: details,
-      unselected: overview,
+      selected: overview,
+      unselected: details,
       target,
       availability: "withheld",
       opacity: "0",
@@ -152,6 +155,41 @@ describe("Slideshow Presentation feature reconstruction", () => {
       opacity: "0",
     });
   });
+
+  it("returns a skipped learner event to its before-actions Tabs view", async () => {
+    await mountTracer({ learnerWait: true });
+    const composition = requiredPresentationComposition();
+
+    await expectAppliedSeek(composition, 1_000);
+    await expectTabSelection(requiredTab("Details"), requiredTab("Overview"));
+    const returnButton = await buttonByText("Return to required interaction");
+    returnButton.click();
+
+    await waitForCondition(
+      () =>
+        composition.presentationControls.getSnapshot().phase === "held" &&
+        composition.presentationControls.getSnapshot().position.timeMs === 400,
+    );
+    expect(composition.presentationControls.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", status: "waiting" },
+      position: { timeMs: 400, side: "before-actions" },
+    });
+    await expectTabSelection(requiredTab("Overview"), requiredTab("Details"));
+
+    requiredTab("Details").click();
+    await expectTabSelection(requiredTab("Details"), requiredTab("Overview"));
+    requiredTab("Overview").click();
+    await waitForCondition(() => {
+      const snapshot = composition.presentationControls.getSnapshot();
+      return (
+        snapshot.phase === "held" &&
+        snapshot.hold.kind === "learner" &&
+        snapshot.hold.status === "ready"
+      );
+    });
+    expect(composition.presentationControls.getSnapshot().outstandingLearnerWait).toBeNull();
+  });
 });
 
 interface RepositionFixture {
@@ -165,8 +203,10 @@ interface RepositionFixture {
 
 async function mountTracer({
   selectDetailsAtZero = false,
+  learnerWait = false,
 }: {
   readonly selectDetailsAtZero?: boolean;
+  readonly learnerWait?: boolean;
 } = {}): Promise<RepositionFixture> {
   const fixture = Object.freeze({
     surfaceId: createEmbeddedNodeId() as SurfaceId,
@@ -201,7 +241,7 @@ async function mountTracer({
           surfaceId === fixture.surfaceId
             ? {
                 presentation: {
-                  timeline: repositionTimeline(fixture, selectDetailsAtZero),
+                  timeline: repositionTimeline(fixture, selectDetailsAtZero, learnerWait),
                   autoAdvance: false,
                 },
               }
@@ -215,8 +255,12 @@ async function mountTracer({
   );
   await waitForCondition(
     () =>
-      editor && compositionProbe.current?.presentationVisualRuntime && requiredTabOrNull("Details"),
+      editor &&
+      compositionProbe.current?.presentationVisualRuntime &&
+      requiredTabOrNull("Details") &&
+      host?.querySelector('button[aria-label="Play presentation"]'),
   );
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   return fixture;
 }
 
@@ -309,6 +353,7 @@ function assignMissingIds(rootNode: JSONContent): void {
 function repositionTimeline(
   fixture: RepositionFixture,
   selectDetailsAtZero = false,
+  learnerWait = false,
 ): CompiledSurfacePresentationTimeline {
   return Object.freeze({
     surfaceId: fixture.surfaceId,
@@ -344,7 +389,24 @@ function repositionTimeline(
         seekBehavior: "reconstruct-state" as const,
       }),
     ]),
-    waits: Object.freeze([]),
+    waits: Object.freeze(
+      learnerWait
+        ? [
+            Object.freeze({
+              kind: "learner-wait" as const,
+              id: createEmbeddedDataId(),
+              atMs: 400,
+              boundary: "before-actions" as const,
+              requirement: Object.freeze({
+                kind: "event" as const,
+                ownerId: fixture.tabsOwnerId,
+                targetId: fixture.overviewSectionId,
+                type: "selected",
+              }),
+            }),
+          ]
+        : [],
+    ),
     visualProgram: Object.freeze({
       surfaceId: fixture.surfaceId,
       durationMs: 2_000,
@@ -396,7 +458,13 @@ async function expectAppliedSeek(
   if (result.isErr()) {
     throw new Error(`Expected Seek to succeed, received ${result.error.reason}.`);
   }
-  expect(result.value).toMatchObject({ kind: "applied", timeMs });
+  if (result.value.cueReports.some(({ outcome }) => outcome.kind !== "succeeded")) {
+    throw new Error(`Seek reconstruction failed: ${JSON.stringify(result.value.cueReports)}`);
+  }
+  expect(result.value).toMatchObject({
+    kind: "applied",
+    position: { timeMs, side: "after-actions" },
+  });
 }
 
 async function expectScene({
@@ -454,6 +522,17 @@ function buttonByName(name: string): HTMLButtonElement {
   const button = host?.querySelector<HTMLButtonElement>(`button[aria-label="${name}"]`);
   if (!button) throw new Error(`Expected the ${name} button.`);
   return button;
+}
+
+async function buttonByText(text: string): Promise<HTMLButtonElement> {
+  let button: HTMLButtonElement | undefined;
+  await waitForCondition(() => {
+    button = Array.from(host?.querySelectorAll<HTMLButtonElement>("button") ?? []).find(
+      (candidate) => candidate.textContent?.trim() === text,
+    );
+    return button;
+  });
+  return button!;
 }
 
 async function mountedTarget(targetId: EmbeddedNodeId): Promise<HTMLElement> {

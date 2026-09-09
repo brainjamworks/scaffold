@@ -6,8 +6,10 @@ import type { SemanticTargetInteractionCoordinator } from "@/document/semantic-t
 import type { MediaPort } from "@/host/ports/media";
 import type {
   CompiledSurfacePresentationTimeline,
+  PresentationPlaybackPosition,
   PresentationMotionMode,
 } from "@/presentation/model";
+import { createPresentationPlaybackPosition } from "@/presentation/model";
 import type { CompiledSurfaceLearnerInteractionProgram } from "@/learner-interaction/model";
 import {
   createSurfaceLearnerInteractionRuntime,
@@ -92,6 +94,16 @@ export type SlideshowPresentationSeekResult = ResultType<
   PresentationSeekError | SlideshowPresentationNarrationError
 >;
 
+export interface SlideshowPresentationReturnError {
+  readonly reason: "no-outstanding-learner-wait";
+  readonly surfaceId: SurfaceId;
+}
+
+export type SlideshowPresentationReturnResult = ResultType<
+  PresentationRepositionReport,
+  PresentationSeekError | SlideshowPresentationNarrationError | SlideshowPresentationReturnError
+>;
+
 export interface SlideshowPresentationControls {
   getSnapshot: PresentationPlaybackSessionWithReplaceableClock["getSnapshot"];
   getNarrationSnapshot(): SlideshowPresentationNarrationSnapshot | null;
@@ -111,6 +123,7 @@ export interface SlideshowPresentationControls {
   >;
   continueWithoutNarration(): void;
   restart(): Promise<SlideshowPresentationSeekResult>;
+  returnToOutstandingCheckpoint(): Promise<SlideshowPresentationReturnResult>;
   stop(): void;
 }
 
@@ -199,7 +212,7 @@ export function createSlideshowSurfaceRuntimeComposition({
       presentationRepositioner = createPresentationSurfaceRepositioner({
         timeline,
         featureViewBaseline,
-        cueExecutor,
+        featureStateReconstructor: cueExecutor,
       });
     }
     if (program.presentation && presentationSession && surfaceRoot) {
@@ -320,6 +333,7 @@ export function createSlideshowSurfaceRuntimeComposition({
         return Result.ok();
       }
       session.beginMediaStart();
+      repositioner.cancel();
       const generation = ++presentationOperationGeneration;
       const loaded = await ensureNarrationLoaded();
       if (disposed || generation !== presentationOperationGeneration || !executionEnabled) {
@@ -350,6 +364,7 @@ export function createSlideshowSurfaceRuntimeComposition({
       if (!narration || usingInternalClock) return session.advance();
       const eligible = session.beginAdvanceMediaStart();
       if (eligible.isErr()) return eligible;
+      repositioner.cancel();
       const generation = ++presentationOperationGeneration;
       const loaded = await ensureNarrationLoaded();
       if (disposed || generation !== presentationOperationGeneration || !executionEnabled) {
@@ -377,25 +392,18 @@ export function createSlideshowSurfaceRuntimeComposition({
     };
 
     const repositionPresentation = async (
-      timeMs: number,
+      position: PresentationPlaybackPosition,
       restart: boolean,
+      activateCheckpoint = false,
     ): Promise<SlideshowPresentationSeekResult> => {
       assertCompositionNotDisposed(disposed, restart ? "restart" : "seek");
-      assertPresentationSeekTime(timeMs);
       const snapshot = session.getSnapshot();
-      if (timeMs < 0 || timeMs > snapshot.durationMs) {
-        return Result.err(
-          Object.freeze({
-            reason: "seek-out-of-range" as const,
-            requestedTimeMs: timeMs,
-            durationMs: snapshot.durationMs,
-          }),
-        );
-      }
 
       const resumeAfterSeek = !restart && snapshot.phase === "playing";
       const generation = ++presentationOperationGeneration;
+      repositioner.cancel();
       if (snapshot.phase !== "stopped") {
+        session.beginReposition(restart ? "restart" : "seek");
         session.pause();
         session.cancelMediaStart();
       }
@@ -404,13 +412,13 @@ export function createSlideshowSurfaceRuntimeComposition({
       if (narration && !usingInternalClock) {
         const loaded = await ensureNarrationLoaded();
         if (disposed || generation !== presentationOperationGeneration) {
-          return Result.ok(supersededReport(timeMs));
+          return Result.ok(supersededReport(position));
         }
         if (loaded.isErr()) return loaded;
-        if (narration.getSnapshot().currentTimeMs !== timeMs) {
-          const mediaSeek = await narration.seek(timeMs);
+        if (narration.getSnapshot().currentTimeMs !== position.timeMs) {
+          const mediaSeek = await narration.seek(position.timeMs);
           if (disposed || generation !== presentationOperationGeneration) {
-            return Result.ok(supersededReport(timeMs));
+            return Result.ok(supersededReport(position));
           }
           if (mediaSeek.isErr()) {
             rememberNarrationError(mediaSeek.error);
@@ -419,21 +427,26 @@ export function createSlideshowSurfaceRuntimeComposition({
         }
       }
 
-      const report = await repositioner.reposition(timeMs);
+      const report = await repositioner.reposition(position);
       if (disposed || generation !== presentationOperationGeneration) {
         return Result.ok(asSupersededReport(report));
       }
       if (report.kind === "applied") {
         if (restart) session.restart();
-        const sessionResult = session.seek(timeMs);
-        if (sessionResult.isErr()) {
-          throw new Error(
-            "Validated Slideshow reposition was refused by its Presentation Session.",
-          );
-        }
+        else session.seek(position);
       }
 
-      if (resumeAfterSeek && report.kind === "applied" && narration && !usingInternalClock) {
+      const enterCheckpoint =
+        report.kind === "applied" &&
+        !restart &&
+        (activateCheckpoint ||
+          (resumeAfterSeek &&
+            program.presentation!.timeline.waits.some(
+              (wait) => wait.atMs === position.timeMs && wait.boundary === position.side,
+            )));
+      if (enterCheckpoint) {
+        session.play();
+      } else if (resumeAfterSeek && report.kind === "applied" && narration && !usingInternalClock) {
         const played = await narration.play();
         if (disposed || generation !== presentationOperationGeneration) {
           return Result.ok(asSupersededReport(report));
@@ -452,7 +465,12 @@ export function createSlideshowSurfaceRuntimeComposition({
       return Result.ok(report);
     };
 
-    seekPresentation = (timeMs) => repositionPresentation(timeMs, false);
+    seekPresentation = async (timeMs) => {
+      assertPresentationSeekTime(timeMs);
+      const position = session.resolveSeekPosition(timeMs);
+      if (position.isErr()) return position;
+      return repositionPresentation(position.value, false);
+    };
     presentationControls = Object.freeze({
       getSnapshot: () => session.getSnapshot(),
       getNarrationSnapshot,
@@ -469,6 +487,7 @@ export function createSlideshowSurfaceRuntimeComposition({
       pause() {
         assertCompositionNotDisposed(disposed, "pause");
         presentationOperationGeneration += 1;
+        repositioner.cancel();
         if (session.getSnapshot().phase !== "stopped") session.pause();
         session.cancelMediaStart();
         pauseNarration(true);
@@ -478,6 +497,7 @@ export function createSlideshowSurfaceRuntimeComposition({
         assertCompositionNotDisposed(disposed, "continue without narration in");
         if (!executionEnabled) return;
         presentationOperationGeneration += 1;
+        repositioner.cancel();
         pauseNarration(true);
         session.useInternalClock();
         usingInternalClock = true;
@@ -495,10 +515,22 @@ export function createSlideshowSurfaceRuntimeComposition({
         }
         refreshNarrationSnapshot();
       },
-      restart: () => repositionPresentation(0, true),
+      restart: () =>
+        repositionPresentation(createPresentationPlaybackPosition(0, "before-actions"), true),
+      async returnToOutstandingCheckpoint() {
+        assertCompositionNotDisposed(disposed, "return to an outstanding checkpoint in");
+        const outstanding = session.getSnapshot().outstandingLearnerWait;
+        if (!outstanding) {
+          return Result.err(
+            Object.freeze({ reason: "no-outstanding-learner-wait" as const, surfaceId }),
+          );
+        }
+        return repositionPresentation(outstanding.position, false, true);
+      },
       stop() {
         assertCompositionNotDisposed(disposed, "stop");
         presentationOperationGeneration += 1;
+        repositioner.cancel();
         pauseNarration(true);
         session.stop();
       },
@@ -613,13 +645,13 @@ function asSupersededReport(report: PresentationRepositionReport): PresentationR
   if (report.kind === "superseded") return report;
   return Object.freeze({
     kind: "superseded",
-    timeMs: report.timeMs,
+    position: report.position,
     cueReports: report.cueReports,
   });
 }
 
-function supersededReport(timeMs: number): PresentationRepositionReport {
-  return Object.freeze({ kind: "superseded", timeMs, cueReports: Object.freeze([]) });
+function supersededReport(position: PresentationPlaybackPosition): PresentationRepositionReport {
+  return Object.freeze({ kind: "superseded", position, cueReports: Object.freeze([]) });
 }
 
 function freezeNarrationSnapshot(

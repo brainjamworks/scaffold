@@ -23,6 +23,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Editor as TiptapEditor } from "@tiptap/core";
+import type { EmbeddedNodeId } from "@scaffold/contracts";
 
 import { IconButton } from "@/ui/components/IconButton/IconButton";
 import type {
@@ -31,6 +32,7 @@ import type {
 } from "@/document/model/course-structure";
 import { createScaledCanvasCoordinateSpace } from "@/editor/interactions/drag/dom/dom-coordinate-space";
 import { replaceLayoutFeatureViewStateForOwners } from "@/editor/arrangements/layout/shared/model/layout-interaction-store";
+import { getControlBindingRegistryForEditor } from "@/document/control-binding";
 import { InteractionDragEnvironmentProvider } from "@/editor/interactions/drag/react/interaction-drag-environment";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { readSurfaceViewSettings } from "@/document/model/surface-view-settings";
@@ -188,11 +190,45 @@ export function SlideshowPlayer({
   const featureViewBaseline = useMemo(
     () =>
       Object.freeze({
-        replaceForOwners(ownerIds: readonly string[]) {
+        replaceForOwners(
+          ownerIds: readonly EmbeddedNodeId[],
+          { signal }: { readonly signal: AbortSignal },
+        ) {
           if (!runtimeEditor) {
             throw new Error("Cannot replace Slideshow feature view without its runtime Editor.");
           }
+          signal.throwIfAborted();
           replaceLayoutFeatureViewStateForOwners(runtimeEditor, ownerIds);
+          const ownerWindow = runtimeEditor.view.dom.ownerDocument.defaultView;
+          if (!ownerWindow) {
+            throw new Error("Cannot commit Slideshow feature baseline without an owner Window.");
+          }
+          const controlBindings = getControlBindingRegistryForEditor(runtimeEditor);
+          return new Promise<void>((resolve) => {
+            let frame = 0;
+            let settled = false;
+            let cancelReadiness: () => void = () => undefined;
+            const settle = () => {
+              if (settled) return;
+              settled = true;
+              ownerWindow.cancelAnimationFrame(frame);
+              cancelReadiness();
+              signal.removeEventListener("abort", settle);
+              resolve();
+            };
+            const check = () => {
+              if (signal.aborted) {
+                settle();
+                return;
+              }
+              const cancel = controlBindings.notifyWhenOwnersMounted(ownerIds, settle);
+              if (settled) cancel();
+              else cancelReadiness = cancel;
+            };
+            signal.addEventListener("abort", settle, { once: true });
+            frame = ownerWindow.requestAnimationFrame(check);
+            if (signal.aborted) settle();
+          });
         },
       }),
     [runtimeEditor],
@@ -397,9 +433,23 @@ export function SlideshowPlayer({
   const canContinuePresentation =
     presentationSnapshot?.phase === "held" &&
     (presentationSnapshot.hold.kind === "manual" || presentationSnapshot.hold.status === "ready");
+  const canReturnToOutstandingCheckpoint =
+    presentationSnapshot?.phase !== "stopped" &&
+    presentationSnapshot?.outstandingLearnerWait !== null &&
+    presentationSnapshot?.outstandingLearnerWait !== undefined &&
+    !(
+      presentationSnapshot.phase === "held" &&
+      presentationSnapshot.hold.waitId === presentationSnapshot.outstandingLearnerWait.waitId
+    );
   const presentationCheckpoint =
     presentationSnapshot?.phase !== "held"
-      ? null
+      ? canReturnToOutstandingCheckpoint
+        ? {
+            kind: "outstanding" as const,
+            title: "Required interaction outstanding",
+            instruction: "Return to the checkpoint to complete it.",
+          }
+        : null
       : presentationSnapshot.hold.kind === "manual"
         ? {
             kind: "manual" as const,
@@ -700,7 +750,8 @@ export function SlideshowPlayer({
                             >
                               {presentationCheckpoint.kind === "manual" ? (
                                 <Pause size={iconLg} weight="fill" />
-                              ) : presentationCheckpoint.kind === "learner" ? (
+                              ) : presentationCheckpoint.kind === "learner" ||
+                                presentationCheckpoint.kind === "outstanding" ? (
                                 <CursorClick size={iconLg} weight="bold" />
                               ) : presentationCheckpoint.kind === "ready" ? (
                                 <CheckCircle size={iconLg} weight="fill" />
@@ -729,6 +780,23 @@ export function SlideshowPlayer({
                             }}
                           >
                             Continue presentation
+                          </button>
+                        </span>
+                      ) : null}
+                      {canReturnToOutstandingCheckpoint ? (
+                        <span className="sc-slideshow-player__presentation-actions">
+                          <button
+                            type="button"
+                            className="sc-slideshow-player__presentation-button"
+                            data-emphasis="primary"
+                            disabled={!runtimeExecutionEnabled}
+                            onClick={() => {
+                              if (runtimeExecutionEnabled) {
+                                void presentationControls.returnToOutstandingCheckpoint();
+                              }
+                            }}
+                          >
+                            Return to required interaction
                           </button>
                         </span>
                       ) : null}

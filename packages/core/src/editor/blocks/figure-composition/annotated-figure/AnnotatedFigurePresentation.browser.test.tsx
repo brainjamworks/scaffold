@@ -530,6 +530,7 @@ function createVisualHarness({
 }
 
 function seek(session: ReturnType<typeof createPresentationPlaybackSession>, timeMs: number): void {
-  const result = session.seek(timeMs);
+  const result = session.resolveSeekPosition(timeMs);
   if (result.isErr()) throw new Error(`Expected seek, received ${result.error.reason}.`);
+  session.seek(result.value);
 }

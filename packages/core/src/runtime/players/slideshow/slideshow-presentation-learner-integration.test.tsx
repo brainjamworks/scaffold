@@ -2392,7 +2392,10 @@ function presentationWaitingSnapshot(
     advancement: "suspended",
     durationMs: 100,
     hold: Object.freeze({ kind: "learner", waitId, status: "waiting" }),
-    outstandingLearnerWait: Object.freeze({ waitId }),
+    outstandingLearnerWait: Object.freeze({
+      waitId,
+      position: Object.freeze({ timeMs: 0, side: "before-actions" }),
+    }),
   });
 }
 
@@ -2413,7 +2416,8 @@ function createControllablePresentationSession(initialSnapshot: PresentationPlay
     subscribeCueReports: () => () => undefined,
     play,
     pause: vi.fn(),
-    seek: vi.fn(() => Result.ok()),
+    resolveSeekPosition: vi.fn(() => Result.ok({ timeMs: 0, side: "before-actions" as const })),
+    seek: vi.fn(),
     advance,
     restart: vi.fn(),
     stop: vi.fn(),
@@ -2553,11 +2557,18 @@ function presentationControlsFrom(session: PresentationPlaybackSession) {
       return Result.ok(
         Object.freeze({
           kind: "applied" as const,
-          timeMs: 0,
+          position: Object.freeze({ timeMs: 0, side: "before-actions" as const }),
           cueReports: Object.freeze([]),
         }),
       );
     },
+    returnToOutstandingCheckpoint: async () =>
+      Result.err(
+        Object.freeze({
+          reason: "no-outstanding-learner-wait" as const,
+          surfaceId: session.getSnapshot().surfaceId as SurfaceId,
+        }),
+      ),
     stop: () => session.stop(),
   });
 }

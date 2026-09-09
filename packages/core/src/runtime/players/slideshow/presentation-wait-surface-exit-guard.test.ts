@@ -147,7 +147,13 @@ function snapshot(
       waitId: waitId ?? FIRST_WAIT,
       status: waitId === null ? "ready" : "waiting",
     }),
-    outstandingLearnerWait: waitId === null ? null : Object.freeze({ waitId }),
+    outstandingLearnerWait:
+      waitId === null
+        ? null
+        : Object.freeze({
+            waitId,
+            position: Object.freeze({ timeMs: 0, side: "before-actions" as const }),
+          }),
   });
 }
 
@@ -165,7 +171,8 @@ function createSessionSource(initialSnapshot: PresentationPlaybackSnapshot) {
     subscribeCueReports: () => () => undefined,
     play: vi.fn(),
     pause: vi.fn(),
-    seek: vi.fn(() => Result.ok()),
+    resolveSeekPosition: vi.fn(() => Result.ok({ timeMs: 0, side: "before-actions" as const })),
+    seek: vi.fn(),
     advance: vi.fn(() => Result.ok()),
     restart: vi.fn(),
     stop: vi.fn(),

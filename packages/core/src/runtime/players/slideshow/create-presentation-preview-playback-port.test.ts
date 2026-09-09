@@ -117,7 +117,11 @@ describe("createPresentationPreviewPlaybackPort", () => {
 });
 
 async function appliedSeek(timeMs: number): Promise<SlideshowPresentationSeekResult> {
-  return Result.ok({ kind: "applied", timeMs, cueReports: [] });
+  return Result.ok({
+    kind: "applied",
+    position: { timeMs, side: "after-actions" },
+    cueReports: [],
+  });
 }
 
 interface FakeControls extends SlideshowPresentationControls {
@@ -161,6 +165,9 @@ function createControls(): FakeControls {
     },
     async restart() {
       return appliedSeek(0);
+    },
+    async returnToOutstandingCheckpoint() {
+      return Result.err({ reason: "no-outstanding-learner-wait", surfaceId: SURFACE_ID });
     },
     stop() {},
     continueWithoutNarration() {},

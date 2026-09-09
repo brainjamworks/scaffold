@@ -69,7 +69,9 @@ export function createPresentationPreviewPlaybackPort({
           }),
         );
       }
-      return Result.ok(Object.freeze({ kind: result.value.kind, timeMs: result.value.timeMs }));
+      return Result.ok(
+        Object.freeze({ kind: result.value.kind, timeMs: result.value.position.timeMs }),
+      );
     },
   });
 }

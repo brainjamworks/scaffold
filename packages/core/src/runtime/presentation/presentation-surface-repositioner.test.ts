@@ -1,10 +1,12 @@
 import { EmbeddedDataIdSchema, EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 
+import { createPresentationPlaybackPosition } from "@/presentation/model";
+
 import type { CompiledInternalClockSurfaceTimeline } from "./compiled-presentation-program";
 import type {
   PresentationCueExecutionOutcome,
-  PresentationCueExecutor,
+  PresentationFeatureStateReconstructor,
 } from "./presentation-cue-executor";
 import { createPresentationSurfaceRepositioner } from "./presentation-surface-repositioner";
 
@@ -22,8 +24,8 @@ describe("createPresentationSurfaceRepositioner", () => {
     const replaceForOwners = vi.fn((ownerIds: readonly string[]) => {
       calls.push(`baseline:${ownerIds.join(",")}`);
     });
-    const cueExecutor: PresentationCueExecutor = {
-      async execute({ command }) {
+    const featureStateReconstructor: PresentationFeatureStateReconstructor = {
+      async reconstruct({ command }) {
         calls.push(`execute:${command.type}`);
         return { kind: "succeeded" };
       },
@@ -37,10 +39,10 @@ describe("createPresentationSurfaceRepositioner", () => {
         cue("action000005", 800, OWNER_C, TARGET_C, "select-c", "reconstruct-state"),
       ]),
       featureViewBaseline: { replaceForOwners },
-      cueExecutor,
+      featureStateReconstructor,
     });
 
-    const report = await repositioner.reposition(250);
+    const report = await repositioner.reposition(position(250));
 
     expect(calls).toEqual([
       `baseline:${OWNER_A},${OWNER_B},${OWNER_C}`,
@@ -50,7 +52,7 @@ describe("createPresentationSurfaceRepositioner", () => {
     ]);
     expect(report).toMatchObject({
       kind: "applied",
-      timeMs: 250,
+      position: { timeMs: 250, side: "after-actions" },
       cueReports: [
         { cueId: "action000001", outcome: { kind: "succeeded" } },
         { cueId: "action000003", outcome: { kind: "succeeded" } },
@@ -74,8 +76,8 @@ describe("createPresentationSurfaceRepositioner", () => {
         error: { reason: "playback-not-allowed" },
       },
     ];
-    const execute = vi.fn(async () => outcomes.shift()!);
-    const cueExecutor: PresentationCueExecutor = { execute };
+    const reconstruct = vi.fn(async () => outcomes.shift()!);
+    const featureStateReconstructor: PresentationFeatureStateReconstructor = { reconstruct };
     const repositioner = createPresentationSurfaceRepositioner({
       timeline: timeline([
         cue("action000001", 100, OWNER_A, TARGET_A, "first", "reconstruct-state"),
@@ -83,10 +85,10 @@ describe("createPresentationSurfaceRepositioner", () => {
         cue("action000003", 300, OWNER_C, TARGET_C, "third", "reconstruct-state"),
       ]),
       featureViewBaseline: { replaceForOwners: vi.fn() },
-      cueExecutor,
+      featureStateReconstructor,
     });
 
-    const report = await repositioner.reposition(300);
+    const report = await repositioner.reposition(position(300));
 
     expect(report.cueReports.map(({ outcome }) => outcome)).toEqual([
       { kind: "succeeded" },
@@ -99,15 +101,15 @@ describe("createPresentationSurfaceRepositioner", () => {
         error: { reason: "playback-not-allowed" },
       },
     ]);
-    expect(execute).toHaveBeenCalledTimes(3);
+    expect(reconstruct).toHaveBeenCalledTimes(3);
   });
 
   it("aborts an older asynchronous request before applying the newer baseline", async () => {
     let featureState = "initial";
     let finishFirst: ((outcome: PresentationCueExecutionOutcome) => void) | undefined;
     let firstSignal: AbortSignal | undefined;
-    const cueExecutor: PresentationCueExecutor = {
-      execute: vi.fn(
+    const featureStateReconstructor: PresentationFeatureStateReconstructor = {
+      reconstruct: vi.fn(
         ({ command, signal }) =>
           new Promise<PresentationCueExecutionOutcome>((resolve) => {
             firstSignal = signal;
@@ -126,17 +128,25 @@ describe("createPresentationSurfaceRepositioner", () => {
         cue("action000001", 100, OWNER_A, TARGET_A, "select-a", "reconstruct-state"),
       ]),
       featureViewBaseline: { replaceForOwners },
-      cueExecutor,
+      featureStateReconstructor,
     });
 
-    const first = repositioner.reposition(100);
-    const second = await repositioner.reposition(0);
+    const first = repositioner.reposition(position(100));
+    await Promise.resolve();
+    const second = await repositioner.reposition(position(0));
 
     expect(firstSignal?.aborted).toBe(true);
     finishFirst?.({ kind: "succeeded" });
 
-    await expect(first).resolves.toMatchObject({ kind: "superseded", timeMs: 100 });
-    expect(second).toMatchObject({ kind: "applied", timeMs: 0, cueReports: [] });
+    await expect(first).resolves.toMatchObject({
+      kind: "superseded",
+      position: { timeMs: 100, side: "after-actions" },
+    });
+    expect(second).toMatchObject({
+      kind: "applied",
+      position: { timeMs: 0, side: "after-actions" },
+      cueReports: [],
+    });
     expect(featureState).toBe("baseline");
     expect(replaceForOwners).toHaveBeenCalledTimes(2);
   });
@@ -154,8 +164,8 @@ describe("createPresentationSurfaceRepositioner", () => {
           featureState = "baseline";
         }),
       },
-      cueExecutor: {
-        execute: vi.fn(
+      featureStateReconstructor: {
+        reconstruct: vi.fn(
           ({ command, signal }) =>
             new Promise<PresentationCueExecutionOutcome>((resolve) => {
               executionSignal = signal;
@@ -168,12 +178,16 @@ describe("createPresentationSurfaceRepositioner", () => {
       },
     });
 
-    const pending = repositioner.reposition(100);
+    const pending = repositioner.reposition(position(100));
+    await Promise.resolve();
     repositioner.dispose();
 
     expect(executionSignal?.aborted).toBe(true);
     finishExecution?.({ kind: "succeeded" });
-    await expect(pending).resolves.toMatchObject({ kind: "superseded", timeMs: 100 });
+    await expect(pending).resolves.toMatchObject({
+      kind: "superseded",
+      position: { timeMs: 100, side: "after-actions" },
+    });
     expect(featureState).toBe("baseline");
   });
 
@@ -184,12 +198,47 @@ describe("createPresentationSurfaceRepositioner", () => {
         cue("action000001", 100, OWNER_A, TARGET_A, "select-a", "reconstruct-state"),
       ]),
       featureViewBaseline: { replaceForOwners: vi.fn() },
-      cueExecutor: { execute: vi.fn(async () => Promise.reject(defect)) },
+      featureStateReconstructor: {
+        reconstruct: vi.fn(async () => Promise.reject(defect)),
+      },
     });
 
-    await expect(repositioner.reposition(100)).rejects.toBe(defect);
+    await expect(repositioner.reposition(position(100))).rejects.toBe(defect);
+  });
+
+  it("excludes exact before-actions state and reconstructs it only on the after-actions side", async () => {
+    let featureState = "initial";
+    const repositioner = createPresentationSurfaceRepositioner({
+      timeline: timeline([
+        cue("action000001", 100, OWNER_A, TARGET_A, "select-a", "reconstruct-state"),
+      ]),
+      featureViewBaseline: {
+        replaceForOwners: vi.fn(() => {
+          featureState = "baseline";
+        }),
+      },
+      featureStateReconstructor: {
+        reconstruct: vi.fn(async ({ command }) => {
+          featureState = command.type;
+          return { kind: "succeeded" as const };
+        }),
+      },
+    });
+
+    await repositioner.reposition(position(100, "before-actions"));
+    expect(featureState).toBe("baseline");
+
+    await repositioner.reposition(position(100));
+    expect(featureState).toBe("select-a");
+
+    await repositioner.reposition(position(100, "before-actions"));
+    expect(featureState).toBe("baseline");
   });
 });
+
+function position(timeMs: number, side: "before-actions" | "after-actions" = "after-actions") {
+  return createPresentationPlaybackPosition(timeMs, side);
+}
 
 function timeline(
   cues: CompiledInternalClockSurfaceTimeline["cues"],
