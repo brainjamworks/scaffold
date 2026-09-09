@@ -42,7 +42,7 @@ export function createPresentationPreviewPlaybackPort({
         status: "ready" as const,
         surfaceId,
         phase: snapshot.phase,
-        currentTimeMs: snapshot.currentTimeMs,
+        currentTimeMs: snapshot.position.timeMs,
         durationMs: snapshot.durationMs,
       });
       return lastPreviewSnapshot;

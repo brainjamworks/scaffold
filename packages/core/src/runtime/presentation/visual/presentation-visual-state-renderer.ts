@@ -111,7 +111,7 @@ export function createPresentationVisualStateRenderer({
 
       return Object.freeze({
         surfaceId: scene.surfaceId,
-        timeMs: scene.timeMs,
+        timeMs: scene.position.timeMs,
         unavailableTargets: Object.freeze(unavailableTargets),
       });
     },

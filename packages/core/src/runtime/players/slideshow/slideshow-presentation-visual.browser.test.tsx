@@ -95,7 +95,10 @@ describe("Slideshow Presentation visual playback", () => {
       throw new Error(`Expected Restart to succeed, received ${restart.error.reason}.`);
     }
     expect(restart.value).toMatchObject({ kind: "applied", timeMs: 0 });
-    expect(session.getSnapshot()).toMatchObject({ phase: "awaiting-start", currentTimeMs: 0 });
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "awaiting-start",
+      position: { timeMs: 0 },
+    });
 
     const activeSurfaceRoot = requiredElement<HTMLElement>(
       host!,

@@ -3,6 +3,7 @@ export * from "./presentation-compilation-diagnostic";
 export * from "./presentation-compiler";
 export * from "./presentation-configuration";
 export * from "./presentation-layer-track";
+export * from "./presentation-playback-position";
 export * from "./presentation-preview-port";
 export * from "./presentation-surface-transition";
 export * from "./presentation-visual-scene";

@@ -26,13 +26,14 @@ describe("createPresentationVisualRuntime", () => {
 
     const runtime = createPresentationVisualRuntime({
       visualProgram: revealProgram(),
+      layerTracks: [],
       session: source.session,
       renderer,
       getMotionMode: () => motionMode,
     });
 
     expect(applied).toHaveLength(1);
-    expect(applied[0]?.timeMs).toBe(0);
+    expect(applied[0]?.position.timeMs).toBe(0);
     expect(applied[0]?.targetStates.get(TARGET_ID)).toMatchObject({
       availability: "withheld",
       paint: { kind: "none" },
@@ -58,7 +59,7 @@ describe("createPresentationVisualRuntime", () => {
     expect(renderer.dispose).toHaveBeenCalledOnce();
 
     source.publish(900);
-    expect(applied.at(-1)?.timeMs).toBe(800);
+    expect(applied.at(-1)?.position.timeMs).toBe(800);
   });
 
   it("keeps invariant defects observable and tears down a failed initial application", () => {
@@ -68,6 +69,7 @@ describe("createPresentationVisualRuntime", () => {
     expect(() =>
       createPresentationVisualRuntime({
         visualProgram: revealProgram(),
+        layerTracks: [],
         session: source.session,
         renderer,
         getMotionMode: () => "normal",
@@ -86,12 +88,13 @@ describe("createPresentationVisualRuntime", () => {
     const renderer = rendererSpy([], (scene) =>
       Object.freeze({
         surfaceId: scene.surfaceId,
-        timeMs: scene.timeMs,
+        timeMs: scene.position.timeMs,
         unavailableTargets: Object.freeze([unavailableTarget]),
       }),
     );
     const runtime = createPresentationVisualRuntime({
       visualProgram: revealProgram(),
+      layerTracks: [],
       session: source.session,
       renderer,
       getMotionMode: () => "normal",
@@ -149,7 +152,7 @@ function rendererSpy(
   report: (scene: PresentationVisualScene) => VisualSceneApplicationReport = (scene) =>
     Object.freeze({
       surfaceId: scene.surfaceId,
-      timeMs: scene.timeMs,
+      timeMs: scene.position.timeMs,
       unavailableTargets: Object.freeze([]),
     }),
 ) {
@@ -169,9 +172,10 @@ function presentationSnapshot(
 ): PresentationPlaybackSnapshot {
   return Object.freeze({
     phase: "paused",
+    advancement: "suspended",
     runNumber: 1,
     surfaceId,
-    currentTimeMs,
+    position: Object.freeze({ timeMs: currentTimeMs, side: "after-actions" }),
     durationMs: 1_000,
     outstandingLearnerWait: null,
   });

@@ -42,7 +42,11 @@ describe("createPresentationPreviewPlaybackPort", () => {
     });
     const first = port.getSnapshot();
 
-    controls.publish({ phase: "playing", currentTimeMs: 120 });
+    controls.publish({
+      phase: "playing",
+      position: { timeMs: 120, side: "after-actions" },
+      advancement: "advancing",
+    });
     const second = port.getSnapshot();
 
     expect(second).not.toBe(first);
@@ -57,10 +61,10 @@ describe("createPresentationPreviewPlaybackPort", () => {
     const listener = vi.fn();
 
     const unsubscribe = port.subscribe(listener);
-    controls.publish({ currentTimeMs: 50 });
+    controls.publish({ position: { timeMs: 50, side: "after-actions" } });
     expect(listener).toHaveBeenCalledTimes(1);
     unsubscribe();
-    controls.publish({ currentTimeMs: 90 });
+    controls.publish({ position: { timeMs: 90, side: "after-actions" } });
     expect(listener).toHaveBeenCalledTimes(1);
 
     expect(port.play().isOk()).toBe(true);
@@ -128,7 +132,8 @@ function createControls(): FakeControls {
     runNumber: 1,
     surfaceId: SURFACE_ID,
     phase: "awaiting-start",
-    currentTimeMs: 0,
+    position: Object.freeze({ timeMs: 0, side: "before-actions" }),
+    advancement: "suspended",
     durationMs: 4_000,
     outstandingLearnerWait: null,
   });

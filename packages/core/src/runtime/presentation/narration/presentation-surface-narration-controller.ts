@@ -172,6 +172,7 @@ export function createPresentationSurfaceNarrationController({
     return {
       cancellation,
       isCurrent: () => !closed && !disposed && operationNumber === number,
+      isLatest: () => !disposed && operationNumber === number,
       finish() {
         if (cancelPendingOperation === cancel) cancelPendingOperation = null;
         closed = true;
@@ -370,7 +371,20 @@ export function createPresentationSurfaceNarrationController({
           }
           throw cause;
         }
-        if (!operation.isCurrent()) return Result.err(cancellationError);
+        if (!operation.isCurrent()) {
+          if (operation.isLatest() && active?.audio === current.audio) {
+            current.audio.pause();
+            publish(
+              freezeSnapshot({
+                status: current.audio.ended ? "ended" : "paused",
+                currentTimeMs: readCurrentTimeMs(current.audio),
+                durationMs: readDurationMs(current.audio),
+                error: snapshot.error,
+              }),
+            );
+          }
+          return Result.err(cancellationError);
+        }
         if (current.audio.paused) {
           throw new Error("Narration play resolved while the audio element remained paused.");
         }

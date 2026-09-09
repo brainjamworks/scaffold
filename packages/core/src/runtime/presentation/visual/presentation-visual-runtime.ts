@@ -1,4 +1,5 @@
 import type {
+  CompiledOwnerLayerTrack,
   CompiledSurfacePresentationVisualProgram,
   PresentationMotionMode,
 } from "@/presentation/model";
@@ -20,11 +21,13 @@ export interface PresentationVisualRuntime {
 
 export function createPresentationVisualRuntime({
   visualProgram,
+  layerTracks,
   session,
   renderer,
   getMotionMode,
 }: {
   readonly visualProgram: CompiledSurfacePresentationVisualProgram;
+  readonly layerTracks: readonly CompiledOwnerLayerTrack[];
   readonly session: Pick<PresentationPlaybackSession, "getSnapshot" | "subscribe">;
   readonly renderer: PresentationVisualStateRenderer;
   readonly getMotionMode: () => PresentationMotionMode;
@@ -38,7 +41,7 @@ export function createPresentationVisualRuntime({
         `Presentation visual program Surface "${visualProgram.surfaceId}" does not match Session Surface "${snapshot.surfaceId}".`,
       );
     }
-    return renderer.apply(sceneAt(visualProgram, snapshot.currentTimeMs, getMotionMode()));
+    return renderer.apply(sceneAt(visualProgram, layerTracks, snapshot.position, getMotionMode()));
   }
 
   try {

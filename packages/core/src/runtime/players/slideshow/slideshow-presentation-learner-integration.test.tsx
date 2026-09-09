@@ -602,6 +602,62 @@ describe("Slideshow Presentation learner integration", () => {
     await waitFor(() => expect(presentations.get(SECOND_SURFACE_ID)?.play).toHaveBeenCalledOnce());
   });
 
+  it("does not retry narrated autoplay after a playback refusal", async () => {
+    const actual = await vi.importActual<typeof import("./slideshow-surface-runtime-composition")>(
+      "./slideshow-surface-runtime-composition",
+    );
+    const media = createPendingNarrationAudio();
+    media.play.mockRejectedValueOnce(new DOMException("gesture required", "NotAllowedError"));
+    slideshowRuntimeTestProbe.createComposition = (rawInput) =>
+      actual.createSlideshowSurfaceRuntimeComposition({
+        ...(rawInput as CreateSlideshowSurfaceRuntimeCompositionInput),
+        createNarrationAudioElement: () => media.audio,
+      });
+    const prepared = prepareSlideshowDocument(tabsSlideshowDocument());
+    const programSource: SlideshowSurfaceRuntimeProgramSource = (surfaceId) => {
+      if (surfaceId !== FIRST_SURFACE_ID) return undefined;
+      const program = configuredPresentationProgram(surfaceId, true);
+      return {
+        presentation: {
+          ...program.presentation!,
+          timeline: {
+            ...program.presentation!.timeline,
+            narration: {
+              source: {
+                mode: "external",
+                src: "https://media.example.test/narration.mp3",
+              },
+            },
+          },
+        },
+      };
+    };
+    const mounted = renderTest(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          preparedDocument={prepared.preparedDocument}
+          structure={prepared.structure}
+          surfaceRuntimeProgramSource={programSource}
+        />
+      </CourseThemeProvider>,
+    );
+
+    try {
+      await waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+      await act(async () => {
+        media.confirmMetadata(10);
+        for (let index = 0; index < 20; index += 1) await Promise.resolve();
+      });
+      await waitFor(() => expect(media.play).toHaveBeenCalledOnce());
+      await act(async () => {
+        for (let index = 0; index < 20; index += 1) await Promise.resolve();
+      });
+      expect(media.play).toHaveBeenCalledOnce();
+    } finally {
+      mounted.unmount();
+    }
+  });
+
   it("keeps an author-preview Surface paused even when authored auto-advance is enabled", async () => {
     const presentation = createControllablePresentationSession(
       presentationSnapshot("awaiting-start"),
@@ -1725,7 +1781,7 @@ describe("Slideshow Presentation learner integration", () => {
 
     await waitFor(() => expect(canvas).toHaveAttribute("inert"));
     expect(learnerRuntime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
-    expect(session.getSnapshot()).toMatchObject({ phase: "completed", currentTimeMs: 100 });
+    expect(session.getSnapshot()).toMatchObject({ phase: "completed", position: { timeMs: 100 } });
 
     await act(async () => {
       const result = await session.restart();
@@ -1736,7 +1792,10 @@ describe("Slideshow Presentation learner integration", () => {
 
     expect(canvas).toHaveAttribute("inert");
     expect(learnerRuntime.getGateObservationSnapshot()).toEqual({ status: "inactive" });
-    expect(session.getSnapshot()).toMatchObject({ phase: "awaiting-start", currentTimeMs: 0 });
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "awaiting-start",
+      position: { timeMs: 0 },
+    });
 
     await user.click(screen.getByRole("button", { name: "Play presentation" }));
 
@@ -2246,7 +2305,11 @@ function presentationSnapshot(
   const base = {
     runNumber: 1,
     surfaceId: FIRST_SURFACE_ID,
-    currentTimeMs: phase === "completed" ? 100 : 0,
+    position: Object.freeze({
+      timeMs: phase === "completed" ? 100 : 0,
+      side: phase === "awaiting-start" ? ("before-actions" as const) : ("after-actions" as const),
+    }),
+    advancement: phase === "playing" ? ("advancing" as const) : ("suspended" as const),
     durationMs: 100,
     outstandingLearnerWait: null,
   } as const;
@@ -2270,6 +2333,53 @@ function emptyVisualProgram(
   });
 }
 
+function createPendingNarrationAudio() {
+  const audio = document.createElement("audio");
+  const native = {
+    currentTime: 0,
+    duration: Number.NaN,
+    ended: false,
+    error: null as MediaError | null,
+    paused: true,
+  };
+  Object.defineProperties(audio, {
+    currentTime: {
+      configurable: true,
+      get: () => native.currentTime,
+      set: (value: number) => {
+        native.currentTime = value;
+      },
+    },
+    duration: { configurable: true, get: () => native.duration },
+    ended: { configurable: true, get: () => native.ended },
+    error: { configurable: true, get: () => native.error },
+    paused: { configurable: true, get: () => native.paused },
+  });
+  Object.defineProperty(audio, "load", { configurable: true, value: vi.fn() });
+  const play = vi.fn(
+    () =>
+      new Promise<void>(() => {
+        // Unexpected retries stay pending so the regression remains bounded.
+      }),
+  );
+  Object.defineProperty(audio, "play", { configurable: true, value: play });
+  Object.defineProperty(audio, "pause", {
+    configurable: true,
+    value: vi.fn(() => {
+      native.paused = true;
+    }),
+  });
+
+  return {
+    audio,
+    play,
+    confirmMetadata(durationSeconds: number) {
+      native.duration = durationSeconds;
+      audio.dispatchEvent(new Event("loadedmetadata"));
+    },
+  };
+}
+
 function presentationWaitingSnapshot(
   surfaceId: SurfaceId,
   waitId: PresentationWaitId,
@@ -2278,7 +2388,8 @@ function presentationWaitingSnapshot(
     phase: "held",
     runNumber: 1,
     surfaceId,
-    currentTimeMs: 0,
+    position: Object.freeze({ timeMs: 0, side: "before-actions" }),
+    advancement: "suspended",
     durationMs: 100,
     hold: Object.freeze({ kind: "learner", waitId, status: "waiting" }),
     outstandingLearnerWait: Object.freeze({ waitId }),

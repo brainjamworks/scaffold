@@ -171,7 +171,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     expect(featureViewBaseline.replaceForOwners).not.toHaveBeenCalled();
     expect(composition.presentationControls?.getSnapshot()).toMatchObject({
       phase: "awaiting-start",
-      currentTimeMs: 0,
+      position: { timeMs: 0 },
     });
     composition.dispose();
   });
@@ -236,7 +236,9 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
 
     expect(second?.isOk()).toBe(true);
     await expect(first).resolves.toMatchObject({ value: { kind: "superseded", timeMs: 100 } });
-    expect(composition.presentationControls?.getSnapshot()).toMatchObject({ currentTimeMs: 0 });
+    expect(composition.presentationControls?.getSnapshot()).toMatchObject({
+      position: { timeMs: 0 },
+    });
     expect(featureState).toBe("baseline");
     expect(featureViewBaseline.replaceForOwners).toHaveBeenCalledTimes(2);
     composition.dispose();
@@ -299,7 +301,10 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
 
     expect(restart).toMatchObject({ value: { kind: "applied", timeMs: 0 } });
     expect(featureState).toBe("baseline");
-    expect(controls.getSnapshot()).toMatchObject({ phase: "awaiting-start", currentTimeMs: 0 });
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "awaiting-start",
+      position: { timeMs: 0 },
+    });
     expect(sessionUpdates).toHaveBeenCalledOnce();
     composition.dispose();
   });
@@ -401,7 +406,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     expect(composition.presentationControls?.getSnapshot()).toMatchObject({
       surfaceId: SURFACE_ID,
       phase: "awaiting-start",
-      currentTimeMs: 0,
+      position: { timeMs: 0 },
     });
     expect(getControlBinding).not.toHaveBeenCalled();
     expect(activateSemanticTarget).not.toHaveBeenCalled();
@@ -436,16 +441,47 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     media.confirmMetadata(10);
 
     const playing = controls.play();
-    expect(controls.getSnapshot().phase).toBe("awaiting-start");
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "awaiting-start",
+      advancement: "awaiting-media-start",
+    });
     media.confirmPlay();
 
     expect((await playing).isOk()).toBe(true);
-    expect(controls.getSnapshot().phase).toBe("playing");
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "playing",
+      advancement: "advancing",
+    });
     expect(controls.getNarrationSnapshot()).toMatchObject({
       status: "playing",
       usingInternalClock: false,
       error: null,
     });
+    composition.dispose();
+  });
+
+  it("keeps native narration paused when Pause cancels a pending media start", async () => {
+    const media = createTestNarrationAudio();
+    const composition = createNarratedComposition(media.audio);
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+    await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.confirmMetadata(10);
+
+    const playing = controls.play();
+    await vi.waitFor(() => expect(media.play).toHaveBeenCalledOnce());
+    controls.pause();
+    media.confirmPlay();
+
+    const result = await playing;
+    if (result.isOk()) throw new Error("Expected pending narration play to be cancelled.");
+    expect(result.error).toEqual({
+      reason: "cancelled",
+      surfaceId: SURFACE_ID,
+      operation: "play",
+    });
+    expect(controls.getSnapshot().advancement).toBe("suspended");
+    expect(media.native.paused).toBe(true);
     composition.dispose();
   });
 
@@ -473,11 +509,14 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     media.confirmSeek(4);
     expect(media.native.paused).toBe(true);
     await vi.waitFor(() => expect(media.play).toHaveBeenCalledTimes(2));
-    expect(controls.getSnapshot()).toMatchObject({ phase: "paused", currentTimeMs: 4_000 });
+    expect(controls.getSnapshot()).toMatchObject({ phase: "paused", position: { timeMs: 4_000 } });
     media.confirmPlay();
 
     expect(await seeking).toMatchObject({ value: { kind: "applied", timeMs: 4_000 } });
-    expect(controls.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 4_000 });
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "playing",
+      position: { timeMs: 4_000 },
+    });
     composition.dispose();
   });
 
@@ -499,7 +538,11 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
       surfaceId: SURFACE_ID,
       cause: blocked,
     });
-    expect(controls.getSnapshot()).toMatchObject({ phase: "awaiting-start", currentTimeMs: 0 });
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "awaiting-start",
+      position: { timeMs: 0 },
+      advancement: "suspended",
+    });
     expect(controls.getNarrationSnapshot()).toMatchObject({
       status: "paused",
       error: result.error,
@@ -578,16 +621,25 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
         usingInternalClock: true,
         error: null,
       });
-      expect(controls.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 4_000 });
+      expect(controls.getSnapshot()).toMatchObject({
+        phase: "playing",
+        position: { timeMs: 4_000 },
+      });
       expect(execute).toHaveBeenCalledOnce();
       expect(heartbeat.pendingCount()).toBe(1);
 
       heartbeat.step(5_000);
-      expect(controls.getSnapshot()).toMatchObject({ phase: "playing", currentTimeMs: 9_000 });
+      expect(controls.getSnapshot()).toMatchObject({
+        phase: "playing",
+        position: { timeMs: 9_000 },
+      });
       heartbeat.step(6_000);
       await flushPromises();
 
-      expect(controls.getSnapshot()).toMatchObject({ phase: "completed", currentTimeMs: 10_000 });
+      expect(controls.getSnapshot()).toMatchObject({
+        phase: "completed",
+        position: { timeMs: 10_000 },
+      });
       expect(execute).toHaveBeenCalledOnce();
       expect(media.native.paused).toBe(true);
       expect(heartbeat.pendingCount()).toBe(0);
@@ -614,7 +666,10 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
       media.confirmEnd(10);
       heartbeat.step(0);
 
-      expect(controls.getSnapshot()).toMatchObject({ phase: "completed", currentTimeMs: 10_000 });
+      expect(controls.getSnapshot()).toMatchObject({
+        phase: "completed",
+        position: { timeMs: 10_000 },
+      });
       expect(controls.getNarrationSnapshot()).toMatchObject({
         status: "ended",
         usingInternalClock: false,
@@ -789,18 +844,27 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
       phase: "held",
       hold: { kind: "learner", status: "waiting" },
     });
+    expect(activate).not.toHaveBeenCalled();
+
+    await events.emit({ targetId: TARGET_ID, type: "selected" });
+    await flushPromises();
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", status: "ready" },
+      position: { timeMs: 0, side: "before-actions" },
+    });
+    expect((await session.advance()).isOk()).toBe(true);
+    await flushPromises();
+
     expect(activate).toHaveBeenCalledWith(TARGET_ID, {
       origin: "configured-presentation",
       signal: expect.any(AbortSignal),
     });
 
-    await events.emit({ targetId: TARGET_ID, type: "selected" });
-    await flushPromises();
-
     expect(report).toHaveBeenCalledOnce();
     expect(execute.mock.calls.map(([request]) => request.type)).toEqual([
-      "presentation-command",
       "rule-command",
+      "presentation-command",
     ]);
     expect(requestSurfaceChange).toHaveBeenCalledWith(OTHER_SURFACE_ID, {
       kind: "satisfied-learner-rule-branch",
@@ -815,8 +879,8 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     );
     expect(events.listenerCount).toBe(1);
     expect(session.getSnapshot()).toMatchObject({
-      phase: "held",
-      hold: { kind: "learner", status: "ready" },
+      phase: "playing",
+      position: { timeMs: 0, side: "after-actions" },
     });
     composition.dispose();
   });
@@ -1154,7 +1218,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
           kind: "manual-wait",
           id: "manual-wait" as PresentationWaitId,
           atMs: 0,
-          boundary: "before-actions",
+          boundary: "after-actions",
         },
       ],
     });

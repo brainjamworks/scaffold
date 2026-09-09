@@ -256,6 +256,8 @@ export function useSlideshowSurfaceRuntime({
     [presentationControls],
   );
   const presentationSnapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const presentationPhase = presentationSnapshot?.phase;
+  const presentationRunNumber = presentationSnapshot?.runNumber;
   const getNarrationSnapshot = useCallback(
     () => presentationControls?.getNarrationSnapshot() ?? NO_NARRATION_SNAPSHOT,
     [presentationControls],
@@ -306,15 +308,15 @@ export function useSlideshowSurfaceRuntime({
       presentationHold ||
       !program?.presentation?.autoAdvance ||
       !presentationControls ||
-      !presentationSnapshot
+      !presentationPhase
     ) {
       return;
     }
-    if (presentationSnapshot.phase === "awaiting-start") {
+    if (presentationPhase === "awaiting-start") {
       void presentationControls.play();
       return;
     }
-    if (presentationSnapshot.phase === "completed" && nextSurfaceId !== null) {
+    if (presentationPhase === "completed" && nextSurfaceId !== null) {
       void requestSurfaceChange(nextSurfaceId);
     }
   }, [
@@ -323,7 +325,8 @@ export function useSlideshowSurfaceRuntime({
     executionEnabled,
     presentationHold,
     presentationControls,
-    presentationSnapshot,
+    presentationPhase,
+    presentationRunNumber,
     program?.presentation?.autoAdvance,
     requestSurfaceChange,
   ]);

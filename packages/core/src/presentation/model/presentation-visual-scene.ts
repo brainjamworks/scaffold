@@ -1,11 +1,18 @@
 import type { EmbeddedDataId, EmbeddedNodeId } from "@scaffold/contracts";
 
 import type {
+  CompiledOwnerLayerTrack,
   CompiledSurfacePresentationVisualProgram,
   CompiledVisualIntent,
   CompiledVisualSegment,
   PresentationMotionMode,
 } from "./compiled-presentation-program";
+import {
+  comparePresentationPlaybackPositions,
+  createPresentationPlaybackPosition,
+  presentationActionStartPosition,
+  type PresentationPlaybackPosition,
+} from "./presentation-playback-position";
 
 export type PresentationTargetPaintState =
   | { readonly kind: "none" }
@@ -25,7 +32,8 @@ export interface PresentationTargetSceneState {
 
 export interface PresentationVisualScene {
   readonly surfaceId: EmbeddedNodeId;
-  readonly timeMs: number;
+  readonly position: PresentationPlaybackPosition;
+  readonly selectedLayerByOwnerId: ReadonlyMap<EmbeddedNodeId, EmbeddedNodeId>;
   readonly targetStates: ReadonlyMap<EmbeddedNodeId, PresentationTargetSceneState>;
 }
 
@@ -36,13 +44,15 @@ interface MutableTargetState {
 
 export function sceneAt(
   program: CompiledSurfacePresentationVisualProgram,
-  timeMs: number,
+  layerTracks: readonly CompiledOwnerLayerTrack[],
+  position: PresentationPlaybackPosition,
   motionMode: PresentationMotionMode,
 ): PresentationVisualScene {
   assertProgram(program);
-  if (!Number.isSafeInteger(timeMs) || timeMs < 0 || timeMs > program.durationMs) {
+  const resolvedPosition = createPresentationPlaybackPosition(position.timeMs, position.side);
+  if (resolvedPosition.timeMs > program.durationMs) {
     throw new Error(
-      `Presentation scene time must be a safe integer between 0 and ${program.durationMs}.`,
+      `Presentation scene time must be between 0 and ${program.durationMs} milliseconds.`,
     );
   }
 
@@ -55,8 +65,20 @@ export function sceneAt(
   }
 
   for (const segment of program.segments) {
-    if (timeMs < segment.startMs) continue;
-    applySegment(mutableByTargetId.get(segment.targetId)!, segment, timeMs, motionMode);
+    if (
+      comparePresentationPlaybackPositions(
+        presentationActionStartPosition(segment.startMs),
+        resolvedPosition,
+      ) > 0
+    ) {
+      continue;
+    }
+    applySegment(
+      mutableByTargetId.get(segment.targetId)!,
+      segment,
+      resolvedPosition.timeMs,
+      motionMode,
+    );
   }
 
   const targetStates = new Map<EmbeddedNodeId, PresentationTargetSceneState>();
@@ -74,9 +96,33 @@ export function sceneAt(
 
   return Object.freeze({
     surfaceId: program.surfaceId,
-    timeMs,
+    position: resolvedPosition,
+    selectedLayerByOwnerId: selectedLayersAt(layerTracks, resolvedPosition),
     targetStates,
   });
+}
+
+function selectedLayersAt(
+  tracks: readonly CompiledOwnerLayerTrack[],
+  position: PresentationPlaybackPosition,
+): ReadonlyMap<EmbeddedNodeId, EmbeddedNodeId> {
+  const selectedLayerByOwnerId = new Map<EmbeddedNodeId, EmbeddedNodeId>();
+  for (const track of tracks) {
+    let selectedLayerId = track.initialLayerId;
+    for (const entry of track.switches) {
+      if (
+        comparePresentationPlaybackPositions(
+          presentationActionStartPosition(entry.atMs),
+          position,
+        ) > 0
+      ) {
+        break;
+      }
+      selectedLayerId = entry.layerId;
+    }
+    selectedLayerByOwnerId.set(track.ownerId, selectedLayerId);
+  }
+  return selectedLayerByOwnerId;
 }
 
 function applySegment(

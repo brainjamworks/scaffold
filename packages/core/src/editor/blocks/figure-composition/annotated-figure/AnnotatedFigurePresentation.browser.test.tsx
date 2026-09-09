@@ -512,6 +512,7 @@ function createVisualHarness({
   });
   const visualRuntime = createPresentationVisualRuntime({
     visualProgram,
+    layerTracks: [],
     session,
     renderer: createPresentationVisualStateRenderer({
       resolver: createVisualTargetResolver(surfaceRoot),

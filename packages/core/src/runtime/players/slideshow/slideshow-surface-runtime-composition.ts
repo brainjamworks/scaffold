@@ -205,6 +205,7 @@ export function createSlideshowSurfaceRuntimeComposition({
     if (program.presentation && presentationSession && surfaceRoot) {
       presentationVisualRuntime = createPresentationVisualRuntime({
         visualProgram: program.presentation.timeline.visualProgram,
+        layerTracks: program.presentation.timeline.layerTracks,
         session: presentationSession,
         renderer: createPresentationVisualStateRenderer({
           resolver: createVisualTargetResolver(surfaceRoot),
@@ -287,10 +288,16 @@ export function createSlideshowSurfaceRuntimeComposition({
       narrationError = error;
       refreshNarrationSnapshot();
     };
-    const pauseNarration = () => {
+    const pauseNarration = (cancelPendingStart = false) => {
       if (!narration) return;
       const status = narration.getSnapshot().status;
-      if (status === "playing" || status === "buffering" || status === "seeking") {
+      if (status === "idle" || status === "loading") return;
+      if (
+        cancelPendingStart ||
+        status === "playing" ||
+        status === "buffering" ||
+        status === "seeking"
+      ) {
         narration.pause();
       }
     };
@@ -307,18 +314,27 @@ export function createSlideshowSurfaceRuntimeComposition({
         session.play();
         return Result.ok();
       }
+      const current = session.getSnapshot();
+      if (current.phase !== "awaiting-start" && current.phase !== "paused") {
+        session.play();
+        return Result.ok();
+      }
+      session.beginMediaStart();
       const generation = ++presentationOperationGeneration;
       const loaded = await ensureNarrationLoaded();
       if (disposed || generation !== presentationOperationGeneration || !executionEnabled) {
         return Result.err(cancelledNarrationOperation(surfaceId, "play"));
       }
-      if (loaded.isErr()) return loaded;
+      if (loaded.isErr()) {
+        session.cancelMediaStart();
+        return loaded;
+      }
       const played = await narration.play();
       if (disposed || generation !== presentationOperationGeneration || !executionEnabled) {
-        pauseNarration();
         return Result.err(cancelledNarrationOperation(surfaceId, "play"));
       }
       if (played.isErr()) {
+        session.cancelMediaStart();
         rememberNarrationError(played.error);
         return played;
       }
@@ -332,18 +348,23 @@ export function createSlideshowSurfaceRuntimeComposition({
       assertCompositionNotDisposed(disposed, "advance");
       if (!executionEnabled) return Result.ok();
       if (!narration || usingInternalClock) return session.advance();
+      const eligible = session.beginAdvanceMediaStart();
+      if (eligible.isErr()) return eligible;
       const generation = ++presentationOperationGeneration;
       const loaded = await ensureNarrationLoaded();
       if (disposed || generation !== presentationOperationGeneration || !executionEnabled) {
         return Result.err(cancelledNarrationOperation(surfaceId, "play"));
       }
-      if (loaded.isErr()) return loaded;
+      if (loaded.isErr()) {
+        session.cancelMediaStart();
+        return loaded;
+      }
       const played = await narration.play();
       if (disposed || generation !== presentationOperationGeneration || !executionEnabled) {
-        pauseNarration();
         return Result.err(cancelledNarrationOperation(surfaceId, "play"));
       }
       if (played.isErr()) {
+        session.cancelMediaStart();
         rememberNarrationError(played.error);
         return played;
       }
@@ -374,8 +395,11 @@ export function createSlideshowSurfaceRuntimeComposition({
 
       const resumeAfterSeek = !restart && snapshot.phase === "playing";
       const generation = ++presentationOperationGeneration;
-      if (snapshot.phase !== "stopped") session.pause();
-      pauseNarration();
+      if (snapshot.phase !== "stopped") {
+        session.pause();
+        session.cancelMediaStart();
+      }
+      pauseNarration(true);
 
       if (narration && !usingInternalClock) {
         const loaded = await ensureNarrationLoaded();
@@ -412,7 +436,6 @@ export function createSlideshowSurfaceRuntimeComposition({
       if (resumeAfterSeek && report.kind === "applied" && narration && !usingInternalClock) {
         const played = await narration.play();
         if (disposed || generation !== presentationOperationGeneration) {
-          pauseNarration();
           return Result.ok(asSupersededReport(report));
         }
         if (played.isErr()) {
@@ -447,14 +470,15 @@ export function createSlideshowSurfaceRuntimeComposition({
         assertCompositionNotDisposed(disposed, "pause");
         presentationOperationGeneration += 1;
         if (session.getSnapshot().phase !== "stopped") session.pause();
-        pauseNarration();
+        session.cancelMediaStart();
+        pauseNarration(true);
       },
       advance: advancePresentation,
       continueWithoutNarration() {
         assertCompositionNotDisposed(disposed, "continue without narration in");
         if (!executionEnabled) return;
         presentationOperationGeneration += 1;
-        pauseNarration();
+        pauseNarration(true);
         session.useInternalClock();
         usingInternalClock = true;
         narrationError = null;
@@ -475,14 +499,14 @@ export function createSlideshowSurfaceRuntimeComposition({
       stop() {
         assertCompositionNotDisposed(disposed, "stop");
         presentationOperationGeneration += 1;
-        pauseNarration();
+        pauseNarration(true);
         session.stop();
       },
     });
 
     const unsubscribeSession = session.subscribe(() => {
       const next = session.getSnapshot();
-      if (next.phase !== "playing") pauseNarration();
+      if (next.advancement === "suspended") pauseNarration();
       publish();
       if (
         narration &&

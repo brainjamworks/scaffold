@@ -139,7 +139,8 @@ function snapshot(
     phase: "held",
     runNumber: 1,
     surfaceId,
-    currentTimeMs: 0,
+    position: Object.freeze({ timeMs: 0, side: "before-actions" }),
+    advancement: "suspended",
     durationMs: 100,
     hold: Object.freeze({
       kind: "learner",

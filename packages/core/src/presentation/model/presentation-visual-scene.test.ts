@@ -1,15 +1,27 @@
 import {
   EmbeddedDataIdSchema,
   EmbeddedNodeIdSchema,
+  type EmbeddedNodeId,
   type VisibilityTransitionV1,
 } from "@scaffold/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { CompiledSurfacePresentationVisualProgram } from "./compiled-presentation-program";
-import { sceneAt } from "./presentation-visual-scene";
+import type {
+  CompiledOwnerLayerTrack,
+  CompiledSurfacePresentationVisualProgram,
+  PresentationMotionMode,
+} from "./compiled-presentation-program";
+import { createPresentationPlaybackPosition } from "./presentation-playback-position";
+import { sceneAt as sceneAtPosition } from "./presentation-visual-scene";
 
 const SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
 const TARGET_ID = EmbeddedNodeIdSchema.parse("target000001");
+const OWNER_ID = EmbeddedNodeIdSchema.parse("owner0000001");
+const OTHER_OWNER_ID = EmbeddedNodeIdSchema.parse("owner0000002");
+const LAYER_A_ID = EmbeddedNodeIdSchema.parse("layer0000001");
+const LAYER_B_ID = EmbeddedNodeIdSchema.parse("layer0000002");
+const LAYER_C_ID = EmbeddedNodeIdSchema.parse("layer0000003");
+const LAYER_D_ID = EmbeddedNodeIdSchema.parse("layer0000004");
 const VISIBILITY_RECIPES: readonly VisibilityTransitionV1[] = [
   timedTransition("fade"),
   timedTransition("scale"),
@@ -41,7 +53,9 @@ describe("sceneAt", () => {
       paint: { kind: "settled" },
     },
   ])("projects Reveal state at $timeMs ms", ({ timeMs, availability, paint }) => {
-    const state = sceneAt(revealProgram(), timeMs, "normal").targetStates.get(TARGET_ID);
+    const state = afterActionsSceneAt(revealProgram(), timeMs, "normal").targetStates.get(
+      TARGET_ID,
+    );
 
     expect(state).toMatchObject({ availability, paint });
   });
@@ -49,9 +63,9 @@ describe("sceneAt", () => {
   it("reconstructs direct forward and backward seek without projector history", () => {
     const program = revealProgram();
 
-    const after = sceneAt(program, 1_000, "normal");
-    const before = sceneAt(program, 0, "normal");
-    const afterAgain = sceneAt(program, 1_000, "normal");
+    const after = afterActionsSceneAt(program, 1_000, "normal");
+    const before = afterActionsSceneAt(program, 0, "normal");
+    const afterAgain = afterActionsSceneAt(program, 1_000, "normal");
 
     expect(before.targetStates.get(TARGET_ID)?.availability).toBe("withheld");
     expect(afterAgain).toEqual(after);
@@ -66,10 +80,10 @@ describe("sceneAt", () => {
     "projects $kind $transition.kind/$transition.direction at every boundary",
     ({ kind, transition }) => {
       const program = visibilityProgram(kind, transition);
-      const before = sceneAt(program, 499, "normal").targetStates.get(TARGET_ID);
-      const start = sceneAt(program, 500, "normal").targetStates.get(TARGET_ID);
-      const middle = sceneAt(program, 750, "normal").targetStates.get(TARGET_ID);
-      const settled = sceneAt(program, 1_000, "normal").targetStates.get(TARGET_ID);
+      const before = afterActionsSceneAt(program, 499, "normal").targetStates.get(TARGET_ID);
+      const start = afterActionsSceneAt(program, 500, "normal").targetStates.get(TARGET_ID);
+      const middle = afterActionsSceneAt(program, 750, "normal").targetStates.get(TARGET_ID);
+      const settled = afterActionsSceneAt(program, 1_000, "normal").targetStates.get(TARGET_ID);
 
       expect(before).toMatchObject(
         kind === "reveal"
@@ -91,17 +105,19 @@ describe("sceneAt", () => {
           ? { availability: "available", paint: { kind: "settled" } }
           : { availability: "withheld", paint: { kind: "none" } },
       );
-      expect(sceneAt(program, 500, "normal")).toEqual(sceneAt(program, 500, "normal"));
+      expect(afterActionsSceneAt(program, 500, "normal")).toEqual(
+        afterActionsSceneAt(program, 500, "normal"),
+      );
     },
   );
 
   it.each(["reveal", "hide"] as const)("applies instant %s at its exact boundary", (kind) => {
     const program = visibilityProgram(kind, { kind: "instant" });
 
-    expect(sceneAt(program, 499, "normal").targetStates.get(TARGET_ID)?.availability).toBe(
-      kind === "reveal" ? "withheld" : "available",
-    );
-    expect(sceneAt(program, 500, "normal").targetStates.get(TARGET_ID)).toMatchObject(
+    expect(
+      afterActionsSceneAt(program, 499, "normal").targetStates.get(TARGET_ID)?.availability,
+    ).toBe(kind === "reveal" ? "withheld" : "available");
+    expect(afterActionsSceneAt(program, 500, "normal").targetStates.get(TARGET_ID)).toMatchObject(
       kind === "reveal"
         ? { availability: "available", paint: { kind: "settled" } }
         : { availability: "withheld", paint: { kind: "none" } },
@@ -113,15 +129,21 @@ describe("sceneAt", () => {
     (effect) => {
       const program = emphasizeProgram(effect);
 
-      expect(sceneAt(program, 499, "normal").targetStates.get(TARGET_ID)?.paint).toEqual({
+      expect(
+        afterActionsSceneAt(program, 499, "normal").targetStates.get(TARGET_ID)?.paint,
+      ).toEqual({
         kind: "settled",
       });
-      expect(sceneAt(program, 750, "normal").targetStates.get(TARGET_ID)?.paint).toMatchObject({
+      expect(
+        afterActionsSceneAt(program, 750, "normal").targetStates.get(TARGET_ID)?.paint,
+      ).toMatchObject({
         kind: "transition",
         progress: 0.5,
         visual: { kind: "emphasize", effect },
       });
-      expect(sceneAt(program, 1_000, "normal").targetStates.get(TARGET_ID)?.paint).toEqual({
+      expect(
+        afterActionsSceneAt(program, 1_000, "normal").targetStates.get(TARGET_ID)?.paint,
+      ).toEqual({
         kind: "settled",
       });
     },
@@ -131,15 +153,17 @@ describe("sceneAt", () => {
     const program = hiddenEmphasizeProgram();
 
     for (const timeMs of [1_250, 1_500]) {
-      const state = sceneAt(program, timeMs, "normal").targetStates.get(TARGET_ID);
+      const state = afterActionsSceneAt(program, timeMs, "normal").targetStates.get(TARGET_ID);
       expect(state).toMatchObject({ availability: "withheld", paint: { kind: "none" } });
-      expect(sceneAt(program, timeMs, "normal")).toEqual(sceneAt(program, timeMs, "normal"));
+      expect(afterActionsSceneAt(program, timeMs, "normal")).toEqual(
+        afterActionsSceneAt(program, timeMs, "normal"),
+      );
     }
   });
 
   it("uses instant semantic results and a static outline substitute under reduced motion", () => {
     expect(
-      sceneAt(
+      afterActionsSceneAt(
         visibilityProgram("hide", timedTransition("slide", "left")),
         500,
         "reduced-motion",
@@ -149,7 +173,9 @@ describe("sceneAt", () => {
       paint: { kind: "none" },
     });
     expect(
-      sceneAt(emphasizeProgram("pulse"), 750, "reduced-motion").targetStates.get(TARGET_ID)?.paint,
+      afterActionsSceneAt(emphasizeProgram("pulse"), 750, "reduced-motion").targetStates.get(
+        TARGET_ID,
+      )?.paint,
     ).toMatchObject({
       kind: "transition",
       visual: { kind: "emphasize", effect: "outline" },
@@ -165,10 +191,10 @@ describe("sceneAt", () => {
       ],
     });
 
-    expect(sceneAt(program, 499, "normal").targetStates.get(TARGET_ID)?.availability).toBe(
-      "withheld",
-    );
-    expect(sceneAt(program, 500, "normal").targetStates.get(TARGET_ID)).toMatchObject({
+    expect(
+      afterActionsSceneAt(program, 499, "normal").targetStates.get(TARGET_ID)?.availability,
+    ).toBe("withheld");
+    expect(afterActionsSceneAt(program, 500, "normal").targetStates.get(TARGET_ID)).toMatchObject({
       availability: "available",
       paint: { kind: "settled" },
     });
@@ -176,24 +202,112 @@ describe("sceneAt", () => {
 
   it("substitutes a settled boundary result in reduced-motion mode", () => {
     expect(
-      sceneAt(revealProgram(), 500, "reduced-motion").targetStates.get(TARGET_ID),
+      afterActionsSceneAt(revealProgram(), 500, "reduced-motion").targetStates.get(TARGET_ID),
     ).toMatchObject({
       availability: "available",
       paint: { kind: "settled" },
     });
   });
 
+  it("projects every owner switch together on the after-actions side", () => {
+    const tracks = [
+      layerTrack("switch000001", OWNER_ID, LAYER_A_ID, LAYER_B_ID),
+      layerTrack("switch000002", OTHER_OWNER_ID, LAYER_C_ID, LAYER_D_ID),
+    ];
+
+    const before = sceneAtPosition(
+      revealProgram(),
+      tracks,
+      createPresentationPlaybackPosition(500, "before-actions"),
+      "normal",
+    );
+    const after = sceneAtPosition(
+      revealProgram(),
+      tracks,
+      createPresentationPlaybackPosition(500, "after-actions"),
+      "normal",
+    );
+
+    expect([...before.selectedLayerByOwnerId]).toEqual([
+      [OWNER_ID, LAYER_A_ID],
+      [OTHER_OWNER_ID, LAYER_C_ID],
+    ]);
+    expect([...after.selectedLayerByOwnerId]).toEqual([
+      [OWNER_ID, LAYER_B_ID],
+      [OTHER_OWNER_ID, LAYER_D_ID],
+    ]);
+  });
+
+  it.each(["normal", "reduced-motion"] as const)(
+    "samples prior effects at their true endpoint while withholding same-time starts in %s mode",
+    (motionMode) => {
+      const delayedTargetId = EmbeddedNodeIdSchema.parse("target000002");
+      const untimedTargetId = EmbeddedNodeIdSchema.parse("target000003");
+      const program = revealProgram({
+        targetById: new Map([
+          [TARGET_ID, { targetId: TARGET_ID, initialVisibility: "withheld" }],
+          [delayedTargetId, { targetId: delayedTargetId, initialVisibility: "withheld" }],
+          [untimedTargetId, { targetId: untimedTargetId, initialVisibility: "visible" }],
+        ]),
+        segments: [
+          revealProgram().segments[0]!,
+          {
+            id: EmbeddedDataIdSchema.parse("segment00002"),
+            targetId: delayedTargetId,
+            startMs: 1_000,
+            endMs: 1_500,
+            visual: {
+              kind: "reveal",
+              transition: timedTransition("fade"),
+            },
+          },
+        ],
+      });
+
+      const before = sceneAtPosition(
+        program,
+        [],
+        createPresentationPlaybackPosition(1_000, "before-actions"),
+        motionMode,
+      );
+      const after = sceneAtPosition(
+        program,
+        [],
+        createPresentationPlaybackPosition(1_000, "after-actions"),
+        motionMode,
+      );
+
+      expect(before.targetStates.get(TARGET_ID)).toMatchObject({
+        availability: "available",
+        paint: { kind: "settled" },
+      });
+      expect(before.targetStates.get(delayedTargetId)).toMatchObject({
+        availability: "withheld",
+        paint: { kind: "none" },
+      });
+      expect(before.targetStates.get(untimedTargetId)).toMatchObject({
+        availability: "available",
+        paint: { kind: "settled" },
+      });
+      expect(after.targetStates.get(delayedTargetId)).toMatchObject(
+        motionMode === "normal"
+          ? { availability: "available", paint: { kind: "transition", progress: 0 } }
+          : { availability: "available", paint: { kind: "settled" } },
+      );
+    },
+  );
+
   it.each([-1, 1.5, 2_001, Number.MAX_SAFE_INTEGER + 1])(
     "throws for invalid scene time %s",
     (timeMs) => {
-      expect(() => sceneAt(revealProgram(), timeMs, "normal")).toThrow(/time/i);
+      expect(() => afterActionsSceneAt(revealProgram(), timeMs, "normal")).toThrow(/time/i);
     },
   );
 
   it("throws for unknown targets and overlapping same-target segments", () => {
     const unknownTarget = EmbeddedNodeIdSchema.parse("unknown00001");
     expect(() =>
-      sceneAt(
+      afterActionsSceneAt(
         revealProgram({
           segments: [
             {
@@ -208,7 +322,7 @@ describe("sceneAt", () => {
     ).toThrow(/unknown target/i);
 
     expect(() =>
-      sceneAt(
+      afterActionsSceneAt(
         revealProgram({
           segments: [
             revealProgram().segments[0]!,
@@ -226,6 +340,38 @@ describe("sceneAt", () => {
     ).toThrow(/overlap/i);
   });
 });
+
+function afterActionsSceneAt(
+  program: CompiledSurfacePresentationVisualProgram,
+  timeMs: number,
+  motionMode: PresentationMotionMode,
+) {
+  return sceneAtPosition(
+    program,
+    [],
+    createPresentationPlaybackPosition(timeMs, "after-actions"),
+    motionMode,
+  );
+}
+
+function layerTrack(
+  switchId: string,
+  ownerId: EmbeddedNodeId,
+  initialLayerId: EmbeddedNodeId,
+  selectedLayerId: EmbeddedNodeId,
+): CompiledOwnerLayerTrack {
+  return {
+    ownerId,
+    initialLayerId,
+    switches: [
+      {
+        id: EmbeddedDataIdSchema.parse(switchId),
+        atMs: 500,
+        layerId: selectedLayerId,
+      },
+    ],
+  };
+}
 
 function revealProgram(
   overrides: Partial<CompiledSurfacePresentationVisualProgram> = {},

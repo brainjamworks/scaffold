@@ -1,5 +1,7 @@
 import { Result, type Result as ResultType } from "better-result";
 
+import type { PresentationPlaybackPosition } from "@/presentation/model";
+
 import type {
   CompiledInternalClockSurfaceTimeline,
   PresentationWaitId,
@@ -12,7 +14,10 @@ import {
   type PresentationPlaybackClockReadingSource,
   type PresentationPlaybackClockSource,
 } from "./presentation-monotonic-clock";
-import { createPresentationPlaybackMachine } from "./presentation-playback-machine";
+import {
+  createPresentationPlaybackMachine,
+  type PresentationAdvancementLifecycle,
+} from "./presentation-playback-machine";
 import type { PresentationGatePort } from "./presentation-progression-gate";
 
 export type PresentationPlaybackPhase =
@@ -22,6 +27,8 @@ export type PresentationPlaybackPhase =
   | "held"
   | "completed"
   | "stopped";
+
+export type { PresentationAdvancementLifecycle } from "./presentation-playback-machine";
 
 export type PresentationHold =
   | {
@@ -41,7 +48,8 @@ export interface PresentationOutstandingLearnerWait {
 interface PresentationPlaybackSnapshotBase {
   readonly runNumber: number;
   readonly surfaceId: string;
-  readonly currentTimeMs: number;
+  readonly position: PresentationPlaybackPosition;
+  readonly advancement: PresentationAdvancementLifecycle;
   readonly durationMs: number;
   readonly outstandingLearnerWait: PresentationOutstandingLearnerWait | null;
 }
@@ -94,6 +102,9 @@ export interface PresentationPlaybackSession {
 export interface PresentationPlaybackSessionWithReplaceableClock extends PresentationPlaybackSession {
   useNarrationClock(source: PresentationNarrationClockSource): void;
   useInternalClock(): void;
+  beginMediaStart(): void;
+  beginAdvanceMediaStart(): PresentationAdvanceResult;
+  cancelMediaStart(): void;
 }
 
 export interface CreatePresentationPlaybackSessionInput {
@@ -111,7 +122,8 @@ interface PresentationPlaybackMachineProjection {
   readonly hold?: PresentationHold;
   readonly runNumber: number;
   readonly surfaceId: string;
-  readonly currentTimeMs: number;
+  readonly position: PresentationPlaybackPosition;
+  readonly advancement: PresentationAdvancementLifecycle;
   readonly durationMs: number;
   readonly outstandingLearnerWaitId: PresentationWaitId | null;
 }
@@ -131,7 +143,9 @@ function snapshotsAreEqual(
     left.phase === right.phase &&
     left.runNumber === right.runNumber &&
     left.surfaceId === right.surfaceId &&
-    left.currentTimeMs === right.currentTimeMs &&
+    left.position.timeMs === right.position.timeMs &&
+    left.position.side === right.position.side &&
+    left.advancement === right.advancement &&
     left.durationMs === right.durationMs &&
     holdsAreEqual(left.hold, right.hold) &&
     left.outstandingLearnerWait?.waitId === right.outstandingLearnerWait?.waitId
@@ -155,7 +169,8 @@ function freezeSnapshot(
     phase: snapshot.phase,
     runNumber: snapshot.runNumber,
     surfaceId: snapshot.surfaceId,
-    currentTimeMs: snapshot.currentTimeMs,
+    position: Object.freeze({ ...snapshot.position }),
+    advancement: snapshot.advancement,
     durationMs: snapshot.durationMs,
     outstandingLearnerWait,
   };
@@ -170,6 +185,19 @@ function freezeSnapshot(
     throw new Error(`Presentation ${snapshot.phase} snapshot unexpectedly contains a hold.`);
   }
   return Object.freeze({ ...base, phase: snapshot.phase });
+}
+
+function advanceErrorFor(snapshot: PresentationPlaybackSnapshot): PresentationAdvanceError | null {
+  if (snapshot.phase !== "held") {
+    return Object.freeze({ reason: "not-at-checkpoint" as const, phase: snapshot.phase });
+  }
+  if (snapshot.hold.kind === "learner" && snapshot.hold.status === "waiting") {
+    return Object.freeze({
+      reason: "learner-requirement-pending" as const,
+      waitId: snapshot.hold.waitId,
+    });
+  }
+  return null;
 }
 
 export function createPresentationPlaybackSession({
@@ -199,10 +227,13 @@ export function createPresentationPlaybackSession({
 
   const unsubscribeFromMachine = machine.subscribe((machineSnapshot) => {
     const nextSnapshot = freezeSnapshot(machineSnapshot);
-    if (snapshotsAreEqual(snapshot, nextSnapshot)) return;
-
-    snapshot = nextSnapshot;
-    for (const listener of [...listeners]) listener();
+    if (!snapshotsAreEqual(snapshot, nextSnapshot)) {
+      snapshot = nextSnapshot;
+      for (const listener of [...listeners]) listener();
+    }
+    if (machineSnapshot.boundaryReleasePending) {
+      machine.confirmBoundaryReleasePublished(machineSnapshot.runNumber);
+    }
   });
 
   function assertNotDisposed(operation: string): void {
@@ -277,22 +308,8 @@ export function createPresentationPlaybackSession({
     },
     advance(): PresentationAdvanceResult {
       assertNotDisposed("advance");
-      if (snapshot.phase !== "held") {
-        return Result.err(
-          Object.freeze({
-            reason: "not-at-checkpoint" as const,
-            phase: snapshot.phase,
-          }),
-        );
-      }
-      if (snapshot.hold.kind === "learner" && snapshot.hold.status === "waiting") {
-        return Result.err(
-          Object.freeze({
-            reason: "learner-requirement-pending" as const,
-            waitId: snapshot.hold.waitId,
-          }),
-        );
-      }
+      const error = advanceErrorFor(snapshot);
+      if (error) return Result.err(error);
 
       const heldSnapshot = snapshot;
       machine.advance();
@@ -300,6 +317,23 @@ export function createPresentationPlaybackSession({
         throw new Error("Presentation advance did not release the active hold.");
       }
       return Result.ok();
+    },
+    beginMediaStart() {
+      assertNotDisposed("begin media start for");
+      assertNotStopped("begin media start for");
+      machine.beginMediaStart();
+    },
+    beginAdvanceMediaStart(): PresentationAdvanceResult {
+      assertNotDisposed("begin media start for");
+      assertNotStopped("begin media start for");
+      const error = advanceErrorFor(snapshot);
+      if (error) return Result.err(error);
+      machine.beginMediaStart();
+      return Result.ok();
+    },
+    cancelMediaStart() {
+      assertNotDisposed("cancel media start for");
+      machine.cancelMediaStart();
     },
     restart() {
       assertNotDisposed("restart");

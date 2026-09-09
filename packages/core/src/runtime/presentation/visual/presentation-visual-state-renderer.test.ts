@@ -167,7 +167,8 @@ function scene(
 ): PresentationVisualScene {
   return {
     surfaceId: SURFACE_ID,
-    timeMs: 750,
+    position: { timeMs: 750, side: "after-actions" },
+    selectedLayerByOwnerId: new Map(),
     targetStates: new Map([[TARGET_ID, state], ...additional]),
   };
 }

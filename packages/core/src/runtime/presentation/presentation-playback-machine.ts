@@ -8,6 +8,13 @@ import {
   setup,
 } from "xstate";
 
+import {
+  comparePresentationPlaybackPositions,
+  createPresentationPlaybackPosition,
+  presentationActionStartPosition,
+  type PresentationPlaybackPosition,
+} from "@/presentation/model";
+
 import type {
   CompiledInternalClockSurfaceTimeline,
   CompiledPresentationCue,
@@ -30,6 +37,8 @@ type PresentationPlaybackMachinePhase =
   | "held"
   | "completed"
   | "stopped";
+
+export type PresentationAdvancementLifecycle = "advancing" | "suspended" | "awaiting-media-start";
 
 type PresentationPlaybackMachineHold =
   | {
@@ -55,13 +64,14 @@ interface PresentationPlaybackMachineContext {
   readonly cues: readonly CompiledPresentationCue[];
   readonly waits: readonly CompiledPresentationWait[];
   runNumber: number;
-  currentTimeMs: number;
+  position: PresentationPlaybackPosition;
   anchorClockTimeMs: number;
   anchorPresentationTimeMs: number;
   consumedCueIds: ReadonlySet<string>;
   passedWaitIds: ReadonlySet<PresentationWaitId>;
   pendingWait: CompiledPresentationWait | null;
   outstandingLearnerWaitId: PresentationWaitId | null;
+  mediaStartPending: boolean;
 }
 
 type PresentationPlaybackMachineEvent =
@@ -77,7 +87,10 @@ type PresentationPlaybackMachineEvent =
   | { readonly type: "stop" }
   | { readonly type: "clock-tick"; readonly projectedTimeMs: number }
   | { readonly type: "cue-worker-drained"; readonly runNumber: number }
-  | { readonly type: "cue-worker-defect"; readonly error: unknown };
+  | { readonly type: "cue-worker-defect"; readonly error: unknown }
+  | { readonly type: "boundary-release-published"; readonly runNumber: number }
+  | { readonly type: "media-start-requested" }
+  | { readonly type: "media-start-cancelled" };
 
 interface PresentationPlaybackMachineInput {
   readonly timeline: CompiledInternalClockSurfaceTimeline;
@@ -132,7 +145,9 @@ interface PresentationPlaybackMachineSnapshot {
   readonly hold?: PresentationPlaybackMachineHold;
   readonly runNumber: number;
   readonly surfaceId: string;
-  readonly currentTimeMs: number;
+  readonly position: PresentationPlaybackPosition;
+  readonly advancement: PresentationAdvancementLifecycle;
+  readonly boundaryReleasePending: boolean;
   readonly durationMs: number;
   readonly outstandingLearnerWaitId: PresentationWaitId | null;
 }
@@ -143,6 +158,9 @@ interface PresentationPlaybackMachine {
   play(): void;
   pause(): void;
   advance(): void;
+  confirmBoundaryReleasePublished(runNumber: number): void;
+  beginMediaStart(): void;
+  cancelMediaStart(): void;
   seek(timeMs: number): void;
   restart(): void;
   stop(): void;
@@ -325,11 +343,19 @@ function projectedClockTime(input: {
   return projectedTimeMs;
 }
 
+function waitPosition(wait: CompiledPresentationWait): PresentationPlaybackPosition {
+  return createPresentationPlaybackPosition(wait.atMs, wait.boundary);
+}
+
 function unconsumedCuesThrough(
   context: PresentationPlaybackMachineContext,
-  timeMs: number,
+  position: PresentationPlaybackPosition,
 ): readonly CompiledPresentationCue[] {
-  return context.cues.filter((cue) => cue.atMs <= timeMs && !context.consumedCueIds.has(cue.id));
+  return context.cues.filter(
+    (cue) =>
+      comparePresentationPlaybackPositions(presentationActionStartPosition(cue.atMs), position) <=
+        0 && !context.consumedCueIds.has(cue.id),
+  );
 }
 
 function consumedCueIdsWith(
@@ -343,7 +369,7 @@ function consumedCueIdsAfterSeek(
   context: PresentationPlaybackMachineContext,
   timeMs: number,
 ): ReadonlySet<string> {
-  const movedForward = timeMs > context.currentTimeMs;
+  const movedForward = timeMs > context.position.timeMs;
   return new Set(
     context.cues
       .filter((cue) =>
@@ -368,7 +394,7 @@ function waitAtCurrentTime(
   context: PresentationPlaybackMachineContext,
 ): CompiledPresentationWait | undefined {
   return context.waits.find(
-    (wait) => wait.atMs === context.currentTimeMs && !context.passedWaitIds.has(wait.id),
+    (wait) => wait.atMs === context.position.timeMs && !context.passedWaitIds.has(wait.id),
   );
 }
 
@@ -378,10 +404,21 @@ function crossedWait(
 ): CompiledPresentationWait | undefined {
   return context.waits.find(
     (wait) =>
-      wait.atMs > context.currentTimeMs &&
-      wait.atMs <= projectedTimeMs &&
+      comparePresentationPlaybackPositions(waitPosition(wait), context.position) > 0 &&
+      comparePresentationPlaybackPositions(
+        waitPosition(wait),
+        createPresentationPlaybackPosition(projectedTimeMs, "after-actions"),
+      ) <= 0 &&
       !context.passedWaitIds.has(wait.id),
   );
+}
+
+function positionAfterSeek(
+  context: PresentationPlaybackMachineContext,
+  timeMs: number,
+): PresentationPlaybackPosition {
+  if (timeMs === context.position.timeMs) return context.position;
+  return createPresentationPlaybackPosition(timeMs, "after-actions");
 }
 
 function pendingManualWait(
@@ -453,7 +490,7 @@ const presentationPlaybackMachineSetup = setup({
     gateObserver: presentationGateActor,
   },
   guards: {
-    atDuration: ({ context }) => context.currentTimeMs === context.durationMs,
+    atDuration: ({ context }) => context.position.timeMs === context.durationMs,
     hasWaitAtCurrentTime: ({ context }) => waitAtCurrentTime(context) !== undefined,
     seekAtWait: ({ context, event }) =>
       context.waits.some((wait) => wait.atMs === seekTimeFrom(event)),
@@ -464,7 +501,17 @@ const presentationPlaybackMachineSetup = setup({
     clockReachedDuration: ({ context, event }) => projectedTimeFrom(event) === context.durationMs,
     autoAdvanceEnabled: ({ context }) => context.autoAdvance,
     autoAdvanceAtDuration: ({ context }) =>
-      context.autoAdvance && context.currentTimeMs === context.durationMs,
+      context.autoAdvance && context.position.timeMs === context.durationMs,
+    pendingWaitBeforeActions: ({ context }) => context.pendingWait?.boundary === "before-actions",
+    pendingWaitBeforeActionsAtDuration: ({ context }) =>
+      context.pendingWait?.boundary === "before-actions" &&
+      context.position.timeMs === context.durationMs,
+    autoAdvanceBeforeActions: ({ context }) =>
+      context.autoAdvance && context.pendingWait?.boundary === "before-actions",
+    autoAdvanceBeforeActionsAtDuration: ({ context }) =>
+      context.autoAdvance &&
+      context.pendingWait?.boundary === "before-actions" &&
+      context.position.timeMs === context.durationMs,
     drainedCurrentRun: ({ context, event }) =>
       event.type === "cue-worker-drained" && event.runNumber === context.runNumber,
     drainedCurrentRunAtManualWait: ({ context, event }) =>
@@ -475,33 +522,55 @@ const presentationPlaybackMachineSetup = setup({
       event.type === "cue-worker-drained" &&
       event.runNumber === context.runNumber &&
       context.pendingWait?.kind === "learner-wait",
+    boundaryReleasePublishedForCurrentRun: ({ context, event }) =>
+      event.type === "boundary-release-published" && event.runNumber === context.runNumber,
   },
   actions: {
     anchorPlayback: assign({
       anchorClockTimeMs: ({ event }) => anchorClockTimeFrom(event),
-      anchorPresentationTimeMs: ({ context }) => context.currentTimeMs,
+      anchorPresentationTimeMs: ({ context }) => context.position.timeMs,
+      mediaStartPending: false,
     }),
     anchorPlaybackNow: assign({
       anchorClockTimeMs: ({ context }) => finiteClockReadingFrom(context.clockSource),
-      anchorPresentationTimeMs: ({ context }) => context.currentTimeMs,
+      anchorPresentationTimeMs: ({ context }) => context.position.timeMs,
+      mediaStartPending: false,
     }),
     applyClockTick: assign({
-      currentTimeMs: ({ event }) => projectedTimeFrom(event),
+      position: ({ event }) =>
+        createPresentationPlaybackPosition(projectedTimeFrom(event), "after-actions"),
     }),
-    applySeek: assign({
-      currentTimeMs: ({ event }) => seekTimeFrom(event),
-    }),
-    applyPlayingSeek: assign(({ event }) => {
+    applySeek: assign(({ context, event }) => ({
+      position: positionAfterSeek(context, seekTimeFrom(event)),
+      mediaStartPending: false,
+    })),
+    applyPlayingSeek: assign(({ context, event }) => {
       const timeMs = seekTimeFrom(event);
       return {
-        currentTimeMs: timeMs,
+        position: positionAfterSeek(context, timeMs),
         anchorClockTimeMs: anchorClockTimeFrom(event),
         anchorPresentationTimeMs: timeMs,
+        mediaStartPending: false,
       };
     }),
+    resolveCurrentPositionAfterActions: assign(({ context }) => ({
+      position: createPresentationPlaybackPosition(context.position.timeMs, "after-actions"),
+    })),
     enqueueCurrentCues: enqueueActions(({ context, enqueue }) => {
-      const cues = unconsumedCuesThrough(context, context.currentTimeMs);
+      const position = createPresentationPlaybackPosition(context.position.timeMs, "after-actions");
+      const cues = unconsumedCuesThrough(context, position);
       if (cues.length === 0) return;
+      enqueue.assign({ consumedCueIds: consumedCueIdsWith(context, cues) });
+      enqueue.sendTo("cueWorker", {
+        type: "enqueue-cues",
+        cues,
+        runNumber: context.runNumber,
+        surfaceId: context.surfaceId,
+      });
+    }),
+    settleCurrentCues: enqueueActions(({ context, enqueue }) => {
+      const position = createPresentationPlaybackPosition(context.position.timeMs, "after-actions");
+      const cues = unconsumedCuesThrough(context, position);
       enqueue.assign({ consumedCueIds: consumedCueIdsWith(context, cues) });
       enqueue.sendTo("cueWorker", {
         type: "enqueue-cues",
@@ -515,10 +584,13 @@ const presentationPlaybackMachineSetup = setup({
       if (!wait) {
         throw new Error("Presentation could not select the current Wait.");
       }
-      const cues = unconsumedCuesThrough(context, wait.atMs);
+      const position = waitPosition(wait);
+      const cues = unconsumedCuesThrough(context, position);
       enqueue.assign({
+        position,
         pendingWait: wait,
         consumedCueIds: consumedCueIdsWith(context, cues),
+        mediaStartPending: false,
       });
       enqueue.sendTo("cueWorker", {
         type: "enqueue-cues",
@@ -532,11 +604,13 @@ const presentationPlaybackMachineSetup = setup({
       if (!wait) {
         throw new Error("Presentation could not select the crossed Wait.");
       }
-      const cues = unconsumedCuesThrough(context, wait.atMs);
+      const position = waitPosition(wait);
+      const cues = unconsumedCuesThrough(context, position);
       enqueue.assign({
-        currentTimeMs: wait.atMs,
+        position,
         pendingWait: wait,
         consumedCueIds: consumedCueIdsWith(context, cues),
+        mediaStartPending: false,
       });
       enqueue.sendTo("cueWorker", {
         type: "enqueue-cues",
@@ -545,8 +619,19 @@ const presentationPlaybackMachineSetup = setup({
         surfaceId: context.surfaceId,
       });
     }),
+    resolveBeforeWaitBoundary: assign(({ context }) => {
+      if (context.pendingWait?.boundary !== "before-actions") {
+        throw new Error("Presentation cannot cross an after-actions Wait as a before boundary.");
+      }
+      return {
+        position: createPresentationPlaybackPosition(context.pendingWait.atMs, "after-actions"),
+      };
+    }),
     enqueueClockCues: enqueueActions(({ context, event, enqueue }) => {
-      const cues = unconsumedCuesThrough(context, projectedTimeFrom(event));
+      const cues = unconsumedCuesThrough(
+        context,
+        createPresentationPlaybackPosition(projectedTimeFrom(event), "after-actions"),
+      );
       if (cues.length === 0) return;
       enqueue.assign({ consumedCueIds: consumedCueIdsWith(context, cues) });
       enqueue.sendTo("cueWorker", {
@@ -557,7 +642,10 @@ const presentationPlaybackMachineSetup = setup({
       });
     }),
     enqueueEndpointCues: enqueueActions(({ context, event, enqueue }) => {
-      const cues = unconsumedCuesThrough(context, projectedTimeFrom(event));
+      const cues = unconsumedCuesThrough(
+        context,
+        createPresentationPlaybackPosition(projectedTimeFrom(event), "after-actions"),
+      );
       enqueue.assign({ consumedCueIds: consumedCueIdsWith(context, cues) });
       enqueue.sendTo("cueWorker", {
         type: "enqueue-cues",
@@ -595,13 +683,14 @@ const presentationPlaybackMachineSetup = setup({
     })),
     restartRun: assign({
       runNumber: ({ context }) => context.runNumber + 1,
-      currentTimeMs: 0,
+      position: () => createPresentationPlaybackPosition(0, "before-actions"),
       anchorClockTimeMs: 0,
       anchorPresentationTimeMs: 0,
       consumedCueIds: () => new Set<string>(),
       passedWaitIds: () => new Set<PresentationWaitId>(),
       pendingWait: null,
       outstandingLearnerWaitId: ({ context }) => firstOutstandingLearnerWaitId(context.waits),
+      mediaStartPending: false,
     }),
     markPendingWaitPassed: assign({
       passedWaitIds: ({ context }) => {
@@ -612,6 +701,8 @@ const presentationPlaybackMachineSetup = setup({
       },
     }),
     clearPendingWait: assign({ pendingWait: null }),
+    requestMediaStart: assign({ mediaStartPending: true }),
+    cancelMediaStart: assign({ mediaStartPending: false }),
     markLearnerWaitSatisfied: assign({
       outstandingLearnerWaitId: ({ context }) =>
         context.outstandingLearnerWaitId === pendingLearnerWait(context).id
@@ -675,13 +766,14 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
     cues: input.timeline.cues,
     waits: input.timeline.waits,
     runNumber: 1,
-    currentTimeMs: 0,
+    position: createPresentationPlaybackPosition(0, "before-actions"),
     anchorClockTimeMs: 0,
     anchorPresentationTimeMs: 0,
     consumedCueIds: new Set<string>(),
     passedWaitIds: new Set<PresentationWaitId>(),
     pendingWait: null,
     outstandingLearnerWaitId: firstOutstandingLearnerWaitId(input.timeline.waits),
+    mediaStartPending: false,
   }),
   invoke: {
     id: "cueWorker",
@@ -699,9 +791,11 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
     },
     stop: {
       target: ".stopped",
-      actions: "interruptForStop",
+      actions: ["interruptForStop", "cancelMediaStart"],
     },
     "cue-worker-defect": { actions: "throwWorkerDefect" },
+    "media-start-requested": { actions: "requestMediaStart" },
+    "media-start-cancelled": { actions: "cancelMediaStart" },
   },
   states: {
     "awaiting-start": {
@@ -712,8 +806,11 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
             target: "settling-wait-cues",
             actions: "settleAtCurrentWait",
           },
-          { guard: "atDuration", target: "completed" },
-          { target: "playing", actions: ["enqueueCurrentCues", "anchorPlayback"] },
+          { guard: "atDuration", target: "completed", actions: "cancelMediaStart" },
+          {
+            target: "playing",
+            actions: ["resolveCurrentPositionAfterActions", "enqueueCurrentCues", "anchorPlayback"],
+          },
         ],
         seek: [
           {
@@ -781,7 +878,7 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
           },
           { actions: ["enqueueClockCues", "applyClockTick"] },
         ],
-        pause: { target: "paused" },
+        pause: { target: "paused", actions: "cancelMediaStart" },
         seek: [
           {
             guard: "seekAtWait",
@@ -861,13 +958,54 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
         seek: fixedWaitStateSeekTransitions,
       },
     },
+    "releasing-before-wait": {
+      on: {
+        "boundary-release-published": {
+          guard: "boundaryReleasePublishedForCurrentRun",
+          target: "playing",
+          actions: "enqueueCurrentCues",
+        },
+        pause: { target: "paused", actions: "cancelMediaStart" },
+        seek: fixedWaitStateSeekTransitions,
+      },
+    },
+    "releasing-before-wait-at-duration": {
+      on: {
+        "boundary-release-published": {
+          guard: "boundaryReleasePublishedForCurrentRun",
+          target: "settling-cues",
+          actions: "settleCurrentCues",
+        },
+        seek: fixedWaitStateSeekTransitions,
+      },
+    },
     "held-manual": {
       on: {
         advance: [
           {
+            guard: "pendingWaitBeforeActionsAtDuration",
+            target: "releasing-before-wait-at-duration",
+            actions: [
+              "markPendingWaitPassed",
+              "resolveBeforeWaitBoundary",
+              "clearPendingWait",
+              "cancelMediaStart",
+            ],
+          },
+          {
+            guard: "pendingWaitBeforeActions",
+            target: "releasing-before-wait",
+            actions: [
+              "markPendingWaitPassed",
+              "resolveBeforeWaitBoundary",
+              "clearPendingWait",
+              "anchorPlayback",
+            ],
+          },
+          {
             guard: "atDuration",
             target: "completed",
-            actions: ["markPendingWaitPassed", "clearPendingWait"],
+            actions: ["markPendingWaitPassed", "clearPendingWait", "cancelMediaStart"],
           },
           {
             target: "playing",
@@ -886,6 +1024,27 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
           requirement: pendingLearnerWait(context).requirement,
         }),
         onDone: [
+          {
+            guard: "autoAdvanceBeforeActionsAtDuration",
+            target: "releasing-before-wait-at-duration",
+            actions: [
+              "markLearnerWaitSatisfied",
+              "markPendingWaitPassed",
+              "resolveBeforeWaitBoundary",
+              "clearPendingWait",
+            ],
+          },
+          {
+            guard: "autoAdvanceBeforeActions",
+            target: "releasing-before-wait",
+            actions: [
+              "markLearnerWaitSatisfied",
+              "markPendingWaitPassed",
+              "resolveBeforeWaitBoundary",
+              "clearPendingWait",
+              "anchorPlaybackNow",
+            ],
+          },
           {
             guard: "autoAdvanceAtDuration",
             target: "completed",
@@ -914,7 +1073,21 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
     "held-learner-ready": {
       on: {
         advance: [
-          { guard: "atDuration", target: "completed", actions: "clearPendingWait" },
+          {
+            guard: "pendingWaitBeforeActionsAtDuration",
+            target: "releasing-before-wait-at-duration",
+            actions: ["resolveBeforeWaitBoundary", "clearPendingWait", "cancelMediaStart"],
+          },
+          {
+            guard: "pendingWaitBeforeActions",
+            target: "releasing-before-wait",
+            actions: ["resolveBeforeWaitBoundary", "clearPendingWait", "anchorPlayback"],
+          },
+          {
+            guard: "atDuration",
+            target: "completed",
+            actions: ["clearPendingWait", "cancelMediaStart"],
+          },
           {
             target: "playing",
             actions: ["clearPendingWait", "anchorPlayback"],
@@ -931,8 +1104,11 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
             target: "settling-wait-cues",
             actions: "settleAtCurrentWait",
           },
-          { guard: "atDuration", target: "completed" },
-          { target: "playing", actions: ["enqueueCurrentCues", "anchorPlayback"] },
+          { guard: "atDuration", target: "completed", actions: "cancelMediaStart" },
+          {
+            target: "playing",
+            actions: ["resolveCurrentPositionAfterActions", "enqueueCurrentCues", "anchorPlayback"],
+          },
         ],
         seek: [
           {
@@ -1013,6 +1189,8 @@ function readMachinePhase(value: unknown): PresentationPlaybackMachinePhase {
       return value;
     case "settling-cues":
     case "settling-wait-cues":
+    case "releasing-before-wait":
+    case "releasing-before-wait-at-duration":
       return "playing";
     case "held-manual":
     case "held-learner-waiting":
@@ -1021,6 +1199,14 @@ function readMachinePhase(value: unknown): PresentationPlaybackMachinePhase {
     default:
       throw new Error(`Presentation actor entered impossible state "${String(value)}".`);
   }
+}
+
+function readAdvancementLifecycle(
+  value: unknown,
+  mediaStartPending: boolean,
+): PresentationAdvancementLifecycle {
+  if (mediaStartPending) return "awaiting-media-start";
+  return value === "playing" || value === "releasing-before-wait" ? "advancing" : "suspended";
 }
 
 export function createPresentationPlaybackMachine(
@@ -1055,7 +1241,11 @@ export function createPresentationPlaybackMachine(
             : {}),
       runNumber: snapshot.context.runNumber,
       surfaceId: snapshot.context.surfaceId,
-      currentTimeMs: snapshot.context.currentTimeMs,
+      position: snapshot.context.position,
+      advancement: readAdvancementLifecycle(snapshot.value, snapshot.context.mediaStartPending),
+      boundaryReleasePending:
+        snapshot.value === "releasing-before-wait" ||
+        snapshot.value === "releasing-before-wait-at-duration",
       durationMs: snapshot.context.durationMs,
       outstandingLearnerWaitId: snapshot.context.outstandingLearnerWaitId,
     };
@@ -1079,7 +1269,7 @@ export function createPresentationPlaybackMachine(
       const phase = readMachinePhase(snapshot.value);
       const needsAnchor =
         (phase === "awaiting-start" || phase === "paused") &&
-        snapshot.context.currentTimeMs < snapshot.context.durationMs;
+        snapshot.context.position.timeMs < snapshot.context.durationMs;
       actor.send({
         type: "play",
         anchorClockTimeMs: needsAnchor ? finiteClockReadingFrom(input.clockSource) : 0,
@@ -1090,12 +1280,16 @@ export function createPresentationPlaybackMachine(
       const snapshot = actor.getSnapshot();
       const phase = readMachinePhase(snapshot.value);
       const needsAnchor =
-        phase === "held" && snapshot.context.currentTimeMs < snapshot.context.durationMs;
+        phase === "held" && snapshot.context.position.timeMs < snapshot.context.durationMs;
       actor.send({
         type: "advance",
         anchorClockTimeMs: needsAnchor ? finiteClockReadingFrom(input.clockSource) : 0,
       });
     },
+    confirmBoundaryReleasePublished: (runNumber: number) =>
+      actor.send({ type: "boundary-release-published", runNumber }),
+    beginMediaStart: () => actor.send({ type: "media-start-requested" }),
+    cancelMediaStart: () => actor.send({ type: "media-start-cancelled" }),
     seek: (timeMs: number) => {
       const snapshot = actor.getSnapshot();
       const needsAnchor =
