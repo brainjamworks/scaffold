@@ -295,11 +295,13 @@ function createSlideshowIntegrationArtifact() {
         {
           surfaceId: INTERACTIONS_FIXTURE_IDS.coverSurface,
           durationMs: 5_000,
+          layerTracks: [],
           actions: [],
         },
         {
           surfaceId: INTERACTIONS_FIXTURE_IDS.contentSurface,
           durationMs: 5_000,
+          layerTracks: [],
           actions: [],
         },
       ],

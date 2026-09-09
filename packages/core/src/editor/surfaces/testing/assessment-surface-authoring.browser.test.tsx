@@ -410,8 +410,8 @@ function createProductionAuthoringDocument(
             autoAdvance: false,
             allowPrevious: true,
             surfaces: [
-              { surfaceId: SURFACE_ID, durationMs: 0, actions: [] },
-              { surfaceId: SECOND_SURFACE_ID, durationMs: 0, actions: [] },
+              { surfaceId: SURFACE_ID, durationMs: 0, layerTracks: [], actions: [] },
+              { surfaceId: SECOND_SURFACE_ID, durationMs: 0, layerTracks: [], actions: [] },
             ],
           },
         },

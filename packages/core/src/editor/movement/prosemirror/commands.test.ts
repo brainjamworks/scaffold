@@ -4,6 +4,7 @@ import { Editor, Extension, Node, type JSONContent } from "@tiptap/core";
 import { Plugin } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import {
   CellAuthoringNode,
@@ -13,6 +14,10 @@ import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
 } from "@/editor/arrangements/layout/authoring/layout-nodes";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
@@ -24,6 +29,7 @@ import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-va
 import { RegionAuthoringNode } from "@/editor/surfaces/authoring/nodes/region-authoring-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createDocumentTreeDefinitionLookup } from "@/composition/model/document-tree-definition-lookup";
 import { createDocumentAuthoringExtension } from "@/document/authoring/document-authoring-extension";
@@ -248,12 +254,16 @@ function paragraph(): JSONContent {
   return { type: "paragraph" };
 }
 
+function layer(content: JSONContent[]): JSONContent {
+  return { type: "layer", content: content.length ? content : [paragraph()] };
+}
+
 function section(content: JSONContent[]): JSONContent {
-  return { type: "section", content: content.length ? content : [paragraph()] };
+  return { type: "section", content: [layer(content)] };
 }
 
 function layout(content: JSONContent[] = [section([block("nested")])]): JSONContent {
-  return { type: "layout", content: [section(content)] };
+  return { type: "layout", attrs: { variant: "tabs" }, content: [section(content)] };
 }
 
 function tabsLayout(content: JSONContent[] = [paragraph()]): JSONContent {
@@ -268,12 +278,12 @@ function region(id: string, content: JSONContent[]): JSONContent {
   return {
     type: "region",
     attrs: { id },
-    content: content.length ? content : [paragraph()],
+    content: [layer(content)],
   };
 }
 
 function cell(content: JSONContent[]): JSONContent {
-  return { type: "cell", content: content.length ? content : [paragraph()] };
+  return { type: "cell", content: [layer(content)] };
 }
 
 function grid(cells: JSONContent[]): JSONContent {
@@ -310,6 +320,8 @@ function makeEditor(
       })
     : testCapabilities;
 
+  const document = courseDocument(content, surfaceVariant);
+  establishFixtureIds(document);
   return new Editor({
     extensions: [
       DocumentNode,
@@ -322,6 +334,8 @@ function makeEditor(
       ...(options.includeCapabilities === false
         ? []
         : [createScaffoldCapabilitiesStorageExtension(capabilities)]),
+      createDocumentAuthoringExtension(capabilities.documentTree),
+      createLayerEditingBoundaryExtension(testBlockRegistry, capabilities.layouts.registry),
       ExtendedParagraph,
       CourseDocumentNode,
       createCourseSectionNode(),
@@ -331,11 +345,14 @@ function makeEditor(
       CellAuthoringNode,
       LayoutAuthoringNode,
       SectionAuthoringNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
+      LayerNode,
       TestBlockNode,
       FillTestBlockNode,
       MovementTestAssessmentQuestionNode,
     ],
-    content: courseDocument(content, surfaceVariant),
+    content: document,
   });
 }
 
@@ -426,7 +443,7 @@ function nodePos(editor: Editor, type: string, id?: string): number {
   editor.state.doc.descendants((node, pos) => {
     if (found !== null) return false;
     if (node.type.name !== type) return true;
-    if (id !== undefined && node.attrs["id"] !== id) return true;
+    if (id !== undefined && node.attrs["id"] !== fixtureEmbeddedId(id)) return true;
     found = pos;
     return false;
   });
@@ -497,7 +514,7 @@ function idsInDocument(editor: Editor): string[] {
 
   editor.state.doc.descendants((node) => {
     if (node.type.name === "test_block" && typeof node.attrs["id"] === "string") {
-      ids.push(node.attrs["id"]);
+      ids.push(fixtureIdAliases.get(node.attrs["id"]) ?? node.attrs["id"]);
     }
     return true;
   });
@@ -510,7 +527,7 @@ function blockAttrs(editor: Editor, id: string): Record<string, unknown> {
 
   editor.state.doc.descendants((node) => {
     if (attrs) return false;
-    if (node.type.name !== "test_block" || node.attrs["id"] !== id) return true;
+    if (node.type.name !== "test_block" || node.attrs["id"] !== fixtureEmbeddedId(id)) return true;
     attrs = node.attrs;
     return false;
   });
@@ -526,10 +543,10 @@ function surfaceChildren(editor: Editor): JSONContent[] {
 }
 
 function regionChildren(editor: Editor, id: string): JSONContent[] {
-  return (
-    surfaceChildren(editor).find((child) => child.type === "region" && child.attrs?.["id"] === id)
-      ?.content ?? []
+  const region = surfaceChildren(editor).find(
+    (child) => child.type === "region" && child.attrs?.["id"] === fixtureEmbeddedId(id),
   );
+  return compositionChildren(region);
 }
 
 function gridCells(editor: Editor): JSONContent[] {
@@ -538,17 +555,49 @@ function gridCells(editor: Editor): JSONContent[] {
 }
 
 function cellBlockIds(cellNode: JSONContent): string[] {
-  return (cellNode.content ?? [])
+  return compositionChildren(cellNode)
     .filter((child) => child.type === "test_block")
     .map((child) => child.attrs?.["id"])
-    .filter((id): id is string => typeof id === "string");
+    .filter((id): id is string => typeof id === "string")
+    .map((id) => fixtureIdAliases.get(id) ?? id);
 }
 
 function fillBlockIds(cellNode: JSONContent): string[] {
-  return (cellNode.content ?? [])
+  return compositionChildren(cellNode)
     .filter((child) => child.type === FILL_TEST_BLOCK)
     .map((child) => child.attrs?.["id"])
-    .filter((id): id is string => typeof id === "string");
+    .filter((id): id is string => typeof id === "string")
+    .map((id) => fixtureIdAliases.get(id) ?? id);
+}
+
+function compositionChildren(owner: JSONContent | undefined): JSONContent[] {
+  const layer = owner?.content?.find((child) => child.type === "layer");
+  return layer?.content ?? [];
+}
+
+const fixtureIdAliases = new Map<string, string>();
+
+function fixtureEmbeddedId(id: string): string {
+  if (EmbeddedNodeIdSchema.safeParse(id).success) return id;
+  const stableId = `fixture${id.replace(/[^0-9A-Z_a-z-]/g, "")}000000000000`.slice(0, 12);
+  fixtureIdAliases.set(stableId, id);
+  return stableId;
+}
+
+function establishFixtureIds(root: JSONContent): void {
+  const stack = [root];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node.type !== "doc" && node.type !== "text") {
+      const id = node.attrs?.["id"];
+      node.attrs = {
+        ...node.attrs,
+        id:
+          typeof id === "string" && id.length > 0 ? fixtureEmbeddedId(id) : createEmbeddedNodeId(),
+      };
+    }
+    stack.push(...(node.content ?? []));
+  }
 }
 
 function nodeTypesInJson(content: JSONContent): string[] {
@@ -708,29 +757,32 @@ describe("drag movement commands", () => {
     editor.destroy();
   });
 
-  it("moves a fill block into a page-flow cell that already contains a fill block", () => {
+  it("rejects a fill block moved into a Layer that already has a fill occupant", () => {
     const editor = makeEditor([fillBlock("a"), grid([cell([fillBlock("b")]), cell([block("c")])])]);
     const sourcePos = nodePos(editor, FILL_TEST_BLOCK, "a");
     const intent = new InsertInsideTarget(movementTarget(editor, "cell"));
+    const before = editor.getJSON();
 
-    expect(canApplyMovementIntent(editor, sourcePos, intent)).toBe(true);
-    expect(applyMovementIntent(editor, sourcePos, intent)).toBe(true);
+    expect(canApplyMovementIntent(editor, sourcePos, intent)).toBe(false);
+    expect(applyMovementIntent(editor, sourcePos, intent)).toBe(false);
 
-    expect(fillBlockIds(gridCells(editor)[0]!)).toEqual(["b", "a"]);
+    expect(editor.getJSON()).toEqual(before);
+    expect(fillBlockIds(gridCells(editor)[0]!)).toEqual(["b"]);
     editor.destroy();
   });
 
-  it("moves a fill block below a fill tabs layout in a page-flow cell", () => {
+  it("rejects a fill block moved beside a fill Layout in the same Layer", () => {
     const editor = makeEditor([fillBlock("a"), grid([cell([tabsLayout()])])]);
     const sourcePos = nodePos(editor, FILL_TEST_BLOCK, "a");
     const intent = new InsertAfterTarget(movementTarget(editor, "layout"));
+    const before = editor.getJSON();
 
-    expect(canApplyMovementIntent(editor, sourcePos, intent)).toBe(true);
-    expect(applyMovementIntent(editor, sourcePos, intent)).toBe(true);
+    expect(canApplyMovementIntent(editor, sourcePos, intent)).toBe(false);
+    expect(applyMovementIntent(editor, sourcePos, intent)).toBe(false);
 
-    expect(gridCells(editor)[0]?.content?.map((child) => child.type)).toEqual([
+    expect(editor.getJSON()).toEqual(before);
+    expect(compositionChildren(gridCells(editor)[0]).map((child) => child.type)).toEqual([
       "layout",
-      FILL_TEST_BLOCK,
     ]);
     editor.destroy();
   });
@@ -741,7 +793,7 @@ describe("drag movement commands", () => {
       {
         type: "region",
         attrs: { id: "region-a" },
-        content: [grid([cell([tabsLayout()])])],
+        content: [layer([grid([cell([tabsLayout()])])])],
       },
     ]);
     const sourcePos = nodePos(editor, FILL_TEST_BLOCK, "a");
@@ -790,7 +842,9 @@ describe("drag movement commands", () => {
       ),
     ).toBe(true);
 
-    expect(gridCells(editor)[0]?.content?.map((child) => child.type)).toEqual(["test_block"]);
+    expect(compositionChildren(gridCells(editor)[0]).map((child) => child.type)).toEqual([
+      "test_block",
+    ]);
     expect(cellBlockIds(gridCells(editor)[0]!)).toEqual(["a"]);
     expect(idsInDocument(editor)).toEqual(["a", "b"]);
     editor.destroy();
@@ -1029,7 +1083,9 @@ describe("drag movement commands", () => {
       "paragraph",
     ]);
     expect(
-      regionChildren(editor, "tabs-region")[0]?.content?.[0]?.content?.map((child) => child.type),
+      compositionChildren(regionChildren(editor, "tabs-region")[0]?.content?.[0]).map(
+        (child) => child.type,
+      ),
     ).toEqual(["test_block"]);
     expect(idsInDocument(editor)).toEqual(["a"]);
     editor.destroy();
@@ -1047,7 +1103,9 @@ describe("drag movement commands", () => {
       ),
     ).toBe(true);
 
-    expect(gridCells(editor)[0]?.content?.map((child) => child.type)).toEqual(["test_block"]);
+    expect(compositionChildren(gridCells(editor)[0]).map((child) => child.type)).toEqual([
+      "test_block",
+    ]);
     expect(blockAttrs(editor, "a")["frame"]).toEqual(frame);
     editor.destroy();
   });
@@ -1110,10 +1168,7 @@ describe("drag movement commands", () => {
   });
 
   it("moves a layout into a cell", () => {
-    const editor = makeEditor([
-      layout([block("a")]),
-      grid([cell([block("b")]), cell([block("c")])]),
-    ]);
+    const editor = makeEditor([layout([block("a")]), grid([cell([]), cell([block("c")])])]);
 
     expect(
       applyMovementIntent(
@@ -1123,11 +1178,10 @@ describe("drag movement commands", () => {
       ),
     ).toBe(true);
 
-    expect(gridCells(editor)[0]?.content?.map((child) => child.type)).toEqual([
-      "test_block",
+    expect(compositionChildren(gridCells(editor)[0]).map((child) => child.type)).toEqual([
       "layout",
     ]);
-    expect(idsInDocument(editor)).toEqual(["b", "a", "c"]);
+    expect(idsInDocument(editor)).toEqual(["a", "c"]);
     editor.destroy();
   });
 

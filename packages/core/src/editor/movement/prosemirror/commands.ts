@@ -243,9 +243,23 @@ function buildMovementTransaction(
       ? resolveLayerTargetAtPosition({ doc, pos: sourcePos, layoutDefinitions })?.ownerSlot
           .logicalOwner.id
       : null;
+    const destinationOwnerId = layoutDefinitions
+      ? resolveLayerTargetAtPosition({
+          doc,
+          pos: resolvedDirectTarget!.pos,
+          layoutDefinitions,
+        })?.ownerSlot.logicalOwner.id
+      : null;
     authorizeExplicitLayerStructuralSteps(tr, {
       fromStep: 0,
-      rootIds: [requireStableNodeId(sourceNode), ...(sourceOwnerId ? [sourceOwnerId] : [])],
+      rootIds: [
+        requireStableNodeId(sourceNode),
+        ...new Set(
+          [sourceOwnerId, destinationOwnerId].filter(
+            (id): id is EmbeddedNodeId => id !== null && id !== undefined,
+          ),
+        ),
+      ],
     });
   }
   return tr;

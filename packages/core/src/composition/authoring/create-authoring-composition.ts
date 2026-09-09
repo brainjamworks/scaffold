@@ -25,6 +25,10 @@ import {
 } from "@/document/authoring/unavailable-content";
 import { createDocumentAuthoringExtension } from "@/document/authoring/document-authoring-extension";
 import { createLayerEditingBoundaryExtension } from "@/document/authoring/layers/layer-editing-boundaries";
+import {
+  authoringLayerNodeViewProjection,
+  createLayerNodeView,
+} from "@/editor/layers/layer-node-view";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
@@ -151,6 +155,11 @@ export function createCourseDocumentAuthoringExtensions({
     registry: surfaceRegistry,
     views: composition.surfaces.views,
   });
+  const layerNode = createLayerNodeView({
+    blockDefinitions: blockRegistry,
+    layoutDefinitions: layoutRegistry,
+    projection: authoringLayerNodeViewProjection,
+  });
   const courseDocumentNode = CourseDocumentNode.extend({
     content: authoringCourseDocumentContentExpression(),
   });
@@ -164,6 +173,7 @@ export function createCourseDocumentAuthoringExtensions({
     courseSectionNode: createCourseSectionNode(),
     gridNode: GridAuthoringNode,
     inlineIconNode: InlineIconAuthoringNode,
+    layerNode,
     layoutNode,
     mathInlineNode: MathInlineNode,
     selectableChoiceNode: SelectableChoiceAuthoringNode,

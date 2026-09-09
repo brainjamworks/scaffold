@@ -48,6 +48,9 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     const visualTimeline = Object.freeze({
       surfaceId: SURFACE_ID,
       durationMs: 1_000,
+      transition: null,
+      layerTracks: Object.freeze([]),
+      layerTrackByOwnerId: new Map(),
       cues: Object.freeze([
         Object.freeze({
           id: EmbeddedDataIdSchema.parse("select000001"),
@@ -718,6 +721,9 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     const presentationTimeline = Object.freeze<CompiledSurfacePresentationTimeline>({
       surfaceId: SURFACE_ID,
       durationMs: 100,
+      transition: null,
+      layerTracks: Object.freeze([]),
+      layerTrackByOwnerId: new Map(),
       visualProgram: emptyVisualProgram(SURFACE_ID, 100),
       cues: [
         {
@@ -737,6 +743,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
           kind: "learner-wait",
           id: "learner-wait" as PresentationWaitId,
           atMs: 0,
+          boundary: "before-actions",
           requirement: { kind: "event", ...when },
         },
       ],
@@ -827,6 +834,9 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
           timeline: {
             surfaceId: SURFACE_ID,
             durationMs: 100,
+            transition: null,
+            layerTracks: [],
+            layerTrackByOwnerId: new Map(),
             visualProgram: emptyVisualProgram(SURFACE_ID, 100),
             cues: [],
             waits: [
@@ -834,6 +844,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
                 kind: "learner-wait",
                 id: "branch-wait1" as PresentationWaitId,
                 atMs: 0,
+                boundary: "before-actions",
                 requirement: { kind: "event", ...when },
               },
             ],
@@ -1015,6 +1026,9 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
       const gateTimeline = Object.freeze<CompiledSurfacePresentationTimeline>({
         surfaceId: SURFACE_ID,
         durationMs: 0,
+        transition: null,
+        layerTracks: Object.freeze([]),
+        layerTrackByOwnerId: new Map(),
         visualProgram: emptyVisualProgram(SURFACE_ID, 0),
         cues: Object.freeze([]),
         waits: Object.freeze([
@@ -1022,6 +1036,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
             kind: "learner-wait",
             id: "empty-program-wait" as PresentationWaitId,
             atMs: 0,
+            boundary: "before-actions",
             requirement: {
               kind: "event",
               ownerId: OWNER_ID,
@@ -1063,10 +1078,18 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     const manualTimeline = Object.freeze<CompiledSurfacePresentationTimeline>({
       surfaceId: SURFACE_ID,
       durationMs: 0,
+      transition: null,
+      layerTracks: Object.freeze([]),
+      layerTrackByOwnerId: new Map(),
       visualProgram: emptyVisualProgram(SURFACE_ID, 0),
       cues: Object.freeze([]),
       waits: Object.freeze([
-        { kind: "manual-wait", id: "manual-auto-wait" as PresentationWaitId, atMs: 0 },
+        {
+          kind: "manual-wait",
+          id: "manual-auto-wait" as PresentationWaitId,
+          atMs: 0,
+          boundary: "before-actions",
+        },
       ]),
     });
     const composition = createSlideshowSurfaceRuntimeComposition({
@@ -1109,6 +1132,9 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     const disposalTimeline = Object.freeze<CompiledSurfacePresentationTimeline>({
       surfaceId: SURFACE_ID,
       durationMs: 100,
+      transition: null,
+      layerTracks: Object.freeze([]),
+      layerTrackByOwnerId: new Map(),
       visualProgram: emptyVisualProgram(SURFACE_ID, 100),
       cues: [
         {
@@ -1123,7 +1149,14 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
           seekBehavior: "consume",
         },
       ],
-      waits: [{ kind: "manual-wait", id: "manual-wait" as PresentationWaitId, atMs: 0 }],
+      waits: [
+        {
+          kind: "manual-wait",
+          id: "manual-wait" as PresentationWaitId,
+          atMs: 0,
+          boundary: "before-actions",
+        },
+      ],
     });
     const composition = createSlideshowSurfaceRuntimeComposition({
       surfaceId: SURFACE_ID,
@@ -1287,6 +1320,9 @@ function emptyPresentationTimeline(
   return Object.freeze({
     surfaceId,
     durationMs,
+    transition: null,
+    layerTracks: Object.freeze([]),
+    layerTrackByOwnerId: new Map(),
     cues: Object.freeze([]),
     waits: Object.freeze([]),
     visualProgram: emptyVisualProgram(surfaceId, durationMs),

@@ -71,18 +71,6 @@ const RejectDocumentChanges = Extension.create({
     ];
   },
 });
-const nestedCellInsertCatalog = createInsertCatalog([
-  {
-    id: "test-nested-cell-block",
-    nodeType: "test_manual_catalog_block",
-    title: "Nested cell block",
-    description: "Test nested cell insertion",
-    icon: TestIcon,
-    category: "content",
-    content: () => ({ type: "test_manual_catalog_block" }),
-  },
-]);
-
 const RESIZABLE_CATALOG_BLOCK = "test_resizable_alignment_catalog_block";
 const TestResizableCatalogBlock = Node.create({
   name: RESIZABLE_CATALOG_BLOCK,
@@ -164,13 +152,20 @@ function slideCoverDocument(surfaceContent: JSONContent[]): JSONContent {
     surfaceId: createEmbeddedNodeId(),
   });
   surface.content = surfaceContent;
+  assignMissingNodeIds(surface);
   return {
     type: "doc",
     content: [
       {
         type: "courseDocument",
         attrs: { mode: "slideshow", surfaceSize: "16x9" },
-        content: [surface],
+        content: [
+          {
+            type: "courseSection",
+            attrs: { id: createEmbeddedNodeId(), title: "Insertion checks" },
+          },
+          surface,
+        ],
       },
     ],
   };
@@ -182,18 +177,34 @@ function slideContentDocument(regionContent: JSONContent[]): JSONContent {
   });
   const region = surface.content?.find((node) => node.type === "region");
   if (!region) throw new Error("Expected slide content surface to include its main region.");
-  region.attrs = { ...region.attrs, id: "region-slide-content" };
-  region.content = regionContent;
+  region.attrs = { ...region.attrs, id: createEmbeddedNodeId() };
+  const initialLayer = region.content?.[0];
+  if (initialLayer?.type !== "layer") throw new Error("Expected a production default Layer.");
+  initialLayer.content = regionContent;
+  assignMissingNodeIds(surface);
   return {
     type: "doc",
     content: [
       {
         type: "courseDocument",
         attrs: { mode: "slideshow", surfaceSize: "16x9" },
-        content: [surface],
+        content: [
+          {
+            type: "courseSection",
+            attrs: { id: createEmbeddedNodeId(), title: "Insertion checks" },
+          },
+          surface,
+        ],
       },
     ],
   };
+}
+
+function assignMissingNodeIds(root: JSONContent): void {
+  if (root.type !== "doc" && root.type !== "text" && !root.attrs?.["id"]) {
+    root.attrs = { ...root.attrs, id: createEmbeddedNodeId() };
+  }
+  for (const child of root.content ?? []) assignMissingNodeIds(child);
 }
 
 describe("insertCatalogItemChecked", () => {
@@ -479,8 +490,13 @@ describe("insertCatalogItemChecked", () => {
               type: "cell",
               content: [
                 {
-                  type: "paragraph",
-                  content: [{ type: "text", text: "/block" }],
+                  type: "layer",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "/block" }],
+                    },
+                  ],
                 },
               ],
             },
@@ -489,8 +505,8 @@ describe("insertCatalogItemChecked", () => {
       ]),
     );
     const from = findTextPosition(editor, "/block");
-    const nestedCellAction = nestedCellInsertCatalog.getById("test-nested-cell-block");
-    if (!nestedCellAction) throw new Error("Expected the nested-cell test action.");
+    const nestedCellAction = coreAuthoringComposition.catalogues.inDocument.getById("callout");
+    if (!nestedCellAction) throw new Error("Expected the production Callout action.");
 
     const inserted = insertCatalogItemChecked(
       editor,
@@ -505,8 +521,8 @@ describe("insertCatalogItemChecked", () => {
     );
 
     expect(inserted).toBe(true);
-    expect(nodeTypesInJson(editor.getJSON())).toContain("test_manual_catalog_block");
-    const insertedPosition = findNodePositionByType(editor, "test_manual_catalog_block");
+    expect(nodeTypesInJson(editor.getJSON())).toContain("callout");
+    const insertedPosition = findNodePositionByType(editor, "callout");
     const insertedNode = editor.state.doc.nodeAt(insertedPosition);
     if (!insertedNode) throw new Error("Expected the nested-cell insertion.");
     expectSelectionWithinNode(editor, insertedPosition, insertedNode);

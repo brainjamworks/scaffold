@@ -8,8 +8,11 @@ import {
 } from "@/document/authoring/CourseDocumentEditor.test-harness";
 import { isRegisteredSlideCompositionSurfaceDefinition } from "@/editor/surfaces/model/slide-composition-definition";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import {
+  checkRuntimeDocumentReadiness,
   CourseDocumentRuntimeRenderer,
   type CourseDocumentRuntimeRendererProps,
 } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
@@ -136,6 +139,14 @@ async function renderDocumentPair(
   authoringComposition: AuthoringComposition,
   runtimeComposition: CourseDocumentRuntimeRendererProps["composition"],
 ): Promise<RenderedCompositionStateCase> {
+  const readiness = checkRuntimeDocumentReadiness(initialContent, runtimeComposition, {
+    scaffoldPlusAuthorized: false,
+  });
+  if (readiness.status !== "supported") {
+    throw new Error(
+      `Expected a valid composition browser fixture, received ${readiness.status}: ${JSON.stringify(readiness)}`,
+    );
+  }
   const harnessHost = globalThis.document.createElement("div");
   harnessHost.dataset["compositionBrowserHarness"] = "";
   harnessHost.style.position = "absolute";
@@ -770,20 +781,23 @@ function createCompositionDocument(
         const role = String(child.attrs?.["role"]);
         return {
           ...child,
-          content:
-            nestedGrid && role === "primary"
-              ? [nestedGridContent()]
-              : [
-                  {
+          content: [
+            createLayerWithContent([
+              nestedGrid && role === "primary"
+                ? nestedGridContent()
+                : {
                     type: "paragraph",
+                    attrs: { id: createEmbeddedNodeId() },
                     content: [{ type: "text", text: `Geometry ${role}` }],
                   },
-                ],
+            ]),
+          ],
         };
       }
       return child;
     }),
   };
+  assignMissingNodeIds(populatedSurface);
   const content = createScaffoldDocumentContent({
     mode: "slideshow",
     surfaceId,
@@ -849,6 +863,7 @@ function createRegisteredSurfaceDocument(
         }
       : {}),
   };
+  assignMissingNodeIds(populatedSurface);
   const content = createScaffoldDocumentContent({
     mode: "slideshow",
     surfaceId,
@@ -873,24 +888,41 @@ function nestedGridContent(): JSONContent {
         type: "cell",
         attrs: { id: "geomcell0001" },
         content: [
-          {
-            type: "paragraph",
-            content: [{ type: "text", text: "Nested grid alpha" }],
-          },
+          createLayerWithContent([
+            {
+              type: "paragraph",
+              attrs: { id: createEmbeddedNodeId() },
+              content: [{ type: "text", text: "Nested grid alpha" }],
+            },
+          ]),
         ],
       },
       {
         type: "cell",
         attrs: { id: "geomcell0002" },
         content: [
-          {
-            type: "paragraph",
-            content: [{ type: "text", text: "Nested grid beta" }],
-          },
+          createLayerWithContent([
+            {
+              type: "paragraph",
+              attrs: { id: createEmbeddedNodeId() },
+              content: [{ type: "text", text: "Nested grid beta" }],
+            },
+          ]),
         ],
       },
     ],
   };
+}
+
+function assignMissingNodeIds(root: JSONContent): void {
+  const stack = [root];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node.type !== "doc" && node.type !== "text") {
+      node.attrs = { ...node.attrs, id: node.attrs?.["id"] ?? createEmbeddedNodeId() };
+    }
+    for (const child of node.content ?? []) stack.push(child);
+  }
 }
 
 function createRendererHost(renderer: "authoring" | "runtime"): HTMLElement {

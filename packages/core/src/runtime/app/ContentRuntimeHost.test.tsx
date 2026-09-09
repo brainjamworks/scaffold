@@ -21,6 +21,7 @@ import {
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { emptyCalloutData } from "@/editor/blocks/presentation/callout/content";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
@@ -381,7 +382,7 @@ function runtimeDocumentWithLayout(kind: "tabs" | "paginated"): JSONContent {
         role: kind === "tabs" ? "tab-panel" : "page",
         options: { label: labels[index] },
       },
-      content: [{ type: "paragraph" }],
+      content: [createLayerWithContent([{ type: "paragraph" }])],
     })),
   });
 }
@@ -413,7 +414,7 @@ function runtimeAccordionLayout(layoutId: string, sectionPrefix: string): JSONCo
           },
           {
             type: "accordion_section_panel",
-            content: [paragraph("Before class content")],
+            content: [createLayerWithContent([paragraph("Before class content")])],
           },
         ],
       },
@@ -431,7 +432,7 @@ function runtimeAccordionLayout(layoutId: string, sectionPrefix: string): JSONCo
           },
           {
             type: "accordion_section_panel",
-            content: [paragraph("After class content")],
+            content: [createLayerWithContent([paragraph("After class content")])],
           },
         ],
       },
@@ -477,49 +478,57 @@ function slideshowDocumentWithTabs(): JSONContent {
   if (!courseDocument || !definition) {
     throw new Error("runtime slideshow test document is missing its slide definition");
   }
+  const courseSection = courseDocument.content?.find((node) => node.type === "courseSection");
+  if (!courseSection) {
+    throw new Error("runtime slideshow test document is missing its Course Section");
+  }
   const firstSurface = definition.createSurface({ surfaceId: FIRST_SLIDESHOW_SURFACE_ID });
   const secondSurface = definition.createSurface({ surfaceId: SECOND_SLIDESHOW_SURFACE_ID });
-  courseDocument.content = [firstSurface, secondSurface];
-  const firstRegion = courseDocument.content[0]?.content?.find((node) => node.type === "region");
-  const secondRegion = courseDocument.content[1]?.content?.find((node) => node.type === "region");
+  courseDocument.content = [courseSection, firstSurface, secondSurface];
+  const firstRegion = firstSurface.content?.find((node) => node.type === "region");
+  const secondRegion = secondSurface.content?.find((node) => node.type === "region");
 
   if (!firstRegion || !secondRegion) {
     throw new Error("runtime slideshow test document is missing its content regions");
   }
 
   firstRegion.content = [
-    {
-      type: "layout",
-      attrs: {
-        id: "layout-slide-one",
-        variant: "tabs",
-        options: { variant: "default", label: "First slide sections" },
-      },
-      content: [
-        {
-          type: "section",
-          attrs: { id: "tab-slide-one", role: "tab-panel", options: { label: "First tab" } },
-          content: [{ type: "paragraph" }],
+    createLayerWithContent([
+      {
+        type: "layout",
+        attrs: {
+          id: "layout-slide-one",
+          variant: "tabs",
+          options: { variant: "default", label: "First slide sections" },
         },
-      ],
-    },
+        content: [
+          {
+            type: "section",
+            attrs: { id: "tab-slide-one", role: "tab-panel", options: { label: "First tab" } },
+            content: [createLayerWithContent([{ type: "paragraph" }])],
+          },
+        ],
+      },
+    ]),
   ];
   secondRegion.content = [
-    {
-      type: "layout",
-      attrs: {
-        id: "layout-slide-two",
-        variant: "tabs",
-        options: { variant: "default", label: "Second slide sections" },
-      },
-      content: [
-        {
-          type: "section",
-          attrs: { id: "tab-slide-two", role: "tab-panel", options: { label: "Second tab" } },
-          content: [{ type: "paragraph" }],
+    createLayerWithContent([
+      {
+        type: "layout",
+        attrs: {
+          id: "layout-slide-two",
+          variant: "tabs",
+          options: { variant: "default", label: "Second slide sections" },
         },
-      ],
-    },
+        content: [
+          {
+            type: "section",
+            attrs: { id: "tab-slide-two", role: "tab-panel", options: { label: "Second tab" } },
+            content: [createLayerWithContent([{ type: "paragraph" }])],
+          },
+        ],
+      },
+    ]),
   ];
 
   return content;
@@ -541,34 +550,36 @@ function slideshowDocumentWithPortableLearnerRules(): JSONContent {
   const firstRegion = firstSurface.content?.find((node) => node.type === "region");
   if (!firstRegion) throw new Error("runtime learner rule fixture has no content region");
   firstRegion.content = [
-    {
-      type: "layout",
-      attrs: {
-        id: LEARNER_TABS_ID,
-        variant: "tabs",
-        options: { variant: "default", label: "Lesson sections" },
+    createLayerWithContent([
+      {
+        type: "layout",
+        attrs: {
+          id: LEARNER_TABS_ID,
+          variant: "tabs",
+          options: { variant: "default", label: "Lesson sections" },
+        },
+        content: [
+          {
+            type: "section",
+            attrs: {
+              id: LEARNER_OVERVIEW_ID,
+              role: "tab-panel",
+              options: { label: "Overview" },
+            },
+            content: [createLayerWithContent([{ type: "paragraph" }])],
+          },
+          {
+            type: "section",
+            attrs: {
+              id: LEARNER_PRACTICE_ID,
+              role: "tab-panel",
+              options: { label: "Practice" },
+            },
+            content: [createLayerWithContent([{ type: "paragraph" }])],
+          },
+        ],
       },
-      content: [
-        {
-          type: "section",
-          attrs: {
-            id: LEARNER_OVERVIEW_ID,
-            role: "tab-panel",
-            options: { label: "Overview" },
-          },
-          content: [{ type: "paragraph" }],
-        },
-        {
-          type: "section",
-          attrs: {
-            id: LEARNER_PRACTICE_ID,
-            role: "tab-panel",
-            options: { label: "Practice" },
-          },
-          content: [{ type: "paragraph" }],
-        },
-      ],
-    },
+    ]),
   ];
   courseDocument.content = [courseDocument.content[0], firstSurface, secondSurface];
   courseDocument.attrs["learnerInteractions"] = {
@@ -651,7 +662,7 @@ function slideshowDocumentWithPortableSelectionRule({
 
 function slideshowDocumentWithAccordions(): JSONContent {
   const content = slideshowDocumentWithTabs();
-  const surfaces = content.content?.[0]?.content;
+  const surfaces = content.content?.[0]?.content?.filter((node) => node.type === "surface");
   const firstRegion = surfaces?.[0]?.content?.find((node) => node.type === "region");
   const secondRegion = surfaces?.[1]?.content?.find((node) => node.type === "region");
 
@@ -659,8 +670,12 @@ function slideshowDocumentWithAccordions(): JSONContent {
     throw new Error("runtime accordion slideshow is missing its content regions");
   }
 
-  firstRegion.content = [runtimeAccordionLayout("layout-accordion-one", "accordion-slide-one")];
-  secondRegion.content = [runtimeAccordionLayout("layout-accordion-two", "accordion-slide-two")];
+  firstRegion.content = [
+    createLayerWithContent([runtimeAccordionLayout("layout-accordion-one", "accordion-slide-one")]),
+  ];
+  secondRegion.content = [
+    createLayerWithContent([runtimeAccordionLayout("layout-accordion-two", "accordion-slide-two")]),
+  ];
 
   return content;
 }
@@ -714,12 +729,21 @@ function runtimeDocumentContent({
     mode === "slideshow" ? "slide-cover" : "page-default",
   );
   if (!definition) throw new Error("runtime test definition is missing");
-  courseDocument.content = surfaceIds.map((id) => {
+  const surfaces = surfaceIds.map((id) => {
     if (id === null) {
       return { type: "surface", attrs: {}, content: [{ type: "paragraph" }] };
     }
     return definition.createSurface({ surfaceId: id });
   });
+  if (mode === "slideshow") {
+    const courseSection = courseDocument.content?.find((node) => node.type === "courseSection");
+    if (!courseSection) {
+      throw new Error("runtime slideshow test document is missing its Course Section");
+    }
+    courseDocument.content = [courseSection, ...surfaces];
+  } else {
+    courseDocument.content = surfaces;
+  }
 
   return content;
 }
@@ -737,7 +761,9 @@ function sectionedRuntimeSlideshowContent(): JSONContent {
   if (!courseDocument?.content) {
     throw new Error("sectioned runtime slideshow fixture is missing Course Document content");
   }
-  const [firstSurface, secondSurface, thirdSurface] = courseDocument.content;
+  const [firstSurface, secondSurface, thirdSurface] = courseDocument.content.filter(
+    (node) => node.type === "surface",
+  );
   courseDocument.content = [
     {
       type: "courseSection",
@@ -2755,8 +2781,8 @@ describe("ContentRuntimeHost", () => {
       surfaceIds: [FIRST_SLIDESHOW_SURFACE_ID, SECOND_SLIDESHOW_SURFACE_ID],
     });
     const courseDocument = content.content?.[0];
-    const firstSurface = courseDocument?.content?.[0];
-    const secondSurface = courseDocument?.content?.[1];
+    const [firstSurface, secondSurface] =
+      courseDocument?.content?.filter((node) => node.type === "surface") ?? [];
     if (!courseDocument || !firstSurface || !secondSurface) {
       throw new Error("runtime slideshow fixture is incomplete");
     }
@@ -2788,7 +2814,7 @@ describe("ContentRuntimeHost", () => {
       surfaceIds: [FIRST_SLIDESHOW_SURFACE_ID],
     });
     const courseDocument = content.content?.[0];
-    const firstSurface = courseDocument?.content?.[0];
+    const firstSurface = courseDocument?.content?.find((node) => node.type === "surface");
     if (!courseDocument || !firstSurface) {
       throw new Error("runtime slideshow fixture is incomplete");
     }
@@ -3093,6 +3119,8 @@ function presentationAuthorPreviewRuntimeMount(
     surfaceId,
     durationMs: 1_000,
     transition: null,
+    layerTracks: [],
+    layerTrackByOwnerId: new Map(),
     cues: [],
     waits: [],
     visualProgram: {

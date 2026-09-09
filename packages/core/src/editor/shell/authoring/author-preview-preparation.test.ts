@@ -128,7 +128,7 @@ describe("prepareAuthorPreview", () => {
         schemaVersion: 1,
         autoAdvance: false,
         allowPrevious: true,
-        surfaces: [{ surfaceId, durationMs: 1_000, actions: [] }],
+        surfaces: [{ surfaceId, durationMs: 1_000, layerTracks: [], actions: [] }],
       },
     };
     const loadRuntimeModule = vi.fn();

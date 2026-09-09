@@ -25,6 +25,7 @@ import type {
   ControlValue,
 } from "@/document/control-binding";
 import { getControlCapabilityCatalogueForEditor } from "@/document/control-binding";
+import type { PresentationCompilationDiagnostic } from "@/presentation/model";
 
 import type { PresentationTimelineController } from "./presentation-timeline-controller";
 import type { PresentationTimelineProjection } from "./presentation-timeline-projection";
@@ -409,13 +410,19 @@ function createAction(
     };
   }
   if (choice === "wait:manual") {
-    return { kind: "manual-wait", isEnabled: current?.isEnabled ?? true, atMs };
+    return {
+      kind: "manual-wait",
+      isEnabled: current?.isEnabled ?? true,
+      atMs,
+      boundary: current?.kind === "manual-wait" ? current.boundary : "before-actions",
+    };
   }
   if (choice.startsWith("wait:event:")) {
     return {
       kind: "learner-wait",
       isEnabled: current?.isEnabled ?? true,
       atMs,
+      boundary: current?.kind === "learner-wait" ? current.boundary : "before-actions",
       requirement: { kind: "event", targetId, type: choice.slice("wait:event:".length) },
     };
   }
@@ -424,6 +431,7 @@ function createAction(
       kind: "learner-wait",
       isEnabled: current?.isEnabled ?? true,
       atMs,
+      boundary: current?.kind === "learner-wait" ? current.boundary : "before-actions",
       requirement: {
         kind: "state",
         targetId,
@@ -838,6 +846,8 @@ export function presentPresentationAuthoringCommandError(
       return "The Surface duration must be a non-negative whole number.";
     case "surface-duration-before-action-end":
       return `The Surface must remain at least ${error.requiredDurationMs} ms long for its actions.`;
+    case "surface-duration-before-layer-switch":
+      return `The Surface must remain longer than ${error.switchAtMs} ms for its Layer switches.`;
     case "invalid-surface-narration":
     case "invalid-surface-transition":
     case "invalid-new-action":
@@ -855,15 +865,54 @@ export function presentPresentationAuthoringCommandError(
       return `This action has no equal-time action ${error.direction === "earlier" ? "before" : "after"} it.`;
     case "surface-coverage-stale":
       return "The Presentation Surface list is out of date.";
+    case "action-compilation-invalid":
+      return error.diagnostics[0]
+        ? presentPresentationCompilationDiagnostic(error.diagnostics[0])
+        : "This action conflicts with the current document or Presentation configuration.";
+  }
+}
+
+function presentPresentationCompilationDiagnostic(
+  diagnostic: PresentationCompilationDiagnostic,
+): string {
+  switch (diagnostic.reason) {
     case "navigation-destination-not-current":
       return "The destination Surface is no longer in the document.";
-    case "target-not-current":
+    case "referenced-target-missing":
       return "The action target is no longer in the document.";
-    case "target-moved-to-another-surface":
+    case "target-moved-surface":
       return "The action target moved to another Surface.";
     case "visual-capability-unavailable":
-      return `This target no longer supports ${capitalise(error.capability)}.`;
+      return `This target no longer supports ${capitalise(diagnostic.capability)}.`;
     case "same-target-timed-overlap":
       return "This timed action overlaps another action on the same target.";
+    case "trigger-command-unavailable":
+      return "This target no longer supports the configured command.";
+    case "trigger-command-input-invalid":
+      return "The configured command input is no longer valid.";
+    case "unavailable-required-capability":
+      return "This target no longer supports the configured Wait requirement.";
+    case "required-state-value-invalid":
+      return "The configured Wait state value is no longer valid.";
+    case "required-event-layer-unavailable":
+      return "The configured Wait requires a Layer that is not active at that boundary.";
+    case "owner-track-missing":
+      return "Choose an initial Layer for this owner.";
+    case "owner-track-duplicated":
+      return "This owner has more than one Layer track.";
+    case "track-owner-not-current":
+    case "track-owner-not-layer-owner":
+    case "track-owner-moved-surface":
+      return "This Layer track no longer belongs to the current Surface.";
+    case "initial-layer-not-owned":
+      return "The initial Layer no longer belongs to this owner.";
+    case "switch-layer-not-owned":
+      return "A switched Layer no longer belongs to this owner.";
+    case "conflicting-switches":
+      return "More than one Layer switch is scheduled at the same time.";
+    case "redundant-layer-switch":
+      return "This Layer switch selects the Layer that is already active.";
+    case "layer-switch-outside-surface":
+      return "This Layer switch falls outside the Surface duration.";
   }
 }

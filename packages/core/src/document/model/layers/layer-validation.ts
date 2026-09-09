@@ -10,9 +10,22 @@ import {
   REGION_NODE_TYPE,
   SECTION_NODE_TYPE,
 } from "@/document/model/nodes/structural-node-types";
-import { isFillOccupantNode } from "@/editor/bounded-containers/model/bounded-container-placement";
+import { isLayerCompositionFillOccupant } from "./layer-composition-policy";
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import type {
+  LayerContextDiagnostic,
+  LayerIdentityDiagnostic,
+  LayerNodePath,
+} from "./layer-diagnostics";
+
+export {
+  layerContextDiagnosticPath,
+  layerNodePathToJsonPath,
+  type LayerContextDiagnostic,
+  type LayerIdentityDiagnostic,
+  type LayerNodePath,
+} from "./layer-diagnostics";
 
 const DIRECTLY_PROHIBITED_LAYER_CHILDREN = new Set([
   LAYER_NODE_TYPE,
@@ -23,28 +36,7 @@ const DIRECTLY_PROHIBITED_LAYER_CHILDREN = new Set([
   "courseDocument",
 ]);
 
-export type LayerNodePath = readonly number[];
-
-export type LayerIdentityDiagnostic =
-  | {
-      readonly reason: "node-id-missing";
-      readonly nodeType: typeof LAYER_NODE_TYPE | "paragraph";
-      readonly path: LayerNodePath;
-    }
-  | {
-      readonly reason: "node-id-invalid";
-      readonly nodeType: typeof LAYER_NODE_TYPE | "paragraph";
-      readonly path: LayerNodePath;
-      readonly actualValue: unknown;
-    }
-  | {
-      readonly reason: "node-id-duplicated";
-      readonly id: string;
-      readonly firstNodeType: typeof LAYER_NODE_TYPE | "paragraph";
-      readonly firstPath: LayerNodePath;
-      readonly duplicateNodeType: typeof LAYER_NODE_TYPE | "paragraph";
-      readonly duplicatePath: LayerNodePath;
-    };
+const UNAVAILABLE_LAYER_CONTENT = new Set(["unavailable_block", "unavailable_layout"]);
 
 interface SectionDiagnosticFacts {
   readonly ownerId: string | null;
@@ -52,85 +44,6 @@ interface SectionDiagnosticFacts {
   readonly layoutId: string | null;
   readonly layoutVariant: string | null;
 }
-
-export type LayerContextDiagnostic =
-  | {
-      readonly reason: "layer-parent-missing";
-      readonly layerId: string | null;
-      readonly layerPath: LayerNodePath;
-    }
-  | {
-      readonly reason: "layer-parent-not-composition-slot";
-      readonly layerId: string | null;
-      readonly layerPath: LayerNodePath;
-      readonly parentId: string | null;
-      readonly parentPath: LayerNodePath;
-      readonly parentType: string;
-    }
-  | {
-      readonly reason: "layout-definition-unavailable";
-      readonly ownerId: string | null;
-      readonly ownerPath: LayerNodePath;
-      readonly layoutId: string | null;
-      readonly layoutVariant: string | null;
-    }
-  | (SectionDiagnosticFacts & {
-      readonly reason: "section-structure-invalid";
-      readonly expectedChildTypes: readonly string[];
-      readonly actualChildTypes: readonly string[];
-    })
-  | (SectionDiagnosticFacts & {
-      readonly reason: "section-direct-composition-invalid";
-      readonly actualChildTypes: readonly string[];
-    })
-  | (SectionDiagnosticFacts & {
-      readonly reason: "section-slot-child-missing";
-      readonly declaredNodeType: string;
-    })
-  | (SectionDiagnosticFacts & {
-      readonly reason: "section-slot-child-wrong-type";
-      readonly declaredNodeType: string;
-      readonly actualDirectChildTypes: readonly string[];
-    })
-  | (SectionDiagnosticFacts & {
-      readonly reason: "section-slot-child-nested";
-      readonly declaredNodeType: string;
-      readonly nestedPaths: readonly LayerNodePath[];
-    })
-  | (SectionDiagnosticFacts & {
-      readonly reason: "section-slot-child-duplicated";
-      readonly declaredNodeType: string;
-      readonly directChildIndexes: readonly number[];
-    })
-  | {
-      readonly reason: "composition-slot-requires-layer";
-      readonly ownerId: string | null;
-      readonly ownerType: "region" | "cell" | "section";
-      readonly slotId: string | null;
-      readonly slotType: string;
-      readonly slotPath: LayerNodePath;
-    }
-  | {
-      readonly reason: "composition-slot-child-not-layer";
-      readonly ownerId: string | null;
-      readonly ownerType: "region" | "cell" | "section";
-      readonly slotId: string | null;
-      readonly slotType: string;
-      readonly contentPath: LayerNodePath;
-      readonly contentType: string;
-    }
-  | {
-      readonly reason: "layer-content-incompatible";
-      readonly ownerId: string | null;
-      readonly layerId: string | null;
-      readonly contentPath: LayerNodePath;
-      readonly contentType: string;
-      readonly rule:
-        | "direct-structural-content"
-        | "feature-private-content"
-        | "grid-not-allowed-in-cell"
-        | "fill-occupant-must-be-exclusive";
-    };
 
 interface NodeLocation {
   readonly node: ProseMirrorNode;
@@ -148,7 +61,7 @@ interface CompositionSlotLocation {
 export interface ValidateLayerContextInput {
   readonly document: ProseMirrorNode;
   readonly blockDefinitions: BlockDefinitionLookup;
-  readonly layoutDefinitions: LayoutRegistry;
+  readonly layoutDefinitions: Pick<LayoutRegistry, "getForNode">;
 }
 
 export function validateLayerIdentities(
@@ -273,7 +186,7 @@ export function validateLayerContext({
 function validateSection(
   location: NodeLocation,
   blockDefinitions: BlockDefinitionLookup,
-  layoutDefinitions: LayoutRegistry,
+  layoutDefinitions: Pick<LayoutRegistry, "getForNode">,
   ownedLayerPaths: Set<string>,
   diagnostics: LayerContextDiagnostic[],
 ): void {
@@ -410,7 +323,7 @@ function validateSection(
 function validateCompositionSlot(
   location: CompositionSlotLocation,
   blockDefinitions: BlockDefinitionLookup,
-  layoutDefinitions: LayoutRegistry,
+  layoutDefinitions: Pick<LayoutRegistry, "getForNode">,
   ownedLayerPaths: Set<string>,
   diagnostics: LayerContextDiagnostic[],
 ): void {
@@ -464,7 +377,7 @@ function validateLayerContent(
   owner: ProseMirrorNode,
   ownerType: CompositionSlotLocation["ownerType"],
   blockDefinitions: BlockDefinitionLookup,
-  layoutDefinitions: LayoutRegistry,
+  layoutDefinitions: Pick<LayoutRegistry, "getForNode">,
   diagnostics: LayerContextDiagnostic[],
 ): void {
   const fillOccupants: { readonly node: ProseMirrorNode; readonly path: readonly number[] }[] = [];
@@ -480,7 +393,7 @@ function validateLayerContent(
     if (ownerType === CELL_NODE_TYPE && child.type.name === "grid") {
       pushIncompatible("grid-not-allowed-in-cell", child, contentPath);
     }
-    if (isFillOccupantNode(child, blockDefinitions, layoutDefinitions)) {
+    if (isLayerCompositionFillOccupant(child, blockDefinitions, layoutDefinitions)) {
       fillOccupants.push({ node: child, path: contentPath });
     }
   });
@@ -526,10 +439,11 @@ function sectionFacts(
 function isEligibleLayerContent(
   node: ProseMirrorNode,
   blockDefinitions: BlockDefinitionLookup,
-  layoutDefinitions: LayoutRegistry,
+  layoutDefinitions: Pick<LayoutRegistry, "getForNode">,
 ): boolean {
   if (node.type.name === "paragraph") return true;
   if (node.type.isInGroup(TEXT_CONTENT)) return true;
+  if (UNAVAILABLE_LAYER_CONTENT.has(node.type.name)) return true;
   if (blockDefinitions.getByNodeType(node.type.name)) return true;
   if (node.type.name === GRID_NODE_TYPE) return true;
   return node.type.name === LAYOUT_NODE_TYPE && layoutDefinitions.getForNode(node) !== undefined;

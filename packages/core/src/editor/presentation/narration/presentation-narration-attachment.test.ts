@@ -43,10 +43,12 @@ describe("attachPresentationSurfaceNarration", () => {
     expect(readSurfaceTimeline(editor)).toEqual({
       surfaceId: SURFACE_ID,
       durationMs: 0,
+      layerTracks: [],
       narration: { source: EXTERNAL },
       actions: [],
     });
     expect(await settled).toEqual({
+      status: "ok",
       value: {
         kind: "surface-expanded",
         surfaceId: SURFACE_ID,
@@ -67,6 +69,7 @@ describe("attachPresentationSurfaceNarration", () => {
     const { settled } = attach(editor, EXTERNAL, null, 3);
 
     expect(await settled).toEqual({
+      status: "ok",
       value: {
         kind: "surface-retained",
         surfaceId: SURFACE_ID,
@@ -77,6 +80,7 @@ describe("attachPresentationSurfaceNarration", () => {
     expect(readSurfaceTimeline(editor)).toEqual({
       surfaceId: SURFACE_ID,
       durationMs: 8_000,
+      layerTracks: [],
       narration: { source: EXTERNAL },
       actions: [action],
     });
@@ -103,11 +107,13 @@ describe("attachPresentationSurfaceNarration", () => {
     const { settled } = attach(editor, MANAGED, media, 6);
 
     expect(await settled).toEqual({
+      status: "error",
       error: { reason: "narration-source-unavailable", source: MANAGED, cause },
     });
     expect(readSurfaceTimeline(editor)).toEqual({
       surfaceId: SURFACE_ID,
       durationMs: 0,
+      layerTracks: [],
       narration: { source: MANAGED },
       actions: [],
     });
@@ -123,11 +129,13 @@ describe("attachPresentationSurfaceNarration", () => {
     slow.emitMetadata();
 
     expect(await settled).toEqual({
+      status: "ok",
       value: { kind: "narration-superseded", surfaceId: SURFACE_ID, source: EXTERNAL },
     });
     expect(readSurfaceTimeline(editor)).toEqual({
       surfaceId: SURFACE_ID,
       durationMs: 2_000,
+      layerTracks: [],
       narration: { source: MANAGED },
       actions: [],
     });
@@ -204,6 +212,7 @@ function manualWait(): TimelineActionV1 {
     id: EmbeddedDataIdSchema.parse("wait00000001"),
     isEnabled: true,
     atMs: 2_000,
+    boundary: "before-actions",
   };
 }
 
@@ -215,7 +224,7 @@ function configurationWith(surface: {
     schemaVersion: 1,
     autoAdvance: false,
     allowPrevious: true,
-    surfaces: [{ surfaceId: SURFACE_ID, ...surface }],
+    surfaces: [{ surfaceId: SURFACE_ID, layerTracks: [], ...surface }],
   };
 }
 

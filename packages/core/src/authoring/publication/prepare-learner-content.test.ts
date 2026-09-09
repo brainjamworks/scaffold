@@ -70,7 +70,7 @@ const capabilities: DocumentCapabilityLookups = {
       return type === "assessment_block" ? assessmentDefinition : undefined;
     },
   },
-  layouts: { getById: () => undefined },
+  layouts: { getById: () => undefined, getForNode: () => undefined },
   surfaces: {
     get: (id) =>
       id === "known-surface" ? ({ id, settingsSchema: z.object({}) } as never) : undefined,

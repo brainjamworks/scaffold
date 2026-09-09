@@ -21,6 +21,7 @@ function presentationFor(surfaceIds: readonly string[]): PresentationConfigurati
     surfaces: surfaceIds.map((surfaceId) => ({
       surfaceId: EmbeddedNodeIdSchema.parse(surfaceId),
       durationMs: 0,
+      layerTracks: [],
       actions: [],
     })),
   };

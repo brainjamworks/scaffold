@@ -48,7 +48,7 @@ import { createCoreScaffoldAuthoringComposition } from "./scaffold-authoring-com
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 const AUTHORING_ONLY_EXTENSION_NAMES = [
-  "semanticDocumentController",
+  "documentAuthoringLifecycle",
   "scaffoldInteractionOwner",
   "scaffoldStructuralClipboardPolicy",
   "placeholder",
@@ -193,9 +193,9 @@ describe("createCourseDocumentAuthoringExtensions", () => {
 
     expect(coreAuthoringComposition).not.toHaveProperty("courseStructure");
     expect(extensions.filter(({ name }) => name === "courseStructureCommands")).toHaveLength(1);
-    expect(extensions.filter(({ name }) => name === "semanticDocumentController")).toHaveLength(1);
+    expect(extensions.filter(({ name }) => name === "documentAuthoringLifecycle")).toHaveLength(1);
     expect(extensions.findIndex(({ name }) => name === "scaffoldCapabilities")).toBeLessThan(
-      extensions.findIndex(({ name }) => name === "semanticDocumentController"),
+      extensions.findIndex(({ name }) => name === "documentAuthoringLifecycle"),
     );
   });
 
@@ -367,6 +367,9 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(authoringExtensions.filter((extension) => extension.name === "section")).toHaveLength(1);
     expect(LayoutAuthoringNode.name).toBe("layout");
     expect(SectionAuthoringNode.name).toBe("section");
+    const layer = authoringExtensions.filter((extension) => extension.name === "layer");
+    expect(layer).toHaveLength(1);
+    expect(layer[0]?.config).toHaveProperty("addNodeView");
   });
 
   it("renders a persisted built-in layout through the authoring composition", async () => {
@@ -457,7 +460,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
             source: "host-layout-section-factory",
           },
         });
-        expect(createdSection?.content?.[0]?.content?.[0]?.text).toBe(
+        expect(createdSection?.content?.[0]?.content?.[0]?.content?.[0]?.text).toBe(
           "Created by host section factory 2",
         );
       });
@@ -1036,9 +1039,15 @@ function persistedTabsDocument(lane: string) {
                     },
                     content: [
                       {
-                        type: "paragraph",
-                        attrs: { id: "paraAuth0001" },
-                        content: [{ type: "text", text: `${lane} content` }],
+                        type: "layer",
+                        attrs: { id: "layerAuth001" },
+                        content: [
+                          {
+                            type: "paragraph",
+                            attrs: { id: "paraAuth0001" },
+                            content: [{ type: "text", text: `${lane} content` }],
+                          },
+                        ],
                       },
                     ],
                   },
@@ -1067,6 +1076,7 @@ function hostLayoutCapability(
       section: {
         label: "Host section",
         addLabel: "Add host section",
+        compositionSlot: { kind: "direct" },
         create: ({ index }) => ({
           type: "section",
           attrs: {
@@ -1080,11 +1090,18 @@ function hostLayoutCapability(
           },
           content: [
             {
-              type: "paragraph",
+              type: "layer",
+              attrs: { id: `hostlayer${String(index + 1).padStart(3, "0")}` },
               content: [
                 {
-                  type: "text",
-                  text: `Created by host section factory ${index + 1}`,
+                  type: "paragraph",
+                  attrs: { id: `hostpara${String(index + 1).padStart(4, "0")}` },
+                  content: [
+                    {
+                      type: "text",
+                      text: `Created by host section factory ${index + 1}`,
+                    },
+                  ],
                 },
               ],
             },
@@ -1160,8 +1177,15 @@ function persistedHostLayoutDocument(variant: string) {
                     },
                     content: [
                       {
-                        type: "paragraph",
-                        content: [{ type: "text", text: "Host-authored content" }],
+                        type: "layer",
+                        attrs: { id: "hostLayer001" },
+                        content: [
+                          {
+                            type: "paragraph",
+                            attrs: { id: "hostPara0001" },
+                            content: [{ type: "text", text: "Host-authored content" }],
+                          },
+                        ],
                       },
                     ],
                   },

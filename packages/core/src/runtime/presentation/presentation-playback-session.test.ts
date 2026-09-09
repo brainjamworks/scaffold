@@ -182,7 +182,12 @@ function waitId(id: string): PresentationWaitId {
 }
 
 function manualWait(id: string, atMs: number): CompiledPresentationWait {
-  return Object.freeze({ kind: "manual-wait", id: waitId(id), atMs });
+  return Object.freeze({
+    kind: "manual-wait",
+    id: waitId(id),
+    atMs,
+    boundary: "before-actions",
+  });
 }
 
 function learnerWait(
@@ -195,7 +200,13 @@ function learnerWait(
     type: `event-${id}`,
   }),
 ): CompiledPresentationWait {
-  return Object.freeze({ kind: "learner-wait", id: waitId(id), atMs, requirement });
+  return Object.freeze({
+    kind: "learner-wait",
+    id: waitId(id),
+    atMs,
+    boundary: "before-actions",
+    requirement,
+  });
 }
 
 function createDeferredGatePort() {

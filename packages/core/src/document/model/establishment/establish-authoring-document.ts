@@ -4,6 +4,15 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import { getBlockAttrSchema } from "@/editor/blocks/block-definition";
 import { projectCourseStructure } from "@/document/model/course-structure";
+import {
+  layerContextDiagnosticPath,
+  layerNodePathToJsonPath,
+  validateLayerContext,
+  validateLayerIdentities,
+  type LayerContextDiagnostic,
+  type LayerIdentityDiagnostic,
+  type LayerNodePath,
+} from "@/document/model/layers/layer-validation";
 import { CourseDocumentAttrsSchema } from "@/schemas/course-document";
 
 import { cloneBoundedJson, inspectBoundedJson } from "./document-bounds";
@@ -200,8 +209,18 @@ export function establishAuthoringDocument({
     };
   }
 
+  const layerIdentityIssues = validateLayerIdentities(parsed).map(layerIdentityIssue);
+  if (layerIdentityIssues.length > 0) return { status: "invalid", issues: layerIdentityIssues };
+
   const identityIssues = assertParsedMountedNodeIdentity(parsed);
   if (identityIssues.length > 0) return { status: "invalid", issues: identityIssues };
+
+  const layerContextIssues = validateLayerContext({
+    document: parsed,
+    blockDefinitions: capabilities.blocks,
+    layoutDefinitions: capabilities.layouts,
+  }).map(layerContextIssue);
+  if (layerContextIssues.length > 0) return { status: "invalid", issues: layerContextIssues };
 
   return unavailableContent.length === 0
     ? {
@@ -218,6 +237,50 @@ export function establishAuthoringDocument({
         unavailableContent,
         requiresScaffoldPlus: courseAttrs.data.requiresScaffoldPlus,
       };
+}
+
+function layerIdentityIssue(diagnostic: LayerIdentityDiagnostic): DocumentEstablishmentIssue {
+  switch (diagnostic.reason) {
+    case "node-id-missing":
+      return {
+        kind: "layer-identity",
+        code: diagnostic.reason,
+        message: `${diagnostic.nodeType} at ${formatLayerPath(diagnostic.path)} is missing its stable identity.`,
+        path: [...layerNodePathToJsonPath(diagnostic.path), "attrs", "id"],
+        diagnostic,
+      };
+    case "node-id-invalid":
+      return {
+        kind: "layer-identity",
+        code: diagnostic.reason,
+        message: `${diagnostic.nodeType} at ${formatLayerPath(diagnostic.path)} has invalid stable identity ${JSON.stringify(diagnostic.actualValue)}.`,
+        path: [...layerNodePathToJsonPath(diagnostic.path), "attrs", "id"],
+        diagnostic,
+      };
+    case "node-id-duplicated":
+      return {
+        kind: "layer-identity",
+        code: diagnostic.reason,
+        message: `Stable identity "${diagnostic.id}" is shared by ${diagnostic.firstNodeType} at ${formatLayerPath(diagnostic.firstPath)} and ${diagnostic.duplicateNodeType} at ${formatLayerPath(diagnostic.duplicatePath)}.`,
+        path: [...layerNodePathToJsonPath(diagnostic.duplicatePath), "attrs", "id"],
+        diagnostic,
+      };
+  }
+}
+
+function layerContextIssue(diagnostic: LayerContextDiagnostic): DocumentEstablishmentIssue {
+  const path = layerContextDiagnosticPath(diagnostic);
+  return {
+    kind: "layer-context",
+    code: diagnostic.reason,
+    message: `Layer structure at ${formatLayerPath(path)} violates ${diagnostic.reason}.`,
+    path: layerNodePathToJsonPath(path),
+    diagnostic,
+  } as DocumentEstablishmentIssue;
+}
+
+function formatLayerPath(path: LayerNodePath): string {
+  return `[${path.join(", ")}]`;
 }
 
 function classifyUnavailable(

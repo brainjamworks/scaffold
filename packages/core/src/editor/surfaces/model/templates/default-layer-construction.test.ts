@@ -1,11 +1,10 @@
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
-import { getSchema, Node, type Extensions, type JSONContent } from "@tiptap/core";
+import { getSchema, type JSONContent } from "@tiptap/core";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { LayerNode } from "@/document/model/layers/layer-node";
 import { LAYER_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
 
 import { builtInSurfaceVariantDefinitions } from "../built-in-surface-variant-definitions";
@@ -24,12 +23,10 @@ const EXPECTED_REGION_ROLES: Readonly<Record<string, readonly string[]>> = Objec
 });
 
 const composition = createCoreScaffoldAuthoringComposition();
-const schema = getSchema(
-  candidateExtensions(createCourseDocumentAuthoringExtensions({ editable: true, composition })),
-);
+const schema = getSchema(createCourseDocumentAuthoringExtensions({ editable: true, composition }));
 
 describe("built-in Surface default Layer construction", () => {
-  it("creates one fresh blank Layer in every Region and remains candidate-schema compatible", () => {
+  it("creates one fresh blank Layer in every Region and remains production-schema compatible", () => {
     const generatedIds: string[] = [];
 
     for (const definition of builtInSurfaceVariantDefinitions) {
@@ -87,27 +84,6 @@ function candidateDocument(surface: JSONContent) {
     type: "doc",
     content: [{ type: "courseDocument", content: [surface] }],
   });
-}
-
-function candidateExtensions(base: Extensions): Extensions {
-  const contentExpressions: Readonly<Record<string, string>> = {
-    region: "layer+",
-    cell: "layer+",
-    section: "layer+ | (accordion_section_title accordion_section_panel)",
-    accordion_section_panel: "layer+",
-  };
-
-  return [
-    ...base.map((extension) => {
-      const content = contentExpressions[extension.name];
-      if (!content) return extension;
-      if (!(extension instanceof Node)) {
-        throw new Error(`Candidate structural extension "${extension.name}" is not a Node.`);
-      }
-      return extension.extend({ content });
-    }),
-    LayerNode,
-  ];
 }
 
 function findNodes(root: JSONContent, type: string): JSONContent[] {

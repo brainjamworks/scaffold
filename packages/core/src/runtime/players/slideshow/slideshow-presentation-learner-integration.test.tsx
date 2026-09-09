@@ -26,6 +26,7 @@ import {
   type ControlBindingRegistryPort,
 } from "@/document/control-binding/control-binding-storage";
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { projectCourseStructure, type SurfaceId } from "@/document/model/course-structure";
 import {
   createLearnerInteractionEventKey,
@@ -226,12 +227,16 @@ describe("Slideshow Presentation learner integration", () => {
         timeline: {
           surfaceId: FIRST_SURFACE_ID,
           durationMs: 100,
+          transition: null,
+          layerTracks: [],
+          layerTrackByOwnerId: new Map(),
           visualProgram: emptyVisualProgram(FIRST_SURFACE_ID, 100),
           waits: [
             {
               kind: "learner-wait",
               id: "owner-wait" as PresentationWaitId,
               atMs: 0,
+              boundary: "before-actions",
               requirement: {
                 kind: "state",
                 ownerId: waitOwner,
@@ -244,6 +249,7 @@ describe("Slideshow Presentation learner integration", () => {
               kind: "learner-wait",
               id: "duplicate-wait" as PresentationWaitId,
               atMs: 20,
+              boundary: "before-actions",
               requirement: { kind: "event", ...when },
             },
           ],
@@ -293,6 +299,9 @@ describe("Slideshow Presentation learner integration", () => {
         timeline: {
           surfaceId: SECOND_SURFACE_ID,
           durationMs: 100,
+          transition: null,
+          layerTracks: [],
+          layerTrackByOwnerId: new Map(),
           visualProgram: emptyVisualProgram(SECOND_SURFACE_ID, 100),
           cues: [
             {
@@ -848,6 +857,9 @@ describe("Slideshow Presentation learner integration", () => {
         timeline: {
           surfaceId: FIRST_SURFACE_ID,
           durationMs: 100,
+          transition: null,
+          layerTracks: [],
+          layerTrackByOwnerId: new Map(),
           visualProgram: emptyVisualProgram(FIRST_SURFACE_ID, 100),
           waits: [],
           cues: [
@@ -1868,6 +1880,9 @@ function createTabsLearnerWaitProgram(
       timeline: Object.freeze({
         surfaceId: FIRST_SURFACE_ID,
         durationMs,
+        transition: null,
+        layerTracks: Object.freeze([]),
+        layerTrackByOwnerId: new Map(),
         visualProgram: emptyVisualProgram(FIRST_SURFACE_ID, durationMs),
         cues: Object.freeze([
           {
@@ -1887,6 +1902,7 @@ function createTabsLearnerWaitProgram(
             kind: "learner-wait",
             id: "practicWait1" as PresentationWaitId,
             atMs: 0,
+            boundary: "before-actions",
             requirement: { kind: "event", ...practiceSelected },
           },
         ] as const),
@@ -1936,6 +1952,9 @@ function createTabsStateWaitProgram(
       timeline: Object.freeze({
         surfaceId: FIRST_SURFACE_ID,
         durationMs: 0,
+        transition: null,
+        layerTracks: Object.freeze([]),
+        layerTrackByOwnerId: new Map(),
         visualProgram: emptyVisualProgram(FIRST_SURFACE_ID, 0),
         cues: Object.freeze([
           Object.freeze({
@@ -1955,6 +1974,7 @@ function createTabsStateWaitProgram(
             kind: "learner-wait" as const,
             id: "stateWait001" as PresentationWaitId,
             atMs: 0,
+            boundary: "before-actions",
             requirement: Object.freeze({
               kind: "state" as const,
               ownerId: TABS_OWNER_ID,
@@ -2003,6 +2023,9 @@ function createTabsLearnerNavigationProgram(
       timeline: Object.freeze({
         surfaceId: FIRST_SURFACE_ID,
         durationMs: 0,
+        transition: null,
+        layerTracks: Object.freeze([]),
+        layerTrackByOwnerId: new Map(),
         visualProgram: emptyVisualProgram(FIRST_SURFACE_ID, 0),
         cues: Object.freeze([
           Object.freeze({
@@ -2022,6 +2045,7 @@ function createTabsLearnerNavigationProgram(
             kind: "learner-wait" as const,
             id: "branchWait01" as PresentationWaitId,
             atMs: 0,
+            boundary: "before-actions",
             requirement: Object.freeze({
               kind: "event" as const,
               ownerId: TABS_OWNER_ID,
@@ -2075,7 +2099,7 @@ function tabsSlideshowDocument(): JSONContent {
         {
           type: "region",
           attrs: { id: "regionCtrl02", role: "main" },
-          content: [paragraph("paraCtrl0003", "Second Surface")],
+          content: [createLayerWithContent([paragraph("paraCtrl0003", "Second Surface")])],
         },
       ],
     },
@@ -2117,18 +2141,20 @@ function slideWithTabs(): JSONContent {
         type: "region",
         attrs: { id: "regionCtrl01", role: "main" },
         content: [
-          {
-            type: "layout",
-            attrs: {
-              id: TABS_OWNER_ID,
-              variant: "tabs",
-              options: { variant: "default", label: "Lesson sections" },
+          createLayerWithContent([
+            {
+              type: "layout",
+              attrs: {
+                id: TABS_OWNER_ID,
+                variant: "tabs",
+                options: { variant: "default", label: "Lesson sections" },
+              },
+              content: [
+                tabSection(OVERVIEW_SECTION_ID, "Overview", "paraCtrl0001"),
+                tabSection(PRACTICE_SECTION_ID, "Practice", "paraCtrl0002"),
+              ],
             },
-            content: [
-              tabSection(OVERVIEW_SECTION_ID, "Overview", "paraCtrl0001"),
-              tabSection(PRACTICE_SECTION_ID, "Practice", "paraCtrl0002"),
-            ],
-          },
+          ]),
         ],
       },
     ],
@@ -2139,7 +2165,7 @@ function tabSection(id: EmbeddedNodeId, label: string, paragraphId: string): JSO
   return {
     type: "section",
     attrs: { id, options: { label } },
-    content: [paragraph(paragraphId, label)],
+    content: [createLayerWithContent([paragraph(paragraphId, label)])],
   };
 }
 
@@ -2169,6 +2195,9 @@ function configuredPresentationProgram(
       timeline: Object.freeze({
         surfaceId,
         durationMs: 100,
+        transition: null,
+        layerTracks: Object.freeze([]),
+        layerTrackByOwnerId: new Map(),
         visualProgram: emptyVisualProgram(surfaceId, 100),
         cues: Object.freeze([]),
         waits: Object.freeze([]),
@@ -2187,6 +2216,9 @@ function presentationProgramWithOwner(
       timeline: Object.freeze({
         surfaceId,
         durationMs: 100,
+        transition: null,
+        layerTracks: Object.freeze([]),
+        layerTrackByOwnerId: new Map(),
         visualProgram: emptyVisualProgram(surfaceId, 100),
         waits: Object.freeze([]),
         cues: Object.freeze([

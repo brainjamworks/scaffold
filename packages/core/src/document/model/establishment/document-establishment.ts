@@ -1,5 +1,9 @@
 import type { JSONContent } from "@tiptap/core";
 
+import type {
+  LayerContextDiagnostic,
+  LayerIdentityDiagnostic,
+} from "@/document/model/layers/layer-diagnostics";
 import type { RequiresScaffoldPlusResult } from "@/host/contracts/product-access";
 
 export type UnavailableCapabilityKind = "block" | "layout" | "surface";
@@ -17,11 +21,37 @@ export interface UnavailableContentRef {
   readonly path: readonly (string | number)[];
 }
 
-export interface DocumentEstablishmentIssue {
+export interface GenericDocumentEstablishmentIssue {
+  readonly kind?: never;
   readonly code: string;
   readonly message: string;
   readonly path: readonly (string | number)[];
 }
+
+type LayerIdentityEstablishmentIssue = {
+  [Reason in LayerIdentityDiagnostic["reason"]]: {
+    readonly kind: "layer-identity";
+    readonly code: Reason;
+    readonly message: string;
+    readonly path: readonly (string | number)[];
+    readonly diagnostic: Extract<LayerIdentityDiagnostic, { readonly reason: Reason }>;
+  };
+}[LayerIdentityDiagnostic["reason"]];
+
+type LayerContextEstablishmentIssue = {
+  [Reason in LayerContextDiagnostic["reason"]]: {
+    readonly kind: "layer-context";
+    readonly code: Reason;
+    readonly message: string;
+    readonly path: readonly (string | number)[];
+    readonly diagnostic: Extract<LayerContextDiagnostic, { readonly reason: Reason }>;
+  };
+}[LayerContextDiagnostic["reason"]];
+
+export type DocumentEstablishmentIssue =
+  | GenericDocumentEstablishmentIssue
+  | LayerIdentityEstablishmentIssue
+  | LayerContextEstablishmentIssue;
 
 export type AuthoringDocumentEstablishmentResult =
   | {

@@ -16,7 +16,7 @@ export type LayerCompositionPolicyViolation = {
 export function isLayerCompositionFillOccupant(
   node: ProseMirrorNode,
   blockDefinitions: BlockDefinitionLookup,
-  layoutDefinitions: LayoutRegistry,
+  layoutDefinitions: Pick<LayoutRegistry, "getForNode">,
 ): boolean {
   if (node.type.name === "grid") return true;
   if (node.type.name === "layout") {
@@ -75,7 +75,7 @@ export function validateCompleteLayerComposition(input: {
   readonly layerId: EmbeddedNodeId;
   readonly layer: ProseMirrorNode;
   readonly blockDefinitions: BlockDefinitionLookup;
-  readonly layoutDefinitions: LayoutRegistry;
+  readonly layoutDefinitions: Pick<LayoutRegistry, "getForNode">;
 }): LayerCompositionPolicyViolation | null {
   let fillOccupants = 0;
   let forbiddenGrid = false;

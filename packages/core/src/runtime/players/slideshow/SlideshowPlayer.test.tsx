@@ -633,6 +633,9 @@ describe("SlideshowPlayer", () => {
                   timeline: Object.freeze({
                     surfaceId,
                     durationMs: 0,
+                    transition: null,
+                    layerTracks: Object.freeze([]),
+                    layerTrackByOwnerId: new Map(),
                     cues: Object.freeze([]),
                     waits: Object.freeze([]),
                     visualProgram: Object.freeze({
@@ -726,6 +729,9 @@ describe("SlideshowPlayer", () => {
               timeline: {
                 surfaceId,
                 durationMs: 0,
+                transition: null,
+                layerTracks: [],
+                layerTrackByOwnerId: new Map(),
                 cues: [],
                 waits: [],
                 visualProgram: {
@@ -768,6 +774,9 @@ describe("SlideshowPlayer", () => {
             timeline: {
               surfaceId,
               durationMs: 4_000,
+              transition: null,
+              layerTracks: [],
+              layerTrackByOwnerId: new Map(),
               cues: [],
               waits: [],
               visualProgram: {
@@ -1774,6 +1783,9 @@ function narratedSurfaceProgram(surfaceId: SurfaceId) {
       timeline: Object.freeze({
         surfaceId,
         durationMs: 10_000,
+        transition: null,
+        layerTracks: Object.freeze([]),
+        layerTrackByOwnerId: new Map(),
         narration: Object.freeze({
           source: Object.freeze({
             mode: "external" as const,
@@ -1880,13 +1892,8 @@ function runtimeHintTriggerIn(root: ParentNode): HTMLButtonElement {
   return button as HTMLButtonElement;
 }
 
-function slideshowOverlayOwner(
-  root: ParentNode,
-  owner: "content" | "chrome",
-): HTMLElement {
-  const element = root.querySelector<HTMLElement>(
-    `[data-slideshow-overlay-owner="${owner}"]`,
-  );
+function slideshowOverlayOwner(root: ParentNode, owner: "content" | "chrome"): HTMLElement {
+  const element = root.querySelector<HTMLElement>(`[data-slideshow-overlay-owner="${owner}"]`);
   if (element === null) throw new Error(`Expected Slideshow ${owner} overlay owner`);
   return element;
 }

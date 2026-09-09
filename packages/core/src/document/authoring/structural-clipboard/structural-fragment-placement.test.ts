@@ -3,7 +3,7 @@ import { Schema, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { describe, expect, it } from "vite-plus/test";
 
-import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
+import { EmbeddedNodeIdSchema, SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@scaffold/contracts";
 import { createLayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
@@ -485,7 +485,7 @@ function validated(
     capabilities,
   });
   if (result.status !== "ok") {
-    throw new Error(`Fixture refused: ${result.reason}`);
+    throw new Error(`Fixture refused: ${JSON.stringify(result)}`);
   }
   return result.value;
 }
@@ -497,7 +497,7 @@ function envelope(
   return {
     protocol: "scaffold.structural-fragment",
     version: 1,
-    documentFormatVersion: 4,
+    documentFormatVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
     rootKind,
     content,
   };
@@ -516,6 +516,11 @@ function createCapabilities(): StructuralFragmentCapabilityRegistries {
         title: "Basic layout",
         description: "Basic layout",
         icon: CircleIcon,
+        section: {
+          label: "Section",
+          addLabel: "Add section",
+          create: () => ({ type: "section" }),
+        },
         createContent: () => ({ type: "layout", attrs: { variant: "basic-layout" } }),
       },
     ]),
@@ -569,7 +574,7 @@ function createSchema(): Schema {
         attrs: { id, variant: { default: null }, options: { default: {} } },
         content: "section+",
       },
-      section: { attrs: { id, options: { default: {} } }, content: "block+" },
+      section: { attrs: { id, options: { default: {} } }, content: "layer+" },
       strict_container: { group: "block", attrs: { id }, content: "core_block+" },
       private_shell: { group: "block", attrs: { id }, content: "private_host" },
       private_host: { attrs: { id }, content: "block+" },
@@ -647,7 +652,7 @@ function layout(): StructuralFragmentContent {
       {
         type: "section",
         attrs: { id: IDS.section, options: {} },
-        content: [coreBlock(IDS.blockB)],
+        content: [layer(IDS.layerA, [coreBlock(IDS.blockB)])],
       },
     ],
   };

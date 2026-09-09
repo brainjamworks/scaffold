@@ -14,7 +14,6 @@ import type { LayoutDefinition } from "@/editor/arrangements/layout/model/layout
 import { createLayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 
 import { createBlankLayer, createLayerWithContent } from "./layer-construction";
-import { LayerNode } from "./layer-node";
 import { resolveLayerOwnerSlot } from "./layer-owner-slot";
 import { validateLayerContext, validateLayerIdentities } from "./layer-validation";
 
@@ -90,12 +89,12 @@ describe("Layer construction", () => {
 });
 
 for (const mode of modes) {
-  describe(`Layer candidate in the full ${mode.name} composition`, () => {
+  describe(`Layer in the full ${mode.name} composition`, () => {
     const baselineSchema = getSchema(mode.extensions);
-    const schema = getSchema(candidateExtensions(mode.extensions));
+    const schema = baselineSchema;
 
-    it("compiles only the candidate structural changes and keeps Layer outside public groups", () => {
-      expect(Object.keys(schema.nodes)).toEqual([...Object.keys(baselineSchema.nodes), "layer"]);
+    it("uses production structural registration and keeps Layer outside public groups", () => {
+      expect(Object.keys(schema.nodes)).toEqual(Object.keys(baselineSchema.nodes));
       expect(schema.nodes[LAYER_NODE_TYPE]?.spec.group).toBeUndefined();
       expect(schema.nodes[LAYER_NODE_TYPE]?.spec.attrs?.["semanticLabel"]?.default).toBeNull();
       expect(schema.nodes[LAYER_NODE_TYPE]?.isAtom).toBe(false);
@@ -1192,7 +1191,6 @@ function candidateExtensions(
       }
       return extension.extend({ content });
     }),
-    LayerNode,
     ...extraNodes,
   ];
 }

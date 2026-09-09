@@ -1,5 +1,5 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
-import { getSchema, Node, type Editor, type Extensions, type JSONContent } from "@tiptap/core";
+import { getSchema, type Editor, type Extensions, type JSONContent } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { useEffect, useMemo, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -24,12 +24,6 @@ import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/runtime/players/slideshow/SlideshowPlayer.css";
 import "@/styles/globals.css";
-
-import {
-  authoringLayerNodeViewProjection,
-  createLayerNodeView,
-  type LayerNodeViewProjection,
-} from "./layer-node-view";
 
 type Renderer = "authoring" | "runtime";
 type Owner = "cell" | "tab";
@@ -312,6 +306,24 @@ describe("Layer composition geometry", () => {
     );
   });
 
+  it("does not fall back when an explicit runtime initial Layer reference is broken", async () => {
+    const fixture = alternatingRegionDocument();
+    const document = withInitialLayerChoices(fixture.document, new Set([fixture.flowLayerId]));
+    const courseDocument = document.content?.find((node) => node.type === "courseDocument");
+    const track = courseDocument?.attrs?.["presentation"]?.surfaces?.[0]?.layerTracks?.[0];
+    if (!track) throw new Error("Expected an explicit Layer track fixture.");
+    track.initialLayerId = "missinglyr01";
+
+    mounted = await mountPair(document, [], "slideshow", true);
+
+    expect(layerElement(mounted.runtime.host, fixture.flowLayerId).dataset["layerState"]).toBe(
+      "inactive",
+    );
+    expect(layerElement(mounted.runtime.host, fixture.gridLayerId).dataset["layerState"]).toBe(
+      "inactive",
+    );
+  });
+
   it("keeps a page Accordion panel intrinsic when its composition grows", async () => {
     const heights: Record<"short" | "long", { surface: number; panel: number }> = {
       short: { surface: 0, panel: 0 },
@@ -360,23 +372,18 @@ interface MountedPair {
 }
 
 function CandidateEditor({
-  activeRuntimeLayerIds,
   content,
   onReady,
   renderer,
   surfaceMode,
 }: {
-  readonly activeRuntimeLayerIds: ReadonlySet<EmbeddedNodeId>;
   readonly content: JSONContent;
   readonly onReady: (editor: Editor) => void;
   readonly renderer: Renderer;
   readonly surfaceMode: "page" | "slideshow";
 }) {
   const [overlayContainer, setOverlayContainer] = useState<HTMLDivElement | null>(null);
-  const extensions = useMemo(
-    () => candidateExtensions(renderer, activeRuntimeLayerIds),
-    [activeRuntimeLayerIds, renderer],
-  );
+  const extensions = useMemo(() => productionExtensions(renderer), [renderer]);
   const editor = useEditor({
     immediatelyRender: false,
     editable: renderer === "authoring",
@@ -466,63 +473,20 @@ function CandidateEditor({
   );
 }
 
-function candidateExtensions(
-  renderer: Renderer,
-  activeRuntimeLayerIds: ReadonlySet<EmbeddedNodeId>,
-): Extensions {
-  const base =
-    renderer === "authoring"
-      ? createCourseDocumentAuthoringExtensions({
-          editable: true,
-          composition: authoringComposition,
-        })
-      : createCourseDocumentRuntimeExtensions({ composition: runtimeComposition });
-  const projection =
-    renderer === "authoring"
-      ? authoringLayerNodeViewProjection
-      : staticLayerProjection(activeRuntimeLayerIds);
-  const layerNodeView = createLayerNodeView({
-    blockDefinitions:
-      renderer === "authoring"
-        ? authoringComposition.capabilities.blocks.registry
-        : runtimeComposition.capabilities.blocks.registry,
-    layoutDefinitions:
-      renderer === "authoring"
-        ? authoringComposition.capabilities.layouts.registry
-        : runtimeComposition.capabilities.layouts.registry,
-    projection,
-  });
-  const expressions: Readonly<Record<string, string>> = {
-    region: "layer+",
-    cell: "layer+",
-    section: "layer+ | (accordion_section_title accordion_section_panel)",
-    accordion_section_panel: "layer+",
-  };
-
-  return [
-    ...base.map((extension) => {
-      const content = expressions[extension.name];
-      if (!content) return extension;
-      if (!(extension instanceof Node)) {
-        throw new Error(`Candidate structural extension "${extension.name}" is not a Node.`);
-      }
-      return extension.extend({ content });
-    }),
-    layerNodeView,
-  ];
-}
-
-function staticLayerProjection(activeIds: ReadonlySet<EmbeddedNodeId>): LayerNodeViewProjection {
-  return Object.freeze({
-    isActive: (_editor: Editor, layerId: EmbeddedNodeId) => activeIds.has(layerId),
-    subscribe: () => () => undefined,
-  });
+function productionExtensions(renderer: Renderer): Extensions {
+  return renderer === "authoring"
+    ? createCourseDocumentAuthoringExtensions({
+        editable: true,
+        composition: authoringComposition,
+      })
+    : createCourseDocumentRuntimeExtensions({ composition: runtimeComposition });
 }
 
 async function mountPair(
   content: JSONContent,
   activeRuntimeLayerIds: readonly EmbeddedNodeId[],
   surfaceMode: "page" | "slideshow" = "slideshow",
+  preservePresentation = false,
 ): Promise<MountedPair> {
   const pairHost = document.createElement("div");
   pairHost.style.cssText = "position:absolute;inset:0 auto auto 0;width:1024px;";
@@ -533,15 +497,17 @@ async function mountPair(
   const authoringRoot = createRoot(authoringHost);
   const runtimeRoot = createRoot(runtimeHost);
   const activeSet = new Set(activeRuntimeLayerIds);
-  getSchema(candidateExtensions("authoring", activeSet)).nodeFromJSON(content).check();
-  getSchema(candidateExtensions("runtime", activeSet)).nodeFromJSON(content).check();
+  const productionContent = preservePresentation
+    ? cloneJSON(content)
+    : withInitialLayerChoices(content, activeSet);
+  getSchema(productionExtensions("authoring")).nodeFromJSON(productionContent).check();
+  getSchema(productionExtensions("runtime")).nodeFromJSON(productionContent).check();
 
   let authoringEditor: Editor | null = null;
   let runtimeEditor: Editor | null = null;
   authoringRoot.render(
     <CandidateEditor
-      activeRuntimeLayerIds={activeSet}
-      content={cloneJSON(content)}
+      content={cloneJSON(productionContent)}
       onReady={(editor) => {
         authoringEditor = editor;
       }}
@@ -551,8 +517,7 @@ async function mountPair(
   );
   runtimeRoot.render(
     <CandidateEditor
-      activeRuntimeLayerIds={activeSet}
-      content={cloneJSON(content)}
+      content={cloneJSON(productionContent)}
       onReady={(editor) => {
         runtimeEditor = editor;
       }}
@@ -600,6 +565,55 @@ async function mountPair(
     pairHost.remove();
     throw new Error(diagnostic, { cause: error });
   }
+}
+
+function withInitialLayerChoices(
+  source: JSONContent,
+  activeLayerIds: ReadonlySet<EmbeddedNodeId>,
+): JSONContent {
+  const document = cloneJSON(source);
+  const courseDocument = document.content?.find((node) => node.type === "courseDocument");
+  if (!courseDocument) throw new Error("Layer geometry fixture has no Course Document.");
+  const surfaces = (courseDocument.content ?? []).filter((node) => node.type === "surface");
+  courseDocument.attrs = {
+    ...courseDocument.attrs,
+    presentation: {
+      schemaVersion: 1,
+      autoAdvance: false,
+      allowPrevious: true,
+      surfaces: surfaces.map((surface) => ({
+        surfaceId: surface.attrs?.["id"],
+        durationMs: 0,
+        layerTracks: collectLayerOwners(surface).flatMap(({ ownerId, layerIds }) => {
+          if (layerIds.length === 1) return [];
+          const selected = layerIds.filter((layerId) => activeLayerIds.has(layerId));
+          if (selected.length !== 1) {
+            throw new Error(`Layer geometry owner "${ownerId}" requires one initial Layer.`);
+          }
+          return [{ ownerId, initialLayerId: selected[0], switches: [] }];
+        }),
+        actions: [],
+      })),
+    },
+  };
+  return document;
+}
+
+function collectLayerOwners(
+  surface: JSONContent,
+): readonly { readonly ownerId: EmbeddedNodeId; readonly layerIds: readonly EmbeddedNodeId[] }[] {
+  const owners: { ownerId: EmbeddedNodeId; layerIds: EmbeddedNodeId[] }[] = [];
+  const visit = (node: JSONContent, owner: (typeof owners)[number] | null) => {
+    const nextOwner =
+      node.type === "region" || node.type === "cell" || node.type === "section"
+        ? { ownerId: node.attrs?.["id"] as EmbeddedNodeId, layerIds: [] }
+        : owner;
+    if (nextOwner && nextOwner !== owner) owners.push(nextOwner);
+    if (node.type === "layer") nextOwner?.layerIds.push(node.attrs?.["id"] as EmbeddedNodeId);
+    for (const child of node.content ?? []) visit(child, nextOwner);
+  };
+  visit(surface, null);
+  return owners;
 }
 
 function requireMountedEditor(editor: Editor | null, renderer: Renderer): Editor {

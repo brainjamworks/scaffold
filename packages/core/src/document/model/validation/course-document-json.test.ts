@@ -9,7 +9,7 @@ import {
 describe("course document JSON helpers", () => {
   const document = {
     type: "doc",
-    content: [{ type: "courseDocument", attrs: { schemaVersion: 4 } }],
+    content: [{ type: "courseDocument", attrs: { schemaVersion: 5 } }],
   };
 
   it("clones JSON without converting it", () => {
@@ -20,7 +20,7 @@ describe("course document JSON helpers", () => {
 
   it("finds the Course Document and reads its exact version", () => {
     expect(findCourseDocument(document)?.index).toBe(0);
-    expect(readCourseDocumentFormatVersion(document)).toBe(4);
+    expect(readCourseDocumentFormatVersion(document)).toBe(5);
     expect(readCourseDocumentFormatVersion({ type: "doc", content: [] })).toBeNull();
   });
 });

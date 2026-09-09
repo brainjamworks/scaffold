@@ -5,9 +5,14 @@ import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { LayerNode } from "@/document/model/layers/layer-node";
 import { resolveLayerTargetAtPosition } from "@/document/authoring/layers/layer-editing-boundaries";
 import { GridNode, CellNode } from "@/editor/arrangements/grid/model/grid-nodes";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { defineBlock } from "@/editor/blocks/block-definition";
@@ -31,6 +36,7 @@ const TEST_STAGED_HOST_TYPE = "test_staged_bounded_host_policy";
 const TEST_STAGED_CHILD_TYPE = "test_staged_bounded_child_policy";
 const TEST_STAGED_INTERMEDIATE_TYPE = "test_staged_bounded_intermediate_policy";
 const TEST_INELIGIBLE_CHILD_TYPE = "test_ineligible_bounded_child_policy";
+let nextFixtureCellId = 1;
 
 const TestStagedHostNode = Node.create({
   name: TEST_STAGED_HOST_TYPE,
@@ -195,7 +201,7 @@ describe("bounded container placement", () => {
   it("resolves an exact layered Section before its enclosing Region Layer", () => {
     const editor = makeLayerEditor([
       layer("layer0000001", [
-        layoutWithSection("tabs", [layer("layer0000004", [paragraph("Section content")])]),
+        layoutWithSection("tabs", [paragraph("Section content")], "layer0000004"),
       ]),
     ]);
     const sectionPos = nodePosById(editor, "section-tabs");
@@ -220,31 +226,19 @@ describe("bounded container placement", () => {
   });
 
   it("keeps root insertion open without a direct fill and closed with one", () => {
-    const emptyEditor = makeEditor([
-      {
-        type: "region",
-        attrs: { id: "region-empty" },
-        content: [paragraph()],
-      },
-    ]);
-    const occupiedEditor = makeEditor([
-      {
-        type: "region",
-        attrs: { id: "region-occupied" },
-        content: [grid()],
-      },
-    ]);
+    const emptyEditor = makeEditor([boundedRegion("region-empty", [paragraph()])]);
+    const occupiedEditor = makeEditor([boundedRegion("regionocc001", [grid()])]);
 
     expect(
       allowsBoundedContainerRootInsertionAtPosition({
         doc: emptyEditor.state.doc,
-        pos: firstNodePos(emptyEditor, "region"),
+        pos: firstNodePos(emptyEditor, "layer"),
       }),
     ).toBe(true);
     expect(
       allowsBoundedContainerRootInsertionAtPosition({
         doc: occupiedEditor.state.doc,
-        pos: firstNodePos(occupiedEditor, "region"),
+        pos: firstNodePos(occupiedEditor, "layer"),
       }),
     ).toBe(false);
   });
@@ -275,17 +269,13 @@ describe("bounded container placement", () => {
       },
     ]);
     const boundedEditor = makeEditor([
-      {
-        type: "region",
-        attrs: { id: "region-a" },
-        content: [
-          {
-            type: "grid",
-            attrs: { id: "grid-a" },
-            content: [cell([tabsLayout()]), cell([paragraph()])],
-          },
-        ],
-      },
+      boundedRegion("region000001", [
+        {
+          type: "grid",
+          attrs: { id: "grid-a" },
+          content: [cell([tabsLayout()]), cell([paragraph()])],
+        },
+      ]),
     ]);
     const tabs = firstNode(flowEditor, "layout");
     const paragraphNode = firstNode(flowEditor, "paragraph");
@@ -306,35 +296,31 @@ describe("bounded container placement", () => {
     ).toBe(false);
   });
 
-  it("uses active bounded section position for insertion affordances", () => {
+  it("uses active bounded section position and exposes unregistered owner defects", () => {
     const flowFillEditor = makeEditor([tabsLayoutWithSectionContent([grid()])]);
     const boundedFillEditor = makeEditor([
-      {
-        type: "region",
-        attrs: { id: "region-a" },
-        content: [tabsLayoutWithSectionContent([grid()])],
-      },
+      boundedRegion("region000001", [tabsLayoutWithSectionContent([grid()])]),
     ]);
-    const flowBasicEditor = makeEditor([basicLayoutWithSectionContent([grid()])]);
+    const flowBasicEditor = makeEditor([layoutWithSection("basic", [grid()])]);
 
     expect(
       allowsBoundedContainerRootInsertionAtPosition({
         doc: flowFillEditor.state.doc,
-        pos: firstNodePos(flowFillEditor, "section"),
+        pos: firstLayerPosOwnedBy(flowFillEditor, "section"),
       }),
     ).toBe(true);
     expect(
       allowsBoundedContainerRootInsertionAtPosition({
         doc: boundedFillEditor.state.doc,
-        pos: firstNodePos(boundedFillEditor, "section"),
+        pos: firstLayerPosOwnedBy(boundedFillEditor, "section"),
       }),
     ).toBe(false);
-    expect(
+    expect(() =>
       allowsBoundedContainerRootInsertionAtPosition({
         doc: flowBasicEditor.state.doc,
-        pos: firstNodePos(flowBasicEditor, "section"),
+        pos: firstLayerPosOwnedBy(flowBasicEditor, "section"),
       }),
-    ).toBe(true);
+    ).toThrow('Section "sectionpage1" belongs to an unregistered Layout.');
   });
 
   it("does not activate fill placement for a direct surface child", () => {
@@ -350,13 +336,7 @@ describe("bounded container placement", () => {
   });
 
   it("activates fill placement for a direct region child", () => {
-    const editor = makeEditor([
-      {
-        type: "region",
-        attrs: { id: "region-a" },
-        content: [paragraph()],
-      },
-    ]);
+    const editor = makeEditor([boundedRegion("region000001", [paragraph()])]);
 
     expect(
       resolveActiveBoundedPlacement({
@@ -369,13 +349,7 @@ describe("bounded container placement", () => {
 
   it("activates grid cell placement only when the grid is in an active bounded context", () => {
     const flowEditor = makeEditor([grid()]);
-    const boundedEditor = makeEditor([
-      {
-        type: "region",
-        attrs: { id: "region-a" },
-        content: [grid()],
-      },
-    ]);
+    const boundedEditor = makeEditor([boundedRegion("region000001", [grid()])]);
 
     expect(
       resolveActiveBoundedPlacement({
@@ -396,11 +370,7 @@ describe("bounded container placement", () => {
   it("activates fill layout section placement only when the layout is in an active bounded context", () => {
     const flowEditor = makeEditor([tabsLayoutWithSectionContent([paragraph()])]);
     const boundedEditor = makeEditor([
-      {
-        type: "region",
-        attrs: { id: "region-a" },
-        content: [tabsLayoutWithSectionContent([paragraph()])],
-      },
+      boundedRegion("region000001", [tabsLayoutWithSectionContent([paragraph()])]),
     ]);
 
     expect(
@@ -424,11 +394,7 @@ describe("bounded container placement", () => {
     (variant) => {
       const flowEditor = makeEditor([layoutWithSection(variant, [paragraph()])]);
       const boundedEditor = makeEditor([
-        {
-          type: "region",
-          attrs: { id: "region-a" },
-          content: [layoutWithSection(variant, [paragraph()])],
-        },
+        boundedRegion("region000001", [layoutWithSection(variant, [paragraph()])]),
       ]);
 
       expect(
@@ -450,11 +416,9 @@ describe("bounded container placement", () => {
 
   it("activates eligible direct children of a staged host when the host fills a region", () => {
     const editor = makeEditor([
-      {
-        type: "region",
-        attrs: { id: "region-a" },
-        content: [stagedHost([stagedChild("question-a"), stagedChild("question-b")])],
-      },
+      boundedRegion("region000001", [
+        stagedHost([stagedChild("question-a"), stagedChild("question-b")]),
+      ]),
     ]);
 
     expect(
@@ -468,24 +432,18 @@ describe("bounded container placement", () => {
 
   it("activates staged children through the existing bounded grid and tabs seams", () => {
     const gridEditor = makeEditor([
-      {
-        type: "region",
-        attrs: { id: "region-a" },
-        content: [
-          {
-            type: "grid",
-            attrs: { id: "grid-a" },
-            content: [cell([stagedHost([stagedChild("question-grid")])])],
-          },
-        ],
-      },
+      boundedRegion("region000001", [
+        {
+          type: "grid",
+          attrs: { id: "grid-a" },
+          content: [cell([stagedHost([stagedChild("question-grid")])])],
+        },
+      ]),
     ]);
     const tabsEditor = makeEditor([
-      {
-        type: "region",
-        attrs: { id: "region-b" },
-        content: [tabsLayoutWithSectionContent([stagedHost([stagedChild("question-tabs")])])],
-      },
+      boundedRegion("region000002", [
+        tabsLayoutWithSectionContent([stagedHost([stagedChild("question-tabs")])]),
+      ]),
     ]);
 
     expect(
@@ -507,11 +465,7 @@ describe("bounded container placement", () => {
   it("keeps staged children natural in flow and ignores children outside the declared group", () => {
     const flowEditor = makeEditor([stagedHost([stagedChild("question-flow")])]);
     const ineligibleEditor = makeEditor([
-      {
-        type: "region",
-        attrs: { id: "region-a" },
-        content: [stagedHost([{ type: TEST_INELIGIBLE_CHILD_TYPE }])],
-      },
+      boundedRegion("region000001", [stagedHost([{ type: TEST_INELIGIBLE_CHILD_TYPE }])]),
     ]);
 
     expect(
@@ -532,11 +486,9 @@ describe("bounded container placement", () => {
 
   it("does not stage eligible descendants beyond the host's direct children", () => {
     const editor = makeEditor([
-      {
-        type: "region",
-        attrs: { id: "region-a" },
-        content: [stagedHost([stagedIntermediate([stagedChild("question-nested")])])],
-      },
+      boundedRegion("region000001", [
+        stagedHost([stagedIntermediate([stagedChild("question-nested")])]),
+      ]),
     ]);
 
     expect(
@@ -559,6 +511,7 @@ function makeEditor(surfaceContent: JSONContent[]): Editor {
         undoRedo: false,
       }),
       ExtendedParagraph,
+      createTestNodeIdentityExtension(),
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
@@ -567,6 +520,9 @@ function makeEditor(surfaceContent: JSONContent[]): Editor {
       CellNode,
       LayoutNode,
       SectionNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
+      LayerNode,
       TestStagedHostNode,
       TestStagedIntermediateNode,
       TestStagedChildNode,
@@ -607,11 +563,13 @@ function makeLayerEditor(layers: JSONContent[]): Editor {
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
-      RegionNode.extend({ content: "layer+" }),
+      RegionNode,
       GridNode,
-      CellNode.extend({ content: "layer+" }),
+      CellNode,
       LayoutNode,
-      SectionNode.extend({ content: "layer+" }),
+      SectionNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       LayerNode,
       TestStagedHostNode,
       TestStagedIntermediateNode,
@@ -674,17 +632,34 @@ function cellContainingPos(editor: Editor, childType: string): number {
   editor.state.doc.descendants((node, pos) => {
     if (out || node.type.name !== "cell") return !out;
 
-    let containsChild = false;
-    node.forEach((child) => {
-      if (child.type.name === childType) containsChild = true;
+    let containsChild = node.type.name === childType;
+    node.descendants((child) => {
+      if (child.type.name !== childType) return true;
+      containsChild = true;
+      return false;
     });
 
     if (!containsChild) return true;
-    out = pos;
+    node.forEach((child, offset) => {
+      if (child.type.name === "layer") out = pos + 1 + offset;
+    });
     return false;
   });
 
   if (out === null) throw new Error(`expected cell containing "${childType}"`);
+  return out;
+}
+
+function firstLayerPosOwnedBy(editor: Editor, ownerType: string): number {
+  let out: number | null = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name !== ownerType) return true;
+    node.forEach((child, offset) => {
+      if (child.type.name === "layer") out = pos + 1 + offset;
+    });
+    return false;
+  });
+  if (out === null) throw new Error(`expected Layer owned by "${ownerType}"`);
   return out;
 }
 
@@ -744,8 +719,16 @@ function grid(): JSONContent {
 function cell(content: JSONContent[]): JSONContent {
   return {
     type: "cell",
-    attrs: { id: `cell-${content.length}` },
-    content,
+    attrs: { id: `cell${String(nextFixtureCellId++).padStart(8, "0")}` },
+    content: [createLayerWithContent(content)],
+  };
+}
+
+function boundedRegion(id: string, content: JSONContent[]): JSONContent {
+  return {
+    type: "region",
+    attrs: { id },
+    content: [createLayerWithContent(content)],
   };
 }
 
@@ -757,29 +740,24 @@ function tabsLayoutWithSectionContent(content: JSONContent[]): JSONContent {
   return layoutWithSection("tabs", content);
 }
 
-function layoutWithSection(variant: string, content: JSONContent[]): JSONContent {
+function layoutWithSection(
+  variant: string,
+  content: JSONContent[],
+  sectionLayerId?: string,
+): JSONContent {
   return {
     type: "layout",
     attrs: { id: `layout-${variant}`, variant },
     content: [
       {
         type: "section",
-        attrs: { id: `section-${variant}`, role: "tab-panel" },
-        content,
-      },
-    ],
-  };
-}
-
-function basicLayoutWithSectionContent(content: JSONContent[]): JSONContent {
-  return {
-    type: "layout",
-    attrs: { id: "layout-basic", variant: "basic" },
-    content: [
-      {
-        type: "section",
-        attrs: { id: "section-basic" },
-        content,
+        attrs: {
+          id: variant === "tabs" ? "section-tabs" : "sectionpage1",
+          role: "tab-panel",
+        },
+        content: [
+          sectionLayerId ? layer(sectionLayerId, content) : createLayerWithContent(content),
+        ],
       },
     ],
   };

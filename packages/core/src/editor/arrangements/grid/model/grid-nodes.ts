@@ -2,7 +2,6 @@ import { mergeAttributes, Node, type NodeViewRenderer } from "@tiptap/core";
 
 import {
   ARRANGEMENT_CONTENT,
-  CELL_ARRANGEMENT_CONTENT,
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
 import { CELL_NODE_TYPE, GRID_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
@@ -73,7 +72,7 @@ export function createGridNode(options: GridNodeOptions = {}) {
 export function createCellNode(options: CellNodeOptions = {}) {
   return Node.create({
     name: CELL_NODE_TYPE,
-    content: `(block | ${CELL_ARRANGEMENT_CONTENT})+`,
+    content: "layer+",
     selectable: false,
     draggable: false,
     isolating: true,

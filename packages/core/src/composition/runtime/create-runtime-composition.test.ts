@@ -121,6 +121,9 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     ]);
     expect(schema.nodes["courseSection"]?.spec.attrs?.["id"]).toBeDefined();
     expect(schema.nodes["courseSection"]?.spec.attrs?.["title"]).toBeDefined();
+    const layers = extensions.filter(({ name }) => name === "layer");
+    expect(layers).toHaveLength(1);
+    expect(layers[0]?.config).toHaveProperty("addNodeView");
     for (const [nodeType, nodeSchema] of Object.entries(schema.nodes)) {
       if (nodeType === "text") continue;
       expect(nodeSchema.spec.attrs?.["semanticLabel"]?.default, nodeType).toBeNull();
@@ -821,15 +824,37 @@ function hostLayoutCapability(): LayoutCapability {
       icon: CircleIcon,
       createContent: () => ({
         type: "layout",
-        attrs: { id: "layout-host-runtime", variant: id, options: {} },
+        attrs: { id: "layHostFact1", variant: id, options: {} },
         content: [
           {
             type: "section",
-            attrs: { id: "section-host-runtime", options: {} },
-            content: [{ type: "paragraph" }],
+            attrs: { id: "secHostFact1", options: {} },
+            content: [
+              {
+                type: "layer",
+                attrs: { id: "layrHostFac1" },
+                content: [{ type: "paragraph", attrs: { id: "paraHostFac1" } }],
+              },
+            ],
           },
         ],
       }),
+      section: {
+        label: "Host section",
+        addLabel: "Add host section",
+        compositionSlot: { kind: "direct" },
+        create: () => ({
+          type: "section",
+          attrs: { id: "secHostFact2", options: {} },
+          content: [
+            {
+              type: "layer",
+              attrs: { id: "layrHostFac2" },
+              content: [{ type: "paragraph", attrs: { id: "paraHostFac2" } }],
+            },
+          ],
+        }),
+      },
     },
     authoringView: {
       id,
@@ -908,12 +933,12 @@ function persistedTabsDocument() {
         content: [
           {
             type: "surface",
-            attrs: { id: "surface-runtime", variant: "page-default" },
+            attrs: { id: "surfRun00001", variant: "page-default" },
             content: [
               {
                 type: "layout",
                 attrs: {
-                  id: "layout-runtime",
+                  id: "layoutRun001",
                   variant: "tabs",
                   options: { variant: "default", label: "runtime tabs" },
                 },
@@ -921,15 +946,22 @@ function persistedTabsDocument() {
                   {
                     type: "section",
                     attrs: {
-                      id: "section-runtime",
+                      id: "sectRun00001",
                       role: "tab-panel",
                       label: "First tab",
                       options: { label: "First tab" },
                     },
                     content: [
                       {
-                        type: "paragraph",
-                        content: [{ type: "text", text: "runtime content" }],
+                        type: "layer",
+                        attrs: { id: "layerRun0001" },
+                        content: [
+                          {
+                            type: "paragraph",
+                            attrs: { id: "paraRun00001" },
+                            content: [{ type: "text", text: "runtime content" }],
+                          },
+                        ],
                       },
                     ],
                   },
@@ -953,12 +985,12 @@ function persistedHostLayoutDocument(variant: string) {
         content: [
           {
             type: "surface",
-            attrs: { id: "surface-host-runtime", variant: "page-default" },
+            attrs: { id: "surfHost0001", variant: "page-default" },
             content: [
               {
                 type: "layout",
                 attrs: {
-                  id: "layout-host-runtime",
+                  id: "layHost00001",
                   variant,
                   options: {},
                 },
@@ -966,13 +998,20 @@ function persistedHostLayoutDocument(variant: string) {
                   {
                     type: "section",
                     attrs: {
-                      id: "section-host-runtime",
+                      id: "secHost00001",
                       options: {},
                     },
                     content: [
                       {
-                        type: "paragraph",
-                        content: [{ type: "text", text: "Host runtime content" }],
+                        type: "layer",
+                        attrs: { id: "layerHost001" },
+                        content: [
+                          {
+                            type: "paragraph",
+                            attrs: { id: "paraHost0001" },
+                            content: [{ type: "text", text: "Host runtime content" }],
+                          },
+                        ],
                       },
                     ],
                   },

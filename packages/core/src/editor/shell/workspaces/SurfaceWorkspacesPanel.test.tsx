@@ -90,7 +90,16 @@ function slideshowContent(): JSONContent {
         {
           surfaceId: SURFACE,
           durationMs: 5_000,
-          actions: [{ kind: "manual-wait", id: ACTION, isEnabled: true, atMs: 1_000 }],
+          layerTracks: [],
+          actions: [
+            {
+              kind: "manual-wait",
+              id: ACTION,
+              isEnabled: true,
+              atMs: 1_000,
+              boundary: "before-actions",
+            },
+          ],
         },
       ],
     },

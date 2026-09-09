@@ -10,7 +10,6 @@ import {
 import type { KeyboardEvent, MouseEvent } from "react";
 
 import {
-  SECTION_ARRANGEMENT_CONTENT,
   fieldContainerSpec,
   textContentExpression,
 } from "@/document/model/content-model/content-groups";
@@ -39,7 +38,7 @@ import {
 import "./accordion.css";
 
 const ACCORDION_SECTION_TITLE_CONTENT = textContentExpression();
-const ACCORDION_SECTION_PANEL_CONTENT = `(block | ${SECTION_ARRANGEMENT_CONTENT})+`;
+const ACCORDION_SECTION_PANEL_CONTENT = "layer+";
 
 export const AccordionSectionTitleNode = Node.create({
   name: "accordion_section_title",

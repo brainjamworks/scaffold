@@ -5,10 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { projectCourseStructure, type SurfaceId } from "@/document/model/course-structure";
-import {
-  createEmbeddedDataId,
-  createEmbeddedNodeId,
-} from "@/document/model/identity/stable-ids";
+import { createEmbeddedDataId, createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { emptyCalloutData } from "@/editor/blocks/presentation/callout/content";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
@@ -216,7 +214,8 @@ async function mountTracer({
     </CourseThemeProvider>,
   );
   await waitForCondition(
-    () => editor && compositionProbe.current?.presentationVisualRuntime && requiredTabOrNull("Details"),
+    () =>
+      editor && compositionProbe.current?.presentationVisualRuntime && requiredTabOrNull("Details"),
   );
   return fixture;
 }
@@ -235,22 +234,24 @@ function repositionDocument(fixture: RepositionFixture): JSONContent {
   const region = surface.content?.find((node) => node.type === "region");
   if (!region) throw new Error("Expected the slide-content main Region.");
   region.content = [
-    {
-      type: "layout",
-      attrs: {
-        id: fixture.tabsOwnerId,
-        variant: "tabs",
-        options: { variant: "default", label: "Reconstruction topics" },
+    createLayerWithContent([
+      {
+        type: "layout",
+        attrs: {
+          id: fixture.tabsOwnerId,
+          variant: "tabs",
+          options: { variant: "default", label: "Reconstruction topics" },
+        },
+        content: [
+          tabSection(
+            fixture.overviewSectionId,
+            "Overview",
+            paragraph(createEmbeddedNodeId(), "Baseline panel"),
+          ),
+          tabSection(fixture.detailsSectionId, "Details", callout(fixture.revealTargetId)),
+        ],
       },
-      content: [
-        tabSection(
-          fixture.overviewSectionId,
-          "Overview",
-          paragraph(createEmbeddedNodeId(), "Baseline panel"),
-        ),
-        tabSection(fixture.detailsSectionId, "Details", callout(fixture.revealTargetId)),
-      ],
-    },
+    ]),
   ];
   assignMissingIds(surface);
   const otherSurface = slideContentSurfaceDefinition.createSurface({
@@ -261,15 +262,11 @@ function repositionDocument(fixture: RepositionFixture): JSONContent {
   return content;
 }
 
-function tabSection(
-  id: EmbeddedNodeId,
-  label: string,
-  child: JSONContent,
-): JSONContent {
+function tabSection(id: EmbeddedNodeId, label: string, child: JSONContent): JSONContent {
   return {
     type: "section",
     attrs: { id, options: { label } },
-    content: [child],
+    content: [createLayerWithContent([child])],
   };
 }
 
@@ -316,6 +313,9 @@ function repositionTimeline(
   return Object.freeze({
     surfaceId: fixture.surfaceId,
     durationMs: 2_000,
+    transition: null,
+    layerTracks: Object.freeze([]),
+    layerTrackByOwnerId: new Map(),
     cues: Object.freeze([
       ...(selectDetailsAtZero
         ? [

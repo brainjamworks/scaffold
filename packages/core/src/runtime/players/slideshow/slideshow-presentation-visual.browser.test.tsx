@@ -8,10 +8,8 @@ import { emptyCalloutData } from "@/editor/blocks/presentation/callout/content";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { projectCourseStructure, type SurfaceId } from "@/document/model/course-structure";
-import {
-  createEmbeddedDataId,
-  createEmbeddedNodeId,
-} from "@/document/model/identity/stable-ids";
+import { createEmbeddedDataId, createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import type { CompiledSurfacePresentationTimeline } from "@/presentation/model";
 import { checkRuntimeDocumentReadiness } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
@@ -215,7 +213,7 @@ function tracerDocument(surfaceId: SurfaceId, targetId: EmbeddedNodeId): JSONCon
   const surface = slideContentSurfaceDefinition.createSurface({ surfaceId });
   const region = surface.content?.find((node) => node.type === "region");
   if (!region) throw new Error("Expected the slide-content main Region.");
-  region.content = [callout(targetId)];
+  region.content = [createLayerWithContent([callout(targetId)])];
   assignMissingIds(surface);
   courseDocument.content = [courseSection, surface];
   return content;
@@ -256,6 +254,9 @@ function revealTimeline(
   return Object.freeze({
     surfaceId,
     durationMs: 10_000,
+    transition: null,
+    layerTracks: Object.freeze([]),
+    layerTrackByOwnerId: new Map(),
     cues: Object.freeze([]),
     waits: Object.freeze([]),
     visualProgram: Object.freeze({

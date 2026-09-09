@@ -7,7 +7,7 @@ import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-varia
 
 export interface DocumentCapabilityLookups {
   readonly blocks: BlockDefinitionLookup;
-  readonly layouts: Pick<LayoutRegistry, "getById">;
+  readonly layouts: Pick<LayoutRegistry, "getById" | "getForNode">;
   readonly surfaces: SurfaceVariantLookup;
 }
 

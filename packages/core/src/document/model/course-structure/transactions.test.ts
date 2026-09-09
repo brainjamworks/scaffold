@@ -63,6 +63,11 @@ const TestArrangementNode = Node.create({
   group: ARRANGEMENT_CONTENT,
   content: "paragraph*",
 });
+const TestAssessmentQuestionNode = Node.create({
+  name: "testAssessmentQuestion",
+  group: "assessment_question",
+  atom: true,
+});
 const CopyFixtureNode = Node.create({
   name: "copy_fixture",
   group: "block",
@@ -619,8 +624,8 @@ describe("Course Structure Tiptap commands", () => {
 
   it("returns false for inapplicable operations without dispatching", () => {
     const one = makeEditor([section(SECTION_1, "One"), surface(SURFACE_1)], "slideshow", []);
-    expect(runCommand(one, { type: "surface.delete", surfaceId: SURFACE_1 })).toBe(true);
-    expect(childIdentity(one)).toEqual([SECTION_1]);
+    expect(runCommand(one, { type: "surface.delete", surfaceId: SURFACE_1 })).toBe(false);
+    expect(childIdentity(one)).toEqual([SECTION_1, SURFACE_1]);
 
     const two = makeEditor(
       [section(SECTION_1, "One"), surface(SURFACE_1), surface(SURFACE_2)],
@@ -1211,10 +1216,11 @@ function makeEditor(
       ExtendedParagraph,
       TestCourseDocumentNode,
       createCourseSectionNode(),
-      layerBoundary ? SurfaceNode.extend({ content: "region+" }) : SurfaceNode,
-      layerBoundary ? RegionNode.extend({ content: "layer+" }) : RegionNode,
-      ...(layerBoundary ? [LayerNode] : []),
+      SurfaceNode,
+      RegionNode,
+      LayerNode,
       TestArrangementNode,
+      TestAssessmentQuestionNode,
       CopyFixtureNode,
       ...createUnavailableContentAuthoringExtensions(),
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
@@ -1355,7 +1361,18 @@ function timeline(
   return {
     surfaceId,
     durationMs,
-    actions: withAction ? [{ kind: "manual-wait", id: ACTION_1, isEnabled: true, atMs: 500 }] : [],
+    layerTracks: [],
+    actions: withAction
+      ? [
+          {
+            kind: "manual-wait",
+            id: ACTION_1,
+            isEnabled: true,
+            atMs: 500,
+            boundary: "before-actions",
+          },
+        ]
+      : [],
   };
 }
 

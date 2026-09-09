@@ -6,7 +6,7 @@ describe("toPortableCourseDocumentAttrs", () => {
   it("omits ProseMirror null sentinels for absent orchestration values", () => {
     expect(
       toPortableCourseDocumentAttrs({
-        schemaVersion: 4,
+        schemaVersion: 5,
         requiresScaffoldPlus: false,
         mode: "slideshow",
         surfaceSize: "16x9",
@@ -17,7 +17,7 @@ describe("toPortableCourseDocumentAttrs", () => {
         presentation: null,
       }),
     ).toEqual({
-      schemaVersion: 4,
+      schemaVersion: 5,
       requiresScaffoldPlus: false,
       mode: "slideshow",
       surfaceSize: "16x9",
@@ -44,9 +44,10 @@ describe("toPortableCourseDocumentAttrs", () => {
 
   it("preserves present orchestration values", () => {
     const presentation = { schemaVersion: 1, surfaces: [] };
-    expect(
-      toPortableCourseDocumentAttrs({ mode: "slideshow", presentation }),
-    ).toEqual({ mode: "slideshow", presentation });
+    expect(toPortableCourseDocumentAttrs({ mode: "slideshow", presentation })).toEqual({
+      mode: "slideshow",
+      presentation,
+    });
   });
 
   it("passes non-record attrs through for portable validation to reject", () => {

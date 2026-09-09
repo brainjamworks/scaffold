@@ -95,6 +95,7 @@ describe("PresentationNarrationControls", () => {
       expect(readSurfaceTimeline(editor)).toEqual({
         surfaceId: SURFACE_ID,
         durationMs: 4_000,
+        layerTracks: [],
         narration: {
           source: { mode: "external", src: "https://example.test/intro.mp3" },
         },
@@ -122,6 +123,7 @@ describe("PresentationNarrationControls", () => {
       expect(readSurfaceTimeline(editor)).toEqual({
         surfaceId: SURFACE_ID,
         durationMs: 7_000,
+        layerTracks: [],
         narration: { source: { mode: "managed", mediaId: "narration-2" } },
         actions: [],
       });
@@ -159,6 +161,7 @@ describe("PresentationNarrationControls", () => {
       expect(readSurfaceTimeline(editor)).toEqual({
         surfaceId: SURFACE_ID,
         durationMs: 8_000,
+        layerTracks: [],
         narration: {
           source: { mode: "external", src: "https://example.test/replacement.mp3" },
         },
@@ -196,6 +199,7 @@ describe("PresentationNarrationControls", () => {
     expect(readSurfaceTimeline(editor)).toEqual({
       surfaceId: SURFACE_ID,
       durationMs: 0,
+      layerTracks: [],
       narration: { source: { mode: "managed", mediaId: "narration-2" } },
       actions: [],
     });
@@ -219,6 +223,7 @@ describe("PresentationNarrationControls", () => {
       expect(readSurfaceTimeline(editor)).toEqual({
         surfaceId: SURFACE_ID,
         durationMs: 8_000,
+        layerTracks: [],
         actions: [action],
       });
     });
@@ -241,6 +246,7 @@ function manualWait(): TimelineActionV1 {
     id: EmbeddedDataIdSchema.parse("wait00000001"),
     isEnabled: true,
     atMs: 2_000,
+    boundary: "before-actions",
   };
 }
 
@@ -253,7 +259,7 @@ function configurationWith(surface: {
     schemaVersion: 1,
     autoAdvance: false,
     allowPrevious: true,
-    surfaces: [{ surfaceId: SURFACE_ID, ...surface }],
+    surfaces: [{ surfaceId: SURFACE_ID, layerTracks: [], ...surface }],
   };
 }
 

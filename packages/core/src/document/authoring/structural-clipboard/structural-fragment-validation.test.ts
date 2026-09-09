@@ -3,6 +3,7 @@ import { Schema, type NodeSpec } from "@tiptap/pm/model";
 import { describe, expect, it } from "vite-plus/test";
 import { z } from "zod";
 
+import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@scaffold/contracts";
 import { createLayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import { mcqBlockDefinition } from "@/editor/blocks/assessment/mcq/mcq-definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
@@ -23,6 +24,7 @@ const IDS = {
   child: "child0000001",
   duplicate: "same00000001",
   layout: "layout000001",
+  layer: "layer0000001",
   section: "section00001",
   surface: "surface00001",
   choices: "child0000001",
@@ -83,6 +85,11 @@ const plusLayouts = createLayoutRegistry([
     title: "Plus layout",
     description: "Plus layout",
     icon: CircleIcon,
+    section: {
+      label: "Section",
+      addLabel: "Add section",
+      create: () => ({ type: "section" }),
+    },
     createContent: () => ({ type: "layout", attrs: { variant: "plus-layout" } }),
   },
 ]);
@@ -293,7 +300,7 @@ describe("structural fragment destination validation", () => {
             {
               type: "section",
               attrs: { id: IDS.section, options: { label: 42 } },
-              content: [coreBlock()],
+              content: [layer([coreBlock()])],
             },
           ],
         }),
@@ -423,7 +430,7 @@ function envelope(
   return {
     protocol: "scaffold.structural-fragment",
     version: 1,
-    documentFormatVersion: 4,
+    documentFormatVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
     rootKind,
     content,
   };
@@ -497,7 +504,7 @@ function layout(
       {
         type: "section",
         attrs: { id: IDS.section, options: { label: "Main" } },
-        content: [coreBlock()],
+        content: [layer([coreBlock()])],
       },
     ],
   };
@@ -541,7 +548,8 @@ function createSchema(includePlus: boolean): Schema {
       attrs: { id, variant: { default: null }, options: { default: {} } },
       content: "section+",
     },
-    section: { attrs: { id, options: { default: {} } }, content: "block+" },
+    section: { attrs: { id, options: { default: {} } }, content: "layer+" },
+    layer: { attrs: { id }, content: "block+" },
     core_block: { group: "block", attrs, content: "block*" },
     mcq: {
       group: "block",
@@ -558,6 +566,10 @@ function createSchema(includePlus: boolean): Schema {
   };
   if (includePlus) nodes["plus_block"] = { group: "block", attrs, content: "block*" };
   return new Schema({ nodes });
+}
+
+function layer(content: readonly StructuralFragmentContent[]): StructuralFragmentContent {
+  return { type: "layer", attrs: { id: IDS.layer }, content };
 }
 
 function compatibilityNodeSpec() {

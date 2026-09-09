@@ -1,5 +1,5 @@
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
-import { getSchema, Node, type Extensions, type JSONContent } from "@tiptap/core";
+import { getSchema, type JSONContent } from "@tiptap/core";
 import { Fragment, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -7,7 +7,6 @@ import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createLayerWithContent } from "@/document/model/layers/layer-construction";
-import { LayerNode } from "@/document/model/layers/layer-node";
 import {
   validateLayerContext,
   validateLayerIdentities,
@@ -20,9 +19,7 @@ import { paginatedLayoutDefinition } from "@/editor/arrangements/layout/paginate
 import { tabsLayoutDefinition } from "@/editor/arrangements/layout/tabs/tabs-definition";
 
 const composition = createCoreScaffoldAuthoringComposition();
-const schema = getSchema(
-  candidateExtensions(createCourseDocumentAuthoringExtensions({ editable: true, composition })),
-);
+const schema = getSchema(createCourseDocumentAuthoringExtensions({ editable: true, composition }));
 
 const constructionCases = [
   {
@@ -189,27 +186,6 @@ function candidateDocument(content: JSONContent): ProseMirrorNode {
       },
     ],
   });
-}
-
-function candidateExtensions(base: Extensions): Extensions {
-  const contentExpressions: Readonly<Record<string, string>> = {
-    region: "layer+",
-    cell: "layer+",
-    section: "layer+ | (accordion_section_title accordion_section_panel)",
-    accordion_section_panel: "layer+",
-  };
-
-  return [
-    ...base.map((extension) => {
-      const content = contentExpressions[extension.name];
-      if (!content) return extension;
-      if (!(extension instanceof Node)) {
-        throw new Error(`Candidate structural extension "${extension.name}" is not a Node.`);
-      }
-      return extension.extend({ content });
-    }),
-    LayerNode,
-  ];
 }
 
 function expectBlankLayer(layer: JSONContent | undefined, label: string): void {

@@ -225,7 +225,10 @@ function testCapabilities(): DocumentCapabilityLookups {
             } as never)
           : undefined,
     },
-    layouts: { getById: (id) => (id === "known-layout" ? ({ id } as never) : undefined) },
+    layouts: {
+      getById: (id) => (id === "known-layout" ? ({ id } as never) : undefined),
+      getForNode: () => undefined,
+    },
     surfaces: {
       get: (id) =>
         id === "known-surface" ? ({ id, settingsSchema: z.object({}) } as never) : undefined,
@@ -249,7 +252,7 @@ function documentWithSurface(surface: NodeJson): NodeJson {
         type: "courseDocument",
         attrs: {
           id: "course000001",
-          schemaVersion: 4,
+          schemaVersion: 5,
           requiresScaffoldPlus: false,
           mode: "page",
           surfaceSize: "fluid",

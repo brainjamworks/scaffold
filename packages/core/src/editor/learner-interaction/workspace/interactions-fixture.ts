@@ -121,7 +121,9 @@ export function createInteractionsFixtureContent(): JSONContent {
   });
   const region = content.content?.find((child) => child.type === "region");
   if (!region) throw new Error("Expected a main region in the content slide template.");
-  region.content = [...(region.content ?? []), withFixtureNodeIds(createTabsContent({ tabs: 2 }))];
+  const layer = region.content?.find((child) => child.type === "layer");
+  if (!layer) throw new Error("Expected a Layer in the content slide template's main region.");
+  layer.content = [withFixtureNodeIds(createTabsContent({ tabs: 2 }))];
   assignMissingNodeIds(cover);
   assignMissingNodeIds(content);
 

@@ -18,6 +18,8 @@ import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import {
   APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES,
   DOCUMENT_TREE_LIFECYCLE_APPLICATION,
+  DOCUMENT_TREE_LIFECYCLE_LAYER_ID,
+  DOCUMENT_TREE_LIFECYCLE_REGION_ID,
   projectDocumentTreeLifecycleDocument,
   requireDocumentTreeLifecycleNodeById,
 } from "@/composition/application/testing/document-tree-lifecycle-fixtures";
@@ -606,8 +608,36 @@ describe("checked transaction primitives", () => {
         pos: source.pos,
         regenerateNodeIds: true,
         identityRewrites: DOCUMENT_TREE_LIFECYCLE_APPLICATION.capabilities.contentIdentity.rewrites,
-        layerAccess: NON_LAYER_DOCUMENT_MUTATION_ACCESS,
+        layerAccess: {
+          kind: "explicit-layer",
+          blockDefinitions: DOCUMENT_TREE_LIFECYCLE_APPLICATION.capabilities.blocks.registry,
+          layoutDefinitions: DOCUMENT_TREE_LIFECYCLE_APPLICATION.capabilities.layouts.registry,
+          destination: {
+            ownerId: DOCUMENT_TREE_LIFECYCLE_REGION_ID,
+            layerId: DOCUMENT_TREE_LIFECYCLE_LAYER_ID,
+          },
+        },
       });
+
+      const definition =
+        DOCUMENT_TREE_LIFECYCLE_APPLICATION.capabilities.blocks.registry.getByNodeType(
+          family.ownerNodeType,
+        );
+      if (definition?.boundedPlacement === "fill") {
+        expect(result).toMatchObject({
+          ok: false,
+          issue: {
+            kind: "layer",
+            code: "layer_editing_refused",
+            error: {
+              reason: "content-incompatible",
+              rule: "fill-occupant-must-be-exclusive",
+            },
+          },
+        });
+        expect(doc.toJSON()).toEqual(originalDocument);
+        return;
+      }
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;

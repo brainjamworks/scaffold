@@ -447,7 +447,7 @@ describe("PresentationActionEditor", () => {
     const predecessor = createPresentationAction({
       editor,
       surfaceId: SURFACE_ID,
-      action: { kind: "manual-wait", isEnabled: true, atMs: 500 },
+      action: { kind: "manual-wait", isEnabled: true, atMs: 500, boundary: "before-actions" },
     });
     const created = seedReveal(editor, 500);
     if (predecessor.isErr()) throw new Error("Expected predecessor action.");
@@ -588,7 +588,12 @@ describe("PresentationActionEditor", () => {
     const later = createPresentationAction({
       editor,
       surfaceId: SURFACE_ID,
-      action: { kind: "manual-wait", isEnabled: true, atMs: 2_000 },
+      action: {
+        kind: "manual-wait",
+        isEnabled: true,
+        atMs: 2_000,
+        boundary: "before-actions",
+      },
     });
     if (predecessor.isErr() || selected.isErr() || tiedFollower.isErr() || later.isErr()) {
       throw new Error("Expected ordered action setup.");
@@ -755,11 +760,17 @@ function courseDocument(content: "paragraph" | "tabs"): JSONContent {
   if (content === "tabs") {
     const tabs = createTabsContent({ tabs: 2 });
     tabs.content![0]!.attrs = { ...tabs.content![0]!.attrs, id: CONTROL_TARGET_ID };
-    region.content = [tabs];
+    region.content = [{ type: "layer", attrs: { id: createEmbeddedNodeId() }, content: [tabs] }];
   } else {
     region.content = [
-      { type: "paragraph", attrs: { id: TARGET_ID } },
-      { type: "paragraph", attrs: { id: OTHER_TARGET_ID } },
+      {
+        type: "layer",
+        attrs: { id: createEmbeddedNodeId() },
+        content: [
+          { type: "paragraph", attrs: { id: TARGET_ID } },
+          { type: "paragraph", attrs: { id: OTHER_TARGET_ID } },
+        ],
+      },
     ];
   }
   assignMissingNodeIds(surface);
@@ -776,7 +787,7 @@ function courseDocument(content: "paragraph" | "tabs"): JSONContent {
             schemaVersion: 1,
             autoAdvance: false,
             allowPrevious: true,
-            surfaces: [{ surfaceId: SURFACE_ID, durationMs: 5_000, actions: [] }],
+            surfaces: [{ surfaceId: SURFACE_ID, durationMs: 5_000, layerTracks: [], actions: [] }],
           } satisfies PresentationConfigurationV1,
         },
         content: [

@@ -1,3 +1,8 @@
+import {
+  PresentationConfigurationV1Schema,
+  type EmbeddedNodeId,
+  type SurfacePresentationTimelineV1,
+} from "@scaffold/contracts";
 import { Extension, type Editor, type Extensions } from "@tiptap/core";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state";
 
@@ -15,6 +20,10 @@ import { VocabularyTermRuntimeNode } from "@/editor/rich-text/vocabulary-term/ru
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createCourseDocumentBaseExtensions } from "@/composition/model/create-document-composition";
 import { createCourseSectionNode } from "@/document/model/nodes";
+import { createLayerNodeView, type LayerNodeViewProjection } from "@/editor/layers/layer-node-view";
+import { createEmptyPresentationTimeline } from "@/presentation/model/presentation-configuration";
+import { blocksPresentationSurface } from "@/presentation/model/presentation-compilation-diagnostic";
+import { compilePresentationLayerTracks } from "@/presentation/model/presentation-layer-track";
 import {
   createControlBindingRegistry,
   createControlBindingRegistryStorageExtension,
@@ -78,6 +87,11 @@ export function createCourseDocumentRuntimeExtensions({
     registry: surfaceRegistry,
     views: composition.surfaces.views,
   });
+  const layerNode = createLayerNodeView({
+    blockDefinitions: blockRegistry,
+    layoutDefinitions: composition.capabilities.layouts.registry,
+    projection: runtimeInitialLayerNodeViewProjection,
+  });
 
   return [
     createScaffoldCapabilitiesStorageExtension(composition.capabilities),
@@ -103,6 +117,7 @@ export function createCourseDocumentRuntimeExtensions({
       courseSectionNode: createCourseSectionNode(),
       gridNode: GridRuntimeNode,
       inlineIconNode: InlineIconRuntimeNode,
+      layerNode,
       layoutNode,
       mathInlineNode: MathInlineRuntimeNode,
       selectableChoiceNode: SelectableChoiceRuntimeNode,
@@ -115,6 +130,50 @@ export function createCourseDocumentRuntimeExtensions({
     }),
     ...composition.blocks.extensions,
   ];
+}
+
+/** Ordinary runtime projection: initial choice only, with no clock or scheduled switching. */
+const runtimeInitialLayerNodeViewProjection: LayerNodeViewProjection = Object.freeze({
+  isActive(editor: Editor, layerId: EmbeddedNodeId): boolean {
+    const { semantics } = getRuntimeSemanticDocumentSourceForEditor(editor);
+    const ownerId = semantics.parentById.get(layerId);
+    if (!ownerId) throw new Error(`Runtime Layer "${layerId}" has no logical owner.`);
+    const ownerLocation = semantics.locationById.get(ownerId);
+    if (!ownerLocation?.surfaceId) {
+      throw new Error(`Runtime Layer owner "${ownerId}" has no Surface ownership.`);
+    }
+
+    const timeline = readInitialProjectionTimeline(editor, ownerLocation.surfaceId);
+    if (!timeline) return false;
+    const compiled = compilePresentationLayerTracks(timeline, semantics);
+    if (compiled.diagnostics.some(blocksPresentationSurface)) return false;
+    return compiled.trackByOwnerId.get(ownerId)?.initialLayerId === layerId;
+  },
+  subscribe(editor: Editor, listener: () => void): () => void {
+    editor.on("transaction", listener);
+    return () => editor.off("transaction", listener);
+  },
+});
+
+function readInitialProjectionTimeline(
+  editor: Editor,
+  surfaceId: EmbeddedNodeId,
+): SurfacePresentationTimelineV1 | null {
+  const courseDocument = editor.state.doc.firstChild;
+  if (courseDocument?.type.name !== "courseDocument") {
+    throw new Error("Runtime initial Layer projection requires a Course Document root.");
+  }
+  const source = courseDocument.attrs["presentation"];
+  if (source === null || source === undefined) return createEmptyPresentationTimeline(surfaceId);
+
+  const parsed = PresentationConfigurationV1Schema.safeParse(source);
+  if (!parsed.success) {
+    throw new Error(
+      "Runtime initial Layer projection received invalid Presentation configuration.",
+    );
+  }
+  const timelines = parsed.data.surfaces.filter((surface) => surface.surfaceId === surfaceId);
+  return timelines.length === 1 ? timelines[0]! : null;
 }
 
 export interface RuntimeSemanticDocumentSource {

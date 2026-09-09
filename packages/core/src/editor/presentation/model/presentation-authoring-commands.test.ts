@@ -68,8 +68,8 @@ describe("presentation authoring commands", () => {
       autoAdvance: false,
       allowPrevious: true,
       surfaces: [
-        { surfaceId: IDS.firstSurface, durationMs: 5_000, actions: [] },
-        { surfaceId: IDS.secondSurface, durationMs: 0, actions: [] },
+        { surfaceId: IDS.firstSurface, durationMs: 5_000, layerTracks: [], actions: [] },
+        { surfaceId: IDS.secondSurface, durationMs: 0, layerTracks: [], actions: [] },
       ],
     });
 
@@ -104,7 +104,12 @@ describe("presentation authoring commands", () => {
     const tied = createPresentationAction({
       editor,
       surfaceId: IDS.firstSurface,
-      action: { kind: "manual-wait", isEnabled: true, atMs: 1_000 },
+      action: {
+        kind: "manual-wait",
+        isEnabled: true,
+        atMs: 1_000,
+        boundary: "before-actions",
+      },
     });
 
     expect(later.isOk() && earlier.isOk() && tied.isOk()).toBe(true);
@@ -130,7 +135,12 @@ describe("presentation authoring commands", () => {
     const second = createPresentationAction({
       editor,
       surfaceId: IDS.firstSurface,
-      action: { kind: "manual-wait", isEnabled: true, atMs: 1_000 },
+      action: {
+        kind: "manual-wait",
+        isEnabled: true,
+        atMs: 1_000,
+        boundary: "before-actions",
+      },
     });
     if (first.isErr() || second.isErr()) throw new Error("Expected equal-time actions.");
     let changedTransactions = 0;
@@ -255,7 +265,10 @@ describe("presentation authoring commands", () => {
     });
 
     expect(result).toMatchObject({
-      error: { reason: "target-not-current", targetId: missingTarget },
+      error: {
+        reason: "action-compilation-invalid",
+        diagnostics: [{ reason: "referenced-target-missing", targetId: missingTarget }],
+      },
     });
     expect(changedTransactions).toBe(0);
     expect(actions(editor)).toEqual([]);
@@ -529,14 +542,14 @@ describe("presentation authoring commands", () => {
     const first = createPresentationAction({
       editor,
       surfaceId: IDS.firstSurface,
-      action: { kind: "manual-wait", isEnabled: true, atMs: 500 },
+      action: { kind: "manual-wait", isEnabled: true, atMs: 500, boundary: "before-actions" },
     });
     if (first.isErr()) throw new Error("Expected Wait creation to succeed.");
 
     const second = createPresentationAction({
       editor,
       surfaceId: IDS.firstSurface,
-      action: { kind: "manual-wait", isEnabled: true, atMs: 500 },
+      action: { kind: "manual-wait", isEnabled: true, atMs: 500, boundary: "before-actions" },
     });
 
     expect(second.isErr() && second.error).toMatchObject({
@@ -561,9 +574,9 @@ describe("presentation authoring commands", () => {
       action: instantReveal(IDS.missingTarget, 0),
     });
     expect(missingTarget.isErr() && missingTarget.error).toMatchObject({
-      reason: "target-not-current",
+      reason: "action-compilation-invalid",
       surfaceId: IDS.firstSurface,
-      targetId: IDS.missingTarget,
+      diagnostics: [{ reason: "referenced-target-missing", targetId: IDS.missingTarget }],
     });
 
     const disabledMissingTarget = createPresentationAction({
@@ -572,9 +585,9 @@ describe("presentation authoring commands", () => {
       action: { ...instantReveal(IDS.missingTarget, 0), isEnabled: false },
     });
     expect(disabledMissingTarget.isErr() && disabledMissingTarget.error).toMatchObject({
-      reason: "target-not-current",
+      reason: "action-compilation-invalid",
       surfaceId: IDS.firstSurface,
-      targetId: IDS.missingTarget,
+      diagnostics: [{ reason: "referenced-target-missing", targetId: IDS.missingTarget }],
     });
 
     const movedTarget = createPresentationAction({
@@ -583,10 +596,15 @@ describe("presentation authoring commands", () => {
       action: instantReveal(IDS.secondSurface, 0),
     });
     expect(movedTarget.isErr() && movedTarget.error).toMatchObject({
-      reason: "target-moved-to-another-surface",
+      reason: "action-compilation-invalid",
       surfaceId: IDS.firstSurface,
-      currentSurfaceId: IDS.secondSurface,
-      targetId: IDS.secondSurface,
+      diagnostics: [
+        {
+          reason: "target-moved-surface",
+          actualSurfaceId: IDS.secondSurface,
+          targetId: IDS.secondSurface,
+        },
+      ],
     });
 
     const missingDestination = createPresentationAction({
@@ -600,9 +618,14 @@ describe("presentation authoring commands", () => {
       },
     });
     expect(missingDestination.isErr() && missingDestination.error).toMatchObject({
-      reason: "navigation-destination-not-current",
+      reason: "action-compilation-invalid",
       surfaceId: IDS.firstSurface,
-      destinationSurfaceId: IDS.missingSurface,
+      diagnostics: [
+        {
+          reason: "navigation-destination-not-current",
+          destinationSurfaceId: IDS.missingSurface,
+        },
+      ],
     });
 
     const unavailableCapability = createPresentationAction({
@@ -611,10 +634,15 @@ describe("presentation authoring commands", () => {
       action: instantReveal(IDS.firstRegion, 0),
     });
     expect(unavailableCapability.isErr() && unavailableCapability.error).toMatchObject({
-      reason: "visual-capability-unavailable",
+      reason: "action-compilation-invalid",
       surfaceId: IDS.firstSurface,
-      targetId: IDS.firstRegion,
-      capability: "reveal",
+      diagnostics: [
+        {
+          reason: "visual-capability-unavailable",
+          targetId: IDS.firstRegion,
+          capability: "reveal",
+        },
+      ],
     });
   });
 
@@ -639,10 +667,15 @@ describe("presentation authoring commands", () => {
     });
 
     expect(overlapping.isErr() && overlapping.error).toMatchObject({
-      reason: "same-target-timed-overlap",
+      reason: "action-compilation-invalid",
       surfaceId: IDS.firstSurface,
-      targetId: IDS.firstParagraph,
-      earlierActionId: first.value,
+      diagnostics: [
+        {
+          reason: "same-target-timed-overlap",
+          targetId: IDS.firstParagraph,
+          earlierActionId: first.value,
+        },
+      ],
     });
   });
 
@@ -696,7 +729,9 @@ describe("presentation authoring commands", () => {
         schemaVersion: 1,
         autoAdvance: false,
         allowPrevious: true,
-        surfaces: [{ surfaceId: IDS.firstSurface, durationMs: 1_000, actions: [] }],
+        surfaces: [
+          { surfaceId: IDS.firstSurface, durationMs: 1_000, layerTracks: [], actions: [] },
+        ],
       },
     });
     const staleResult = setPresentationSurfaceTransition({
@@ -808,8 +843,14 @@ function courseDocument(presentation: PresentationConfigurationV1 | null): JSONC
   }
   mainRegion.attrs = { ...mainRegion.attrs, id: IDS.firstRegion };
   mainRegion.content = [
-    { type: "paragraph", attrs: { id: IDS.firstParagraph } },
-    { type: "paragraph", attrs: { id: IDS.secondParagraph } },
+    {
+      type: "layer",
+      attrs: { id: createEmbeddedNodeId() },
+      content: [
+        { type: "paragraph", attrs: { id: IDS.firstParagraph } },
+        { type: "paragraph", attrs: { id: IDS.secondParagraph } },
+      ],
+    },
   ];
   assignMissingNodeIds(first);
   assignMissingNodeIds(second);

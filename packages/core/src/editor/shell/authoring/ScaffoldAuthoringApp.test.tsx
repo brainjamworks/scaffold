@@ -567,7 +567,7 @@ function presentationPreviewDocument(surfaceId: EmbeddedNodeId): {
     schemaVersion: 1,
     autoAdvance: false,
     allowPrevious: true,
-    surfaces: [{ surfaceId, durationMs: 1_000, actions: [] }],
+    surfaces: [{ surfaceId, durationMs: 1_000, layerTracks: [], actions: [] }],
   };
   mocks.authorJSON = document;
   mocks.fakeEditor.state.doc.firstChild.attrs = courseDocument.attrs;

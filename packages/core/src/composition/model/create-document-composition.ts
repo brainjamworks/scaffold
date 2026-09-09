@@ -10,6 +10,7 @@ import Underline from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
 
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { SemanticLabel } from "@/composition/model/semantic-label-extension";
 import {
   AccordionSectionPanelNode,
@@ -89,6 +90,7 @@ export function createCourseDocumentBaseExtensions({
   assessmentSummaryFeedbackNode,
   courseSectionNode,
   inlineIconNode,
+  layerNode = LayerNode,
   layoutNode,
   mathInlineNode,
   selectableChoiceNode,
@@ -109,6 +111,7 @@ export function createCourseDocumentBaseExtensions({
   courseSectionNode: TiptapNode;
   gridNode: TiptapNode;
   inlineIconNode: TiptapNode;
+  layerNode?: TiptapNode;
   layoutNode: TiptapNode;
   mathInlineNode: TiptapNode;
   selectableChoiceNode: TiptapNode;
@@ -140,6 +143,7 @@ export function createCourseDocumentBaseExtensions({
     courseSectionNode,
     surfaceNode,
     regionNode,
+    layerNode,
     SurfaceHeaderNode,
     SurfaceHeaderFooterSlotNode,
     SlideCoverSubtitleNode,

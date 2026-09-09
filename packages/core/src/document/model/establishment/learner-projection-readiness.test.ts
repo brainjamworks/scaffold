@@ -47,7 +47,7 @@ const capabilities: DocumentCapabilityLookups = {
           } as never)
         : undefined,
   },
-  layouts: { getById: () => undefined },
+  layouts: { getById: () => undefined, getForNode: () => undefined },
   surfaces: {
     get: (id) =>
       id === "known-surface" ? ({ id, settingsSchema: z.object({}) } as never) : undefined,
@@ -133,7 +133,7 @@ describe("checkLearnerProjectionReadiness", () => {
           throw new Error("learner projection must not run");
         },
       },
-      layouts: { getById: () => undefined },
+      layouts: { getById: () => undefined, getForNode: () => undefined },
       surfaces: { get: () => undefined },
     };
 
@@ -182,7 +182,7 @@ function documentWith(block: Record<string, unknown>): Record<string, unknown> {
         type: "courseDocument",
         attrs: {
           id: "course000001",
-          schemaVersion: 4,
+          schemaVersion: 5,
           requiresScaffoldPlus: false,
           mode: "page",
           surfaceSize: "fluid",

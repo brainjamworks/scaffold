@@ -10,6 +10,7 @@ import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import {
   resolveLayerEditingTarget,
   validateLayerContentPlacement,
@@ -197,7 +198,7 @@ describe("resolveInsertActionPlacement", () => {
     "refuses an ordinary action after an existing fill occupant in a bounded %s",
     (containerType) => {
       const editor = makeEditor(activeContainerDocument(containerType, true));
-      const range = rangeInsideParagraphOwnedBy(editor, containerType);
+      const range = rangeAtEndOfLayerOwnedBy(editor, containerType);
 
       expect(
         resolveInsertActionPlacement({
@@ -208,7 +209,14 @@ describe("resolveInsertActionPlacement", () => {
           range,
           surfaceVariants: builtInSurfaceVariantRegistry,
         }),
-      ).toEqual({ ok: false });
+      ).toMatchObject({
+        ok: false,
+        error: {
+          reason: "content-incompatible",
+          contentType: "paragraph",
+          rule: "fill-occupant-must-be-exclusive",
+        },
+      });
     },
   );
 
@@ -216,7 +224,7 @@ describe("resolveInsertActionPlacement", () => {
     "refuses a second fill occupant in an active bounded %s",
     (containerType) => {
       const editor = makeEditor(activeContainerDocument(containerType, true));
-      const range = rangeInsideParagraphOwnedBy(editor, containerType);
+      const range = rangeAtEndOfLayerOwnedBy(editor, containerType);
 
       expect(
         resolveInsertActionPlacement({
@@ -227,7 +235,14 @@ describe("resolveInsertActionPlacement", () => {
           range,
           surfaceVariants: builtInSurfaceVariantRegistry,
         }),
-      ).toEqual({ ok: false });
+      ).toMatchObject({
+        ok: false,
+        error: {
+          reason: "content-incompatible",
+          contentType: fillActionFor(containerType).nodeType,
+          rule: "fill-occupant-must-be-exclusive",
+        },
+      });
     },
   );
 
@@ -277,7 +292,7 @@ describe("resolveInsertActionPlacement", () => {
 
   it("keeps a bounded-layout registry defect observable", () => {
     const editor = makeEditor(activeRegionWithLayoutDocument());
-    const range = rangeInsideParagraphOwnedBy(editor, "region");
+    const range = rangeAtEndOfLayerOwnedBy(editor, "region");
     const defect = new Error("layout registry programming defect");
     const layoutDefinitions = {
       ...builtInLayoutRegistry,
@@ -330,6 +345,7 @@ function activeContainerDocument(
   });
   const region = surface.content?.find((node) => node.type === "region");
   if (!region) throw new Error("expected slide content surface region");
+  const regionLayer = requireDirectLayer(region);
   region.attrs = {
     ...region.attrs,
     id: createEmbeddedNodeId(),
@@ -337,11 +353,9 @@ function activeContainerDocument(
   };
 
   if (containerType === "region") {
-    region.content = withFill
-      ? [grid(), paragraph(authoredText ? "Authored content" : "")]
-      : [paragraph(authoredText ? "Authored content" : "")];
+    regionLayer.content = withFill ? [grid()] : [paragraph(authoredText ? "Authored content" : "")];
   } else if (containerType === "cell") {
-    region.content = [
+    regionLayer.content = [
       {
         type: "grid",
         attrs: { id: createEmbeddedNodeId() },
@@ -349,20 +363,18 @@ function activeContainerDocument(
           {
             type: "cell",
             attrs: { id: createEmbeddedNodeId() },
-            content: withFill
-              ? [tabsLayout(), paragraph(authoredText ? "Authored content" : "")]
-              : [paragraph(authoredText ? "Authored content" : "")],
+            content: [
+              createLayerWithContent(
+                withFill ? [tabsLayout()] : [paragraph(authoredText ? "Authored content" : "")],
+              ),
+            ],
           },
         ],
       },
     ];
   } else {
-    region.content = [
-      layoutWithSection(
-        withFill
-          ? [grid(), paragraph(authoredText ? "Authored content" : "")]
-          : [paragraph(authoredText ? "Authored content" : "")],
-      ),
+    regionLayer.content = [
+      layoutWithSection(withFill ? [grid()] : [paragraph(authoredText ? "Authored content" : "")]),
     ];
   }
 
@@ -384,7 +396,7 @@ function activeRegionWithLayoutDocument(): JSONContent {
     (node) => node.type === "region",
   );
   if (!region) throw new Error("expected slide content surface region");
-  region.content = [tabsLayout(), paragraph()];
+  requireDirectLayer(region).content = [tabsLayout()];
   return document;
 }
 
@@ -396,7 +408,7 @@ function grid(): JSONContent {
       {
         type: "cell",
         attrs: { id: createEmbeddedNodeId() },
-        content: [{ type: "paragraph" }],
+        content: [createLayerWithContent([{ type: "paragraph" }])],
       },
     ],
   };
@@ -414,7 +426,7 @@ function layoutWithSection(sectionContent: JSONContent[]): JSONContent {
       {
         type: "section",
         attrs: { id: createEmbeddedNodeId(), role: "tab-panel" },
-        content: sectionContent,
+        content: [createLayerWithContent(sectionContent)],
       },
     ],
   };
@@ -426,9 +438,9 @@ function paragraph(text = ""): JSONContent {
 
 function rangeInsideParagraphOwnedBy(editor: Editor, parentType: BoundedContainerType) {
   let range: { from: number; to: number } | undefined;
-  editor.state.doc.descendants((node, pos, parent) => {
+  editor.state.doc.descendants((node, pos) => {
     if (
-      parent?.type.name === parentType &&
+      nearestBoundedOwnerAt(editor.state.doc, pos) === parentType &&
       node.type.name === "paragraph" &&
       node.content.size === 0
     ) {
@@ -443,8 +455,12 @@ function rangeInsideParagraphOwnedBy(editor: Editor, parentType: BoundedContaine
 
 function rangeInsideTextParagraphOwnedBy(editor: Editor, parentType: BoundedContainerType) {
   let range: { from: number; to: number } | undefined;
-  editor.state.doc.descendants((node, pos, parent) => {
-    if (parent?.type.name === parentType && node.type.name === "paragraph" && node.textContent) {
+  editor.state.doc.descendants((node, pos) => {
+    if (
+      nearestBoundedOwnerAt(editor.state.doc, pos) === parentType &&
+      node.type.name === "paragraph" &&
+      node.textContent
+    ) {
       range = { from: pos + 1, to: pos + 1 };
       return false;
     }
@@ -456,9 +472,9 @@ function rangeInsideTextParagraphOwnedBy(editor: Editor, parentType: BoundedCont
 
 function nodeRangeForParagraphOwnedBy(editor: Editor, parentType: BoundedContainerType) {
   let range: { from: number; to: number } | undefined;
-  editor.state.doc.descendants((node, pos, parent) => {
+  editor.state.doc.descendants((node, pos) => {
     if (
-      parent?.type.name === parentType &&
+      nearestBoundedOwnerAt(editor.state.doc, pos) === parentType &&
       node.type.name === "paragraph" &&
       node.content.size === 0
     ) {
@@ -469,6 +485,38 @@ function nodeRangeForParagraphOwnedBy(editor: Editor, parentType: BoundedContain
   });
   if (!range) throw new Error(`expected a paragraph owned by ${parentType}`);
   return range;
+}
+
+function rangeAtEndOfLayerOwnedBy(editor: Editor, ownerType: BoundedContainerType) {
+  let range: { from: number; to: number } | undefined;
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name !== "layer" || nearestBoundedOwnerAt(editor.state.doc, pos) !== ownerType) {
+      return true;
+    }
+    const end = pos + node.nodeSize - 1;
+    range = { from: end, to: end };
+    return false;
+  });
+  if (!range) throw new Error(`expected a Layer owned by ${ownerType}`);
+  return range;
+}
+
+function nearestBoundedOwnerAt(
+  document: ProseMirrorNode,
+  pos: number,
+): BoundedContainerType | undefined {
+  const resolved = document.resolve(pos);
+  for (let depth = resolved.depth; depth >= 0; depth -= 1) {
+    const type = resolved.node(depth).type.name;
+    if (type === "region" || type === "cell" || type === "section") return type;
+  }
+  return undefined;
+}
+
+function requireDirectLayer(owner: JSONContent): JSONContent {
+  const layer = owner.content?.find((node) => node.type === "layer");
+  if (!layer) throw new Error(`expected ${owner.type} Layer`);
+  return layer;
 }
 
 function editorFacade(doc: ProseMirrorNode, paragraphId: string): Editor {

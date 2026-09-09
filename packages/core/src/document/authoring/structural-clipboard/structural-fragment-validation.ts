@@ -13,6 +13,12 @@ import {
 import type { SurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 import { assertParsedMountedNodeIdentity } from "@/document/model/establishment/mounted-node-identity";
 import { readUnavailableContentCompatibilityRoot } from "@/document/model/establishment/unavailable-content-compatibility-root";
+import {
+  layerContextDiagnosticPath,
+  layerNodePathToJsonPath,
+  validateLayerContext,
+  type LayerContextDiagnostic,
+} from "@/document/model/layers/layer-validation";
 
 import type {
   StructuralFragmentContent,
@@ -41,7 +47,8 @@ export type StructuralFragmentValidationRefusalReason =
   | "schema_mismatch"
   | "missing_embedded_node_id"
   | "invalid_embedded_node_id"
-  | "duplicate_embedded_node_id";
+  | "duplicate_embedded_node_id"
+  | "layer_context_invalid";
 
 export interface ValidatedStructuralFragment {
   readonly rootKind: StructuralFragmentRootKind;
@@ -55,8 +62,14 @@ export type StructuralFragmentValidationResult =
   | { readonly status: "ok"; readonly value: ValidatedStructuralFragment }
   | {
       readonly status: "refused";
-      readonly reason: StructuralFragmentValidationRefusalReason;
+      readonly reason: Exclude<StructuralFragmentValidationRefusalReason, "layer_context_invalid">;
       readonly path: readonly (string | number)[];
+    }
+  | {
+      readonly status: "refused";
+      readonly reason: "layer_context_invalid";
+      readonly path: readonly (string | number)[];
+      readonly diagnostic: LayerContextDiagnostic;
     };
 
 export function validateStructuralFragment(input: {
@@ -117,6 +130,13 @@ export function validateStructuralFragment(input: {
         return refused("schema_mismatch", identityIssue.path);
     }
   }
+
+  const layerDiagnostic = validateLayerContext({
+    document: node,
+    blockDefinitions: capabilities.blocks,
+    layoutDefinitions: capabilities.layouts,
+  })[0];
+  if (layerDiagnostic) return refusedLayerContext(layerDiagnostic);
 
   freezeJsonTree(fragment.content);
   return {
@@ -312,10 +332,21 @@ function isJsonObject(value: unknown): value is StructuralFragmentJsonObject {
 }
 
 function refused(
-  reason: StructuralFragmentValidationRefusalReason,
+  reason: Exclude<StructuralFragmentValidationRefusalReason, "layer_context_invalid">,
   path: readonly (string | number)[],
 ): StructuralFragmentValidationResult {
   return { status: "refused", reason, path };
+}
+
+function refusedLayerContext(
+  diagnostic: LayerContextDiagnostic,
+): StructuralFragmentValidationResult {
+  return {
+    status: "refused",
+    reason: "layer_context_invalid",
+    path: layerNodePathToJsonPath(layerContextDiagnosticPath(diagnostic)),
+    diagnostic,
+  };
 }
 
 function freezeJsonTree(root: StructuralFragmentContent): void {

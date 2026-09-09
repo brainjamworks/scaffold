@@ -50,9 +50,7 @@ function renderWithFacade(
     store.setState({ openBottomPanel: workspaceRequest.open });
     content = <ShellLayoutProvider store={store}>{tree}</ShellLayoutProvider>;
   }
-  return render(
-    <ScaffoldServicesProvider ports={{ media }}>{content}</ScaffoldServicesProvider>,
-  );
+  return render(<ScaffoldServicesProvider ports={{ media }}>{content}</ScaffoldServicesProvider>);
 }
 
 function surfaceDescriptor(editor: Editor, surfaceId: string): SurfaceChromeTargetDescriptor {
@@ -169,7 +167,9 @@ describe("SurfaceMenuBubbleContent", () => {
       schemaVersion: 1,
       autoAdvance: false,
       allowPrevious: true,
-      surfaces: [{ surfaceId: PRESENTATION_SURFACE_ID, durationMs: 0, actions: [] }],
+      surfaces: [
+        { surfaceId: PRESENTATION_SURFACE_ID, durationMs: 0, layerTracks: [], actions: [] },
+      ],
     });
     const descriptor = surfaceDescriptor(editor, "surface00001");
     const snapshot = resolveSurfaceMenuSnapshot(
@@ -293,7 +293,9 @@ describe("SurfaceMenuBubbleContent", () => {
   });
 
   it("resets empty surface backgrounds by removing the settings key", async () => {
-    const editor = createEditor("slideshow", [{ surfaceId: "surface00001", background: { color: "#161D77" } }]);
+    const editor = createEditor("slideshow", [
+      { surfaceId: "surface00001", background: { color: "#161D77" } },
+    ]);
     const descriptor = surfaceDescriptor(editor, "surface00001");
     const snapshot = resolveSurfaceMenuSnapshot(
       editor,
@@ -330,8 +332,7 @@ function createSurfaceContent(
   spec: string | TestSurfaceSpec,
 ): JSONContent {
   const { surfaceId, background } = typeof spec === "string" ? { surfaceId: spec } : spec;
-  const definition =
-    mode === "page" ? pageDefaultSurfaceDefinition : slideCoverSurfaceDefinition;
+  const definition = mode === "page" ? pageDefaultSurfaceDefinition : slideCoverSurfaceDefinition;
   const surface = definition.createSurface({
     surfaceId: EmbeddedNodeIdSchema.parse(surfaceId),
   }) as JSONContent;

@@ -30,6 +30,8 @@ import {
 } from "@/document/model/content-model/content-groups";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createBlankLayer } from "@/document/model/layers/layer-construction";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
@@ -64,7 +66,7 @@ const contributedSurfaceDefinition: SurfaceVariantDefinition = {
       {
         type: "region",
         attrs: { id: CONTRIBUTED_REGION_ID, role: "main" },
-        content: [{ type: "paragraph" }],
+        content: [createBlankLayer()],
       },
     ],
   }),
@@ -76,6 +78,7 @@ const surfaceVariantsWithContribution = createSurfaceVariantRegistry([
 const coreCapabilities = createCoreScaffoldAuthoringComposition().capabilities;
 const testCapabilities = Object.freeze({
   blocks: coreCapabilities.blocks,
+  contentIdentity: coreCapabilities.contentIdentity,
   documentTree: coreCapabilities.documentTree,
   layouts: coreCapabilities.layouts,
   surfaces: Object.freeze({ registry: surfaceVariants }),
@@ -565,6 +568,7 @@ function createEditorForDocument(
       createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
+      LayerNode,
       SlideTitleNode,
       SlideCoverSubtitleNode,
       SurfaceCategoriseQuestionNode,

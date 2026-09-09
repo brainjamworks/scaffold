@@ -77,6 +77,9 @@ function presentationTimeline(
   return Object.freeze({
     surfaceId,
     durationMs: 1_000,
+    transition: null,
+    layerTracks: Object.freeze([]),
+    layerTrackByOwnerId: new Map(),
     cues: [],
     waits: [],
     visualProgram: {

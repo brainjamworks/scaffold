@@ -151,6 +151,8 @@ export const DOCUMENT_TREE_LIFECYCLE_AUTHORING_ENVIRONMENT =
 export const DOCUMENT_TREE_LIFECYCLE_AUTHORING_STATE = getCourseDocumentAuthoringEnvironmentState(
   DOCUMENT_TREE_LIFECYCLE_AUTHORING_ENVIRONMENT,
 );
+export const DOCUMENT_TREE_LIFECYCLE_REGION_ID = fixtureId(0, 3);
+export const DOCUMENT_TREE_LIFECYCLE_LAYER_ID = fixtureId(0, 4);
 
 export const APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES: readonly ApprovedSemanticMemberFamilyCase[] =
   Object.freeze(FAMILY_SPECS.map(createFamilyCase));
@@ -162,7 +164,9 @@ export function createDocumentTreeLifecycleDocument(
   return schema.node("doc", null, [
     schema.node("courseDocument", { id: fixtureId(0, 1), mode: "page" }, [
       schema.node("surface", { id: fixtureId(0, 2), variant: "page-default", settings: {} }, [
-        schema.node("region", { id: fixtureId(0, 3), role: "main" }, content),
+        schema.node("region", { id: DOCUMENT_TREE_LIFECYCLE_REGION_ID, role: "main" }, [
+          schema.node("layer", { id: DOCUMENT_TREE_LIFECYCLE_LAYER_ID }, content),
+        ]),
       ]),
     ]),
   ]);

@@ -2,7 +2,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Fragment } from "@tiptap/pm/model";
-import type { Transform } from "@tiptap/pm/transform";
+import { Transform } from "@tiptap/pm/transform";
 
 import {
   authorizeExplicitLayerStructuralSteps,
@@ -18,6 +18,10 @@ import {
 } from "@/document/authoring/layers/layer-editing-boundaries";
 import { createEditableTextblock } from "@/document/model/content-model/editable-region";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import {
+  validateLayerContext,
+  type LayerContextDiagnostic,
+} from "@/document/model/layers/layer-validation";
 import { LAYER_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
 import {
   cloneJsonWithNewStableIds,
@@ -54,6 +58,12 @@ export type CheckedMutationIssue =
       readonly code: "layer_owner_content_replace_refused";
       readonly message: string;
       readonly ownerId: EmbeddedNodeId;
+    }
+  | {
+      readonly kind: "layer";
+      readonly code: "layer_context_refused";
+      readonly message: string;
+      readonly diagnostic: LayerContextDiagnostic;
     };
 
 export type CheckedMutationResult<TTransform extends Transform = Transform> =
@@ -105,22 +115,18 @@ export function insertNodeChecked<TTransform extends Transform>({
   const layerBoundaryIssue = checkLayerPlacement(tr.doc, pos, pos, node, layerAccess);
   if (layerBoundaryIssue) return { ok: false, issue: layerBoundaryIssue };
 
-  try {
-    tr.insert(pos, node);
-    tr.doc.check();
-    return { ok: true, tr };
-  } catch (error) {
-    return {
-      ok: false,
-      issue: {
-        code: "invalid_document_after_insert",
-        message:
-          error instanceof Error
-            ? error.message
-            : `Inserting "${node.type.name}" produced an invalid document.`,
-      },
-    };
-  }
+  const previewIssue = previewCheckedMutation({
+    doc: tr.doc,
+    mutate: (preview) => preview.insert(pos, node),
+    layerAccess,
+    invalidCode: "invalid_document_after_insert",
+    fallbackMessage: `Inserting "${node.type.name}" produced an invalid document.`,
+  });
+  if (previewIssue) return { ok: false, issue: previewIssue };
+
+  tr.insert(pos, node);
+  tr.doc.check();
+  return { ok: true, tr };
 }
 
 export function replaceRangeWithNodeChecked<TTransform extends Transform>({
@@ -162,22 +168,18 @@ export function replaceRangeWithNodeChecked<TTransform extends Transform>({
   const layerBoundaryIssue = checkLayerPlacement(tr.doc, from, to, node, layerAccess);
   if (layerBoundaryIssue) return { ok: false, issue: layerBoundaryIssue };
 
-  try {
-    tr.replaceRangeWith(from, to, node);
-    tr.doc.check();
-    return { ok: true, tr };
-  } catch (error) {
-    return {
-      ok: false,
-      issue: {
-        code: "invalid_document_after_replace",
-        message:
-          error instanceof Error
-            ? error.message
-            : `Replacing range with "${node.type.name}" produced an invalid document.`,
-      },
-    };
-  }
+  const previewIssue = previewCheckedMutation({
+    doc: tr.doc,
+    mutate: (preview) => preview.replaceRangeWith(from, to, node),
+    layerAccess,
+    invalidCode: "invalid_document_after_replace",
+    fallbackMessage: `Replacing range with "${node.type.name}" produced an invalid document.`,
+  });
+  if (previewIssue) return { ok: false, issue: previewIssue };
+
+  tr.replaceRangeWith(from, to, node);
+  tr.doc.check();
+  return { ok: true, tr };
 }
 
 export function replaceNodeContentChecked<TTransform extends Transform>({
@@ -234,22 +236,18 @@ export function replaceNodeContentChecked<TTransform extends Transform>({
     };
   }
 
-  try {
-    tr.replaceWith(pos + 1, pos + target.node.nodeSize - 1, fragment);
-    tr.doc.check();
-    return { ok: true, tr };
-  } catch (error) {
-    return {
-      ok: false,
-      issue: {
-        code: "invalid_document_after_content_replace",
-        message:
-          error instanceof Error
-            ? error.message
-            : `Replacing content inside "${target.node.type.name}" produced an invalid document.`,
-      },
-    };
-  }
+  const previewIssue = previewCheckedMutation({
+    doc: tr.doc,
+    mutate: (preview) => preview.replaceWith(pos + 1, pos + target.node.nodeSize - 1, fragment),
+    layerAccess,
+    invalidCode: "invalid_document_after_content_replace",
+    fallbackMessage: `Replacing content inside "${target.node.type.name}" produced an invalid document.`,
+  });
+  if (previewIssue) return { ok: false, issue: previewIssue };
+
+  tr.replaceWith(pos + 1, pos + target.node.nodeSize - 1, fragment);
+  tr.doc.check();
+  return { ok: true, tr };
 }
 
 export function deleteNodeChecked<TTransform extends Transform>({
@@ -278,26 +276,26 @@ export function deleteNodeChecked<TTransform extends Transform>({
   const replacement = deletesWholeOwner
     ? requiredLayerBodyReplacement(tr.doc, pos, target.node)
     : null;
-  const fromStep = tr.steps.length;
-  try {
+  const mutate = (candidate: Transform) => {
     if (replacement) {
-      tr.replaceWith(pos, pos + target.node.nodeSize, replacement.node);
+      candidate.replaceWith(pos, pos + target.node.nodeSize, replacement.node);
     } else {
-      tr.delete(pos, pos + target.node.nodeSize);
+      candidate.delete(pos, pos + target.node.nodeSize);
     }
-    tr.doc.check();
-  } catch (error) {
-    return {
-      ok: false,
-      issue: {
-        code: "invalid_document_after_delete",
-        message:
-          error instanceof Error
-            ? error.message
-            : `Deleting node at position ${pos} produced an invalid document.`,
-      },
-    };
-  }
+    return candidate;
+  };
+  const previewIssue = previewCheckedMutation({
+    doc: tr.doc,
+    mutate,
+    layerAccess,
+    invalidCode: "invalid_document_after_delete",
+    fallbackMessage: `Deleting node at position ${pos} produced an invalid document.`,
+  });
+  if (previewIssue) return { ok: false, issue: previewIssue };
+
+  const fromStep = tr.steps.length;
+  mutate(tr);
+  tr.doc.check();
   if (deletesWholeOwner) {
     authorizeExplicitLayerStructuralSteps(tr, {
       fromStep,
@@ -419,7 +417,7 @@ function checkLayerStructuralRootAccess(
   pos: number,
   access: LayerMutationAccess,
 ): Extract<CheckedMutationIssue, { code: "layer_editing_refused" }> | null {
-  if (access.kind === "non-layer-document") return null;
+  if (access.kind === "non-layer-document" || access.kind === "layer-capable-document") return null;
   const result =
     access.kind === "implicit-authoring"
       ? validateImplicitLayerStructuralRootAccess({ ...access.context, doc, node, pos })
@@ -444,8 +442,8 @@ function checkLayerPlacement(
   if (range.status === "error") return range.issue;
   const target = range.target;
   if (!target) return null;
-  if (access.kind === "non-layer-document") {
-    throw new Error("A non-Layer mutation access declaration resolved a Layer target.");
+  if (access.kind === "non-layer-document" || access.kind === "layer-capable-document") {
+    throw new Error("A mutation access declaration without a Layer target resolved one.");
   }
   const blockDefinitions =
     access.kind === "implicit-authoring"
@@ -483,7 +481,9 @@ function resolveCheckedLayerRange(
   to: number,
   access: LayerMutationAccess,
 ): CheckedLayerRangeResolution {
-  if (access.kind === "non-layer-document") return { status: "ready", target: null };
+  if (access.kind === "non-layer-document" || access.kind === "layer-capable-document") {
+    return { status: "ready", target: null };
+  }
   if (access.kind === "implicit-authoring") {
     const result = validateImplicitLayerEditRange({ ...access.context, doc, from, to });
     return result.status === "ready"
@@ -511,6 +511,48 @@ function layerBoundaryIssue(
     message: `Layer editing refused: ${error.reason}.`,
     error,
   };
+}
+
+function previewCheckedMutation(input: {
+  readonly doc: ProseMirrorNode;
+  readonly mutate: (preview: Transform) => Transform;
+  readonly layerAccess: LayerMutationAccess;
+  readonly invalidCode: string;
+  readonly fallbackMessage: string;
+}): CheckedMutationIssue | null {
+  const preview = new Transform(input.doc);
+  try {
+    input.mutate(preview);
+    preview.doc.check();
+  } catch (error) {
+    return {
+      code: input.invalidCode,
+      message: error instanceof Error ? error.message : input.fallbackMessage,
+    };
+  }
+
+  if (input.layerAccess.kind === "non-layer-document") return null;
+  const blockDefinitions =
+    input.layerAccess.kind === "implicit-authoring"
+      ? input.layerAccess.context.blockDefinitions
+      : input.layerAccess.blockDefinitions;
+  const layoutDefinitions =
+    input.layerAccess.kind === "implicit-authoring"
+      ? input.layerAccess.context.layoutDefinitions
+      : input.layerAccess.layoutDefinitions;
+  const diagnostic = validateLayerContext({
+    document: preview.doc,
+    blockDefinitions,
+    layoutDefinitions,
+  })[0];
+  return diagnostic
+    ? {
+        kind: "layer",
+        code: "layer_context_refused",
+        message: `Layer mutation refused: ${diagnostic.reason}.`,
+        diagnostic,
+      }
+    : null;
 }
 
 function protectedLayerIssue(
@@ -566,9 +608,11 @@ function protectedLayerCode(
 }
 
 function assertLayerMutationAccess(doc: ProseMirrorNode, access: LayerMutationAccess): void {
-  if (access.kind !== "non-layer-document") return;
-  if (containsLayer(doc)) {
+  if (access.kind === "non-layer-document" && containsLayer(doc)) {
     throw new Error("Layer-aware checked mutation requires explicit Layer access.");
+  }
+  if (access.kind === "layer-capable-document" && containsLayer(doc)) {
+    throw new Error("Layer-capable document access is only valid before the first Layer exists.");
   }
 }
 

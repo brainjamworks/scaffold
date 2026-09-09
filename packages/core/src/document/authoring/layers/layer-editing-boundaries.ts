@@ -16,9 +16,9 @@ import {
 } from "@/document/model/layers/layer-owner-slot";
 import {
   isLayerCompositionFillOccupant,
-  validateCompleteLayerComposition,
   validateLayerCompositionPlacement,
 } from "@/document/model/layers/layer-composition-policy";
+import { validateLayerContext } from "@/document/model/layers/layer-validation";
 import {
   CELL_NODE_TYPE,
   GRID_NODE_TYPE,
@@ -120,6 +120,11 @@ export interface LayerEditingContext {
 export type LayerMutationAccess =
   | { readonly kind: "non-layer-document" }
   | {
+      readonly kind: "layer-capable-document";
+      readonly layoutDefinitions: LayoutRegistry;
+      readonly blockDefinitions: BlockDefinitionLookup;
+    }
+  | {
       readonly kind: "implicit-authoring";
       readonly context: LayerEditingContext & { readonly blockDefinitions: BlockDefinitionLookup };
     }
@@ -139,7 +144,15 @@ export const NON_LAYER_DOCUMENT_MUTATION_ACCESS: LayerMutationAccess = Object.fr
 });
 
 export function requireLayerMutationAccessForState(state: EditorState): LayerMutationAccess {
-  if (!documentContainsLayer(state.doc)) return NON_LAYER_DOCUMENT_MUTATION_ACCESS;
+  if (!documentContainsLayer(state.doc)) {
+    if (!state.schema.nodes[LAYER_NODE_TYPE]) return NON_LAYER_DOCUMENT_MUTATION_ACCESS;
+    const capabilities = getScaffoldCapabilitiesForState(state);
+    return Object.freeze({
+      kind: "layer-capable-document",
+      layoutDefinitions: capabilities.layouts.registry,
+      blockDefinitions: capabilities.blocks.registry,
+    });
+  }
   const capabilities = getScaffoldCapabilitiesForState(state);
   const context = readLayerEditingContextForState(
     state,
@@ -698,12 +711,11 @@ export function allowsLayerEditingTransaction(
 
   if (
     input.blockDefinitions &&
-    !hasValidLayerCompositionPolicies(
-      transaction.doc,
-      input.blockDefinitions,
-      input.layoutDefinitions,
-      indexFor(transaction.doc),
-    )
+    validateLayerContext({
+      document: transaction.doc,
+      blockDefinitions: input.blockDefinitions,
+      layoutDefinitions: input.layoutDefinitions,
+    }).length > 0
   ) {
     return false;
   }
@@ -716,32 +728,6 @@ export function isLayerFillOccupantNode(
   layoutDefinitions: LayoutRegistry,
 ): boolean {
   return isLayerCompositionFillOccupant(node, blockDefinitions, layoutDefinitions);
-}
-
-function hasValidLayerCompositionPolicies(
-  doc: ProseMirrorNode,
-  blockDefinitions: BlockDefinitionLookup,
-  layoutDefinitions: LayoutRegistry,
-  index: LayerEditingSnapshotIndex,
-): boolean {
-  if (index.ownerIndex.doc !== doc) {
-    throw new Error("Layer editing index belongs to a different document snapshot.");
-  }
-  for (const entry of index.ownerIndex.layerEntries) {
-    const target = requireLayerAtPosition(doc, entry.pos, layoutDefinitions, index);
-    if (
-      validateCompleteLayerComposition({
-        ownerSlot: target.ownerSlot,
-        layerId: target.layerId,
-        layer: target.layer,
-        blockDefinitions,
-        layoutDefinitions,
-      })
-    ) {
-      return false;
-    }
-  }
-  return true;
 }
 
 function readStructuralStepAuthorizations(

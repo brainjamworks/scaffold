@@ -20,6 +20,7 @@ import {
   DocumentNode,
   createCourseSectionNode,
 } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 
@@ -45,6 +46,12 @@ const TestSectionArrangementNode = Node.create({
   renderHTML() {
     return ["div", { "data-test-section-arrangement": "" }, 0];
   },
+});
+
+const TestAssessmentQuestionNode = Node.create({
+  name: "testAssessmentQuestion",
+  group: "assessment_question",
+  atom: true,
 });
 
 function courseDocumentContent(): JSONContent {
@@ -87,8 +94,10 @@ function makeEditor(content: JSONContent | string = courseDocumentContent()) {
       createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
+      LayerNode,
       TestArrangementNode,
       TestSectionArrangementNode,
+      TestAssessmentQuestionNode,
       UniqueID.configure({
         attributeName: "id",
         types: "all",
@@ -167,7 +176,9 @@ describe("course document nodes", () => {
 
     expect(courseDocumentType.spec.content).toBe("surface | (courseSection surface*)+");
     expect(courseDocumentType.validContent(Fragment.from(firstSurface))).toBe(true);
-    expect(courseDocumentType.validContent(Fragment.fromArray([firstSurface, secondSurface]))).toBe(false);
+    expect(courseDocumentType.validContent(Fragment.fromArray([firstSurface, secondSurface]))).toBe(
+      false,
+    );
     expect(
       courseDocumentType.validContent(
         Fragment.fromArray([firstSection, firstSurface, secondSection, secondSurface]),
@@ -183,8 +194,14 @@ describe("course document nodes", () => {
         Fragment.fromArray([firstSection, firstSection, firstSurface]),
       ),
     ).toBe(true);
-    expect(courseDocumentType.validContent(Fragment.fromArray([firstSection, firstSurface, secondSection]))).toBe(true);
-    expect(courseDocumentType.validContent(Fragment.fromArray([firstSection, secondSection]))).toBe(true);
+    expect(
+      courseDocumentType.validContent(
+        Fragment.fromArray([firstSection, firstSurface, secondSection]),
+      ),
+    ).toBe(true);
+    expect(courseDocumentType.validContent(Fragment.fromArray([firstSection, secondSection]))).toBe(
+      true,
+    );
     expect(courseDocumentType.validContent(Fragment.from(firstSection))).toBe(true);
     expect(courseDocumentType.validContent(Fragment.empty)).toBe(false);
     expect(surfaceType.validContent(Fragment.from(firstSection))).toBe(false);
@@ -218,7 +235,7 @@ describe("course document nodes", () => {
 
     expect(surfaceType).toBeDefined();
     expect(paragraphType).toBeDefined();
-    expect(surfaceType!.spec.content).toBe("(block | arrangement | region)+");
+    expect(surfaceType!.spec.content).toBe("(block | assessment_question | arrangement | region)+");
     expect(surfaceType!.contentMatch.defaultType).toBe(paragraphType);
     expect(surfaceType!.validContent(Fragment.empty)).toBe(false);
     expect(surfaceType!.validContent(Fragment.from(paragraphType!.create()))).toBe(true);
@@ -231,14 +248,17 @@ describe("course document nodes", () => {
     const { schema } = editor;
     const surfaceType = schema.nodes.surface;
     const regionType = schema.nodes.region;
+    const layerType = schema.nodes.layer;
     const paragraphType = schema.nodes.paragraph;
 
     expect(surfaceType).toBeDefined();
     expect(regionType).toBeDefined();
+    expect(layerType).toBeDefined();
     expect(paragraphType).toBeDefined();
-    expect(regionType!.spec.content).toBe("(block | arrangement)+");
+    expect(regionType!.spec.content).toBe("layer+");
 
-    const region = regionType!.create(null, [paragraphType!.create()]);
+    const layer = layerType!.create(null, [paragraphType!.create()]);
+    const region = regionType!.create(null, [layer]);
     expect(surfaceType!.validContent(Fragment.from(region))).toBe(true);
 
     editor.destroy();
@@ -349,7 +369,7 @@ describe("course document nodes", () => {
       schemaVersion: 1,
       autoAdvance: false,
       allowPrevious: true,
-      surfaces: [{ surfaceId: "surface00001", durationMs: 10_000, actions: [] }],
+      surfaces: [{ surfaceId: "surface00001", durationMs: 10_000, layerTracks: [], actions: [] }],
     };
     courseDocument.attrs = { ...courseDocument.attrs, presentation };
     const editor = makeEditor(content);
@@ -394,7 +414,7 @@ describe("course document nodes", () => {
       schemaVersion: 1,
       autoAdvance: false,
       allowPrevious: true,
-      surfaces: [{ surfaceId: "surface00001", durationMs: 10_000, actions: [] }],
+      surfaces: [{ surfaceId: "surface00001", durationMs: 10_000, layerTracks: [], actions: [] }],
     };
     courseDocument.attrs = {
       ...courseDocument.attrs,

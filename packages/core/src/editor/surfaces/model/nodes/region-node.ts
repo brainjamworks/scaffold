@@ -1,6 +1,5 @@
 import { mergeAttributes, Node, type NodeViewRenderer } from "@tiptap/core";
 
-import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
 import { REGION_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
 import {
@@ -23,7 +22,7 @@ function parseRegionRole(value: string | null): string {
 export function createRegionNode(options: RegionNodeOptions = {}) {
   return Node.create({
     name: REGION_NODE_TYPE,
-    content: `(block | ${ARRANGEMENT_CONTENT})+`,
+    content: "layer+",
     selectable: false,
     draggable: false,
     isolating: true,

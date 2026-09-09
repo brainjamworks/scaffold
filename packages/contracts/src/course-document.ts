@@ -4,7 +4,7 @@ import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "./embedded-id";
 import { LearnerInteractionConfigurationV1Schema } from "./learner-interaction";
 import { PresentationConfigurationV1Schema } from "./presentation";
 
-export const SCAFFOLD_DOCUMENT_FORMAT_VERSION = 4;
+export const SCAFFOLD_DOCUMENT_FORMAT_VERSION = 5;
 
 export const CourseSectionTitleSchema = z.string().trim().min(1).max(200);
 

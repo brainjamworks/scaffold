@@ -67,13 +67,15 @@ describe("Scaffold format", () => {
     });
     const courseDocument = artifact.content.content?.[0];
     if (!courseDocument?.attrs) throw new Error("Expected Course Document attributes.");
-    const surfaceId = courseDocument.content?.find((node) => node.type === "surface")?.attrs?.["id"];
+    const surfaceId = courseDocument.content?.find((node) => node.type === "surface")?.attrs?.[
+      "id"
+    ];
     if (typeof surfaceId !== "string") throw new Error("Expected a Surface ID.");
     const presentation = {
       schemaVersion: 1,
       autoAdvance: false,
       allowPrevious: true,
-      surfaces: [{ surfaceId, durationMs: 10_000, actions: [] }],
+      surfaces: [{ surfaceId, durationMs: 10_000, layerTracks: [], actions: [] }],
     };
     courseDocument.attrs = { ...courseDocument.attrs, presentation };
 
@@ -96,7 +98,7 @@ describe("Scaffold format", () => {
       schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
       requiresScaffoldPlus: true,
     });
-    expect(SCAFFOLD_DOCUMENT_FORMAT_VERSION).toBe(4);
+    expect(SCAFFOLD_DOCUMENT_FORMAT_VERSION).toBe(5);
   });
 
   it("refuses to prepare a Plus-required artifact without product access", () => {

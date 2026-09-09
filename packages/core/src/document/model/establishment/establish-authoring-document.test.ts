@@ -98,6 +98,9 @@ describe("establishAuthoringDocument", () => {
         getById: () => {
           throw new Error("capability projection must not run");
         },
+        getForNode: () => {
+          throw new Error("capability projection must not run");
+        },
       },
       surfaces: {
         get: () => {
@@ -274,7 +277,7 @@ function createSchema(): Schema {
       courseDocument: {
         attrs: {
           id,
-          schemaVersion: { default: 4 },
+          schemaVersion: { default: 5 },
           requiresScaffoldPlus: { default: false },
           mode: { default: "page" },
           surfaceSize: { default: "fluid" },
@@ -316,7 +319,10 @@ function createCapabilities(): DocumentCapabilityLookups {
             } as never)
           : undefined,
     },
-    layouts: { getById: (id) => (id === "known-layout" ? ({ id } as never) : undefined) },
+    layouts: {
+      getById: (id) => (id === "known-layout" ? ({ id } as never) : undefined),
+      getForNode: () => undefined,
+    },
     surfaces: {
       get: (id) =>
         id === "known-surface" ? ({ id, settingsSchema: z.object({}) } as never) : undefined,
@@ -338,7 +344,7 @@ function documentWithRootSurface(surface: TestNode): TestNode {
         type: "courseDocument",
         attrs: {
           id: "course000001",
-          schemaVersion: 4,
+          schemaVersion: 5,
           requiresScaffoldPlus: false,
           mode: "page",
           surfaceSize: "fluid",

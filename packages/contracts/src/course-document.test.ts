@@ -85,11 +85,11 @@ describe("course document contracts", () => {
     ).toBe(false);
   });
 
-  it("accepts only the current v4 document format", () => {
-    expect(SCAFFOLD_DOCUMENT_FORMAT_VERSION).toBe(4);
+  it("accepts only the current v5 document format", () => {
+    expect(SCAFFOLD_DOCUMENT_FORMAT_VERSION).toBe(5);
     expect(
       CourseDocumentAttrsSchema.safeParse({
-        schemaVersion: 4,
+        schemaVersion: 5,
         requiresScaffoldPlus: false,
         mode: "page",
         surfaceSize: "fluid",
@@ -112,7 +112,7 @@ describe("course document contracts", () => {
     ).toBe(false);
   });
 
-  it("requires an explicit Scaffold Plus course requirement in current v4", () => {
+  it("requires an explicit Scaffold Plus course requirement in current v5", () => {
     const base = {
       schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
       mode: "page",
@@ -163,7 +163,9 @@ describe("course document contracts", () => {
           schemaVersion: 1,
           autoAdvance: false,
           allowPrevious: true,
-          surfaces: [{ surfaceId: "surface00001", durationMs: 10_000, actions: [] }],
+          surfaces: [
+            { surfaceId: "surface00001", durationMs: 10_000, layerTracks: [], actions: [] },
+          ],
         },
       }).presentation,
     ).toMatchObject({ schemaVersion: 1 });

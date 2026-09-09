@@ -64,9 +64,7 @@ vi.mock("../../renderer/CourseDocumentRuntimeRenderer", async (importOriginal) =
 
 vi.mock("@/editor/assessment/quiz/use-quiz-surface-exit-guard", async (importOriginal) => {
   const actual =
-    await importOriginal<
-      typeof import("@/editor/assessment/quiz/use-quiz-surface-exit-guard")
-    >();
+    await importOriginal<typeof import("@/editor/assessment/quiz/use-quiz-surface-exit-guard")>();
 
   return {
     ...actual,
@@ -121,12 +119,16 @@ describe("Quiz Surface exit integration", () => {
               timeline: {
                 surfaceId: QUIZ_SURFACE_ID as SurfaceId,
                 durationMs: 50,
+                transition: null,
+                layerTracks: [],
+                layerTrackByOwnerId: new Map(),
                 cues: [],
                 waits: [
                   {
                     kind: "manual-wait",
                     id: "quiz-presentation-wait" as PresentationWaitId,
                     atMs: 50,
+                    boundary: "before-actions",
                   },
                 ],
                 visualProgram: {

@@ -3,7 +3,6 @@ import { mergeAttributes, Node, type NodeViewRenderer } from "@tiptap/core";
 import {
   ARRANGEMENT_CONTENT,
   CELL_ARRANGEMENT_CONTENT,
-  SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
 import { LAYOUT_NODE_TYPE, SECTION_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
@@ -85,7 +84,7 @@ export function createLayoutNode(options: LayoutNodeOptions = {}) {
 export function createSectionNode(options: SectionNodeOptions = {}) {
   return Node.create({
     name: SECTION_NODE_TYPE,
-    content: `(block | ${SECTION_ARRANGEMENT_CONTENT})+`,
+    content: "layer+ | (accordion_section_title accordion_section_panel)",
     selectable: true,
     draggable: false,
     isolating: true,

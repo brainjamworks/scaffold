@@ -27,6 +27,10 @@ import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/doc
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { RESIZE_GESTURE_ACTIVE_ATTR } from "@/editor/interactions/gesture/editor-resize-gesture";
 import {
@@ -57,6 +61,8 @@ import {
 } from "@/editor/shell/bubbles/interaction/StructuralInteractionBubbleMenu";
 import { createStructuralInteractionBubbleRendererMap } from "@/editor/interactions/interaction-bubble";
 import { getDocumentTreeForEditor } from "@/document/authoring/document-tree";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
+import { LayerNode } from "@/document/model/layers/layer-node";
 
 import { createGridAuthoringNodes } from "../authoring/grid-nodes";
 import { CellRuntimeNode, GridRuntimeNode } from "../runtime/grid-nodes";
@@ -143,6 +149,12 @@ const TestLayoutNode = Node.create({
   },
 });
 
+const TestAssessmentQuestionNode = Node.create({
+  name: "testAssessmentQuestion",
+  group: "assessment_question",
+  atom: true,
+});
+
 async function makeRealCellEditor(): Promise<Editor> {
   const composition = createCoreScaffoldAuthoringComposition();
   const editor = new Editor({
@@ -188,20 +200,24 @@ function createRealCellDocument(): JSONContent {
           type: "region",
           attrs: { id: REAL_CELL_IDS.region, role: "main" },
           content: [
-            {
-              type: "grid",
-              attrs: { columnWidths: [1], id: REAL_CELL_IDS.grid },
-              content: [
-                {
-                  type: "cell",
-                  attrs: { id: REAL_CELL_IDS.cell },
-                  content: [
-                    { type: "paragraph", attrs: { id: REAL_CELL_IDS.first } },
-                    { type: "paragraph", attrs: { id: REAL_CELL_IDS.second } },
-                  ],
-                },
-              ],
-            },
+            createLayerWithContent([
+              {
+                type: "grid",
+                attrs: { columnWidths: [1], id: REAL_CELL_IDS.grid },
+                content: [
+                  {
+                    type: "cell",
+                    attrs: { id: REAL_CELL_IDS.cell },
+                    content: [
+                      createLayerWithContent([
+                        { type: "paragraph", attrs: { id: REAL_CELL_IDS.first } },
+                        { type: "paragraph", attrs: { id: REAL_CELL_IDS.second } },
+                      ]),
+                    ],
+                  },
+                ],
+              },
+            ]),
           ],
         },
       ],
@@ -218,6 +234,7 @@ function makeEditor() {
       ExtendedParagraph,
       GridAuthoringNode,
       CellAuthoringNode,
+      LayerNode,
       TestLayoutNode,
     ],
   });
@@ -233,7 +250,7 @@ function makeCourseEditor(editable = true) {
           {
             type: "cell",
             attrs: { id: "cell-a" },
-            content: [{ type: "paragraph" }],
+            content: [createLayerWithContent([{ type: "paragraph" }])],
           },
         ],
       },
@@ -285,12 +302,16 @@ function makeCourseEditorWithSurfaceContent(content: JSONContent[], editable = t
       createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
+      LayerNode,
       createScaffoldInteractionOwnerExtension(testBlockRegistry),
       GridAuthoringNode,
       CellAuthoringNode,
       LayoutAuthoringNode,
       SectionAuthoringNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       TestInnerBlockNode,
+      TestAssessmentQuestionNode,
     ],
     content: {
       type: "doc",
@@ -300,7 +321,7 @@ function makeCourseEditorWithSurfaceContent(content: JSONContent[], editable = t
           content: [
             {
               type: "surface",
-              content,
+              content: wrapMandatoryLayerSlots(content),
             },
           ],
         },
@@ -398,11 +419,15 @@ function makeRuntimeCourseEditorWithSurfaceContent(content: JSONContent[]) {
       createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
+      LayerNode,
       GridRuntimeNode,
       CellRuntimeNode,
       LayoutAuthoringNode,
       SectionAuthoringNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       TestInnerBlockNode,
+      TestAssessmentQuestionNode,
     ],
     content: {
       type: "doc",
@@ -412,12 +437,27 @@ function makeRuntimeCourseEditorWithSurfaceContent(content: JSONContent[]) {
           content: [
             {
               type: "surface",
-              content,
+              content: wrapMandatoryLayerSlots(content),
             },
           ],
         },
       ],
     },
+  });
+}
+
+function wrapMandatoryLayerSlots(content: readonly JSONContent[]): JSONContent[] {
+  return content.map((node) => {
+    const children = wrapMandatoryLayerSlots(node.content ?? []);
+    const directLayerSlot =
+      node.type === "region" ||
+      node.type === "cell" ||
+      node.type === "accordion_section_panel" ||
+      (node.type === "section" && children[0]?.type !== "accordion_section_title");
+    if (directLayerSlot && children.some((child) => child.type !== "layer")) {
+      return { ...node, content: [createLayerWithContent(children)] };
+    }
+    return children.length > 0 ? { ...node, content: children } : { ...node };
   });
 }
 
@@ -512,7 +552,7 @@ describe("grid arrangement nodes", () => {
     expect(gridType?.spec.content).toBe("cell+");
     expect(gridType?.spec.selectable).toBe(false);
     expect(gridType?.spec.draggable).toBe(false);
-    expect(cellType?.spec.content).toBe(`(block | ${CELL_ARRANGEMENT_CONTENT})+`);
+    expect(cellType?.spec.content).toBe("layer+");
     expect(cellType?.spec.selectable).toBe(false);
     expect(cellType?.spec.draggable).toBe(false);
 
@@ -531,21 +571,24 @@ describe("grid arrangement nodes", () => {
     editor.destroy();
   });
 
-  it("allows layouts inside cells and rejects nested grids inside cells", () => {
+  it("accepts Cell content only through Layers", () => {
     const editor = makeEditor();
     const { schema } = editor;
     const paragraphType = schema.nodes.paragraph!;
     const gridType = schema.nodes.grid!;
     const cellType = schema.nodes.cell!;
+    const layerType = schema.nodes.layer!;
     const layoutType = schema.nodes.testLayout!;
 
     const paragraph = paragraphType.create();
     const layout = layoutType.create(null, paragraphType.create());
-    const cellWithParagraph = cellType.create(null, paragraph);
+    const layerWithParagraph = layerType.create(null, paragraph);
+    const cellWithParagraph = cellType.create(null, layerWithParagraph);
     const nestedGrid = gridType.create(null, cellWithParagraph);
 
-    expect(cellType.validContent(Fragment.from(layout))).toBe(true);
-    expect(cellType.validContent(Fragment.from(nestedGrid))).toBe(false);
+    expect(cellType.validContent(Fragment.from(layerType.create(null, layout)))).toBe(true);
+    expect(cellType.validContent(Fragment.from(layerType.create(null, nestedGrid)))).toBe(true);
+    expect(cellType.validContent(Fragment.from(layout))).toBe(false);
 
     editor.destroy();
   });
@@ -554,10 +597,13 @@ describe("grid arrangement nodes", () => {
     const editor = makeEditor();
     const { schema } = editor;
     const cellType = schema.nodes.cell!;
+    const layerType = schema.nodes.layer!;
     const paragraphType = schema.nodes.paragraph!;
 
     expect(cellType.validContent(Fragment.empty)).toBe(false);
-    expect(cellType.validContent(Fragment.from(paragraphType.create()))).toBe(true);
+    expect(
+      cellType.validContent(Fragment.from(layerType.create(null, paragraphType.create()))),
+    ).toBe(true);
 
     editor.destroy();
   });
@@ -567,11 +613,18 @@ describe("grid arrangement nodes", () => {
     const { schema } = editor;
     const paragraphType = schema.nodes.paragraph!;
     const cellType = schema.nodes.cell!;
+    const layerType = schema.nodes.layer!;
 
     const firstParagraph = paragraphType.create();
     const secondParagraph = paragraphType.create();
 
-    expect(cellType.validContent(Fragment.fromArray([firstParagraph, secondParagraph]))).toBe(true);
+    expect(
+      cellType.validContent(
+        Fragment.from(
+          layerType.create(null, Fragment.fromArray([firstParagraph, secondParagraph])),
+        ),
+      ),
+    ).toBe(true);
 
     editor.destroy();
   });

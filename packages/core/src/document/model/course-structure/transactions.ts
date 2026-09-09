@@ -128,9 +128,7 @@ function reconcileLearnerInteractionSurfaceGroups(tr: Transaction): void {
   if (value === null || value === undefined) return;
 
   const configuration = LearnerInteractionConfigurationV1Schema.parse(value);
-  const groupBySurfaceId = new Map(
-    configuration.surfaces.map((group) => [group.surfaceId, group]),
-  );
+  const groupBySurfaceId = new Map(configuration.surfaces.map((group) => [group.surfaceId, group]));
   const surfaces: SurfaceLearnerInteractionRulesV1[] = [];
   for (let index = 0; index < courseDocument.childCount; index += 1) {
     const child = courseDocument.child(index);
@@ -181,6 +179,7 @@ function reconcilePresentationSurfaceTimelines(tr: Transaction): void {
       timelineBySurfaceId.get(surfaceId) ?? {
         surfaceId,
         durationMs: 0,
+        layerTracks: [],
         actions: [],
       },
     );

@@ -8,13 +8,12 @@ import {
   type TimelineActionV1,
   type TimelineAnimateActionV1,
 } from "@scaffold/contracts";
-import { Editor, Node, type JSONContent } from "@tiptap/core";
+import { Editor, type JSONContent } from "@tiptap/core";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { LayerNode } from "@/document/model/layers/layer-node";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 
 import {
@@ -38,7 +37,7 @@ afterEach(() => {
   for (const editor of editors.splice(0)) editor.destroy();
 });
 
-describe("presentation authoring checked edits under the candidate Layer grammar", () => {
+describe("presentation authoring checked edits under the production Layer grammar", () => {
   it("refuses enabling a second same-time Wait with typed scheduling facts", () => {
     const editor = createEditor([
       manualWait(IDS.firstAction, 500, true),
@@ -170,14 +169,7 @@ describe("presentation authoring checked edits under the candidate Layer grammar
 
 function createEditor(actions: readonly TimelineActionV1[]): Editor {
   const composition = createCoreScaffoldAuthoringComposition();
-  const extensions = createCourseDocumentAuthoringExtensions({ editable: true, composition }).map(
-    (extension) => {
-      const content = candidateLayerContent[extension.name];
-      if (!content) return extension;
-      if (!(extension instanceof Node)) throw new Error("Expected a structural Node extension.");
-      return extension.extend({ content });
-    },
-  );
+  const extensions = createCourseDocumentAuthoringExtensions({ editable: true, composition });
   const surface = slideContentSurfaceDefinition.createSurface({ surfaceId: IDS.surface });
   const region = surface.content?.find((node) => node.type === "region");
   if (!region) throw new Error("Expected a Region in the slide content fixture.");
@@ -206,7 +198,7 @@ function createEditor(actions: readonly TimelineActionV1[]): Editor {
   };
   const editor = new Editor({
     editable: true,
-    extensions: [...extensions, LayerNode],
+    extensions,
     content: {
       type: "doc",
       content: [
@@ -233,13 +225,6 @@ function createEditor(actions: readonly TimelineActionV1[]): Editor {
   editors.push(editor);
   return editor;
 }
-
-const candidateLayerContent: Readonly<Record<string, string>> = Object.freeze({
-  region: "layer+",
-  cell: "layer+",
-  section: "layer+ | (accordion_section_title accordion_section_panel)",
-  accordion_section_panel: "layer+",
-});
 
 function assignMissingNodeIds(root: JSONContent): void {
   if (root.type !== "text") {

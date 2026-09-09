@@ -16,6 +16,10 @@ import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
 } from "@/editor/arrangements/layout/authoring/layout-nodes";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 
 import { CellAuthoringNode, GridAuthoringNode } from "../authoring/grid-nodes";
@@ -81,6 +85,8 @@ function makeEditor() {
       LayerNode,
       LayoutAuthoringNode,
       SectionAuthoringNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       createTestNodeIdentityExtension(),
     ],
   });
@@ -105,6 +111,8 @@ function makeCourseEditor(content: JSONContent[] = []) {
       LayerNode,
       LayoutAuthoringNode,
       SectionAuthoringNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       TestBlockNode,
       createTestNodeIdentityExtension(),
     ],

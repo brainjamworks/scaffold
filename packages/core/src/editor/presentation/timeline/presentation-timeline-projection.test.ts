@@ -260,6 +260,7 @@ function presentation(
       {
         surfaceId,
         durationMs: 10_000,
+        layerTracks: [],
         narration: { source: { mode: "external", src: "https://example.com/narration.mp3" } },
         transition: { kind: "fade", durationMs: 250 },
         actions: [...actions],
@@ -314,7 +315,13 @@ function navigationTrigger(
 }
 
 function manualWait(value: string, atMs: number): TimelineActionV1 {
-  return { kind: "manual-wait", id: dataId(value), isEnabled: true, atMs };
+  return {
+    kind: "manual-wait",
+    id: dataId(value),
+    isEnabled: true,
+    atMs,
+    boundary: "before-actions",
+  };
 }
 
 function learnerWait(value: string, targetId: EmbeddedNodeId, atMs: number): TimelineActionV1 {
@@ -323,6 +330,7 @@ function learnerWait(value: string, targetId: EmbeddedNodeId, atMs: number): Tim
     id: dataId(value),
     isEnabled: true,
     atMs,
+    boundary: "before-actions",
     requirement: { kind: "event", targetId, type: "complete" },
   };
 }

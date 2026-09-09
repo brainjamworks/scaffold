@@ -618,7 +618,13 @@ function authoringDocument(durationMs: number, withFeedbackAction: boolean): JSO
   const surface = slideContentSurfaceDefinition.createSurface({ surfaceId: SURFACE_ID });
   const region = surface.content?.[1];
   if (!region) throw new Error("Expected the slide content main Region.");
-  region.content = [{ type: "paragraph", attrs: { id: SELECTED_TARGET_ID } }];
+  region.content = [
+    {
+      type: "layer",
+      attrs: { id: createEmbeddedNodeId() },
+      content: [{ type: "paragraph", attrs: { id: SELECTED_TARGET_ID } }],
+    },
+  ];
   assignMissingNodeIds(surface);
   return {
     type: "doc",
@@ -637,6 +643,7 @@ function authoringDocument(durationMs: number, withFeedbackAction: boolean): JSO
               {
                 surfaceId: SURFACE_ID,
                 durationMs,
+                layerTracks: [],
                 actions: [
                   animateAction(durationMs),
                   ...(withFeedbackAction ? [feedbackAction()] : []),

@@ -12,6 +12,10 @@ import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { LayerNode } from "@/document/model/layers/layer-node";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 import { CellAuthoringNode, GridAuthoringNode } from "../authoring/grid-nodes";
@@ -74,7 +78,7 @@ function resizedBlock(id: string): JSONContent {
 }
 
 function section(content: JSONContent[]): JSONContent {
-  return { type: "section", content };
+  return { type: "section", content: [createLayerWithContent(content)] };
 }
 
 function layout(content: JSONContent[]): JSONContent {
@@ -112,6 +116,8 @@ function makeEditor(content: JSONContent[]) {
       LayerNode,
       LayoutAuthoringNode,
       SectionAuthoringNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       TestBlockNode,
       createTestNodeIdentityExtension(),
     ],
