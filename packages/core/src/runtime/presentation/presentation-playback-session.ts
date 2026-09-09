@@ -114,6 +114,7 @@ export interface PresentationPlaybackSessionWithReplaceableClock extends Present
   useInternalClock(): void;
   beginMediaStart(): void;
   beginAdvanceMediaStart(): PresentationAdvanceResult;
+  confirmMediaStart(): void;
   cancelMediaStart(): void;
   beginReposition(reason: PresentationRepositionInterruptionReason): void;
 }
@@ -372,6 +373,11 @@ export function createPresentationPlaybackSession({
       machine.beginMediaStart();
       return Result.ok();
     },
+    confirmMediaStart() {
+      assertNotDisposed("confirm media start for");
+      assertNotStopped("confirm media start for");
+      machine.confirmMediaStart();
+    },
     cancelMediaStart() {
       assertNotDisposed("cancel media start for");
       machine.cancelMediaStart();
@@ -396,7 +402,11 @@ export function createPresentationPlaybackSession({
         throw new Error("Presentation narration clock belongs to a different Surface.");
       }
       if (activeClockSource === source) return;
-      playbackClock.replaceSource(source);
+      if (snapshot.advancement === "awaiting-media-start") {
+        playbackClock.replaceSourceAt(source, snapshot.position.timeMs);
+      } else {
+        playbackClock.replaceSource(source);
+      }
       activeClockSource = source;
     },
     useInternalClock() {

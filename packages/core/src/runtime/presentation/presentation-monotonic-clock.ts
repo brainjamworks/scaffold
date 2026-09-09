@@ -10,6 +10,7 @@ export interface PresentationPlaybackClockSource extends PresentationPlaybackClo
 
 export interface ReplaceablePresentationPlaybackClock extends PresentationPlaybackClockSource {
   replaceSource(source: PresentationPlaybackClockReadingSource): void;
+  replaceSourceAt(source: PresentationPlaybackClockReadingSource, clockTimeMs: number): void;
 }
 
 export interface PresentationNarrationClockSource extends PresentationPlaybackClockReadingSource {
@@ -60,6 +61,16 @@ export function createReplaceablePresentationPlaybackClock(
     });
   };
 
+  const replaceSourceAt = (
+    nextSource: PresentationPlaybackClockReadingSource,
+    nextClockAnchorMs: number,
+  ) => {
+    readingSource = nextSource;
+    sourceAnchorMs = finiteClockReading(nextSource.nowMs());
+    clockAnchorMs = finiteClockReading(nextClockAnchorMs);
+    for (const listener of [...listeners]) listener();
+  };
+
   return Object.freeze({
     nowMs: read,
     subscribe(listener: () => void) {
@@ -77,12 +88,9 @@ export function createReplaceablePresentationPlaybackClock(
     },
     replaceSource(nextSource: PresentationPlaybackClockReadingSource) {
       const preservedReadingMs = read();
-      const nextSourceReadingMs = finiteClockReading(nextSource.nowMs());
-      readingSource = nextSource;
-      sourceAnchorMs = nextSourceReadingMs;
-      clockAnchorMs = preservedReadingMs;
-      for (const listener of [...listeners]) listener();
+      replaceSourceAt(nextSource, preservedReadingMs);
     },
+    replaceSourceAt,
   });
 }
 
@@ -90,10 +98,18 @@ export function createPresentationNarrationClockSource(
   controller: PresentationNarrationClockPort,
 ): PresentationNarrationClockSource {
   const initialSnapshot = controller.getSnapshot();
-  if (initialSnapshot.status !== "playing") {
-    throw new Error("Presentation narration clock requires confirmed playing media.");
+  if (
+    initialSnapshot.status === "idle" ||
+    initialSnapshot.status === "loading" ||
+    initialSnapshot.status === "failed"
+  ) {
+    throw new Error("Presentation narration clock requires loaded media.");
   }
-  let confirmedTimeMs = confirmedTimeFrom(controller.getClockTimeMs());
+  let confirmedTimeMs = confirmedTimeFrom(
+    initialSnapshot.status === "playing"
+      ? controller.getClockTimeMs()
+      : initialSnapshot.currentTimeMs,
+  );
 
   const refreshConfirmedTime = () => {
     const nextSnapshot = controller.getSnapshot();

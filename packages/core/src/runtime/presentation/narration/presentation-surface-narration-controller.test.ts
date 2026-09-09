@@ -137,6 +137,32 @@ describe("PresentationSurfaceNarrationController", () => {
     await replacement;
   });
 
+  it("does not touch disposed media when a cancelled native play resolves late", async () => {
+    const media = createTestAudio();
+    const playCompletion = deferred<undefined>();
+    media.play.mockReturnValueOnce(playCompletion.promise);
+    const controller = createPresentationSurfaceNarrationController({
+      surfaceId,
+      mediaPort: null,
+      createAudioElement: () => media.audio,
+    });
+    const loading = controller.load({ source: externalSource });
+    await vi.waitFor(() => expect(media.audio.src).toBe(externalSource.src));
+    media.confirmMetadata(10);
+    await loading;
+
+    const playing = controller.play();
+    controller.dispose();
+    const pauseCallsAfterDispose = media.pause.mock.calls.length;
+    playCompletion.resolve(undefined);
+
+    await expect(playing).resolves.toMatchObject({
+      error: { reason: "cancelled", surfaceId, operation: "play" },
+    });
+    await Promise.resolve();
+    expect(media.pause).toHaveBeenCalledTimes(pauseCallsAfterDispose);
+  });
+
   it("returns seek cancellation facts when pause interrupts native seeking", async () => {
     const media = createTestAudio();
     const controller = createPresentationSurfaceNarrationController({

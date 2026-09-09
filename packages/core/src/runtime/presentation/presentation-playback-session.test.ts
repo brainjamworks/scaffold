@@ -932,11 +932,21 @@ describe("createPresentationPlaybackSession", () => {
     expect(session.getSnapshot()).toMatchObject({
       phase: "playing",
       position: { timeMs: 100, side: "after-actions" },
-      advancement: "advancing",
+      advancement: "suspended",
     });
     expect(deferredCueExecutor.pending.map(({ command }) => command.type)).toEqual([
       "command-same-time-ready",
     ]);
+    const sameTimeCue = deferredCueExecutor.pending[0];
+    if (!sameTimeCue) throw new Error("Expected the released same-time cue.");
+    await settleCue(sameTimeCue);
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "playing",
+      position: { timeMs: 100, side: "after-actions" },
+      advancement: "awaiting-media-start",
+    });
+    session.confirmMediaStart();
+    expect(session.getSnapshot()).toMatchObject({ advancement: "advancing" });
     manualClock.emitAt(1_250);
     expect(session.getSnapshot()).toMatchObject({ phase: "playing", position: { timeMs: 150 } });
   });
@@ -2380,6 +2390,56 @@ describe("createPresentationPlaybackSession", () => {
     });
   });
 
+  it("Pause interrupts Wait settlement and resumes the checkpoint without replaying its cue", async () => {
+    const { deferredCueExecutor, manualClock, session } = createHarness(
+      400,
+      [cue("before", 50)],
+      createDeferredCueExecutor(),
+      [beforeManualWait("checkpoint", 100)],
+    );
+    const reports: PresentationCueReport[] = [];
+    session.subscribeCueReports((report) => reports.push(report));
+    session.play();
+    manualClock.emitAt(1_200);
+    const activeCue = deferredCueExecutor.pending[0];
+    if (!activeCue) throw new Error("Expected active cue work before the Wait.");
+
+    session.pause();
+
+    expect(activeCue.signal.aborted).toBe(true);
+    expect(reports).toEqual([
+      {
+        runNumber: 1,
+        surfaceId: "surface-1",
+        cueId: "before",
+        scheduledAtMs: 50,
+        outcome: { kind: "session-interrupted", reason: "pause" },
+      },
+    ]);
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "paused",
+      advancement: "suspended",
+      position: { timeMs: 100, side: "before-actions" },
+    });
+
+    await settleCue(activeCue);
+    session.play();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "manual", waitId: waitId("checkpoint") },
+      position: { timeMs: 100, side: "before-actions" },
+    });
+    expectAdvanceOk(session.advance());
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "playing",
+      position: { timeMs: 100, side: "after-actions" },
+    });
+    expect(deferredCueExecutor.pending).toHaveLength(1);
+    expect(reports).toHaveLength(1);
+  });
+
   it("Pause stops only the clock while cue work continues to drain", async () => {
     const { deferredCueExecutor, manualClock, session } = createHarness(500, [
       cue("first", 100),
@@ -2510,6 +2570,7 @@ describe("createPresentationPlaybackSession", () => {
       "beginMediaStart",
       "beginReposition",
       "cancelMediaStart",
+      "confirmMediaStart",
       "dispose",
       "getSnapshot",
       "pause",
@@ -2638,6 +2699,48 @@ describe("createPresentationPlaybackSession", () => {
     manualClock.emitAt(1_104);
     expect(session.getSnapshot()).toMatchObject({ phase: "playing", position: { timeMs: 650 } });
     expect(narration.maximumActiveSubscriptions).toBe(0);
+  });
+
+  it("publishes elapsed aligned media time only when the current start is confirmed", () => {
+    const { manualClock, session } = createHarness();
+    const narration = createNarrationClock(0);
+
+    session.beginMediaStart();
+    session.useNarrationClock(narration.source);
+    session.play();
+    narration.setLiveTimeMs(16);
+
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "playing",
+      advancement: "awaiting-media-start",
+      position: { timeMs: 0 },
+    });
+    expect(manualClock.activeSubscriptions).toBe(0);
+
+    session.confirmMediaStart();
+
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "playing",
+      advancement: "advancing",
+      position: { timeMs: 16 },
+    });
+    expect(manualClock.activeSubscriptions).toBe(1);
+  });
+
+  it("leaves a refused initial media start paused for explicit retry", () => {
+    const { session } = createHarness();
+    const narration = createNarrationClock(0);
+
+    session.beginMediaStart();
+    session.useNarrationClock(narration.source);
+    session.play();
+    session.cancelMediaStart();
+
+    expect(session.getSnapshot()).toMatchObject({
+      phase: "paused",
+      advancement: "suspended",
+      position: { timeMs: 0, side: "after-actions" },
+    });
   });
 
   it("freezes a failed narration clock until explicit internal-clock continuation", () => {

@@ -26,6 +26,7 @@ import { createRequestSurfaceChange } from "./slideshow-surface-change";
 import {
   createSlideshowSurfaceRuntimeComposition,
   type SlideshowPresentationControls,
+  type SlideshowSurfaceRuntimeComposition,
   type SlideshowSurfaceRuntimeProgram,
   type SlideshowSurfaceRuntimeProgramSource,
 } from "./slideshow-surface-runtime-composition";
@@ -614,6 +615,479 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     composition.dispose();
   });
 
+  it("pauses and reconciles narration immediately while a crossed checkpoint cue settles", async () => {
+    const heartbeat = createAnimationFrameHarness();
+    const media = createCoordinatedNarrationMedia({ automaticallyConfirmSeek: false });
+    const cue = deferred<ControlCommandResult>();
+    const execute = vi.fn(() => cue.promise);
+    const checkpointTimeline = Object.freeze({
+      ...emptyPresentationTimeline(SURFACE_ID, 5_000),
+      narration: narrationConfiguration(),
+      cues: Object.freeze([
+        Object.freeze({
+          id: EmbeddedDataIdSchema.parse("aligncue0001"),
+          atMs: 1_000,
+          command: Object.freeze({
+            kind: "target-command" as const,
+            ownerId: OWNER_ID,
+            targetId: TARGET_ID,
+            type: "select",
+          }),
+          seekBehavior: "consume" as const,
+        }),
+      ]),
+      waits: Object.freeze([
+        Object.freeze({
+          kind: "manual-wait" as const,
+          id: "align-wait" as PresentationWaitId,
+          atMs: 1_000,
+          boundary: "after-actions" as const,
+        }),
+      ]),
+    });
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: { presentation: { timeline: checkpointTimeline, autoAdvance: false } },
+      controlBindings: {
+        get: () => ({ ownerId: OWNER_ID, commandExecutor: { execute } }),
+      },
+      semanticTargets: {
+        activate: vi.fn(async (requestedId: EmbeddedNodeId) => ({
+          kind: "reached" as const,
+          requestedId,
+        })),
+      },
+      featureViewBaseline: emptyFeatureViewBaseline(),
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+      createNarrationAudioElement: () => media.audio,
+    });
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+
+    try {
+      await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+      media.confirmMetadata(5);
+      const starting = controls.play();
+      await vi.waitFor(() => expect(media.play).toHaveBeenCalledOnce());
+      media.confirmPlay();
+      await starting;
+
+      media.elapse(1_200);
+      heartbeat.step(1_200);
+
+      expect(controls.getSnapshot()).toMatchObject({
+        phase: "playing",
+        advancement: "suspended",
+        position: { timeMs: 1_000, side: "after-actions" },
+      });
+      expect(media.native.paused).toBe(true);
+      await vi.waitFor(() => expect(media.audio.currentTime).toBe(1));
+      media.elapse(600);
+      expect(media.audio.currentTime).toBe(1);
+
+      cue.resolve(Result.ok());
+      await vi.waitFor(() => expect(controls.getSnapshot().phase).toBe("held"));
+      expect(media.audio.currentTime).toBe(1);
+
+      media.confirmSeek(1);
+      const advancing = controls.advance();
+      await vi.waitFor(() => expect(media.play).toHaveBeenCalledTimes(2));
+      media.confirmPlay();
+      expect((await advancing).isOk()).toBe(true);
+      expect(controls.getSnapshot()).toMatchObject({
+        phase: "playing",
+        advancement: "advancing",
+        position: { timeMs: 1_000, side: "after-actions" },
+      });
+      expect(execute).toHaveBeenCalledOnce();
+    } finally {
+      composition.dispose();
+      heartbeat.restore();
+    }
+  });
+
+  it("settles released boundary work while paused and preserves successful startup elapsed time", async () => {
+    const heartbeat = createAnimationFrameHarness();
+    const media = createCoordinatedNarrationMedia();
+    const cue = deferred<ControlCommandResult>();
+    const execute = vi.fn(() => cue.promise);
+    const checkpointTimeline = Object.freeze({
+      ...emptyPresentationTimeline(SURFACE_ID, 5_000),
+      narration: narrationConfiguration(),
+      cues: Object.freeze([
+        Object.freeze({
+          id: EmbeddedDataIdSchema.parse("releasecue01"),
+          atMs: 1_000,
+          command: Object.freeze({
+            kind: "target-command" as const,
+            ownerId: OWNER_ID,
+            targetId: TARGET_ID,
+            type: "select",
+          }),
+          seekBehavior: "consume" as const,
+        }),
+      ]),
+      waits: Object.freeze([
+        Object.freeze({
+          kind: "manual-wait" as const,
+          id: "release-wait" as PresentationWaitId,
+          atMs: 1_000,
+          boundary: "before-actions" as const,
+        }),
+      ]),
+    });
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: { presentation: { timeline: checkpointTimeline, autoAdvance: false } },
+      controlBindings: {
+        get: () => ({ ownerId: OWNER_ID, commandExecutor: { execute } }),
+      },
+      semanticTargets: {
+        activate: vi.fn(async (requestedId: EmbeddedNodeId) => ({
+          kind: "reached" as const,
+          requestedId,
+        })),
+      },
+      featureViewBaseline: emptyFeatureViewBaseline(),
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+      createNarrationAudioElement: () => media.audio,
+    });
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+
+    try {
+      await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+      media.confirmMetadata(5);
+      const starting = controls.play();
+      await vi.waitFor(() => expect(media.play).toHaveBeenCalledOnce());
+      media.confirmPlay();
+      await starting;
+      media.elapse(1_000);
+      heartbeat.step(1_000);
+      await vi.waitFor(() => expect(controls.getSnapshot().phase).toBe("held"));
+
+      const advancing = controls.advance();
+      await vi.waitFor(() => expect(execute).toHaveBeenCalledOnce());
+      expect(media.play).toHaveBeenCalledOnce();
+      expect(media.native.paused).toBe(true);
+      expect(controls.getSnapshot()).toMatchObject({
+        phase: "playing",
+        advancement: "suspended",
+        position: { timeMs: 1_000, side: "after-actions" },
+      });
+
+      cue.resolve(Result.ok());
+      await vi.waitFor(() => expect(media.play).toHaveBeenCalledTimes(2));
+      media.elapse(16);
+      media.confirmPlay();
+      expect((await advancing).isOk()).toBe(true);
+      expect(controls.getSnapshot()).toMatchObject({
+        phase: "playing",
+        advancement: "advancing",
+        position: { timeMs: 1_016, side: "after-actions" },
+      });
+    } finally {
+      composition.dispose();
+      heartbeat.restore();
+    }
+  });
+
+  it("keeps a zero-time learner hold silent and refuses ineligible Continue before play", async () => {
+    const media = createCoordinatedNarrationMedia();
+    const events = createTestEventSource();
+    const binding = { ownerId: OWNER_ID, eventSource: events.eventSource };
+    const checkpointTimeline = Object.freeze({
+      ...emptyPresentationTimeline(SURFACE_ID, 5_000),
+      narration: narrationConfiguration(),
+      waits: Object.freeze([
+        Object.freeze({
+          kind: "learner-wait" as const,
+          id: "zero-learner" as PresentationWaitId,
+          atMs: 0,
+          boundary: "before-actions" as const,
+          requirement: Object.freeze({
+            kind: "event" as const,
+            ownerId: OWNER_ID,
+            targetId: TARGET_ID,
+            type: "selected",
+          }),
+        }),
+      ]),
+    });
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: { presentation: { timeline: checkpointTimeline, autoAdvance: false } },
+      controlBindings: { get: () => binding },
+      semanticTargets: { activate: vi.fn() },
+      featureViewBaseline: emptyFeatureViewBaseline(),
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+      createNarrationAudioElement: () => media.audio,
+    });
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+
+    await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.confirmMetadata(5);
+    expect((await controls.play()).isOk()).toBe(true);
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", status: "waiting", waitId: "zero-learner" },
+    });
+    expect(media.play).not.toHaveBeenCalled();
+
+    const refused = await controls.advance();
+    expect(refused).toMatchObject({
+      error: { reason: "learner-requirement-pending", waitId: "zero-learner" },
+    });
+    expect(media.play).not.toHaveBeenCalled();
+
+    await events.emit({ targetId: TARGET_ID, type: "selected" });
+    await flushPromises();
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "held",
+      hold: { kind: "learner", status: "ready", waitId: "zero-learner" },
+    });
+    expect(media.play).not.toHaveBeenCalled();
+    composition.dispose();
+  });
+
+  it("auto-advances a ready narrated hold through the same paused release handshake", async () => {
+    const media = createCoordinatedNarrationMedia();
+    const events = createTestEventSource();
+    const binding = { ownerId: OWNER_ID, eventSource: events.eventSource };
+    const checkpointTimeline = Object.freeze({
+      ...emptyPresentationTimeline(SURFACE_ID, 5_000),
+      narration: narrationConfiguration(),
+      waits: Object.freeze([
+        Object.freeze({
+          kind: "learner-wait" as const,
+          id: "auto-learner" as PresentationWaitId,
+          atMs: 0,
+          boundary: "before-actions" as const,
+          requirement: Object.freeze({
+            kind: "event" as const,
+            ownerId: OWNER_ID,
+            targetId: TARGET_ID,
+            type: "selected",
+          }),
+        }),
+      ]),
+    });
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: { presentation: { timeline: checkpointTimeline, autoAdvance: true } },
+      controlBindings: { get: () => binding },
+      semanticTargets: { activate: vi.fn() },
+      featureViewBaseline: emptyFeatureViewBaseline(),
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+      createNarrationAudioElement: () => media.audio,
+    });
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+
+    await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.confirmMetadata(5);
+    await controls.play();
+    await events.emit({ targetId: TARGET_ID, type: "selected" });
+    await vi.waitFor(() => expect(media.play).toHaveBeenCalledOnce());
+    expect(media.native.paused).toBe(false);
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "playing",
+      advancement: "awaiting-media-start",
+      position: { timeMs: 0, side: "after-actions" },
+    });
+    media.confirmPlay();
+    await vi.waitFor(() =>
+      expect(controls.getSnapshot()).toMatchObject({ advancement: "advancing" }),
+    );
+    composition.dispose();
+  });
+
+  it("retries a refused released-boundary start without replaying its command", async () => {
+    const heartbeat = createAnimationFrameHarness();
+    const media = createCoordinatedNarrationMedia();
+    const execute = vi.fn(async () => Result.ok());
+    const checkpointTimeline = Object.freeze({
+      ...emptyPresentationTimeline(SURFACE_ID, 5_000),
+      narration: narrationConfiguration(),
+      cues: Object.freeze([
+        Object.freeze({
+          id: EmbeddedDataIdSchema.parse("retrycue0001"),
+          atMs: 1_000,
+          command: Object.freeze({
+            kind: "target-command" as const,
+            ownerId: OWNER_ID,
+            targetId: TARGET_ID,
+            type: "select",
+          }),
+          seekBehavior: "consume" as const,
+        }),
+      ]),
+      waits: Object.freeze([
+        Object.freeze({
+          kind: "manual-wait" as const,
+          id: "retry-wait" as PresentationWaitId,
+          atMs: 1_000,
+          boundary: "before-actions" as const,
+        }),
+      ]),
+    });
+    const composition = createSlideshowSurfaceRuntimeComposition({
+      surfaceId: SURFACE_ID,
+      program: { presentation: { timeline: checkpointTimeline, autoAdvance: false } },
+      controlBindings: {
+        get: () => ({ ownerId: OWNER_ID, commandExecutor: { execute } }),
+      },
+      semanticTargets: {
+        activate: vi.fn(async (requestedId: EmbeddedNodeId) => ({
+          kind: "reached" as const,
+          requestedId,
+        })),
+      },
+      featureViewBaseline: emptyFeatureViewBaseline(),
+      requestSurfaceChange: vi.fn(() => Result.ok()),
+      createNarrationAudioElement: () => media.audio,
+    });
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+
+    try {
+      await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+      media.confirmMetadata(5);
+      const starting = controls.play();
+      await vi.waitFor(() => expect(media.play).toHaveBeenCalledOnce());
+      media.confirmPlay();
+      await starting;
+      media.elapse(1_000);
+      heartbeat.step(1_000);
+      await vi.waitFor(() => expect(controls.getSnapshot().phase).toBe("held"));
+
+      const blocked = new DOMException("gesture required", "NotAllowedError");
+      media.play.mockRejectedValueOnce(blocked);
+      const refused = await controls.advance();
+      expect(refused).toMatchObject({
+        error: { reason: "playback-not-allowed", surfaceId: SURFACE_ID, cause: blocked },
+      });
+      expect(execute).toHaveBeenCalledOnce();
+      expect(controls.getSnapshot()).toMatchObject({
+        phase: "paused",
+        position: { timeMs: 1_000, side: "after-actions" },
+      });
+
+      const retry = controls.play();
+      await vi.waitFor(() => expect(media.play).toHaveBeenCalledTimes(3));
+      media.confirmPlay();
+      expect((await retry).isOk()).toBe(true);
+      expect(execute).toHaveBeenCalledOnce();
+    } finally {
+      composition.dispose();
+      heartbeat.restore();
+    }
+  });
+
+  it("returns typed cancellation without touching narration after disposal", async () => {
+    const media = createCoordinatedNarrationMedia();
+    const composition = createNarratedComposition(media.audio);
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+    await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.confirmMetadata(10);
+
+    const playing = controls.play();
+    await vi.waitFor(() => expect(media.play).toHaveBeenCalledOnce());
+    composition.dispose();
+    const pauseCallsAfterDispose = media.pause.mock.calls.length;
+    media.confirmPlay();
+
+    await expect(playing).resolves.toMatchObject({
+      error: { reason: "cancelled", surfaceId: SURFACE_ID, operation: "play" },
+    });
+    await Promise.resolve();
+    expect(media.pause).toHaveBeenCalledTimes(pauseCallsAfterDispose);
+  });
+
+  it("does not resume a pending media start superseded by Seek", async () => {
+    const media = createCoordinatedNarrationMedia();
+    const composition = createNarratedComposition(media.audio);
+    const controls = composition.presentationControls;
+    if (!controls || !composition.seek) throw new Error("Expected Presentation controls.");
+    await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.confirmMetadata(10);
+
+    const playing = controls.play();
+    await vi.waitFor(() => expect(media.play).toHaveBeenCalledOnce());
+    const seeking = await composition.seek(500);
+
+    expect(seeking).toMatchObject({
+      value: { kind: "applied", position: { timeMs: 500, side: "after-actions" } },
+    });
+    await expect(playing).resolves.toMatchObject({
+      error: { reason: "cancelled", surfaceId: SURFACE_ID, operation: "play" },
+    });
+    media.confirmPlay();
+    await Promise.resolve();
+    expect(media.native.paused).toBe(true);
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "paused",
+      advancement: "suspended",
+      position: { timeMs: 500 },
+    });
+    composition.dispose();
+  });
+
+  it("keeps Stop authoritative over a late pending media confirmation", async () => {
+    const media = createCoordinatedNarrationMedia();
+    const composition = createNarratedComposition(media.audio);
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+    await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.confirmMetadata(10);
+
+    const playing = controls.play();
+    await vi.waitFor(() => expect(media.play).toHaveBeenCalledOnce());
+    controls.stop();
+    await expect(playing).resolves.toMatchObject({
+      error: { reason: "cancelled", surfaceId: SURFACE_ID, operation: "play" },
+    });
+    media.confirmPlay();
+    await Promise.resolve();
+    expect(media.native.paused).toBe(true);
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "stopped",
+      advancement: "suspended",
+      position: { timeMs: 0 },
+    });
+    composition.dispose();
+  });
+
+  it("keeps Restart authoritative over a late pending media confirmation", async () => {
+    const media = createCoordinatedNarrationMedia();
+    const composition = createNarratedComposition(media.audio);
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+    await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.confirmMetadata(10);
+
+    const playing = controls.play();
+    await vi.waitFor(() => expect(media.play).toHaveBeenCalledOnce());
+    const restarted = await controls.restart();
+    expect(restarted).toMatchObject({
+      value: { kind: "applied", position: { timeMs: 0, side: "before-actions" } },
+    });
+    await expect(playing).resolves.toMatchObject({
+      error: { reason: "cancelled", surfaceId: SURFACE_ID, operation: "play" },
+    });
+    media.confirmPlay();
+    await Promise.resolve();
+    expect(media.native.paused).toBe(true);
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "awaiting-start",
+      advancement: "suspended",
+      position: { timeMs: 0, side: "before-actions" },
+    });
+    composition.dispose();
+  });
+
   it("keeps native narration paused when Pause cancels a pending media start", async () => {
     const media = createTestNarrationAudio();
     const composition = createNarratedComposition(media.audio);
@@ -636,6 +1110,89 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     });
     expect(controls.getSnapshot().advancement).toBe("suspended");
     expect(media.native.paused).toBe(true);
+    composition.dispose();
+  });
+
+  it.each([
+    {
+      interruption: "Pause",
+      interrupt: (
+        _composition: SlideshowSurfaceRuntimeComposition,
+        controls: SlideshowPresentationControls,
+      ) => controls.pause(),
+    },
+    {
+      interruption: "disposal",
+      interrupt: (composition: SlideshowSurfaceRuntimeComposition) => composition.dispose(),
+    },
+  ])(
+    "$interruption queued at startup readiness prevents stale native play",
+    async ({ interruption, interrupt }) => {
+      const media = createCoordinatedNarrationMedia();
+      const composition = createNarratedComposition(media.audio);
+      const controls = composition.presentationControls;
+      if (!controls) throw new Error("Expected Presentation controls.");
+      await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+      media.confirmMetadata(10);
+      let interruptionQueued = false;
+      controls.subscribe(() => {
+        const snapshot = controls.getSnapshot();
+        if (
+          !interruptionQueued &&
+          snapshot.phase === "playing" &&
+          snapshot.advancement === "awaiting-media-start"
+        ) {
+          interruptionQueued = true;
+          queueMicrotask(() => interrupt(composition, controls));
+        }
+      });
+
+      try {
+        const starting = controls.play();
+        await flushPromises();
+        if (media.play.mock.calls.length > 0) media.confirmPlay();
+
+        await expect(starting).resolves.toMatchObject({
+          error: { reason: "cancelled", surfaceId: SURFACE_ID, operation: "play" },
+        });
+        expect(media.play).not.toHaveBeenCalled();
+        expect(media.native.paused).toBe(true);
+        if (interruption === "Pause") {
+          expect(controls.getSnapshot()).toMatchObject({
+            phase: "paused",
+            advancement: "suspended",
+            position: { timeMs: 0 },
+          });
+        }
+      } finally {
+        composition.dispose();
+      }
+    },
+  );
+
+  it("keeps execution invalidation authoritative over a late pending media confirmation", async () => {
+    const media = createCoordinatedNarrationMedia();
+    const composition = createNarratedComposition(media.audio);
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+    await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+    media.confirmMetadata(10);
+
+    const playing = controls.play();
+    await vi.waitFor(() => expect(media.play).toHaveBeenCalledOnce());
+    composition.setExecutionEnabled(false);
+    await expect(playing).resolves.toMatchObject({
+      error: { reason: "cancelled", surfaceId: SURFACE_ID, operation: "play" },
+    });
+    media.confirmPlay();
+    await Promise.resolve();
+
+    expect(media.native.paused).toBe(true);
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "paused",
+      advancement: "suspended",
+      position: { timeMs: 0 },
+    });
     composition.dispose();
   });
 
@@ -663,7 +1220,11 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     media.confirmSeek(4);
     expect(media.native.paused).toBe(true);
     await vi.waitFor(() => expect(media.play).toHaveBeenCalledTimes(2));
-    expect(controls.getSnapshot()).toMatchObject({ phase: "paused", position: { timeMs: 4_000 } });
+    expect(controls.getSnapshot()).toMatchObject({
+      phase: "playing",
+      advancement: "awaiting-media-start",
+      position: { timeMs: 4_000 },
+    });
     media.confirmPlay();
 
     expect(await seeking).toMatchObject({
@@ -695,7 +1256,7 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
       cause: blocked,
     });
     expect(controls.getSnapshot()).toMatchObject({
-      phase: "awaiting-start",
+      phase: "paused",
       position: { timeMs: 0 },
       advancement: "suspended",
     });
@@ -713,6 +1274,39 @@ describe("createSlideshowSurfaceRuntimeComposition", () => {
     });
     expect(controls.getSnapshot().phase).toBe("playing");
     composition.dispose();
+  });
+
+  it("continues on the internal clock when narration fallback cancels pending startup", async () => {
+    const heartbeat = createAnimationFrameHarness();
+    const media = createCoordinatedNarrationMedia();
+    const composition = createNarratedComposition(media.audio);
+    const controls = composition.presentationControls;
+    if (!controls) throw new Error("Expected Presentation controls.");
+
+    try {
+      await vi.waitFor(() => expect(media.audio.src).toContain("narration.mp3"));
+      media.confirmMetadata(10);
+      const starting = controls.play();
+      await vi.waitFor(() => expect(media.play).toHaveBeenCalledOnce());
+
+      controls.continueWithoutNarration();
+      await expect(starting).resolves.toMatchObject({
+        error: { reason: "cancelled", surfaceId: SURFACE_ID, operation: "play" },
+      });
+      heartbeat.step(500);
+
+      expect(media.native.paused).toBe(true);
+      expect(controls.getNarrationSnapshot()).toMatchObject({ usingInternalClock: true });
+      expect(controls.getSnapshot()).toMatchObject({
+        phase: "playing",
+        advancement: "advancing",
+        position: { timeMs: 500 },
+      });
+      expect(heartbeat.pendingCount()).toBe(1);
+    } finally {
+      composition.dispose();
+      heartbeat.restore();
+    }
   });
 
   it("continues an authored silent tail from natural narration end without duplicating cues or heartbeats", async () => {
@@ -1755,6 +2349,15 @@ function createNarratedComposition(audio: HTMLAudioElement, onLearnerDispose?: (
   });
 }
 
+function narrationConfiguration() {
+  return Object.freeze({
+    source: Object.freeze({
+      mode: "external" as const,
+      src: "https://media.example.test/narration.mp3",
+    }),
+  });
+}
+
 function timeline(surfaceId: SurfaceId): CompiledSurfacePresentationTimeline {
   return emptyPresentationTimeline(surfaceId, 1_000);
 }
@@ -1972,6 +2575,75 @@ function createTestNarrationAudio(onDispose?: () => void) {
     confirmSeek(seconds: number) {
       native.currentTime = seconds;
       audio.dispatchEvent(new Event("seeked"));
+    },
+  };
+}
+
+function createCoordinatedNarrationMedia({
+  automaticallyConfirmSeek = true,
+}: { readonly automaticallyConfirmSeek?: boolean } = {}) {
+  const audio = document.createElement("audio");
+  const native = {
+    currentTime: 0,
+    duration: Number.NaN,
+    ended: false,
+    error: null as MediaError | null,
+    paused: true,
+  };
+  Object.defineProperties(audio, {
+    currentTime: {
+      configurable: true,
+      get: () => native.currentTime,
+      set: (value: number) => {
+        native.currentTime = value;
+        if (automaticallyConfirmSeek) {
+          queueMicrotask(() => audio.dispatchEvent(new Event("seeked")));
+        }
+      },
+    },
+    duration: { configurable: true, get: () => native.duration },
+    ended: { configurable: true, get: () => native.ended },
+    error: { configurable: true, get: () => native.error },
+    paused: { configurable: true, get: () => native.paused },
+  });
+  Object.defineProperty(audio, "load", { configurable: true, value: vi.fn() });
+  let pendingPlay: ReturnType<typeof deferred<void>> | null = null;
+  const play = vi.fn(() => {
+    native.paused = false;
+    native.ended = false;
+    pendingPlay = deferred<void>();
+    audio.dispatchEvent(new Event("play"));
+    return pendingPlay.promise;
+  });
+  Object.defineProperty(audio, "play", { configurable: true, value: play });
+  const pause = vi.fn(() => {
+    native.paused = true;
+    audio.dispatchEvent(new Event("pause"));
+  });
+  Object.defineProperty(audio, "pause", { configurable: true, value: pause });
+
+  return {
+    audio,
+    native,
+    pause,
+    play,
+    confirmMetadata(durationSeconds: number) {
+      native.duration = durationSeconds;
+      audio.dispatchEvent(new Event("loadedmetadata"));
+    },
+    confirmPlay() {
+      const pending = pendingPlay;
+      if (!pending) throw new Error("No pending narration play confirmation.");
+      pendingPlay = null;
+      audio.dispatchEvent(new Event("playing"));
+      pending.resolve();
+    },
+    confirmSeek(seconds: number) {
+      native.currentTime = seconds;
+      audio.dispatchEvent(new Event("seeked"));
+    },
+    elapse(timeMs: number) {
+      if (!native.paused) native.currentTime += timeMs / 1_000;
     },
   };
 }

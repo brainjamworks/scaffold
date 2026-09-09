@@ -51,7 +51,7 @@ type PresentationPlaybackMachineHold =
       readonly status: "waiting" | "ready";
     };
 
-type PresentationCueInterruptionReason = "seek" | "restart" | "stop";
+type PresentationCueInterruptionReason = "pause" | "seek" | "restart" | "stop";
 export type PresentationRepositionInterruptionReason = Extract<
   PresentationCueInterruptionReason,
   "seek" | "restart"
@@ -94,6 +94,7 @@ type PresentationPlaybackMachineEvent =
     }
   | { readonly type: "stop" }
   | { readonly type: "clock-tick"; readonly projectedTimeMs: number }
+  | { readonly type: "media-start-confirmed"; readonly projectedTimeMs: number }
   | { readonly type: "cue-worker-drained"; readonly runNumber: number }
   | { readonly type: "cue-worker-defect"; readonly error: unknown }
   | { readonly type: "boundary-release-published"; readonly runNumber: number }
@@ -168,6 +169,7 @@ interface PresentationPlaybackMachine {
   advance(): void;
   confirmBoundaryReleasePublished(runNumber: number): void;
   beginMediaStart(): void;
+  confirmMediaStart(): void;
   cancelMediaStart(): void;
   seek(position: PresentationPlaybackPosition): void;
   beginReposition(reason: PresentationRepositionInterruptionReason): void;
@@ -315,7 +317,7 @@ function anchorClockTimeFrom(event: PresentationPlaybackMachineEvent): number {
 }
 
 function projectedTimeFrom(event: PresentationPlaybackMachineEvent): number {
-  if (event.type !== "clock-tick") {
+  if (event.type !== "clock-tick" && event.type !== "media-start-confirmed") {
     throw new Error(`Presentation clock action received unexpected event "${event.type}".`);
   }
   return event.projectedTimeMs;
@@ -539,23 +541,35 @@ const presentationPlaybackMachineSetup = setup({
       event.type === "cue-worker-drained" &&
       event.runNumber === context.runNumber &&
       context.pendingWait?.kind === "learner-wait",
+    drainedCurrentRunWithMediaStart: ({ context, event }) =>
+      event.type === "cue-worker-drained" &&
+      event.runNumber === context.runNumber &&
+      context.mediaStartPending,
     boundaryReleasePublishedForCurrentRun: ({ context, event }) =>
       event.type === "boundary-release-published" && event.runNumber === context.runNumber,
+    boundaryReleasePublishedWithMediaStart: ({ context, event }) =>
+      event.type === "boundary-release-published" &&
+      event.runNumber === context.runNumber &&
+      context.mediaStartPending,
+    mediaStartPending: ({ context }) => context.mediaStartPending,
   },
   actions: {
     anchorPlayback: assign({
       anchorClockTimeMs: ({ event }) => anchorClockTimeFrom(event),
       anchorPresentationTimeMs: ({ context }) => context.position.timeMs,
-      mediaStartPending: false,
     }),
     anchorPlaybackNow: assign({
       anchorClockTimeMs: ({ context }) => finiteClockReadingFrom(context.clockSource),
       anchorPresentationTimeMs: ({ context }) => context.position.timeMs,
-      mediaStartPending: false,
     }),
     applyClockTick: assign({
       position: ({ event }) =>
         createPresentationPlaybackPosition(projectedTimeFrom(event), "after-actions"),
+    }),
+    confirmMediaStart: assign({
+      position: ({ event }) =>
+        createPresentationPlaybackPosition(projectedTimeFrom(event), "after-actions"),
+      mediaStartPending: false,
     }),
     applySeek: assign(({ event }) => ({
       position: seekPositionFrom(event),
@@ -698,6 +712,11 @@ const presentationPlaybackMachineSetup = setup({
       runNumber: context.runNumber,
       reason: "restart" as const,
     })),
+    interruptForPause: sendTo("cueWorker", ({ context }) => ({
+      type: "interrupt-cues" as const,
+      runNumber: context.runNumber,
+      reason: "pause" as const,
+    })),
     interruptForReposition: sendTo("cueWorker", ({ context, event }) => {
       if (event.type !== "reposition-started") {
         throw new Error("Presentation reposition interruption received an unexpected event.");
@@ -733,7 +752,12 @@ const presentationPlaybackMachineSetup = setup({
       },
     }),
     clearPendingWait: assign({ pendingWait: null }),
-    requestMediaStart: assign({ mediaStartPending: true }),
+    requestMediaStart: assign(({ event }) => {
+      if (event.type !== "media-start-requested") {
+        throw new Error("Presentation media-start request received an unexpected event.");
+      }
+      return { mediaStartPending: true };
+    }),
     cancelMediaStart: assign({ mediaStartPending: false }),
     markLearnerWaitSatisfied: assign({
       outstandingLearnerWaitId: ({ context }) =>
@@ -841,6 +865,11 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
           },
           { guard: "atDuration", target: "completed", actions: "cancelMediaStart" },
           {
+            guard: "mediaStartPending",
+            target: "starting-media",
+            actions: ["resolveCurrentPositionAfterActions", "enqueueCurrentCues", "anchorPlayback"],
+          },
+          {
             target: "playing",
             actions: ["resolveCurrentPositionAfterActions", "enqueueCurrentCues", "anchorPlayback"],
           },
@@ -946,9 +975,33 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
         ],
       },
     },
+    "starting-media": {
+      on: {
+        "media-start-confirmed": [
+          {
+            guard: "clockCrossedWait",
+            target: "settling-wait-cues",
+            actions: "settleAtCrossedWait",
+          },
+          {
+            guard: "clockReachedDuration",
+            target: "settling-cues",
+            actions: ["enqueueEndpointCues", "confirmMediaStart"],
+          },
+          { target: "playing", actions: ["enqueueClockCues", "confirmMediaStart"] },
+        ],
+        "media-start-cancelled": { target: "paused", actions: "cancelMediaStart" },
+        pause: { target: "paused", actions: "cancelMediaStart" },
+        seek: fixedWaitStateSeekTransitions,
+      },
+    },
     "settling-cues": {
       on: {
         "cue-worker-drained": { guard: "drainedCurrentRun", target: "completed" },
+        pause: {
+          target: "paused",
+          actions: ["interruptForPause", "clearPendingWait", "cancelMediaStart"],
+        },
         "reposition-started": {
           target: "paused",
           actions: ["interruptForReposition", "clearPendingWait", "cancelMediaStart"],
@@ -992,6 +1045,10 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
           { guard: "drainedCurrentRunAtManualWait", target: "held-manual" },
           { guard: "drainedCurrentRunAtLearnerWait", target: "held-learner-waiting" },
         ],
+        pause: {
+          target: "paused",
+          actions: ["interruptForPause", "clearPendingWait", "cancelMediaStart"],
+        },
         "reposition-started": {
           target: "paused",
           actions: ["interruptForReposition", "clearPendingWait", "cancelMediaStart"],
@@ -1001,12 +1058,36 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
     },
     "releasing-before-wait": {
       on: {
-        "boundary-release-published": {
-          guard: "boundaryReleasePublishedForCurrentRun",
-          target: "playing",
-          actions: "enqueueCurrentCues",
-        },
+        "boundary-release-published": [
+          {
+            guard: "boundaryReleasePublishedWithMediaStart",
+            target: "settling-released-wait-cues",
+            actions: "settleCurrentCues",
+          },
+          {
+            guard: "boundaryReleasePublishedForCurrentRun",
+            target: "playing",
+            actions: "enqueueCurrentCues",
+          },
+        ],
         pause: { target: "paused", actions: "cancelMediaStart" },
+        seek: fixedWaitStateSeekTransitions,
+      },
+    },
+    "settling-released-wait-cues": {
+      on: {
+        "cue-worker-drained": [
+          { guard: "drainedCurrentRunWithMediaStart", target: "starting-media" },
+          { guard: "drainedCurrentRun", target: "playing", actions: "anchorPlaybackNow" },
+        ],
+        pause: {
+          target: "paused",
+          actions: ["interruptForPause", "cancelMediaStart"],
+        },
+        "reposition-started": {
+          target: "paused",
+          actions: ["interruptForReposition", "cancelMediaStart"],
+        },
         seek: fixedWaitStateSeekTransitions,
       },
     },
@@ -1047,6 +1128,11 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
             guard: "atDuration",
             target: "completed",
             actions: ["markPendingWaitPassed", "clearPendingWait", "cancelMediaStart"],
+          },
+          {
+            guard: "mediaStartPending",
+            target: "starting-media",
+            actions: ["markPendingWaitPassed", "clearPendingWait", "anchorPlayback"],
           },
           {
             target: "playing",
@@ -1134,6 +1220,11 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
             actions: ["clearPendingWait", "cancelMediaStart"],
           },
           {
+            guard: "mediaStartPending",
+            target: "starting-media",
+            actions: ["clearPendingWait", "anchorPlayback"],
+          },
+          {
             target: "playing",
             actions: ["clearPendingWait", "anchorPlayback"],
           },
@@ -1150,6 +1241,11 @@ const presentationPlaybackMachine = presentationPlaybackMachineSetup.createMachi
             actions: "settleAtPlayBoundary",
           },
           { guard: "atDuration", target: "completed", actions: "cancelMediaStart" },
+          {
+            guard: "mediaStartPending",
+            target: "starting-media",
+            actions: ["resolveCurrentPositionAfterActions", "enqueueCurrentCues", "anchorPlayback"],
+          },
           {
             target: "playing",
             actions: ["resolveCurrentPositionAfterActions", "enqueueCurrentCues", "anchorPlayback"],
@@ -1232,8 +1328,11 @@ function readMachinePhase(value: unknown): PresentationPlaybackMachinePhase {
     case "completed":
     case "stopped":
       return value;
+    case "starting-media":
+      return "playing";
     case "settling-cues":
     case "settling-wait-cues":
+    case "settling-released-wait-cues":
     case "releasing-before-wait":
     case "releasing-before-wait-at-duration":
       return "playing";
@@ -1250,8 +1349,19 @@ function readAdvancementLifecycle(
   value: unknown,
   mediaStartPending: boolean,
 ): PresentationAdvancementLifecycle {
+  if (
+    value === "settling-cues" ||
+    value === "settling-wait-cues" ||
+    value === "settling-released-wait-cues"
+  ) {
+    return "suspended";
+  }
+  if (value === "releasing-before-wait" || value === "releasing-before-wait-at-duration") {
+    return mediaStartPending ? "suspended" : "advancing";
+  }
+  if (value === "starting-media") return "awaiting-media-start";
   if (mediaStartPending) return "awaiting-media-start";
-  return value === "playing" || value === "releasing-before-wait" ? "advancing" : "suspended";
+  return value === "playing" ? "advancing" : "suspended";
 }
 
 export function createPresentationPlaybackMachine(
@@ -1333,7 +1443,27 @@ export function createPresentationPlaybackMachine(
     },
     confirmBoundaryReleasePublished: (runNumber: number) =>
       actor.send({ type: "boundary-release-published", runNumber }),
-    beginMediaStart: () => actor.send({ type: "media-start-requested" }),
+    beginMediaStart: () => {
+      const phase = readMachinePhase(actor.getSnapshot().value);
+      if (phase !== "awaiting-start" && phase !== "paused" && phase !== "held") {
+        throw new Error(`Cannot begin Presentation media start while ${phase}.`);
+      }
+      actor.send({ type: "media-start-requested" });
+    },
+    confirmMediaStart: () => {
+      const snapshot = actor.getSnapshot();
+      if (!snapshot.context.mediaStartPending || snapshot.value !== "starting-media") {
+        throw new Error("Cannot confirm an inactive Presentation media start.");
+      }
+      const projectedTimeMs = projectedClockTime({
+        anchorClockTimeMs: snapshot.context.anchorClockTimeMs,
+        anchorPresentationTimeMs: snapshot.context.anchorPresentationTimeMs,
+        confirmedTimeMs: snapshot.context.position.timeMs,
+        durationMs: snapshot.context.durationMs,
+        nowMs: snapshot.context.clockSource.nowMs(),
+      });
+      actor.send({ type: "media-start-confirmed", projectedTimeMs });
+    },
     cancelMediaStart: () => actor.send({ type: "media-start-cancelled" }),
     seek: (position: PresentationPlaybackPosition) => {
       const snapshot = actor.getSnapshot();

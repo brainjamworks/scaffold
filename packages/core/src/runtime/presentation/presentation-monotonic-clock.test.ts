@@ -90,9 +90,39 @@ describe("createReplaceablePresentationPlaybackClock", () => {
     unsubscribe();
     expect(internal.activeSubscriptions).toBe(0);
   });
+
+  it("aligns a replacement source to an explicit shared position without hiding later elapsed time", () => {
+    const internal = createManualSource(5_000);
+    const narration = createManualSource(1_000);
+    const clock = createReplaceablePresentationPlaybackClock(internal.source);
+
+    clock.replaceSourceAt(narration.source, 1_000);
+    narration.setNowMs(1_016);
+
+    expect(clock.nowMs()).toBe(1_016);
+  });
 });
 
 describe("createPresentationNarrationClockSource", () => {
+  it("can establish an aligned source while loaded media is still paused", () => {
+    const narration = createNarrationClockHarness({
+      status: "paused",
+      currentTimeMs: 1_000,
+      durationMs: 2_000,
+      error: null,
+    });
+    const source = createPresentationNarrationClockSource(narration.controller);
+
+    expect(source.nowMs()).toBe(1_000);
+    narration.publish({
+      status: "playing",
+      currentTimeMs: 1_016,
+      durationMs: 2_000,
+      error: null,
+    });
+    expect(source.nowMs()).toBe(1_016);
+  });
+
   it("advances from confirmed media time and freezes while buffering, seeking, or failed", () => {
     const narration = createNarrationClockHarness({
       status: "playing",
@@ -124,16 +154,16 @@ describe("createPresentationNarrationClockSource", () => {
     }
   });
 
-  it("rejects an unconfirmed narration source as an invariant defect", () => {
+  it("rejects an unloaded narration source as an invariant defect", () => {
     const narration = createNarrationClockHarness({
-      status: "paused",
+      status: "loading",
       currentTimeMs: 0,
       durationMs: 1_000,
       error: null,
     });
 
     expect(() => createPresentationNarrationClockSource(narration.controller)).toThrowError(
-      /confirmed.*playing/i,
+      /loaded/i,
     );
   });
 });

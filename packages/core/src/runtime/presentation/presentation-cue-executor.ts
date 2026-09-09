@@ -34,7 +34,7 @@ export type PresentationCueOutcome =
   | PresentationCueExecutionOutcome
   | {
       readonly kind: "session-interrupted";
-      readonly reason: "seek" | "restart" | "stop";
+      readonly reason: "pause" | "seek" | "restart" | "stop";
     };
 
 export interface PresentationCueReport {
