@@ -12,6 +12,8 @@ import type { VisualTargetResolver } from "./visual-target-resolver";
 const SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
 const TARGET_ID = EmbeddedNodeIdSchema.parse("target000001");
 const SECOND_TARGET_ID = EmbeddedNodeIdSchema.parse("target000002");
+const OWNER_ID = EmbeddedNodeIdSchema.parse("region000001");
+const LAYER_ID = EmbeddedNodeIdSchema.parse("layer0000001");
 const SEGMENT_ID = EmbeddedDataIdSchema.parse("segment00001");
 
 afterEach(() => {
@@ -19,6 +21,46 @@ afterEach(() => {
 });
 
 describe("PresentationVisualStateRenderer", () => {
+  it("commits Layer selection before resolving and painting descendant targets", () => {
+    const element = document.createElement("div");
+    document.body.append(element);
+    const order: string[] = [];
+    const targetResolver: VisualTargetResolver = {
+      resolve(targetId) {
+        order.push("resolve-target");
+        return { kind: "resolved", targetId, element };
+      },
+      clear() {},
+    };
+    const layerApplication = {
+      applySelection: vi.fn(() => order.push("apply-layers")),
+    };
+    const renderer = createPresentationVisualStateRenderer({
+      resolver: targetResolver,
+      driver: recordingDriver().driver,
+      layerApplication,
+    });
+    const selectedLayerByOwnerId = new Map([[OWNER_ID, LAYER_ID]]);
+
+    renderer.apply(scene(settledState(TARGET_ID), new Map(), selectedLayerByOwnerId));
+
+    expect(order).toEqual(["apply-layers", "resolve-target"]);
+    expect(layerApplication.applySelection).toHaveBeenCalledWith(
+      expect.objectContaining({ selectedLayerByOwnerId }),
+    );
+  });
+
+  it("keeps a missing Layer application port observable", () => {
+    const renderer = createPresentationVisualStateRenderer({
+      resolver: resolver(new Map()),
+      driver: recordingDriver().driver,
+    });
+
+    expect(() =>
+      renderer.apply(scene(settledState(TARGET_ID), new Map(), new Map([[OWNER_ID, LAYER_ID]]))),
+    ).toThrow(/no runtime application port/);
+  });
+
   it("applies availability before seeking a Fade Reveal", () => {
     const element = document.createElement("div");
     const child = document.createElement("button");
@@ -93,6 +135,34 @@ describe("PresentationVisualStateRenderer", () => {
     expect(mounted.style.opacity).toBe("1");
   });
 
+  it("cancels and clears transient descendant paint when its selected Layer cuts away", () => {
+    const element = document.createElement("div");
+    element.style.opacity = "0.8";
+    document.body.append(element);
+    let layerActive = true;
+    const targetResolver: VisualTargetResolver = {
+      resolve(targetId) {
+        return layerActive
+          ? { kind: "resolved", targetId, element }
+          : { kind: "unavailable", targetId, reason: "owner-view-inactive" };
+      },
+      clear() {},
+    };
+    const { driver, handles } = recordingDriver();
+    const renderer = createPresentationVisualStateRenderer({ resolver: targetResolver, driver });
+
+    renderer.apply(scene(transitionState(0.5)));
+    element.style.opacity = "0.5";
+    layerActive = false;
+    const report = renderer.apply(scene(transitionState(0.5)));
+
+    expect(handles[0]?.cancel).toHaveBeenCalledOnce();
+    expect(element.style.opacity).toBe("0.8");
+    expect(report.unavailableTargets).toEqual([
+      { targetId: TARGET_ID, reason: "owner-view-inactive" },
+    ]);
+  });
+
   it("uses a settled result without a driver handle for reduced motion", () => {
     const element = document.createElement("div");
     document.body.append(element);
@@ -164,11 +234,15 @@ function scene(
     ReturnType<typeof EmbeddedNodeIdSchema.parse>,
     PresentationTargetSceneState
   >(),
+  selectedLayerByOwnerId = new Map<
+    ReturnType<typeof EmbeddedNodeIdSchema.parse>,
+    ReturnType<typeof EmbeddedNodeIdSchema.parse>
+  >(),
 ): PresentationVisualScene {
   return {
     surfaceId: SURFACE_ID,
     position: { timeMs: 750, side: "after-actions" },
-    selectedLayerByOwnerId: new Map(),
+    selectedLayerByOwnerId,
     targetStates: new Map([[TARGET_ID, state], ...additional]),
   };
 }

@@ -400,7 +400,7 @@ describe("Slideshow Presentation learner integration", () => {
       }),
       expectedNextEnabled: false,
       expectedContinue: true,
-      expectedContentInteraction: "inert",
+      expectedContentInteraction: "enabled",
       expectedPromptTitle: "Presentation paused",
       expectedPromptInstruction: "Continue when you’re ready.",
     },

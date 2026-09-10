@@ -64,6 +64,10 @@ import {
   RuntimeSurfaceVisibility,
   setRuntimeVisibleSurfaceId,
 } from "@/runtime/renderer/runtime-surface-visibility";
+import {
+  createPresentationLayerRuntime,
+  type PresentationLayerRuntime,
+} from "@/runtime/presentation/presentation-layer-runtime";
 import "@/editor/rich-text/view/text-alignment.css";
 
 import type { ScaffoldRuntimeComposition } from "./scaffold-runtime-composition";
@@ -134,8 +138,15 @@ export function createCourseDocumentRuntimeExtensions({
 
 /** Ordinary runtime projection: initial choice only, with no clock or scheduled switching. */
 const runtimeInitialLayerNodeViewProjection: LayerNodeViewProjection = Object.freeze({
+  ownerId(editor: Editor, layerId: EmbeddedNodeId): EmbeddedNodeId {
+    const ownerId =
+      getRuntimeSemanticDocumentSourceForEditor(editor).semantics.parentById.get(layerId);
+    if (!ownerId) throw new Error(`Runtime Layer "${layerId}" has no logical owner.`);
+    return ownerId;
+  },
   isActive(editor: Editor, layerId: EmbeddedNodeId): boolean {
-    const { semantics } = getRuntimeSemanticDocumentSourceForEditor(editor);
+    const controller = requireRuntimeSemanticDocumentController(editor);
+    const { semantics } = controller.getSnapshotSource();
     const ownerId = semantics.parentById.get(layerId);
     if (!ownerId) throw new Error(`Runtime Layer "${layerId}" has no logical owner.`);
     const ownerLocation = semantics.locationById.get(ownerId);
@@ -143,17 +154,41 @@ const runtimeInitialLayerNodeViewProjection: LayerNodeViewProjection = Object.fr
       throw new Error(`Runtime Layer owner "${ownerId}" has no Surface ownership.`);
     }
 
-    const timeline = readInitialProjectionTimeline(editor, ownerLocation.surfaceId);
-    if (!timeline) return false;
-    const compiled = compilePresentationLayerTracks(timeline, semantics);
-    if (compiled.diagnostics.some(blocksPresentationSurface)) return false;
-    return compiled.trackByOwnerId.get(ownerId)?.initialLayerId === layerId;
+    return resolveRuntimeSelectedLayerId(editor, ownerLocation.surfaceId, ownerId) === layerId;
   },
   subscribe(editor: Editor, listener: () => void): () => void {
     editor.on("transaction", listener);
-    return () => editor.off("transaction", listener);
+    const unsubscribePresentation =
+      requireRuntimeSemanticDocumentController(editor).presentationLayers.subscribe(listener);
+    return () => {
+      editor.off("transaction", listener);
+      unsubscribePresentation();
+    };
   },
 });
+
+function resolveRuntimeSelectedLayerId(
+  editor: Editor,
+  surfaceId: EmbeddedNodeId,
+  ownerId: EmbeddedNodeId,
+): EmbeddedNodeId | undefined {
+  const controller = requireRuntimeSemanticDocumentController(editor);
+  const projectedLayerId = controller.presentationLayers.getSelectedLayerId(surfaceId, ownerId);
+  return projectedLayerId ?? resolveRuntimeInitialLayerId(editor, surfaceId, ownerId);
+}
+
+function resolveRuntimeInitialLayerId(
+  editor: Editor,
+  surfaceId: EmbeddedNodeId,
+  ownerId: EmbeddedNodeId,
+): EmbeddedNodeId | undefined {
+  const timeline = readInitialProjectionTimeline(editor, surfaceId);
+  if (!timeline) return undefined;
+  const semantics = getRuntimeSemanticDocumentSourceForEditor(editor).semantics;
+  const compiled = compilePresentationLayerTracks(timeline, semantics);
+  if (compiled.diagnostics.some(blocksPresentationSurface)) return undefined;
+  return compiled.trackByOwnerId.get(ownerId)?.initialLayerId;
+}
 
 function readInitialProjectionTimeline(
   editor: Editor,
@@ -184,6 +219,7 @@ export interface RuntimeSemanticDocumentSource {
 class RuntimeSemanticDocumentController {
   readonly controlBindings: ControlBindingRegistryPort;
   readonly environment: SemanticTargetInteractionEnvironment;
+  readonly presentationLayers: PresentationLayerRuntime;
   readonly #controlBindingRegistry: ControlBindingRegistry;
   #controlCapabilityCatalogue: ControlCapabilityCatalogue | null = null;
   #controlCapabilityCatalogueSnapshot: DocumentTreeSnapshot | null = null;
@@ -227,6 +263,12 @@ class RuntimeSemanticDocumentController {
       },
     });
     this.environment = this.#environmentOwner.environment;
+    this.presentationLayers = createPresentationLayerRuntime({
+      activationRegistry: this.environment.registry,
+      getSemantics: () => this.#getSnapshot().semantics,
+      getInitialLayerId: (surfaceId, ownerId) =>
+        resolveRuntimeInitialLayerId(editor, surfaceId, ownerId),
+    });
   }
 
   readonly getControlCapabilityCatalogue = (): ControlCapabilityCatalogue => {
@@ -251,10 +293,12 @@ class RuntimeSemanticDocumentController {
     this.#state = state;
     this.#revision += 1;
     this.#snapshot = null;
+    this.presentationLayers.reconcileSemanticOwners();
   }
 
   destroy(): void {
     this.#controlBindingRegistry.dispose();
+    this.presentationLayers.dispose();
     this.#environmentOwner.dispose();
   }
 
@@ -324,6 +368,10 @@ export function getRuntimeSemanticDocumentSourceForEditor(
   editor: Editor,
 ): RuntimeSemanticDocumentSource {
   return requireRuntimeSemanticDocumentController(editor).getSnapshotSource();
+}
+
+export function getPresentationLayerRuntimeForEditor(editor: Editor): PresentationLayerRuntime {
+  return requireRuntimeSemanticDocumentController(editor).presentationLayers;
 }
 
 function projectRuntimeSemanticSnapshot(

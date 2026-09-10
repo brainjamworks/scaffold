@@ -19,6 +19,7 @@ import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import "./layer.css";
 
 export interface LayerNodeViewProjection {
+  readonly ownerId: (editor: Editor, layerId: EmbeddedNodeId) => EmbeddedNodeId;
   readonly isActive: (editor: Editor, layerId: EmbeddedNodeId) => boolean;
   readonly subscribe: (editor: Editor, listener: () => void) => () => void;
 }
@@ -40,6 +41,7 @@ export function createLayerNodeView({
 }: CreateLayerNodeViewInput) {
   function LayerNodeView(props: NodeViewProps) {
     const layerId = requireLayerId(props.node);
+    const ownerId = projection.ownerId(props.editor, layerId);
     const subscribe = useCallback(
       (listener: () => void) => projection.subscribe(props.editor, listener),
       [props.editor],
@@ -58,6 +60,7 @@ export function createLayerNodeView({
         "data-layer-active": active ? "" : undefined,
         "data-layer-composition": composition,
         "data-layer-id": layerId,
+        "data-layer-owner-id": ownerId,
         "data-layer-state": active ? "active" : "inactive",
         "data-node": "layer",
         hidden: !active,
@@ -77,6 +80,13 @@ export function createLayerNodeView({
 
 /** Authoring adapter for the existing editor-session Layer authority. */
 export const authoringLayerNodeViewProjection: LayerNodeViewProjection = Object.freeze({
+  ownerId(editor: Editor, layerId: EmbeddedNodeId) {
+    const ownerId = requireAuthoringLifecycle(editor)
+      .documentTree.getSnapshot()
+      .parentById.get(layerId);
+    if (!ownerId) throw new Error(`Authoring Layer "${layerId}" has no logical owner.`);
+    return ownerId;
+  },
   isActive(editor: Editor, layerId: EmbeddedNodeId) {
     const layers = requireAuthoringLayers(editor);
     for (const openLayerId of layers.getSnapshot().openLayerByOwnerId.values()) {
@@ -90,11 +100,15 @@ export const authoringLayerNodeViewProjection: LayerNodeViewProjection = Object.
 });
 
 function requireAuthoringLayers(editor: Editor) {
+  return requireAuthoringLifecycle(editor).editorNavigation.authoringLayers;
+}
+
+function requireAuthoringLifecycle(editor: Editor) {
   const lifecycle = documentAuthoringPluginKey.getState(editor.state);
   if (!lifecycle) {
     throw new Error("Layer authoring NodeView requires the Document authoring extension.");
   }
-  return lifecycle.editorNavigation.authoringLayers;
+  return lifecycle;
 }
 
 function requireLayerId(node: ProseMirrorNode): EmbeddedNodeId {

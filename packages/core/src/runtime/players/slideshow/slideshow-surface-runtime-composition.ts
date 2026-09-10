@@ -17,6 +17,7 @@ import {
 } from "@/runtime/learner-interaction/surface-learner-interaction-runtime";
 import { projectInternalClockSurfaceTimeline } from "@/runtime/presentation/compiled-presentation-program";
 import { createPresentationCueExecutor } from "@/runtime/presentation/presentation-cue-executor";
+import type { PresentationLayerRuntime } from "@/runtime/presentation/presentation-layer-runtime";
 import { createPresentationNarrationClockSource } from "@/runtime/presentation/presentation-monotonic-clock";
 import {
   createPresentationSurfaceNarrationController,
@@ -70,6 +71,7 @@ export interface CreateSlideshowSurfaceRuntimeCompositionInput {
   readonly featureViewBaseline: PresentationFeatureViewBaselinePort;
   readonly requestSurfaceChange: RequestSurfaceChange;
   readonly surfaceRoot?: HTMLElement;
+  readonly presentationLayers?: PresentationLayerRuntime;
   readonly getPresentationMotionMode?: () => PresentationMotionMode;
   readonly mediaPort?: Pick<MediaPort, "resolve"> | null;
   readonly createNarrationAudioElement?: () => HTMLAudioElement;
@@ -152,6 +154,7 @@ export function createSlideshowSurfaceRuntimeComposition({
   featureViewBaseline,
   requestSurfaceChange,
   surfaceRoot,
+  presentationLayers,
   getPresentationMotionMode,
   mediaPort = null,
   createNarrationAudioElement,
@@ -229,6 +232,9 @@ export function createSlideshowSurfaceRuntimeComposition({
         renderer: createPresentationVisualStateRenderer({
           resolver: createVisualTargetResolver(surfaceRoot),
           driver: createAnimeVisualAnimationDriver(),
+          ...(presentationLayers
+            ? { layerApplication: presentationLayers.createApplicationPort(surfaceRoot) }
+            : {}),
         }),
         getMotionMode:
           getPresentationMotionMode ?? (() => resolvePresentationMotionMode(surfaceRoot)),

@@ -12,6 +12,7 @@ import {
 import { flushSync } from "react-dom";
 
 import { getControlBindingRegistryForEditor } from "@/document/control-binding";
+import { getPresentationLayerRuntimeForEditor } from "@/composition/runtime/create-runtime-composition";
 import type { SurfaceId } from "@/document/model/course-structure";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
@@ -154,6 +155,7 @@ export function useSlideshowSurfaceRuntime({
           requestSurfaceChange,
           executionEnabled: executionEnabledRef.current,
           mediaPort,
+          presentationLayers: getPresentationLayerRuntimeForEditor(editor),
           ...(activeSurfaceRoot === null ? {} : { surfaceRoot: activeSurfaceRoot }),
         });
         composition = nextComposition;
@@ -399,6 +401,10 @@ function deriveContentInteraction(
   hasConfiguredPresentation: boolean,
 ): SlideshowContentInteraction {
   if (!hasConfiguredPresentation) return "enabled";
+
+  if (presentationSnapshot?.phase === "held" && presentationSnapshot.hold.kind === "manual") {
+    return "enabled";
+  }
 
   return presentationSnapshot?.phase === "held" &&
     presentationSnapshot.hold.kind === "learner" &&

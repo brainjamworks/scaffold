@@ -5,6 +5,7 @@ import type {
   PresentationTargetSceneState,
   PresentationVisualScene,
 } from "@/presentation/model";
+import type { PresentationLayerApplicationPort } from "@/runtime/presentation/presentation-layer-runtime";
 import type {
   VisualAnimationDriver,
   VisualAnimationHandle,
@@ -54,9 +55,11 @@ interface ActiveHandle {
 export function createPresentationVisualStateRenderer({
   resolver,
   driver,
+  layerApplication,
 }: {
   readonly resolver: VisualTargetResolver;
   readonly driver: VisualAnimationDriver;
+  readonly layerApplication?: PresentationLayerApplicationPort;
 }): PresentationVisualStateRenderer {
   const baselines = new Map<HTMLElement, ElementBaseline>();
   const activeByTargetId = new Map<EmbeddedNodeId, ActiveHandle>();
@@ -79,6 +82,11 @@ export function createPresentationVisualStateRenderer({
         throw new Error("Presentation visual state renderer cannot change Surface identity.");
       }
       surfaceId = scene.surfaceId;
+      if (layerApplication) {
+        layerApplication.applySelection(scene);
+      } else if (scene.selectedLayerByOwnerId.size > 0) {
+        throw new Error("Presentation Layer selection has no runtime application port.");
+      }
       const unavailableTargets: VisualTargetUnavailable[] = [];
       const appliedTargetIds = new Set<EmbeddedNodeId>();
 
@@ -86,7 +94,12 @@ export function createPresentationVisualStateRenderer({
         appliedTargetIds.add(state.targetId);
         const resolution = resolver.resolve(state.targetId);
         if (resolution.kind === "unavailable") {
-          cancelTargetHandle(activeByTargetId, state.targetId);
+          const cancelled = cancelTargetHandle(activeByTargetId, state.targetId);
+          const baseline = cancelled ? baselines.get(cancelled.element) : undefined;
+          if (cancelled && baseline) {
+            restoreTransientPaint(cancelled.element, baseline);
+            cancelled.element.style.opacity = baseline.opacity;
+          }
           unavailableTargets.push(
             Object.freeze({ targetId: state.targetId, reason: resolution.reason }),
           );
@@ -409,9 +422,10 @@ function replaceTargetHandle(
 function cancelTargetHandle(
   activeByTargetId: Map<EmbeddedNodeId, ActiveHandle>,
   targetId: EmbeddedNodeId,
-): void {
+): ActiveHandle | undefined {
   const active = activeByTargetId.get(targetId);
-  if (!active) return;
+  if (!active) return undefined;
   active.handle.cancel();
   activeByTargetId.delete(targetId);
+  return active;
 }

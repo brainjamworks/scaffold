@@ -47,6 +47,28 @@ describe("VisualTargetResolver", () => {
     expect(resolver.resolve(TARGET_ID)).toMatchObject({ kind: "resolved", element: replacement });
   });
 
+  it("withholds a mounted anchor beneath an inactive Layer", () => {
+    const surfaceRoot = document.createElement("section");
+    const layer = document.createElement("div");
+    layer.dataset["node"] = "layer";
+    layer.dataset["layerState"] = "inactive";
+    layer.append(targetElement(TARGET_ID));
+    surfaceRoot.append(layer);
+    document.body.append(surfaceRoot);
+
+    expect(createVisualTargetResolver(surfaceRoot).resolve(TARGET_ID)).toEqual({
+      kind: "unavailable",
+      targetId: TARGET_ID,
+      reason: "owner-view-inactive",
+    });
+
+    layer.dataset["layerState"] = "active";
+    expect(createVisualTargetResolver(surfaceRoot).resolve(TARGET_ID)).toMatchObject({
+      kind: "resolved",
+      targetId: TARGET_ID,
+    });
+  });
+
   it("revalidates uniqueness on every resolution and clears idempotently", () => {
     const surfaceRoot = document.createElement("section");
     surfaceRoot.append(targetElement(TARGET_ID));

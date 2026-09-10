@@ -11,7 +11,7 @@ export type VisualTargetResolution =
   | {
       readonly kind: "unavailable";
       readonly targetId: EmbeddedNodeId;
-      readonly reason: "target-unmounted";
+      readonly reason: "target-unmounted" | "owner-view-inactive";
     };
 
 export interface VisualTargetResolver {
@@ -33,12 +33,21 @@ export function createVisualTargetResolver(surfaceRoot: HTMLElement): VisualTarg
       }
 
       const element = matches[0]!;
+      const inactiveLayer = element.closest<HTMLElement>(
+        '[data-node="layer"][data-layer-state="inactive"]',
+      );
+      if (inactiveLayer && surfaceRoot.contains(inactiveLayer)) {
+        return unavailable(targetId, "owner-view-inactive");
+      }
       return Object.freeze({ kind: "resolved", targetId, element });
     },
     clear() {},
   });
 }
 
-function unavailable(targetId: EmbeddedNodeId): VisualTargetResolution {
-  return Object.freeze({ kind: "unavailable", targetId, reason: "target-unmounted" });
+function unavailable(
+  targetId: EmbeddedNodeId,
+  reason: Extract<VisualTargetResolution, { kind: "unavailable" }>["reason"] = "target-unmounted",
+): VisualTargetResolution {
+  return Object.freeze({ kind: "unavailable", targetId, reason });
 }
