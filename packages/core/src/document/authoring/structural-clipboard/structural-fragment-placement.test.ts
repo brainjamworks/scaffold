@@ -8,7 +8,7 @@ import { createLayoutRegistry } from "@/editor/arrangements/layout/model/layout-
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
-import type { LayerEditingContext } from "@/document/authoring/layers/layer-editing-boundaries";
+import type { LayerEditingContext } from "@/document/model/layers/layer-editing-policy";
 
 import type {
   StructuralFragmentContent,

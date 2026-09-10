@@ -127,6 +127,16 @@ Core uses explicit, closed-world construction for its built-in editor features:
   registry or insertion catalogue.
 - `entrypoints/*` owns the public package seams, `host/ports` owns neutral host
   operations, and `ui/components` owns reusable Radix wrappers.
+- `presentation/model` and `learner-interaction/model` are shared neutral
+  compiler, playback-contract, and reporting owners consumed by both authoring
+  and learner runtime. Their editor counterparts under `editor/presentation`
+  and `editor/learner-interaction` are authoring owners and cannot reach runtime
+  implementations directly.
+- Reusable Layer mutation facts, typed refusals, placement rules, and structural
+  transaction authorization belong to `document/model/layers`. The
+  `document/authoring/layers` adapter owns capability and open-Layer lookup from
+  live editor state plus Tiptap plugin installation, and passes immutable facts
+  down to the shared policy.
 
 Provider-neutral persisted schemas belong in Contracts. Any schema,
 configuration, or Tiptap adaptation module that remains in Core is classified

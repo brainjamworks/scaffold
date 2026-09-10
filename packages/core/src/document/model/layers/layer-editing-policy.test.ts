@@ -34,7 +34,7 @@ import {
   validateImplicitLayerEditRange,
   validateLayerContentPlacement,
   type LayerEditingContext,
-} from "./layer-editing-boundaries";
+} from "./layer-editing-policy";
 
 const IDS = {
   surface: id("surface00001"),
@@ -283,7 +283,7 @@ describe("Layer editing boundaries", () => {
         ...context,
         blockDefinitions,
         transaction: replaceWithGrid,
-        state,
+        documentBefore: state.doc,
       }),
     ).toBe(false);
 
@@ -293,7 +293,7 @@ describe("Layer editing boundaries", () => {
         ...context,
         blockDefinitions,
         transaction: appendFill,
-        state,
+        documentBefore: state.doc,
       }),
     ).toBe(false);
     expect(state.doc).toBe(doc);
@@ -317,7 +317,7 @@ describe("Layer editing boundaries", () => {
         ...context,
         blockDefinitions,
         transaction: insertLayer,
-        state,
+        documentBefore: state.doc,
       }),
     ).toBe(false);
     expect(state.doc).toBe(doc);
@@ -632,7 +632,13 @@ describe("Layer editing boundaries", () => {
     });
     const split = captureCommand(splitBlock, state);
     expect(split).not.toBeNull();
-    expect(allowsLayerEditingTransaction({ ...context, transaction: split!, state })).toBe(true);
+    expect(
+      allowsLayerEditingTransaction({
+        ...context,
+        transaction: split!,
+        documentBefore: state.doc,
+      }),
+    ).toBe(true);
 
     const paragraph1b = findNode(doc, IDS.paragraph1b);
     state = EditorState.create({
@@ -641,7 +647,13 @@ describe("Layer editing boundaries", () => {
     });
     const join = captureCommand(joinBackward, state);
     expect(join).not.toBeNull();
-    expect(allowsLayerEditingTransaction({ ...context, transaction: join!, state })).toBe(true);
+    expect(
+      allowsLayerEditingTransaction({
+        ...context,
+        transaction: join!,
+        documentBefore: state.doc,
+      }),
+    ).toBe(true);
 
     state = EditorState.create({
       doc,
@@ -670,7 +682,13 @@ describe("Layer editing boundaries", () => {
     state = EditorState.create({ doc, selection: crossSelection });
     const cut = captureCommand(deleteSelection, state);
     expect(cut).not.toBeNull();
-    expect(allowsLayerEditingTransaction({ ...context, transaction: cut!, state })).toBe(false);
+    expect(
+      allowsLayerEditingTransaction({
+        ...context,
+        transaction: cut!,
+        documentBefore: state.doc,
+      }),
+    ).toBe(false);
     expect(state.doc).toBe(doc);
   });
 
@@ -687,7 +705,7 @@ describe("Layer editing boundaries", () => {
       allowsLayerEditingTransaction({
         ...context,
         transaction: selectAllTransaction!,
-        state,
+        documentBefore: state.doc,
       }),
     ).toBe(false);
 
@@ -696,25 +714,43 @@ describe("Layer editing boundaries", () => {
       otherRegion.pos,
       otherRegion.pos + otherRegion.node.nodeSize,
     );
-    expect(allowsLayerEditingTransaction({ ...context, transaction: deleteOwner, state })).toBe(
-      false,
-    );
+    expect(
+      allowsLayerEditingTransaction({
+        ...context,
+        transaction: deleteOwner,
+        documentBefore: state.doc,
+      }),
+    ).toBe(false);
     authorizeExplicitLayerStructuralSteps(deleteOwner, {
       fromStep: 0,
       rootIds: [IDS.otherRegion],
     });
-    expect(allowsLayerEditingTransaction({ ...context, transaction: deleteOwner, state })).toBe(
-      true,
-    );
+    expect(
+      allowsLayerEditingTransaction({
+        ...context,
+        transaction: deleteOwner,
+        documentBefore: state.doc,
+      }),
+    ).toBe(true);
 
     const paragraph = findNode(state.doc, IDS.paragraph1);
     const typing = state.tr.insertText("!", paragraph.pos + 2);
-    expect(allowsLayerEditingTransaction({ ...context, transaction: typing, state })).toBe(true);
+    expect(
+      allowsLayerEditingTransaction({
+        ...context,
+        transaction: typing,
+        documentBefore: state.doc,
+      }),
+    ).toBe(true);
     state = state.apply(typing);
     const undoTransaction = captureCommand(undo, state);
     expect(undoTransaction).not.toBeNull();
     expect(
-      allowsLayerEditingTransaction({ ...context, transaction: undoTransaction!, state }),
+      allowsLayerEditingTransaction({
+        ...context,
+        transaction: undoTransaction!,
+        documentBefore: state.doc,
+      }),
     ).toBe(true);
   });
 });
@@ -742,7 +778,7 @@ function guardedState(doc: ProseMirrorNode, context: LayerEditingContext): Edito
             ...context,
             blockDefinitions,
             transaction,
-            state,
+            documentBefore: state.doc,
           }),
       }),
     ],

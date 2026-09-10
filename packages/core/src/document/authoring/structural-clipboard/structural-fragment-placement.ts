@@ -9,7 +9,7 @@ import {
   validateLayerContentPlacement,
   type LayerEditingBoundaryError,
   type LayerEditingContext,
-} from "@/document/authoring/layers/layer-editing-boundaries";
+} from "@/document/model/layers/layer-editing-policy";
 import type { InsertActionRange } from "@/editor/insertion/insert-action";
 import {
   allowsBoundedContainerRootInsertionAtPosition,

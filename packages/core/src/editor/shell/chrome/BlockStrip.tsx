@@ -16,7 +16,7 @@ import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-variant-registry";
-import { insertCatalogItemChecked } from "@/editor/insertion/checked-insertion";
+import { insertCatalogItemChecked } from "@/document/authoring/layers/insert-catalog-item";
 import {
   INSERT_CATEGORY_LABELS,
   INSERT_CATEGORY_ORDER,

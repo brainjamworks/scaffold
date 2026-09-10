@@ -15,7 +15,7 @@ import {
   type LayerEditingBoundaryError,
   type LayerEditingTarget,
   type LayerMutationAccess,
-} from "@/document/authoring/layers/layer-editing-boundaries";
+} from "@/document/model/layers/layer-editing-policy";
 import { createEditableTextblock } from "@/document/model/content-model/editable-region";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import {

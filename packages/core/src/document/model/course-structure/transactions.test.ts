@@ -22,7 +22,7 @@ import {
   type ResolvableBlockCapability,
 } from "@/composition/model/resolved-scaffold-capabilities";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
-import { allowsLayerEditingTransaction } from "@/document/authoring/layers/layer-editing-boundaries";
+import { allowsLayerEditingTransaction } from "@/document/model/layers/layer-editing-policy";
 import {
   authoringCourseDocumentContentExpression,
   createUnavailableContentAuthoringExtensions,
@@ -1244,7 +1244,7 @@ function makeEditor(
                         layoutDefinitions: capabilities.layouts.registry,
                         openLayerByOwnerId: layerBoundary.openLayerByOwnerId,
                         transaction,
-                        state,
+                        documentBefore: state.doc,
                       }),
                   }),
                 ];

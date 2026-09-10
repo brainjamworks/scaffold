@@ -10,9 +10,11 @@ import {
   REGION_NODE_TYPE,
   SECTION_NODE_TYPE,
 } from "@/document/model/nodes/structural-node-types";
-import { isLayerCompositionFillOccupant } from "./layer-composition-policy";
+import {
+  isLayerCompositionFillOccupant,
+  type LayerBlockDefinitionLookup,
+} from "./layer-composition-policy";
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
-import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type {
   LayerContextDiagnostic,
   LayerIdentityDiagnostic,
@@ -60,7 +62,7 @@ interface CompositionSlotLocation {
 
 export interface ValidateLayerContextInput {
   readonly document: ProseMirrorNode;
-  readonly blockDefinitions: BlockDefinitionLookup;
+  readonly blockDefinitions: LayerBlockDefinitionLookup;
   readonly layoutDefinitions: Pick<LayoutRegistry, "getForNode">;
 }
 
@@ -185,7 +187,7 @@ export function validateLayerContext({
 
 function validateSection(
   location: NodeLocation,
-  blockDefinitions: BlockDefinitionLookup,
+  blockDefinitions: LayerBlockDefinitionLookup,
   layoutDefinitions: Pick<LayoutRegistry, "getForNode">,
   ownedLayerPaths: Set<string>,
   diagnostics: LayerContextDiagnostic[],
@@ -322,7 +324,7 @@ function validateSection(
 
 function validateCompositionSlot(
   location: CompositionSlotLocation,
-  blockDefinitions: BlockDefinitionLookup,
+  blockDefinitions: LayerBlockDefinitionLookup,
   layoutDefinitions: Pick<LayoutRegistry, "getForNode">,
   ownedLayerPaths: Set<string>,
   diagnostics: LayerContextDiagnostic[],
@@ -376,7 +378,7 @@ function validateLayerContent(
   layerPath: readonly number[],
   owner: ProseMirrorNode,
   ownerType: CompositionSlotLocation["ownerType"],
-  blockDefinitions: BlockDefinitionLookup,
+  blockDefinitions: LayerBlockDefinitionLookup,
   layoutDefinitions: Pick<LayoutRegistry, "getForNode">,
   diagnostics: LayerContextDiagnostic[],
 ): void {
@@ -438,7 +440,7 @@ function sectionFacts(
 
 function isEligibleLayerContent(
   node: ProseMirrorNode,
-  blockDefinitions: BlockDefinitionLookup,
+  blockDefinitions: LayerBlockDefinitionLookup,
   layoutDefinitions: Pick<LayoutRegistry, "getForNode">,
 ): boolean {
   if (node.type.name === "paragraph") return true;

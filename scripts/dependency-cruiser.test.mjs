@@ -1663,7 +1663,7 @@ test("reports named neutral owner and leaf-to-composition inversions", async (t)
   assert.match(output, /core-leaves-do-not-reach-lane-composition-roots/);
 });
 
-test("classifies the Presentation model as a neutral owner below authoring and runtime", async (t) => {
+test("protects shared Presentation and Learner Interaction models below both lanes", async (t) => {
   const fixtureRoot = await createFixture(t, {
     "node_modules/react/package.json": JSON.stringify({
       name: "react",
@@ -1673,34 +1673,158 @@ test("classifies the Presentation model as a neutral owner below authoring and r
     "node_modules/react/index.js": "export interface ReactFixtureType { id: string }\n",
     "packages/core/src/presentation/model/index.ts":
       "export interface VisualProgram { id: string }\n",
-    "packages/core/src/editor/presentation/consumer.ts": [
-      'import type { VisualProgram } from "../../presentation/model/index";',
+    "packages/core/src/learner-interaction/model/index.ts":
+      "export interface InteractionProgram { id: string }\n",
+    "packages/core/src/editor/presentation/model/presentation-authoring-commands.ts": [
+      'import type { VisualProgram } from "../../../presentation/model/index";',
       "export type AuthoringVisualProgram = VisualProgram;",
     ].join("\n"),
+    "packages/core/src/editor/learner-interaction/model/learner-interaction-authoring-commands.ts":
+      [
+        'import type { InteractionProgram } from "../../../learner-interaction/model/index";',
+        "export type AuthoringInteractionProgram = InteractionProgram;",
+      ].join("\n"),
     "packages/core/src/runtime/presentation/consumer.ts": [
       'import type { VisualProgram } from "../../presentation/model/index";',
       "export type RuntimeVisualProgram = VisualProgram;",
     ].join("\n"),
+    "packages/core/src/runtime/learner-interaction/consumer.ts": [
+      'import type { InteractionProgram } from "../../learner-interaction/model/index";',
+      "export type RuntimeInteractionProgram = InteractionProgram;",
+    ].join("\n"),
   });
 
-  const allowed = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+  const allowed = cruise(fixtureRoot, "json", ["packages/core/src"]);
   assert.equal(allowed.status, 0, allowed.stderr || allowed.stdout);
+  const allowedGraph = JSON.parse(allowed.stdout);
+  assert.deepEqual(allowedGraph.summary.violations, []);
 
   await writeFile(
     path.join(fixtureRoot, "packages/core/src/presentation/model/index.ts"),
     [
       'import type { ReactFixtureType } from "react";',
+      'import type { AuthoringVisualProgram } from "../../editor/presentation/model/presentation-authoring-commands";',
       'import type { RuntimeVisualProgram } from "../../runtime/presentation/consumer";',
-      "export type VisualProgram = ReactFixtureType | RuntimeVisualProgram;",
+      "export type VisualProgram = ReactFixtureType | AuthoringVisualProgram | RuntimeVisualProgram;",
     ].join("\n"),
     "utf8",
   );
+  await writeFile(
+    path.join(fixtureRoot, "packages/core/src/learner-interaction/model/index.ts"),
+    [
+      'import type { ReactFixtureType } from "react";',
+      'import type { AuthoringInteractionProgram } from "../../editor/learner-interaction/model/learner-interaction-authoring-commands";',
+      'import type { RuntimeInteractionProgram } from "../../runtime/learner-interaction/consumer";',
+      "export type InteractionProgram = ReactFixtureType | AuthoringInteractionProgram | RuntimeInteractionProgram;",
+    ].join("\n"),
+    "utf8",
+  );
+  await writeFile(
+    path.join(
+      fixtureRoot,
+      "packages/core/src/editor/presentation/model/presentation-authoring-commands.ts",
+    ),
+    [
+      'import type { VisualProgram } from "../../../presentation/model/index";',
+      "export type AuthoringVisualProgram = VisualProgram;",
+      'export { runtimeVisual } from "../../../runtime/presentation/implementation";',
+    ].join("\n"),
+    "utf8",
+  );
+  await writeFile(
+    path.join(
+      fixtureRoot,
+      "packages/core/src/editor/learner-interaction/model/learner-interaction-authoring-commands.ts",
+    ),
+    [
+      'import type { InteractionProgram } from "../../../learner-interaction/model/index";',
+      "export type AuthoringInteractionProgram = InteractionProgram;",
+      'export { runtimeInteraction } from "../../../runtime/learner-interaction/implementation";',
+    ].join("\n"),
+    "utf8",
+  );
+  await writeFile(
+    path.join(fixtureRoot, "packages/core/src/runtime/presentation/implementation.ts"),
+    "export const runtimeVisual = true;\n",
+    "utf8",
+  );
+  await writeFile(
+    path.join(fixtureRoot, "packages/core/src/runtime/learner-interaction/implementation.ts"),
+    "export const runtimeInteraction = true;\n",
+    "utf8",
+  );
 
-  const rejected = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
-  const output = `${rejected.stdout}\n${rejected.stderr}`;
-  assert.notEqual(rejected.status, 0, output);
-  assert.match(output, /classified-neutral-owners-do-not-import-react-or-css/);
-  assert.match(output, /presentation-model-does-not-reach-higher-owners/);
+  const rejected = cruise(fixtureRoot, "json", ["packages/core/src"]);
+  assert.equal(rejected.status, 0, rejected.stderr || rejected.stdout);
+  const rejectedGraph = JSON.parse(rejected.stdout);
+  const violations = rejectedGraph.summary.violations;
+  const expectedViolations = [
+    {
+      ruleName: "classified-neutral-owners-do-not-import-react-or-css",
+      from: "packages/core/src/presentation/model/index.ts",
+      to: "node_modules/react/index.js",
+    },
+    {
+      ruleName: "classified-neutral-owners-do-not-import-react-or-css",
+      from: "packages/core/src/learner-interaction/model/index.ts",
+      to: "node_modules/react/index.js",
+    },
+    {
+      ruleName: "presentation-model-does-not-reach-higher-owners",
+      from: "packages/core/src/presentation/model/index.ts",
+      to: "packages/core/src/editor/presentation/model/presentation-authoring-commands.ts",
+    },
+    {
+      ruleName: "presentation-model-does-not-reach-higher-owners",
+      from: "packages/core/src/presentation/model/index.ts",
+      to: "packages/core/src/runtime/presentation/consumer.ts",
+    },
+    {
+      ruleName: "learner-interaction-model-does-not-reach-higher-owners",
+      from: "packages/core/src/learner-interaction/model/index.ts",
+      to: "packages/core/src/editor/learner-interaction/model/learner-interaction-authoring-commands.ts",
+    },
+    {
+      ruleName: "learner-interaction-model-does-not-reach-higher-owners",
+      from: "packages/core/src/learner-interaction/model/index.ts",
+      to: "packages/core/src/runtime/learner-interaction/consumer.ts",
+    },
+    {
+      ruleName: "authoring-does-not-import-runtime-except-preview",
+      from: "packages/core/src/editor/presentation/model/presentation-authoring-commands.ts",
+      to: "packages/core/src/runtime/presentation/implementation.ts",
+    },
+    {
+      ruleName: "authoring-does-not-import-runtime-except-preview",
+      from: "packages/core/src/editor/learner-interaction/model/learner-interaction-authoring-commands.ts",
+      to: "packages/core/src/runtime/learner-interaction/implementation.ts",
+    },
+  ];
+
+  for (const expected of expectedViolations) {
+    assert.ok(
+      violations.some(
+        (violation) =>
+          violation.rule.name === expected.ruleName &&
+          violation.from === expected.from &&
+          violation.to === expected.to,
+      ),
+      `Missing exact dependency violation ${JSON.stringify(expected)}.\nActual violations:\n${JSON.stringify(
+        violations.map(({ rule, from, to }) => ({ ruleName: rule.name, from, to })),
+        null,
+        2,
+      )}`,
+    );
+  }
+
+  const presentationModel = rejectedGraph.modules.find(
+    ({ source }) => source === "packages/core/src/presentation/model/index.ts",
+  );
+  assert.ok(presentationModel);
+  const typeOnlyBackEdge = presentationModel.dependencies.find(
+    ({ resolved }) => resolved === "packages/core/src/runtime/presentation/consumer.ts",
+  );
+  assert.ok(typeOnlyBackEdge?.dependencyTypes.includes("type-only"));
 });
 
 test("allows target adapters to consume the framework-neutral kernel and vanilla store", async (t) => {

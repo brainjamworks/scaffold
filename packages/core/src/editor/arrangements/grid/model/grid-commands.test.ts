@@ -5,7 +5,8 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
 
-import { NON_LAYER_DOCUMENT_MUTATION_ACCESS } from "@/document/authoring/layers/layer-editing-boundaries";
+import { NON_LAYER_DOCUMENT_MUTATION_ACCESS } from "@/document/model/layers/layer-editing-policy";
+import { insertGridAt } from "@/document/authoring/layers/insert-grid";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import {
   createBlankLayer,
@@ -29,7 +30,6 @@ import {
   deleteGridAt,
   deleteGridCellAt,
   insertGridChecked,
-  insertGridAt,
   resizeGridColumnsAt,
   setAllGridCellsVerticalPositionAt,
   setGridCellCountAt,

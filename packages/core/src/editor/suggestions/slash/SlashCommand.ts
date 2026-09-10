@@ -7,10 +7,8 @@ import Suggestion from "@tiptap/suggestion";
 
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
-import {
-  insertCatalogItemChecked,
-  type InsertActionCheckedRange,
-} from "@/editor/insertion/checked-insertion";
+import { insertCatalogItemChecked } from "@/document/authoring/layers/insert-catalog-item";
+import type { InsertActionCheckedRange } from "@/editor/insertion/checked-insertion";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-variant-registry";
 import { resolveAuthoringInteractionRoot } from "@/editor/interactions/dom/authoring-root";

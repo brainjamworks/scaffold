@@ -43,7 +43,7 @@ export {
 export {
   NON_LAYER_DOCUMENT_MUTATION_ACCESS,
   type LayerMutationAccess,
-} from "@/document/authoring/layers/layer-editing-boundaries";
+} from "@/document/model/layers/layer-editing-policy";
 export {
   createGridTemplate,
   type GridTemplateOptions,

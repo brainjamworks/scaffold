@@ -3,7 +3,10 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import type { LayerOwnerSlot } from "./layer-owner-slot";
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
-import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+
+export interface LayerBlockDefinitionLookup {
+  readonly getByNodeType: (nodeType: string) => { readonly boundedPlacement?: "fill" } | undefined;
+}
 
 export type LayerCompositionPolicyViolation = {
   readonly reason: "content-incompatible";
@@ -15,7 +18,7 @@ export type LayerCompositionPolicyViolation = {
 
 export function isLayerCompositionFillOccupant(
   node: ProseMirrorNode,
-  blockDefinitions: BlockDefinitionLookup,
+  blockDefinitions: LayerBlockDefinitionLookup,
   layoutDefinitions: Pick<LayoutRegistry, "getForNode">,
 ): boolean {
   if (node.type.name === "grid") return true;
@@ -74,7 +77,7 @@ export function validateCompleteLayerComposition(input: {
   readonly ownerSlot: LayerOwnerSlot;
   readonly layerId: EmbeddedNodeId;
   readonly layer: ProseMirrorNode;
-  readonly blockDefinitions: BlockDefinitionLookup;
+  readonly blockDefinitions: LayerBlockDefinitionLookup;
   readonly layoutDefinitions: Pick<LayoutRegistry, "getForNode">;
 }): LayerCompositionPolicyViolation | null {
   let fillOccupants = 0;

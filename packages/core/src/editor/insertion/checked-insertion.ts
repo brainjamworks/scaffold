@@ -3,10 +3,7 @@ import type { Schema, Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Selection, type Transaction } from "@tiptap/pm/state";
 import type { Transform } from "@tiptap/pm/transform";
 
-import {
-  requireLayerMutationAccessForState,
-  type LayerMutationAccess,
-} from "@/document/authoring/layers/layer-editing-boundaries";
+import type { LayerMutationAccess } from "@/document/model/layers/layer-editing-policy";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import {
@@ -162,12 +159,13 @@ function replaceRangeWithCheckedNode<TTransform extends Transform>({
   return { ok: true, item: action, node, tr: replaceResult.tr };
 }
 
-export function insertCatalogItemChecked(
+export function insertCatalogItemWithAccessChecked(
   editor: Editor,
   item: InsertAction,
   blockDefinitions: BlockDefinitionLookup,
   layoutDefinitions: LayoutRegistry,
   surfaceVariants: SurfaceVariantLookup,
+  layerAccess: LayerMutationAccess,
   range: InsertActionCheckedRange = {
     from: editor.state.selection.from,
     to: editor.state.selection.to,
@@ -179,6 +177,7 @@ export function insertCatalogItemChecked(
     editor,
     intent,
     item,
+    layerEditingContext: layerAccess.kind === "implicit-authoring" ? layerAccess.context : null,
     layoutDefinitions,
     range,
     surfaceVariants,
@@ -205,7 +204,7 @@ export function insertCatalogItemChecked(
     tr: editor.state.tr,
     from: placement.range.from,
     to: placement.range.to,
-    layerAccess: requireLayerMutationAccessForState(editor.state),
+    layerAccess,
   });
   if (!result.ok) return false;
   if (result.tr.doc.eq(editor.state.doc)) return false;

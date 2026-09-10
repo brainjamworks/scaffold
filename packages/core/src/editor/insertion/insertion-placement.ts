@@ -2,14 +2,13 @@ import type { Editor } from "@tiptap/core";
 import type { NodeType } from "@tiptap/pm/model";
 
 import {
-  readLayerEditingContextForState,
   resolveLayerTargetAtPosition,
   validateImplicitLayerEditRange,
   validateLayerContentPlacement,
   type LayerEditingBoundaryError,
   type LayerEditingContext,
   type LayerEditingTarget,
-} from "@/document/authoring/layers/layer-editing-boundaries";
+} from "@/document/model/layers/layer-editing-policy";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import {
@@ -47,7 +46,7 @@ export function resolveInsertActionPlacement({
   readonly editor: Editor;
   readonly intent?: InsertActionIntent;
   readonly item: InsertAction;
-  readonly layerEditingContext?: LayerEditingContext;
+  readonly layerEditingContext: LayerEditingContext | null;
   readonly range?: InsertActionRange;
 }): InsertActionPlacementResult {
   const { doc } = editor.state;
@@ -69,9 +68,7 @@ export function resolveInsertActionPlacement({
   const insertionContext = resolveInsertionContext(doc, range, nodeType);
   if (!insertionContext) return { ok: false };
   const { $from, parent, parentPos } = insertionContext;
-  const layerEditingContext =
-    explicitLayerEditingContext ??
-    readLayerEditingContextForState(editor.state, layoutDefinitions, blockDefinitions);
+  const layerEditingContext = explicitLayerEditingContext;
   let layerTarget: LayerEditingTarget | null = null;
   if (layerEditingContext) {
     const boundary = validateImplicitLayerEditRange({

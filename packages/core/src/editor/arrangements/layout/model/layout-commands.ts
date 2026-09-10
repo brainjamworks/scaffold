@@ -4,7 +4,7 @@ import { Fragment } from "@tiptap/pm/model";
 import type { Transaction } from "@tiptap/pm/state";
 
 import type { EmbeddedNodeId } from "@scaffold/contracts";
-import { authorizeExplicitLayerStructuralSteps } from "@/document/authoring/layers/layer-editing-boundaries";
+import { authorizeExplicitLayerStructuralSteps } from "@/document/model/layers/layer-editing-policy";
 import { isActiveBoundedContainerAtPosition } from "@/editor/bounded-containers/model/bounded-container-placement";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import {

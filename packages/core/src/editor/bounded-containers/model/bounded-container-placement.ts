@@ -3,7 +3,7 @@ import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model";
 import {
   isLayerFillOccupantNode,
   resolveLayerTargetAtPosition,
-} from "@/document/authoring/layers/layer-editing-boundaries";
+} from "@/document/model/layers/layer-editing-policy";
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { BoundedPlacement } from "@/editor/frame/model/bounded-placement";

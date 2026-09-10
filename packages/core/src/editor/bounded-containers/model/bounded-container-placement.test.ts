@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { LayerNode } from "@/document/model/layers/layer-node";
-import { resolveLayerTargetAtPosition } from "@/document/authoring/layers/layer-editing-boundaries";
+import { resolveLayerTargetAtPosition } from "@/document/model/layers/layer-editing-policy";
 import { GridNode, CellNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import {
   AccordionSectionPanelNode,

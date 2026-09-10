@@ -9,7 +9,7 @@ import {
   type LayerEditingBoundaryResult,
   type LayerEditingContext,
   type LayerEditingTarget,
-} from "@/document/authoring/layers/layer-editing-boundaries";
+} from "@/document/model/layers/layer-editing-policy";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 
 export type MovementAncestor = {

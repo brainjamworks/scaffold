@@ -57,6 +57,7 @@ const authoringOwnerPath = [
   "^packages/core/src/editor/blocks/[^/]+/[^/]+/[^/]*(?:authoring|Authoring)[^/]*\\.[^/]+$",
   "^packages/core/src/editor/rich-text/(?:authoring/|[^/]+/authoring/)",
   "^packages/core/src/editor/surfaces/authoring/",
+  "^packages/core/src/editor/(?:presentation|learner-interaction)/",
   "^packages/core/src/editor/selection/(?:native-drag-guard|selection-commands)\\.ts$",
 ];
 const authoringCompatibilityImplementationPath = [
@@ -95,10 +96,12 @@ const blockConstructionOwnerPath =
 const auditedNeutralSelectionPath =
   "^packages/core/src/editor/selection/(?:block-context|course-selection-projection|selection-facts|selection-transactions)\\.ts$";
 const presentationModelPath = "^packages/core/src/presentation/model/";
+const learnerInteractionModelPath = "^packages/core/src/learner-interaction/model/";
 const classifiedNeutralOwnerPath = [
   "^packages/core/src/document/model/",
   "^packages/core/src/composition/model/",
   presentationModelPath,
+  learnerInteractionModelPath,
   blockConstructionOwnerPath,
   "^packages/core/src/editor/arrangements/grid/model/",
   "^packages/core/src/editor/arrangements/layout/model/",
@@ -118,6 +121,7 @@ const higherCoreOwnerPath = [
   "^packages/core/src/editor/arrangements/(?:grid|layout)/(?:authoring|runtime)/",
   "^packages/core/src/editor/surfaces/(?:authoring|runtime|view)/",
   "^packages/core/src/editor/frame/(?:authoring|runtime|view)/",
+  "^packages/core/src/editor/(?:presentation|learner-interaction)/",
   "^packages/core/src/editor/movement/view/",
   "^packages/core/src/editor/blocks/(?:authoring-block-extensions|runtime-block-extensions)\\.[^/]+$",
   "^packages/core/src/editor/blocks/[^/]+/[^/]*(?:authoring|Authoring|runtime|Runtime|view|View)[^/]*\\.[^/]+$",
@@ -783,6 +787,19 @@ module.exports = {
       severity: "error",
       from: {
         path: presentationModelPath,
+      },
+      to: {
+        path: higherCoreOwnerPath,
+        reachable: true,
+      },
+    },
+    {
+      // Owner: the neutral Learner Interaction compiler and report seam. Authoring and runtime
+      // consume it; the model cannot reach either implementation lane.
+      name: "learner-interaction-model-does-not-reach-higher-owners",
+      severity: "error",
+      from: {
+        path: learnerInteractionModelPath,
       },
       to: {
         path: higherCoreOwnerPath,

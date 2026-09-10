@@ -12,7 +12,7 @@ import {
   NON_LAYER_DOCUMENT_MUTATION_ACCESS,
   type LayerEditingContext,
   type LayerMutationAccess,
-} from "@/document/authoring/layers/layer-editing-boundaries";
+} from "@/document/model/layers/layer-editing-policy";
 import { createLayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import {

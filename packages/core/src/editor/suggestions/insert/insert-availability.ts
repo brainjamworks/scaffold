@@ -1,5 +1,6 @@
 import type { Editor } from "@tiptap/core";
 
+import { readLayerEditingContextForState } from "@/document/authoring/layers/layer-editing-boundaries";
 import type { BlockDefinition } from "@/editor/blocks/block-definition";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { QuickMenuDefinition } from "@/editor/configuration/quick-menu";
@@ -26,6 +27,11 @@ export function canInsertCatalogItem(
     editor,
     intent,
     item,
+    layerEditingContext: readLayerEditingContextForState(
+      editor.state,
+      dependencies.layoutDefinitions,
+      dependencies.blockDefinitions,
+    ),
     ...dependencies,
     ...(range ? { range } : {}),
   }).ok;

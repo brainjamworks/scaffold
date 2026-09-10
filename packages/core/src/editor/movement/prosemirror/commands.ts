@@ -4,14 +4,14 @@ import { Fragment, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { Transaction } from "@tiptap/pm/state";
 
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
+import { readLayerEditingContextForState } from "@/document/authoring/layers/layer-editing-boundaries";
 import {
   authorizeExplicitLayerStructuralSteps,
-  readLayerEditingContextForState,
   resolveLayerTargetAtPosition,
   validateImplicitLayerEditRange,
   validateLayerContentPlacement,
   type LayerEditingContext,
-} from "@/document/authoring/layers/layer-editing-boundaries";
+} from "@/document/model/layers/layer-editing-policy";
 import { createEditableTextblock } from "@/document/model/content-model/editable-region";
 import { buildGridBesideDropTransaction } from "@/editor/arrangements/grid/model/grid-drop-rules";
 import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";

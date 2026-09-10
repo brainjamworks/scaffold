@@ -25,10 +25,8 @@ import {
 } from "@/document/authoring/unavailable-content";
 import { createDocumentAuthoringExtension } from "@/document/authoring/document-authoring-extension";
 import { createLayerEditingBoundaryExtension } from "@/document/authoring/layers/layer-editing-boundaries";
-import {
-  authoringLayerNodeViewProjection,
-  createLayerNodeView,
-} from "@/editor/layers/layer-node-view";
+import { authoringLayerNodeViewProjection } from "@/document/authoring/layers/authoring-layer-node-view-projection";
+import { createLayerNodeView } from "@/editor/layers/layer-node-view";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";

@@ -23,7 +23,9 @@ import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 
-import { createCatalogNodeChecked, insertCatalogItemChecked } from "./checked-insertion";
+import { insertCatalogItemChecked } from "@/document/authoring/layers/insert-catalog-item";
+
+import { createCatalogNodeChecked } from "./checked-insertion";
 import type { InsertAction } from "./insert-action";
 import { createInsertCatalog } from "./insert-catalog";
 

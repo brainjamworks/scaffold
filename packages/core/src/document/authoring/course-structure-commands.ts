@@ -7,7 +7,7 @@ import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaff
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import type { CourseStructureCommand } from "@/document/model/course-structure";
 import { applyCourseStructureCommandToTransaction } from "@/document/model/course-structure/transactions";
-import { authorizeExplicitLayerStructuralSteps } from "@/document/authoring/layers/layer-editing-boundaries";
+import { authorizeExplicitLayerStructuralSteps } from "@/document/model/layers/layer-editing-policy";
 
 export function createCourseStructureCommandsExtension({
   createId = createEmbeddedNodeId,

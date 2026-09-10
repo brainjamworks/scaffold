@@ -9,13 +9,14 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { readLayerEditingContextForState } from "@/document/authoring/layers/layer-editing-boundaries";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import {
   resolveLayerEditingTarget,
   validateLayerContentPlacement,
   type LayerEditingContext,
-} from "@/document/authoring/layers/layer-editing-boundaries";
+} from "@/document/model/layers/layer-editing-policy";
 import { gridInsertAction } from "@/editor/arrangements/grid/model/grid-insert-action";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { createLayoutInsertAction } from "@/editor/arrangements/layout/model/layout-definition";
@@ -205,6 +206,7 @@ describe("resolveInsertActionPlacement", () => {
           blockDefinitions: builtInBlockRegistry,
           editor,
           item: ordinaryInsertAction,
+          layerEditingContext: editingContextForEditor(editor),
           layoutDefinitions: builtInLayoutRegistry,
           range,
           surfaceVariants: builtInSurfaceVariantRegistry,
@@ -231,6 +233,7 @@ describe("resolveInsertActionPlacement", () => {
           blockDefinitions: builtInBlockRegistry,
           editor,
           item: fillActionFor(containerType),
+          layerEditingContext: editingContextForEditor(editor),
           layoutDefinitions: builtInLayoutRegistry,
           range,
           surfaceVariants: builtInSurfaceVariantRegistry,
@@ -258,6 +261,7 @@ describe("resolveInsertActionPlacement", () => {
       blockDefinitions: builtInBlockRegistry,
       editor,
       item: { ...gridInsertAction, content },
+      layerEditingContext: editingContextForEditor(editor),
       layoutDefinitions: builtInLayoutRegistry,
       range,
       surfaceVariants: builtInSurfaceVariantRegistry,
@@ -282,6 +286,7 @@ describe("resolveInsertActionPlacement", () => {
           blockDefinitions: builtInBlockRegistry,
           editor,
           item: fillActionFor(containerType),
+          layerEditingContext: editingContextForEditor(editor),
           layoutDefinitions: builtInLayoutRegistry,
           range,
           surfaceVariants: builtInSurfaceVariantRegistry,
@@ -307,6 +312,7 @@ describe("resolveInsertActionPlacement", () => {
         blockDefinitions: builtInBlockRegistry,
         editor,
         item: ordinaryInsertAction,
+        layerEditingContext: editingContextForEditor(editor),
         layoutDefinitions,
         range,
         surfaceVariants: builtInSurfaceVariantRegistry,
@@ -318,6 +324,16 @@ describe("resolveInsertActionPlacement", () => {
     expect(observed).toBe(defect);
   });
 });
+
+function editingContextForEditor(editor: Editor): LayerEditingContext {
+  const context = readLayerEditingContextForState(
+    editor.state,
+    builtInLayoutRegistry,
+    builtInBlockRegistry,
+  );
+  if (!context) throw new Error("Test editor has no Layer authoring context.");
+  return context;
+}
 
 function makeEditor(content: JSONContent): Editor {
   const editor = new Editor({

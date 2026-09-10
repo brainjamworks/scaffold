@@ -11,7 +11,7 @@ export {
 export {
   NON_LAYER_DOCUMENT_MUTATION_ACCESS,
   type LayerMutationAccess,
-} from "../authoring/layers/layer-editing-boundaries";
+} from "./layers/layer-editing-policy";
 export * from "./content-model";
 export type {
   CourseSectionId,

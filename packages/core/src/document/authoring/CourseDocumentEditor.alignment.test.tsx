@@ -16,7 +16,7 @@ import { InteractionTargetKind } from "@/editor/interactions/targets/model/inter
 import { resolveBlockChromeTargetDescriptor } from "@/editor/interactions/targets/prosemirror/projection/block-chrome-target-projection";
 import { resolveStructuralChromeTargetDescriptor } from "@/editor/interactions/targets/prosemirror/projection/structural-chrome-target-projection";
 import { AlignmentControls } from "@/editor/shell/bubbles/interaction/AlignmentControls";
-import { insertCatalogItemChecked } from "@/editor/insertion/checked-insertion";
+import { insertCatalogItemChecked } from "@/document/authoring/layers/insert-catalog-item";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";

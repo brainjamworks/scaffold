@@ -6,9 +6,8 @@ import type { Transform } from "@tiptap/pm/transform";
 
 import {
   authorizeExplicitLayerStructuralSteps,
-  requireLayerMutationAccessForState,
   type LayerMutationAccess,
-} from "@/document/authoring/layers/layer-editing-boundaries";
+} from "@/document/model/layers/layer-editing-policy";
 import {
   insertNodeChecked,
   type CheckedMutationResult,
@@ -32,9 +31,10 @@ import {
   type GridTemplateOptions,
 } from "./grid-model";
 
-export function insertGridAt(
+export function insertGridWithAccessAt(
   editor: Editor,
   pos: number,
+  layerAccess: LayerMutationAccess,
   options: GridTemplateOptions = {},
 ): boolean {
   if (!isValidDocPos(editor.state.doc, pos)) return false;
@@ -44,7 +44,7 @@ export function insertGridAt(
     schema: editor.schema,
     pos,
     options,
-    layerAccess: requireLayerMutationAccessForState(editor.state),
+    layerAccess,
   });
   if (!result.ok) return false;
 
