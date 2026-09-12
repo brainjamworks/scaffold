@@ -12,11 +12,16 @@ import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extens
 import { createDocumentTreeDefinitionLookup } from "@/composition/model/document-tree-definition-lookup";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import {
   CellAuthoringNode,
   GridAuthoringNode,
 } from "@/editor/arrangements/grid/authoring/grid-nodes";
 import { CellRuntimeNode, GridRuntimeNode } from "@/editor/arrangements/grid/runtime/grid-nodes";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
@@ -37,6 +42,7 @@ import { resolveStructuralChromeTargetDescriptor } from "@/editor/interactions/t
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 const editors: Editor[] = [];
@@ -387,7 +393,11 @@ function makeEditor({
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       ...arrangementExtensions,
     ],
     content: {

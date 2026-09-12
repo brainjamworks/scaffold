@@ -43,7 +43,9 @@ import { createScaffoldInteractionOwnerExtension } from "./interaction-owner-ext
 const BLOCK = "v2_owner_extension_block";
 const reactMountedEditors = new Set<Editor>();
 
-const testBlockRegistry = createBlockRegistry([defineBlock({ nodeType: BLOCK })]);
+const testBlockRegistry = createBlockRegistry([
+  defineBlock({ nodeType: BLOCK, title: "Interaction owner block" }),
+]);
 
 const TestBlockNode = Node.create({
   name: BLOCK,

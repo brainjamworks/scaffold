@@ -24,6 +24,7 @@ const PLAIN_BLOCK = "v2_settings_sheet_plain_block";
 
 const settingsBlockDefinition = defineBlock({
   nodeType: SETTINGS_BLOCK,
+  title: "Settings sheet target block",
   configuration: defineConfiguration({
     attr: "settings",
     schema: z.object({ label: z.string().default("") }),
@@ -42,7 +43,7 @@ const settingsBlockDefinition = defineBlock({
   }),
 });
 
-const plainBlockDefinition = defineBlock({ nodeType: PLAIN_BLOCK });
+const plainBlockDefinition = defineBlock({ nodeType: PLAIN_BLOCK, title: "Plain settings block" });
 
 const testBlockRegistry = createBlockRegistry([settingsBlockDefinition, plainBlockDefinition]);
 const coreCapabilities = createScaffoldApplication().capabilities;

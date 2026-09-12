@@ -18,6 +18,7 @@ import {
 import { createAuthoringEditorNavigationEnvironment } from "@/document/authoring/editor-navigation/authoring-editor-navigation-environment";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
@@ -473,6 +474,7 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
       createCourseSectionNode(),
       TestSurfaceAuthoringNode,
       RegionNode,
+      LayerNode,
       GridAuthoringNode,
       CellAuthoringNode,
       LayoutAuthoringNode,
@@ -780,7 +782,7 @@ const TestSurfaceAuthoringNode = createSurfaceNode().extend({
 
 const TestMcqNode = Node.create({
   name: "mcq",
-  group: "block",
+  group: "block assessment_question",
   atom: true,
   addAttributes() {
     return { id: { default: null }, assessment: { default: null } };

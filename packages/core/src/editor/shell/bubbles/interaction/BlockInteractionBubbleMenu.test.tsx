@@ -89,6 +89,7 @@ const ResizableNode = frameNode(RESIZABLE, { content: "paragraph+" });
 
 const quickBlockDefinition = defineBlock({
   nodeType: QUICK,
+  title: "Quick interaction block",
   configuration: defineConfiguration({
     attr: "data",
     schema: z.object({
@@ -127,6 +128,7 @@ const quickBlockDefinition = defineBlock({
 
 const resizableBlockDefinition = defineBlock({
   nodeType: RESIZABLE,
+  title: "Resizable interaction block",
   frame: {
     resizable: true,
     resizeMode: "responsive",

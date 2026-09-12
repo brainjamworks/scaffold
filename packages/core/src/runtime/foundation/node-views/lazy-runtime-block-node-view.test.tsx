@@ -17,6 +17,7 @@ const TEST_NODE_TYPE = "test_lazy_runtime_frame_block";
 
 const testBlockDefinition = defineBlock({
   nodeType: TEST_NODE_TYPE,
+  title: "Lazy runtime block",
   frame: {
     resizable: true,
     resizeMode: "freeform",

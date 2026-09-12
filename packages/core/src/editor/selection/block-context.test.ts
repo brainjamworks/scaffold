@@ -26,14 +26,17 @@ const FEEDBACK = "v2_block_ctx_feedback";
 
 const blockADefinition = defineBlock({
   nodeType: BLOCK_A,
+  title: "Block context A",
 });
 
 const blockBDefinition = defineBlock({
   nodeType: BLOCK_B,
+  title: "Block context B",
 });
 
 const delegateParentDefinition = defineBlock({
   nodeType: DELEGATE_PARENT,
+  title: "Delegating block context parent",
   interaction: {
     embeddedChildSelection: "delegate-to-parent",
   },
@@ -41,10 +44,12 @@ const delegateParentDefinition = defineBlock({
 
 const embeddedChildDefinition = defineBlock({
   nodeType: EMBEDDED_CHILD,
+  title: "Embedded block context child",
 });
 
 const plainParentDefinition = defineBlock({
   nodeType: PLAIN_PARENT,
+  title: "Plain block context parent",
 });
 
 const testBlockRegistry = createBlockRegistry([

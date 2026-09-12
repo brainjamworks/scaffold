@@ -18,8 +18,8 @@ const RESIZABLE = "owned_alignment_resizable";
 const FIXED = "owned_alignment_fixed";
 
 const testBlockRegistry = createBlockRegistry([
-  defineBlock({ nodeType: RESIZABLE, frame: { resizable: true } }),
-  defineBlock({ nodeType: FIXED }),
+  defineBlock({ nodeType: RESIZABLE, title: "Resizable owned block", frame: { resizable: true } }),
+  defineBlock({ nodeType: FIXED, title: "Fixed owned block" }),
 ]);
 
 const collectOwnedHorizontalParticipants = (

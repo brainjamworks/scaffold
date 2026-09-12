@@ -11,6 +11,7 @@ import {
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import {
@@ -22,6 +23,7 @@ import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SlideCoverSubtitleNode } from "@/editor/surfaces/model/nodes/slide-cover-subtitle";
 import { SlideTitleNode } from "@/editor/surfaces/model/nodes/slide-title";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { SurfaceSettingsSchema } from "@/schemas/course-document";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
@@ -87,7 +89,9 @@ function makeEditor({
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       SlideTitleNode,
       SurfaceHeaderNode,
       SurfaceHeaderFooterSlotNode,

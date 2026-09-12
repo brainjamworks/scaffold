@@ -24,6 +24,11 @@ import {
 } from "@/document/authoring/testing/semantic-activation-binding-test-extension";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
@@ -33,6 +38,7 @@ import {
   GridAuthoringNode,
 } from "@/editor/arrangements/grid/authoring/grid-nodes";
 import { createTestNodeIdentityExtension } from "@/editor/testing";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
@@ -134,9 +140,9 @@ describe("Timeline editor navigation", () => {
     const editor = makeEditor("vertical");
     const rendered = renderEditor(editor);
     await waitFor(() => {
-      expect(getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID).kind).toBe(
-        "resolved",
-      );
+      expect(
+        getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID).kind,
+      ).toBe("resolved");
     });
     expect(
       Array.from(document.querySelectorAll<HTMLElement>("[data-timeline-entry-id]")).map(
@@ -145,7 +151,9 @@ describe("Timeline editor navigation", () => {
     ).toEqual(ENTRY_IDS);
 
     rendered.unmount();
-    expect(getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID)).toEqual({
+    expect(
+      getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID),
+    ).toEqual({
       kind: "unavailable",
       ownerId: TIMELINE_ID,
       reason: "owner-unmounted",
@@ -158,12 +166,13 @@ describe("Timeline editor navigation", () => {
       const editor = makeEditor(presentation);
       renderEditor(editor);
       const controller = getEditorNavigationForEditor(editor);
-    const tree = getDocumentTreeForEditor(editor);
+      const tree = getDocumentTreeForEditor(editor);
       const targetId = ENTRY_IDS[1];
       await waitFor(() =>
-        expect(getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID).kind).toBe(
-          "resolved",
-        ),
+        expect(
+          getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID)
+            .kind,
+        ).toBe("resolved"),
       );
       const track = timelineTrack(TIMELINE_ID);
       const target = timelineEntry(track, targetId);
@@ -188,7 +197,9 @@ describe("Timeline editor navigation", () => {
           editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, location.from)),
       });
 
-      await expect(controller.showTarget(targetId, { origin: "document-outline" })).resolves.toEqual({
+      await expect(
+        controller.showTarget(targetId, { origin: "document-outline" }),
+      ).resolves.toEqual({
         kind: "reached",
         id: targetId,
       });
@@ -220,9 +231,9 @@ describe("Timeline editor navigation", () => {
     const editor = makeEditor("vertical");
     renderEditor(editor);
     await waitFor(() =>
-      expect(getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID).kind).toBe(
-        "resolved",
-      ),
+      expect(
+        getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID).kind,
+      ).toBe("resolved"),
     );
     const binding = requireSemanticActivationBinding(
       getSemanticTargetInteractionEnvironmentForEditor(editor).registry,
@@ -251,12 +262,14 @@ describe("Timeline editor navigation", () => {
     const editor = makeEditor("vertical", true);
     renderEditor(editor);
     await waitFor(() => {
-      expect(getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID).kind).toBe(
-        "resolved",
-      );
-      expect(getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(SECOND_TIMELINE_ID).kind).toBe(
-        "resolved",
-      );
+      expect(
+        getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID).kind,
+      ).toBe("resolved");
+      expect(
+        getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(
+          SECOND_TIMELINE_ID,
+        ).kind,
+      ).toBe("resolved");
     });
     const binding = requireSemanticActivationBinding(
       getSemanticTargetInteractionEnvironmentForEditor(editor).registry,
@@ -282,9 +295,9 @@ describe("Timeline editor navigation", () => {
     const editor = makeEditor("vertical");
     renderEditor(editor);
     await waitFor(() =>
-      expect(getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID).kind).toBe(
-        "resolved",
-      ),
+      expect(
+        getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID).kind,
+      ).toBe("resolved"),
     );
     const binding = requireSemanticActivationBinding(
       getSemanticTargetInteractionEnvironmentForEditor(editor).registry,
@@ -313,9 +326,9 @@ describe("Timeline editor navigation", () => {
     const editor = makeEditor("vertical");
     renderEditor(editor);
     await waitFor(() =>
-      expect(getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID).kind).toBe(
-        "resolved",
-      ),
+      expect(
+        getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID).kind,
+      ).toBe("resolved"),
     );
     const binding = requireSemanticActivationBinding(
       getSemanticTargetInteractionEnvironmentForEditor(editor).registry,
@@ -348,9 +361,9 @@ describe("Timeline editor navigation", () => {
     const editor = makeEditor("vertical");
     const rendered = renderEditor(editor);
     await waitFor(() =>
-      expect(getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID).kind).toBe(
-        "resolved",
-      ),
+      expect(
+        getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID).kind,
+      ).toBe("resolved"),
     );
     const binding = requireSemanticActivationBinding(
       getSemanticTargetInteractionEnvironmentForEditor(editor).registry,
@@ -371,9 +384,9 @@ describe("Timeline editor navigation", () => {
       reason: "owner-unmounted",
     });
     expect(scrollTo).not.toHaveBeenCalled();
-    expect(getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID).kind).toBe(
-      "unavailable",
-    );
+    expect(
+      getSemanticTargetInteractionEnvironmentForEditor(editor).registry.resolve(TIMELINE_ID).kind,
+    ).toBe("unavailable");
   });
 });
 
@@ -405,7 +418,11 @@ function makeEditor(presentation: "carousel" | "vertical", includeSecondTimeline
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       GridAuthoringNode,
       CellAuthoringNode,
       LayoutAuthoringNode,

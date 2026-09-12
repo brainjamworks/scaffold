@@ -8,6 +8,7 @@ import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import {
   ARRANGEMENT_CONTENT,
@@ -15,6 +16,7 @@ import {
 } from "@/document/model/content-model/content-groups";
 import { createScaffoldTextAlignExtension } from "@/editor/rich-text/model/text-alignment";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
 import { isRegisteredSlideCompositionSurfaceDefinition } from "../../model/slide-composition-definition";
 import { builtInSurfaceVariantRegistry } from "../../model/built-in-surface-variant-definitions";
@@ -874,7 +876,9 @@ function createEditor(
         registry: surfaceComposition.registry,
         views: surfaceComposition.views,
       }),
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       SurfaceHeaderNode,
       SurfaceHeaderFooterSlotNode,
       SlideCoverSubtitleNode,

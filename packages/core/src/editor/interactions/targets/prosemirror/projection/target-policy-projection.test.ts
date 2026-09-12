@@ -26,6 +26,7 @@ function blockContext(
   const definition: BlockDefinition = {
     ...input.definition,
     nodeType,
+    title: input.definition?.title ?? "Projection test block",
   };
   return {
     definition,

@@ -36,15 +36,18 @@ const FIELD = "v2_engine_input_field";
 
 const blockDefinition = defineBlock({
   nodeType: BLOCK,
+  title: "Interaction engine input block",
 });
 
 const resizableBlockDefinition = defineBlock({
   nodeType: RESIZABLE_BLOCK,
+  title: "Resizable interaction engine block",
   frame: { resizable: true, resizeMode: "responsive" },
 });
 
 const delegateParentDefinition = defineBlock({
   nodeType: DELEGATE_PARENT,
+  title: "Delegating interaction engine parent",
   interaction: {
     embeddedChildSelection: "delegate-to-parent",
   },
@@ -52,6 +55,7 @@ const delegateParentDefinition = defineBlock({
 
 const embeddedChildDefinition = defineBlock({
   nodeType: EMBEDDED_CHILD,
+  title: "Embedded interaction engine child",
 });
 
 const testBlockRegistry = createBlockRegistry([

@@ -10,6 +10,9 @@ import {
 } from "@tiptap/pm/model";
 import { describe, expect, it } from "vite-plus/test";
 
+import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
+
 import { SurfaceNode } from "./surface-node";
 
 const VALID_SURFACE_ID = "AbCdEf123_--";
@@ -41,8 +44,10 @@ const TestRegionNode = Node.create({
 
 const schema = getSchema([
   TestDocumentNode,
-  StarterKit.configure({ document: false }),
+  StarterKit.configure({ document: false, paragraph: false }),
+  ExtendedParagraph,
   SurfaceNode,
+  ...surfaceAssessmentQuestionSchemaExtensions,
   TestRegionNode,
   TestBlockNode,
   UniqueID.configure({

@@ -22,10 +22,12 @@ const EMBEDDED_CHILD = "v2_context_owner_embedded_child";
 
 const blockDefinition = defineBlock({
   nodeType: BLOCK,
+  title: "Context owner block",
 });
 
 const delegateParentDefinition = defineBlock({
   nodeType: DELEGATE_PARENT,
+  title: "Delegating context parent",
   interaction: {
     embeddedChildSelection: "delegate-to-parent",
   },
@@ -33,6 +35,7 @@ const delegateParentDefinition = defineBlock({
 
 const embeddedChildDefinition = defineBlock({
   nodeType: EMBEDDED_CHILD,
+  title: "Embedded context child",
 });
 
 const testBlockRegistry = createBlockRegistry([

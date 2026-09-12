@@ -19,12 +19,13 @@ const PARENT = "v2_movement_parent";
 const CHILD = "v2_movement_child";
 
 const testBlockRegistry = createBlockRegistry([
-  defineBlock({ nodeType: BLOCK }),
+  defineBlock({ nodeType: BLOCK, title: "Movement target block" }),
   defineBlock({
     nodeType: PARENT,
+    title: "Movement target parent",
     interaction: { embeddedChildSelection: "delegate-to-parent" },
   }),
-  defineBlock({ nodeType: CHILD }),
+  defineBlock({ nodeType: CHILD, title: "Movement target child" }),
 ]);
 
 const resolveBlockChromeTargetDescriptor = (

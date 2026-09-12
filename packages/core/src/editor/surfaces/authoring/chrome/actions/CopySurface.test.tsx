@@ -13,11 +13,13 @@ import { createStructuralClipboardPolicy } from "@/document/authoring/structural
 import type { StructuralFragmentCarrierLimits } from "@/document/authoring/structural-clipboard";
 import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { SCAFFOLD_STRUCTURAL_FRAGMENT_MIME } from "@/document/authoring/structural-clipboard";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
 import { CopySurface } from "./CopySurface";
 
@@ -178,7 +180,9 @@ function createEditor(mode: "page" | "slideshow", unavailable = false): Editor {
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       TestArrangementNode,
       TestBlockNode,
       UnavailableBlockNode,

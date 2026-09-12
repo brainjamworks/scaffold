@@ -73,7 +73,12 @@ import {
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
 import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
 import { AssessmentActionsGroupRuntimeNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group-runtime";
@@ -3569,6 +3574,9 @@ function createDisposableQuizEditor({
         : []),
       createScaffoldInteractionOwnerExtension(blockRegistry),
       TestRegionNode,
+      LayerNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       GridNode,
       CellNode,
       LayoutNode,

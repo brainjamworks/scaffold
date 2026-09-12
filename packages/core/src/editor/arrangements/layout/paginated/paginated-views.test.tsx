@@ -10,12 +10,17 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import {
   CellAuthoringNode,
   GridAuthoringNode,
 } from "@/editor/arrangements/grid/authoring/grid-nodes";
 import { CellRuntimeNode, GridRuntimeNode } from "@/editor/arrangements/grid/runtime/grid-nodes";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
@@ -34,6 +39,7 @@ import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 const editors: Editor[] = [];
@@ -123,10 +129,7 @@ describe("paginated authoring", () => {
       "sc-layout-add-ghost--icon",
       "sc-app-paginated-add",
     );
-    expect(addPage).not.toHaveClass(
-      "sc-course-layout-chrome__add",
-      "sc-course-paginated__add",
-    );
+    expect(addPage).not.toHaveClass("sc-course-layout-chrome__add", "sc-course-paginated__add");
     expect(sectionOptions).toHaveClass(
       "sc-layout-section-action-trigger",
       "sc-app-paginated-action",
@@ -303,7 +306,11 @@ function makeEditor(editable: boolean, placement: "region" | "surface"): Editor 
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       ...arrangementExtensions,
     ],
     content: {

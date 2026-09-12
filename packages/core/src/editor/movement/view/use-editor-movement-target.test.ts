@@ -11,9 +11,14 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import {
@@ -31,6 +36,7 @@ import {
 } from "./use-editor-movement-target";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
 
 const TEST_BLOCK = "movement_target_test_block";
@@ -41,12 +47,13 @@ const TEXT_FIELD = "movement_target_text_field";
 const EMBEDDED_OWNER_BLOCK = "movement_target_embedded_owner_block";
 
 const testBlockRegistry = createBlockRegistry([
-  defineBlock({ nodeType: TEST_BLOCK }),
-  defineBlock({ nodeType: FRAMED_BLOCK }),
-  defineBlock({ nodeType: MISSING_ANCHOR_BLOCK }),
-  defineBlock({ nodeType: TEXT_BLOCK }),
+  defineBlock({ nodeType: TEST_BLOCK, title: "Editor movement target block" }),
+  defineBlock({ nodeType: FRAMED_BLOCK, title: "Framed editor movement target" }),
+  defineBlock({ nodeType: MISSING_ANCHOR_BLOCK, title: "Missing-anchor movement target" }),
+  defineBlock({ nodeType: TEXT_BLOCK, title: "Editor movement text block" }),
   defineBlock({
     nodeType: EMBEDDED_OWNER_BLOCK,
+    title: "Embedded movement owner",
     interaction: { embeddedChildSelection: "delegate-to-parent" },
   }),
 ]);
@@ -421,7 +428,11 @@ function makeEditor(content: JSONContent[]) {
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       createScaffoldCapabilitiesStorageExtension(testCapabilities),
       createScaffoldInteractionOwnerExtension(testBlockRegistry),
       MovementTargetGridNode,

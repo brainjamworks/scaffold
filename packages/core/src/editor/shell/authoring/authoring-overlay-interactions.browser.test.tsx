@@ -77,7 +77,7 @@ const TEST_MOVEMENT_BLOCK = "browser_overlay_movement_block";
 
 const testBlockRegistry = createBlockRegistry([
   ...builtInBlockRegistry.definitions,
-  defineBlock({ nodeType: TEST_MOVEMENT_BLOCK }),
+  defineBlock({ nodeType: TEST_MOVEMENT_BLOCK, title: "Overlay movement block" }),
 ]);
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: testBlockRegistry,

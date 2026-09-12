@@ -33,6 +33,11 @@ import { InteractionOwnerCommandKind } from "@/editor/interactions/targets/prose
 import { setInteractionOwnerCommandMeta } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-plugin-state";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { setEditorResizeGestureActive } from "@/editor/interactions/gesture/editor-resize-gesture";
 import { AuthoringOverlayBoundary } from "@/editor/interactions/floating/AuthoringOverlayBoundary";
 import { zIndex } from "@/ui/overlays/z-index";
@@ -59,6 +64,7 @@ import {
   type MovementTargetRect,
 } from "../model/movement-target";
 import type { MovementNodeContext } from "../model/movement-policy";
+import { movementSurfaceDropdownQuestionSchemaExtensions } from "../testing/movement-surface-dropdown-question-schema-extensions";
 import type { MovementCandidate } from "./movement-candidate";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
@@ -103,10 +109,10 @@ const CONTAINED_CHOICE = "selectable_choice";
 const CONTAINED_CHOICES_GROUP = "assessment_choices_group";
 
 const testBlockRegistry = createBlockRegistry([
-  defineBlock({ nodeType: TEST_BLOCK }),
-  defineBlock({ nodeType: FRAMED_BLOCK }),
-  defineBlock({ nodeType: MISSING_ANCHOR_BLOCK }),
-  defineBlock({ nodeType: TEXT_BLOCK }),
+  defineBlock({ nodeType: TEST_BLOCK, title: "Movement layer block" }),
+  defineBlock({ nodeType: FRAMED_BLOCK, title: "Framed movement block" }),
+  defineBlock({ nodeType: MISSING_ANCHOR_BLOCK, title: "Missing-anchor movement block" }),
+  defineBlock({ nodeType: TEXT_BLOCK, title: "Movement text block" }),
 ]);
 const testSurfaceVariants = createSurfaceVariantRegistry([pageDefaultSurfaceDefinition]);
 
@@ -407,7 +413,11 @@ function makeEditor(content: JSONContent[]) {
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...movementSurfaceDropdownQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       createScaffoldInteractionOwnerExtension(testBlockRegistry),
       GridAuthoringNode,
       CellAuthoringNode,

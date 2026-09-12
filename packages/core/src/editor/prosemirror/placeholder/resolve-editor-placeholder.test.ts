@@ -32,6 +32,7 @@ describe("editor placeholder resolver", () => {
     const capability: BlockCapability = {
       definition: {
         nodeType,
+        title: "Host placeholder block",
         placeholders: { paragraph: placeholder },
       },
       authoringExtension: createNode(),

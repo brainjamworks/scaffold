@@ -12,6 +12,11 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vite-plus/test";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import {
   CellAuthoringNode,
   GridAuthoringNode,
@@ -30,6 +35,7 @@ import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/t
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { zIndex } from "@/ui/overlays/z-index";
 import "@/styles/globals.css";
 
@@ -41,6 +47,7 @@ const TEST_BLOCK = "browser_editor_floating_popover_resizable_block";
 const testBlockRegistry = createBlockRegistry([
   defineBlock({
     nodeType: TEST_BLOCK,
+    title: "Floating popover resizable block",
     frame: { resizable: true, resizeMode: "responsive" },
   }),
 ]);
@@ -142,7 +149,11 @@ describe("EditorFloatingPopover browser stacking", () => {
         CourseDocumentNode,
         createCourseSectionNode(),
         SurfaceNode,
+        ...surfaceAssessmentQuestionSchemaExtensions,
         RegionNode,
+        LayerNode,
+        AccordionSectionTitleNode,
+        AccordionSectionPanelNode,
         GridAuthoringNode,
         CellAuthoringNode,
         LayoutAuthoringNode,

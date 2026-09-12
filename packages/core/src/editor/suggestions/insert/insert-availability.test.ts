@@ -19,6 +19,11 @@ import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-
 import { TEXT_CONTENT } from "@/document/model/content-model/content-groups";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { defineConfiguration } from "@/editor/configuration/definition";
@@ -32,6 +37,7 @@ import {
 } from "./insert-availability";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
@@ -98,6 +104,7 @@ const TestCallout = Node.create({
 const testBlockRegistry = createBlockRegistry([
   defineBlock({
     nodeType: "test_quick_block",
+    title: "Quick insert block",
     configuration: defineConfiguration({
       attr: "settings",
       schema: z.object({ enabled: z.boolean().default(true) }),
@@ -169,7 +176,11 @@ function makeCourseEditor() {
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       GridAuthoringNode,
       CellAuthoringNode,
       LayoutAuthoringNode,

@@ -21,10 +21,12 @@ const EMBEDDED_CHILD = "v2_dom_ref_embedded_child";
 
 const blockDefinition = defineBlock({
   nodeType: BLOCK,
+  title: "DOM target reference block",
 });
 
 const delegateParentDefinition = defineBlock({
   nodeType: DELEGATE_PARENT,
+  title: "Delegating DOM target parent",
   interaction: {
     embeddedChildSelection: "delegate-to-parent",
   },
@@ -32,6 +34,7 @@ const delegateParentDefinition = defineBlock({
 
 const embeddedChildDefinition = defineBlock({
   nodeType: EMBEDDED_CHILD,
+  title: "Embedded DOM target child",
 });
 
 const testBlockRegistry = createBlockRegistry([

@@ -25,12 +25,14 @@ import {
 } from "@/document/control-binding";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { CourseDocumentNode, DocumentNode, createCourseSectionNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import type { DocumentTreeDefinitionLookup } from "@/document/model/document-tree";
 import type { BlockDefinition } from "@/editor/blocks/block-definition";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { createTestNodeIdentityExtension } from "@/editor/testing";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
 import { TIMELINE_ITEM_NODE, TIMELINE_NODE } from "./content";
 import { TimelineItemRuntimeView, TimelineRuntimeView, TimelineView } from "./Timeline";
@@ -471,7 +473,9 @@ function timelineEditorExtensions(lifecycle: "authoring" | "runtime"): Extension
     CourseDocumentNode,
     createCourseSectionNode(),
     SurfaceNode,
+    ...surfaceAssessmentQuestionSchemaExtensions,
     RegionNode,
+    LayerNode,
     TestArrangementNode,
     timelineItem,
     timeline,

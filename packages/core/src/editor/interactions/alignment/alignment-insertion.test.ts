@@ -18,8 +18,12 @@ const FIXED = "alignment_insertion_fixed";
 const editors: Editor[] = [];
 
 const testBlockRegistry = createBlockRegistry([
-  defineBlock({ nodeType: RESIZABLE, frame: { resizable: true } }),
-  defineBlock({ nodeType: FIXED }),
+  defineBlock({
+    nodeType: RESIZABLE,
+    title: "Resizable alignment block",
+    frame: { resizable: true },
+  }),
+  defineBlock({ nodeType: FIXED, title: "Fixed alignment block" }),
 ]);
 
 const resolveInsertionHorizontalAlignment = (

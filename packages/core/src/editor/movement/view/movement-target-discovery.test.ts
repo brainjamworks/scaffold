@@ -11,6 +11,7 @@ import { DocumentNode, CourseDocumentNode, createCourseSectionNode } from "@/doc
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { resolveMovementNodeContext } from "../model/movement-policy";
+import { movementSurfaceDropdownQuestionSchemaExtensions } from "../testing/movement-surface-dropdown-question-schema-extensions";
 import { discoverMovementTargetDescriptors } from "./movement-target-discovery";
 import {
   createMovementTargetIndexSnapshot,
@@ -23,8 +24,8 @@ const CONTAINED_ITEM = "selectable_choice";
 const CONTAINED_GROUP = "assessment_choices_group";
 
 const blockDefinitions = createBlockRegistry([
-  defineBlock({ nodeType: TEST_BLOCK }),
-  defineBlock({ nodeType: TEST_CONTAINER }),
+  defineBlock({ nodeType: TEST_BLOCK, title: "Movement discovery block" }),
+  defineBlock({ nodeType: TEST_CONTAINER, title: "Movement discovery container" }),
 ]);
 
 const TestBlockNode = movementBlockNode(TEST_BLOCK, "div");
@@ -278,6 +279,7 @@ function makeEditor(content: JSONContent[]): DiscoveryHarness {
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...movementSurfaceDropdownQuestionSchemaExtensions,
       TestArrangementNode,
       TestRegionNode,
       TestBlockNode,

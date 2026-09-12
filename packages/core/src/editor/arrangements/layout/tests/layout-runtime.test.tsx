@@ -17,7 +17,12 @@ import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/sem
 import { getControlBindingRegistryForEditor } from "@/document/control-binding";
 import { semanticActivationRequest } from "@/document/authoring/testing/semantic-activation-binding-test-extension";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { CellRuntimeNode, GridRuntimeNode } from "@/editor/arrangements/grid/runtime/grid-nodes";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "../accordion/accordion-section-nodes";
 
 import { builtInLayoutDefinitions } from "../model/built-in-layout-definitions";
 import { builtInLayoutRuntimeViews } from "../runtime/built-in-layout-views";
@@ -39,6 +44,7 @@ import { paginatedPageButtonId, paginatedPagePanelId } from "../paginated/pagina
 import { tabsLayoutDefinition } from "../tabs/tabs-definition";
 import { tabPanelId, tabTriggerId } from "../tabs/tabs-components";
 import { createTestNodeIdentityExtension } from "@/editor/testing";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { getLayoutInteractionStoreState } from "../shared/model/layout-interaction-store";
 
 const learningEventReporter = vi.hoisted(() => ({ report: vi.fn() }));
@@ -379,9 +385,7 @@ describe("layout runtime nodes", () => {
 
       expect(result?.isOk()).toBe(true);
       await waitFor(() => {
-        expect(
-          getLayoutInteractionStoreState(editor).activeTabByLayoutId[layoutId],
-        ).toBe(targetId);
+        expect(getLayoutInteractionStoreState(editor).activeTabByLayoutId[layoutId]).toBe(targetId);
       });
       expect(learningEventReport).not.toHaveBeenCalled();
     } finally {
@@ -478,7 +482,11 @@ describe("layout runtime nodes", () => {
         CourseDocumentNode,
         createCourseSectionNode(),
         SurfaceNode,
+        ...surfaceAssessmentQuestionSchemaExtensions,
         RegionNode,
+        LayerNode,
+        AccordionSectionTitleNode,
+        AccordionSectionPanelNode,
         GridRuntimeNode,
         CellRuntimeNode,
         TestLayoutRuntimeNode,
@@ -593,7 +601,11 @@ describe("layout runtime nodes", () => {
         CourseDocumentNode,
         createCourseSectionNode(),
         SurfaceNode,
+        ...surfaceAssessmentQuestionSchemaExtensions,
         RegionNode,
+        LayerNode,
+        AccordionSectionTitleNode,
+        AccordionSectionPanelNode,
         GridRuntimeNode,
         CellRuntimeNode,
         LayoutRuntimeNode,

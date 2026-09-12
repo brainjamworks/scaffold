@@ -30,10 +30,12 @@ const EMBEDDED_CHILD = "v2_activation_intent_embedded_child";
 
 const blockDefinition = defineBlock({
   nodeType: BLOCK,
+  title: "Activation intent block",
 });
 
 const delegateParentDefinition = defineBlock({
   nodeType: DELEGATE_PARENT,
+  title: "Delegating activation parent",
   interaction: {
     embeddedChildSelection: "delegate-to-parent",
   },
@@ -41,6 +43,7 @@ const delegateParentDefinition = defineBlock({
 
 const embeddedChildDefinition = defineBlock({
   nodeType: EMBEDDED_CHILD,
+  title: "Embedded activation child",
 });
 
 const testBlockRegistry = createBlockRegistry([

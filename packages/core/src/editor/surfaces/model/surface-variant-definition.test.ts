@@ -11,6 +11,7 @@ import {
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import {
   builtInSurfaceVariantDefinitions,
@@ -62,6 +63,7 @@ import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SlideCoverSubtitleNode } from "@/editor/surfaces/model/nodes/slide-cover-subtitle";
 import { SlideTitleNode } from "@/editor/surfaces/model/nodes/slide-title";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
 const TestArrangementNode = Node.create({
   name: "testArrangement",
@@ -90,7 +92,9 @@ function expectValidSurface(surface: JSONContent) {
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       SlideTitleNode,
       SurfaceHeaderNode,
       SurfaceHeaderFooterSlotNode,
@@ -481,7 +485,9 @@ describe("surface definitions", () => {
         CourseDocumentNode,
         createCourseSectionNode(),
         SurfaceNode,
+        ...surfaceAssessmentQuestionSchemaExtensions,
         RegionNode,
+        LayerNode,
         TestArrangementNode,
         TestSectionArrangementNode,
       ],
@@ -990,15 +996,60 @@ describe("surface definitions", () => {
       },
       { id: "slide-diptych", title: "Diptych", section: "image", order: 50 },
       { id: "slide-triptych", title: "Triptych", section: "image", order: 60 },
-      { id: "slide-categorise-question", title: "Categorise Question", section: "assessment", order: 10 },
-      { id: "slide-sequencing-question", title: "Sequencing Question", section: "assessment", order: 20 },
-      { id: "slide-matching-question", title: "Matching Question", section: "assessment", order: 30 },
-      { id: "slide-image-hotspot-question", title: "Image Hotspot Question", section: "assessment", order: 40 },
-      { id: "slide-multiple-choice-question", title: "Multiple Choice Question", section: "assessment", order: 50 },
-      { id: "slide-multiselect-question", title: "Multi-select Question", section: "assessment", order: 60 },
-      { id: "slide-dropdown-question", title: "Dropdown Question", section: "assessment", order: 70 },
-      { id: "slide-drag-drop-question", title: "Drag and Drop Question", section: "assessment", order: 75 },
-      { id: "slide-fill-blanks-question", title: "Fill in the Blanks", section: "assessment", order: 80 },
+      {
+        id: "slide-categorise-question",
+        title: "Categorise Question",
+        section: "assessment",
+        order: 10,
+      },
+      {
+        id: "slide-sequencing-question",
+        title: "Sequencing Question",
+        section: "assessment",
+        order: 20,
+      },
+      {
+        id: "slide-matching-question",
+        title: "Matching Question",
+        section: "assessment",
+        order: 30,
+      },
+      {
+        id: "slide-image-hotspot-question",
+        title: "Image Hotspot Question",
+        section: "assessment",
+        order: 40,
+      },
+      {
+        id: "slide-multiple-choice-question",
+        title: "Multiple Choice Question",
+        section: "assessment",
+        order: 50,
+      },
+      {
+        id: "slide-multiselect-question",
+        title: "Multi-select Question",
+        section: "assessment",
+        order: 60,
+      },
+      {
+        id: "slide-dropdown-question",
+        title: "Dropdown Question",
+        section: "assessment",
+        order: 70,
+      },
+      {
+        id: "slide-drag-drop-question",
+        title: "Drag and Drop Question",
+        section: "assessment",
+        order: 75,
+      },
+      {
+        id: "slide-fill-blanks-question",
+        title: "Fill in the Blanks",
+        section: "assessment",
+        order: 80,
+      },
       { id: "slide-quiz", title: "Quiz", section: "assessment", order: 90 },
     ]);
     expect(
@@ -1354,7 +1405,10 @@ describe("surface definitions", () => {
             {
               kind: "column",
               gap: "small",
-              children: [{ kind: "slot", role: "panel" }, { kind: "slot", role: "panel" }],
+              children: [
+                { kind: "slot", role: "panel" },
+                { kind: "slot", role: "panel" },
+              ],
             },
           ],
         },

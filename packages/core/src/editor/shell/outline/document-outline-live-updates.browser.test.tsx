@@ -22,6 +22,7 @@ import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-
 import { resolveStableNode } from "@/document/model/identity/resolve-stable-node";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { MAX_SEMANTIC_LABEL_LENGTH } from "@/document/model/document-tree/semantic-labels";
 import {
   CellAuthoringNode,
@@ -37,6 +38,7 @@ import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
 import {
   DocumentOutlineRowViewport,
@@ -442,7 +444,9 @@ async function mountLiveOutline(
       createCourseSectionNode(),
       TestArrangementNode,
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       GridAuthoringNode,
       CellAuthoringNode,
       AnnotatedFigureNode,

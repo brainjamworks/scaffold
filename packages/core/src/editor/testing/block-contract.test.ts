@@ -104,6 +104,7 @@ const TestContractBadIdNode = Node.create({
 
 const testContractBlockDefinition = defineBlock({
   nodeType: "test_contract_block",
+  title: "Contract block",
   configuration: defineConfiguration({
     attr: "data",
     schema: TestContractDataSchema,
@@ -126,6 +127,7 @@ const testContractBlockDefinition = defineBlock({
 });
 const testContractBadIdBlockDefinition = defineBlock({
   nodeType: "test_contract_bad_id_block",
+  title: "Invalid-ID contract block",
   insert: {
     id: "test-contract-bad-id-block",
     category: "content",

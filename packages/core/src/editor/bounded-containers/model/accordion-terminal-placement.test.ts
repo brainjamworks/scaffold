@@ -198,6 +198,7 @@ function makeEditor(regionContent: JSONContent[]): Editor {
       createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
+      LayerNode,
       GridNode,
       CellNode,
       LayoutNode,

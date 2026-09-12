@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { CellAuthoringNode, GridAuthoringNode } from "../../arrangements/grid/authoring/grid-nodes";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { CELL_ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import {
   AUTHORING_CHROME_ATTR,
@@ -31,6 +32,8 @@ import { RESIZE_GESTURE_ACTIVE_ATTR } from "@/editor/interactions/gesture/editor
 import { createTiptapResizableReactNodeView } from "./tiptap-resizable-react-node-view";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
 const TEST_NODE_TYPE = "test_tiptap_resizable_block";
 const TEST_FIXED_NODE_TYPE = "test_tiptap_fixed_frame_block";
@@ -41,16 +44,27 @@ const TEST_EMBEDDED_OWNER_NODE_TYPE = "test_tiptap_embedded_resize_owner";
 const testBlockRegistry = createBlockRegistry([
   defineBlock({
     nodeType: TEST_NODE_TYPE,
+    title: "Resizable block",
     frame: { preserveAspectRatio: true, resizable: true, resizeMode: "responsive" },
   }),
-  defineBlock({ nodeType: TEST_FIXED_NODE_TYPE, frame: { resizable: false } }),
-  defineBlock({ nodeType: TEST_TARGET_DISABLED_NODE_TYPE, frame: { resizable: false } }),
+  defineBlock({
+    nodeType: TEST_FIXED_NODE_TYPE,
+    title: "Fixed-frame block",
+    frame: { resizable: false },
+  }),
+  defineBlock({
+    nodeType: TEST_TARGET_DISABLED_NODE_TYPE,
+    title: "Resize-disabled target block",
+    frame: { resizable: false },
+  }),
   defineBlock({
     nodeType: TEST_EXPLICIT_SURFACE_NODE_TYPE,
+    title: "Explicit surface resize block",
     frame: { resizable: true, resizeMode: "responsive" },
   }),
   defineBlock({
     nodeType: TEST_EMBEDDED_OWNER_NODE_TYPE,
+    title: "Embedded resize owner",
     frame: { resizable: true, resizeMode: "responsive" },
     interaction: { embeddedChildSelection: "delegate-to-parent" },
   }),
@@ -1144,12 +1158,15 @@ describe("createTiptapResizableReactNodeView", () => {
     editor = new Editor({
       extensions: [
         DocumentNode,
-        StarterKit.configure({ document: false, undoRedo: false }),
+        StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
+        ExtendedParagraph,
         createScaffoldInteractionOwnerExtension(testBlockRegistry),
         CourseDocumentNode,
         createCourseSectionNode(),
         SurfaceNode,
+        ...surfaceAssessmentQuestionSchemaExtensions,
         RegionNode,
+        LayerNode,
         GridAuthoringNode,
         CellAuthoringNode,
         TestCellArrangementNode,

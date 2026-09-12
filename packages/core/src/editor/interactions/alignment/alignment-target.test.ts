@@ -26,8 +26,12 @@ const RESIZABLE = "alignment_target_resizable";
 const FIXED = "alignment_target_fixed";
 
 const testBlockRegistry = createBlockRegistry([
-  defineBlock({ nodeType: RESIZABLE, frame: { resizable: true } }),
-  defineBlock({ nodeType: FIXED }),
+  defineBlock({
+    nodeType: RESIZABLE,
+    title: "Resizable alignment target",
+    frame: { resizable: true },
+  }),
+  defineBlock({ nodeType: FIXED, title: "Fixed alignment target" }),
 ]);
 const testSurfaceVariants = createSurfaceVariantRegistry([
   slideCoverSurfaceDefinition,

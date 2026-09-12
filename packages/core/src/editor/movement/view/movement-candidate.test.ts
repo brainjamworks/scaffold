@@ -8,12 +8,17 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { CourseDocumentNode, DocumentNode, createCourseSectionNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import {
   courseBlockAuthoringFrameAttributes,
   structuralAuthoringFrameAttributes,
@@ -56,10 +61,10 @@ import {
 
 const testBlockRegistry = createBlockRegistry([
   ...builtInBlockRegistry.definitions,
-  defineBlock({ nodeType: "test_block" }),
-  defineBlock({ nodeType: "test_framed_block" }),
-  defineBlock({ nodeType: "test_framed_assessment" }),
-  defineBlock({ nodeType: "test_composite_block" }),
+  defineBlock({ nodeType: "test_block", title: "Movement candidate block" }),
+  defineBlock({ nodeType: "test_framed_block", title: "Framed movement candidate" }),
+  defineBlock({ nodeType: "test_framed_assessment", title: "Framed assessment candidate" }),
+  defineBlock({ nodeType: "test_composite_block", title: "Composite movement candidate" }),
 ]);
 
 const createStructureMovementPolicy = (
@@ -277,7 +282,7 @@ const TestFieldNode = Node.create({
 
 const TestFramedAssessmentNode = Node.create({
   name: "test_framed_assessment",
-  group: "block",
+  group: "block assessment_question",
   content: "assessment_choices_group",
   defining: true,
   isolating: true,
@@ -616,6 +621,9 @@ function makeEditor(content: JSONContent[]) {
       createCourseSectionNode(),
       SurfaceNode,
       MovementRegionNode,
+      LayerNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       MovementGridNode,
       MovementCellNode,
       MovementLayoutNode,

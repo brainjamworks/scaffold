@@ -8,6 +8,7 @@ describe("createBlockInsertAction", () => {
   it("derives divergent action and node identities without mutating the definition", () => {
     const definition = defineBlock({
       nodeType: "fixture",
+      title: "Fixture block",
       insert: {
         id: "insert-fixture",
         title: "Fixture",
@@ -27,6 +28,7 @@ describe("createBlockInsertAction", () => {
   it("keeps the singular projector focused on the primary action", () => {
     const definition = defineBlock({
       nodeType: "fixture",
+      title: "Fixture block",
       insert: {
         id: "fixture",
         title: "Fixture",
@@ -52,9 +54,10 @@ describe("createBlockInsertAction", () => {
   });
 
   it("returns null for a non-insertable definition and filters it from array derivation", () => {
-    const hidden = defineBlock({ nodeType: "hidden" });
+    const hidden = defineBlock({ nodeType: "hidden", title: "Hidden fixture block" });
     const visible = defineBlock({
       nodeType: "fixture",
+      title: "Fixture block",
       insert: {
         id: "fixture",
         title: "Fixture",
@@ -80,6 +83,7 @@ describe("createBlockInsertAction", () => {
     const secondContent = vi.fn(() => ({ type: "fixture", attrs: { data: { label: "Second" } } }));
     const definition = defineBlock({
       nodeType: "fixture",
+      title: "Fixture block",
       insert: {
         id: "fixture",
         title: "Fixture",
@@ -153,6 +157,7 @@ describe("createBlockInsertAction", () => {
   it("projects bounded placement onto primary and variant actions", () => {
     const definition = defineBlock({
       nodeType: "fixture",
+      title: "Fixture block",
       boundedPlacement: "fill",
       insert: {
         id: "fixture",
@@ -176,5 +181,4 @@ describe("createBlockInsertAction", () => {
       ["fill", "fill"],
     );
   });
-
 });

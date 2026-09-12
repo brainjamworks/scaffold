@@ -33,6 +33,7 @@ import {
 } from "@/editor/arrangements/grid/authoring/grid-nodes";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { AUTHORING_FRAME_ATTR } from "@/editor/interactions/dom/authoring-frame";
 import { defineConfiguration } from "@/editor/configuration/definition";
@@ -45,6 +46,7 @@ import { DefaultLayoutContent } from "@/editor/arrangements/layout/authoring/def
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
 const coreCapabilities = Object.freeze({
   blocks: Object.freeze({ registry: builtInBlockRegistry }),
@@ -240,7 +242,9 @@ function createUniversalLayoutContractEditor(): Editor {
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       GridAuthoringNode,
       CellAuthoringNode,

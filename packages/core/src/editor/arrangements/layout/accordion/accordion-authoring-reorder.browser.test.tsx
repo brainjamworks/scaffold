@@ -10,6 +10,7 @@ import { page, userEvent } from "vite-plus/test/browser/context";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { SECTION_ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { createLayoutAuthoringNodes } from "@/editor/arrangements/layout/authoring/layout-nodes";
 import { createLayoutAuthoringViewRegistry } from "@/editor/arrangements/layout/authoring/layout-view-registry";
@@ -23,6 +24,7 @@ import { AUTHORING_MOVEMENT_SILHOUETTE_ATTR } from "@/editor/movement/view/autho
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
 import "@radix-ui/themes/styles.css";
 
@@ -220,7 +222,9 @@ async function mountAccordionAuthoringHarness(): Promise<AccordionAuthoringHarne
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       TestSectionArrangementNode,
       TestLayoutAuthoringNode,
       TestSectionAuthoringNode,

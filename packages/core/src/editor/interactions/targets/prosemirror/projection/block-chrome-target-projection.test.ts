@@ -28,15 +28,18 @@ const EMBEDDED_CHILD = "v2_chrome_desc_embedded_child";
 
 const blockDefinition = defineBlock({
   nodeType: BLOCK,
+  title: "Block chrome target",
 });
 
 const resizableBlockDefinition = defineBlock({
   nodeType: RESIZABLE_BLOCK,
+  title: "Resizable block chrome target",
   frame: { resizable: true },
 });
 
 const delegateParentDefinition = defineBlock({
   nodeType: DELEGATE_PARENT,
+  title: "Delegating block chrome parent",
   interaction: {
     embeddedChildSelection: "delegate-to-parent",
   },
@@ -44,6 +47,7 @@ const delegateParentDefinition = defineBlock({
 
 const embeddedChildDefinition = defineBlock({
   nodeType: EMBEDDED_CHILD,
+  title: "Embedded block chrome child",
 });
 
 const testBlockRegistry = createBlockRegistry([

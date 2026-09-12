@@ -22,10 +22,12 @@ const INLINE_ATOM = "v2_cs_projection_inline_atom";
 
 const blockDefinition = defineBlock({
   nodeType: BLOCK,
+  title: "Course selection block",
 });
 
 const delegateParentDefinition = defineBlock({
   nodeType: DELEGATE_PARENT,
+  title: "Delegating course selection parent",
   interaction: {
     embeddedChildSelection: "delegate-to-parent",
   },
@@ -33,6 +35,7 @@ const delegateParentDefinition = defineBlock({
 
 const embeddedChildDefinition = defineBlock({
   nodeType: EMBEDDED_CHILD,
+  title: "Embedded course selection child",
 });
 
 const testBlockRegistry = createBlockRegistry([

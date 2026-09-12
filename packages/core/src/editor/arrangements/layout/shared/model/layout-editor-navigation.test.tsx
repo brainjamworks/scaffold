@@ -23,6 +23,7 @@ import {
 } from "@/document/authoring/testing/semantic-activation-binding-test-extension";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
@@ -45,6 +46,7 @@ import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authori
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { createTestNodeIdentityExtension } from "@/editor/testing";
 
@@ -113,18 +115,13 @@ describe("Layout editor navigation", () => {
       const targetId = testCase.sectionIds[1] as EmbeddedNodeId;
 
       await waitFor(() => {
-        expect(targetInteractions.registry.resolve(layoutId).kind).toBe(
-          "resolved",
-        );
+        expect(targetInteractions.registry.resolve(layoutId).kind).toBe("resolved");
       });
 
-      expect(tree.getSnapshot().locationById.get(targetId)?.activationPath).toEqual(
-        [{ ownerId: layoutId, childId: targetId, ownerKind: "layout" }],
-      );
-      const binding = requireSemanticActivationBinding(
-        targetInteractions.registry,
-        layoutId,
-      );
+      expect(tree.getSnapshot().locationById.get(targetId)?.activationPath).toEqual([
+        { ownerId: layoutId, childId: targetId, ownerKind: "layout" },
+      ]);
+      const binding = requireSemanticActivationBinding(targetInteractions.registry, layoutId);
       const authoredDocument = editor.getJSON();
       const click = vi.fn();
       document.addEventListener("click", click);
@@ -203,14 +200,9 @@ describe("Layout editor navigation", () => {
     );
 
     await waitFor(() => {
-      expect(targetInteractions.registry.resolve(layoutId).kind).toBe(
-        "resolved",
-      );
+      expect(targetInteractions.registry.resolve(layoutId).kind).toBe("resolved");
     });
-    const binding = requireSemanticActivationBinding(
-      targetInteractions.registry,
-      layoutId,
-    );
+    const binding = requireSemanticActivationBinding(targetInteractions.registry, layoutId);
     let result: unknown;
     const activation = binding
       .activate(semanticActivationRequest(layoutId, targetId, { ownerKind: "layout" }))
@@ -259,14 +251,9 @@ describe("Layout editor navigation", () => {
     );
 
     await waitFor(() => {
-      expect(targetInteractions.registry.resolve(layoutId).kind).toBe(
-        "resolved",
-      );
+      expect(targetInteractions.registry.resolve(layoutId).kind).toBe("resolved");
     });
-    const binding = requireSemanticActivationBinding(
-      targetInteractions.registry,
-      layoutId,
-    );
+    const binding = requireSemanticActivationBinding(targetInteractions.registry, layoutId);
     const activation = binding.activate(
       semanticActivationRequest(layoutId, targetId, { ownerKind: "layout" }),
     );
@@ -311,14 +298,9 @@ describe("Layout editor navigation", () => {
     );
 
     await waitFor(() => {
-      expect(targetInteractions.registry.resolve(layoutId).kind).toBe(
-        "resolved",
-      );
+      expect(targetInteractions.registry.resolve(layoutId).kind).toBe("resolved");
     });
-    const binding = requireSemanticActivationBinding(
-      targetInteractions.registry,
-      layoutId,
-    );
+    const binding = requireSemanticActivationBinding(targetInteractions.registry, layoutId);
     const first = binding.activate(
       semanticActivationRequest(layoutId, targetId, { ownerKind: "layout" }),
     );
@@ -371,9 +353,7 @@ describe("Layout editor navigation", () => {
     );
 
     await waitFor(() => {
-      expect(targetInteractions.registry.resolve(layoutId).kind).toBe(
-        "resolved",
-      );
+      expect(targetInteractions.registry.resolve(layoutId).kind).toBe("resolved");
     });
     const ownerWindow = editor.view.dom.ownerDocument.defaultView;
     if (!ownerWindow) throw new Error("Missing editor owner window");
@@ -387,10 +367,7 @@ describe("Layout editor navigation", () => {
     });
 
     try {
-      const binding = requireSemanticActivationBinding(
-        targetInteractions.registry,
-        layoutId,
-      );
+      const binding = requireSemanticActivationBinding(targetInteractions.registry, layoutId);
       await expect(
         binding.activate(semanticActivationRequest(layoutId, targetId, { ownerKind: "layout" })),
       ).resolves.toEqual({
@@ -471,7 +448,9 @@ function makeEditor(testCase: LayoutNavigationCase): Editor {
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       GridAuthoringNode,
       CellAuthoringNode,
       LayoutAuthoringNode,

@@ -20,6 +20,7 @@ const testCapabilities = createScaffoldApplication().capabilities;
 
 const plainBlockDefinition = defineBlock({
   nodeType: TEST_PLAIN_NODE_TYPE,
+  title: "Plain authoring frame block",
   boundedPlacement: "fill",
 });
 

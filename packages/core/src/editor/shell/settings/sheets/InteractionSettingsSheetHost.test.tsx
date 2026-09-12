@@ -86,6 +86,7 @@ const TestSectionNode = Node.create({
 
 const hostBlockDefinition = defineBlock({
   nodeType: HOST_BLOCK,
+  title: "Settings sheet host block",
   configuration: defineConfiguration({
     attr: "settings",
     schema: z.object({ label: z.string().default("") }),
@@ -237,10 +238,7 @@ describe("InteractionSettingsSheetHost", () => {
     renderHost(editor, store);
 
     expect(await screen.findByText("Tabs settings")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Tabs" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
+    expect(screen.getByRole("button", { name: "Tabs" })).toHaveAttribute("aria-expanded", "true");
     await userEvent.click(screen.getByRole("combobox", { name: "Style" }));
     await userEvent.click(screen.getByRole("option", { name: "Pills" }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));

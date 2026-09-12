@@ -39,9 +39,15 @@ import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/t
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import "@/styles/globals.css";
 
 import { ContainedMovementHandle } from "./ContainedMovementHandle";
@@ -54,7 +60,7 @@ import {
 
 const TEST_BLOCK = "authoring_movement_browser_block";
 const blockRegistry = createBlockRegistry([
-  defineBlock({ nodeType: TEST_BLOCK }),
+  defineBlock({ nodeType: TEST_BLOCK, title: "Authoring movement block" }),
   resourceLinkBlockDefinition,
   timelineBlockDefinition,
 ]);
@@ -838,7 +844,11 @@ async function mountMovementHarness({
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       GridAuthoringNode,
       CellAuthoringNode,
       LayoutAuthoringNode,

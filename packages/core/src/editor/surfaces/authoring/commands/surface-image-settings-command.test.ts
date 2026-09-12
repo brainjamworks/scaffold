@@ -10,6 +10,7 @@ import {
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
@@ -36,6 +37,7 @@ import { defineSurfaceImageRoles } from "@/editor/surfaces/model/surface-owned-i
 import { setSurfaceOwnedImageChecked } from "./surface-image-settings-command";
 import { DEFAULT_SURFACE_SETTINGS } from "@/editor/surfaces/model/surface-settings";
 import { createTestNodeIdentityExtension } from "@/editor/testing";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
 const registeredSlideCoverSurfaceDefinition = builtInSurfaceVariantRegistry.get("slide-cover");
 if (!registeredSlideCoverSurfaceDefinition) {
@@ -137,7 +139,9 @@ function makeEditor({
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       SlideTitleNode,
       SurfaceHeaderNode,
       SurfaceHeaderFooterSlotNode,

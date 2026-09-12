@@ -37,6 +37,7 @@ import {
   ExtendedOrderedList,
 } from "@/editor/rich-text/model/rich-text-blocks";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import {
   CellAuthoringNode,
   GridAuthoringNode,
@@ -79,6 +80,7 @@ import { createAlignmentTargetPort } from "@/editor/interactions/alignment/align
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { builtInSurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-views";
 import { describeLayoutContract } from "@/editor/testing";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
 import {
   createLayoutAuthoringNodeView,
@@ -294,7 +296,9 @@ function makeEditor(content?: JSONContent) {
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       GridAuthoringNode,
       CellAuthoringNode,

@@ -25,10 +25,12 @@ const INLINE_ATOM = "v2_selection_input_inline_atom";
 
 const blockDefinition = defineBlock({
   nodeType: BLOCK,
+  title: "Selection input block",
 });
 
 const delegateParentDefinition = defineBlock({
   nodeType: DELEGATE_PARENT,
+  title: "Delegating selection parent",
   interaction: {
     embeddedChildSelection: "delegate-to-parent",
   },
@@ -36,6 +38,7 @@ const delegateParentDefinition = defineBlock({
 
 const embeddedChildDefinition = defineBlock({
   nodeType: EMBEDDED_CHILD,
+  title: "Embedded selection child",
 });
 
 const testBlockRegistry = createBlockRegistry([

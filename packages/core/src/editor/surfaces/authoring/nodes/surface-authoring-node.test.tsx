@@ -16,9 +16,14 @@ import { createElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { defineBlock } from "@/editor/blocks/block-definition";
@@ -35,6 +40,7 @@ import {
 } from "@/document/model/content-model/content-groups";
 import { createScaffoldTextAlignExtension } from "@/editor/rich-text/model/text-alignment";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 
 import { PageDefaultSurfaceAuthoringView } from "../../variants/page-default/authoring";
@@ -1472,7 +1478,11 @@ function createEditor(
         registry: surfaceComposition.registry,
         views: surfaceComposition.views,
       }),
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionAuthoringNode,
+      LayerNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       GridNode,
       CellNode,
       LayoutNode,

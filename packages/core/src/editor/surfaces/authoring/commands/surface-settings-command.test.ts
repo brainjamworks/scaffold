@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
@@ -23,6 +24,7 @@ import { DEFAULT_SURFACE_SETTINGS } from "@/editor/surfaces/model/surface-settin
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { SurfaceSettingsSchema } from "@/schemas/course-document";
 import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
 import { applySurfaceSettings, setSurfaceSettingsChecked } from "./surface-settings-command";
 
@@ -50,7 +52,9 @@ function makeEditor(surfaceIds: readonly EmbeddedNodeId[] = [SURFACE_ID]): Edito
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       SurfaceHeaderNode,
       SurfaceHeaderFooterSlotNode,
       SlideCoverSubtitleNode,

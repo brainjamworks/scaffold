@@ -1,5 +1,7 @@
 import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
-import { Schema, type Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { getSchema, Node } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { describe, expect, it } from "vite-plus/test";
 
 import { projectCourseStructure } from "@/document/model/course-structure/course-structure-projection";
@@ -9,56 +11,57 @@ import {
   type DocumentTreeDefinitionLookup,
   type DocumentTreeSurfaceDefinition,
 } from "@/document/model/document-tree";
+import { LayerNode } from "@/document/model/layers/layer-node";
+import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
+import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
 import { builtInSurfaceVariantRegistry } from "./built-in-surface-variant-definitions";
 import { createSurfaceDocumentTree } from "./surface-document-tree";
+import { RegionNode } from "./nodes/region-node";
+import { SurfaceNode } from "./nodes/surface-node";
 
-const schema = new Schema({
-  nodes: {
-    doc: { content: "courseDocument" },
-    text: { group: "inline" },
-    courseDocument: {
-      content: "(courseSection | surface)+",
-      attrs: { id: { default: null }, mode: { default: "page" } },
-    },
-    courseSection: {
-      atom: true,
-      attrs: { id: { default: null }, title: { default: null } },
-    },
-    surface: {
-      content: "block+",
-      attrs: { id: { default: null }, variant: { default: null }, settings: { default: null } },
-    },
-    region: {
-      group: "block",
-      content: "block+",
-      attrs: {
-        id: { default: null },
-        role: { default: "main" },
-      },
-    },
-    heading: {
-      group: "block",
-      content: "inline*",
-      attrs: { id: { default: null } },
-    },
-    paragraph: {
-      group: "block",
-      content: "inline*",
-      attrs: { id: { default: null } },
-    },
-    slide_title: {
-      group: "block",
-      content: "inline*",
-      attrs: { id: { default: null } },
-    },
-    slide_cover_subtitle: {
-      group: "block",
-      content: "paragraph+",
-      attrs: { id: { default: null } },
-    },
-  },
+const TestDocumentNode = Node.create({ name: "doc", topNode: true, content: "courseDocument" });
+const TestCourseDocumentNode = Node.create({
+  name: "courseDocument",
+  content: "(courseSection | surface)+",
+  addAttributes: () => ({ id: { default: null }, mode: { default: "page" } }),
 });
+const TestCourseSectionNode = Node.create({
+  name: "courseSection",
+  atom: true,
+  addAttributes: () => ({ id: { default: null }, title: { default: null } }),
+});
+const TestSlideTitleNode = Node.create({
+  name: "slide_title",
+  group: "block",
+  content: "inline*",
+  addAttributes: () => ({ id: { default: null } }),
+});
+const TestSlideCoverSubtitleNode = Node.create({
+  name: "slide_cover_subtitle",
+  group: "block",
+  content: "paragraph+",
+  addAttributes: () => ({ id: { default: null } }),
+});
+
+const schema = getSchema([
+  TestDocumentNode,
+  createTestNodeIdentityExtension(),
+  StarterKit.configure({ document: false, paragraph: false }),
+  ExtendedParagraph,
+  TestCourseDocumentNode,
+  TestCourseSectionNode,
+  SurfaceNode,
+  ...surfaceAssessmentQuestionSchemaExtensions,
+  RegionNode,
+  LayerNode,
+  GridNode,
+  CellNode,
+  TestSlideTitleNode,
+  TestSlideCoverSubtitleNode,
+]);
 
 describe("built-in Surface document semantics", () => {
   it("publishes direct page prose and delegates Region prose to its structural owner", () => {

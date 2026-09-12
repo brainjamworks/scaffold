@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
 import {
   builtInBlockCapabilityRegistrations,
@@ -31,6 +32,10 @@ import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
 } from "@/editor/arrangements/layout/authoring/layout-nodes";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { CalloutAuthoringExtension } from "@/editor/blocks/presentation/callout";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
@@ -684,8 +689,11 @@ function makeFullChromeOuterEditor(): Editor {
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       GridAuthoringNode,
       CellAuthoringNode,
+      LayerNode,
       LayoutAuthoringNode,
       SectionAuthoringNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       CalloutAuthoringExtension,
       makeTargetNode(true),
       makeReactBlockNode(),
@@ -711,8 +719,11 @@ function makeFullChromeInnerExtensions(catalogItems: readonly InsertAction[]): E
     createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
     GridAuthoringNode,
     CellAuthoringNode,
+    LayerNode,
     LayoutAuthoringNode,
     SectionAuthoringNode,
+    AccordionSectionTitleNode,
+    AccordionSectionPanelNode,
     CalloutAuthoringExtension,
     makeReactBlockNode(),
     createSlashCommand({

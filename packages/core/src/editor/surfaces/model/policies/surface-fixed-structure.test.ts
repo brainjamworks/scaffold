@@ -9,6 +9,7 @@ import {
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
 import {
@@ -19,6 +20,7 @@ import {
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SlideCoverSubtitleNode } from "@/editor/surfaces/model/nodes/slide-cover-subtitle";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
 import type { FixedSurfaceChild } from "../surface-variant-definition";
 import {
@@ -347,7 +349,9 @@ function proseMirrorSurface(surfaceJson: JSONContent) {
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       SurfaceHeaderNode,
       SurfaceHeaderFooterSlotNode,
       SlideCoverSubtitleNode,

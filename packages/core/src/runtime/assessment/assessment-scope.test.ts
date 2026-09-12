@@ -4,8 +4,11 @@ import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
+import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
 import { resolveAssessmentSurfaceScope } from "./assessment-scope";
 
@@ -46,12 +49,15 @@ function makeEditor({
   const editor = new Editor({
     extensions: [
       DocumentNode,
-      StarterKit.configure({ document: false, undoRedo: false }),
+      StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
+      ExtendedParagraph,
       CourseDocumentNode,
       createCourseSectionNode(),
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       TestArrangementNode,
       TestAssessmentNode,
     ],

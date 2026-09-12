@@ -10,6 +10,7 @@ import { courseBlockAuthoringFrameAttributes } from "@/editor/interactions/dom/a
 import type { ClientPoint } from "@/editor/interactions/drag/model/coordinate-space";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 
 import { resolveMovementNodeContext } from "../model/movement-policy";
@@ -33,7 +34,12 @@ export const ARTIFICIAL_MOVEMENT_BLOCKS_PER_SLIDE =
 
 const ARTIFICIAL_BLOCK_NODE = "artificial_large_movement_block";
 
-const blockDefinitions = createBlockRegistry([defineBlock({ nodeType: ARTIFICIAL_BLOCK_NODE })]);
+const blockDefinitions = createBlockRegistry([
+  defineBlock({
+    nodeType: ARTIFICIAL_BLOCK_NODE,
+    title: "Artificial movement block",
+  }),
+]);
 
 const ArtificialMovementBlockNode = Node.create({
   name: ARTIFICIAL_BLOCK_NODE,
@@ -139,6 +145,7 @@ export function createArtificialLargeMovementFixture(): ArtificialLargeMovementF
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       ArtificialMovementArrangementNode,
       ArtificialMovementRegionNode,
       ArtificialMovementBlockNode,

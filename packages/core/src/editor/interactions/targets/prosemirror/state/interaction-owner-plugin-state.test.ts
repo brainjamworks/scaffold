@@ -27,6 +27,7 @@ const BLOCK = "v2_owner_plugin_state_block";
 const testBlockRegistry = createBlockRegistry([
   defineBlock({
     nodeType: BLOCK,
+    title: "Interaction owner state block",
   }),
 ]);
 

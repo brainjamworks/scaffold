@@ -24,7 +24,9 @@ import { interactionOwnerPluginKey } from "../state/interaction-owner-plugin-sta
 
 const BLOCK = "v2_keyboard_workflow_block";
 
-const testBlockRegistry = createBlockRegistry([defineBlock({ nodeType: BLOCK })]);
+const testBlockRegistry = createBlockRegistry([
+  defineBlock({ nodeType: BLOCK, title: "Keyboard workflow block" }),
+]);
 const testCapabilities = resolveScaffoldCapabilities({
   blockCapabilities: testBlockRegistry.definitions.map((definition) => ({ definition })),
   layoutDefinitions: [],

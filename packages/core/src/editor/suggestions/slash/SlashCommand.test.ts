@@ -652,6 +652,7 @@ function hostBlockCapability(nodeType: string, boundedPlacement?: "fill"): Block
   return {
     definition: {
       nodeType,
+      title,
       ...(boundedPlacement ? { boundedPlacement } : {}),
       insert: {
         id: nodeType.replaceAll("_", "-"),

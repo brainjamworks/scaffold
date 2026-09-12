@@ -42,9 +42,10 @@ const SettingsContextPlainParentNode = Node.create({
 });
 
 const testBlockRegistry = createBlockRegistry([
-  defineBlock({ nodeType: "settings_context_child" }),
+  defineBlock({ nodeType: "settings_context_child", title: "Settings context child" }),
   defineBlock({
     nodeType: "settings_context_parent",
+    title: "Managed settings context parent",
     childSettings: {
       managedFields: [
         {
@@ -59,7 +60,10 @@ const testBlockRegistry = createBlockRegistry([
       ],
     },
   }),
-  defineBlock({ nodeType: "settings_context_plain_parent" }),
+  defineBlock({
+    nodeType: "settings_context_plain_parent",
+    title: "Plain settings context parent",
+  }),
 ]);
 
 function createSettingsContextEditor(parentType: string) {

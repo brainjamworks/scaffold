@@ -8,6 +8,11 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { SECTION_ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
@@ -22,6 +27,7 @@ import { AUTHORING_CONTAINED_REORDER_PROJECTION_ATTR } from "@/editor/movement/v
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
 import "@radix-ui/themes/styles.css";
 
@@ -187,7 +193,11 @@ async function mountTabsAuthoringHarness(): Promise<TabsAuthoringHarness> {
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       TestSectionArrangementNode,
       TestLayoutAuthoringNode,
       TestSectionAuthoringNode,

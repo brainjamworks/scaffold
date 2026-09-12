@@ -9,7 +9,9 @@ import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import {
   createCourseColourSystemRegistry,
   type CourseColourSystemRegistry,
@@ -698,10 +700,12 @@ function createEditor(theme: PersistedCourseTheme = createDefaultPersistedCourse
   const editor = new Editor({
     extensions: [
       DocumentNode,
-      StarterKit.configure({ document: false }),
+      StarterKit.configure({ document: false, paragraph: false }),
+      ExtendedParagraph,
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       TestArrangementNode,
       TestRegionNode,
     ],

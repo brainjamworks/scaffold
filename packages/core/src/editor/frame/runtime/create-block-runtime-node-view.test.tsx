@@ -21,11 +21,13 @@ const testCapabilities = createScaffoldApplication().capabilities;
 
 const eagerBlockDefinition = defineBlock({
   nodeType: TEST_EAGER_NODE_TYPE,
+  title: "Eager runtime frame block",
   boundedPlacement: "fill",
 });
 
 const lazyBlockDefinition = defineBlock({
   nodeType: TEST_LAZY_NODE_TYPE,
+  title: "Lazy runtime frame block",
   frame: {
     resizable: true,
     resizeMode: "freeform",

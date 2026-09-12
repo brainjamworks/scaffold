@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import {
   CellAuthoringNode,
@@ -34,6 +35,7 @@ import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 import { AccordionSectionPanelNode, AccordionSectionTitleNode } from "./accordion-section-nodes";
@@ -103,9 +105,7 @@ describe("bounded accordion authoring", () => {
     ).toBe(false);
     const addSection = screen.getByRole("button", { name: "Add section" });
     const moveSection = layout?.querySelector<HTMLElement>("[data-authoring-move-handle]");
-    const sectionOptions = layout?.querySelector<HTMLElement>(
-      "[data-layout-section-menu-trigger]",
-    );
+    const sectionOptions = layout?.querySelector<HTMLElement>("[data-layout-section-menu-trigger]");
     expect(addSection).toBeInTheDocument();
     expect(moveSection).not.toBeNull();
     expect(sectionOptions).not.toBeNull();
@@ -113,10 +113,7 @@ describe("bounded accordion authoring", () => {
     expect(layout?.querySelector(".sc-app-compact-movement-handle")).not.toBeNull();
     expect(layout?.querySelector(".sc-course-layout-chrome__move")).toBeNull();
     expect(addSection).toHaveClass("sc-app-block-add", "sc-app-accordion-add");
-    expect(addSection).not.toHaveClass(
-      "sc-course-layout-chrome__add",
-      "sc-course-accordion__add",
-    );
+    expect(addSection).not.toHaveClass("sc-course-layout-chrome__add", "sc-course-accordion__add");
     expect(moveSection).toHaveClass("sc-app-accordion-handle");
     expect(moveSection).not.toHaveClass("sc-course-accordion__handle");
     expect(sectionOptions).toHaveClass(
@@ -275,7 +272,9 @@ function makeEditor({
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       ...arrangementExtensions,
       AccordionSectionTitleNode,
       AccordionSectionPanelNode,

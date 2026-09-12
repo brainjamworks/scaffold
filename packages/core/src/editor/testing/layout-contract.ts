@@ -21,7 +21,12 @@ import {
   CellAuthoringNode,
   GridAuthoringNode,
 } from "@/editor/arrangements/grid/authoring/grid-nodes";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import type { BlockRegistry } from "@/editor/blocks/block-registry";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
@@ -30,6 +35,7 @@ import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 import { createTestNodeIdentityExtension } from "./node-identity";
+import { surfaceAssessmentQuestionSchemaExtensions } from "./surface-assessment-schema-extensions";
 
 export interface DescribeLayoutContractInput {
   blockDefinitions: BlockRegistry;
@@ -206,12 +212,16 @@ function createLayoutContractEditor(
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       createScaffoldInteractionOwnerExtension(blockDefinitions),
       GridAuthoringNode,
       CellAuthoringNode,
       LayoutContractNode,
       SectionContractNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       createTestNodeIdentityExtension(),
       ...editorExtensions,
     ],

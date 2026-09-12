@@ -5,10 +5,12 @@ import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { LayerNode } from "@/document/model/layers/layer-node";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { createTestNodeIdentityExtension } from "@/editor/testing";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
 const SURFACE_ID = "surface00001";
 const REGION_ID = "region000001";
@@ -119,7 +121,9 @@ function createEditor(): Editor {
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
       RegionNode,
+      LayerNode,
       RegionChildNode,
       TestArrangementNode,
       createTestNodeIdentityExtension(),
