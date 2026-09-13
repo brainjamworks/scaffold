@@ -16,10 +16,15 @@ import {
   DocumentTreeViewController,
 } from "@/document/authoring";
 import { createAuthoringEditorNavigationEnvironment } from "@/document/authoring/editor-navigation/authoring-editor-navigation-environment";
+import { authoringLayerNodeViewProjection } from "@/document/authoring/layers/authoring-layer-node-view-projection";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
+import { assertParsedMountedNodeIdentity } from "@/document/model/establishment/mounted-node-identity";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { createLayerWithContent } from "@/document/model/layers/layer-construction";
-import { LayerNode } from "@/document/model/layers/layer-node";
+import {
+  validateLayerContext,
+  validateLayerIdentities,
+} from "@/document/model/layers/layer-validation";
 import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
@@ -51,6 +56,8 @@ import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { interactionOwnerPluginKey } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-plugin-state";
 import { surfaceAuthoringFrameAttributes } from "@/editor/interactions/dom/authoring-frame";
+import { authoringInteractionRootAttributes } from "@/editor/interactions/dom/authoring-root";
+import { createLayerNodeView } from "@/editor/layers/layer-node-view";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
@@ -69,6 +76,16 @@ const IDS = {
   secondSurface: id("surface00002"),
   firstRegion: id("region000001"),
   secondRegion: id("region000002"),
+  proseLayer: id("layerprose01"),
+  gridLayer: id("layergrid001"),
+  flashcardLayer: id("layerflash01"),
+  galleryLayer: id("layergall001"),
+  processFlowLayer: id("layerflow001"),
+  roadmapLayer: id("layerroad001"),
+  timelineLayer: id("layertime001"),
+  annotationLayer: id("layeranno001"),
+  mcqLayer: id("layermcq0001"),
+  nestedTabsLayer: id("layernest001"),
   prose: id("prose0000001"),
   grid: id("grid00000001"),
   firstCell: id("cell00000001"),
@@ -80,22 +97,46 @@ const IDS = {
   accordion: id("accord000001"),
   firstAccordion: id("accsect00001"),
   secondAccordion: id("accsect00002"),
+  firstAccordionTitle: id("acctitle0001"),
+  firstAccordionTitleText: id("acctext00001"),
+  firstAccordionPanel: id("accpanel0001"),
+  secondAccordionTitle: id("acctitle0002"),
+  secondAccordionTitleText: id("acctext00002"),
+  secondAccordionPanel: id("accpanel0002"),
   flashcard: id("flashcard001"),
   firstFlashcardCard: id("flashcard101"),
   secondFlashcardCard: id("flashcard102"),
+  firstFlashcardFront: id("cardfront001"),
+  firstFlashcardBack: id("cardback0001"),
+  secondFlashcardFront: id("cardfront002"),
+  secondFlashcardBack: id("cardback0002"),
   gallery: id("gallery00001"),
   firstGalleryItem: id("galleryitem1"),
   secondGalleryItem: id("galleryitem2"),
   processFlow: id("procflow0001"),
   firstProcessFlowStep: id("flowstep0001"),
   secondProcessFlowStep: id("flowstep0002"),
+  processFlowParagraphs: [
+    [id("flowtitle001"), id("flowbody0001")],
+    [id("flowtitle002"), id("flowbody0002")],
+  ],
   roadmap: id("roadmap00001"),
   firstRoadmapMilestone: id("milestone001"),
   secondRoadmapMilestone: id("milestone002"),
+  roadmapParagraphs: [
+    [id("roadtitle001"), id("roadbody0001")],
+    [id("roadtitle002"), id("roadbody0002")],
+  ],
   timeline: id("timeline0001"),
   firstTimelineEntry: id("timelineitm1"),
   secondTimelineEntry: id("timelineitm2"),
+  timelineParagraphs: [
+    [id("timetitle001"), id("timedate0001"), id("timebody0001")],
+    [id("timetitle002"), id("timedate0002"), id("timebody0002")],
+  ],
   annotationFigure: id("annotfig0001"),
+  annotationCanvas: id("annotcanvas1"),
+  annotationLegend: id("annotlegend1"),
   annotation: id("annotpin0001"),
   mcq: id("mcqblock0001"),
   outerTabs: id("outertabs001"),
@@ -108,6 +149,11 @@ const IDS = {
 } as const;
 
 const mounted: MountedOutlineHarness[] = [];
+const TestLayerAuthoringNode = createLayerNodeView({
+  blockDefinitions: builtInBlockRegistry,
+  layoutDefinitions: builtInLayoutRegistry,
+  projection: authoringLayerNodeViewProjection,
+});
 
 afterEach(async () => {
   while (mounted.length > 0) await mounted.pop()!.dispose();
@@ -135,6 +181,7 @@ describe("Document Outline bidirectional navigation", () => {
     expect(harness.editor.view.dom.contains(document.activeElement)).toBe(true);
     expect(harness.viewController.getSnapshot().expandedIds.has(IDS.firstSurface)).toBe(true);
 
+    await openLayerForDirectInteraction(harness, IDS.hiddenTab, IDS.gridLayer);
     const hiddenTab = roleElement<HTMLButtonElement>("tab", "Hidden topic");
     hiddenTab.focus();
     hiddenTab.click();
@@ -142,6 +189,7 @@ describe("Document Outline bidirectional navigation", () => {
     expect(selectedOutlineLabel()).toContain("Hidden topic");
     expect(document.activeElement?.getAttribute("role")).toBe("tab");
 
+    await openLayerForDirectInteraction(harness, IDS.annotation, IDS.annotationLayer);
     await expect.element(page.getByRole("button", { name: "Select annotation 1" })).toBeVisible();
     const annotationPin = roleElement<HTMLButtonElement>("button", "Select annotation 1");
     annotationPin.focus();
@@ -344,12 +392,14 @@ describe("Document Outline bidirectional navigation", () => {
         target: { id: testCase.ownerId, kind: "block" },
       });
       expect(harness.revealedIds.at(-1)).toBe(testCase.ownerId);
+      if (testCase.ownerId === IDS.gallery) {
+        await expect.element(page.getByRole("img", { name: "Second outline image" })).toBeVisible();
+      }
       if (ownedScroll) {
         expect(ownedScroll).toHaveBeenCalledWith({ behavior: "smooth", left: 260 });
       }
     }
 
-    await expect.element(page.getByRole("img", { name: "Second outline image" })).toBeVisible();
     expect(page.getByRole("dialog", { name: "Gallery viewer" }).elements()).toHaveLength(0);
   });
 
@@ -475,7 +525,7 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
       createCourseSectionNode(),
       TestSurfaceAuthoringNode,
       RegionNode,
-      LayerNode,
+      TestLayerAuthoringNode,
       GridAuthoringNode,
       CellAuthoringNode,
       LayoutAuthoringNode,
@@ -493,6 +543,16 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
     ],
     content: representativeDocument(),
   });
+  editor.state.doc.check();
+  expect(assertParsedMountedNodeIdentity(editor.state.doc)).toEqual([]);
+  expect(validateLayerIdentities(editor.state.doc)).toEqual([]);
+  expect(
+    validateLayerContext({
+      document: editor.state.doc,
+      blockDefinitions: builtInBlockRegistry,
+      layoutDefinitions: builtInLayoutRegistry,
+    }),
+  ).toEqual([]);
   const tree = getDocumentTreeForEditor(editor);
   const controller = getEditorNavigationForEditor(editor);
   const viewport = new DocumentOutlineRowViewport();
@@ -503,6 +563,9 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
     viewport,
   });
   const host = document.createElement("div");
+  for (const [name, value] of Object.entries(authoringInteractionRootAttributes())) {
+    host.setAttribute(name, value);
+  }
   const reactElement = document.createElement("div");
   host.append(reactElement);
   document.body.append(host);
@@ -615,19 +678,30 @@ async function expandAncestorsThroughOutline(
     const item = snapshot.itemById.get(id);
     if (!item || item.children.length === 0) continue;
     if (item.kind === "course-section" || item.kind === "surface") continue;
-    const button = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === `Expand ${item.label}`,
-    );
-    const alreadyExpanded = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).some(
-      (candidate) => candidate.getAttribute("aria-label") === `Collapse ${item.label}`,
-    );
-    if (!button && alreadyExpanded) continue;
-    if (!button)
-      throw new Error(`Expected disclosure for ${item.label}. Visible tree: ${treeText()}`);
-    button.focus();
-    button.click();
+    harness.viewController.setExpanded(id, true);
     await expect.poll(() => harness.viewController.getSnapshot().expandedIds.has(id)).toBe(true);
   }
+  await harness.viewController.reveal(targetId, {
+    expandAncestors: true,
+    focus: false,
+    select: false,
+  });
+}
+
+async function openLayerForDirectInteraction(
+  harness: MountedOutlineHarness,
+  targetId: EmbeddedNodeId,
+  layerId: EmbeddedNodeId,
+): Promise<void> {
+  expect(
+    harness.controller.authoringLayers.openAncestorsForTarget(harness.tree.getSnapshot(), targetId),
+  ).toMatchObject({ kind: "opened", targetId });
+  await expect
+    .poll(
+      () =>
+        harness.editor.view.dom.querySelector<HTMLElement>(`[data-layer-id="${layerId}"]`)?.hidden,
+    )
+    .toBe(false);
 }
 
 function selectedOutlineLabel(): string {
@@ -817,8 +891,8 @@ function representativeDocument(): JSONContent {
                 type: "region",
                 attrs: { id: IDS.firstRegion, role: "main" },
                 content: [
-                  createLayerWithContent([
-                    paragraph(IDS.prose, "Editor prose"),
+                  layer(IDS.proseLayer, [paragraph(IDS.prose, "Editor prose")]),
+                  layer(IDS.gridLayer, [
                     {
                       type: "grid",
                       attrs: { id: IDS.grid },
@@ -835,15 +909,15 @@ function representativeDocument(): JSONContent {
                         },
                       ],
                     },
-                    flashcardContent(),
-                    galleryContent(),
-                    processFlowContent(),
-                    roadmapContent(),
-                    timelineContent(),
-                    annotatedFigureContent(),
-                    { type: "mcq", attrs: { id: IDS.mcq, assessment: {} } },
-                    nestedTabsContent(),
                   ]),
+                  layer(IDS.flashcardLayer, [flashcardContent()]),
+                  layer(IDS.galleryLayer, [galleryContent()]),
+                  layer(IDS.processFlowLayer, [processFlowContent()]),
+                  layer(IDS.roadmapLayer, [roadmapContent()]),
+                  layer(IDS.timelineLayer, [timelineContent()]),
+                  layer(IDS.annotationLayer, [annotatedFigureContent()]),
+                  layer(IDS.mcqLayer, [{ type: "mcq", attrs: { id: IDS.mcq, assessment: {} } }]),
+                  layer(IDS.nestedTabsLayer, [nestedTabsContent()]),
                 ],
               },
             ],
@@ -867,6 +941,10 @@ function representativeDocument(): JSONContent {
       },
     ],
   };
+}
+
+function layer(layerId: EmbeddedNodeId, content: readonly JSONContent[]): JSONContent {
+  return createLayerWithContent(content, { createId: () => layerId });
 }
 
 function nestedTabsContent(): JSONContent {
@@ -959,9 +1037,14 @@ function accordionContent(): JSONContent {
         type: "section",
         attrs: { id: IDS.firstAccordion, options: { defaultOpen: true } },
         content: [
-          { type: "accordion_section_title", content: [paragraph(undefined, "First detail")] },
+          {
+            type: "accordion_section_title",
+            attrs: { id: IDS.firstAccordionTitle },
+            content: [paragraph(IDS.firstAccordionTitleText, "First detail")],
+          },
           {
             type: "accordion_section_panel",
+            attrs: { id: IDS.firstAccordionPanel },
             content: [createLayerWithContent([paragraph("accpara00001", "First panel")])],
           },
         ],
@@ -970,9 +1053,14 @@ function accordionContent(): JSONContent {
         type: "section",
         attrs: { id: IDS.secondAccordion, options: { defaultOpen: false } },
         content: [
-          { type: "accordion_section_title", content: [paragraph(undefined, "Second detail")] },
+          {
+            type: "accordion_section_title",
+            attrs: { id: IDS.secondAccordionTitle },
+            content: [paragraph(IDS.secondAccordionTitleText, "Second detail")],
+          },
           {
             type: "accordion_section_panel",
+            attrs: { id: IDS.secondAccordionPanel },
             content: [createLayerWithContent([paragraph("accpara00002", "Second panel")])],
           },
         ],
@@ -992,10 +1080,12 @@ function flashcardContent(): JSONContent {
         content: [
           {
             type: "flashcard_card_front",
+            attrs: { id: IDS.firstFlashcardFront },
             content: [paragraph("flashfront01", "Private flashcard front")],
           },
           {
             type: "flashcard_card_back",
+            attrs: { id: IDS.firstFlashcardBack },
             content: [paragraph("flashback001", "Private flashcard back")],
           },
         ],
@@ -1006,10 +1096,12 @@ function flashcardContent(): JSONContent {
         content: [
           {
             type: "flashcard_card_front",
+            attrs: { id: IDS.secondFlashcardFront },
             content: [paragraph("flashfront02", "Private flashcard front")],
           },
           {
             type: "flashcard_card_back",
+            attrs: { id: IDS.secondFlashcardBack },
             content: [paragraph("flashback002", "Private flashcard back")],
           },
         ],
@@ -1048,12 +1140,16 @@ function galleryItem(itemId: EmbeddedNodeId, alt: string): JSONContent {
 function processFlowContent(): JSONContent {
   const processFlow = createProcessFlowContent({ orientation: "horizontal" });
   processFlow.attrs = { ...processFlow.attrs, id: IDS.processFlow };
-  processFlow.content = (processFlow.content ?? []).slice(0, 2).map((step, index) => ({
+  processFlow.content = (processFlow.content ?? []).slice(0, 2).map((step, stepIndex) => ({
     ...step,
     attrs: {
       ...step.attrs,
-      id: index === 0 ? IDS.firstProcessFlowStep : IDS.secondProcessFlowStep,
+      id: stepIndex === 0 ? IDS.firstProcessFlowStep : IDS.secondProcessFlowStep,
     },
+    content: (step.content ?? []).map((child, childIndex) => ({
+      ...child,
+      attrs: { ...child.attrs, id: IDS.processFlowParagraphs[stepIndex]?.[childIndex] },
+    })),
   }));
   return processFlow;
 }
@@ -1066,12 +1162,22 @@ function roadmapContent(): JSONContent {
       {
         type: "roadmap_milestone",
         attrs: { id: IDS.firstRoadmapMilestone, status: "done" },
-        content: roadmapMilestoneContent("First milestone", "First milestone body"),
+        content: roadmapMilestoneContent("First milestone", "First milestone body").map(
+          (child, index) => ({
+            ...child,
+            attrs: { ...child.attrs, id: IDS.roadmapParagraphs[0][index] },
+          }),
+        ),
       },
       {
         type: "roadmap_milestone",
         attrs: { id: IDS.secondRoadmapMilestone, status: "current" },
-        content: roadmapMilestoneContent("Second milestone", "Second milestone body"),
+        content: roadmapMilestoneContent("Second milestone", "Second milestone body").map(
+          (child, index) => ({
+            ...child,
+            attrs: { ...child.attrs, id: IDS.roadmapParagraphs[1][index] },
+          }),
+        ),
       },
     ],
   };
@@ -1080,12 +1186,16 @@ function roadmapContent(): JSONContent {
 function timelineContent(): JSONContent {
   const timeline = createTimelineContent({ presentation: "carousel" });
   timeline.attrs = { ...timeline.attrs, id: IDS.timeline };
-  timeline.content = (timeline.content ?? []).slice(0, 2).map((entry, index) => ({
+  timeline.content = (timeline.content ?? []).slice(0, 2).map((entry, entryIndex) => ({
     ...entry,
     attrs: {
       ...entry.attrs,
-      id: index === 0 ? IDS.firstTimelineEntry : IDS.secondTimelineEntry,
+      id: entryIndex === 0 ? IDS.firstTimelineEntry : IDS.secondTimelineEntry,
     },
+    content: (entry.content ?? []).map((child, childIndex) => ({
+      ...child,
+      attrs: { ...child.attrs, id: IDS.timelineParagraphs[entryIndex]?.[childIndex] },
+    })),
   }));
   return timeline;
 }
@@ -1103,9 +1213,10 @@ function annotatedFigureContent(): JSONContent {
       },
     },
     content: [
-      { type: "annotated_figure_canvas" },
+      { type: "annotated_figure_canvas", attrs: { id: IDS.annotationCanvas } },
       {
         type: "annotated_figure_legend",
+        attrs: { id: IDS.annotationLegend },
         content: [
           {
             type: "annotated_figure_annotation",
