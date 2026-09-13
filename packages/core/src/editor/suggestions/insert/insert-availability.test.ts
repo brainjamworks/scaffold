@@ -1,12 +1,15 @@
 // @vitest-environment happy-dom
 
 import { TextHIcon as TextH } from "@phosphor-icons/react";
-import { Editor, Node } from "@tiptap/core";
+import { Editor, Node, type JSONContent } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
+import { createDocumentAuthoringExtension } from "@/document/authoring";
 import {
   CellAuthoringNode,
   GridAuthoringNode,
@@ -26,7 +29,6 @@ import {
   AccordionSectionTitleNode,
 } from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { defineBlock } from "@/editor/blocks/block-definition";
-import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
@@ -43,7 +45,6 @@ import { createTestNodeIdentityExtension } from "@/editor/testing";
 import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
-import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 const TestCourseBlock = Node.create({
@@ -104,32 +105,36 @@ const TestCallout = Node.create({
   },
 });
 
-const testBlockRegistry = createBlockRegistry([
-  defineBlock({
-    nodeType: "test_quick_block",
-    title: "Quick insert block",
-    configuration: defineConfiguration({
-      attr: "settings",
-      schema: z.object({ enabled: z.boolean().default(true) }),
-      controls: [
-        {
-          kind: "boolean",
-          name: "enabled",
-          label: "Enabled",
-          placement: { quickMenu: { presentation: "icon-toggle" } },
-        },
-      ],
-    }),
+const testQuickBlockDefinition = defineBlock({
+  nodeType: "test_quick_block",
+  title: "Quick insert block",
+  configuration: defineConfiguration({
+    attr: "settings",
+    schema: z.object({ enabled: z.boolean().default(true) }),
+    controls: [
+      {
+        kind: "boolean",
+        name: "enabled",
+        label: "Enabled",
+        placement: { quickMenu: { presentation: "icon-toggle" } },
+      },
+    ],
   }),
-]);
-const testPlacementDependencies = {
-  blockDefinitions: testBlockRegistry,
-  layoutDefinitions: builtInLayoutRegistry,
-  surfaceVariants: createSurfaceVariantRegistry([
+});
+const testScaffoldCapabilities = resolveScaffoldCapabilities({
+  blockCapabilities: [{ definition: testQuickBlockDefinition }],
+  layoutDefinitions: builtInLayoutRegistry.definitions,
+  surfaceDefinitions: [
     pageDefaultSurfaceDefinition,
     slideCoverSurfaceDefinition,
     slideContentSurfaceDefinition,
-  ]),
+  ],
+});
+const testBlockRegistry = testScaffoldCapabilities.blocks.registry;
+const testPlacementDependencies = {
+  blockDefinitions: testBlockRegistry,
+  layoutDefinitions: testScaffoldCapabilities.layouts.registry,
+  surfaceVariants: testScaffoldCapabilities.surfaces.registry,
 };
 
 function itemFor(nodeType: string, boundedPlacement?: "fill"): InsertAction {
@@ -166,9 +171,12 @@ function makeEditor() {
   });
 }
 
-function makeCourseEditor() {
+function makeCourseEditor(content: JSONContent) {
   return new Editor({
+    content,
     extensions: [
+      createScaffoldCapabilitiesStorageExtension(testScaffoldCapabilities),
+      createDocumentAuthoringExtension(testScaffoldCapabilities.documentTree),
       DocumentNode,
       StarterKit.configure({
         document: false,
@@ -374,8 +382,7 @@ describe("canInsertCatalogItem", () => {
   });
 
   it("allows columns insert actions and layout catalog items inside surfaces", () => {
-    const editor = makeCourseEditor();
-    editor.commands.setContent({
+    const editor = makeCourseEditor({
       type: "doc",
       content: [
         {
@@ -406,8 +413,7 @@ describe("canInsertCatalogItem", () => {
   });
 
   it("allows grid and layout catalog items inside regions", () => {
-    const editor = makeCourseEditor();
-    editor.commands.setContent({
+    const editor = makeCourseEditor({
       type: "doc",
       content: [
         {
@@ -446,8 +452,7 @@ describe("canInsertCatalogItem", () => {
   });
 
   it("rejects fill actions when a bounded region contains authored sibling content", () => {
-    const editor = makeCourseEditor();
-    editor.commands.setContent({
+    const editor = makeCourseEditor({
       type: "doc",
       content: [
         {
@@ -491,8 +496,7 @@ describe("canInsertCatalogItem", () => {
   });
 
   it("rejects fill actions over a fully selected authored paragraph", () => {
-    const editor = makeCourseEditor();
-    editor.commands.setContent({
+    const editor = makeCourseEditor({
       type: "doc",
       content: [
         {
@@ -535,8 +539,7 @@ describe("canInsertCatalogItem", () => {
   });
 
   it("does not grant slash replacement permission without an explicit trigger range", () => {
-    const editor = makeCourseEditor();
-    editor.commands.setContent({
+    const editor = makeCourseEditor({
       type: "doc",
       content: [
         {
@@ -601,9 +604,8 @@ describe("canInsertCatalogItem", () => {
     editor.destroy();
   });
 
-  it("allows layout but rejects grid inside cells", () => {
-    const editor = makeCourseEditor();
-    editor.commands.setContent({
+  it("rejects fill actions alongside authored content inside cells", () => {
+    const editor = makeCourseEditor({
       type: "doc",
       content: [
         {
@@ -642,15 +644,56 @@ describe("canInsertCatalogItem", () => {
 
     setCursorInsideText(editor, "Cell");
 
-    expect(availableNodeTypes(editor)).toEqual(expect.arrayContaining(["layout"]));
+    expect(availableNodeTypes(editor)).not.toContain("layout");
     expect(availableNodeTypes(editor)).not.toContain("grid");
 
     editor.destroy();
   });
 
-  it("allows grids but rejects layout catalog items inside sections", () => {
-    const editor = makeCourseEditor();
-    editor.commands.setContent({
+  it("allows layout but rejects grid in an empty Cell Layer", () => {
+    const editor = makeCourseEditor({
+      type: "doc",
+      content: [
+        {
+          type: "courseDocument",
+          attrs: { id: createEmbeddedNodeId(), mode: "page" },
+          content: [
+            {
+              type: "surface",
+              attrs: { id: createEmbeddedNodeId(), variant: "page-default" },
+              content: [
+                {
+                  type: "grid",
+                  attrs: { id: createEmbeddedNodeId() },
+                  content: [
+                    {
+                      type: "cell",
+                      attrs: { id: createEmbeddedNodeId() },
+                      content: [
+                        createLayerWithContent([
+                          { type: "paragraph", attrs: { id: createEmbeddedNodeId() } },
+                        ]),
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    setCursorInFirstEmptyParagraph(editor);
+
+    expect(availableNodeTypes(editor)).toContain("layout");
+    expect(availableNodeTypes(editor)).not.toContain("grid");
+
+    editor.destroy();
+  });
+
+  it("rejects fill actions alongside authored content inside sections", () => {
+    const editor = makeCourseEditor({
       type: "doc",
       content: [
         {
@@ -689,8 +732,49 @@ describe("canInsertCatalogItem", () => {
 
     setCursorInsideText(editor, "Section");
 
-    expect(availableNodeTypes(editor)).toContain("grid");
+    expect(availableNodeTypes(editor)).not.toContain("grid");
     expect(availableNodeTypes(editor)).not.toContain("layout");
+
+    editor.destroy();
+  });
+
+  it("allows grid and layout in an empty Section Layer", () => {
+    const editor = makeCourseEditor({
+      type: "doc",
+      content: [
+        {
+          type: "courseDocument",
+          attrs: { id: createEmbeddedNodeId(), mode: "page" },
+          content: [
+            {
+              type: "surface",
+              attrs: { id: createEmbeddedNodeId(), variant: "page-default" },
+              content: [
+                {
+                  type: "layout",
+                  attrs: { id: createEmbeddedNodeId(), variant: "tabs" },
+                  content: [
+                    {
+                      type: "section",
+                      attrs: { id: createEmbeddedNodeId() },
+                      content: [
+                        createLayerWithContent([
+                          { type: "paragraph", attrs: { id: createEmbeddedNodeId() } },
+                        ]),
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    setCursorInFirstEmptyParagraph(editor);
+
+    expect(availableNodeTypes(editor)).toEqual(expect.arrayContaining(["grid", "layout"]));
 
     editor.destroy();
   });

@@ -571,6 +571,69 @@ describe("insertCatalogItemChecked", () => {
     expectSelectionWithinNode(editor, insertedPosition, insertedNode);
   });
 
+  it("replaces an empty paragraph with an exclusive Layout in a Page Cell Layer", () => {
+    const editor = makeCourseEditor({
+      type: "doc",
+      content: [
+        {
+          type: "courseDocument",
+          attrs: { id: createEmbeddedNodeId(), mode: "page" },
+          content: [
+            {
+              type: "surface",
+              attrs: { id: createEmbeddedNodeId(), variant: "page-default" },
+              content: [
+                {
+                  type: "grid",
+                  attrs: { id: createEmbeddedNodeId() },
+                  content: [
+                    {
+                      type: "cell",
+                      attrs: { id: createEmbeddedNodeId() },
+                      content: [
+                        {
+                          type: "layer",
+                          attrs: { id: createEmbeddedNodeId() },
+                          content: [{ type: "paragraph", attrs: { id: createEmbeddedNodeId() } }],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    setCursorInFirstEmptyParagraph(editor);
+    const action = createLayoutInsertAction(tabsLayoutDefinition);
+
+    expect(
+      insertCatalogItemChecked(
+        editor,
+        action,
+        builtInBlockRegistry,
+        builtInLayoutRegistry,
+        testSurfaceVariants,
+      ),
+    ).toBe(true);
+
+    const cellPosition = findNodePositionByType(editor, "cell");
+    const cellLayer = editor.state.doc.nodeAt(cellPosition)?.firstChild ?? null;
+    if (!cellLayer || cellLayer.type.name !== "layer") {
+      throw new Error("Expected the Page Cell to retain its Layer.");
+    }
+    const directLayerChildren: string[] = [];
+    cellLayer.forEach((child) => directLayerChildren.push(child.type.name));
+    expect(directLayerChildren).toEqual(["layout"]);
+
+    const insertedPosition = findNodePositionByAttribute(editor, "variant", "tabs");
+    const insertedNode = editor.state.doc.nodeAt(insertedPosition);
+    if (!insertedNode) throw new Error("Expected the inserted Page Cell Layout.");
+    expectSelectionWithinNode(editor, insertedPosition, insertedNode);
+  });
+
   it("rejects an invalid bounded fill placement before materializing catalog content", () => {
     const editor = makeCourseEditor(
       slideContentDocument([

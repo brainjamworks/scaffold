@@ -19,6 +19,7 @@ import {
 import { SECTION_ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
+import { createDocumentAuthoringExtension } from "@/document/authoring";
 import { createLayoutAuthoringNodes } from "@/editor/arrangements/layout/authoring/layout-nodes";
 import { createLayoutAuthoringViewRegistry } from "@/editor/arrangements/layout/authoring/layout-view-registry";
 import { createLayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
@@ -193,6 +194,7 @@ async function mountTabsAuthoringHarness(): Promise<TabsAuthoringHarness> {
   const editor = new Editor({
     extensions: [
       createScaffoldCapabilitiesStorageExtension(testScaffoldCapabilities),
+      createDocumentAuthoringExtension(testScaffoldCapabilities.documentTree),
       DocumentNode,
       StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
       ExtendedParagraph,

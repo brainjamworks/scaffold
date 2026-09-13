@@ -100,7 +100,17 @@ export function resolveInsertActionPlacement({
     const layerError = validateLayerPlacement(range);
     return layerError ? { ok: false, error: layerError } : { ok: true, range };
   }
+  const targetsEmptyLayerPlaceholder =
+    layerTarget?.layer === parent &&
+    $from.parent.isTextblock &&
+    $from.parent.type.name === "paragraph" &&
+    parent.childCount === 1 &&
+    parent.firstChild === $from.parent &&
+    $from.parent.content.size === 0 &&
+    range.from === $from.start($from.depth) &&
+    range.to === $from.start($from.depth);
   if (
+    !targetsEmptyLayerPlaceholder &&
     !isActiveBoundedContainer(
       layerTarget?.ownerSlot.logicalOwner.nodeType ?? parent.type.name,
       doc,
