@@ -14,6 +14,7 @@ import {
   getCourseDocumentAuthoringEnvironmentState,
 } from "@/composition/authoring/create-authoring-composition";
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import {
   getControlBindingRegistryForEditor,
   type ControlBinding,
@@ -313,8 +314,8 @@ function paginatedDocument(): JSONContent {
                 type: "layout",
                 attrs: { id: LAYOUT_ID, variant: "paginated" },
                 content: [
-                  paginatedSection(FIRST_SECTION_ID, "Overview", "paraPagCtl1"),
-                  paginatedSection(SECOND_SECTION_ID, "Practice", "paraPagCtl2"),
+                  paginatedSection(FIRST_SECTION_ID, "Overview", "paraPagCtl01"),
+                  paginatedSection(SECOND_SECTION_ID, "Practice", "paraPagCtl02"),
                 ],
               },
             ],
@@ -330,11 +331,13 @@ function paginatedSection(id: EmbeddedNodeId, label: string, paragraphId: string
     type: "section",
     attrs: { id, role: "page", options: { label } },
     content: [
-      {
-        type: "paragraph",
-        attrs: { id: paragraphId },
-        content: [{ type: "text", text: label }],
-      },
+      createLayerWithContent([
+        {
+          type: "paragraph",
+          attrs: { id: paragraphId },
+          content: [{ type: "text", text: label }],
+        },
+      ]),
     ],
   };
 }

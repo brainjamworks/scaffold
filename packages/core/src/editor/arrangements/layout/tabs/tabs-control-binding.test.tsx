@@ -14,6 +14,7 @@ import {
   getCourseDocumentAuthoringEnvironmentState,
 } from "@/composition/authoring/create-authoring-composition";
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import {
   getControlBindingRegistryForEditor,
   type ControlBinding,
@@ -355,11 +356,13 @@ function tabSection(id: EmbeddedNodeId, label: string, paragraphId: string): JSO
     type: "section",
     attrs: { id, options: { label } },
     content: [
-      {
-        type: "paragraph",
-        attrs: { id: paragraphId },
-        content: [{ type: "text", text: label }],
-      },
+      createLayerWithContent([
+        {
+          type: "paragraph",
+          attrs: { id: paragraphId },
+          content: [{ type: "text", text: label }],
+        },
+      ]),
     ],
   };
 }

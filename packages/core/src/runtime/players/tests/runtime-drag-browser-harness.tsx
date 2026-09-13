@@ -4,6 +4,8 @@ import { useLayoutEffect, type ComponentType } from "react";
 
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { projectCourseStructure } from "@/document/model/course-structure";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { createSurfaceRuntimeViewMap } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
 import { builtInSurfaceRuntimeViewBindings } from "@/editor/surfaces/runtime/surface-runtime-views";
 import type { SurfaceRuntimeViewProps } from "../../../editor/surfaces/shared/surface-view-props";
@@ -317,7 +319,15 @@ function runtimeDragDocument(
   mode: "page" | "slideshow",
   interaction: "categorise" | "matching" | "sequencing",
 ): JSONContent {
-  const content = createScaffoldDocumentContent({ mode, surfaceId: RUNTIME_DRAG_SURFACE_ID });
+  const content = createScaffoldDocumentContent(
+    mode === "slideshow"
+      ? {
+          mode,
+          initialCourseSectionTitle: "Runtime drag interactions",
+          surfaceId: RUNTIME_DRAG_SURFACE_ID,
+        }
+      : { mode, surfaceId: RUNTIME_DRAG_SURFACE_ID },
+  );
   const courseDocument = content.content?.[0];
   if (!courseDocument) throw new Error("Runtime drag harness document is incomplete.");
   courseDocument.attrs = { ...courseDocument.attrs, mode };
@@ -327,21 +337,26 @@ function runtimeDragDocument(
       : interaction === "categorise"
         ? categoriseRuntimeBlock()
         : sequencingRuntimeBlock();
-  const surface = courseDocument.content?.[0];
-  if (surface) {
-    if (mode === "page") {
-      surface.content = [block];
-    } else {
-      surface.attrs = {
-        ...surface.attrs,
-        variant: "slide-content",
-        settings: { slideTitle: { enabled: true } },
-      };
-      surface.content = [
-        { type: "slide_title" },
-        { type: "region", attrs: { role: "main" }, content: [block] },
-      ];
-    }
+  const surface = courseDocument.content?.find(
+    (node) => node.type === "surface" && node.attrs?.["id"] === RUNTIME_DRAG_SURFACE_ID,
+  );
+  if (!surface) throw new Error("Runtime drag harness document is missing its Surface.");
+  if (mode === "page") {
+    surface.content = [block];
+  } else {
+    surface.attrs = {
+      ...surface.attrs,
+      variant: "slide-content",
+      settings: { slideTitle: { enabled: true } },
+    };
+    surface.content = [
+      { type: "slide_title", attrs: { id: createEmbeddedNodeId() } },
+      {
+        type: "region",
+        attrs: { id: createEmbeddedNodeId(), role: "main" },
+        content: [createLayerWithContent([block])],
+      },
+    ];
   }
   return content;
 }
@@ -362,25 +377,28 @@ function categoriseRuntimeBlock(): JSONContent {
       },
     },
     content: [
-      { type: "assessment_title", content: [{ type: "paragraph" }] },
-      { type: "assessment_instructions", content: [{ type: "paragraph" }] },
-      { type: "assessment_prompt", content: [{ type: "paragraph" }] },
+      emptyAssessmentTextField("assessment_title"),
+      emptyAssessmentTextField("assessment_instructions"),
+      emptyAssessmentTextField("assessment_prompt"),
       {
         type: "categorise_content",
+        attrs: { id: createEmbeddedNodeId() },
         content: [
           {
             type: "categorise_bins_group",
+            attrs: { id: createEmbeddedNodeId() },
             content: [
               { id: "catbirds0001", label: "Birds" },
               { id: "catfish00001", label: "Fish" },
             ].map(({ id, label }) => ({
               type: "categorise_bin",
               attrs: { id },
-              content: [{ type: "paragraph", content: [{ type: "text", text: label }] }],
+              content: [runtimeParagraph(label)],
             })),
           },
           {
             type: "categorise_items_group",
+            attrs: { id: createEmbeddedNodeId() },
             content: [
               { id: "cateagle0001", label: "Eagle" },
               { id: "catsalmon001", label: "Salmon" },
@@ -390,17 +408,15 @@ function categoriseRuntimeBlock(): JSONContent {
               content: [
                 {
                   type: "categorise_item_body",
-                  content: [{ type: "paragraph", content: [{ type: "text", text: label }] }],
+                  attrs: { id: createEmbeddedNodeId() },
+                  content: [runtimeParagraph(label)],
                 },
               ],
             })),
           },
         ],
       },
-      {
-        type: "assessment_actions_group",
-        content: [{ type: "assessment_hints_group" }, { type: "assessment_summary_feedback" }],
-      },
+      emptyAssessmentActions(),
     ],
   };
 }
@@ -421,11 +437,12 @@ function matchingRuntimeBlock(): JSONContent {
       },
     },
     content: [
-      { type: "assessment_title", content: [{ type: "paragraph" }] },
-      { type: "assessment_instructions", content: [{ type: "paragraph" }] },
-      { type: "assessment_prompt", content: [{ type: "paragraph" }] },
+      emptyAssessmentTextField("assessment_title"),
+      emptyAssessmentTextField("assessment_instructions"),
+      emptyAssessmentTextField("assessment_prompt"),
       {
         type: "matching_pairs_group",
+        attrs: { id: createEmbeddedNodeId() },
         content: [
           {
             itemId: "matchitem001",
@@ -446,20 +463,17 @@ function matchingRuntimeBlock(): JSONContent {
             {
               type: "matching_item",
               attrs: { id: itemId },
-              content: [{ type: "paragraph", content: [{ type: "text", text: item }] }],
+              content: [runtimeParagraph(item)],
             },
             {
               type: "matching_target",
               attrs: { id: targetId },
-              content: [{ type: "paragraph", content: [{ type: "text", text: target }] }],
+              content: [runtimeParagraph(target)],
             },
           ],
         })),
       },
-      {
-        type: "assessment_actions_group",
-        content: [{ type: "assessment_hints_group" }, { type: "assessment_summary_feedback" }],
-      },
+      emptyAssessmentActions(),
     ],
   };
 }
@@ -473,27 +487,49 @@ function sequencingRuntimeBlock(): JSONContent {
       settings: { feedbackMode: "on_submit", isGraded: true, showAnswer: true, points: 1 },
     },
     content: [
-      { type: "assessment_title", content: [{ type: "paragraph" }] },
-      { type: "assessment_instructions", content: [{ type: "paragraph" }] },
-      { type: "assessment_prompt", content: [{ type: "paragraph" }] },
+      emptyAssessmentTextField("assessment_title"),
+      emptyAssessmentTextField("assessment_instructions"),
+      emptyAssessmentTextField("assessment_prompt"),
       {
         type: "sequencing_items_group",
+        attrs: { id: createEmbeddedNodeId() },
         content: ["seqitem00001", "seqitem00002", "seqitem00003"].map((id, index) => ({
           type: "sequencing_item",
           attrs: { id },
-          content: [
-            {
-              type: "paragraph",
-              content: [{ type: "text", text: String.fromCharCode(65 + index) }],
-            },
-          ],
+          content: [runtimeParagraph(String.fromCharCode(65 + index))],
         })),
       },
-      {
-        type: "assessment_actions_group",
-        content: [{ type: "assessment_hints_group" }, { type: "assessment_summary_feedback" }],
-      },
+      emptyAssessmentActions(),
     ],
+  };
+}
+
+function emptyAssessmentTextField(
+  type: "assessment_title" | "assessment_instructions" | "assessment_prompt",
+): JSONContent {
+  return {
+    type,
+    attrs: { id: createEmbeddedNodeId() },
+    content: [runtimeParagraph()],
+  };
+}
+
+function emptyAssessmentActions(): JSONContent {
+  return {
+    type: "assessment_actions_group",
+    attrs: { id: createEmbeddedNodeId() },
+    content: [
+      { type: "assessment_hints_group", attrs: { id: createEmbeddedNodeId() } },
+      { type: "assessment_summary_feedback", attrs: { id: createEmbeddedNodeId() } },
+    ],
+  };
+}
+
+function runtimeParagraph(text?: string): JSONContent {
+  return {
+    type: "paragraph",
+    attrs: { id: createEmbeddedNodeId() },
+    ...(text === undefined ? {} : { content: [{ type: "text", text }] }),
   };
 }
 

@@ -15,6 +15,7 @@ import {
   type LayoutCapability,
 } from "@/composition/application/create-scaffold-application";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
@@ -91,14 +92,32 @@ describe("editor placeholder resolver", () => {
         description: "Host Layout with paragraph guidance",
         icon: CircleIcon,
         placeholders: { paragraph: placeholder },
+        section: {
+          label: "Section",
+          addLabel: "Add section",
+          compositionSlot: { kind: "direct" },
+          create: () => ({
+            type: "section",
+            attrs: { id: createEmbeddedNodeId() },
+            content: [
+              createLayerWithContent([
+                { type: "paragraph", attrs: { id: createEmbeddedNodeId() } },
+              ]),
+            ],
+          }),
+        },
         createContent: () => ({
           type: "layout",
-          attrs: { id: "layout-host-placeholder", variant: layoutId },
+          attrs: { id: createEmbeddedNodeId(), variant: layoutId },
           content: [
             {
               type: "section",
-              attrs: { id: "section-host-placeholder" },
-              content: [{ type: "paragraph" }],
+              attrs: { id: createEmbeddedNodeId() },
+              content: [
+                createLayerWithContent([
+                  { type: "paragraph", attrs: { id: createEmbeddedNodeId() } },
+                ]),
+              ],
             },
           ],
         }),
@@ -133,7 +152,7 @@ describe("editor placeholder resolver", () => {
             content: [
               {
                 type: "surface",
-                attrs: { id: "surface-host-placeholder", variant: "page-default" },
+                attrs: { id: createEmbeddedNodeId(), variant: "page-default" },
                 content: [capability.definition.createContent()],
               },
             ],
@@ -166,13 +185,13 @@ describe("editor placeholder resolver", () => {
               {
                 type: "surface",
                 attrs: {
-                  id: "surface-placeholder-test",
+                  id: createEmbeddedNodeId(),
                   variant: "page-default",
                 },
                 content: [
                   {
                     type: "callout",
-                    attrs: { id: "callout-placeholder-test" },
+                    attrs: { id: createEmbeddedNodeId() },
                     content: [
                       {
                         type: "callout_title",
@@ -221,15 +240,15 @@ describe("editor placeholder resolver", () => {
               {
                 type: "surface",
                 attrs: {
-                  id: "surface-assessment-placeholder-test",
+                  id: createEmbeddedNodeId(),
                   variant: "page-default",
                 },
                 content: [
                   {
                     type: "mcq",
                     attrs: {
-                      id: "mcq-placeholder-test",
-                      assessment: { correctOptionId: "choice-a" },
+                      id: createEmbeddedNodeId(),
+                      assessment: { correctOptionId: "choice000001" },
                     },
                     content: [
                       { type: "assessment_title", content: [{ type: "paragraph" }] },
@@ -240,7 +259,7 @@ describe("editor placeholder resolver", () => {
                         content: [
                           {
                             type: "selectable_choice",
-                            attrs: { id: "choice-a" },
+                            attrs: { id: "choice000001" },
                             content: [
                               {
                                 type: "selectable_choice_body",
@@ -298,13 +317,13 @@ describe("editor placeholder resolver", () => {
               {
                 type: "surface",
                 attrs: {
-                  id: "surface-editorial-placeholder-test",
+                  id: createEmbeddedNodeId(),
                   variant: "page-default",
                 },
                 content: [
                   {
                     type: "pull_quote",
-                    attrs: { id: "pull-quote-placeholder-test" },
+                    attrs: { id: createEmbeddedNodeId() },
                     content: [
                       {
                         type: "pull_quote_body",
@@ -318,7 +337,7 @@ describe("editor placeholder resolver", () => {
                   },
                   {
                     type: "stat_highlight",
-                    attrs: { id: "stat-placeholder-test" },
+                    attrs: { id: createEmbeddedNodeId() },
                     content: [
                       {
                         type: "stat_highlight_value",
@@ -336,7 +355,7 @@ describe("editor placeholder resolver", () => {
                   },
                   {
                     type: "chapter_epigraph",
-                    attrs: { id: "epigraph-placeholder-test" },
+                    attrs: { id: createEmbeddedNodeId() },
                     content: [
                       {
                         type: "chapter_epigraph_body",
@@ -389,13 +408,13 @@ describe("editor placeholder resolver", () => {
               {
                 type: "surface",
                 attrs: {
-                  id: "surface-container-placeholder-test",
+                  id: createEmbeddedNodeId(),
                   variant: "page-default",
                 },
                 content: [
                   {
                     type: "marginalia",
-                    attrs: { id: "marginalia-placeholder-test" },
+                    attrs: { id: createEmbeddedNodeId() },
                     content: [
                       {
                         type: "marginalia_gutter",
@@ -409,7 +428,7 @@ describe("editor placeholder resolver", () => {
                   },
                   {
                     type: "text_wrap_image",
-                    attrs: { id: "text-wrap-placeholder-test" },
+                    attrs: { id: createEmbeddedNodeId() },
                     content: [
                       {
                         type: "text_wrap_image_body",
@@ -419,7 +438,7 @@ describe("editor placeholder resolver", () => {
                   },
                   {
                     type: "annotated_figure",
-                    attrs: { id: "annotated-placeholder-test" },
+                    attrs: { id: createEmbeddedNodeId() },
                     content: [
                       { type: "annotated_figure_canvas" },
                       {
@@ -427,7 +446,7 @@ describe("editor placeholder resolver", () => {
                         content: [
                           {
                             type: "annotated_figure_annotation",
-                            attrs: { id: "annotated-placeholder-item-test", x: 50, y: 50 },
+                            attrs: { id: createEmbeddedNodeId(), x: 50, y: 50 },
                             content: [{ type: "paragraph" }],
                           },
                         ],
@@ -470,12 +489,16 @@ describe("editor placeholder resolver", () => {
         content: [
           {
             type: "courseDocument",
-            attrs: { mode: "slideshow" },
+            attrs: { id: createEmbeddedNodeId(), mode: "slideshow" },
             content: [
+              {
+                type: "courseSection",
+                attrs: { id: createEmbeddedNodeId(), title: "Placeholder fixtures" },
+              },
               {
                 type: "surface",
                 attrs: {
-                  id: "surface-cover-placeholder-test",
+                  id: createEmbeddedNodeId(),
                   variant: "slide-cover",
                 },
                 content: [

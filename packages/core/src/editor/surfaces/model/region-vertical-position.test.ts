@@ -5,6 +5,8 @@ import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { LayerNode } from "@/document/model/layers/layer-node";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
@@ -74,7 +76,7 @@ describe("Region vertical content position", () => {
         verticalPosition: "middle",
       });
       expect(region?.textContent).toBe("Region content");
-      expect(region?.firstChild?.attrs["horizontalAlignment"]).toBe("right");
+      expect(region?.firstChild?.firstChild?.attrs["horizontalAlignment"]).toBe("right");
       expect(editor.state.doc.nodeAt(pos)?.attrs["verticalPosition"]).toBe("top");
     } finally {
       editor.destroy();
@@ -142,16 +144,19 @@ function createEditor(): Editor {
                   type: "region",
                   attrs: { id: REGION_ID, role: "main" },
                   content: [
-                    {
-                      type: "regionVerticalPositionTestBlock",
-                      attrs: { horizontalAlignment: "right" },
-                      content: [
-                        {
-                          type: "paragraph",
-                          content: [{ type: "text", text: "Region content" }],
-                        },
-                      ],
-                    },
+                    createLayerWithContent([
+                      {
+                        type: "regionVerticalPositionTestBlock",
+                        attrs: { id: createEmbeddedNodeId(), horizontalAlignment: "right" },
+                        content: [
+                          {
+                            type: "paragraph",
+                            attrs: { id: createEmbeddedNodeId() },
+                            content: [{ type: "text", text: "Region content" }],
+                          },
+                        ],
+                      },
+                    ]),
                   ],
                 },
               ],

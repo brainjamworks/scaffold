@@ -19,6 +19,7 @@ import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-
 import { TEXT_CONTENT } from "@/document/model/content-model/content-groups";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { LayerNode } from "@/document/model/layers/layer-node";
 import {
   AccordionSectionPanelNode,
@@ -38,10 +39,12 @@ import {
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
 import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 const TestCourseBlock = Node.create({
   name: "test_course_block",
@@ -185,6 +188,7 @@ function makeCourseEditor() {
       CellAuthoringNode,
       LayoutAuthoringNode,
       SectionAuthoringNode,
+      createTestNodeIdentityExtension(),
     ],
   });
 }
@@ -376,13 +380,15 @@ describe("canInsertCatalogItem", () => {
       content: [
         {
           type: "courseDocument",
+          attrs: { id: createEmbeddedNodeId(), mode: "page" },
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-page", variant: "page-default" },
+              attrs: { id: createEmbeddedNodeId(), variant: "page-default" },
               content: [
                 {
                   type: "paragraph",
+                  attrs: { id: createEmbeddedNodeId() },
                   content: [{ type: "text", text: "Surface text" }],
                 },
               ],
@@ -406,16 +412,24 @@ describe("canInsertCatalogItem", () => {
       content: [
         {
           type: "courseDocument",
-          attrs: { mode: "slideshow" },
+          attrs: { id: createEmbeddedNodeId(), mode: "slideshow" },
           content: [
             {
+              type: "courseSection",
+              attrs: { id: createEmbeddedNodeId(), title: "Insertion fixtures" },
+            },
+            {
               type: "surface",
-              attrs: { id: "surface-a", variant: "slide-content" },
+              attrs: { id: createEmbeddedNodeId(), variant: "slide-content" },
               content: [
                 {
                   type: "region",
-                  attrs: { id: "region-a", role: "main" },
-                  content: [{ type: "paragraph" }],
+                  attrs: { id: createEmbeddedNodeId(), role: "main" },
+                  content: [
+                    createLayerWithContent([
+                      { type: "paragraph", attrs: { id: createEmbeddedNodeId() } },
+                    ]),
+                  ],
                 },
               ],
             },
@@ -438,21 +452,28 @@ describe("canInsertCatalogItem", () => {
       content: [
         {
           type: "courseDocument",
-          attrs: { mode: "slideshow" },
+          attrs: { id: createEmbeddedNodeId(), mode: "slideshow" },
           content: [
             {
+              type: "courseSection",
+              attrs: { id: createEmbeddedNodeId(), title: "Insertion fixtures" },
+            },
+            {
               type: "surface",
-              attrs: { id: "surface-a", variant: "slide-content" },
+              attrs: { id: createEmbeddedNodeId(), variant: "slide-content" },
               content: [
                 {
                   type: "region",
-                  attrs: { id: "region-a", role: "main" },
+                  attrs: { id: createEmbeddedNodeId(), role: "main" },
                   content: [
-                    { type: "paragraph" },
-                    {
-                      type: "paragraph",
-                      content: [{ type: "text", text: "Authored sibling" }],
-                    },
+                    createLayerWithContent([
+                      { type: "paragraph", attrs: { id: createEmbeddedNodeId() } },
+                      {
+                        type: "paragraph",
+                        attrs: { id: createEmbeddedNodeId() },
+                        content: [{ type: "text", text: "Authored sibling" }],
+                      },
+                    ]),
                   ],
                 },
               ],
@@ -476,20 +497,27 @@ describe("canInsertCatalogItem", () => {
       content: [
         {
           type: "courseDocument",
-          attrs: { mode: "slideshow" },
+          attrs: { id: createEmbeddedNodeId(), mode: "slideshow" },
           content: [
             {
+              type: "courseSection",
+              attrs: { id: createEmbeddedNodeId(), title: "Insertion fixtures" },
+            },
+            {
               type: "surface",
-              attrs: { id: "surface-a", variant: "slide-content" },
+              attrs: { id: createEmbeddedNodeId(), variant: "slide-content" },
               content: [
                 {
                   type: "region",
-                  attrs: { id: "region-a", role: "main" },
+                  attrs: { id: createEmbeddedNodeId(), role: "main" },
                   content: [
-                    {
-                      type: "paragraph",
-                      content: [{ type: "text", text: "Authored region content" }],
-                    },
+                    createLayerWithContent([
+                      {
+                        type: "paragraph",
+                        attrs: { id: createEmbeddedNodeId() },
+                        content: [{ type: "text", text: "Authored region content" }],
+                      },
+                    ]),
                   ],
                 },
               ],
@@ -513,20 +541,27 @@ describe("canInsertCatalogItem", () => {
       content: [
         {
           type: "courseDocument",
-          attrs: { mode: "slideshow" },
+          attrs: { id: createEmbeddedNodeId(), mode: "slideshow" },
           content: [
             {
+              type: "courseSection",
+              attrs: { id: createEmbeddedNodeId(), title: "Insertion fixtures" },
+            },
+            {
               type: "surface",
-              attrs: { id: "surface-a", variant: "slide-content" },
+              attrs: { id: createEmbeddedNodeId(), variant: "slide-content" },
               content: [
                 {
                   type: "region",
-                  attrs: { id: "region-a", role: "main" },
+                  attrs: { id: createEmbeddedNodeId(), role: "main" },
                   content: [
-                    {
-                      type: "paragraph",
-                      content: [{ type: "text", text: "Authored region content" }],
-                    },
+                    createLayerWithContent([
+                      {
+                        type: "paragraph",
+                        attrs: { id: createEmbeddedNodeId() },
+                        content: [{ type: "text", text: "Authored region content" }],
+                      },
+                    ]),
                   ],
                 },
               ],
@@ -573,20 +608,27 @@ describe("canInsertCatalogItem", () => {
       content: [
         {
           type: "courseDocument",
+          attrs: { id: createEmbeddedNodeId(), mode: "page" },
           content: [
             {
               type: "surface",
+              attrs: { id: createEmbeddedNodeId(), variant: "page-default" },
               content: [
                 {
                   type: "grid",
+                  attrs: { id: createEmbeddedNodeId() },
                   content: [
                     {
                       type: "cell",
+                      attrs: { id: createEmbeddedNodeId() },
                       content: [
-                        {
-                          type: "paragraph",
-                          content: [{ type: "text", text: "Cell text" }],
-                        },
+                        createLayerWithContent([
+                          {
+                            type: "paragraph",
+                            attrs: { id: createEmbeddedNodeId() },
+                            content: [{ type: "text", text: "Cell text" }],
+                          },
+                        ]),
                       ],
                     },
                   ],
@@ -613,20 +655,27 @@ describe("canInsertCatalogItem", () => {
       content: [
         {
           type: "courseDocument",
+          attrs: { id: createEmbeddedNodeId(), mode: "page" },
           content: [
             {
               type: "surface",
+              attrs: { id: createEmbeddedNodeId(), variant: "page-default" },
               content: [
                 {
                   type: "layout",
+                  attrs: { id: createEmbeddedNodeId(), variant: "tabs" },
                   content: [
                     {
                       type: "section",
+                      attrs: { id: createEmbeddedNodeId() },
                       content: [
-                        {
-                          type: "paragraph",
-                          content: [{ type: "text", text: "Section text" }],
-                        },
+                        createLayerWithContent([
+                          {
+                            type: "paragraph",
+                            attrs: { id: createEmbeddedNodeId() },
+                            content: [{ type: "text", text: "Section text" }],
+                          },
+                        ]),
                       ],
                     },
                   ],

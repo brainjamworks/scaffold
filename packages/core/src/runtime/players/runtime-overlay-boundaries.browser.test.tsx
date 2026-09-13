@@ -6,6 +6,8 @@ import { page } from "vite-plus/test/browser/context";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { projectCourseStructure } from "@/document/model/course-structure";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
 import { PagePlayer } from "@/runtime/players/page/PagePlayer";
 import { SlideshowPlayer } from "@/runtime/players/slideshow/SlideshowPlayer";
@@ -438,70 +440,91 @@ function registerMountedRuntime(input: Omit<MountedRuntime, "dispose">): Mounted
 }
 
 function runtimeHintDocument(mode: "page" | "slideshow", surfaceId: string): JSONContent {
-  const content = createScaffoldDocumentContent({ mode, surfaceId });
+  const content = createScaffoldDocumentContent(
+    mode === "slideshow"
+      ? { mode, initialCourseSectionTitle: "Runtime hints", surfaceId }
+      : { mode, surfaceId },
+  );
   const courseDocument = content.content?.[0];
-  const surface = courseDocument?.content?.[0];
+  const surface = courseDocument?.content?.find(
+    (node) => node.type === "surface" && node.attrs?.["id"] === surfaceId,
+  );
   if (!courseDocument || !surface) throw new Error("Missing runtime contract surface.");
   courseDocument.attrs = { ...courseDocument.attrs, mode };
   surface.attrs = {
     ...surface.attrs,
     id: surfaceId,
-    ...(mode === "slideshow" ? { variant: "slide-cover" } : {}),
+    ...(mode === "slideshow"
+      ? { variant: "slide-content", settings: { slideTitle: { enabled: true } } }
+      : {}),
   };
-  surface.content = [
-    {
-      type: "mcq",
-      attrs: {
-        id: mode === "page" ? "mcqpage00001" : "mcqslide001",
-        assessment: {
-          correctOptionId: "choice000002",
-          feedbackByOptionId: {},
-          summaryFeedback: null,
-        },
-        settings: {
-          feedbackMode: "on_submit",
-          isGraded: true,
-          showAnswer: true,
-          legend: "Choose a letter",
-          points: 1,
-          maxAttempts: null,
-        },
-      },
-      content: [
-        { type: "assessment_title", content: [{ type: "paragraph" }] },
-        { type: "assessment_instructions", content: [{ type: "paragraph" }] },
-        {
-          type: "assessment_prompt",
-          content: [{ type: "paragraph", content: [{ type: "text", text: "Pick B" }] }],
-        },
-        {
-          type: "assessment_choices_group",
-          content: [selectableChoice("choice000001", "A"), selectableChoice("choice000002", "B")],
-        },
-        {
-          type: "assessment_actions_group",
-          content: [
-            {
-              type: "assessment_hints_group",
-              content: [
-                {
-                  type: "assessment_hint",
-                  content: [
-                    {
-                      type: "paragraph",
-                      content: [{ type: "text", text: "The answer follows A." }],
-                    },
-                  ],
-                },
-              ],
-            },
-            { type: "assessment_summary_feedback" },
-          ],
-        },
-      ],
-    },
-  ];
+  const assessment = runtimeHintAssessment(mode);
+  surface.content =
+    mode === "slideshow"
+      ? [
+          { type: "slide_title", attrs: { id: createEmbeddedNodeId() } },
+          {
+            type: "region",
+            attrs: { id: createEmbeddedNodeId(), role: "main" },
+            content: [createLayerWithContent([assessment])],
+          },
+        ]
+      : [assessment];
   return content;
+}
+
+function runtimeHintAssessment(mode: "page" | "slideshow"): JSONContent {
+  return {
+    type: "mcq",
+    attrs: {
+      id: mode === "page" ? "mcqpage00001" : "mcqslide0001",
+      assessment: {
+        correctOptionId: "choice000002",
+        feedbackByOptionId: {},
+        summaryFeedback: null,
+      },
+      settings: {
+        feedbackMode: "on_submit",
+        isGraded: true,
+        showAnswer: true,
+        legend: "Choose a letter",
+        points: 1,
+        maxAttempts: null,
+      },
+    },
+    content: [
+      runtimeAssessmentField("assessment_title"),
+      runtimeAssessmentField("assessment_instructions"),
+      {
+        type: "assessment_prompt",
+        attrs: { id: createEmbeddedNodeId() },
+        content: [runtimeParagraph("Pick B")],
+      },
+      {
+        type: "assessment_choices_group",
+        attrs: { id: createEmbeddedNodeId() },
+        content: [selectableChoice("choice000001", "A"), selectableChoice("choice000002", "B")],
+      },
+      {
+        type: "assessment_actions_group",
+        attrs: { id: createEmbeddedNodeId() },
+        content: [
+          {
+            type: "assessment_hints_group",
+            attrs: { id: createEmbeddedNodeId() },
+            content: [
+              {
+                type: "assessment_hint",
+                attrs: { id: createEmbeddedNodeId() },
+                content: [runtimeParagraph("The answer follows A.")],
+              },
+            ],
+          },
+          { type: "assessment_summary_feedback", attrs: { id: createEmbeddedNodeId() } },
+        ],
+      },
+    ],
+  };
 }
 
 function selectableChoice(id: string, text: string): JSONContent {
@@ -511,9 +534,26 @@ function selectableChoice(id: string, text: string): JSONContent {
     content: [
       {
         type: "selectable_choice_body",
-        content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+        attrs: { id: createEmbeddedNodeId() },
+        content: [runtimeParagraph(text)],
       },
     ],
+  };
+}
+
+function runtimeAssessmentField(type: "assessment_title" | "assessment_instructions"): JSONContent {
+  return {
+    type,
+    attrs: { id: createEmbeddedNodeId() },
+    content: [runtimeParagraph()],
+  };
+}
+
+function runtimeParagraph(text?: string): JSONContent {
+  return {
+    type: "paragraph",
+    attrs: { id: createEmbeddedNodeId() },
+    ...(text === undefined ? {} : { content: [{ type: "text", text }] }),
   };
 }
 

@@ -71,7 +71,9 @@ describe("built-in Surface document semantics", () => {
     const surface = schema.node("surface", { id: id("surface00001"), variant: "page-default" }, [
       textblock("paragraph", directParagraphId, "Direct page prose"),
       schema.node("region", { id: regionId, role: "main" }, [
-        textblock("paragraph", regionParagraphId, "Region prose"),
+        schema.node("layer", { id: id("layer0000001") }, [
+          textblock("paragraph", regionParagraphId, "Region prose"),
+        ]),
       ]),
     ]);
 
@@ -162,7 +164,9 @@ describe("built-in Surface document semantics", () => {
           textblock("paragraph", subtitleId, "Authored subtitle"),
         ]),
         schema.node("region", { id: id("region000002"), role: "private" }, [
-          textblock("paragraph", privateRegionParagraphId, "Region-owned prose"),
+          schema.node("layer", { id: id("layer0000002") }, [
+            textblock("paragraph", privateRegionParagraphId, "Region-owned prose"),
+          ]),
         ]),
       ],
     );

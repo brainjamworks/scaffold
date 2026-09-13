@@ -953,7 +953,12 @@ function movementDocument(timelinePresentation: "carousel" | "vertical" = "carou
     content: [
       {
         type: "courseDocument",
+        attrs: { id: "courseMove01", mode: "slideshow" },
         content: [
+          {
+            type: "courseSection",
+            attrs: { id: "sectionMove1", title: "Movement fixtures" },
+          },
           surface("surface00001", testBlocks(["a", "a2"])),
           surface("surface00002", [
             createTimelineContent({ presentation: timelinePresentation }),

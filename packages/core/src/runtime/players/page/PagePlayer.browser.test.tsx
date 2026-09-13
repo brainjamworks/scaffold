@@ -2,6 +2,7 @@ import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
@@ -184,10 +185,7 @@ function pageDocumentWithParagraphs(paragraphs: string[]): JSONContent {
 
   if (!surface) throw new Error("Page browser test document is missing its first surface.");
 
-  surface.content = paragraphs.map((text) => ({
-    type: "paragraph",
-    content: [{ type: "text", text }],
-  }));
+  surface.content = paragraphs.map(pageParagraph);
 
   return content;
 }
@@ -218,34 +216,34 @@ function pageDocumentWithRuntimeHint(): JSONContent {
         },
       },
       content: [
-        { type: "assessment_title", content: [{ type: "paragraph" }] },
-        { type: "assessment_instructions", content: [{ type: "paragraph" }] },
+        pageAssessmentField("assessment_title"),
+        pageAssessmentField("assessment_instructions"),
         {
           type: "assessment_prompt",
-          content: [{ type: "paragraph", content: [{ type: "text", text: "Pick B" }] }],
+          attrs: { id: createEmbeddedNodeId() },
+          content: [pageParagraph("Pick B")],
         },
         {
           type: "assessment_choices_group",
+          attrs: { id: createEmbeddedNodeId() },
           content: [selectableChoice("choice000001", "A"), selectableChoice("choice000002", "B")],
         },
         {
           type: "assessment_actions_group",
+          attrs: { id: createEmbeddedNodeId() },
           content: [
             {
               type: "assessment_hints_group",
+              attrs: { id: createEmbeddedNodeId() },
               content: [
                 {
                   type: "assessment_hint",
-                  content: [
-                    {
-                      type: "paragraph",
-                      content: [{ type: "text", text: "The answer follows A." }],
-                    },
-                  ],
+                  attrs: { id: createEmbeddedNodeId() },
+                  content: [pageParagraph("The answer follows A.")],
                 },
               ],
             },
-            { type: "assessment_summary_feedback" },
+            { type: "assessment_summary_feedback", attrs: { id: createEmbeddedNodeId() } },
           ],
         },
       ],
@@ -262,9 +260,26 @@ function selectableChoice(id: string, text: string): JSONContent {
     content: [
       {
         type: "selectable_choice_body",
-        content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+        attrs: { id: createEmbeddedNodeId() },
+        content: [pageParagraph(text)],
       },
     ],
+  };
+}
+
+function pageAssessmentField(type: "assessment_title" | "assessment_instructions"): JSONContent {
+  return {
+    type,
+    attrs: { id: createEmbeddedNodeId() },
+    content: [pageParagraph()],
+  };
+}
+
+function pageParagraph(text?: string): JSONContent {
+  return {
+    type: "paragraph",
+    attrs: { id: createEmbeddedNodeId() },
+    ...(text === undefined ? {} : { content: [{ type: "text", text }] }),
   };
 }
 

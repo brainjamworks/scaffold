@@ -8,7 +8,10 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { LayerNode } from "@/document/model/layers/layer-node";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { assertParsedMountedNodeIdentity } from "@/document/model/establishment/mounted-node-identity";
 import {
   AccordionSectionPanelNode,
   AccordionSectionTitleNode,
@@ -44,6 +47,9 @@ interface TabsAuthoringHarness {
 }
 
 const mounted: TabsAuthoringHarness[] = [];
+const TABS_SURFACE_ID = "surfaceTabs1";
+const TABS_LAYOUT_ID = "layoutTabs01";
+const TAB_SECTION_IDS = ["tabSection01", "tabSection02", "tabSection03"] as const;
 const testLayoutRegistry = createLayoutRegistry([tabsLayoutDefinition]);
 const testLayoutAuthoringViews = createLayoutAuthoringViewRegistry(testLayoutRegistry, [
   {
@@ -206,6 +212,7 @@ async function mountTabsAuthoringHarness(): Promise<TabsAuthoringHarness> {
     ],
     content: tabsDocument(),
   });
+  expect(assertParsedMountedNodeIdentity(editor.state.doc)).toEqual([]);
   const rendered = await renderBrowserReact(
     createAuthoringMovementTestRoot(editor, <EditorContent editor={editor} />, ownerRoot),
     { baseElement: host, container: reactElement },
@@ -239,22 +246,23 @@ function tabsDocument(): JSONContent {
     content: [
       {
         type: "courseDocument",
+        attrs: { id: createEmbeddedNodeId(), mode: "page" },
         content: [
           {
             type: "surface",
-            attrs: { id: "surface-tabs", variant: "page-default" },
+            attrs: { id: TABS_SURFACE_ID, variant: "page-default" },
             content: [
               {
                 type: "layout",
                 attrs: {
-                  id: "layout-tabs",
+                  id: TABS_LAYOUT_ID,
                   variant: "tabs",
                   options: { label: "Lesson sections", variant: "default" },
                 },
                 content: [
-                  tabSection("tab-a", "Overview"),
-                  tabSection("tab-b", "Practice"),
-                  tabSection("tab-c", "Review"),
+                  tabSection(TAB_SECTION_IDS[0], "Overview"),
+                  tabSection(TAB_SECTION_IDS[1], "Practice"),
+                  tabSection(TAB_SECTION_IDS[2], "Review"),
                 ],
               },
             ],
@@ -269,7 +277,15 @@ function tabSection(id: string, label: string): JSONContent {
   return {
     type: "section",
     attrs: { id, role: "tab-panel", options: { label } },
-    content: [{ type: "paragraph", content: [{ type: "text", text: `${label} content` }] }],
+    content: [
+      createLayerWithContent([
+        {
+          type: "paragraph",
+          attrs: { id: createEmbeddedNodeId() },
+          content: [{ type: "text", text: `${label} content` }],
+        },
+      ]),
+    ],
   };
 }
 

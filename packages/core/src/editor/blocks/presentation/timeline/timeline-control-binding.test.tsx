@@ -24,6 +24,7 @@ import {
   type ControlEvent,
 } from "@/document/control-binding";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { CourseDocumentNode, DocumentNode, createCourseSectionNode } from "@/document/model/nodes";
 import { LayerNode } from "@/document/model/layers/layer-node";
 import type { DocumentTreeDefinitionLookup } from "@/document/model/document-tree";
@@ -513,7 +514,7 @@ function timelineDocument(presentation: "carousel" | "vertical"): JSONContent {
               {
                 type: "region",
                 attrs: { id: "regionTime01", role: "main" },
-                content: [timelineContent(presentation)],
+                content: [createLayerWithContent([timelineContent(presentation)])],
               },
             ],
           },

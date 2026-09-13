@@ -25,6 +25,8 @@ import {
 import { AuthoringOverlayBoundary } from "@/editor/interactions/floating/AuthoringOverlayBoundary";
 import * as floatingPositioner from "@/editor/interactions/floating/overlay-floating-positioner";
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 
 import {
   getSlashCommandItems,
@@ -525,8 +527,10 @@ describe("SlashCommand catalog inputs", () => {
     await waitFor(() => {
       const region = firstNodeOfType(editor, "region");
       expect(region?.childCount).toBe(1);
-      expect(region?.firstChild?.type.name).toBe(grid.nodeType);
-      expect(region?.firstChild?.childCount).toBe(2);
+      expect(region?.firstChild?.type.name).toBe("layer");
+      expect(region?.firstChild?.childCount).toBe(1);
+      expect(region?.firstChild?.firstChild?.type.name).toBe(grid.nodeType);
+      expect(region?.firstChild?.firstChild?.childCount).toBe(2);
       expect(region?.textContent).not.toContain("/grid");
     });
 
@@ -557,8 +561,10 @@ describe("SlashCommand catalog inputs", () => {
     await waitFor(() => {
       const region = firstNodeOfType(editor, "region");
       expect(region?.childCount).toBe(1);
-      expect(region?.firstChild?.type.name).toBe(grid.nodeType);
-      expect(region?.firstChild?.childCount).toBe(2);
+      expect(region?.firstChild?.type.name).toBe("layer");
+      expect(region?.firstChild?.childCount).toBe(1);
+      expect(region?.firstChild?.firstChild?.type.name).toBe(grid.nodeType);
+      expect(region?.firstChild?.firstChild?.childCount).toBe(2);
       expect(region?.textContent).not.toContain("/grid");
     });
 
@@ -660,7 +666,7 @@ function hostBlockCapability(nodeType: string, boundedPlacement?: "fill"): Block
         description: `Insert ${title}`,
         icon: CircleIcon,
         category: "content",
-        content: () => ({ type: nodeType }),
+        content: () => ({ type: nodeType, attrs: { id: createEmbeddedNodeId() } }),
       },
     },
     authoringExtension: createNode(),
@@ -676,14 +682,30 @@ function hostFillLayoutCapability(id: string): LayoutCapability {
       description: "Host-contributed fill Layout",
       icon: CircleIcon,
       boundedPlacement: "fill",
+      section: {
+        label: "Section",
+        addLabel: "Add section",
+        compositionSlot: { kind: "direct" },
+        create: () => ({
+          type: "section",
+          attrs: { id: createEmbeddedNodeId() },
+          content: [
+            createLayerWithContent([{ type: "paragraph", attrs: { id: createEmbeddedNodeId() } }]),
+          ],
+        }),
+      },
       createContent: () => ({
         type: "layout",
-        attrs: { id: `${id}-instance`, variant: id },
+        attrs: { id: createEmbeddedNodeId(), variant: id },
         content: [
           {
             type: "section",
-            attrs: { id: `${id}-section` },
-            content: [{ type: "paragraph" }],
+            attrs: { id: createEmbeddedNodeId() },
+            content: [
+              createLayerWithContent([
+                { type: "paragraph", attrs: { id: createEmbeddedNodeId() } },
+              ]),
+            ],
           },
         ],
       }),
@@ -698,71 +720,63 @@ function EmptyLayoutView() {
 }
 
 function boundedRegionDocument(): JSONContent {
-  return {
-    type: "doc",
-    content: [
-      {
-        type: "courseDocument",
-        attrs: { mode: "slideshow" },
-        content: [
-          {
-            type: "surface",
-            attrs: {
-              id: "surface-host-fill",
-              variant: "slide-content",
-              settings: { slideTitle: { enabled: false } },
-            },
-            content: [
-              { type: "slide_title" },
-              {
-                type: "region",
-                attrs: { id: "region-host-fill", role: "main" },
-                content: [
-                  { type: "paragraph" },
-                  {
-                    type: "paragraph",
-                    content: [{ type: "text", text: "Existing region content" }],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    ],
+  const document = createScaffoldDocumentContent({
+    mode: "slideshow",
+    initialCourseSectionTitle: "Slash command fixtures",
+  });
+  const surface = requireFixtureSurface(document);
+  surface.attrs = {
+    ...surface.attrs,
+    variant: "slide-content",
+    settings: { slideTitle: { enabled: false } },
   };
+  surface.content = [
+    { type: "slide_title", attrs: { id: createEmbeddedNodeId() } },
+    {
+      type: "region",
+      attrs: { id: createEmbeddedNodeId(), role: "main" },
+      content: [
+        createLayerWithContent([
+          { type: "paragraph", attrs: { id: createEmbeddedNodeId() } },
+          {
+            type: "paragraph",
+            attrs: { id: createEmbeddedNodeId() },
+            content: [{ type: "text", text: "Existing region content" }],
+          },
+        ]),
+      ],
+    },
+  ];
+  return document;
 }
 
 function emptyBoundedRegionDocument(): JSONContent {
   const document = boundedRegionDocument();
-  const region = document.content?.[0]?.content?.[0]?.content?.find(
-    (node) => node.type === "region",
-  );
-  if (!region) throw new Error("Expected a bounded region.");
-  region.content = [{ type: "paragraph" }];
+  const layer = requireFixtureRegionLayer(document);
+  layer.content = [{ type: "paragraph", attrs: { id: createEmbeddedNodeId() } }];
   return document;
 }
 
 function fillLayoutSectionDocument(layoutId: string): JSONContent {
   const document = emptyBoundedRegionDocument();
-  const region = document.content?.[0]?.content?.[0]?.content?.find(
-    (node) => node.type === "region",
-  );
-  if (!region) throw new Error("Expected a bounded region.");
-  region.content = [
+  const layer = requireFixtureRegionLayer(document);
+  layer.content = [
     {
       type: "layout",
-      attrs: { id: `${layoutId}-instance`, variant: layoutId },
+      attrs: { id: createEmbeddedNodeId(), variant: layoutId },
       content: [
         {
           type: "section",
-          attrs: { id: `${layoutId}-section` },
+          attrs: { id: createEmbeddedNodeId() },
           content: [
-            { type: "paragraph" },
-            {
-              type: "paragraph",
-              content: [{ type: "text", text: "Authored section sibling" }],
-            },
+            createLayerWithContent([
+              { type: "paragraph", attrs: { id: createEmbeddedNodeId() } },
+              {
+                type: "paragraph",
+                attrs: { id: createEmbeddedNodeId() },
+                content: [{ type: "text", text: "Authored section sibling" }],
+              },
+            ]),
           ],
         },
       ],
@@ -773,29 +787,43 @@ function fillLayoutSectionDocument(layoutId: string): JSONContent {
 
 function gridCellDocument(): JSONContent {
   const document = emptyBoundedRegionDocument();
-  const region = document.content?.[0]?.content?.[0]?.content?.find(
-    (node) => node.type === "region",
-  );
-  if (!region) throw new Error("Expected a bounded region.");
-  region.content = [
+  const layer = requireFixtureRegionLayer(document);
+  layer.content = [
     {
       type: "grid",
-      attrs: { id: "slash-grid", columnWidths: [1, 1] },
+      attrs: { id: createEmbeddedNodeId(), columnWidths: [1, 1] },
       content: [
         {
           type: "cell",
-          attrs: { id: "slash-grid-cell-a" },
-          content: [{ type: "paragraph" }],
+          attrs: { id: createEmbeddedNodeId() },
+          content: [
+            createLayerWithContent([{ type: "paragraph", attrs: { id: createEmbeddedNodeId() } }]),
+          ],
         },
         {
           type: "cell",
-          attrs: { id: "slash-grid-cell-b" },
-          content: [{ type: "paragraph" }],
+          attrs: { id: createEmbeddedNodeId() },
+          content: [
+            createLayerWithContent([{ type: "paragraph", attrs: { id: createEmbeddedNodeId() } }]),
+          ],
         },
       ],
     },
   ];
   return document;
+}
+
+function requireFixtureSurface(document: JSONContent): JSONContent {
+  const surface = document.content?.[0]?.content?.find((node) => node.type === "surface");
+  if (!surface) throw new Error("Expected a Slash fixture Surface.");
+  return surface;
+}
+
+function requireFixtureRegionLayer(document: JSONContent): JSONContent {
+  const region = requireFixtureSurface(document).content?.find((node) => node.type === "region");
+  const layer = region?.content?.find((node) => node.type === "layer");
+  if (!layer) throw new Error("Expected a bounded Region Layer.");
+  return layer;
 }
 
 function firstNodeOfType(editor: Editor, nodeType: string): ProseMirrorNode | null {

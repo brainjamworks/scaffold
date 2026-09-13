@@ -16,6 +16,8 @@ import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaf
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { getControlBindingRegistryForEditor } from "@/document/control-binding";
 import { semanticActivationRequest } from "@/document/authoring/testing/semantic-activation-binding-test-extension";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { LayerNode } from "@/document/model/layers/layer-node";
 import { CellRuntimeNode, GridRuntimeNode } from "@/editor/arrangements/grid/runtime/grid-nodes";
@@ -46,6 +48,7 @@ import { tabPanelId, tabTriggerId } from "../tabs/tabs-components";
 import { createTestNodeIdentityExtension } from "@/editor/testing";
 import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 import { getLayoutInteractionStoreState } from "../shared/model/layout-interaction-store";
+import { createScaffoldDocumentContent } from "@/format/artifact";
 
 const learningEventReporter = vi.hoisted(() => ({ report: vi.fn() }));
 const learningEventReport = learningEventReporter.report;
@@ -675,10 +678,13 @@ function runtimeTabSection(id: string, label: string) {
       options: { label },
     },
     content: [
-      {
-        type: "paragraph",
-        content: [{ type: "text", text: `${label} content` }],
-      },
+      createLayerWithContent([
+        {
+          type: "paragraph",
+          attrs: { id: createEmbeddedNodeId() },
+          content: [{ type: "text", text: `${label} content` }],
+        },
+      ]),
     ],
   };
 }
@@ -747,28 +753,39 @@ function nestedRuntimeTabsDocument(): JSONContent {
   const identifiedOuterLayout: JSONContent = {
     ...outerLayout,
     attrs: { ...outerLayout.attrs, id: "layoutOutRt1" },
-    content: (outerLayout.content ?? []).map((section, index) => ({
-      ...section,
-      attrs: { ...section.attrs, id: index === 0 ? "outerSectRt1" : "outerSectRt2" },
-      ...(index === 1 ? { content: [identifiedInnerLayout] } : {}),
-    })),
+    content: (outerLayout.content ?? []).map((section, index) => {
+      const identifiedSection = {
+        ...section,
+        attrs: { ...section.attrs, id: index === 0 ? "outerSectRt1" : "outerSectRt2" },
+      };
+      return index === 1
+        ? replaceSectionLayerContent(identifiedSection, [identifiedInnerLayout])
+        : identifiedSection;
+    }),
   };
 
+  const document = createScaffoldDocumentContent({ mode: "page", surfaceId: "surfaceNest1" });
+  const surface = document.content?.[0]?.content?.find(
+    (node) => node.type === "surface" && node.attrs?.["id"] === "surfaceNest1",
+  );
+  if (!surface) throw new Error("Expected generated Page document to contain surfaceNest1.");
+  surface.content = [identifiedOuterLayout];
+  return document;
+}
+
+function replaceSectionLayerContent(
+  section: JSONContent,
+  content: readonly JSONContent[],
+): JSONContent {
+  const layerIndex = section.content?.findIndex((node) => node.type === "layer") ?? -1;
+  if (layerIndex < 0 || !section.content) {
+    throw new Error("Expected generated Layout Section to contain a Layer.");
+  }
   return {
-    type: "doc",
-    content: [
-      {
-        type: "courseDocument",
-        attrs: { mode: "page" },
-        content: [
-          {
-            type: "surface",
-            attrs: { id: "surfaceNest1", variant: "page-default" },
-            content: [identifiedOuterLayout],
-          },
-        ],
-      },
-    ],
+    ...section,
+    content: section.content.map((node, index) =>
+      index === layerIndex ? { ...node, content: [...content] } : node,
+    ),
   };
 }
 

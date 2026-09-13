@@ -16,7 +16,12 @@ import { createElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { LayerNode } from "@/document/model/layers/layer-node";
+import {
+  validateLayerContext,
+  validateLayerIdentities,
+} from "@/document/model/layers/layer-validation";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
@@ -101,6 +106,14 @@ const TestSectionArrangementNode = Node.create({
 });
 
 const TEST_ALIGNABLE_BLOCK = "region_alignment_test_block";
+const AUTHORING_REGION_ID = "regionAuth01";
+const AUTHORING_BLOCK_ID = "blockAuth001";
+const AUTHORING_GRID_ID = "gridAuth0001";
+const AUTHORING_CELL_ID = "cellAuth0001";
+const AUTHORING_LAYOUT_ID = "layoutAuth01";
+const AUTHORING_SECTION_ID = "sectionAuth1";
+const AUTHORING_SURFACE_A_ID = "surfaceAuth1";
+const AUTHORING_SURFACE_B_ID = "surfaceAuth2";
 
 const testBlockRegistry = createBlockRegistry([
   ...builtInBlockRegistry.definitions,
@@ -266,7 +279,7 @@ describe("surface authoring node views", () => {
       undefined,
       undefined,
       undefined,
-      ["surface-a", "surface-b"],
+      [AUTHORING_SURFACE_A_ID, AUTHORING_SURFACE_B_ID],
     );
 
     try {
@@ -275,8 +288,8 @@ describe("surface authoring node views", () => {
       await waitFor(() => {
         const surfaces = document.body.querySelectorAll('[data-surface-variant="slide-cover"]');
         expect(Array.from(surfaces, (surface) => surface.getAttribute("data-id"))).toEqual([
-          "surface-a",
-          "surface-b",
+          AUTHORING_SURFACE_A_ID,
+          AUTHORING_SURFACE_B_ID,
         ]);
       });
     } finally {
@@ -623,7 +636,7 @@ describe("surface authoring node views", () => {
       expect(surface?.getAttribute("as")).toBeNull();
       expect(surface?.getAttribute("data-course-surface-node-view")).toBe("authoring");
       expect(surface?.getAttribute("data-authoring-frame")).toBe("surface");
-      expect(surface?.getAttribute("data-id")).toBe("surface-a");
+      expect(surface?.getAttribute("data-id")).toBe(AUTHORING_SURFACE_A_ID);
       expect(surface?.getAttribute("data-surface-id")).toBeNull();
       expect(surface?.getAttribute("data-surface-variant")).toBe("page-default");
       expect(surface?.hasAttribute("data-vertical-content-position")).toBe(false);
@@ -805,16 +818,20 @@ describe("surface authoring node views", () => {
       [
         {
           type: "slide_title",
+          attrs: { id: createEmbeddedNodeId() },
           content: [{ type: "text", text: "Content title" }],
         },
         {
           type: "region",
-          attrs: { id: "region-a", role: "main", verticalPosition: "top" },
+          attrs: { id: AUTHORING_REGION_ID, role: "main", verticalPosition: "top" },
           content: [
-            {
-              type: "paragraph",
-              content: [{ type: "text", text: "Region content" }],
-            },
+            createLayerWithContent([
+              {
+                type: "paragraph",
+                attrs: { id: createEmbeddedNodeId() },
+                content: [{ type: "text", text: "Region content" }],
+              },
+            ]),
           ],
         },
       ],
@@ -849,9 +866,9 @@ describe("surface authoring node views", () => {
       expect(headerFooter?.classList.contains("sc-region")).toBe(true);
       expect(headerFooter?.classList.contains("sc-app-region-authoring")).toBe(true);
       expect(headerFooter?.getAttribute("data-authoring-frame")).toBe("region");
-      expect(headerFooter?.getAttribute("data-id")).toBe("region-a");
+      expect(headerFooter?.getAttribute("data-id")).toBe(AUTHORING_REGION_ID);
       expect(headerFooter?.getAttribute("data-vertical-content-position")).toBe("top");
-      expect(nodeAttrsById(editor, "region-a")).toMatchObject({ verticalPosition: "top" });
+      expect(nodeAttrsById(editor, AUTHORING_REGION_ID)).toMatchObject({ verticalPosition: "top" });
       expect(headerFooter?.textContent).toContain("Region content");
       expect(
         headerFooter?.querySelector('[data-region-menu-trigger][aria-label="Region options"]'),
@@ -869,61 +886,71 @@ describe("surface authoring node views", () => {
       [
         {
           type: "region",
-          attrs: { id: "region-a", role: "main" },
+          attrs: { id: AUTHORING_REGION_ID, role: "main" },
           content: [
-            {
-              type: "paragraph",
-              attrs: { textAlign: "left" },
-              content: [{ type: "text", text: "Direct content" }],
-            },
-            {
-              type: TEST_ALIGNABLE_BLOCK,
-              attrs: {
-                id: "block-a",
-                frame: { align: "end", widthMode: "fill", widthPercent: 100 },
+            createLayerWithContent([
+              {
+                type: "paragraph",
+                attrs: { id: createEmbeddedNodeId(), textAlign: "left" },
+                content: [{ type: "text", text: "Direct content" }],
               },
-              content: [
-                {
-                  type: "paragraph",
-                  attrs: { textAlign: "left" },
-                  content: [{ type: "text", text: "Block content" }],
+              {
+                type: TEST_ALIGNABLE_BLOCK,
+                attrs: {
+                  id: AUTHORING_BLOCK_ID,
+                  frame: { align: "end", widthMode: "fill", widthPercent: 100 },
                 },
-              ],
-            },
-            {
-              type: "grid",
-              attrs: { id: "grid-a", columnWidths: [1] },
-              content: [
-                {
-                  type: "cell",
-                  attrs: { id: "cell-a" },
-                  content: [
-                    {
-                      type: "paragraph",
-                      attrs: { textAlign: "right" },
-                      content: [{ type: "text", text: "Cell content" }],
-                    },
-                  ],
-                },
-              ],
-            },
-            {
-              type: "layout",
-              attrs: { id: "layout-a" },
-              content: [
-                {
-                  type: "section",
-                  attrs: { id: "section-a" },
-                  content: [
-                    {
-                      type: "paragraph",
-                      attrs: { textAlign: "left" },
-                      content: [{ type: "text", text: "Section content" }],
-                    },
-                  ],
-                },
-              ],
-            },
+                content: [
+                  {
+                    type: "paragraph",
+                    attrs: { id: createEmbeddedNodeId(), textAlign: "left" },
+                    content: [{ type: "text", text: "Block content" }],
+                  },
+                ],
+              },
+            ]),
+            createLayerWithContent([
+              {
+                type: "grid",
+                attrs: { id: AUTHORING_GRID_ID, columnWidths: [1] },
+                content: [
+                  {
+                    type: "cell",
+                    attrs: { id: AUTHORING_CELL_ID },
+                    content: [
+                      createLayerWithContent([
+                        {
+                          type: "paragraph",
+                          attrs: { id: createEmbeddedNodeId(), textAlign: "right" },
+                          content: [{ type: "text", text: "Cell content" }],
+                        },
+                      ]),
+                    ],
+                  },
+                ],
+              },
+            ]),
+            createLayerWithContent([
+              {
+                type: "layout",
+                attrs: { id: AUTHORING_LAYOUT_ID, variant: "tabs" },
+                content: [
+                  {
+                    type: "section",
+                    attrs: { id: AUTHORING_SECTION_ID },
+                    content: [
+                      createLayerWithContent([
+                        {
+                          type: "paragraph",
+                          attrs: { id: createEmbeddedNodeId(), textAlign: "left" },
+                          content: [{ type: "text", text: "Section content" }],
+                        },
+                      ]),
+                    ],
+                  },
+                ],
+              },
+            ]),
           ],
         },
       ],
@@ -935,18 +962,26 @@ describe("surface authoring node views", () => {
     try {
       render(createElement(EditorContent, { editor }));
       const descriptor = resolveStructuralChromeTargetDescriptor(editor.state, {
-        id: "region-a",
+        id: AUTHORING_REGION_ID,
         kind: InteractionTargetKind.Region,
       });
       if (!descriptor) throw new Error("expected Region descriptor");
 
+      expect(validateLayerIdentities(editor.state.doc)).toEqual([]);
+      expect(
+        validateLayerContext({
+          document: editor.state.doc,
+          blockDefinitions: testBlockRegistry,
+          layoutDefinitions: builtInLayoutRegistry,
+        }),
+      ).toEqual([]);
       expect(alignmentTargetPort.setHorizontal(editor, descriptor.target, "center")).toBe(true);
 
       await waitFor(() => {
         expect(textBlockFor("Direct content")?.getAttribute("data-text-align")).toBe("center");
         expect(
           document.body
-            .querySelector('[data-test-alignable-block="block-a"]')
+            .querySelector(`[data-test-alignable-block="${AUTHORING_BLOCK_ID}"]`)
             ?.getAttribute("data-test-frame-align"),
         ).toBe("center");
       });
@@ -1455,7 +1490,7 @@ function createEditor(
     registry: builtInSurfaceVariantRegistry,
     views: builtInSurfaceAuthoringViewMap,
   },
-  surfaceIds: readonly string[] = ["surface-a"],
+  surfaceIds: readonly string[] = [AUTHORING_SURFACE_A_ID],
 ): Editor {
   return new Editor({
     extensions: [
@@ -1506,19 +1541,29 @@ function createEditor(
       content: [
         {
           type: "courseDocument",
-          attrs: { mode },
-          content: surfaceIds.map((surfaceId) => ({
-            type: "surface",
-            attrs: {
-              id: surfaceId,
-              variant,
-              settings: {
-                ...(background ? { background } : {}),
-                ...(settings ?? {}),
+          attrs: { id: createEmbeddedNodeId(), mode },
+          content: [
+            ...(mode === "slideshow"
+              ? [
+                  {
+                    type: "courseSection",
+                    attrs: { id: createEmbeddedNodeId(), title: "Surface authoring fixtures" },
+                  },
+                ]
+              : []),
+            ...surfaceIds.map((surfaceId) => ({
+              type: "surface",
+              attrs: {
+                id: surfaceId,
+                variant,
+                settings: {
+                  ...(background ? { background } : {}),
+                  ...(settings ?? {}),
+                },
               },
-            },
-            content: surfaceContent,
-          })),
+              content: surfaceContent,
+            })),
+          ],
         },
       ],
     },
@@ -1558,6 +1603,6 @@ function nodeAttrsById(editor: Editor, id: string): Record<string, unknown> | un
 
 function readSurfaceSettings(editor: Editor): Record<string, unknown> {
   const courseDocument = editor.getJSON().content?.[0] as JSONContent | undefined;
-  const surface = courseDocument?.content?.[0] as JSONContent | undefined;
+  const surface = courseDocument?.content?.find((node) => node.type === "surface");
   return (surface?.attrs?.["settings"] as Record<string, unknown>) ?? {};
 }

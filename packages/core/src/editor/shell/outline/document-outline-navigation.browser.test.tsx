@@ -18,6 +18,7 @@ import {
 import { createAuthoringEditorNavigationEnvironment } from "@/document/authoring/editor-navigation/authoring-editor-navigation-environment";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { LayerNode } from "@/document/model/layers/layer-node";
 import {
   LayoutAuthoringNode,
@@ -816,31 +817,33 @@ function representativeDocument(): JSONContent {
                 type: "region",
                 attrs: { id: IDS.firstRegion, role: "main" },
                 content: [
-                  paragraph(IDS.prose, "Editor prose"),
-                  {
-                    type: "grid",
-                    attrs: { id: IDS.grid },
-                    content: [
-                      {
-                        type: "cell",
-                        attrs: { id: IDS.firstCell },
-                        content: [tabsContent()],
-                      },
-                      {
-                        type: "cell",
-                        attrs: { id: IDS.secondCell },
-                        content: [accordionContent()],
-                      },
-                    ],
-                  },
-                  flashcardContent(),
-                  galleryContent(),
-                  processFlowContent(),
-                  roadmapContent(),
-                  timelineContent(),
-                  annotatedFigureContent(),
-                  { type: "mcq", attrs: { id: IDS.mcq, assessment: {} } },
-                  nestedTabsContent(),
+                  createLayerWithContent([
+                    paragraph(IDS.prose, "Editor prose"),
+                    {
+                      type: "grid",
+                      attrs: { id: IDS.grid },
+                      content: [
+                        {
+                          type: "cell",
+                          attrs: { id: IDS.firstCell },
+                          content: [createLayerWithContent([tabsContent()])],
+                        },
+                        {
+                          type: "cell",
+                          attrs: { id: IDS.secondCell },
+                          content: [createLayerWithContent([accordionContent()])],
+                        },
+                      ],
+                    },
+                    flashcardContent(),
+                    galleryContent(),
+                    processFlowContent(),
+                    roadmapContent(),
+                    timelineContent(),
+                    annotatedFigureContent(),
+                    { type: "mcq", attrs: { id: IDS.mcq, assessment: {} } },
+                    nestedTabsContent(),
+                  ]),
                 ],
               },
             ],
@@ -856,7 +859,7 @@ function representativeDocument(): JSONContent {
               {
                 type: "region",
                 attrs: { id: IDS.secondRegion, role: "main" },
-                content: [paragraph("secondpara01", "Second surface")],
+                content: [createLayerWithContent([paragraph("secondpara01", "Second surface")])],
               },
             ],
           },
@@ -878,7 +881,7 @@ function nestedTabsContent(): JSONContent {
           label: "Outer visible",
           options: { label: "Outer visible" },
         },
-        content: [paragraph("outerpara001", "Outer visible prose")],
+        content: [createLayerWithContent([paragraph("outerpara001", "Outer visible prose")])],
       },
       {
         type: "section",
@@ -888,30 +891,36 @@ function nestedTabsContent(): JSONContent {
           options: { label: "Outer hidden" },
         },
         content: [
-          {
-            type: "layout",
-            attrs: { id: IDS.innerTabs, variant: "tabs", options: { label: "Inner topics" } },
-            content: [
-              {
-                type: "section",
-                attrs: {
-                  id: IDS.innerFirstTab,
-                  label: "Inner visible",
-                  options: { label: "Inner visible" },
+          createLayerWithContent([
+            {
+              type: "layout",
+              attrs: { id: IDS.innerTabs, variant: "tabs", options: { label: "Inner topics" } },
+              content: [
+                {
+                  type: "section",
+                  attrs: {
+                    id: IDS.innerFirstTab,
+                    label: "Inner visible",
+                    options: { label: "Inner visible" },
+                  },
+                  content: [
+                    createLayerWithContent([paragraph("innerpara001", "Inner visible prose")]),
+                  ],
                 },
-                content: [paragraph("innerpara001", "Inner visible prose")],
-              },
-              {
-                type: "section",
-                attrs: {
-                  id: IDS.innerHiddenTab,
-                  label: "Inner hidden",
-                  options: { label: "Inner hidden" },
+                {
+                  type: "section",
+                  attrs: {
+                    id: IDS.innerHiddenTab,
+                    label: "Inner hidden",
+                    options: { label: "Inner hidden" },
+                  },
+                  content: [
+                    createLayerWithContent([paragraph(IDS.nestedHiddenProse, "Deep hidden prose")]),
+                  ],
                 },
-                content: [paragraph(IDS.nestedHiddenProse, "Deep hidden prose")],
-              },
-            ],
-          },
+              ],
+            },
+          ]),
         ],
       },
     ],
@@ -926,12 +935,12 @@ function tabsContent(): JSONContent {
       {
         type: "section",
         attrs: { id: IDS.firstTab, label: "Visible topic", options: { label: "Visible topic" } },
-        content: [paragraph("visiblepara1", "Visible topic prose")],
+        content: [createLayerWithContent([paragraph("visiblepara1", "Visible topic prose")])],
       },
       {
         type: "section",
         attrs: { id: IDS.hiddenTab, label: "Hidden topic", options: { label: "Hidden topic" } },
-        content: [paragraph(IDS.hiddenProse, "Hidden topic prose")],
+        content: [createLayerWithContent([paragraph(IDS.hiddenProse, "Hidden topic prose")])],
       },
     ],
   };
@@ -951,7 +960,10 @@ function accordionContent(): JSONContent {
         attrs: { id: IDS.firstAccordion, options: { defaultOpen: true } },
         content: [
           { type: "accordion_section_title", content: [paragraph(undefined, "First detail")] },
-          { type: "accordion_section_panel", content: [paragraph("accpara00001", "First panel")] },
+          {
+            type: "accordion_section_panel",
+            content: [createLayerWithContent([paragraph("accpara00001", "First panel")])],
+          },
         ],
       },
       {
@@ -959,7 +971,10 @@ function accordionContent(): JSONContent {
         attrs: { id: IDS.secondAccordion, options: { defaultOpen: false } },
         content: [
           { type: "accordion_section_title", content: [paragraph(undefined, "Second detail")] },
-          { type: "accordion_section_panel", content: [paragraph("accpara00002", "Second panel")] },
+          {
+            type: "accordion_section_panel",
+            content: [createLayerWithContent([paragraph("accpara00002", "Second panel")])],
+          },
         ],
       },
     ],

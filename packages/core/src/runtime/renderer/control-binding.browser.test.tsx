@@ -10,6 +10,7 @@ import {
   getControlCapabilityCatalogueForEditor,
   type ControlEvent,
 } from "@/document/control-binding";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 
 import {
@@ -82,9 +83,9 @@ describe("mounted runtime Control Binding", () => {
         throw new Error(`Eligible Tabs owner "${target.value.ownerId}" is not fully mounted.`);
       }
       expect(binding.ownerId).toBe(target.value.ownerId);
-      expect(
-        binding.stateReader.read({ targetId: target.value.targetId, key: "selected" }),
-      ).toBe(false);
+      expect(binding.stateReader.read({ targetId: target.value.targetId, key: "selected" })).toBe(
+        false,
+      );
       const events: ControlEvent[] = [];
       const unsubscribe = binding.eventSource.subscribe((event) => events.push(event));
 
@@ -96,9 +97,7 @@ describe("mounted runtime Control Binding", () => {
 
       expect(execution.isOk()).toBe(true);
       await expect
-        .poll(() =>
-          binding.stateReader!.read({ targetId: target.value.targetId, key: "selected" }),
-        )
+        .poll(() => binding.stateReader!.read({ targetId: target.value.targetId, key: "selected" }))
         .toBe(true);
       await expect
         .element(page.getByRole("tab", { name: "Practice" }))
@@ -145,11 +144,13 @@ function tabSection(idValue: EmbeddedNodeId, label: string, paragraphId: string)
       options: { label },
     },
     content: [
-      {
-        type: "paragraph",
-        attrs: { id: paragraphId },
-        content: [{ type: "text", text: label }],
-      },
+      createLayerWithContent([
+        {
+          type: "paragraph",
+          attrs: { id: paragraphId },
+          content: [{ type: "text", text: label }],
+        },
+      ]),
     ],
   };
 }

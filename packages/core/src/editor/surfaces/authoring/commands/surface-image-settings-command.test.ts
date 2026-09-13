@@ -11,6 +11,7 @@ import {
 } from "@/document/model/content-model/content-groups";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { LayerNode } from "@/document/model/layers/layer-node";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
@@ -104,11 +105,13 @@ const testImageLayoutDefinition = defineSlideCompositionSurface({
       settings: TestImageLayoutSettingsSchema.parse(DEFAULT_SURFACE_SETTINGS),
     },
     content: [
-      { type: "slide_title" },
+      { type: "slide_title", attrs: { id: createEmbeddedNodeId() } },
       {
         type: "region",
         attrs: { id: createEmbeddedNodeId(), role: "main" },
-        content: [{ type: "paragraph" }],
+        content: [
+          createLayerWithContent([{ type: "paragraph", attrs: { id: createEmbeddedNodeId() } }]),
+        ],
       },
     ],
   }),
@@ -156,18 +159,24 @@ function makeEditor({
       content: [
         {
           type: "courseDocument",
-          attrs: { mode: "slideshow" },
-          content: surfaceIds.map((surfaceId) => {
-            const created = definition.createSurface({ surfaceId });
-            return {
-              ...created,
-              attrs: {
-                ...created.attrs,
-                variant,
-                settings: settings ?? created.attrs?.["settings"],
-              },
-            };
-          }),
+          attrs: { id: createEmbeddedNodeId(), mode: "slideshow" },
+          content: [
+            {
+              type: "courseSection",
+              attrs: { id: createEmbeddedNodeId(), title: "Image settings fixtures" },
+            },
+            ...surfaceIds.map((surfaceId) => {
+              const created = definition.createSurface({ surfaceId });
+              return {
+                ...created,
+                attrs: {
+                  ...created.attrs,
+                  variant,
+                  settings: settings ?? created.attrs?.["settings"],
+                },
+              };
+            }),
+          ],
         },
       ],
     },
@@ -176,7 +185,7 @@ function makeEditor({
 
 function surface(editor: Editor): JSONContent {
   const course = editor.getJSON().content?.[0];
-  const value = course?.content?.[0];
+  const value = course?.content?.find((node) => node.type === "surface");
   if (!value) throw new Error("expected surface fixture");
   return value;
 }

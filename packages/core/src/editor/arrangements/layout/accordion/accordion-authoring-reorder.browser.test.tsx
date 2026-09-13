@@ -10,7 +10,10 @@ import { page, userEvent } from "vite-plus/test/browser/context";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { LayerNode } from "@/document/model/layers/layer-node";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { assertParsedMountedNodeIdentity } from "@/document/model/establishment/mounted-node-identity";
 import { SECTION_ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { createLayoutAuthoringNodes } from "@/editor/arrangements/layout/authoring/layout-nodes";
 import { createLayoutAuthoringViewRegistry } from "@/editor/arrangements/layout/authoring/layout-view-registry";
@@ -46,6 +49,9 @@ interface AccordionAuthoringHarness {
 }
 
 const mounted: AccordionAuthoringHarness[] = [];
+const ACCORDION_SURFACE_ID = "surfaceAcc01";
+const ACCORDION_LAYOUT_ID = "layoutAcc001";
+const ACCORDION_SECTION_IDS = ["accordionA01", "accordionB01", "accordionC01"] as const;
 const testLayoutRegistry = createLayoutRegistry([accordionLayoutDefinition]);
 const testLayoutAuthoringViews = createLayoutAuthoringViewRegistry(testLayoutRegistry, [
   {
@@ -115,7 +121,7 @@ describe("authoring Accordion reorder", () => {
     );
     expect(harness.host.querySelector(`[${AUTHORING_MOVEMENT_SILHOUETTE_ATTR}]`)).toHaveAttribute(
       "data-id",
-      "accordion-c",
+      ACCORDION_SECTION_IDS[2],
     );
 
     await userEvent.keyboard("{ArrowUp}");
@@ -174,7 +180,7 @@ describe("authoring Accordion reorder", () => {
     );
     expect(harness.host.querySelector(`[${AUTHORING_MOVEMENT_SILHOUETTE_ATTR}]`)).toHaveAttribute(
       "data-id",
-      "accordion-a",
+      ACCORDION_SECTION_IDS[0],
     );
     await waitFor(
       () =>
@@ -235,6 +241,7 @@ async function mountAccordionAuthoringHarness(): Promise<AccordionAuthoringHarne
     ],
     content: accordionDocument(),
   });
+  expect(assertParsedMountedNodeIdentity(editor.state.doc)).toEqual([]);
   const rendered = await renderBrowserReact(
     createAuthoringMovementTestRoot(editor, <EditorContent editor={editor} />, ownerRoot),
     { baseElement: host, container: reactElement },
@@ -272,22 +279,23 @@ function accordionDocument(): JSONContent {
     content: [
       {
         type: "courseDocument",
+        attrs: { id: createEmbeddedNodeId(), mode: "page" },
         content: [
           {
             type: "surface",
-            attrs: { id: "surface-accordion", variant: "page-default" },
+            attrs: { id: ACCORDION_SURFACE_ID, variant: "page-default" },
             content: [
               {
                 type: "layout",
                 attrs: {
-                  id: "layout-accordion",
+                  id: ACCORDION_LAYOUT_ID,
                   variant: "accordion",
                   options: { allowMultiple: false, label: "Lesson sections", variant: "default" },
                 },
                 content: [
-                  accordionSection("accordion-a", "Overview"),
-                  accordionSection("accordion-b", "Practice"),
-                  accordionSection("accordion-c", "Review"),
+                  accordionSection(ACCORDION_SECTION_IDS[0], "Overview"),
+                  accordionSection(ACCORDION_SECTION_IDS[1], "Practice"),
+                  accordionSection(ACCORDION_SECTION_IDS[2], "Review"),
                 ],
               },
             ],
@@ -305,11 +313,27 @@ function accordionSection(id: string, label: string): JSONContent {
     content: [
       {
         type: "accordion_section_title",
-        content: [{ type: "paragraph", content: [{ type: "text", text: label }] }],
+        attrs: { id: createEmbeddedNodeId() },
+        content: [
+          {
+            type: "paragraph",
+            attrs: { id: createEmbeddedNodeId() },
+            content: [{ type: "text", text: label }],
+          },
+        ],
       },
       {
         type: "accordion_section_panel",
-        content: [{ type: "paragraph", content: [{ type: "text", text: `${label} content` }] }],
+        attrs: { id: createEmbeddedNodeId() },
+        content: [
+          createLayerWithContent([
+            {
+              type: "paragraph",
+              attrs: { id: createEmbeddedNodeId() },
+              content: [{ type: "text", text: `${label} content` }],
+            },
+          ]),
+        ],
       },
     ],
   };

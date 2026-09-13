@@ -21,6 +21,8 @@ import {
   requireSemanticActivationBinding,
   semanticActivationRequest,
 } from "@/document/authoring/testing/semantic-activation-binding-test-extension";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { getSemanticTargetInteractionEnvironmentForEditor } from "@/document/semantic-target-interaction";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { LayerNode } from "@/document/model/layers/layer-node";
@@ -496,7 +498,7 @@ function documentContent(testCase: LayoutNavigationCase): JSONContent {
     content: [
       {
         type: "courseDocument",
-        attrs: { mode: "page" },
+        attrs: { id: createEmbeddedNodeId(), mode: "page" },
         content: [
           {
             type: "surface",
@@ -530,7 +532,7 @@ function documentContent(testCase: LayoutNavigationCase): JSONContent {
                             content: [
                               {
                                 type: "paragraph",
-                                attrs: { id: `accTPara00${index + 1}` },
+                                attrs: { id: `accTPara000${index + 1}` },
                                 content: [{ type: "text", text: index === 0 ? "First" : "Second" }],
                               },
                             ],
@@ -539,20 +541,26 @@ function documentContent(testCase: LayoutNavigationCase): JSONContent {
                             type: "accordion_section_panel",
                             attrs: { id: `accPanel000${index + 1}` },
                             content: [
-                              {
-                                type: "paragraph",
-                                attrs: { id: `accPPara00${index + 1}` },
-                                content: [{ type: "text", text: index === 0 ? "First" : "Second" }],
-                              },
+                              createLayerWithContent([
+                                {
+                                  type: "paragraph",
+                                  attrs: { id: `accPPara000${index + 1}` },
+                                  content: [
+                                    { type: "text", text: index === 0 ? "First" : "Second" },
+                                  ],
+                                },
+                              ]),
                             ],
                           },
                         ]
                       : [
-                          {
-                            type: "paragraph",
-                            attrs: { id: `${testCase.variant.slice(0, 3)}Txt00000${index + 1}` },
-                            content: [{ type: "text", text: index === 0 ? "First" : "Second" }],
-                          },
+                          createLayerWithContent([
+                            {
+                              type: "paragraph",
+                              attrs: { id: `${testCase.variant.slice(0, 3)}Txt00000${index + 1}` },
+                              content: [{ type: "text", text: index === 0 ? "First" : "Second" }],
+                            },
+                          ]),
                         ],
                 })),
               },
