@@ -1,10 +1,7 @@
-import type { ComponentType } from "react";
-
 import type { SurfaceVariantRegistry } from "../model/surface-variant-registry";
 import type {
   RegisteredSurfaceRuntimeView,
   SurfaceRuntimeViewBinding,
-  SurfaceRuntimeViewProps,
 } from "../shared/surface-view-props";
 
 export interface SurfaceRuntimeViewMap {

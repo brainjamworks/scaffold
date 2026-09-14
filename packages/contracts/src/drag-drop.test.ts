@@ -231,13 +231,26 @@ describe("drag-and-drop authored persisted contracts", () => {
   it("requires exact answer coverage and current feedback references", () => {
     const missingAnswer = structuredClone(completePayload);
     missingAnswer.assessment.correctPlacements.pop();
-    const extraAnswer = structuredClone(completePayload);
-    extraAnswer.assessment.correctPlacements.push({
-      markerId: "marker_00003",
-      geometry: { kind: "circle", centerX: 50, centerY: 50, radius: 10 },
-    });
-    const danglingFeedback = structuredClone(completePayload);
-    danglingFeedback.assessment.feedbackByMarkerId = { marker_00003: feedback };
+    const extraAnswer = {
+      ...structuredClone(completePayload),
+      assessment: {
+        ...structuredClone(completePayload.assessment),
+        correctPlacements: [
+          ...structuredClone(completePayload.assessment.correctPlacements),
+          {
+            markerId: "marker_00003",
+            geometry: { kind: "circle" as const, centerX: 50, centerY: 50, radius: 10 },
+          },
+        ],
+      },
+    };
+    const danglingFeedback = {
+      ...structuredClone(completePayload),
+      assessment: {
+        ...structuredClone(completePayload.assessment),
+        feedbackByMarkerId: { marker_00003: feedback },
+      },
+    };
 
     for (const payload of [missingAnswer, extraAnswer, danglingFeedback]) {
       expect(DragDropPayloadSchema.safeParse(payload).success).toBe(false);

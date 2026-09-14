@@ -211,7 +211,9 @@ describe("CategoriseCourseInteraction", () => {
     const forwardTrack = document.querySelector<HTMLElement>("[data-item-carousel-track]");
     expect(forwardTrack).toHaveAttribute("data-item-transition", "forward");
     expect(forwardTrack).toContainElement(forwardDeparture);
-    expect(forwardTrack).toContainElement(document.querySelector("[data-current-item]"));
+    expect(forwardTrack).toContainElement(
+      document.querySelector<HTMLElement>("[data-current-item]"),
+    );
     expect(forwardDeparture).not.toHaveAttribute("data-item-transition");
     expect(forwardDeparture).toHaveTextContent(initialItem);
     expect(document.querySelector("[data-current-item]")).not.toHaveAttribute(

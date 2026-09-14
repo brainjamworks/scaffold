@@ -6,11 +6,7 @@ import { createElement, useEffect, useRef, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { useSurfaceWorkspaceRequest } from "../workspaces/surface-workspace-request";
-import {
-  ShellLayoutProvider,
-  useShellLayout,
-  useShellLayoutStore,
-} from "./ShellLayoutProvider";
+import { ShellLayoutProvider, useShellLayout, useShellLayoutStore } from "./ShellLayoutProvider";
 import { createShellLayoutStore } from "./shell-layout-store";
 
 afterEach(() => {
@@ -289,7 +285,7 @@ describe("useSurfaceWorkspaceRequest", () => {
 
     expect(first).not.toBeNull();
     expect(port).toBe(first);
-    port?.open("interactions", SURFACE_B);
+    requireSurfaceWorkspaceRequest(port).open("interactions", SURFACE_B);
     expect(store.getState().bottomPanel).toEqual({
       workspace: "interactions",
       surfaceId: SURFACE_B,
@@ -297,3 +293,10 @@ describe("useSurfaceWorkspaceRequest", () => {
     });
   });
 });
+
+function requireSurfaceWorkspaceRequest(
+  port: ReturnType<typeof useSurfaceWorkspaceRequest>,
+): NonNullable<ReturnType<typeof useSurfaceWorkspaceRequest>> {
+  if (!port) throw new Error("Expected a mounted Surface workspace request port.");
+  return port;
+}

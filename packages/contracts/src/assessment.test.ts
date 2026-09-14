@@ -1034,6 +1034,11 @@ describe("assessment target contracts", () => {
       summaryFeedback: feedback,
     };
     const target = targetWith(interaction, assessment);
+    const [firstMarker, secondMarker] = interaction.markers;
+    const [firstPlacement, secondPlacement] = assessment.correctPlacements;
+    if (!firstMarker || !secondMarker || !firstPlacement || !secondPlacement) {
+      throw new Error("Expected complete spatial-placement fixture pairs.");
+    }
 
     expect(SCAFFOLD_ASSESSMENT_CONTRACT_VERSION).toBe(2);
     expect(AssessmentTargetContractSchema.parse(target)).toEqual(target);
@@ -1042,17 +1047,17 @@ describe("assessment target contracts", () => {
       targetWith(
         {
           ...interaction,
-          markers: [interaction.markers[0], { ...interaction.markers[1], id: "marker_00001" }],
+          markers: [firstMarker, { ...secondMarker, id: "marker_00001" }],
         },
         assessment,
       ),
       targetWith(
-        { ...interaction, markers: [{ ...interaction.markers[0], label: "   " }] },
-        { ...assessment, correctPlacements: [assessment.correctPlacements[0]] },
+        { ...interaction, markers: [{ ...firstMarker, label: "   " }] },
+        { ...assessment, correctPlacements: [firstPlacement] },
       ),
       targetWith(interaction, {
         ...assessment,
-        correctPlacements: [assessment.correctPlacements[0]],
+        correctPlacements: [firstPlacement],
       }),
       targetWith(interaction, {
         ...assessment,
@@ -1066,7 +1071,7 @@ describe("assessment target contracts", () => {
       }),
       targetWith(interaction, {
         ...assessment,
-        correctPlacements: [assessment.correctPlacements[0], assessment.correctPlacements[0]],
+        correctPlacements: [firstPlacement, firstPlacement],
       }),
       targetWith(interaction, {
         ...assessment,
@@ -1077,10 +1082,10 @@ describe("assessment target contracts", () => {
         ...assessment,
         correctPlacements: [
           {
-            ...assessment.correctPlacements[0],
+            ...firstPlacement,
             geometry: { kind: "circle", centerX: 25, centerY: 75, radius: 0 },
           },
-          assessment.correctPlacements[1],
+          secondPlacement,
         ],
       }),
       targetWith(interaction, {

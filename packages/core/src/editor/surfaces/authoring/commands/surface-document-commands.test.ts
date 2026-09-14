@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { type CourseMode } from "@scaffold/contracts";
+import { type CourseMode, type EmbeddedNodeId } from "@scaffold/contracts";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import { UndoRedo } from "@tiptap/extensions";
 import { describe, expect, it, vi } from "vite-plus/test";
@@ -42,6 +42,7 @@ const TestCopyFixtureNode = Node.create({
 function paragraph(text: string): JSONContent {
   return {
     type: "paragraph",
+    attrs: { id: createEmbeddedNodeId() },
     content: [{ type: "text", text }],
   };
 }
@@ -71,6 +72,20 @@ function section(id: string, title: string): JSONContent {
     type: "courseSection",
     attrs: { id, title },
   };
+}
+
+function slideCover(id: EmbeddedNodeId): JSONContent {
+  const created: JSONContent = slideCoverSurfaceDefinition.createSurface({ surfaceId: id });
+  const title = created.content?.[0];
+  const subtitle = created.content?.[1];
+  if (!title || !subtitle) throw new Error("Expected slide cover fields.");
+  title.attrs = { ...title.attrs, id: createEmbeddedNodeId() };
+  subtitle.attrs = { ...subtitle.attrs, id: createEmbeddedNodeId() };
+  const subtitleParagraph = subtitle.content?.[0];
+  if (subtitleParagraph) {
+    subtitleParagraph.attrs = { ...subtitleParagraph.attrs, id: createEmbeddedNodeId() };
+  }
+  return created;
 }
 
 /**
@@ -204,7 +219,7 @@ describe("surface document commands", () => {
   it("rejects page surface commands for slideshow or branching mode", () => {
     const slideshow = makeEditor("slideshow", [
       surface("surface00001", "First"),
-      surface("surface-2", "Second"),
+      surface("surface00002", "Second"),
     ]);
     const branching = makeEditor("branching", [surface("surface00001", "Only")]);
     const beforeSlideshow = slideshow.getJSON();
@@ -220,12 +235,8 @@ describe("surface document commands", () => {
   });
 
   it("duplicates a non-page surface with fresh stable ids", () => {
-    const first = slideCoverSurfaceDefinition.createSurface({
-      surfaceId: FIRST_CREATED_SURFACE_ID,
-    });
-    const second = slideCoverSurfaceDefinition.createSurface({
-      surfaceId: SECOND_CREATED_SURFACE_ID,
-    });
+    const first = slideCover(FIRST_CREATED_SURFACE_ID);
+    const second = slideCover(SECOND_CREATED_SURFACE_ID);
     const editor = makeEditor("slideshow", [first, second]);
 
     expect(canDuplicateSurface(editor, FIRST_CREATED_SURFACE_ID)).toBe(true);
@@ -238,7 +249,9 @@ describe("surface document commands", () => {
     expect(nextSurfaces[1]?.attrs?.["id"]).not.toBe(FIRST_CREATED_SURFACE_ID);
     expect(nextSurfaces[1]?.attrs?.["variant"]).toBe("slide-cover");
     expect(nextSurfaces[1]?.attrs?.["settings"]).toEqual(nextSurfaces[0]?.attrs?.["settings"]);
-    expect(nextSurfaces[1]?.content).toEqual(nextSurfaces[0]?.content);
+    expect(nextSurfaces[1]?.content?.map((node) => node.type)).toEqual(
+      nextSurfaces[0]?.content?.map((node) => node.type),
+    );
     expect(nextSurfaces[2]?.attrs?.["id"]).toBe(SECOND_CREATED_SURFACE_ID);
 
     editor.destroy();
@@ -253,7 +266,7 @@ describe("surface document commands", () => {
 
     expect(canDuplicateSurface(editor, "surface00001")).toBe(true);
     expect(duplicateSurface(editor, "surface00001")).toBe(true);
-    expect(surfaces(editor).map((child) => child.attrs?.["id"])).toEqual([
+    expect(courseChildren(editor).map((child) => child.attrs?.["id"])).toEqual([
       "section00001",
       "surface00001",
       expect.stringMatching(STABLE_ID_PATTERN),
@@ -312,7 +325,7 @@ describe("surface document commands", () => {
   it("deletes a non-page surface while preserving a neighboring surface", () => {
     const editor = makeEditor("slideshow", [
       surface("surface00001", "First", { variant: "slide-cover" }),
-      surface("surface-2", "Second", { variant: "slide-cover" }),
+      surface("surface00002", "Second", { variant: "slide-cover" }),
     ]);
 
     expect(canDeleteSurface(editor, "surface00001")).toBe(true);
@@ -320,7 +333,7 @@ describe("surface document commands", () => {
 
     const nextSurfaces = surfaces(editor);
     expect(nextSurfaces).toHaveLength(1);
-    expect(nextSurfaces[0]?.attrs?.["id"]).toBe("surface-2");
+    expect(nextSurfaces[0]?.attrs?.["id"]).toBe("surface00002");
     expect(editor.state.doc.textContent).toBe("Second");
 
     editor.destroy();

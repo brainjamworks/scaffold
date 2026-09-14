@@ -11,9 +11,11 @@ import type { DocumentTreeSnapshot, DocumentItemLocation } from "@/document/mode
 import {
   APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES,
   DOCUMENT_TREE_LIFECYCLE_AUTHORING_STATE,
+  DOCUMENT_TREE_LIFECYCLE_COURSE_DOCUMENT_ID,
   createCompleteDocumentTreeLifecycleDocument,
   createDocumentTreeLifecycleDocument,
 } from "@/composition/application/testing/document-tree-lifecycle-fixtures";
+import { authorizeExplicitLayerStructuralSteps } from "@/document/model/layers/layer-editing-policy";
 import type {
   SemanticActivationOutcome,
   SemanticActivationRequest,
@@ -381,6 +383,10 @@ function dispatchReplacement(editor: Editor, replacement: ProseMirrorNode): void
     editor.state.doc.content.size,
     compatibleReplacement.content,
   );
+  authorizeExplicitLayerStructuralSteps(transaction, {
+    fromStep: 0,
+    rootIds: [DOCUMENT_TREE_LIFECYCLE_COURSE_DOCUMENT_ID],
+  });
   if (!projectAuthoringCourseStructure(transaction.doc)) {
     throw new Error("Invalid complete address-book replacement.");
   }

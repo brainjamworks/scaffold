@@ -123,16 +123,14 @@ export function createScaffoldArtifact({
   surfaceSize,
   overflowMode,
   surfaceId,
-  ...input
+  initialCourseSectionTitle,
 }: CreateScaffoldArtifactInput) {
   return {
     id,
     title,
     mode,
     content: createScaffoldDocumentContent({
-      ...(mode === "slideshow"
-        ? { mode, initialCourseSectionTitle: input.initialCourseSectionTitle }
-        : { mode }),
+      ...(mode === "slideshow" ? { mode, initialCourseSectionTitle } : { mode }),
       ...(requiresScaffoldPlus === undefined ? {} : { requiresScaffoldPlus }),
       ...(surfaceSize ? { surfaceSize } : {}),
       ...(overflowMode ? { overflowMode } : {}),

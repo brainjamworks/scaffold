@@ -20,6 +20,8 @@ import {
   reorderLearnerInteractionRule,
   saveLearnerInteractionRule,
   setLearnerInteractionRuleEnabled,
+  type LearnerInteractionAuthoringCommandError,
+  type LearnerInteractionAuthoringCommandResult,
 } from "./learner-interaction-authoring-commands";
 import type { LearnerInteractionRuleDraft } from "./learner-interaction-rule-draft";
 
@@ -280,7 +282,7 @@ describe("learner interaction authoring commands", () => {
       when: { targetId: IDS.firstSurface, type: "removed-event" },
     };
 
-    const result = expectFailurePreserves(
+    const error = expectFailurePreserves(
       editor,
       () => saveLearnerInteractionRule({ editor, surfaceId: IDS.firstSurface, draft }),
       expect.objectContaining({
@@ -295,8 +297,11 @@ describe("learner interaction authoring commands", () => {
       }),
     );
 
-    expect(result.error).toMatchObject({ ruleId: expect.any(String) });
-    expect(result.error.diagnostics).toHaveLength(1);
+    expect(error).toMatchObject({ ruleId: expect.any(String) });
+    if (error.reason !== "rule-unresolved") {
+      throw new Error("Expected a rule-unresolved authoring error.");
+    }
+    expect(error.diagnostics).toHaveLength(1);
   });
 
   it("lets a clean candidate save beside an unrelated stale sibling", () => {
@@ -540,11 +545,11 @@ function trackChangedTransactions(editor: Editor): () => number {
   return () => count;
 }
 
-function expectFailurePreserves(
+function expectFailurePreserves<T>(
   editor: Editor,
-  run: () => ReturnType<typeof saveLearnerInteractionRule>,
+  run: () => LearnerInteractionAuthoringCommandResult<T>,
   expected: unknown,
-) {
+): LearnerInteractionAuthoringCommandError {
   const before = editor.getJSON();
   const changedTransactions = trackChangedTransactions(editor);
   const result = run();
@@ -553,5 +558,5 @@ function expectFailurePreserves(
   expect(result.error).toEqual(expected);
   expect(changedTransactions()).toBe(0);
   expect(editor.getJSON()).toEqual(before);
-  return result;
+  return result.error;
 }

@@ -152,7 +152,7 @@ export function setLearnerInteractionRuleEnabled({
 }): LearnerInteractionAuthoringCommandResult {
   const prepared = prepareRuleMutation(editor, surfaceId, ruleId);
   if (prepared.isErr()) return Result.err(prepared.error);
-  const rules = prepared.value.group.rules.map((rule) =>
+  const rules = mapNonEmptyRules(prepared.value.group.rules, (rule) =>
     rule.id === ruleId ? { ...rule, isEnabled } : rule,
   );
   dispatchConfiguration(
@@ -179,7 +179,7 @@ export function reorderLearnerInteractionRule({
       Object.freeze({ reason: "rule-reorder-boundary", surfaceId, ruleId, direction }),
     );
   }
-  const rules = [...prepared.value.group.rules];
+  const rules = copyNonEmptyRules(prepared.value.group.rules);
   rules[prepared.value.ruleIndex] = adjacent;
   rules[adjacentIndex] = prepared.value.group.rules[prepared.value.ruleIndex]!;
   dispatchConfiguration(
@@ -187,6 +187,20 @@ export function reorderLearnerInteractionRule({
     replaceGroup(prepared.value.configuration!, { ...prepared.value.group, rules }),
   );
   return Result.ok();
+}
+
+function copyNonEmptyRules([first, ...rest]: readonly [
+  LearnerInteractionRuleV1,
+  ...LearnerInteractionRuleV1[],
+]): [LearnerInteractionRuleV1, ...LearnerInteractionRuleV1[]] {
+  return [first, ...rest];
+}
+
+function mapNonEmptyRules(
+  [first, ...rest]: readonly [LearnerInteractionRuleV1, ...LearnerInteractionRuleV1[]],
+  map: (rule: LearnerInteractionRuleV1) => LearnerInteractionRuleV1,
+): [LearnerInteractionRuleV1, ...LearnerInteractionRuleV1[]] {
+  return [map(first), ...rest.map(map)];
 }
 
 export function removeLearnerInteractionRule({

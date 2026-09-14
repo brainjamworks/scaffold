@@ -36,6 +36,8 @@ import { defineConfiguration } from "@/editor/configuration/definition";
 import { createDisposableEditor } from "@/editor/testing";
 import { createAlignmentTargetPort } from "@/editor/interactions/alignment/alignment-target";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 
 import {
   BlockInteractionBubbleMenu,
@@ -145,6 +147,11 @@ const resizableBlockDefinition = defineBlock({
 });
 
 const testBlockRegistry = createBlockRegistry([quickBlockDefinition, resizableBlockDefinition]);
+const testCapabilities = resolveScaffoldCapabilities({
+  blockCapabilities: testBlockRegistry.definitions.map((definition) => ({ definition })),
+  layoutDefinitions: builtInLayoutRegistry.definitions,
+  surfaceDefinitions: builtInSurfaceVariantRegistry.definitions,
+});
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: testBlockRegistry,
   layoutDefinitions: builtInLayoutRegistry,
@@ -153,7 +160,12 @@ const alignmentTargetPort = createAlignmentTargetPort({
 
 function makeEditor(blockType: string, attrs: Record<string, unknown>) {
   const editor = new Editor({
-    extensions: [StarterKit.configure({ undoRedo: false }), QuickNode, ResizableNode],
+    extensions: [
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
+      StarterKit.configure({ undoRedo: false }),
+      QuickNode,
+      ResizableNode,
+    ],
     content: {
       type: "doc",
       content: [
@@ -529,7 +541,11 @@ describe("BlockInteractionBubbleMenuContent", () => {
 
   it("deletes the block through the bubble action", async () => {
     const fixture = createDisposableEditor({
-      extensions: [StarterKit.configure({ undoRedo: false }), QuickNode],
+      extensions: [
+        createScaffoldCapabilitiesStorageExtension(testCapabilities),
+        StarterKit.configure({ undoRedo: false }),
+        QuickNode,
+      ],
       content: {
         type: "doc",
         content: [

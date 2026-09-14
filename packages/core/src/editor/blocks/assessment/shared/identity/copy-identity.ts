@@ -58,7 +58,13 @@ function rewriteRequiredNodeIdArray(
   if (!Array.isArray(value)) {
     throw new Error(`Malformed ${owner} private assessment graph at "${field}".`);
   }
-  return value.map((entry) => rewriteRequiredMappedString(entry, nodeIdChanges, owner, field));
+  return value.map((entry) => {
+    const rewritten = rewriteRequiredMappedString(entry, nodeIdChanges, owner, field);
+    if (rewritten === null) {
+      throw new Error(`Malformed ${owner} private assessment graph at "${field}".`);
+    }
+    return rewritten;
+  });
 }
 
 function rewriteAssessment(
@@ -243,7 +249,13 @@ function rewriteRequiredDataIdArray(
   if (!Array.isArray(value)) {
     throw new Error(`Malformed image_hotspot private assessment graph at "${field}".`);
   }
-  return value.map((entry) => rewriteRequiredMappedString(entry, changes, "image_hotspot", field));
+  return value.map((entry) => {
+    const rewritten = rewriteRequiredMappedString(entry, changes, "image_hotspot", field);
+    if (rewritten === null) {
+      throw new Error(`Malformed image_hotspot private assessment graph at "${field}".`);
+    }
+    return rewritten;
+  });
 }
 
 function rewriteHotspotCanvases(

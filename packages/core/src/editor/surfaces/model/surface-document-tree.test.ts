@@ -82,19 +82,17 @@ describe("built-in Surface document semantics", () => {
     expect(snapshot.itemById.get(surface.attrs["id"])?.presentation.actionIds).toEqual([
       "reveal",
       "hide",
-      "move",
       "emphasize",
     ]);
     expect(snapshot.itemById.get(directParagraphId)?.presentation.actionIds).toEqual([
       "reveal",
       "hide",
-      "move",
       "emphasize",
     ]);
     expect(snapshot.itemById.get(directParagraphId)?.label).toBe("Direct page prose");
     expect(snapshot.parentById.get(directParagraphId)).toBe(surface.attrs["id"]);
     expect(snapshot.itemById.get(regionParagraphId)?.label).toBe("Region prose");
-    expect(snapshot.parentById.get(regionParagraphId)).toBe(regionId);
+    expect(snapshot.parentById.get(regionParagraphId)).toBe(id("layer0000001"));
   });
 
   it("consumes direct page prose candidates without repeatedly rescanning them", () => {
@@ -180,7 +178,7 @@ describe("built-in Surface document semantics", () => {
     expect(snapshot.itemById.has(subtitleWrapperId)).toBe(false);
     expect(snapshot.parentById.has(subtitleWrapperId)).toBe(false);
     expect(snapshot.locationById.has(subtitleWrapperId)).toBe(false);
-    expect(snapshot.parentById.get(privateRegionParagraphId)).toBe(id("region000002"));
+    expect(snapshot.parentById.get(privateRegionParagraphId)).toBe(id("layer0000002"));
   });
 
   it.each([

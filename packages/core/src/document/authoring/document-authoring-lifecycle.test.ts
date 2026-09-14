@@ -11,10 +11,14 @@ import { getControlCapabilityCatalogueForEditor } from "@/document/control-bindi
 import {
   APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES,
   DOCUMENT_TREE_LIFECYCLE_AUTHORING_STATE,
+  DOCUMENT_TREE_LIFECYCLE_COURSE_DOCUMENT_ID,
   createCompleteDocumentTreeLifecycleDocument,
   createDocumentTreeLifecycleDocument,
+  documentTreeLifecycleLayerIdForOwner,
+  documentTreeLifecycleRegionIdForOwner,
   requireDocumentTreeLifecycleNodeById,
 } from "@/composition/application/testing/document-tree-lifecycle-fixtures";
+import { authorizeExplicitLayerStructuralSteps } from "@/document/model/layers/layer-editing-policy";
 
 import { getDocumentTreeForEditor } from "./document-tree";
 import { getEditorNavigationForEditor } from "./editor-navigation";
@@ -149,10 +153,21 @@ describe("document authoring lifecycle", () => {
       );
       if (ACTIVATING_BLOCK_MEMBER_OWNER_TYPES.has(family.ownerNodeType)) {
         expect(currentLocation?.activationPath).toEqual([
+          {
+            ownerId: documentTreeLifecycleRegionIdForOwner(family.ownerId),
+            childId: documentTreeLifecycleLayerIdForOwner(family.ownerId),
+            ownerKind: "region",
+          },
           { ownerId: family.ownerId, childId: memberId, ownerKind: "block" },
         ]);
       } else {
-        expect(currentLocation?.activationPath).toEqual([]);
+        expect(currentLocation?.activationPath).toEqual([
+          {
+            ownerId: documentTreeLifecycleRegionIdForOwner(family.ownerId),
+            childId: documentTreeLifecycleLayerIdForOwner(family.ownerId),
+            ownerKind: "region",
+          },
+        ]);
       }
     }
     const reorderedFamily = APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES[1]!;
@@ -347,6 +362,10 @@ function dispatchReplacement(editor: Editor, replacement: ProseMirrorNode): void
     editor.state.doc.content.size,
     compatibleReplacement.content,
   );
+  authorizeExplicitLayerStructuralSteps(transaction, {
+    fromStep: 0,
+    rootIds: [DOCUMENT_TREE_LIFECYCLE_COURSE_DOCUMENT_ID],
+  });
   if (!projectAuthoringCourseStructure(transaction.doc)) {
     throw new Error(`Invalid replacement transaction: ${JSON.stringify(transaction.doc.toJSON())}`);
   }

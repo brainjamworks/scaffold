@@ -308,23 +308,23 @@ describe("createCourseDocumentRuntimeExtensions", () => {
   });
 
   it("does not mutate missing, malformed or valid Surface identity during load", () => {
+    for (const invalidId of [undefined, "not-an-id"] as const) {
+      expect(
+        () =>
+          new Editor({
+            editable: false,
+            extensions: createCourseDocumentRuntimeExtensions({
+              composition: coreRuntimeComposition,
+            }),
+            content: runtimeIdentityDocument(invalidId),
+          }),
+      ).toThrow("Cannot project runtime semantics from invalid Course Structure");
+    }
+
     const editor = new Editor({
       editable: false,
       extensions: createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition }),
-      content: {
-        type: "doc",
-        content: [
-          {
-            type: "courseDocument",
-            attrs: { mode: "slideshow" },
-            content: [
-              runtimeSurface(),
-              runtimeSurface("not-an-id"),
-              runtimeSurface("AbCdEf123_--"),
-            ],
-          },
-        ],
-      },
+      content: runtimeIdentityDocument("AbCdEf123_--"),
     });
 
     try {
@@ -334,7 +334,7 @@ describe("createCourseDocumentRuntimeExtensions", () => {
           .content?.[0]?.content?.map((surface) =>
             "attrs" in surface ? surface.attrs?.["id"] : undefined,
           ),
-      ).toEqual([null, "not-an-id", "AbCdEf123_--"]);
+      ).toEqual(["AbCdEf123_--"]);
     } finally {
       editor.destroy();
     }
@@ -637,8 +637,21 @@ describe("createCourseDocumentRuntimeExtensions", () => {
 function runtimeSurface(id?: string) {
   return {
     type: "surface",
-    attrs: { ...(id === undefined ? {} : { id }), variant: "slide-cover" },
-    content: [{ type: "paragraph" }],
+    attrs: { ...(id === undefined ? {} : { id }), variant: "page-default" },
+    content: [{ type: "paragraph", attrs: { id: "runtimePara01" } }],
+  };
+}
+
+function runtimeIdentityDocument(surfaceId?: string) {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: { id: "runtimeCrs001", mode: "page" },
+        content: [runtimeSurface(surfaceId)],
+      },
+    ],
   };
 }
 
@@ -1031,12 +1044,17 @@ function persistedHostSurfaceDocument(variant: string) {
     content: [
       {
         type: "courseDocument",
-        attrs: { mode: "page" },
+        attrs: {
+          id: "courseHost01",
+          schemaVersion: 1,
+          requiresScaffoldPlus: false,
+          mode: "page",
+        },
         content: [
           {
             type: "surface",
-            attrs: { id: `surface-${variant}`, variant, settings: {} },
-            content: [{ type: "paragraph" }],
+            attrs: { id: "surfaceHost1", variant, settings: {} },
+            content: [{ type: "paragraph", attrs: { id: "paraHost0001" } }],
           },
         ],
       },

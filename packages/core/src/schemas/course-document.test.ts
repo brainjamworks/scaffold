@@ -18,6 +18,7 @@ describe("course document schemas", () => {
       CourseDocumentAttrsSchema.parse({
         id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        requiresScaffoldPlus: false,
         mode: "page",
         theme: currentThemeReference(),
       }),
@@ -35,6 +36,7 @@ describe("course document schemas", () => {
       CourseDocumentAttrsSchema.parse({
         id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        requiresScaffoldPlus: false,
         mode: "page",
         theme: currentThemeReference(),
         branching: null,
@@ -64,6 +66,7 @@ describe("course document schemas", () => {
       CourseDocumentAttrsSchema.safeParse({
         id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        requiresScaffoldPlus: false,
         mode: "page",
         theme: "scaffold-default",
       }).success,
@@ -72,6 +75,7 @@ describe("course document schemas", () => {
       CourseDocumentAttrsSchema.safeParse({
         id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        requiresScaffoldPlus: false,
         mode: "page",
         theme: null,
       }).success,
@@ -185,6 +189,7 @@ describe("course document schemas", () => {
       CourseDocumentAttrsSchema.parse({
         id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        requiresScaffoldPlus: false,
         mode: "page",
         theme: currentThemeReference(),
         slideshow: { playbackMode: "auto" },

@@ -72,38 +72,38 @@ describe("SpatialImageSurface", () => {
     { label: "landscape", natural: [1600, 900], expected: [800, 450] },
     { label: "portrait", natural: [900, 1600], expected: [337.5, 600] },
     { label: "square", natural: [1000, 1000], expected: [600, 600] },
-  ])("fits a $label image and keeps the overlay on the exact image box", async ({
-    natural,
-    expected,
-  }) => {
-    const fitContainerRef = createRef<HTMLDivElement>();
-    const surfaceRef = createRef<HTMLDivElement>();
-    const { container } = render(
-      <div ref={fitContainerRef}>
-        <SpatialImageSurface
-          ref={surfaceRef}
-          fitContainerRef={fitContainerRef}
-          src="map.png"
-          alt="Map"
-        >
-          {() => <span data-testid="overlay-content" />}
-        </SpatialImageSurface>
-      </div>,
-    );
-    setLayoutSize(fitContainerRef.current!, 800, 600);
-    const image = requireImage(container);
-    setNaturalSize(image, natural[0]!, natural[1]!);
-    fireEvent.load(image);
+  ] as const)(
+    "fits a $label image and keeps the overlay on the exact image box",
+    async ({ natural, expected }) => {
+      const fitContainerRef = createRef<HTMLDivElement>();
+      const surfaceRef = createRef<HTMLDivElement>();
+      const { container } = render(
+        <div ref={fitContainerRef}>
+          <SpatialImageSurface
+            ref={surfaceRef}
+            fitContainerRef={fitContainerRef}
+            src="map.png"
+            alt="Map"
+          >
+            {() => <span data-testid="overlay-content" />}
+          </SpatialImageSurface>
+        </div>,
+      );
+      setLayoutSize(fitContainerRef.current!, 800, 600);
+      const image = requireImage(container);
+      setNaturalSize(image, natural[0], natural[1]);
+      fireEvent.load(image);
 
-    await waitFor(() => {
-      expect(surfaceRef.current?.style.width).toBe(`${expected[0]}px`);
-      expect(surfaceRef.current?.style.height).toBe(`${expected[1]}px`);
-    });
-    expect(surfaceRef.current).toBe(surface(container));
-    expect(image.style.width).toBe("100%");
-    expect(image.style.height).toBe("100%");
-    expect(overlay(container)).toBe(surface(container));
-  });
+      await waitFor(() => {
+        expect(surfaceRef.current?.style.width).toBe(`${expected[0]}px`);
+        expect(surfaceRef.current?.style.height).toBe(`${expected[1]}px`);
+      });
+      expect(surfaceRef.current).toBe(surface(container));
+      expect(image.style.width).toBe("100%");
+      expect(image.style.height).toBe("100%");
+      expect(overlay(container)).toBe(surface(container));
+    },
+  );
 
   it("subtracts layout padding and recomputes the contain fit after resize", async () => {
     const fitContainerRef = createRef<HTMLDivElement>();
@@ -141,6 +141,7 @@ describe("SpatialImageSurface", () => {
     setNaturalSize(image, 1600, 900);
     fireEvent.load(image);
     await waitFor(() => expect(state?.status).toBe("ready"));
+    const readyState = requireReadySpatialImageSurfaceState(state);
 
     surface(container).getBoundingClientRect = () =>
       ({
@@ -155,11 +156,11 @@ describe("SpatialImageSurface", () => {
         toJSON: () => ({}),
       }) as DOMRect;
 
-    expect(state?.pointFromClient({ x: 300, y: 150 })).toEqual({ x: 50, y: 50 });
-    expect(state?.pointFromClient({ x: 100, y: 50 })).toEqual({ x: 0, y: 0 });
-    expect(state?.pointFromClient({ x: 500, y: 250 })).toEqual({ x: 100, y: 100 });
-    expect(state?.pointFromClient({ x: 99, y: 150 })).toBeNull();
-    expect(state?.pointFromClient({ x: Number.NaN, y: 150 })).toBeNull();
+    expect(readyState.pointFromClient({ x: 300, y: 150 })).toEqual({ x: 50, y: 50 });
+    expect(readyState.pointFromClient({ x: 100, y: 50 })).toEqual({ x: 0, y: 0 });
+    expect(readyState.pointFromClient({ x: 500, y: 250 })).toEqual({ x: 100, y: 100 });
+    expect(readyState.pointFromClient({ x: 99, y: 150 })).toBeNull();
+    expect(readyState.pointFromClient({ x: Number.NaN, y: 150 })).toBeNull();
   });
 
   it("keeps invalid natural geometry unavailable and rejects invalid normalized positions", () => {
@@ -220,6 +221,15 @@ function requireImage(container: HTMLElement): HTMLImageElement {
   const image = container.querySelector("img");
   if (!image) throw new Error("Expected an image.");
   return image;
+}
+
+function requireReadySpatialImageSurfaceState(
+  state: SpatialImageSurfaceState | null,
+): SpatialImageSurfaceState {
+  if (!state || state.status !== "ready") {
+    throw new Error("Expected a ready spatial image surface state.");
+  }
+  return state;
 }
 
 function setNaturalSize(image: HTMLImageElement, width: number, height: number) {

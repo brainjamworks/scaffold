@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 const editors: Editor[] = [];
@@ -70,11 +72,23 @@ function surfaceDocument(
     content: [
       {
         type: "courseDocument",
-        attrs: { mode: variant === "slide-cover" ? "slideshow" : "page" },
+        attrs: {
+          id: createEmbeddedNodeId(),
+          mode: variant === "slide-cover" ? "slideshow" : "page",
+          schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        },
         content: [
+          ...(variant === "slide-cover"
+            ? [
+                {
+                  type: "courseSection",
+                  attrs: { id: createEmbeddedNodeId(), title: "Introduction" },
+                },
+              ]
+            : []),
           {
             type: "surface",
-            attrs: { id: `surface-${variant}`, variant },
+            attrs: { id: createEmbeddedNodeId(), variant },
             content: surfaceContent,
           },
         ],

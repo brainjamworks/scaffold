@@ -26,6 +26,7 @@ import { ASSESSMENT_QUESTION_CONTENT } from "@/document/model/content-model/cont
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { createTestNodeIdentityExtension } from "@/editor/testing";
+import { createScaffoldDocumentContent } from "@/format/artifact";
 
 import { AssessmentActionsGroupNode } from "./assessment-actions-group";
 import { AssessmentActionsGroupRuntimeNode } from "./assessment-actions-group-runtime";
@@ -167,6 +168,7 @@ describe("assessment_actions_group", () => {
         composition: coreAuthoringComposition,
         editable: true,
       }),
+      content: createScaffoldDocumentContent({ mode: "page" }),
     });
     editors.push(editor);
 
@@ -176,6 +178,7 @@ describe("assessment_actions_group", () => {
   it("includes the runtime group node in course document composition", () => {
     const editor = new Editor({
       extensions: createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition }),
+      content: createScaffoldDocumentContent({ mode: "page" }),
     });
     editors.push(editor);
 

@@ -20,6 +20,7 @@ import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extens
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { AUTHORING_ANCHOR_ATTR } from "@/editor/interactions/dom/authoring-frame";
@@ -71,14 +72,16 @@ function createTestEditor() {
   });
 }
 
-function createAuthoringEditor() {
+function createAuthoringEditor(
+  content: JSONContent = createScaffoldDocumentContent({ mode: "page" }),
+) {
   return new Editor({
     editable: true,
     extensions: createCourseDocumentAuthoringExtensions({
       composition: coreAuthoringComposition,
       editable: true,
     }),
-    content: createScaffoldDocumentContent({ mode: "page" }),
+    content,
   });
 }
 
@@ -173,32 +176,33 @@ describe("AuthoringDocumentChrome", () => {
         <AuthoringDocumentSurfaceTemplatePickerHost editor={coreEditor} />
       </>,
     );
-    openSurfaceTemplatePicker(coreEditor, CORE_SURFACE_ID);
     openSurfaceTemplatePicker(plusEditor, PLUS_SURFACE_ID);
+    const plusDialog = await screen.findByRole("dialog", { name: "Choose a slide layout" });
+    await user.click(within(plusDialog).getByRole("tab", { name: "Content layouts" }));
+    expect(within(plusDialog).getByText("Private Plus Surface")).toBeInTheDocument();
 
-    const dialogs = await waitFor(() => {
-      const mountedDialogs = Array.from(
-        document.body.querySelectorAll<HTMLElement>(".sc-surface-template-picker-dialog"),
-      );
-      expect(mountedDialogs).toHaveLength(2);
-      return mountedDialogs;
+    openSurfaceTemplatePicker(coreEditor, CORE_SURFACE_ID);
+    await waitFor(() => {
+      expect(document.body.querySelectorAll(".sc-surface-template-picker-dialog")).toHaveLength(2);
     });
-    const plusDialog = dialogs.find((dialog) =>
-      dialog.textContent?.includes("Private Plus Surface"),
-    );
-    const coreDialog = dialogs.find(
-      (dialog) => !dialog.textContent?.includes("Private Plus Surface"),
-    );
-    if (!plusDialog || !coreDialog) {
-      throw new Error("Expected one isolated Plus Surface picker and one Core Surface picker.");
-    }
-    expect(dialogs.every((dialog) => dialog.textContent?.includes("Content"))).toBe(true);
+    const coreDialog = screen.getByRole("dialog", { name: "Choose a slide layout" });
+    await user.click(within(coreDialog).getByRole("tab", { name: "Content layouts" }));
+    expect(within(coreDialog).queryByText("Private Plus Surface")).toBeNull();
 
-    const hostSurfaceCard = within(plusDialog)
-      .getByText("Private Plus Surface")
-      .closest<HTMLButtonElement>("button");
-    if (!hostSurfaceCard) throw new Error("Expected the private Plus Surface card.");
-    await user.click(hostSurfaceCard);
+    await user.click(within(coreDialog).getByRole("button", { name: "Close template picker" }));
+    await waitFor(() => {
+      expect(document.body.querySelectorAll(".sc-surface-template-picker-dialog")).toHaveLength(1);
+    });
+
+    const reopenedPlusDialog = screen.getByRole("dialog", { name: "Choose a slide layout" });
+    await user.click(
+      within(reopenedPlusDialog).getByRole("radio", { name: "Private Plus Surface" }),
+    );
+    await user.click(
+      within(reopenedPlusDialog).getByRole("button", {
+        name: "Add Private Plus Surface slide",
+      }),
+    );
 
     await waitFor(() => {
       expect(readSurfaceVariants(plusEditor.getJSON())).toEqual([
@@ -207,7 +211,7 @@ describe("AuthoringDocumentChrome", () => {
       ]);
     });
     expect(readSurfaceVariants(coreEditor.getJSON())).toEqual(["slide-content"]);
-    expect(document.body.querySelectorAll(".sc-surface-template-picker-dialog")).toHaveLength(1);
+    expect(document.body.querySelectorAll(".sc-surface-template-picker-dialog")).toHaveLength(0);
 
     rendered.unmount();
     plusEditor.destroy();
@@ -430,8 +434,7 @@ describe("AuthoringDocumentChrome", () => {
   });
 
   it("retains the Surface template picker in document chrome", async () => {
-    const editor = createAuthoringEditor();
-    editor.commands.setContent(
+    const editor = createAuthoringEditor(
       createSlideshowDocumentJSON({
         regionId: TEMPLATE_PICKER_REGION_ID,
         surfaceId: TEMPLATE_PICKER_SURFACE_ID,
@@ -457,7 +460,7 @@ describe("AuthoringDocumentChrome", () => {
     );
 
     expect(
-      await screen.findByRole("dialog", { name: "Choose slide template" }),
+      await screen.findByRole("dialog", { name: "Choose a slide layout" }),
     ).toBeInTheDocument();
 
     rendered.unmount();
@@ -513,8 +516,7 @@ describe("AuthoringDocumentChrome", () => {
   });
 
   it("does not refocus a destroyed editor after template picker teardown", async () => {
-    const editor = createAuthoringEditor();
-    editor.commands.setContent(
+    const editor = createAuthoringEditor(
       createSlideshowDocumentJSON({
         regionId: TEMPLATE_PICKER_TEARDOWN_REGION_ID,
         surfaceId: TEMPLATE_PICKER_TEARDOWN_SURFACE_ID,
@@ -539,7 +541,7 @@ describe("AuthoringDocumentChrome", () => {
       }),
     );
     expect(
-      await screen.findByRole("dialog", { name: "Choose slide template" }),
+      await screen.findByRole("dialog", { name: "Choose a slide layout" }),
     ).toBeInTheDocument();
 
     rendered.unmount();
@@ -596,17 +598,23 @@ function hostLayoutCapability(id: string, title: string): LayoutCapability {
       title,
       description: `Insert ${title}`,
       icon: CircleIcon,
-      createContent: () => ({
-        type: "layout",
-        attrs: { id: `${id}-instance`, variant: id },
-        content: [
-          {
-            type: "section",
-            attrs: { id: `${id}-section` },
-            content: [{ type: "paragraph" }],
-          },
-        ],
-      }),
+      createContent: () => {
+        const paragraph = {
+          type: "paragraph",
+          attrs: { id: createEmbeddedNodeId() },
+        };
+        return {
+          type: "layout",
+          attrs: { id: createEmbeddedNodeId(), variant: id },
+          content: [
+            {
+              type: "section",
+              attrs: { id: createEmbeddedNodeId() },
+              content: [createLayerWithContent([paragraph])],
+            },
+          ],
+        };
+      },
     },
     authoringView: { id, layout: HostLayoutView },
     runtimeView: { id, component: HostLayoutView },
@@ -680,10 +688,13 @@ function createSlideshowDocumentJSON({
 
   region.attrs = { ...region.attrs, id: regionId };
   region.content = [
-    {
-      type: "paragraph",
-      content: [{ type: "text", text }],
-    },
+    createLayerWithContent([
+      {
+        type: "paragraph",
+        attrs: { id: createEmbeddedNodeId() },
+        content: [{ type: "text", text }],
+      },
+    ]),
   ];
 
   return addMissingNodeIds({

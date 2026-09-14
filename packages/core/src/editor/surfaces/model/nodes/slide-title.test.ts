@@ -15,6 +15,8 @@ import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { SlideTitleNode } from "@/editor/surfaces/model/nodes/slide-title";
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 const coreRuntimeComposition = createCoreScaffoldRuntimeComposition();
@@ -166,11 +168,19 @@ describe("SlideTitleNode", () => {
       content: [
         {
           type: "courseDocument",
-          attrs: { mode: "slideshow" },
+          attrs: {
+            id: createEmbeddedNodeId(),
+            mode: "slideshow",
+            schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+          },
           content: [
             {
+              type: "courseSection",
+              attrs: { id: createEmbeddedNodeId(), title: "Introduction" },
+            },
+            {
               type: "surface",
-              attrs: { id: "surface-slide-title" },
+              attrs: { id: createEmbeddedNodeId(), variant: "slide-content" },
               content: [
                 {
                   type: "slide_title",
@@ -198,7 +208,7 @@ describe("SlideTitleNode", () => {
     });
     const initialized = editor.getJSON();
     const courseDocument = initialized.content?.[0] as JSONContent | undefined;
-    const surface = courseDocument?.content?.[0] as JSONContent | undefined;
+    const surface = courseDocument?.content?.find((node) => node.type === "surface");
     expect(surface?.content?.[0]).toMatchObject({
       type: "slide_title",
       content: [

@@ -22,10 +22,14 @@ describe("structural floating visibility at the authoring boundary", () => {
       surfaceId: "firstslide01",
     },
   ])("keeps the first $label surface-options trigger visible inside the boundary", async (test) => {
-    const content = createScaffoldDocumentContent({
-      mode: test.mode,
-      surfaceId: test.surfaceId,
-    });
+    const content =
+      test.mode === "slideshow"
+        ? createScaffoldDocumentContent({
+            mode: test.mode,
+            surfaceId: test.surfaceId,
+            initialCourseSectionTitle: "Introduction",
+          })
+        : createScaffoldDocumentContent({ mode: test.mode, surfaceId: test.surfaceId });
     const host = document.createElement("div");
     host.style.cssText = "height: 1200px; inset: 0 auto auto 0; position: absolute; width: 960px;";
     document.body.append(host);

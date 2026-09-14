@@ -18,8 +18,8 @@ import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import {
   APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES,
   DOCUMENT_TREE_LIFECYCLE_APPLICATION,
-  DOCUMENT_TREE_LIFECYCLE_LAYER_ID,
-  DOCUMENT_TREE_LIFECYCLE_REGION_ID,
+  documentTreeLifecycleLayerIdForOwner,
+  documentTreeLifecycleRegionIdForOwner,
   projectDocumentTreeLifecycleDocument,
   requireDocumentTreeLifecycleNodeById,
 } from "@/composition/application/testing/document-tree-lifecycle-fixtures";
@@ -613,8 +613,8 @@ describe("checked transaction primitives", () => {
           blockDefinitions: DOCUMENT_TREE_LIFECYCLE_APPLICATION.capabilities.blocks.registry,
           layoutDefinitions: DOCUMENT_TREE_LIFECYCLE_APPLICATION.capabilities.layouts.registry,
           destination: {
-            ownerId: DOCUMENT_TREE_LIFECYCLE_REGION_ID,
-            layerId: DOCUMENT_TREE_LIFECYCLE_LAYER_ID,
+            ownerId: documentTreeLifecycleRegionIdForOwner(family.ownerId),
+            layerId: documentTreeLifecycleLayerIdForOwner(family.ownerId),
           },
         },
       });

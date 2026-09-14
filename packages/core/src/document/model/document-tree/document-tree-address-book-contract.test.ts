@@ -8,6 +8,8 @@ import {
   APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES,
   DOCUMENT_TREE_LIFECYCLE_APPLICATION,
   createCompleteDocumentTreeLifecycleDocument,
+  documentTreeLifecycleLayerIdForOwner,
+  documentTreeLifecycleRegionIdForOwner,
   projectDocumentTreeLifecycleDocument,
   requireDocumentTreeLifecycleNodeById,
 } from "@/composition/application/testing/document-tree-lifecycle-fixtures";
@@ -45,15 +47,15 @@ describe("semantic presentation address book", () => {
     const doc = createCompleteDocumentTreeLifecycleDocument();
     const snapshot = projectDocumentTreeLifecycleDocument(doc, 15);
     const surface = requireOnlyNodeOfType(doc, "surface");
-    const region = requireOnlyNodeOfType(doc, "region");
-    const expectedItemIds = new Set<EmbeddedNodeId>([surface.id, region.id]);
+    const expectedItemIds = new Set<EmbeddedNodeId>([surface.id]);
 
     expect(snapshot.revision).toBe(15);
     expect(snapshot.mode).toBe("page");
     expect(snapshot.roots.map(({ id }) => id)).toEqual([surface.id]);
-    expect(childIds(snapshot, surface.id)).toEqual([region.id]);
-    expect(childIds(snapshot, region.id)).toEqual(
-      APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES.map(({ ownerId }) => ownerId),
+    expect(childIds(snapshot, surface.id)).toEqual(
+      APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES.map(({ ownerId }) =>
+        documentTreeLifecycleRegionIdForOwner(ownerId),
+      ),
     );
     expect(new Set(BLOCK_MEMBER_INTERACTION_BY_OWNER_TYPE.keys())).toEqual(
       new Set(APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES.map(({ ownerNodeType }) => ownerNodeType)),
@@ -71,6 +73,10 @@ describe("semantic presentation address book", () => {
         family.ownerNodeType === "annotated_figure" ? "Annotated figure" : definition.title;
 
       expectedItemIds.add(family.ownerId);
+      const layerId = documentTreeLifecycleLayerIdForOwner(family.ownerId);
+      const regionId = documentTreeLifecycleRegionIdForOwner(family.ownerId);
+      expectedItemIds.add(regionId);
+      expectedItemIds.add(layerId);
       expect(countNodesOfType(doc, family.ownerNodeType)).toBe(1);
       expect(snapshot.itemById.get(family.ownerId)).toMatchObject({
         id: family.ownerId,
@@ -80,7 +86,11 @@ describe("semantic presentation address book", () => {
         label: expectedOwnerLabel,
         summary: null,
       });
-      expect(snapshot.parentById.get(family.ownerId)).toBe(region.id);
+      expect(snapshot.parentById.get(regionId)).toBe(surface.id);
+      expect(childIds(snapshot, regionId)).toEqual([layerId]);
+      expect(snapshot.parentById.get(layerId)).toBe(regionId);
+      expect(childIds(snapshot, layerId)).toEqual([family.ownerId]);
+      expect(snapshot.parentById.get(family.ownerId)).toBe(layerId);
       expect(snapshot.locationById.get(family.ownerId)).toMatchObject({
         id: family.ownerId,
         nodeType: family.ownerNodeType,
@@ -88,7 +98,7 @@ describe("semantic presentation address book", () => {
         to: persistedOwner.pos + persistedOwner.node.nodeSize,
         surfaceId: surface.id,
         authoringAnchorId: null,
-        activationPath: [],
+        activationPath: [{ ownerId: regionId, childId: layerId, ownerKind: "region" }],
       });
       expect(childIds(snapshot, family.ownerId)).toEqual([
         family.memberIds.first,
@@ -105,10 +115,12 @@ describe("semantic presentation address book", () => {
         if (!interaction) {
           throw new Error(`Missing interaction classification for ${family.ownerNodeType}.`);
         }
-        const expectedActivationPath =
-          interaction === "activation"
-            ? [{ ownerId: family.ownerId, childId: memberId, ownerKind: "block" }]
-            : [];
+        const expectedActivationPath = [
+          { ownerId: regionId, childId: layerId, ownerKind: "region" as const },
+          ...(interaction === "activation"
+            ? [{ ownerId: family.ownerId, childId: memberId, ownerKind: "block" as const }]
+            : []),
+        ];
 
         expectedItemIds.add(memberId);
         expect(item).toEqual({

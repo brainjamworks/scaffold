@@ -9,7 +9,12 @@ import { createElement } from "react";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
-import { createDocumentTreeDefinitionLookup } from "@/composition/model/document-tree-definition-lookup";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
+import { createDocumentAuthoringExtension } from "@/document/authoring/document-authoring-extension";
+import {
+  validateLayerContext,
+  validateLayerIdentities,
+} from "@/document/model/layers/layer-validation";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { LayerNode } from "@/document/model/layers/layer-node";
@@ -46,20 +51,10 @@ import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surf
 import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 const editors: Editor[] = [];
-const coreCapabilities = Object.freeze({
-  blocks: Object.freeze({
-    registry: builtInBlockRegistry,
-  }),
-  layouts: Object.freeze({ registry: builtInLayoutRegistry }),
-  surfaces: Object.freeze({ registry: builtInSurfaceVariantRegistry }),
-  contentIdentity: Object.freeze({
-    rewrites: Object.freeze({ getByNodeType: () => undefined, hasNodeType: () => false }),
-  }),
-  documentTree: createDocumentTreeDefinitionLookup({
-    blocks: builtInBlockRegistry,
-    layouts: builtInLayoutRegistry,
-    surfaces: builtInSurfaceVariantRegistry,
-  }),
+const coreCapabilities = resolveScaffoldCapabilities({
+  blockCapabilities: builtInBlockRegistry.definitions.map((definition) => ({ definition })),
+  layoutDefinitions: builtInLayoutRegistry.definitions,
+  surfaceDefinitions: builtInSurfaceVariantRegistry.definitions,
 });
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
@@ -374,7 +369,13 @@ function makeEditor({
           {
             type: "region",
             attrs: { id: "regionTab001" },
-            content: [layout],
+            content: [
+              {
+                type: "layer",
+                attrs: { id: "layerTab0001" },
+                content: [layout],
+              },
+            ],
           },
         ]
       : [layout];
@@ -383,6 +384,7 @@ function makeEditor({
     extensions: [
       createTestNodeIdentityExtension(),
       createScaffoldCapabilitiesStorageExtension(coreCapabilities),
+      ...(editable ? [createDocumentAuthoringExtension(coreCapabilities.documentTree)] : []),
       DocumentNode,
       StarterKit.configure({
         document: false,
@@ -405,8 +407,16 @@ function makeEditor({
       content: [
         {
           type: "courseDocument",
-          attrs: { mode: placement === "region" ? "slideshow" : "page" },
+          attrs: { id: "courseTab001", mode: placement === "region" ? "slideshow" : "page" },
           content: [
+            ...(placement === "region"
+              ? [
+                  {
+                    type: "courseSection",
+                    attrs: { id: "courseSecTab", title: "Tabs fixture" },
+                  },
+                ]
+              : []),
             {
               type: "surface",
               attrs: {
@@ -420,6 +430,15 @@ function makeEditor({
       ],
     },
   });
+  editor.state.doc.check();
+  expect(validateLayerIdentities(editor.state.doc)).toEqual([]);
+  expect(
+    validateLayerContext({
+      document: editor.state.doc,
+      blockDefinitions: coreCapabilities.blocks.registry,
+      layoutDefinitions: coreCapabilities.layouts.registry,
+    }),
+  ).toEqual([]);
   editors.push(editor);
   return editor;
 }
@@ -464,7 +483,15 @@ function tabSection(id: string, label: string, verticalPosition = "top"): JSONCo
       verticalPosition,
       options: { label },
     },
-    content: [paragraph(`${label} content`)],
+    content: [
+      {
+        type: "layer",
+        attrs: { id: id === "tab000000001" ? "layerTab0002" : "layerTab0003" },
+        content: [
+          paragraph(`${label} content`, id === "tab000000001" ? "paraTab00001" : "paraTab00002"),
+        ],
+      },
+    ],
   };
 }
 
@@ -497,13 +524,39 @@ function emptyTabSection(id: string, label: string): JSONContent {
       role: "tab-panel",
       options: { label },
     },
-    content: [{ type: "paragraph" }],
+    content: [
+      {
+        type: "layer",
+        attrs: {
+          id:
+            id === "tab000000001"
+              ? "layerTab0004"
+              : id === "tab000000002"
+                ? "layerTab0005"
+                : "layerTab0006",
+        },
+        content: [
+          {
+            type: "paragraph",
+            attrs: {
+              id:
+                id === "tab000000001"
+                  ? "emptyTab0001"
+                  : id === "tab000000002"
+                    ? "emptyTab0002"
+                    : "emptyTab0003",
+            },
+          },
+        ],
+      },
+    ],
   };
 }
 
-function paragraph(text: string): JSONContent {
+function paragraph(text: string, id: string): JSONContent {
   return {
     type: "paragraph",
+    attrs: { id },
     content: [{ type: "text", text }],
   };
 }
@@ -542,7 +595,7 @@ function sectionTextSelectionPos(editor: Editor, sectionId: string): number {
   let selectionPos: number | null = null;
   editor.state.doc.descendants((node, pos) => {
     if (node.type.name === "section" && node.attrs["id"] === sectionId) {
-      selectionPos = pos + 2;
+      selectionPos = pos + 3;
       return false;
     }
     return true;

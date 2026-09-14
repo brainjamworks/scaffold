@@ -9,6 +9,12 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
+import { createDocumentAuthoringExtension } from "@/document/authoring/document-authoring-extension";
+import {
+  validateLayerContext,
+  validateLayerIdentities,
+} from "@/document/model/layers/layer-validation";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { LayerNode } from "@/document/model/layers/layer-node";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
@@ -41,10 +47,10 @@ import { createTestNodeIdentityExtension } from "@/editor/testing";
 import { AccordionSectionPanelNode, AccordionSectionTitleNode } from "./accordion-section-nodes";
 
 const editors: Editor[] = [];
-const coreCapabilities = Object.freeze({
-  blocks: Object.freeze({ registry: builtInBlockRegistry }),
-  layouts: Object.freeze({ registry: builtInLayoutRegistry }),
-  surfaces: Object.freeze({ registry: builtInSurfaceVariantRegistry }),
+const coreCapabilities = resolveScaffoldCapabilities({
+  blockCapabilities: builtInBlockRegistry.definitions.map((definition) => ({ definition })),
+  layoutDefinitions: builtInLayoutRegistry.definitions,
+  surfaceDefinitions: builtInSurfaceVariantRegistry.definitions,
 });
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
@@ -253,7 +259,13 @@ function makeEditor({
           {
             type: "region",
             attrs: { id: "regionAcc001" },
-            content: [layout],
+            content: [
+              {
+                type: "layer",
+                attrs: { id: "layerAcc0001" },
+                content: [layout],
+              },
+            ],
           },
         ]
       : [layout];
@@ -262,6 +274,7 @@ function makeEditor({
     extensions: [
       createTestNodeIdentityExtension(),
       createScaffoldCapabilitiesStorageExtension(coreCapabilities),
+      ...(editable ? [createDocumentAuthoringExtension(coreCapabilities.documentTree)] : []),
       DocumentNode,
       StarterKit.configure({
         document: false,
@@ -284,8 +297,16 @@ function makeEditor({
       content: [
         {
           type: "courseDocument",
-          attrs: { mode: placement === "region" ? "slideshow" : "page" },
+          attrs: { id: "courseAcc001", mode: placement === "region" ? "slideshow" : "page" },
           content: [
+            ...(placement === "region"
+              ? [
+                  {
+                    type: "courseSection",
+                    attrs: { id: "courseSecAcc", title: "Accordion fixture" },
+                  },
+                ]
+              : []),
             {
               type: "surface",
               attrs: {
@@ -299,6 +320,15 @@ function makeEditor({
       ],
     },
   });
+  editor.state.doc.check();
+  expect(validateLayerIdentities(editor.state.doc)).toEqual([]);
+  expect(
+    validateLayerContext({
+      document: editor.state.doc,
+      blockDefinitions: coreCapabilities.blocks.registry,
+      layoutDefinitions: coreCapabilities.layouts.registry,
+    }),
+  ).toEqual([]);
   editors.push(editor);
   return editor;
 }
@@ -334,11 +364,24 @@ function accordionSection(id: string, label: string, defaultOpen: boolean): JSON
     content: [
       {
         type: "accordion_section_title",
-        content: [paragraph(label)],
+        attrs: { id: id === "accordion001" ? "titleAcc0001" : "titleAcc0002" },
+        content: [paragraph(label, id === "accordion001" ? "titlePAcc001" : "titlePAcc002")],
       },
       {
         type: "accordion_section_panel",
-        content: [paragraph(`${label} content`)],
+        attrs: { id: id === "accordion001" ? "panelAcc0001" : "panelAcc0002" },
+        content: [
+          {
+            type: "layer",
+            attrs: { id: id === "accordion001" ? "layerAcc0002" : "layerAcc0003" },
+            content: [
+              paragraph(
+                `${label} content`,
+                id === "accordion001" ? "paraAcc00001" : "paraAcc00002",
+              ),
+            ],
+          },
+        ],
       },
     ],
   };
@@ -353,9 +396,10 @@ function sectionVerticalState(editor: Editor, id: string) {
   return alignmentTargetPort.snapshot(editor.state, descriptor).vertical;
 }
 
-function paragraph(text: string): JSONContent {
+function paragraph(text: string, id: string): JSONContent {
   return {
     type: "paragraph",
+    attrs: { id },
     content: [{ type: "text", text }],
   };
 }

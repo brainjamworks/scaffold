@@ -50,7 +50,6 @@ import { createDocumentOutlineAuthoringPort } from "./DocumentOutlineHost";
 const IDS = {
   course: id("livecourse01"),
   surface: id("livesurface1"),
-  region: id("liveregion01"),
   alpha: id("livealpha001"),
   beta: id("livebeta0001"),
   inserted: id("liveinsert01"),
@@ -61,6 +60,7 @@ const IDS = {
   thirdPin: id("livepin00003"),
   grid: id("livegrid0001"),
   cell: id("livecell0001"),
+  cellLayer: id("celllayer001"),
   cellParagraph: id("cellprose001"),
 } as const;
 
@@ -86,7 +86,7 @@ describe("Document Outline live mounted updates", () => {
     );
 
     await expect
-      .poll(() => semanticChildIds(tree, IDS.region))
+      .poll(() => semanticChildIds(tree, IDS.surface))
       .toEqual([IDS.alpha, IDS.inserted, IDS.beta, IDS.figure]);
     expect(outlineLabelCount("Inserted paragraph")).toBe(1);
 
@@ -104,7 +104,7 @@ describe("Document Outline live mounted updates", () => {
 
     moveNodeAfter(editor, IDS.inserted, IDS.figure);
     await expect
-      .poll(() => semanticChildIds(tree, IDS.region))
+      .poll(() => semanticChildIds(tree, IDS.surface))
       .toEqual([IDS.alpha, IDS.beta, IDS.figure, IDS.inserted]);
 
     const cloned = cloneJsonWithNewStableIds(requireNode(editor, IDS.inserted).node.toJSON(), {
@@ -123,7 +123,7 @@ describe("Document Outline live mounted updates", () => {
       ),
     );
     await expect
-      .poll(() => semanticChildIds(tree, IDS.region))
+      .poll(() => semanticChildIds(tree, IDS.surface))
       .toEqual([IDS.alpha, IDS.beta, IDS.figure, IDS.inserted, IDS.duplicate]);
     expect(semanticLabel(tree, IDS.inserted)).toBe("Renamed paragraph 1");
     expect(semanticLabel(tree, IDS.duplicate)).toBe("Renamed paragraph 2");
@@ -134,10 +134,10 @@ describe("Document Outline live mounted updates", () => {
     await expect.poll(() => controller.getSelectionSnapshot().selectedId).toBe(IDS.duplicate);
     deleteNode(editor, IDS.duplicate);
     await expect.poll(() => controller.getSelectionSnapshot().selectedId).toBe(IDS.inserted);
-    expect(semanticChildIds(tree, IDS.region)).not.toContain(IDS.duplicate);
+    expect(semanticChildIds(tree, IDS.surface)).not.toContain(IDS.duplicate);
     expect(outlineLabelCount("Renamed paragraph")).toBe(1);
-    expect(new Set(semanticChildIds(tree, IDS.region)).size).toBe(
-      semanticChildIds(tree, IDS.region).length,
+    expect(new Set(semanticChildIds(tree, IDS.surface)).size).toBe(
+      semanticChildIds(tree, IDS.surface).length,
     );
   });
 
@@ -145,25 +145,25 @@ describe("Document Outline live mounted updates", () => {
     const harness = await mountLiveOutline();
     mounted.push(harness);
     const { controller, tree, editor } = harness;
-    const initialRegionIds = semanticChildIds(tree, IDS.region);
+    const initialSurfaceIds = semanticChildIds(tree, IDS.surface);
 
     const alpha = requireNode(editor, IDS.alpha);
     editor.commands.setTextSelection(alpha.pos + 6);
     expect(editor.commands.splitBlock()).toBe(true);
     await expect
-      .poll(() => semanticChildIds(tree, IDS.region).length)
-      .toBe(initialRegionIds.length + 1);
-    const splitIds = semanticChildIds(tree, IDS.region);
+      .poll(() => semanticChildIds(tree, IDS.surface).length)
+      .toBe(initialSurfaceIds.length + 1);
+    const splitIds = semanticChildIds(tree, IDS.surface);
     expect(new Set(splitIds).size).toBe(splitIds.length);
 
-    const splitSecondId = splitIds.find((candidate) => !initialRegionIds.includes(candidate));
+    const splitSecondId = splitIds.find((candidate) => !initialSurfaceIds.includes(candidate));
     if (!splitSecondId) throw new Error("Expected split paragraph identity");
     const splitSecond = requireNode(editor, splitSecondId);
     editor.commands.setTextSelection(splitSecond.pos + 1);
     expect(editor.commands.joinBackward()).toBe(true);
     await expect
-      .poll(() => semanticChildIds(tree, IDS.region).length)
-      .toBe(initialRegionIds.length);
+      .poll(() => semanticChildIds(tree, IDS.surface).length)
+      .toBe(initialSurfaceIds.length);
 
     controller.reportComponentSelection(IDS.secondPin);
     await expect.poll(() => controller.getSelectionSnapshot().selectedId).toBe(IDS.secondPin);
@@ -195,15 +195,16 @@ describe("Document Outline live mounted updates", () => {
     expect(outlineLabelCount("Second annotation")).toBe(0);
   });
 
-  it("renders direct Grid Cell prose as a live child of the expandable Cell", async () => {
+  it("renders Layer-owned Grid Cell prose under the expandable Cell", async () => {
     const harness = await mountLiveOutline(gridCellDocument());
     mounted.push(harness);
     const { tree, editor, viewController } = harness;
 
-    expect(semanticChildIds(tree, IDS.cell)).toEqual([IDS.cellParagraph]);
-    expect(tree.getSnapshot().parentById.get(IDS.cellParagraph)).toBe(IDS.cell);
+    expect(semanticChildIds(tree, IDS.cell)).toEqual([IDS.cellLayer]);
+    expect(semanticChildIds(tree, IDS.cellLayer)).toEqual([IDS.cellParagraph]);
+    expect(tree.getSnapshot().parentById.get(IDS.cellParagraph)).toBe(IDS.cellLayer);
 
-    for (const ancestorId of [IDS.surface, IDS.region, IDS.grid]) {
+    for (const ancestorId of [IDS.surface, IDS.grid]) {
       viewController.setExpanded(ancestorId, true);
     }
     viewController.setExpanded(IDS.cell, false);
@@ -236,7 +237,6 @@ describe("Document Outline live mounted updates", () => {
     const { tree, viewController } = harness;
 
     viewController.setExpanded(IDS.surface, true);
-    viewController.setExpanded(IDS.region, true);
     await expect.element(page.getByRole("treeitem", { name: "Alpha paragraph" })).toBeVisible();
 
     const surfaceLabel = semanticLabel(tree, IDS.surface);
@@ -254,7 +254,6 @@ describe("Document Outline live mounted updates", () => {
     const { controller, tree, editor, viewController } = harness;
 
     viewController.setExpanded(IDS.surface, true);
-    viewController.setExpanded(IDS.region, true);
     selectTextNode(editor, IDS.beta);
     await expect.poll(() => controller.getSelectionSnapshot().selectedId).toBe(IDS.beta);
 
@@ -303,7 +302,6 @@ describe("Document Outline live mounted updates", () => {
     const { tree, editor, viewController } = harness;
 
     viewController.setExpanded(IDS.surface, true);
-    viewController.setExpanded(IDS.region, true);
     const alphaRow = requireOutlineRow("Alpha paragraph");
     alphaRow.focus();
     await userEvent.keyboard("{F2}");
@@ -371,7 +369,6 @@ describe("Document Outline live mounted updates", () => {
     });
     mounted.push(harness);
     harness.viewController.setExpanded(IDS.surface, true);
-    harness.viewController.setExpanded(IDS.region, true);
 
     const alphaRow = requireOutlineRow("Alpha paragraph");
     alphaRow.focus();
@@ -646,28 +643,22 @@ function liveDocument(): JSONContent {
             type: "surface",
             attrs: { id: IDS.surface, variant: "page-default" },
             content: [
+              paragraph(IDS.alpha, "Alpha paragraph"),
+              paragraph(IDS.beta, "Beta paragraph"),
               {
-                type: "region",
-                attrs: { id: IDS.region, role: "main" },
+                type: "annotated_figure",
+                attrs: {
+                  id: IDS.figure,
+                  data: { type: "annotated_figure", alt: "Live figure" },
+                },
                 content: [
-                  paragraph(IDS.alpha, "Alpha paragraph"),
-                  paragraph(IDS.beta, "Beta paragraph"),
+                  { type: "annotated_figure_canvas" },
                   {
-                    type: "annotated_figure",
-                    attrs: {
-                      id: IDS.figure,
-                      data: { type: "annotated_figure", alt: "Live figure" },
-                    },
+                    type: "annotated_figure_legend",
                     content: [
-                      { type: "annotated_figure_canvas" },
-                      {
-                        type: "annotated_figure_legend",
-                        content: [
-                          annotation(IDS.firstPin, "First annotation"),
-                          annotation(IDS.secondPin, "Second annotation"),
-                          annotation(IDS.thirdPin, "Third annotation"),
-                        ],
-                      },
+                      annotation(IDS.firstPin, "First annotation"),
+                      annotation(IDS.secondPin, "Second annotation"),
+                      annotation(IDS.thirdPin, "Third annotation"),
                     ],
                   },
                 ],
@@ -693,16 +684,16 @@ function gridCellDocument(): JSONContent {
             attrs: { id: IDS.surface, variant: "page-default" },
             content: [
               {
-                type: "region",
-                attrs: { id: IDS.region, role: "main" },
+                type: "grid",
+                attrs: { id: IDS.grid },
                 content: [
                   {
-                    type: "grid",
-                    attrs: { id: IDS.grid },
+                    type: "cell",
+                    attrs: { id: IDS.cell },
                     content: [
                       {
-                        type: "cell",
-                        attrs: { id: IDS.cell },
+                        type: "layer",
+                        attrs: { id: IDS.cellLayer },
                         content: [paragraph(IDS.cellParagraph, "Direct Cell prose")],
                       },
                     ],

@@ -31,6 +31,9 @@ import {
 } from "@/composition/extensions/scaffold-capabilities-storage";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
+import { LayerNode } from "@/document/model/layers/layer-node";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import type { BlockDefinition } from "@/editor/blocks/block-definition";
 import {
   assessmentProblemIdentity,
@@ -68,6 +71,10 @@ import type { AssessmentPort } from "@/host/ports";
 import type { MediaPort } from "@/host/ports/media";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 
 import { imageHotspotBlockDefinition } from "./image-hotspot-definition";
 import {
@@ -200,10 +207,13 @@ function makeBoundedAuthoringEditor(
       createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
+      LayerNode,
       GridNode,
       CellNode,
       LayoutNode,
       SectionNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       SessionBoundedHostNode,
       createRuntimeBlockFrameAttributesExtension([imageHotspotBlockDefinition.nodeType]),
       AssessmentTitleNode,
@@ -238,10 +248,13 @@ function makeBoundedRuntimeEditor(
       createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
+      LayerNode,
       GridNode,
       CellNode,
       LayoutNode,
       SectionNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
       SessionBoundedHostNode,
       createRuntimeBlockFrameAttributesExtension([imageHotspotBlockDefinition.nodeType]),
       AssessmentTitleNode,
@@ -446,16 +459,16 @@ function boundedImageHotspotDocument(id: string): JSONContent {
     content: [
       {
         type: "courseDocument",
-        attrs: { mode: "slideshow" },
+        attrs: { id: createEmbeddedNodeId(), mode: "slideshow" },
         content: [
           {
             type: "surface",
-            attrs: { id: `${id}-surface`, variant: "slide-content" },
+            attrs: { id: createEmbeddedNodeId(), variant: "slide-content" },
             content: [
               {
                 type: "region",
-                attrs: { id: `${id}-region` },
-                content: [imageHotspotBlock(id)],
+                attrs: { id: createEmbeddedNodeId() },
+                content: [createLayerWithContent([imageHotspotBlock(id)])],
               },
             ],
           },
@@ -469,9 +482,12 @@ function stagedHostImageHotspotDocument(id: string): JSONContent {
   const document = boundedImageHotspotDocument(id);
   const region = document.content?.[0]?.content?.[0]?.content?.[0];
   if (!region) throw new Error("Expected bounded test region");
-  region.content = [
+  const layer = region.content?.[0];
+  if (layer?.type !== "layer") throw new Error("Expected bounded test Region Layer");
+  layer.content = [
     {
       type: sessionBoundedHostNodeType,
+      attrs: { id: createEmbeddedNodeId() },
       content: [imageHotspotBlock(id)],
     },
   ];
@@ -882,6 +898,7 @@ describe("composite image_hotspot node", () => {
         ?.getAttribute("data-image-hotspot-fit"),
     ).toBe("contain");
 
+    cleanup();
     installedEditor.destroy();
     unboundedEditor.destroy();
   });
@@ -930,6 +947,7 @@ describe("composite image_hotspot node", () => {
         ?.getAttribute("data-image-hotspot-fit"),
     ).toBe("contain");
 
+    cleanup();
     installedEditor.destroy();
     unboundedEditor.destroy();
   });
@@ -1503,6 +1521,7 @@ describe("composite image_hotspot node", () => {
       });
     });
 
+    cleanup();
     editor.destroy();
   });
 
@@ -1586,6 +1605,7 @@ describe("composite image_hotspot node", () => {
       expect(dialog.isConnected).toBe(false);
     });
 
+    cleanup();
     editor.destroy();
   });
 
@@ -1655,6 +1675,7 @@ describe("composite image_hotspot node", () => {
     });
     expect(transactionCount).toBe(1);
 
+    cleanup();
     editor.destroy();
   });
 
@@ -1690,6 +1711,7 @@ describe("composite image_hotspot node", () => {
     expect(body?.contains(formattingToolbar)).toBe(true);
     expect(imageHotspotBubbleMenuMock.props.at(-1)?.appendTo?.()).toBe(body);
 
+    cleanup();
     editor.destroy();
   });
 
@@ -2364,6 +2386,7 @@ describe("composite image_hotspot node", () => {
       expect(readAuthoredHotspotFeedback(editor, "ihsblk_00032", "hotsp_000002")).toBeNull();
     });
 
+    cleanup();
     editor.destroy();
   });
 
@@ -2406,6 +2429,7 @@ describe("composite image_hotspot node", () => {
     ).toBe("responsive");
     expect(document.body.querySelectorAll("[data-authoring-resize-handle]")).toHaveLength(5);
 
+    cleanup();
     editor.destroy();
   });
 
@@ -2590,6 +2614,7 @@ describe("composite image_hotspot node", () => {
     expect(assessmentHintCountByImageHotspotId(editor, "ihsblk_00004")).toBe(0);
     expect(topLevelNodeCount(editor, "image_hotspot")).toBe(2);
 
+    cleanup();
     editor.destroy();
   });
 

@@ -18,6 +18,7 @@ import { resolveBlockChromeTargetDescriptor as resolveBlockChromeTargetDescripto
 import { resolveStructuralChromeTargetDescriptor } from "@/editor/interactions/targets/prosemirror/projection/structural-chrome-target-projection";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 
 import { createAlignmentTargetPort } from "./alignment-target";
 import { collectOwnedHorizontalParticipants } from "./owned-content-alignment";
@@ -42,10 +43,10 @@ const alignmentTargetPort = createAlignmentTargetPort({
   layoutDefinitions: builtInLayoutRegistry,
   surfaceVariants: testSurfaceVariants,
 });
-const coreCapabilities = Object.freeze({
-  blocks: Object.freeze({ registry: testBlockRegistry }),
-  layouts: Object.freeze({ registry: builtInLayoutRegistry }),
-  surfaces: Object.freeze({ registry: testSurfaceVariants }),
+const coreCapabilities = resolveScaffoldCapabilities({
+  blockCapabilities: testBlockRegistry.definitions.map((definition) => ({ definition })),
+  layoutDefinitions: builtInLayoutRegistry.definitions,
+  surfaceDefinitions: testSurfaceVariants.definitions,
 });
 const resolveBlockChromeTargetDescriptor = (
   state: Parameters<typeof resolveBlockChromeTargetDescriptorWithLookup>[0],

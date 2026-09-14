@@ -15,15 +15,6 @@ import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extens
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
 import type { CourseStructureCommand } from "@/document/model/course-structure";
-import { CategoriseAuthoringExtension } from "@/editor/blocks/assessment/categorise/categorise-authoring-extension";
-import { SequencingAuthoringExtension } from "@/editor/blocks/assessment/sequencing/sequencing-authoring-extension";
-import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
-import { AssessmentHintNode } from "@/editor/blocks/assessment/shared/nodes/assessment-hint";
-import { AssessmentHintsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-hints-group";
-import { AssessmentInstructionsNode } from "@/editor/blocks/assessment/shared/nodes/assessment-instructions";
-import { AssessmentPromptNode } from "@/editor/blocks/assessment/shared/nodes/assessment-prompt";
-import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared/nodes/assessment-summary-feedback";
-import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
 import {
   ARRANGEMENT_CONTENT,
   SECTION_ARRANGEMENT_CONTENT,
@@ -40,11 +31,19 @@ import { SlideCoverSubtitleNode } from "@/editor/surfaces/model/nodes/slide-cove
 import { SlideTitleNode } from "@/editor/surfaces/model/nodes/slide-title";
 import { SurfaceCategoriseQuestionNode } from "@/editor/surfaces/model/assessment/surface-categorise-question-node";
 import { SurfaceSequencingQuestionNode } from "@/editor/surfaces/model/assessment/surface-sequencing-question-node";
+import { SurfaceMatchingQuestionNode } from "@/editor/surfaces/model/assessment/surface-matching-question-node";
+import { SurfaceImageHotspotQuestionNode } from "@/editor/surfaces/model/assessment/surface-image-hotspot-question-node";
+import { SurfaceMultiselectQuestionNode } from "@/editor/surfaces/model/assessment/surface-multiselect-question-node";
+import { SurfaceDropdownQuestionNode } from "@/editor/surfaces/model/assessment/surface-dropdown-question-node";
+import { SurfaceDragDropQuestionNode } from "@/editor/surfaces/model/assessment/surface-drag-drop-question-node";
+import { SurfaceFillBlanksQuestionNode } from "@/editor/surfaces/model/assessment/surface-fill-blanks-question-node";
+import { SurfaceQuizNode } from "@/editor/surfaces/model/assessment/surface-quiz-node";
 import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import type { SurfaceVariantDefinition } from "@/editor/surfaces/model/surface-variant-definition";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
 import { authoringSlideDividersPluginKey } from "./AuthoringSlideDividers";
 import { AuthoringSlideDividers } from "./AuthoringSlideDividers";
@@ -75,7 +74,8 @@ const surfaceVariantsWithContribution = createSurfaceVariantRegistry([
   ...builtInSurfaceVariantDefinitions,
   contributedSurfaceDefinition,
 ]);
-const coreCapabilities = createCoreScaffoldAuthoringComposition().capabilities;
+const coreComposition = createCoreScaffoldAuthoringComposition();
+const coreCapabilities = coreComposition.capabilities;
 const testCapabilities = Object.freeze({
   blocks: coreCapabilities.blocks,
   contentIdentity: coreCapabilities.contentIdentity,
@@ -166,6 +166,14 @@ describe("SurfaceTemplatePickerHost", () => {
     expect(within(assessmentChoices).getAllByRole("radio")).toEqual([
       within(assessmentChoices).getByRole("radio", { name: "Categorise Question" }),
       within(assessmentChoices).getByRole("radio", { name: "Sequencing Question" }),
+      within(assessmentChoices).getByRole("radio", { name: "Matching Question" }),
+      within(assessmentChoices).getByRole("radio", { name: "Image Hotspot Question" }),
+      within(assessmentChoices).getByRole("radio", { name: "Multiple Choice Question" }),
+      within(assessmentChoices).getByRole("radio", { name: "Multi-select Question" }),
+      within(assessmentChoices).getByRole("radio", { name: "Dropdown Question" }),
+      within(assessmentChoices).getByRole("radio", { name: "Drag and Drop Question" }),
+      within(assessmentChoices).getByRole("radio", { name: "Fill in the Blanks" }),
+      within(assessmentChoices).getByRole("radio", { name: "Quiz" }),
     ]);
     expect(
       within(assessmentChoices).getByRole("radio", { name: "Categorise Question" }),
@@ -573,15 +581,15 @@ function createEditorForDocument(
       SlideCoverSubtitleNode,
       SurfaceCategoriseQuestionNode,
       SurfaceSequencingQuestionNode,
-      AssessmentTitleNode,
-      AssessmentInstructionsNode,
-      AssessmentPromptNode,
-      AssessmentActionsGroupNode,
-      AssessmentHintNode,
-      AssessmentHintsGroupNode,
-      AssessmentSummaryFeedbackNode,
-      CategoriseAuthoringExtension,
-      SequencingAuthoringExtension,
+      SurfaceMatchingQuestionNode,
+      SurfaceImageHotspotQuestionNode,
+      SurfaceMultiselectQuestionNode,
+      SurfaceDropdownQuestionNode,
+      SurfaceDragDropQuestionNode,
+      SurfaceFillBlanksQuestionNode,
+      SurfaceQuizNode,
+      ...surfaceAssessmentQuestionSchemaExtensions,
+      ...coreComposition.blocks.extensions,
       TestArrangementNode,
       TestSectionArrangementNode,
       AuthoringSlideDividers,

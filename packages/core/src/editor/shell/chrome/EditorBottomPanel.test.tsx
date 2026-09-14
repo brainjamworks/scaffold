@@ -51,7 +51,7 @@ describe("EditorBottomPanel", () => {
   it("renders controlled tabs wired to a single tabpanel", () => {
     const { container } = setup();
 
-    const tablist = screen.getByRole("tablist", { name: "Surface workspace" });
+    expect(screen.getByRole("tablist", { name: "Surface workspace" })).toBeInTheDocument();
     const timelineTab = screen.getByRole("tab", { name: "Timeline" });
     const interactionsTab = screen.getByRole("tab", { name: "Interactions" });
     const tabpanel = screen.getByRole("tabpanel");
@@ -77,10 +77,7 @@ describe("EditorBottomPanel", () => {
       "aria-selected",
       "false",
     );
-    expect(screen.getByRole("tab", { name: "Timeline" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(screen.getByRole("tab", { name: "Timeline" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("portals the active tab's content into the header actions slot", () => {
@@ -235,7 +232,7 @@ describe("EditorBottomPanel", () => {
 
   it("persists keyboard resizes, pointer resizes and collapse toggles", () => {
     const key = "test-bottom-height-write";
-    const { container } = setup("timeline", { heightStorageKey: key });
+    setup("timeline", { heightStorageKey: key });
     const handle = screen.getByRole("separator", {
       name: "Resize bottom workspace",
     }) as HTMLButtonElement;

@@ -545,10 +545,14 @@ export function createAssessmentStore({
           problems: { ...state.durable.problems, ...outcome.problems },
           quizzes: { ...state.durable.quizzes, [groupId]: outcome.quizAttempt },
         };
-        const answerViews = { ...state.transient.answerViews };
-        if (operation === "quiz-start") {
-          for (const problemId of Object.keys(outcome.problems)) delete answerViews[problemId];
-        }
+        const answerViews =
+          operation === "quiz-start"
+            ? Object.fromEntries(
+                Object.entries(state.transient.answerViews).filter(
+                  ([problemId]) => !Object.hasOwn(outcome.problems, problemId),
+                ),
+              )
+            : state.transient.answerViews;
         const transient =
           operation === "quiz-start" ? { ...state.transient, answerViews } : state.transient;
         if (!clearRequest) return { durable, transient };

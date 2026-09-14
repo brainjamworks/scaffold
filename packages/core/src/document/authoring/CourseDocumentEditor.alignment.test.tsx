@@ -24,6 +24,7 @@ import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocument
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { fixtureCourseDocument } from "@/document/authoring/testing/course-document-fixture";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 
 import { CourseDocumentEditor } from "./CourseDocumentEditor.test-harness";
 
@@ -381,8 +382,10 @@ function slideshowAlignmentDocument(): JSONContent {
     verticalPosition: "top",
   };
   mainRegion.content = [
-    layout("bounded-layout", "tabs", [
-      section("bounded-tab", "tab-panel", [paragraph("Bounded tab", "left")]),
+    createLayerWithContent([
+      layout("bounded-layout", "tabs", [
+        section("bounded-tab", "tab-panel", [paragraph("Bounded tab", "left")]),
+      ]),
     ]),
   ];
 
@@ -421,7 +424,7 @@ function region(id: string, verticalPosition: "top" | "middle" | "bottom", conte
   return {
     type: "region",
     attrs: { id: fixtureId(id), verticalPosition },
-    content,
+    content: [createLayerWithContent(content)],
   } satisfies JSONContent;
 }
 
@@ -430,10 +433,15 @@ function grid(id: string, content: JSONContent[]) {
 }
 
 function cell(id: string, verticalPosition: "top" | "middle" | "bottom", content: JSONContent[]) {
+  const ordinary = content.filter((node) => node.type !== "layout" && node.type !== "grid");
+  const fill = content.filter((node) => node.type === "layout" || node.type === "grid");
   return {
     type: "cell",
     attrs: { id: fixtureId(id), verticalPosition },
-    content,
+    content: [
+      ...(ordinary.length > 0 ? [createLayerWithContent(ordinary)] : []),
+      ...fill.map((node) => createLayerWithContent([node])),
+    ],
   } satisfies JSONContent;
 }
 
@@ -453,6 +461,7 @@ function layout(id: string, variant: "tabs" | "accordion", content: JSONContent[
 }
 
 function section(id: string, role: "tab-panel" | "accordion-item", content: JSONContent[]) {
+  const layer = createLayerWithContent(content);
   return {
     type: "section",
     attrs: {
@@ -461,7 +470,21 @@ function section(id: string, role: "tab-panel" | "accordion-item", content: JSON
       verticalPosition: "top",
       options: role === "tab-panel" ? { label: "Tab" } : { defaultOpen: false },
     },
-    content,
+    content:
+      role === "tab-panel"
+        ? [layer]
+        : [
+            {
+              type: "accordion_section_title",
+              attrs: { id: createEmbeddedNodeId() },
+              content: [paragraph("Accordion item", "left")],
+            },
+            {
+              type: "accordion_section_panel",
+              attrs: { id: createEmbeddedNodeId() },
+              content: [layer],
+            },
+          ],
   } satisfies JSONContent;
 }
 

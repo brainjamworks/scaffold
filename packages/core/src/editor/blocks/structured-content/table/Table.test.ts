@@ -17,6 +17,8 @@ import { createBlockInsertActions } from "@/editor/insertion/block-insert-action
 import { createCatalogNodeChecked } from "@/editor/insertion/checked-insertion";
 import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { describeBlockContract } from "@/editor/testing";
+import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 
 import { tableBlockDefinition } from "./table-definition";
 
@@ -202,7 +204,7 @@ describe("Table containment contract", () => {
                           {
                             type: "cell",
                             attrs: { id: createEmbeddedNodeId() },
-                            content: [gridTable],
+                            content: [createLayerWithContent([gridTable])],
                           },
                         ],
                       },
@@ -213,7 +215,7 @@ describe("Table containment contract", () => {
                           {
                             type: "section",
                             attrs: { id: createEmbeddedNodeId() },
-                            content: [layoutTable],
+                            content: [createLayerWithContent([layoutTable])],
                           },
                         ],
                       },
@@ -345,6 +347,7 @@ function createTableContractEditor(): Editor {
         editable: true,
       }),
     ],
+    content: createScaffoldDocumentContent({ mode: "page" }),
   });
 }
 

@@ -38,7 +38,12 @@ export function projectInternalClockSurfaceTimeline(
         `Presentation Session cue "${cue.id}" uses unsupported command "${cue.command.kind}".`,
       );
     }
-    return cue;
+    return Object.freeze({
+      id: cue.id,
+      atMs: cue.atMs,
+      command: cue.command,
+      seekBehavior: cue.seekBehavior,
+    });
   });
   return Object.freeze({
     surfaceId: program.surfaceId,

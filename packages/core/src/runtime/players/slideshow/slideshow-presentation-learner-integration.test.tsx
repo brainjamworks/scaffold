@@ -2548,9 +2548,12 @@ function presentationControlsFrom(session: PresentationPlaybackSession) {
     subscribeCueReports: (
       listener: Parameters<PresentationPlaybackSession["subscribeCueReports"]>[0],
     ) => session.subscribeCueReports(listener),
-    play: () => session.play(),
+    play: async () => {
+      session.play();
+      return Result.ok();
+    },
     pause: () => session.pause(),
-    advance: () => session.advance(),
+    advance: async () => session.advance(),
     continueWithoutNarration: () => undefined,
     restart: async () => {
       session.restart();

@@ -9,6 +9,7 @@ import {
 } from "@/composition/authoring/create-authoring-composition";
 import { projectCourseStructure } from "@/document/model/course-structure/course-structure-projection";
 import { buildDocumentTree } from "@/document/model/document-tree/build-document-tree";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { emptyGalleryItemData } from "@/editor/blocks/figure-composition/gallery/content";
 
 // This fixture mounts the application and authoring composition roots, so its
@@ -24,9 +25,13 @@ export interface ApprovedSemanticMemberFamilyCase {
   readonly ownerNodeType: string;
   readonly memberNodeType: string;
   readonly ownerId: EmbeddedNodeId;
+  readonly ownerRegionId: EmbeddedNodeId;
+  readonly ownerLayerId: EmbeddedNodeId;
   readonly memberIds: Readonly<Record<SemanticLifecycleMember, EmbeddedNodeId>>;
   readonly privateDescendantIds: readonly EmbeddedNodeId[];
   readonly unrelatedSiblingId: EmbeddedNodeId;
+  readonly unrelatedSiblingRegionId: EmbeddedNodeId;
+  readonly unrelatedSiblingLayerId: EmbeddedNodeId;
   createOwner(members?: readonly SemanticLifecycleMember[]): ProseMirrorNode;
   createDocument(input?: {
     readonly members?: readonly SemanticLifecycleMember[];
@@ -151,8 +156,21 @@ export const DOCUMENT_TREE_LIFECYCLE_AUTHORING_ENVIRONMENT =
 export const DOCUMENT_TREE_LIFECYCLE_AUTHORING_STATE = getCourseDocumentAuthoringEnvironmentState(
   DOCUMENT_TREE_LIFECYCLE_AUTHORING_ENVIRONMENT,
 );
+export const DOCUMENT_TREE_LIFECYCLE_COURSE_DOCUMENT_ID = fixtureId(0, 1);
 export const DOCUMENT_TREE_LIFECYCLE_REGION_ID = fixtureId(0, 3);
 export const DOCUMENT_TREE_LIFECYCLE_LAYER_ID = fixtureId(0, 4);
+
+export function documentTreeLifecycleRegionIdForOwner(ownerId: EmbeddedNodeId): EmbeddedNodeId {
+  const envelope = establishedEnvelopeForOwner(ownerId);
+  if (!envelope) throw new Error(`No lifecycle fixture Region identity for owner ${ownerId}.`);
+  return envelope.regionId;
+}
+
+export function documentTreeLifecycleLayerIdForOwner(ownerId: EmbeddedNodeId): EmbeddedNodeId {
+  const envelope = establishedEnvelopeForOwner(ownerId);
+  if (!envelope) throw new Error(`No lifecycle fixture Layer identity for owner ${ownerId}.`);
+  return envelope.layerId;
+}
 
 export const APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES: readonly ApprovedSemanticMemberFamilyCase[] =
   Object.freeze(FAMILY_SPECS.map(createFamilyCase));
@@ -161,14 +179,38 @@ export function createDocumentTreeLifecycleDocument(
   content: readonly ProseMirrorNode[],
 ): ProseMirrorNode {
   const { schema } = DOCUMENT_TREE_LIFECYCLE_AUTHORING_STATE;
+  const contentWithEnvelopes = content.map((owner) => {
+    const parsedOwnerId = EmbeddedNodeIdSchema.safeParse(owner.attrs["id"]);
+    if (!parsedOwnerId.success) {
+      throw new Error(`Lifecycle fixture owner ${owner.type.name} requires a valid persisted ID.`);
+    }
+    return {
+      owner,
+      envelope: establishedEnvelopeForOwner(parsedOwnerId.data) ?? {
+        regionId: createEmbeddedNodeId(),
+        layerId: createEmbeddedNodeId(),
+      },
+    };
+  });
   return schema.node("doc", null, [
-    schema.node("courseDocument", { id: fixtureId(0, 1), mode: "page" }, [
-      schema.node("surface", { id: fixtureId(0, 2), variant: "page-default", settings: {} }, [
-        schema.node("region", { id: DOCUMENT_TREE_LIFECYCLE_REGION_ID, role: "main" }, [
-          schema.node("layer", { id: DOCUMENT_TREE_LIFECYCLE_LAYER_ID }, content),
+    schema.node(
+      "courseDocument",
+      { id: DOCUMENT_TREE_LIFECYCLE_COURSE_DOCUMENT_ID, mode: "page" },
+      [
+        schema.node("surface", { id: fixtureId(0, 2), variant: "page-default", settings: {} }, [
+          ...contentWithEnvelopes.map(({ owner, envelope }) =>
+            schema.node(
+              "region",
+              {
+                id: envelope.regionId,
+                role: owner.type.name,
+              },
+              [schema.node("layer", { id: envelope.layerId }, [owner])],
+            ),
+          ),
         ]),
-      ]),
-    ]),
+      ],
+    ),
   ]);
 }
 
@@ -221,12 +263,18 @@ function createFamilyCase(spec: FamilySpec, familyIndex: number): ApprovedSemant
   if (!rawMember) throw new Error(`Missing valid member seed for ${spec.label}.`);
 
   const ownerId = fixtureId(ordinal, 1);
+  const ownerRegionId =
+    familyIndex === 0 ? DOCUMENT_TREE_LIFECYCLE_REGION_ID : fixtureId(familyIndex + 20, 3);
+  const ownerLayerId =
+    familyIndex === 0 ? DOCUMENT_TREE_LIFECYCLE_LAYER_ID : fixtureId(familyIndex + 20, 4);
   const memberIds = Object.freeze({
     first: fixtureId(ordinal, 101),
     second: fixtureId(ordinal, 201),
     added: fixtureId(ordinal, 301),
   });
   const unrelatedSiblingId = fixtureId(ordinal, 901);
+  const unrelatedSiblingRegionId = fixtureId(familyIndex + 40, 3);
+  const unrelatedSiblingLayerId = fixtureId(familyIndex + 40, 4);
   const ownerTemplate = deepClone(inserted);
   replaceMembers(ownerTemplate, spec, []);
   assignPersistedIds(ownerTemplate, ordinal, 2, ownerId);
@@ -265,12 +313,33 @@ function createFamilyCase(spec: FamilySpec, familyIndex: number): ApprovedSemant
   return Object.freeze({
     ...spec,
     ownerId,
+    ownerRegionId,
+    ownerLayerId,
     memberIds,
     privateDescendantIds,
     unrelatedSiblingId,
+    unrelatedSiblingRegionId,
+    unrelatedSiblingLayerId,
     createOwner,
     createDocument,
   });
+}
+
+function establishedEnvelopeForOwner(
+  ownerId: EmbeddedNodeId,
+): { readonly regionId: EmbeddedNodeId; readonly layerId: EmbeddedNodeId } | undefined {
+  for (const family of APPROVED_DOCUMENT_TREE_MEMBER_FAMILY_CASES) {
+    if (family.ownerId === ownerId) {
+      return { regionId: family.ownerRegionId, layerId: family.ownerLayerId };
+    }
+    if (family.unrelatedSiblingId === ownerId) {
+      return {
+        regionId: family.unrelatedSiblingRegionId,
+        layerId: family.unrelatedSiblingLayerId,
+      };
+    }
+  }
+  return undefined;
 }
 
 function collectPrivateDescendantIds(

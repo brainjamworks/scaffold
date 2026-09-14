@@ -4,7 +4,6 @@ import { readFileSync } from "node:fs";
 import {
   act,
   cleanup,
-  fireEvent,
   render as renderTest,
   screen,
   waitFor,

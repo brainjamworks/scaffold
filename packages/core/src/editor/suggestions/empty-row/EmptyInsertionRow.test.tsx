@@ -23,6 +23,9 @@ import { createInteractionOwnerCommandPorts } from "@/editor/interactions/target
 import { interactionOwnerPluginKey } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-plugin-state";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { isSlashCommandActive } from "@/editor/suggestions/slash/SlashCommand";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
+import { validateLayerContext } from "@/document/model/layers/layer-validation";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 import {
   resolveEmptyInsertionTarget as resolveEmptyInsertionTargetWithLookup,
@@ -140,21 +143,26 @@ function stubRect(
 function calloutJSON(): JSONContent {
   return {
     type: "callout",
+    attrs: { id: createEmbeddedNodeId() },
     content: [
       {
         type: "callout_title",
+        attrs: { id: createEmbeddedNodeId() },
         content: [
           {
             type: "paragraph",
+            attrs: { id: createEmbeddedNodeId() },
             content: [{ type: "text", text: "Info title" }],
           },
         ],
       },
       {
         type: "callout_prompt",
+        attrs: { id: createEmbeddedNodeId() },
         content: [
           {
             type: "paragraph",
+            attrs: { id: createEmbeddedNodeId() },
             content: [{ type: "text", text: "Callout body" }],
           },
         ],
@@ -163,7 +171,10 @@ function calloutJSON(): JSONContent {
   };
 }
 
-function accordionJSON(extraSectionContent: JSONContent[] = []): JSONContent {
+function accordionJSON(
+  extraSectionContent: JSONContent[] = [],
+  panelText: string | null = "Panel body",
+): JSONContent {
   return {
     type: "doc",
     content: [
@@ -187,20 +198,28 @@ function accordionJSON(extraSectionContent: JSONContent[] = []): JSONContent {
                     content: [
                       {
                         type: "accordion_section_title",
+                        attrs: { id: createEmbeddedNodeId() },
                         content: [
                           {
                             type: "paragraph",
+                            attrs: { id: createEmbeddedNodeId() },
                             content: [{ type: "text", text: "Section 1" }],
                           },
                         ],
                       },
                       {
                         type: "accordion_section_panel",
+                        attrs: { id: createEmbeddedNodeId() },
                         content: [
-                          {
-                            type: "paragraph",
-                            content: [{ type: "text", text: "Panel body" }],
-                          },
+                          createLayerWithContent([
+                            {
+                              type: "paragraph",
+                              attrs: { id: createEmbeddedNodeId() },
+                              ...(panelText
+                                ? { content: [{ type: "text", text: panelText }] }
+                                : {}),
+                            },
+                          ]),
                         ],
                       },
                       ...extraSectionContent,
@@ -220,7 +239,18 @@ function setCursorInEmptyParagraphOwnedBy(editor: Editor, parentType: string) {
   let pos: number | null = null;
   editor.state.doc.descendants((node, nodePos, parent) => {
     if (pos !== null) return false;
-    if (parent?.type.name !== parentType) return true;
+    if (parent?.type.name === "layer") {
+      const resolved = editor.state.doc.resolve(nodePos + 1);
+      let hasExpectedOwner = false;
+      for (let depth = resolved.depth; depth >= 0; depth -= 1) {
+        if (resolved.node(depth).type.name !== parentType) continue;
+        hasExpectedOwner = true;
+        break;
+      }
+      if (!hasExpectedOwner) return true;
+    } else if (parent?.type.name !== parentType) {
+      return true;
+    }
     if (node.type.name !== "paragraph" || node.content.size > 0) return true;
     pos = nodePos + 1;
     return false;
@@ -240,7 +270,11 @@ function firstCellContentTypes(editor: Editor): string[] {
     if (node.type.name !== "cell") return true;
     types = [];
     node.forEach((child) => {
-      types?.push(child.type.name);
+      if (child.type.name !== "layer") {
+        types?.push(child.type.name);
+        return;
+      }
+      child.forEach((layerChild) => types?.push(layerChild.type.name));
     });
     return false;
   });
@@ -309,6 +343,27 @@ describe("EmptyInsertionRow", () => {
       flowApplication,
       hostPlacementDocument(nodeType, "flow"),
     );
+
+    expect(
+      validateLayerContext({
+        document: fillEditor.state.doc,
+        blockDefinitions: fillApplication.capabilities.blocks.registry,
+        layoutDefinitions: fillApplication.capabilities.layouts.registry,
+      }),
+    ).toContainEqual(
+      expect.objectContaining({
+        reason: "layer-content-incompatible",
+        contentType: nodeType,
+        rule: "fill-occupant-must-be-exclusive",
+      }),
+    );
+    expect(
+      validateLayerContext({
+        document: flowEditor.state.doc,
+        blockDefinitions: flowApplication.capabilities.blocks.registry,
+        layoutDefinitions: flowApplication.capabilities.layouts.registry,
+      }),
+    ).toEqual([]);
 
     setCursorInEmptyParagraphOwnedBy(fillEditor, "region");
     setCursorInEmptyParagraphOwnedBy(flowEditor, "region");
@@ -383,10 +438,12 @@ describe("EmptyInsertionRow", () => {
                 },
                 {
                   type: "grid",
+                  attrs: { id: createEmbeddedNodeId() },
                   content: [
                     {
                       type: "cell",
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: createEmbeddedNodeId() },
+                      content: [createLayerWithContent([{ type: "paragraph" }])],
                     },
                   ],
                 },
@@ -400,7 +457,7 @@ describe("EmptyInsertionRow", () => {
     setCursorInEmptyParagraphOwnedBy(editor, "cell");
 
     expect(resolveEmptyInsertionTarget(editor.state)).toMatchObject({
-      parentType: "cell",
+      parentType: "layer",
     });
     await waitFor(() => {
       expect(document.body.querySelector("[data-empty-insertion-row]")).not.toBeNull();
@@ -423,7 +480,7 @@ describe("EmptyInsertionRow", () => {
                 {
                   type: "region",
                   attrs: { id: "regionnode01", role: "main" },
-                  content: [{ type: "paragraph" }],
+                  content: [createLayerWithContent([{ type: "paragraph" }])],
                 },
               ],
             },
@@ -435,7 +492,7 @@ describe("EmptyInsertionRow", () => {
     setCursorInEmptyParagraphOwnedBy(editor, "region");
 
     expect(resolveEmptyInsertionTarget(editor.state)).toMatchObject({
-      parentType: "region",
+      parentType: "layer",
     });
     await waitFor(() => {
       expect(document.body.querySelector("[data-empty-insertion-row]")).not.toBeNull();
@@ -476,14 +533,17 @@ describe("EmptyInsertionRow", () => {
               content: [
                 {
                   type: "callout",
+                  attrs: { id: createEmbeddedNodeId() },
                   content: [
                     {
                       type: "callout_title",
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: createEmbeddedNodeId() },
+                      content: [{ type: "paragraph", attrs: { id: createEmbeddedNodeId() } }],
                     },
                     {
                       type: "callout_prompt",
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: createEmbeddedNodeId() },
+                      content: [{ type: "paragraph", attrs: { id: createEmbeddedNodeId() } }],
                     },
                   ],
                 },
@@ -504,22 +564,47 @@ describe("EmptyInsertionRow", () => {
     editor.destroy();
   });
 
-  it("does not render for direct empty paragraphs in wrapper sections with child insertion hosts", async () => {
-    const editor = makeEditor(
+  it("rejects direct empty paragraphs in wrapper sections with child insertion hosts", () => {
+    const editor = makeEditor();
+    const invalidDocument = editor.schema.nodeFromJSON(
       accordionJSON([
         {
           type: "paragraph",
+          attrs: { id: createEmbeddedNodeId() },
         },
       ]),
     );
 
-    setCursorInEmptyParagraphOwnedBy(editor, "section");
-
-    await waitFor(() => {
-      expect(editor.state.selection.empty).toBe(true);
+    expect(
+      validateLayerContext({
+        document: invalidDocument,
+        blockDefinitions: builtInBlockRegistry,
+        layoutDefinitions: builtInLayoutRegistry,
+      }),
+    ).toContainEqual({
+      reason: "section-structure-invalid",
+      ownerId: "accordsect01",
+      ownerPath: [0, 0, 0, 0],
+      layoutId: "laytaccord01",
+      layoutVariant: "accordion",
+      expectedChildTypes: ["accordion_section_title", "accordion_section_panel"],
+      actualChildTypes: ["accordion_section_title", "accordion_section_panel", "paragraph"],
     });
-    expect(resolveEmptyInsertionTarget(editor.state)).toBeNull();
-    expect(document.body.querySelector("[data-empty-insertion-row]")).toBeNull();
+
+    editor.destroy();
+  });
+
+  it("renders in the Layer owned by an accordion panel", async () => {
+    const editor = makeEditor(accordionJSON([], null));
+
+    setCursorInEmptyParagraphOwnedBy(editor, "accordion_section_panel");
+
+    expect(resolveEmptyInsertionTarget(editor.state)).toMatchObject({
+      parentType: "layer",
+    });
+    await waitFor(() => {
+      expect(document.body.querySelector("[data-empty-insertion-row]")).not.toBeNull();
+    });
 
     editor.destroy();
   });
@@ -595,10 +680,12 @@ describe("EmptyInsertionRow", () => {
                 { type: "paragraph" },
                 {
                   type: "grid",
+                  attrs: { id: createEmbeddedNodeId() },
                   content: [
                     {
                       type: "cell",
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: createEmbeddedNodeId() },
+                      content: [createLayerWithContent([{ type: "paragraph" }])],
                     },
                   ],
                 },
@@ -639,10 +726,12 @@ describe("EmptyInsertionRow", () => {
               content: [
                 {
                   type: "grid",
+                  attrs: { id: createEmbeddedNodeId() },
                   content: [
                     {
                       type: "cell",
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: createEmbeddedNodeId() },
+                      content: [createLayerWithContent([{ type: "paragraph" }])],
                     },
                   ],
                 },
@@ -660,7 +749,7 @@ describe("EmptyInsertionRow", () => {
     });
 
     expect(resolveEmptyInsertionTarget(editor.state)).toMatchObject({
-      parentType: "cell",
+      parentType: "layer",
     });
     await waitFor(() => {
       expect(document.body.querySelector("[data-empty-insertion-row]")).not.toBeNull();
@@ -706,10 +795,12 @@ describe("EmptyInsertionRow", () => {
                 content: [
                   {
                     type: "grid",
+                    attrs: { id: createEmbeddedNodeId() },
                     content: [
                       {
                         type: "cell",
-                        content: [calloutJSON()],
+                        attrs: { id: createEmbeddedNodeId() },
+                        content: [createLayerWithContent([calloutJSON()])],
                       },
                     ],
                   },
@@ -758,10 +849,12 @@ describe("EmptyInsertionRow", () => {
               content: [
                 {
                   type: "grid",
+                  attrs: { id: createEmbeddedNodeId() },
                   content: [
                     {
                       type: "cell",
-                      content: [{ type: "paragraph" }, calloutJSON()],
+                      attrs: { id: createEmbeddedNodeId() },
+                      content: [createLayerWithContent([{ type: "paragraph" }, calloutJSON()])],
                     },
                   ],
                 },
@@ -818,7 +911,11 @@ describe("EmptyInsertionRow", () => {
                       {
                         type: "section",
                         attrs: { id: "tabsection01", role: "tab-panel" },
-                        content: [{ type: "paragraph", attrs: { id: "paragraph001" } }],
+                        content: [
+                          createLayerWithContent([
+                            { type: "paragraph", attrs: { id: "paragraph001" } },
+                          ]),
+                        ],
                       },
                     ],
                   },
@@ -879,7 +976,7 @@ describe("EmptyInsertionRow", () => {
                       {
                         type: "section",
                         attrs: { id: "slidesection", role: "tab-panel" },
-                        content: [{ type: "paragraph" }],
+                        content: [createLayerWithContent([{ type: "paragraph" }])],
                       },
                     ],
                   },
@@ -973,17 +1070,23 @@ describe("EmptyInsertionRow", () => {
                         type: "cell",
                         attrs: { id: "cellnode0001" },
                         content: [
-                          {
-                            type: "layout",
-                            attrs: { id: "layoutnode01", variant: "basic" },
-                            content: [
-                              {
-                                type: "section",
-                                attrs: { id: "sectionnode1" },
-                                content: [{ type: "paragraph", attrs: { id: "paragraph002" } }],
-                              },
-                            ],
-                          },
+                          createLayerWithContent([
+                            {
+                              type: "layout",
+                              attrs: { id: "layoutnode01", variant: "tabs" },
+                              content: [
+                                {
+                                  type: "section",
+                                  attrs: { id: "sectionnode1", role: "tab-panel" },
+                                  content: [
+                                    createLayerWithContent([
+                                      { type: "paragraph", attrs: { id: "paragraph002" } },
+                                    ]),
+                                  ],
+                                },
+                              ],
+                            },
+                          ]),
                         ],
                       },
                     ],
@@ -1011,7 +1114,7 @@ describe("EmptyInsertionRow", () => {
 
     expect(firstCellContentTypes(editor)).toEqual(["layout", "paragraph"]);
     expect(resolveEmptyInsertionTarget(editor.state)).toMatchObject({
-      parentType: "cell",
+      parentType: "layer",
     });
     await waitFor(() => {
       expect(document.body.querySelector("[data-empty-insertion-row]")).not.toBeNull();
@@ -1041,17 +1144,23 @@ describe("EmptyInsertionRow", () => {
                         type: "cell",
                         attrs: { id: "cellnode0001" },
                         content: [
-                          {
-                            type: "layout",
-                            attrs: { id: "layouttabs01", variant: "tabs" },
-                            content: [
-                              {
-                                type: "section",
-                                attrs: { id: "sectionnode1", role: "tab-panel" },
-                                content: [{ type: "paragraph", attrs: { id: "paragraph003" } }],
-                              },
-                            ],
-                          },
+                          createLayerWithContent([
+                            {
+                              type: "layout",
+                              attrs: { id: "layouttabs01", variant: "tabs" },
+                              content: [
+                                {
+                                  type: "section",
+                                  attrs: { id: "sectionnode1", role: "tab-panel" },
+                                  content: [
+                                    createLayerWithContent([
+                                      { type: "paragraph", attrs: { id: "paragraph003" } },
+                                    ]),
+                                  ],
+                                },
+                              ],
+                            },
+                          ]),
                         ],
                       },
                     ],
@@ -1079,7 +1188,7 @@ describe("EmptyInsertionRow", () => {
 
     expect(firstCellContentTypes(editor)).toEqual(["layout", "paragraph"]);
     expect(resolveEmptyInsertionTarget(editor.state)).toMatchObject({
-      parentType: "cell",
+      parentType: "layer",
     });
     await waitFor(() => {
       expect(document.body.querySelector("[data-empty-insertion-row]")).not.toBeNull();
@@ -1107,32 +1216,36 @@ describe("EmptyInsertionRow", () => {
                     type: "region",
                     attrs: { id: "regionnode01", role: "main" },
                     content: [
-                      {
-                        type: "grid",
-                        attrs: { id: "gridnode0001" },
-                        content: [
-                          {
-                            type: "cell",
-                            attrs: { id: "cellnode0001" },
-                            content: [
-                              {
-                                type: "layout",
-                                attrs: { id: "layouttabs01", variant: "tabs" },
-                                content: [
+                      createLayerWithContent([
+                        {
+                          type: "grid",
+                          attrs: { id: "gridnode0001" },
+                          content: [
+                            {
+                              type: "cell",
+                              attrs: { id: "cellnode0001" },
+                              content: [
+                                createLayerWithContent([
                                   {
-                                    type: "section",
-                                    attrs: {
-                                      id: "sectionnode1",
-                                      role: "tab-panel",
-                                    },
-                                    content: [{ type: "paragraph" }],
+                                    type: "layout",
+                                    attrs: { id: "layouttabs01", variant: "tabs" },
+                                    content: [
+                                      {
+                                        type: "section",
+                                        attrs: {
+                                          id: "sectionnode1",
+                                          role: "tab-panel",
+                                        },
+                                        content: [createLayerWithContent([{ type: "paragraph" }])],
+                                      },
+                                    ],
                                   },
-                                ],
-                              },
-                            ],
-                          },
-                        ],
-                      },
+                                ]),
+                              ],
+                            },
+                          ],
+                        },
+                      ]),
                     ],
                   },
                 ],
@@ -1172,6 +1285,7 @@ function hostPlacementBlockCapability(
       name: nodeType,
       group: "block",
       atom: true,
+      addAttributes: () => ({ id: { default: null } }),
       renderHTML: () => ["div", { "data-host-test-block": nodeType }],
     });
 
@@ -1194,18 +1308,26 @@ function hostPlacementBlockCapability(
   };
 }
 
-function hostPlacementDocument(nodeType: string, id: string): JSONContent {
+function hostPlacementDocument(nodeType: string, _id: string): JSONContent {
+  const courseDocumentAttrs = createScaffoldDocumentContent({
+    mode: "slideshow",
+    initialCourseSectionTitle: "Introduction",
+  }).content?.[0]?.attrs;
   return {
     type: "doc",
     content: [
       {
         type: "courseDocument",
-        attrs: { mode: "slideshow" },
+        attrs: courseDocumentAttrs,
         content: [
+          {
+            type: "courseSection",
+            attrs: { id: createEmbeddedNodeId(), title: "Introduction" },
+          },
           {
             type: "surface",
             attrs: {
-              id: `surface-host-placement-${id}`,
+              id: createEmbeddedNodeId(),
               variant: "slide-content",
               settings: { slideTitle: { enabled: false } },
             },
@@ -1213,8 +1335,13 @@ function hostPlacementDocument(nodeType: string, id: string): JSONContent {
               { type: "slide_title" },
               {
                 type: "region",
-                attrs: { id: `region-host-placement-${id}`, role: "main" },
-                content: [{ type: nodeType }, { type: "paragraph" }],
+                attrs: { id: createEmbeddedNodeId(), role: "main" },
+                content: [
+                  createLayerWithContent([
+                    { type: nodeType, attrs: { id: createEmbeddedNodeId() } },
+                    { type: "paragraph", attrs: { id: createEmbeddedNodeId() } },
+                  ]),
+                ],
               },
             ],
           },

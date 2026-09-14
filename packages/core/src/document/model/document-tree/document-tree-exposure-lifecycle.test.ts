@@ -141,6 +141,15 @@ describe("document tree exposure lifecycle", () => {
       expect(moved.parentById.get(family.memberIds.first)).toBe(family.ownerId);
       expect(moved.itemById.has(family.unrelatedSiblingId)).toBe(true);
       expect(moved.diagnostics).toEqual([]);
+
+      for (const snapshot of [baseline, added, deleted, reordered, moved]) {
+        expect(snapshot.parentById.get(family.unrelatedSiblingId)).toBe(
+          family.unrelatedSiblingLayerId,
+        );
+        expect(snapshot.parentById.get(family.unrelatedSiblingLayerId)).toBe(
+          family.unrelatedSiblingRegionId,
+        );
+      }
     },
   );
 });

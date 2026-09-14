@@ -13,6 +13,7 @@ import {
   AuthoringChromeKind,
 } from "@/editor/interactions/dom/authoring-chrome";
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 
 import { BlockStrip } from "./BlockStrip";
 
@@ -74,8 +75,10 @@ function makeEditor(content: JSONContent = createScaffoldDocumentContent({ mode:
 }
 
 function boundedRegionDocument(): JSONContent {
-  const courseDocumentAttrs = createScaffoldDocumentContent({ mode: "slideshow" }).content?.[0]
-    ?.attrs;
+  const courseDocumentAttrs = createScaffoldDocumentContent({
+    mode: "slideshow",
+    initialCourseSectionTitle: "Introduction",
+  }).content?.[0]?.attrs;
   return {
     type: "doc",
     content: [
@@ -83,6 +86,10 @@ function boundedRegionDocument(): JSONContent {
         type: "courseDocument",
         attrs: courseDocumentAttrs,
         content: [
+          {
+            type: "courseSection",
+            attrs: { id: "courseSect01", title: "Introduction" },
+          },
           {
             type: "surface",
             attrs: {
@@ -96,12 +103,14 @@ function boundedRegionDocument(): JSONContent {
                 type: "region",
                 attrs: { id: "region000001", role: "main" },
                 content: [
-                  { type: "paragraph", attrs: { id: "paragraph001" } },
-                  {
-                    type: "paragraph",
-                    attrs: { id: "paragraph002" },
-                    content: [{ type: "text", text: "Existing region content" }],
-                  },
+                  createLayerWithContent([
+                    { type: "paragraph", attrs: { id: "paragraph001" } },
+                    {
+                      type: "paragraph",
+                      attrs: { id: "paragraph002" },
+                      content: [{ type: "text", text: "Existing region content" }],
+                    },
+                  ]),
                 ],
               },
             ],
@@ -114,27 +123,27 @@ function boundedRegionDocument(): JSONContent {
 
 function authoredBoundedRegionDocument(): JSONContent {
   const document = boundedRegionDocument();
-  const region = document.content?.[0]?.content?.[0]?.content?.find(
-    (node) => node.type === "region",
-  );
+  const surface = document.content?.[0]?.content?.find((node) => node.type === "surface");
+  const region = surface?.content?.find((node) => node.type === "region");
   if (!region) throw new Error("Expected a bounded region.");
   region.content = [
-    {
-      type: "paragraph",
-      attrs: { id: "paragraph003" },
-      content: [{ type: "text", text: "Authored region content" }],
-    },
+    createLayerWithContent([
+      {
+        type: "paragraph",
+        attrs: { id: "paragraph003" },
+        content: [{ type: "text", text: "Authored region content" }],
+      },
+    ]),
   ];
   return document;
 }
 
 function emptyBoundedRegionDocument(): JSONContent {
   const document = boundedRegionDocument();
-  const region = document.content?.[0]?.content?.[0]?.content?.find(
-    (node) => node.type === "region",
-  );
+  const surface = document.content?.[0]?.content?.find((node) => node.type === "surface");
+  const region = surface?.content?.find((node) => node.type === "region");
   if (!region) throw new Error("Expected a bounded region.");
-  region.content = [{ type: "paragraph", attrs: { id: "paragraph004" } }];
+  region.content = [createLayerWithContent([{ type: "paragraph", attrs: { id: "paragraph004" } }])];
   return document;
 }
 
@@ -340,17 +349,24 @@ describe("BlockStrip", () => {
 
     await waitFor(() => {
       let regionChildTypes: string[] | undefined;
+      let destinationLayerChildTypes: string[] | undefined;
       let gridCellCount: number | undefined;
       editor.state.doc.descendants((node) => {
         if (node.type.name !== "region") return true;
         regionChildTypes = [];
         node.forEach((child) => {
           regionChildTypes?.push(child.type.name);
-          if (child.type.name === "grid") gridCellCount = child.childCount;
+          if (child.type.name !== "layer") return;
+          destinationLayerChildTypes = [];
+          child.forEach((layerChild) => {
+            destinationLayerChildTypes?.push(layerChild.type.name);
+            if (layerChild.type.name === "grid") gridCellCount = layerChild.childCount;
+          });
         });
         return false;
       });
-      expect(regionChildTypes).toEqual(["grid"]);
+      expect(regionChildTypes).toEqual(["layer"]);
+      expect(destinationLayerChildTypes).toEqual(["grid"]);
       expect(gridCellCount).toBe(2);
     });
 

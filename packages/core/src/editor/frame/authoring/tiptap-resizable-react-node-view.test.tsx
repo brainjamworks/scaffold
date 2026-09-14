@@ -1190,14 +1190,20 @@ describe("createTiptapResizableReactNodeView", () => {
                         attrs: { id: "cell-a" },
                         content: [
                           {
-                            type: TEST_NODE_TYPE,
+                            type: "layer",
+                            attrs: { id: "layer-cell-a" },
                             content: [
                               {
-                                type: "paragraph",
+                                type: TEST_NODE_TYPE,
                                 content: [
                                   {
-                                    type: "text",
-                                    text: "Resizable cell content",
+                                    type: "paragraph",
+                                    content: [
+                                      {
+                                        type: "text",
+                                        text: "Resizable cell content",
+                                      },
+                                    ],
                                   },
                                 ],
                               },

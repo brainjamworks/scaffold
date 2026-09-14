@@ -110,6 +110,13 @@ function learningEventDefinitionForKind(
           maxSelections: null,
         },
       };
+    case "spatial-placement":
+      return {
+        interaction: {
+          kind,
+          markers: [{ id: "marker000001", label: "Marker" }],
+        },
+      };
   }
 }
 

@@ -987,7 +987,6 @@ describe("movement candidate construction", () => {
     const target = new ContainedMovementTarget(targetContext, rect());
 
     const candidate = deriveContainedMovementCandidate({
-      point: { x: 100, y: 20 },
       queryResult: { key: "contained:selectable_choice:b", placement: "before", target },
       source,
     });

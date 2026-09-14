@@ -23,6 +23,7 @@ import {
   validateLayerIdentities,
 } from "@/document/model/layers/layer-validation";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import {
@@ -1492,14 +1493,16 @@ function createEditor(
   },
   surfaceIds: readonly string[] = [AUTHORING_SURFACE_A_ID],
 ): Editor {
+  const capabilities = resolveScaffoldCapabilities({
+    blockCapabilities: testBlockRegistry.definitions.map((definition) => ({ definition })),
+    layoutDefinitions: builtInLayoutRegistry.definitions,
+    surfaceDefinitions: surfaceComposition.registry.definitions,
+  });
+
   return new Editor({
     extensions: [
       DocumentNode,
-      createScaffoldCapabilitiesStorageExtension({
-        blocks: { registry: testBlockRegistry },
-        layouts: { registry: builtInLayoutRegistry },
-        surfaces: { registry: surfaceComposition.registry },
-      }),
+      createScaffoldCapabilitiesStorageExtension(capabilities),
       StarterKit.configure({
         document: false,
         paragraph: false,

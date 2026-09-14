@@ -173,10 +173,13 @@ function selectableChoice(id: string, text: string): JSONContent {
 }
 
 function learnerDocumentForMode(mode: "slideshow" | "branching"): JSONContent {
-  return createScaffoldDocumentContent({
-    mode,
-    surfaceId: LEARNER_SURFACE_ID_BY_MODE[mode],
-  });
+  return mode === "slideshow"
+    ? createScaffoldDocumentContent({
+        mode,
+        surfaceId: LEARNER_SURFACE_ID_BY_MODE[mode],
+        initialCourseSectionTitle: "Introduction",
+      })
+    : createScaffoldDocumentContent({ mode, surfaceId: LEARNER_SURFACE_ID_BY_MODE[mode] });
 }
 
 function learnerBootstrap(

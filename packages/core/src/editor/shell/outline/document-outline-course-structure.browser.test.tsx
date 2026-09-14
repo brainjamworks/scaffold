@@ -8,6 +8,7 @@ import { page, userEvent } from "vite-plus/test/browser/context";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor.test-harness";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { toPortableCourseDocumentAttrs } from "@/document/model/course-document-attrs";
 import "@/editor/shell/authoring/ScaffoldAuthoringApp.css";
 import { DocumentOutlineHost } from "@/editor/shell/outline/DocumentOutlineHost";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
@@ -302,8 +303,19 @@ async function expectSingleUpdate(
         : onUpdate.mock.calls.length,
     )
     .toBe(1);
-  expect(onUpdate.mock.lastCall?.[0]).toEqual(editor.getJSON());
+  const expected = editor.getJSON();
+  const courseDocument = expected.content?.[0];
+  if (courseDocument) {
+    const portableAttrs = toPortableCourseDocumentAttrs(courseDocument.attrs);
+    if (!isRecord(portableAttrs)) throw new Error("Expected portable Course Document attrs.");
+    courseDocument.attrs = portableAttrs;
+  }
+  expect(onUpdate.mock.lastCall?.[0]).toEqual(expected);
   onUpdate.mockClear();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function slideshowDocument(): JSONContent {

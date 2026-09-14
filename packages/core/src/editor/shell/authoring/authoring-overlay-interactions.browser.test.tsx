@@ -39,6 +39,8 @@ import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { createAlignmentTargetPort } from "@/editor/interactions/alignment/alignment-target";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import "@/styles/globals.css";
 import "./ScaffoldAuthoringApp.css";
 
@@ -79,6 +81,11 @@ const testBlockRegistry = createBlockRegistry([
   ...builtInBlockRegistry.definitions,
   defineBlock({ nodeType: TEST_MOVEMENT_BLOCK, title: "Overlay movement block" }),
 ]);
+const testCapabilities = resolveScaffoldCapabilities({
+  blockCapabilities: testBlockRegistry.definitions.map((definition) => ({ definition })),
+  layoutDefinitions: builtInLayoutRegistry.definitions,
+  surfaceDefinitions: builtInSurfaceVariantRegistry.definitions,
+});
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: testBlockRegistry,
   layoutDefinitions: builtInLayoutRegistry,
@@ -689,6 +696,7 @@ async function mountOpenStructuralBubble(
   const editor = new Editor({
     element: editorElement,
     extensions: [
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
       StarterKit.configure({ undoRedo: false }),
       TestGridNode,
       createScaffoldInteractionOwnerExtension(testBlockRegistry),
@@ -813,6 +821,7 @@ async function mountBlockPlacementHarness(
   const editor = new Editor({
     element: editorElement,
     extensions: [
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
       StarterKit.configure({ undoRedo: false }),
       TestMovementBlockNode,
       createScaffoldInteractionOwnerExtension(testBlockRegistry),

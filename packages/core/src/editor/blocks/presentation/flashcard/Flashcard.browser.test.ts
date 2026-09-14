@@ -712,10 +712,16 @@ async function mountRealFlashcardPair(): Promise<MountedFlashcardPair> {
 
 function boundedFlashcardDocument(surfaceId: EmbeddedNodeId): JSONContent {
   const surface = slideContentSurfaceDefinition.createSurface({ surfaceId });
+  const slideTitle = surface.content?.find((child) => child.type === "slide_title");
+  if (!slideTitle) throw new Error("Slide content fixture is missing its title.");
+  slideTitle.attrs = { ...slideTitle.attrs, id: createEmbeddedNodeId() };
   const region = surface.content?.find((child) => child.type === "region");
   if (!region) throw new Error("Slide content fixture is missing its Region.");
+  region.attrs = { ...region.attrs, id: createEmbeddedNodeId() };
+  const layer = region.content?.find((child) => child.type === "layer");
+  if (!layer) throw new Error("Slide content fixture is missing its Region Layer.");
 
-  region.content = [
+  layer.content = [
     {
       type: FLASHCARD_NODE,
       attrs: {
@@ -751,10 +757,16 @@ function boundedFlashcardDocument(surfaceId: EmbeddedNodeId): JSONContent {
     },
   ];
 
-  const content = createScaffoldDocumentContent({ mode: "slideshow", surfaceId });
+  const content = createScaffoldDocumentContent({
+    mode: "slideshow",
+    surfaceId,
+    initialCourseSectionTitle: "Introduction",
+  });
   const courseDocument = content.content?.[0];
   if (!courseDocument) throw new Error("Slideshow fixture has no courseDocument.");
-  courseDocument.content = [surface];
+  const courseSection = courseDocument.content?.[0];
+  if (!courseSection) throw new Error("Slideshow fixture has no Course Section.");
+  courseDocument.content = [courseSection, surface];
   return content;
 }
 
@@ -765,8 +777,10 @@ function flashcardSide(
 ): JSONContent {
   return {
     type,
+    attrs: { id: createEmbeddedNodeId() },
     content: Array.from({ length: paragraphCount }, (_, index) => ({
       type: "paragraph",
+      attrs: { id: createEmbeddedNodeId() },
       content: [
         {
           type: "text",

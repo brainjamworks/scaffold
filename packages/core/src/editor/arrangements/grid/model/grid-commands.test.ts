@@ -46,6 +46,12 @@ import {
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { createTestNodeIdentityExtension } from "@/editor/testing";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
+import { createDocumentAuthoringExtension } from "@/document/authoring";
+import { defineBlock } from "@/editor/blocks/block-definition";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 
 const TestBlockNode = Node.create({
   name: "test_block",
@@ -56,6 +62,7 @@ const TestBlockNode = Node.create({
 
   addAttributes() {
     return {
+      id: { default: null },
       marker: {
         default: null,
         parseHTML: (element: HTMLElement) => element.getAttribute("data-marker"),
@@ -75,6 +82,16 @@ const TestBlockNode = Node.create({
   },
 });
 
+const testCapabilities = resolveScaffoldCapabilities({
+  blockCapabilities: [
+    {
+      definition: defineBlock({ nodeType: "test_block", title: "Grid command test block" }),
+    },
+  ],
+  layoutDefinitions: builtInLayoutRegistry.definitions,
+  surfaceDefinitions: builtInSurfaceVariantRegistry.definitions,
+});
+
 function makeEditor() {
   return new Editor({
     extensions: [
@@ -92,10 +109,11 @@ function makeEditor() {
   });
 }
 
-function makeCourseEditor(content: JSONContent[] = []) {
+function makeCourseEditor(content: JSONContent[] = [], installAuthoring = false) {
   return new Editor({
     extensions: [
       DocumentNode,
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
       StarterKit.configure({
         document: false,
         paragraph: false,
@@ -115,12 +133,16 @@ function makeCourseEditor(content: JSONContent[] = []) {
       AccordionSectionPanelNode,
       TestBlockNode,
       createTestNodeIdentityExtension(),
+      ...(installAuthoring
+        ? [createDocumentAuthoringExtension(testCapabilities.documentTree)]
+        : []),
     ],
     content: {
       type: "doc",
       content: [
         {
           type: "courseDocument",
+          attrs: { id: "courseGrid01", mode: "page" },
           content: [
             {
               type: "surface",
@@ -368,7 +390,7 @@ describe("grid transaction commands", () => {
   });
 
   it("inserts a preset grid with equal widths", () => {
-    const editor = makeCourseEditor([block("after")]);
+    const editor = makeCourseEditor([block("afterGrid001", "after")], true);
 
     expect(insertGridAt(editor, surfaceInsertPos(editor), { columns: 4 })).toBe(true);
 
@@ -651,19 +673,27 @@ describe("grid transaction commands", () => {
   });
 
   it("rejects invalid grid command inputs before dispatch", () => {
-    const editor = makeCourseEditor([
-      grid([cell([block("a")]), cell([block("b")])], {
-        id: "grid-1",
-        columnWidths: [1, 1],
-      }),
-    ]);
+    const editor = makeCourseEditor(
+      [
+        grid([cell([], { id: "cellGrid0001" }), cell([], { id: "cellGrid0002" })], {
+          id: "gridGrid0001",
+          columnWidths: [1, 1],
+        }),
+      ],
+      true,
+    );
     const before = editor.getJSON();
 
     expect(insertGridAt(editor, surfaceInsertPos(editor), { columns: 7 })).toBe(false);
-    expect(addGridCellAt(editor, nodePos(editor, "grid", "grid-1"), -1, "left")).toBe(false);
-    expect(deleteGridCellAt(editor, nodePos(editor, "grid", "grid-1"), 2)).toBe(false);
+    expect(addGridCellAt(editor, nodePos(editor, "grid", "gridGrid0001"), -1, "left")).toBe(false);
+    expect(deleteGridCellAt(editor, nodePos(editor, "grid", "gridGrid0001"), 2)).toBe(false);
     expect(
-      resizeGridColumnsAt(editor, nodePos(editor, "grid", "grid-1"), 0, Number.POSITIVE_INFINITY),
+      resizeGridColumnsAt(
+        editor,
+        nodePos(editor, "grid", "gridGrid0001"),
+        0,
+        Number.POSITIVE_INFINITY,
+      ),
     ).toBe(false);
     expect(editor.getJSON()).toEqual(before);
 

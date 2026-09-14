@@ -80,19 +80,12 @@ describe("Control Binding editor lifecycle", () => {
 
     expect(authoringCatalogue).not.toBe(runtimeCatalogue);
     expect(authoringRegistry).not.toBe(runtimeRegistry);
-    expect(authoringSharedOwner.isErr()).toBe(true);
-    expect(runtimeSharedOwner.isErr()).toBe(true);
-    if (authoringSharedOwner.isOk()) {
-      throw new Error("Expected the shared passive owner to have no declared capabilities.");
+    expect(authoringSharedOwner.isOk()).toBe(true);
+    expect(runtimeSharedOwner.isOk()).toBe(true);
+    if (authoringSharedOwner.isErr() || runtimeSharedOwner.isErr()) {
+      throw new Error("Expected the shared Layer-owned target to resolve in both environments.");
     }
-    if (runtimeSharedOwner.isOk()) {
-      throw new Error("Expected the shared passive owner to have no declared capabilities.");
-    }
-    expect(authoringSharedOwner.error).toEqual({
-      reason: "no-declared-capabilities",
-      targetId: sharedOwnerId,
-    });
-    expect(runtimeSharedOwner.error).toEqual(authoringSharedOwner.error);
+    expect(runtimeSharedOwner.value).toEqual(authoringSharedOwner.value);
     expect(authoringRegistry).not.toHaveProperty("dispose");
     expect(runtimeRegistry).not.toHaveProperty("dispose");
     expectTypeOf(authoringRegistry).toEqualTypeOf<ControlBindingRegistryPort>();
@@ -107,9 +100,7 @@ describe("Control Binding editor lifecycle", () => {
     expect(tryGetSemanticTargetInteractionEnvironmentForEditor(authoring)).toBe(
       authoringInteractions,
     );
-    expect(tryGetSemanticTargetInteractionEnvironmentForEditor(runtime)).toBe(
-      runtimeInteractions,
-    );
+    expect(tryGetSemanticTargetInteractionEnvironmentForEditor(runtime)).toBe(runtimeInteractions);
   });
 
   it("keeps disposal private while invalidating previously borrowed registry ports", () => {
@@ -124,9 +115,7 @@ describe("Control Binding editor lifecycle", () => {
 
     editor.destroy();
 
-    expect(() => registry.get(OWNER_ID)).toThrow(
-      "Cannot use a disposed Control Binding registry.",
-    );
+    expect(() => registry.get(OWNER_ID)).toThrow("Cannot use a disposed Control Binding registry.");
     expect(() => registry.register({ ownerId: OWNER_ID })).toThrow(
       "Cannot register a Control Binding after registry disposal.",
     );
@@ -239,9 +228,7 @@ function readinessProofBinding(ownerId: EmbeddedNodeId) {
   };
 }
 
-function unmountProofLayoutCapability(
-  listeners: Set<ControlEventListener>,
-): LayoutCapability {
+function unmountProofLayoutCapability(listeners: Set<ControlEventListener>): LayoutCapability {
   const id = "control-lifecycle-unmount-layout";
   function UnmountProofRuntimeView(props: LayoutRuntimeViewProps) {
     const ownerId = props.node.attrs["id"] as EmbeddedNodeId;

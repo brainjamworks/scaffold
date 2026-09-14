@@ -119,7 +119,9 @@ describe("full-slide Quiz authoring", () => {
     expect(stage).toHaveAttribute("data-full-slide-question-family", "multiple-choice");
     expect(strip).toHaveClass("sc-app-quiz__strip");
     expect(rail).toContainElement(strip);
-    expect(rail).toContainElement(requiredElement(surface, '[data-testid="quiz-stage-meta"]'));
+    expect(rail).toContainElement(
+      requiredElement<HTMLElement>(surface, '[data-testid="quiz-stage-meta"]'),
+    );
     expect(addQuestion).toHaveClass("sc-app-block-add", "sc-app-quiz__strip-add");
     expect(addQuestion.querySelector('[class^="sc-course-"]')).toBeNull();
     expect(stage.getBoundingClientRect().width).toBeGreaterThan(

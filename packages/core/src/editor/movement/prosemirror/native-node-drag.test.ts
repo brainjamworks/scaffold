@@ -5,6 +5,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { createScaffoldDocumentContent } from "@/format/artifact";
 
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
@@ -35,6 +36,7 @@ describe("native node drag configuration", () => {
           editable: true,
         }),
       ],
+      content: createScaffoldDocumentContent({ mode: "page" }),
     });
 
     for (const nodeType of SCAFFOLD_MOVEMENT_NODE_TYPES) {

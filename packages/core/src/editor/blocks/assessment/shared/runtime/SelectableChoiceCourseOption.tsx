@@ -65,7 +65,6 @@ export function SelectableChoiceCourseOption({
   const state = choice ? choice.stateFor(choiceId) : null;
   const checked = choice ? choice.isSelected(choiceId) : false;
   const submitted = assessment?.problem?.state.submitted ?? false;
-  const answerKeyVisible = assessment?.problem?.answerKeyVisible ?? false;
   const answerView = assessment?.problem?.answerView ?? "submitted";
   const runtimeReady = Boolean(assessment?.problem);
   const interactionLocked = assessment?.problem?.interactionLocked ?? false;

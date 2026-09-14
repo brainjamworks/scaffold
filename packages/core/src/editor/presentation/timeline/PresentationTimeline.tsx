@@ -9,7 +9,6 @@ import type { Editor } from "@tiptap/core";
 import {
   useContext,
   useEffect,
-  useCallback,
   useMemo,
   useRef,
   useState,
@@ -137,19 +136,6 @@ export function PresentationTimeline({
       ? rows
       : rows.filter((row) => row.actions.length > 0 || row.targetId === snapshot.selectedTargetId);
   }, [collapsedTargetIds, projection.rows, rowById, showAllTargets, snapshot.selectedTargetId]);
-  const expandSurfaceForNarration = useCallback(
-    (narrationDurationMs: number) => {
-      if (!editor || narrationDurationMs <= durationMs) return;
-      const result = setPresentationSurfaceDuration({
-        editor,
-        surfaceId: projection.surfaceId,
-        durationMs: narrationDurationMs,
-      });
-      setAuthoringError(result.isErr() ? result.error : null);
-    },
-    [durationMs, editor, projection.surfaceId],
-  );
-
   useEffect(() => {
     const selectedTargetId = snapshot.selectedTargetId;
     if (!selectedTargetId) return;
@@ -599,7 +585,6 @@ export function PresentationTimeline({
                   }
                   source={projection.narration.source}
                   pixelsPerSecond={snapshot.pixelsPerSecond}
-                  onDurationResolved={expandSurfaceForNarration}
                 />
               ) : null}
               {visibleRows.map((row) => (
