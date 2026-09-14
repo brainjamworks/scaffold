@@ -41,17 +41,21 @@ import { createTestNodeIdentityExtension, describeLayoutContract } from "@/edito
 import { assertLayoutContract } from "@/editor/testing/layout-contract";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
-import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { DefaultLayoutContent } from "@/editor/arrangements/layout/authoring/default-layout-content";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
+import { createDocumentAuthoringExtension } from "@/document/authoring/document-authoring-extension";
+import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createBlankLayer } from "@/document/model/layers/layer-construction";
 import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surface-assessment-schema-extensions";
 
-const coreCapabilities = Object.freeze({
-  blocks: Object.freeze({ registry: builtInBlockRegistry }),
-  layouts: Object.freeze({ registry: builtInLayoutRegistry }),
-  surfaces: Object.freeze({ registry: createSurfaceVariantRegistry([]) }),
+const coreCapabilities = resolveScaffoldCapabilities({
+  blockCapabilities: builtInBlockRegistry.definitions.map((definition) => ({ definition })),
+  layoutDefinitions: builtInLayoutRegistry.definitions,
+  surfaceDefinitions: builtInSurfaceVariantRegistry.definitions,
 });
 
 const TestLayoutOptionsSchema = z.object({
@@ -87,7 +91,7 @@ const testContractLayoutDefinition = {
         label: `Section ${index + 1}`,
         options: { label: `Section ${index + 1}` },
       },
-      content: [{ type: "paragraph" }],
+      content: [createBlankLayer()],
     }),
   },
   createContent: () => ({
@@ -105,7 +109,7 @@ const testContractLayoutDefinition = {
           label: "Section 1",
           options: { label: "Section 1" },
         },
-        content: [{ type: "paragraph" }],
+        content: [createBlankLayer()],
       },
     ],
   }),
@@ -152,7 +156,7 @@ describe("layout contract assertions", () => {
             {
               type: "section",
               attrs: { id: "AbCdEf123_--" },
-              content: [{ type: "paragraph" }],
+              content: [createBlankLayer()],
             },
           ],
         },
@@ -229,8 +233,10 @@ describe("layout contract assertions", () => {
 
 function createUniversalLayoutContractEditor(): Editor {
   return new Editor({
+    content: createScaffoldDocumentContent({ mode: "page" }),
     extensions: [
       createScaffoldCapabilitiesStorageExtension(coreCapabilities),
+      createDocumentAuthoringExtension(coreCapabilities.documentTree),
       createTestNodeIdentityExtension(),
       DocumentNode,
       StarterKit.configure({

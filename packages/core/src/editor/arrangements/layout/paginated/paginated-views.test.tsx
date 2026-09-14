@@ -9,8 +9,14 @@ import { createElement } from "react";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
+import { createDocumentAuthoringExtension } from "@/document/authoring/document-authoring-extension";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { LayerNode } from "@/document/model/layers/layer-node";
+import {
+  validateLayerContext,
+  validateLayerIdentities,
+} from "@/document/model/layers/layer-validation";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import {
   CellAuthoringNode,
@@ -43,10 +49,10 @@ import { surfaceAssessmentQuestionSchemaExtensions } from "@/editor/testing/surf
 import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 const editors: Editor[] = [];
-const coreCapabilities = Object.freeze({
-  blocks: Object.freeze({ registry: builtInBlockRegistry }),
-  layouts: Object.freeze({ registry: builtInLayoutRegistry }),
-  surfaces: Object.freeze({ registry: builtInSurfaceVariantRegistry }),
+const coreCapabilities = resolveScaffoldCapabilities({
+  blockCapabilities: builtInBlockRegistry.definitions.map((definition) => ({ definition })),
+  layoutDefinitions: builtInLayoutRegistry.definitions,
+  surfaceDefinitions: builtInSurfaceVariantRegistry.definitions,
 });
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
@@ -293,9 +299,11 @@ function makeEditor(editable: boolean, placement: "region" | "surface"): Editor 
     : [GridRuntimeNode, CellRuntimeNode, LayoutRuntimeNode, SectionRuntimeNode];
   const editor = new Editor({
     editable,
+    content: paginatedDocument(placement),
     extensions: [
       createTestNodeIdentityExtension(),
       createScaffoldCapabilitiesStorageExtension(coreCapabilities),
+      ...(editable ? [createDocumentAuthoringExtension(coreCapabilities.documentTree)] : []),
       DocumentNode,
       StarterKit.configure({
         document: false,
@@ -313,37 +321,66 @@ function makeEditor(editable: boolean, placement: "region" | "surface"): Editor 
       AccordionSectionPanelNode,
       ...arrangementExtensions,
     ],
-    content: {
-      type: "doc",
-      content: [
-        {
-          type: "courseDocument",
-          attrs: { mode: placement === "region" ? "slideshow" : "page" },
-          content: [
-            {
-              type: "surface",
-              attrs: {
-                id: "surfacePag01",
-                variant: placement === "region" ? "slide-content" : "page-default",
-              },
-              content:
-                placement === "region"
-                  ? [
-                      {
-                        type: "region",
-                        attrs: { id: "regionPag001" },
-                        content: [paginatedContent()],
-                      },
-                    ]
-                  : [paginatedContent()],
-            },
-          ],
-        },
-      ],
-    },
   });
+  editor.state.doc.check();
+  expect(validateLayerIdentities(editor.state.doc)).toEqual([]);
+  expect(
+    validateLayerContext({
+      document: editor.state.doc,
+      blockDefinitions: coreCapabilities.blocks.registry,
+      layoutDefinitions: coreCapabilities.layouts.registry,
+    }),
+  ).toEqual([]);
   editors.push(editor);
   return editor;
+}
+
+function paginatedDocument(placement: "region" | "surface"): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: {
+          id: "coursePag001",
+          mode: placement === "region" ? "slideshow" : "page",
+        },
+        content: [
+          ...(placement === "region"
+            ? [
+                {
+                  type: "courseSection",
+                  attrs: { id: "courseSec001", title: "Paginated fixture" },
+                },
+              ]
+            : []),
+          {
+            type: "surface",
+            attrs: {
+              id: "surfacePag01",
+              variant: placement === "region" ? "slide-content" : "page-default",
+            },
+            content:
+              placement === "region"
+                ? [
+                    {
+                      type: "region",
+                      attrs: { id: "regionPag001" },
+                      content: [
+                        {
+                          type: "layer",
+                          attrs: { id: "layerPag0001" },
+                          content: [paginatedContent()],
+                        },
+                      ],
+                    },
+                  ]
+                : [paginatedContent()],
+          },
+        ],
+      },
+    ],
+  };
 }
 
 function paginatedContent(): JSONContent {
@@ -354,14 +391,20 @@ function paginatedContent(): JSONContent {
       variant: "paginated",
     },
     content: [
-      paginatedPage("page00000001", "Overview", "middle"),
-      paginatedPage("page00000002", "Practice"),
-      paginatedPage("page00000003", "Review"),
+      paginatedPage("page00000001", "layerPag0002", "paraPag00001", "Overview", "middle"),
+      paginatedPage("page00000002", "layerPag0003", "paraPag00002", "Practice"),
+      paginatedPage("page00000003", "layerPag0004", "paraPag00003", "Review"),
     ],
   };
 }
 
-function paginatedPage(id: string, label: string, verticalPosition = "top"): JSONContent {
+function paginatedPage(
+  id: string,
+  layerId: string,
+  paragraphId: string,
+  label: string,
+  verticalPosition = "top",
+): JSONContent {
   return {
     type: "section",
     attrs: {
@@ -370,7 +413,13 @@ function paginatedPage(id: string, label: string, verticalPosition = "top"): JSO
       verticalPosition,
       options: { label },
     },
-    content: [{ type: "paragraph" }],
+    content: [
+      {
+        type: "layer",
+        attrs: { id: layerId },
+        content: [{ type: "paragraph", attrs: { id: paragraphId } }],
+      },
+    ],
   };
 }
 
@@ -429,7 +478,7 @@ function sectionTextSelectionPos(editor: Editor, sectionId: string): number {
   let selectionPos: number | null = null;
   editor.state.doc.descendants((node, pos) => {
     if (node.type.name === "section" && node.attrs["id"] === sectionId) {
-      selectionPos = pos + 2;
+      selectionPos = pos + 3;
       return false;
     }
     return true;

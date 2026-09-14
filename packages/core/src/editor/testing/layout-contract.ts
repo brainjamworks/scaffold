@@ -6,6 +6,9 @@ import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
+import { createDocumentAuthoringExtension } from "@/document/authoring/document-authoring-extension";
+import { createScaffoldDocumentContent } from "@/format/artifact";
 import {
   createLayoutAuthoringNodeView,
   createSectionAuthoringNodeView,
@@ -33,7 +36,7 @@ import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/t
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
-import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { createTestNodeIdentityExtension } from "./node-identity";
 import { surfaceAssessmentQuestionSchemaExtensions } from "./surface-assessment-schema-extensions";
 
@@ -57,33 +60,19 @@ export function describeLayoutContract(input: DescribeLayoutContractInput): void
     });
 
     it("renders the shared layout chrome contract in editor mode", async () => {
+      const fixture = createLayoutContractFixture(input);
       const editor = createLayoutContractEditor(
         input.blockDefinitions,
         input.layoutDefinitions,
         input.layoutAuthoringViews,
         input.editorExtensions,
+        fixture.document,
       );
       try {
-        const nodeResult = createLayoutContractNodeChecked(editor, input);
+        const nodeResult = findMountedLayoutNodeChecked(editor);
         expect(nodeResult.ok).toBe(true);
         if (!nodeResult.ok) return;
 
-        editor.commands.setContent({
-          type: "doc",
-          content: [
-            {
-              type: "courseDocument",
-              attrs: { mode: "page" },
-              content: [
-                {
-                  type: "surface",
-                  attrs: { id: "surface00001", variant: "page-default" },
-                  content: [nodeResult.node.toJSON()],
-                },
-              ],
-            },
-          ],
-        });
         render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
 
         await waitFor(() => {
@@ -126,6 +115,7 @@ export function assertLayoutContract(input: DescribeLayoutContractInput): void {
     expect(definition?.section?.configuration).toBeDefined();
   }
 
+  const fixture = createLayoutContractFixture(input);
   const editor = createLayoutContractEditor(
     input.blockDefinitions,
     input.layoutDefinitions,
@@ -133,7 +123,7 @@ export function assertLayoutContract(input: DescribeLayoutContractInput): void {
     input.editorExtensions,
   );
   try {
-    const nodeResult = createLayoutContractNodeChecked(editor, input);
+    const nodeResult = createLayoutContractNodeChecked(editor, fixture.layout);
 
     expect(nodeResult.ok).toBe(true);
     if (!nodeResult.ok) return;
@@ -163,15 +153,23 @@ export function assertLayoutContract(input: DescribeLayoutContractInput): void {
   }
 }
 
-function createLayoutContractNodeChecked(editor: Editor, input: DescribeLayoutContractInput) {
-  const definition = input.layoutDefinitions.getById(input.layoutId);
-  if (!definition) {
-    return { ok: false as const, issue: new Error(`Unknown layout "${input.layoutId}".`) };
-  }
-
+function createLayoutContractNodeChecked(editor: Editor, content: JSONContent) {
   try {
-    const action = createLayoutInsertAction(definition);
-    const node = editor.schema.nodeFromJSON(input.contentOverride ?? action.content());
+    const node = editor.schema.nodeFromJSON(content);
+    node.check();
+    return { ok: true as const, node };
+  } catch (issue) {
+    return { ok: false as const, issue };
+  }
+}
+
+function findMountedLayoutNodeChecked(editor: Editor) {
+  try {
+    editor.state.doc.check();
+    const node = editor.state.doc.firstChild?.firstChild?.firstChild;
+    if (!node || node.type.name !== "layout") {
+      throw new Error("Expected the mounted Page Surface to contain a Layout.");
+    }
     node.check();
     return { ok: true as const, node };
   } catch (issue) {
@@ -184,6 +182,7 @@ function createLayoutContractEditor(
   layoutDefinitions: LayoutRegistry,
   layoutAuthoringViews: LayoutAuthoringViewRegistry,
   editorExtensions: readonly AnyExtension[] = [],
+  content: JSONContent = createScaffoldDocumentContent({ mode: "page" }),
 ): Editor {
   const LayoutContractNode = createLayoutNode({
     addNodeView: () =>
@@ -193,15 +192,17 @@ function createLayoutContractEditor(
     addNodeView: () =>
       createSectionAuthoringNodeView(layoutDefinitions, layoutAuthoringViews, blockDefinitions),
   });
-  const capabilities = Object.freeze({
-    blocks: Object.freeze({ registry: blockDefinitions }),
-    layouts: Object.freeze({ registry: layoutDefinitions }),
-    surfaces: Object.freeze({ registry: createSurfaceVariantRegistry([]) }),
+  const capabilities = resolveScaffoldCapabilities({
+    blockCapabilities: blockDefinitions.definitions.map((definition) => ({ definition })),
+    layoutDefinitions: layoutDefinitions.definitions,
+    surfaceDefinitions: builtInSurfaceVariantRegistry.definitions,
   });
 
   return new Editor({
+    content,
     extensions: [
       createScaffoldCapabilitiesStorageExtension(capabilities),
+      createDocumentAuthoringExtension(capabilities.documentTree),
       DocumentNode,
       StarterKit.configure({
         document: false,
@@ -226,4 +227,22 @@ function createLayoutContractEditor(
       ...editorExtensions,
     ],
   });
+}
+
+function createLayoutContractFixture(input: DescribeLayoutContractInput): {
+  document: JSONContent;
+  layout: JSONContent;
+} {
+  const definition = input.layoutDefinitions.getById(input.layoutId);
+  if (!definition) {
+    throw new Error(`Unknown layout "${input.layoutId}".`);
+  }
+  const content = createScaffoldDocumentContent({ mode: "page" });
+  const surface = content.content?.[0]?.content?.[0];
+  if (!surface || surface.type !== "surface") {
+    throw new Error("Expected a generated Page Surface.");
+  }
+  const layout = input.contentOverride ?? createLayoutInsertAction(definition).content();
+  surface.content = [layout];
+  return { document: content, layout };
 }

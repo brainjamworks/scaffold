@@ -19,12 +19,13 @@ import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
+import { createDocumentAuthoringExtension } from "@/document/authoring/document-authoring-extension";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import {
   ARRANGEMENT_CONTENT,
   CELL_ARRANGEMENT_CONTENT,
-  SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import {
@@ -38,6 +39,15 @@ import {
 } from "@/editor/rich-text/model/rich-text-blocks";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { LayerNode } from "@/document/model/layers/layer-node";
+import {
+  validateLayerContext,
+  validateLayerIdentities,
+} from "@/document/model/layers/layer-validation";
+import {
+  createBlankLayer,
+  createLayerWithContent,
+} from "@/document/model/layers/layer-construction";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import {
   CellAuthoringNode,
   GridAuthoringNode,
@@ -92,10 +102,7 @@ import {
   AccordionSectionTitleNode,
 } from "../accordion/accordion-section-nodes";
 import { builtInLayoutAuthoringViews } from "../authoring/built-in-layout-views";
-import {
-  builtInLayoutDefinitions,
-  builtInLayoutRegistry,
-} from "../model/built-in-layout-definitions";
+import { builtInLayoutDefinitions } from "../model/built-in-layout-definitions";
 import { createLayoutArrangementAnchorId } from "../model/layout-arrangement-helpers";
 import {
   layoutStructuralInteractionBubbleRendererBindings,
@@ -116,24 +123,20 @@ import { createInteractionStore } from "@/editor/interactions/targets/facade/int
 
 const REAL_SECTION_IDS = Object.freeze({
   region: EmbeddedNodeIdSchema.parse("region000001"),
+  regionLayer: EmbeddedNodeIdSchema.parse("layer0000001"),
   layout: EmbeddedNodeIdSchema.parse("layout000001"),
   section: EmbeddedNodeIdSchema.parse("section00001"),
+  sectionLayer: EmbeddedNodeIdSchema.parse("layer0000002"),
   first: EmbeddedNodeIdSchema.parse("para00000001"),
   second: EmbeddedNodeIdSchema.parse("para00000002"),
   surface: EmbeddedNodeIdSchema.parse("surface00001"),
   slideTitle: EmbeddedNodeIdSchema.parse("slidetitle01"),
 });
 
-const alignmentTargetPort = createAlignmentTargetPort({
-  blockDefinitions: builtInBlockRegistry,
-  layoutDefinitions: builtInLayoutRegistry,
-  surfaceVariants: builtInSurfaceVariantRegistry,
-});
 const layoutStructuralRenderers = createStructuralInteractionBubbleRendererMap(
   layoutStructuralInteractionBubbleRendererBindings,
 );
 const testScaffoldApplication = createScaffoldApplication();
-const testScaffoldCapabilities = testScaffoldApplication.capabilities;
 
 const elementGetBoundingClientRectDescriptor = Object.getOwnPropertyDescriptor(
   Element.prototype,
@@ -146,10 +149,44 @@ const boundedLayoutDefinition = {
   description: "Layout fixture that opts into bounded fill placement",
   icon: Tabs,
   boundedPlacement: "fill",
+  section: {
+    label: "Section",
+    addLabel: "Add section",
+    create: () => ({
+      type: "section",
+      attrs: { id: createEmbeddedNodeId() },
+      content: [createBlankLayer()],
+    }),
+  },
   createContent: () => ({
     type: "layout",
-    attrs: { variant: "test-bounded-layout" },
-    content: [{ type: "section" }],
+    attrs: { id: createEmbeddedNodeId(), variant: "test-bounded-layout" },
+    content: [
+      { type: "section", attrs: { id: createEmbeddedNodeId() }, content: [createBlankLayer()] },
+    ],
+  }),
+} satisfies LayoutDefinition;
+
+const genericLayoutDefinition = {
+  id: "test-generic-layout",
+  title: "Generic layout",
+  description: "Unbounded Layout fixture for shared authoring chrome",
+  icon: Tabs,
+  section: {
+    label: "Section",
+    addLabel: "Add section",
+    create: () => ({
+      type: "section",
+      attrs: { id: createEmbeddedNodeId() },
+      content: [createBlankLayer()],
+    }),
+  },
+  createContent: () => ({
+    type: "layout",
+    attrs: { id: createEmbeddedNodeId(), variant: "test-generic-layout" },
+    content: [
+      { type: "section", attrs: { id: createEmbeddedNodeId() }, content: [createBlankLayer()] },
+    ],
   }),
 } satisfies LayoutDefinition;
 
@@ -163,11 +200,30 @@ function BoundedLayoutView(props: LayoutComponentProps) {
 const testLayoutRegistry = createLayoutRegistry([
   ...builtInLayoutDefinitions,
   boundedLayoutDefinition,
+  genericLayoutDefinition,
 ]);
+const testScaffoldCapabilities = resolveScaffoldCapabilities({
+  blockCapabilities: builtInBlockRegistry.definitions.map((definition) => ({ definition })),
+  layoutDefinitions: testLayoutRegistry.definitions,
+  surfaceDefinitions: builtInSurfaceVariantRegistry.definitions,
+});
+const alignmentTargetPort = createAlignmentTargetPort({
+  blockDefinitions: testScaffoldCapabilities.blocks.registry,
+  layoutDefinitions: testScaffoldCapabilities.layouts.registry,
+  surfaceVariants: testScaffoldCapabilities.surfaces.registry,
+});
 const testLayoutAuthoringViewRegistry = createLayoutAuthoringViewRegistry(testLayoutRegistry, [
   ...builtInLayoutAuthoringViews,
   { id: boundedLayoutDefinition.id, layout: BoundedLayoutView },
+  { id: genericLayoutDefinition.id, layout: DefaultLayoutContent },
 ]);
+const testEditors: Editor[] = [];
+
+function trackTestEditor(editor: Editor): Editor {
+  testEditors.push(editor);
+  return editor;
+}
+
 const TestLayoutAuthoringNode = createLayoutNode({
   addNodeView: () =>
     createLayoutAuthoringNodeView(
@@ -196,14 +252,16 @@ describeLayoutContract({
 
 async function makeRealSectionEditor(): Promise<Editor> {
   const composition = createCoreScaffoldAuthoringComposition();
-  const editor = new Editor({
-    editable: true,
-    extensions: [
-      ...createCourseDocumentAuthoringExtensions({ editable: true, composition }),
-      UndoRedo,
-    ],
-    content: createRealSectionDocument(),
-  });
+  const editor = trackTestEditor(
+    new Editor({
+      editable: true,
+      extensions: [
+        ...createCourseDocumentAuthoringExtensions({ editable: true, composition }),
+        UndoRedo,
+      ],
+      content: createRealSectionDocument(),
+    }),
+  );
   await Promise.resolve();
   return editor;
 }
@@ -240,18 +298,30 @@ function createRealSectionDocument(): JSONContent {
           attrs: { id: REAL_SECTION_IDS.region, role: "main" },
           content: [
             {
-              type: "layout",
-              attrs: { id: REAL_SECTION_IDS.layout, variant: "tabs" },
+              type: "layer",
+              attrs: { id: REAL_SECTION_IDS.regionLayer },
               content: [
                 {
-                  type: "section",
-                  attrs: {
-                    id: REAL_SECTION_IDS.section,
-                    role: "tab-panel",
-                  },
+                  type: "layout",
+                  attrs: { id: REAL_SECTION_IDS.layout, variant: "tabs" },
                   content: [
-                    { type: "paragraph", attrs: { id: REAL_SECTION_IDS.first } },
-                    { type: "paragraph", attrs: { id: REAL_SECTION_IDS.second } },
+                    {
+                      type: "section",
+                      attrs: {
+                        id: REAL_SECTION_IDS.section,
+                        role: "tab-panel",
+                      },
+                      content: [
+                        {
+                          type: "layer",
+                          attrs: { id: REAL_SECTION_IDS.sectionLayer },
+                          content: [
+                            { type: "paragraph", attrs: { id: REAL_SECTION_IDS.first } },
+                            { type: "paragraph", attrs: { id: REAL_SECTION_IDS.second } },
+                          ],
+                        },
+                      ],
+                    },
                   ],
                 },
               ],
@@ -264,51 +334,68 @@ function createRealSectionDocument(): JSONContent {
   return content;
 }
 
-function makeEditor(content?: JSONContent) {
-  const editor = new Editor({
-    extensions: [
-      createScaffoldCapabilitiesStorageExtension(testScaffoldCapabilities),
-      createScaffoldAuthoringCataloguesStorageExtension(
-        testScaffoldApplication.authoring.catalogues,
-      ),
-      DocumentNode,
-      StarterKit.configure({
-        document: false,
-        blockquote: false,
-        bulletList: false,
-        codeBlock: false,
-        heading: false,
-        horizontalRule: false,
-        listItem: false,
-        orderedList: false,
-        paragraph: false,
-        undoRedo: false,
+function makeEditor(content?: JSONContent, options: { documentAuthoring?: boolean } = {}) {
+  const documentAuthoring = options.documentAuthoring ?? true;
+  const editor = trackTestEditor(
+    new Editor({
+      content: content ?? createScaffoldDocumentContent({ mode: "page" }),
+      extensions: [
+        createScaffoldCapabilitiesStorageExtension(testScaffoldCapabilities),
+        ...(documentAuthoring
+          ? [createDocumentAuthoringExtension(testScaffoldCapabilities.documentTree)]
+          : []),
+        createScaffoldAuthoringCataloguesStorageExtension(
+          testScaffoldApplication.authoring.catalogues,
+        ),
+        DocumentNode,
+        StarterKit.configure({
+          document: false,
+          blockquote: false,
+          bulletList: false,
+          codeBlock: false,
+          heading: false,
+          horizontalRule: false,
+          listItem: false,
+          orderedList: false,
+          paragraph: false,
+          undoRedo: false,
+        }),
+        ExtendedParagraph,
+        ExtendedHeading,
+        ExtendedBulletList,
+        ExtendedOrderedList,
+        ExtendedListItem,
+        ExtendedBlockquote,
+        ExtendedCodeBlock,
+        ExtendedHorizontalRule,
+        UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
+        CourseDocumentNode,
+        createCourseSectionNode(),
+        SurfaceNode,
+        ...surfaceAssessmentQuestionSchemaExtensions,
+        RegionNode,
+        LayerNode,
+        createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
+        GridAuthoringNode,
+        CellAuthoringNode,
+        TestLayoutAuthoringNode,
+        TestSectionAuthoringNode,
+        AccordionSectionTitleNode,
+        AccordionSectionPanelNode,
+      ],
+    }),
+  );
+  editor.state.doc.check();
+  if (documentAuthoring) {
+    expect(validateLayerIdentities(editor.state.doc)).toEqual([]);
+    expect(
+      validateLayerContext({
+        document: editor.state.doc,
+        blockDefinitions: testScaffoldCapabilities.blocks.registry,
+        layoutDefinitions: testScaffoldCapabilities.layouts.registry,
       }),
-      ExtendedParagraph,
-      ExtendedHeading,
-      ExtendedBulletList,
-      ExtendedOrderedList,
-      ExtendedListItem,
-      ExtendedBlockquote,
-      ExtendedCodeBlock,
-      ExtendedHorizontalRule,
-      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
-      CourseDocumentNode,
-      createCourseSectionNode(),
-      SurfaceNode,
-      ...surfaceAssessmentQuestionSchemaExtensions,
-      RegionNode,
-      LayerNode,
-      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
-      GridAuthoringNode,
-      CellAuthoringNode,
-      TestLayoutAuthoringNode,
-      TestSectionAuthoringNode,
-      AccordionSectionTitleNode,
-      AccordionSectionPanelNode,
-    ],
-    ...(content ? { content } : {}),
-  });
+    ).toEqual([]);
+  }
   return editor;
 }
 
@@ -371,7 +458,7 @@ function accordionSectionContent(label: string): JSONContent[] {
     },
     {
       type: "accordion_section_panel",
-      content: [{ type: "paragraph" }],
+      content: [createBlankLayer()],
     },
   ];
 }
@@ -521,6 +608,7 @@ function restoreDefaultFloatingControlRect(): void {
 describe("layout arrangement nodes", () => {
   afterEach(() => {
     cleanup();
+    for (const editor of testEditors.splice(0)) editor.destroy();
     restoreDefaultFloatingControlRect();
     document.body.replaceChildren();
   });
@@ -537,15 +625,15 @@ describe("layout arrangement nodes", () => {
     expect(layoutType?.spec.content).toBe("section+");
     expect(layoutType?.spec.selectable).toBe(true);
     expect(layoutType?.spec.draggable).toBe(false);
-    expect(sectionType?.spec.content).toBe(`(block | ${SECTION_ARRANGEMENT_CONTENT})+`);
+    expect(sectionType?.spec.content).toBe(
+      "layer+ | (accordion_section_title accordion_section_panel)",
+    );
     expect(sectionType?.spec.selectable).toBe(true);
     expect(sectionType?.spec.draggable).toBe(false);
     expect(accordionTitleType?.spec.group).toBe("block");
     expect(accordionTitleType?.spec.content).toBe("text_content+");
     expect(accordionPanelType?.spec.group).toBe("block");
-    expect(accordionPanelType?.spec.content).toBe(`(block | ${SECTION_ARRANGEMENT_CONTENT})+`);
-
-    editor.destroy();
+    expect(accordionPanelType?.spec.content).toBe("layer+");
   });
 
   it("allows rich text content in accordion section titles", () => {
@@ -558,8 +646,6 @@ describe("layout arrangement nodes", () => {
     const list = editor.schema.nodes.bulletList!.createAndFill();
 
     expect(() => accordionTitleType.createChecked(null, [heading, list!])).not.toThrow();
-
-    editor.destroy();
   });
 
   it("requires layouts and sections to contain editable anchors", () => {
@@ -567,15 +653,16 @@ describe("layout arrangement nodes", () => {
     const { schema } = editor;
     const layoutType = schema.nodes.layout!;
     const sectionType = schema.nodes.section!;
+    const layerType = schema.nodes.layer!;
     const paragraphType = schema.nodes.paragraph!;
-    const section = sectionType.create(null, paragraphType.create());
+    const layer = layerType.create(null, paragraphType.create());
+    const section = sectionType.create(null, layer);
 
     expect(layoutType.validContent(Fragment.empty)).toBe(false);
     expect(sectionType.validContent(Fragment.empty)).toBe(false);
     expect(layoutType.validContent(Fragment.from(section))).toBe(true);
-    expect(sectionType.validContent(Fragment.from(paragraphType.create()))).toBe(true);
-
-    editor.destroy();
+    expect(sectionType.validContent(Fragment.from(paragraphType.create()))).toBe(false);
+    expect(sectionType.validContent(Fragment.from(layer))).toBe(true);
   });
 
   it("allows layouts inside surfaces and cells", () => {
@@ -584,19 +671,20 @@ describe("layout arrangement nodes", () => {
     const paragraphType = schema.nodes.paragraph!;
     const layoutType = schema.nodes.layout!;
     const sectionType = schema.nodes.section!;
+    const layerType = schema.nodes.layer!;
     const surfaceType = schema.nodes.surface!;
     const cellType = schema.nodes.cell!;
 
-    const section = sectionType.create(null, paragraphType.create());
+    const section = sectionType.create(null, layerType.create(null, paragraphType.create()));
     const layout = layoutType.create(null, section);
+    const cellLayer = layerType.create(null, layout);
 
     expect(surfaceType.validContent(Fragment.from(layout))).toBe(true);
-    expect(cellType.validContent(Fragment.from(layout))).toBe(true);
-
-    editor.destroy();
+    expect(cellType.validContent(Fragment.from(layout))).toBe(false);
+    expect(cellType.validContent(Fragment.from(cellLayer))).toBe(true);
   });
 
-  it("allows grids inside sections and rejects nested layouts inside sections", () => {
+  it("allows grids and nested layouts in exclusive Section Layers", () => {
     const editor = makeEditor();
     const { schema } = editor;
     const paragraphType = schema.nodes.paragraph!;
@@ -604,16 +692,17 @@ describe("layout arrangement nodes", () => {
     const cellType = schema.nodes.cell!;
     const layoutType = schema.nodes.layout!;
     const sectionType = schema.nodes.section!;
-    const innerSection = sectionType.create(null, paragraphType.create());
-    const cell = cellType.create(null, paragraphType.create());
+    const layerType = schema.nodes.layer!;
+    const innerSection = sectionType.create(null, layerType.create(null, paragraphType.create()));
+    const cell = cellType.create(null, layerType.create(null, paragraphType.create()));
     const grid = gridType.create(null, cell);
     const layout = layoutType.create(null, innerSection);
 
-    expect(sectionType.validContent(Fragment.from(paragraphType.create()))).toBe(true);
-    expect(sectionType.validContent(Fragment.from(grid))).toBe(true);
+    expect(sectionType.validContent(Fragment.from(paragraphType.create()))).toBe(false);
+    expect(sectionType.validContent(Fragment.from(grid))).toBe(false);
     expect(sectionType.validContent(Fragment.from(layout))).toBe(false);
-
-    editor.destroy();
+    expect(sectionType.validContent(Fragment.from(layerType.create(null, grid)))).toBe(true);
+    expect(sectionType.validContent(Fragment.from(layerType.create(null, layout)))).toBe(true);
   });
 
   it("allows grids inside accordion section panels", () => {
@@ -622,15 +711,15 @@ describe("layout arrangement nodes", () => {
     const paragraphType = schema.nodes.paragraph!;
     const gridType = schema.nodes.grid!;
     const cellType = schema.nodes.cell!;
+    const layerType = schema.nodes.layer!;
     const accordionPanelType = schema.nodes.accordion_section_panel!;
 
-    const cell = cellType.create(null, paragraphType.create());
+    const cell = cellType.create(null, layerType.create(null, paragraphType.create()));
     const grid = gridType.create(null, cell);
 
-    expect(accordionPanelType.validContent(Fragment.from(paragraphType.create()))).toBe(true);
-    expect(accordionPanelType.validContent(Fragment.from(grid))).toBe(true);
-
-    editor.destroy();
+    expect(accordionPanelType.validContent(Fragment.from(paragraphType.create()))).toBe(false);
+    expect(accordionPanelType.validContent(Fragment.from(grid))).toBe(false);
+    expect(accordionPanelType.validContent(Fragment.from(layerType.create(null, grid)))).toBe(true);
   });
 
   it("serializes layout attrs with parseable defaults", () => {
@@ -643,7 +732,7 @@ describe("layout arrangement nodes", () => {
 
     const defaultLayout = layoutType.create(null, section);
     const variantLayout = layoutType.create(
-      { id: "layout-1", variant: "mediaText", options: { emphasis: "media" } },
+      { id: "layout000001", variant: "mediaText", options: { emphasis: "media" } },
       section,
     );
 
@@ -653,12 +742,10 @@ describe("layout arrangement nodes", () => {
       options: {},
     });
     expect(variantLayout.toJSON().attrs).toMatchObject({
-      id: "layout-1",
+      id: "layout000001",
       variant: "mediaText",
       options: { emphasis: "media" },
     });
-
-    editor.destroy();
   });
 
   it("resolves layout kind only from the variant attr", () => {
@@ -676,14 +763,16 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
-                  attrs: { id: "layout-a" },
+                  attrs: { id: "layout00000a", variant: "test-generic-layout" },
                   content: [
                     {
                       type: "section",
-                      attrs: { id: "section-a" },
+                      attrs: { id: "section0000a" },
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -704,16 +793,16 @@ describe("layout arrangement nodes", () => {
 
     expect(layoutElement?.getAttribute(AUTHORING_FRAME_ATTR)).toBe("layout");
     expect(layoutElement?.getAttribute("data-node")).toBe("layout");
-    expect(layoutElement?.getAttribute("data-definition")).toBe("layout");
-    expect(layoutElement?.getAttribute("data-id")).toBe("layout-a");
-    expect(layoutElement?.getAttribute("class")).toContain("sc-layout-authoring");
+    expect(layoutElement?.getAttribute("data-definition")).toBe("test-generic-layout");
+    expect(layoutElement?.getAttribute("data-id")).toBe("layout00000a");
+    expect(layoutElement?.getAttribute("class")).toContain("sc-layout-frame--authoring");
     expect(sectionElement?.getAttribute(AUTHORING_FRAME_ATTR)).toBe("section");
     expect(sectionElement?.getAttribute("data-node")).toBe("section");
-    expect(sectionElement?.getAttribute("data-definition")).toBe("section");
-    expect(sectionElement?.getAttribute("data-id")).toBe("section-a");
+    expect(sectionElement?.getAttribute("data-definition")).toBe("test-generic-layout");
+    expect(sectionElement?.getAttribute("data-id")).toBe("section0000a");
     expect(sectionElement?.getAttribute("data-empty")).toBe("true");
     expect(sectionElement?.getAttribute("class")).toContain("sc-layout-section-authoring");
-    expect(sectionElement?.getAttribute("class")).toContain("sc-layout-section-authoring--empty");
+    expect(sectionElement?.querySelector('[data-node="layer"] p')).not.toBeNull();
     expect(layoutElement?.getAttribute(AUTHORING_CHROME_ACTIVE_ATTR)).toBeNull();
     expect(layoutElement?.querySelector("[data-layout-outline]")?.getAttribute("class")).toContain(
       "sc-layout-outline",
@@ -727,42 +816,47 @@ describe("layout arrangement nodes", () => {
     expect(layoutElement?.querySelector("[data-authoring-move-handle]")).toBeNull();
     expect(sectionElement?.hasAttribute("data-authoring-move-handle")).toBe(false);
     expect(document.body.querySelector("[data-layout-section-reorder-handle]")).toBeNull();
-
-    editor.destroy();
   });
 
   it("uses the generic authoring fallback for an unknown persisted variant", async () => {
-    const editor = makeEditor({
-      type: "doc",
-      content: [
-        {
-          type: "courseDocument",
-          content: [
-            {
-              type: "surface",
-              content: [
-                {
-                  type: "layout",
-                  attrs: { id: "layout-unknown", variant: "persisted-unknown" },
-                  content: [
-                    {
-                      type: "section",
-                      attrs: { id: "section-unknown" },
-                      content: [
-                        {
-                          type: "paragraph",
-                          content: [{ type: "text", text: "Unknown authoring content" }],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    });
+    const editor = makeEditor(
+      {
+        type: "doc",
+        content: [
+          {
+            type: "courseDocument",
+            content: [
+              {
+                type: "surface",
+                attrs: { id: "surface00001", variant: "page-default" },
+                content: [
+                  {
+                    type: "layout",
+                    attrs: { id: "layoutUnk001", variant: "persisted-unknown" },
+                    content: [
+                      {
+                        type: "section",
+                        attrs: { id: "sectionUnk01" },
+                        content: [
+                          createLayerWithContent([
+                            {
+                              type: "paragraph",
+                              attrs: { id: createEmbeddedNodeId() },
+                              content: [{ type: "text", text: "Unknown authoring content" }],
+                            },
+                          ]),
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      { documentAuthoring: false },
+    );
     renderEditorContent(editor);
 
     await waitFor(() => {
@@ -774,7 +868,6 @@ describe("layout arrangement nodes", () => {
     });
 
     expect(document.body.textContent).toContain("Unknown authoring content");
-    editor.destroy();
   });
 
   it("emits bounded placement on layout authoring frames when the definition opts in", async () => {
@@ -787,17 +880,19 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
                   attrs: {
-                    id: "layout-bounded",
+                    id: "layoutBnd001",
                     variant: "test-bounded-layout",
                   },
                   content: [
                     {
                       type: "section",
-                      attrs: { id: "section-bounded" },
+                      attrs: { id: "sectionBnd01" },
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -823,8 +918,6 @@ describe("layout arrangement nodes", () => {
 
     expect(layoutElement?.getAttribute("data-bounded-placement")).toBe("fill");
     expect(boundedLayoutBlockDefinitions).toBe(builtInBlockRegistry);
-
-    editor.destroy();
   });
 
   it("marks selected layout outline active without adding generic section outline", async () => {
@@ -836,14 +929,16 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
-                  attrs: { id: "layout-selected" },
+                  attrs: { id: "layoutSel001", variant: "test-generic-layout" },
                   content: [
                     {
                       type: "section",
-                      attrs: { id: "section-selected" },
+                      attrs: { id: "sectionSel01" },
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -864,7 +959,7 @@ describe("layout arrangement nodes", () => {
     const ports = createInteractionOwnerCommandPorts(editor.view, builtInBlockRegistry);
     expect(
       ports.activateStructuralTarget({
-        id: "layout-selected",
+        id: "layoutSel001",
         kind: InteractionTargetKind.Layout,
         pos: nodePos(editor, "layout"),
       }),
@@ -882,7 +977,7 @@ describe("layout arrangement nodes", () => {
 
     expect(
       ports.activateStructuralTarget({
-        id: "section-selected",
+        id: "sectionSel01",
         kind: InteractionTargetKind.Section,
         pos: nodePos(editor, "section"),
       }),
@@ -893,8 +988,6 @@ describe("layout arrangement nodes", () => {
         ?.getAttribute("data-authoring-chrome-active"),
     ).toBeNull();
     expect(document.body.querySelector("[data-section-outline]")).toBeNull();
-
-    editor.destroy();
   });
 
   it("marks layout outline active from a shared section menu target", async () => {
@@ -906,6 +999,7 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "paragraph",
@@ -913,12 +1007,12 @@ describe("layout arrangement nodes", () => {
                 },
                 {
                   type: "layout",
-                  attrs: { id: "layout-tabs", variant: "tabs" },
+                  attrs: { id: "layoutTab001", variant: "tabs" },
                   content: [
                     {
                       type: "section",
-                      attrs: { id: "tab-a", role: "tab-panel" },
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: "tab000000001", role: "tab-panel" },
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -945,7 +1039,7 @@ describe("layout arrangement nodes", () => {
     editor.view.dom.focus();
     expect(
       createInteractionOwnerCommandPorts(editor.view, builtInBlockRegistry).openMenu(
-        structuralRefForTest(editor, "section", "tab-a"),
+        structuralRefForTest(editor, "section", "tab000000001"),
       ),
     ).toBe(true);
 
@@ -956,8 +1050,6 @@ describe("layout arrangement nodes", () => {
           ?.getAttribute("data-authoring-chrome-active"),
       ).toBe("");
     });
-
-    editor.destroy();
   });
 
   it("activates the parent layout without menus when a tab header is clicked", async () => {
@@ -969,6 +1061,7 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "paragraph",
@@ -976,17 +1069,17 @@ describe("layout arrangement nodes", () => {
                 },
                 {
                   type: "layout",
-                  attrs: { id: "layout-tabs", variant: "tabs" },
+                  attrs: { id: "layoutTab001", variant: "tabs" },
                   content: [
                     {
                       type: "section",
-                      attrs: { id: "tab-a", role: "tab-panel" },
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: "tab000000001", role: "tab-panel" },
+                      content: [createBlankLayer()],
                     },
                     {
                       type: "section",
-                      attrs: { id: "tab-b", role: "tab-panel" },
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: "tab000000002", role: "tab-panel" },
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -1008,7 +1101,7 @@ describe("layout arrangement nodes", () => {
     fireEvent.click(secondTab!);
 
     expect(explicitOwnerForTest(editor)).toMatchObject({
-      id: "layout-tabs",
+      id: "layoutTab001",
       kind: InteractionTargetKind.Layout,
     });
     expect(menuOwnerForTest(editor)).toBeNull();
@@ -1026,8 +1119,6 @@ describe("layout arrangement nodes", () => {
           ?.getAttribute("data-authoring-chrome-active"),
       ).toBeNull();
     });
-
-    editor.destroy();
   });
 
   it("keeps the layout floating menu trigger visible when a tab header owns focus", async () => {
@@ -1039,6 +1130,7 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "paragraph",
@@ -1046,17 +1138,17 @@ describe("layout arrangement nodes", () => {
                 },
                 {
                   type: "layout",
-                  attrs: { id: "layout-tabs", variant: "tabs" },
+                  attrs: { id: "layoutTab001", variant: "tabs" },
                   content: [
                     {
                       type: "section",
-                      attrs: { id: "tab-a", role: "tab-panel" },
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: "tab000000001", role: "tab-panel" },
+                      content: [createBlankLayer()],
                     },
                     {
                       type: "section",
-                      attrs: { id: "tab-b", role: "tab-panel" },
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: "tab000000002", role: "tab-panel" },
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -1074,7 +1166,7 @@ describe("layout arrangement nodes", () => {
     editor.commands.setTextSelection(textPos(editor, "Outside tabs") + 1);
 
     const layoutElement = document.body.querySelector(
-      '[data-authoring-frame="layout"][data-id="layout-tabs"]',
+      '[data-authoring-frame="layout"][data-id="layoutTab001"]',
     );
     mockFloatingControlRect(layoutElement, {
       height: 240,
@@ -1091,14 +1183,12 @@ describe("layout arrangement nodes", () => {
 
     await waitFor(() => {
       expect(explicitOwnerForTest(editor)).toMatchObject({
-        id: "layout-tabs",
+        id: "layoutTab001",
         kind: InteractionTargetKind.Layout,
       });
       expect(document.activeElement).toBe(secondTab);
       expect(document.body.querySelector("[data-layout-menu-trigger]")).not.toBeNull();
     });
-
-    editor.destroy();
   });
 
   it("serializes section attrs with parseable defaults", () => {
@@ -1108,7 +1198,7 @@ describe("layout arrangement nodes", () => {
 
     const defaultSection = sectionType.create();
     const tabSection = sectionType.create({
-      id: "section-1",
+      id: "section00001",
       role: "tab",
       label: "Details",
       defaultOpen: true,
@@ -1123,14 +1213,12 @@ describe("layout arrangement nodes", () => {
       options: {},
     });
     expect(tabSection.toJSON().attrs).toMatchObject({
-      id: "section-1",
+      id: "section00001",
       role: "tab",
       label: "Details",
       defaultOpen: true,
       options: { icon: "book-open" },
     });
-
-    editor.destroy();
   });
 
   it("resolves layout menu snapshots from shared layout and section targets", () => {
@@ -1142,11 +1230,12 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
                   attrs: {
-                    id: "layout-tabs",
+                    id: "layoutTab001",
                     variant: "tabs",
                     options: { variant: "pills", label: "Lesson sections" },
                   },
@@ -1154,11 +1243,11 @@ describe("layout arrangement nodes", () => {
                     {
                       type: "section",
                       attrs: {
-                        id: "tab-a",
+                        id: "tab000000001",
                         role: "tab-panel",
                         options: { label: "Overview" },
                       },
-                      content: [{ type: "paragraph" }],
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -1168,15 +1257,15 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    const layoutPos = nodePos(editor, "layout", "layout-tabs");
-    const sectionPos = nodePos(editor, "section", "tab-a");
+    const layoutPos = nodePos(editor, "layout", "layoutTab001");
+    const sectionPos = nodePos(editor, "section", "tab000000001");
     const layoutDescriptor = resolveStructuralChromeTargetDescriptor(
       editor.state,
-      structuralRefForTest(editor, "layout", "layout-tabs"),
+      structuralRefForTest(editor, "layout", "layoutTab001"),
     );
     const sectionDescriptor = resolveStructuralChromeTargetDescriptor(
       editor.state,
-      structuralRefForTest(editor, "section", "tab-a"),
+      structuralRefForTest(editor, "section", "tab000000001"),
     );
 
     expect(resolveLayoutMenuSnapshot(layoutDescriptor)).toMatchObject({
@@ -1190,7 +1279,6 @@ describe("layout arrangement nodes", () => {
       sectionDefinition: { label: "Tab" },
       sectionPos,
     });
-    editor.destroy();
   });
 
   it("composes real Tabs Section controls while keeping Layout arrangement-only", async () => {
@@ -1267,7 +1355,6 @@ describe("layout arrangement nodes", () => {
     ]);
     expect(layoutMenu.container.querySelectorAll(".sc-menu-separator")).toHaveLength(2);
     layoutMenu.unmount();
-    editor.destroy();
   });
 
   it("contributes layout and section models through the structural bubble host", () => {
@@ -1279,15 +1366,16 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
-                  attrs: { id: "layout-tabs", variant: "tabs" },
+                  attrs: { id: "layoutTab001", variant: "tabs" },
                   content: [
                     {
                       type: "section",
-                      attrs: { id: "tab-a", role: "tab-panel" },
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: "tab000000001", role: "tab-panel" },
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -1299,17 +1387,15 @@ describe("layout arrangement nodes", () => {
     });
     const ports = createInteractionOwnerCommandPorts(editor.view, builtInBlockRegistry);
 
-    expect(ports.openMenu(structuralRefForTest(editor, "layout", "layout-tabs"))).toBe(true);
+    expect(ports.openMenu(structuralRefForTest(editor, "layout", "layoutTab001"))).toBe(true);
     const layoutModel = resolveLayoutMenuModelForTest(editor);
     expect(layoutModel?.targetKey).toContain("layout:");
     expect(layoutModel?.content).toBeDefined();
 
-    expect(ports.openMenu(structuralRefForTest(editor, "section", "tab-a"))).toBe(true);
+    expect(ports.openMenu(structuralRefForTest(editor, "section", "tab000000001"))).toBe(true);
     const sectionModel = resolveLayoutMenuModelForTest(editor);
     expect(sectionModel?.targetKey).toContain("section:");
     expect(sectionModel?.content).toBeDefined();
-
-    editor.destroy();
   });
 
   it("does not open the layout bubble from layout or section selection", () => {
@@ -1321,15 +1407,16 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
-                  attrs: { id: "layout-tabs", variant: "tabs" },
+                  attrs: { id: "layoutTab001", variant: "tabs" },
                   content: [
                     {
                       type: "section",
-                      attrs: { id: "tab-a", role: "tab-panel" },
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: "tab000000001", role: "tab-panel" },
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -1339,8 +1426,8 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    const layoutPos = nodePos(editor, "layout", "layout-tabs");
-    const sectionPos = nodePos(editor, "section", "tab-a");
+    const layoutPos = nodePos(editor, "layout", "layoutTab001");
+    const sectionPos = nodePos(editor, "section", "tab000000001");
 
     editor.commands.setNodeSelection(layoutPos);
     expect(resolveLayoutMenuModelForTest(editor)).toBeNull();
@@ -1350,16 +1437,14 @@ describe("layout arrangement nodes", () => {
 
     expect(
       createInteractionOwnerCommandPorts(editor.view, builtInBlockRegistry).openMenu(
-        structuralRefForTest(editor, "layout", "layout-tabs"),
+        structuralRefForTest(editor, "layout", "layoutTab001"),
       ),
     ).toBe(true);
     const model = resolveLayoutMenuModelForTest(editor);
     expect(model?.descriptor).toMatchObject({
-      id: "layout-tabs",
+      id: "layoutTab001",
       kind: InteractionTargetKind.Layout,
     });
-
-    editor.destroy();
   });
 
   it("opens the shared layout menu target from the layout menu trigger", async () => {
@@ -1371,15 +1456,16 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
-                  attrs: { id: "layout-tabs", variant: "tabs" },
+                  attrs: { id: "layoutTab001", variant: "tabs" },
                   content: [
                     {
                       type: "section",
-                      attrs: { id: "tab-a", role: "tab-panel" },
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: "tab000000001", role: "tab-panel" },
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -1389,14 +1475,14 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    renderActiveLayoutAuthoringChrome(editor, "layout-tabs");
+    renderActiveLayoutAuthoringChrome(editor, "layoutTab001");
 
     await waitFor(() => {
       expect(document.body.querySelector("[data-layout-menu-trigger]")).not.toBeNull();
     });
 
     const trigger = document.body.querySelector<HTMLButtonElement>("[data-layout-menu-trigger]");
-    expect(trigger?.getAttribute(AUTHORING_ANCHOR_ATTR)).toBe("layout-menu:layout-tabs");
+    expect(trigger?.getAttribute(AUTHORING_ANCHOR_ATTR)).toBe("layout-menu:layoutTab001");
     expect(trigger?.getAttribute(AUTHORING_CHROME_ATTR)).toBe("trigger");
     expect(trigger?.getAttribute("class")).toContain("sc-floating-layout-menu-trigger");
 
@@ -1405,7 +1491,7 @@ describe("layout arrangement nodes", () => {
 
     await waitFor(() => {
       expect(menuOwnerForTest(editor)).toMatchObject({
-        id: "layout-tabs",
+        id: "layoutTab001",
         kind: InteractionTargetKind.Layout,
       });
       expect(document.body.querySelector('[data-authoring-chrome="menu"]')).not.toBeNull();
@@ -1417,8 +1503,6 @@ describe("layout arrangement nodes", () => {
     fireEvent.mouseDown(closeTrigger!);
     fireEvent.click(closeTrigger!);
     expect(menuOwnerForTest(editor)).toBeNull();
-
-    editor.destroy();
   });
 
   it("does not publish the passive layout menu trigger while a cell owns the interaction", async () => {
@@ -1430,31 +1514,37 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "grid",
-                  attrs: { columnWidths: [1], id: "grid-a" },
+                  attrs: { columnWidths: [1], id: "grid00000001" },
                   content: [
                     {
                       type: "cell",
-                      attrs: { id: "cell-a" },
+                      attrs: { id: "cell00000001" },
                       content: [
-                        {
-                          type: "layout",
-                          attrs: { id: "layout-tabs", variant: "tabs" },
-                          content: [
-                            {
-                              type: "section",
-                              attrs: { id: "tab-a", role: "tab-panel" },
-                              content: [
-                                {
-                                  type: "paragraph",
-                                  content: [{ type: "text", text: "Cell tab text" }],
-                                },
-                              ],
-                            },
-                          ],
-                        },
+                        createLayerWithContent([
+                          {
+                            type: "layout",
+                            attrs: { id: "layoutTab001", variant: "tabs" },
+                            content: [
+                              {
+                                type: "section",
+                                attrs: { id: "tab000000001", role: "tab-panel" },
+                                content: [
+                                  createLayerWithContent([
+                                    {
+                                      type: "paragraph",
+                                      attrs: { id: createEmbeddedNodeId() },
+                                      content: [{ type: "text", text: "Cell tab text" }],
+                                    },
+                                  ]),
+                                ],
+                              },
+                            ],
+                          },
+                        ]),
                       ],
                     },
                   ],
@@ -1472,12 +1562,12 @@ describe("layout arrangement nodes", () => {
       createInteractionOwnerCommandPorts(
         editor.view,
         builtInBlockRegistry,
-      ).activateStructuralTarget(structuralRefForTest(editor, "cell", "cell-a")),
+      ).activateStructuralTarget(structuralRefForTest(editor, "cell", "cell00000001")),
     ).toBe(true);
 
     await waitFor(() => {
       expect(explicitOwnerForTest(editor)).toMatchObject({
-        id: "cell-a",
+        id: "cell00000001",
         kind: InteractionTargetKind.Cell,
       });
       expect(document.body.querySelector("[data-grid-menu-trigger]")).not.toBeNull();
@@ -1485,8 +1575,6 @@ describe("layout arrangement nodes", () => {
     });
 
     expect(document.body.querySelector("[data-layout-menu-trigger]")).toBeNull();
-
-    editor.destroy();
   });
 
   it("publishes the layout floating movement handle for a v2 layout owner", async () => {
@@ -1498,15 +1586,16 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
-                  attrs: { id: "layout-tabs", variant: "tabs" },
+                  attrs: { id: "layoutTab001", variant: "tabs" },
                   content: [
                     {
                       type: "section",
-                      attrs: { id: "tab-a", role: "tab-panel" },
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: "tab000000001", role: "tab-panel" },
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -1524,12 +1613,12 @@ describe("layout arrangement nodes", () => {
       createInteractionOwnerCommandPorts(
         editor.view,
         builtInBlockRegistry,
-      ).activateStructuralTarget(structuralRefForTest(editor, "layout", "layout-tabs")),
+      ).activateStructuralTarget(structuralRefForTest(editor, "layout", "layoutTab001")),
     ).toBe(true);
 
     const movementTarget = resolveEditorMovementTarget(editor, builtInBlockRegistry);
     expect(movementTarget?.targetRef).toMatchObject({
-      id: "layout-tabs",
+      id: "layoutTab001",
       kind: InteractionTargetKind.Layout,
     });
     expect(movementTarget?.context.node.type.name).toBe("layout");
@@ -1537,8 +1626,6 @@ describe("layout arrangement nodes", () => {
     await waitFor(() => {
       expect(document.body.querySelector("[data-authoring-move-handle]")).not.toBeNull();
     });
-
-    editor.destroy();
   });
 
   it("does not publish the floating movement handle for a section owner", () => {
@@ -1550,15 +1637,16 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
-                  attrs: { id: "layout-tabs", variant: "tabs" },
+                  attrs: { id: "layoutTab001", variant: "tabs" },
                   content: [
                     {
                       type: "section",
-                      attrs: { id: "tab-a", role: "tab-panel" },
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: "tab000000001", role: "tab-panel" },
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -1573,7 +1661,7 @@ describe("layout arrangement nodes", () => {
       createInteractionOwnerCommandPorts(
         editor.view,
         builtInBlockRegistry,
-      ).activateStructuralTarget(structuralRefForTest(editor, "section", "tab-a")),
+      ).activateStructuralTarget(structuralRefForTest(editor, "section", "tab000000001")),
     ).toBe(true);
 
     // Sections support movement through their section-local handles inside
@@ -1581,16 +1669,14 @@ describe("layout arrangement nodes", () => {
     // schema confines sections to layouts, so a document-level floating
     // drag source would have nowhere valid to drop.
     expect(resolveEditorMovementTarget(editor, builtInBlockRegistry)).toBeNull();
-
-    editor.destroy();
   });
 
   it("does not create position fallback anchors for layouts without ids", () => {
     expect(createLayoutArrangementAnchorId("layout-menu", null)).toBeNull();
     expect(createLayoutArrangementAnchorId("layout-menu", "")).toBeNull();
     expect(createLayoutArrangementAnchorId("section-menu", undefined)).toBeNull();
-    expect(createLayoutArrangementAnchorId("layout-menu", "layout-tabs")).toBe(
-      "layout-menu:layout-tabs",
+    expect(createLayoutArrangementAnchorId("layout-menu", "layoutTab001")).toBe(
+      "layout-menu:layoutTab001",
     );
   });
 
@@ -1603,15 +1689,16 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
-                  attrs: { id: "layout-tabs", variant: "tabs" },
+                  attrs: { id: "layoutTab001", variant: "tabs" },
                   content: [
                     {
                       type: "section",
-                      attrs: { id: "tab-a", role: "tab-panel" },
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: "tab000000001", role: "tab-panel" },
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -1621,7 +1708,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    renderActiveLayoutAuthoringChrome(editor, "layout-tabs");
+    renderActiveLayoutAuthoringChrome(editor, "layoutTab001");
 
     await waitFor(() => {
       expect(document.body.querySelector("[data-layout-menu-trigger]")).not.toBeNull();
@@ -1641,12 +1728,10 @@ describe("layout arrangement nodes", () => {
     // Phase 4C; the interaction contract here is the settings owner dispatch.
     await waitFor(() => {
       expect(settingsOwnerForTest(editor)).toMatchObject({
-        id: "layout-tabs",
+        id: "layoutTab001",
         kind: InteractionTargetKind.Layout,
       });
     });
-
-    editor.destroy();
   });
 
   it("adds a tab without opening the layout menu", async () => {
@@ -1658,15 +1743,16 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
-                  attrs: { id: "layout-tabs", variant: "tabs" },
+                  attrs: { id: "layoutTab001", variant: "tabs" },
                   content: [
                     {
                       type: "section",
-                      attrs: { id: "tab-a", role: "tab-panel" },
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: "tab000000001", role: "tab-panel" },
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -1715,8 +1801,6 @@ describe("layout arrangement nodes", () => {
     });
     expect(menuOwnerForTest(editor)).toBeNull();
     expect(settingsOwnerForTest(editor)).toBeNull();
-
-    editor.destroy();
   });
 
   it("opens the shared section menu target from section action triggers", async () => {
@@ -1728,15 +1812,16 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
-                  attrs: { id: "layout-tabs", variant: "tabs" },
+                  attrs: { id: "layoutTab001", variant: "tabs" },
                   content: [
                     {
                       type: "section",
-                      attrs: { id: "tab-a", role: "tab-panel" },
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: "tab000000001", role: "tab-panel" },
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -1755,7 +1840,7 @@ describe("layout arrangement nodes", () => {
     const trigger = document.body.querySelector<HTMLButtonElement>(
       "[data-layout-section-menu-trigger]",
     );
-    expect(trigger?.getAttribute(AUTHORING_ANCHOR_ATTR)).toBe("section-menu:tab-a");
+    expect(trigger?.getAttribute(AUTHORING_ANCHOR_ATTR)).toBe("section-menu:tab000000001");
     expect(trigger?.getAttribute("class")).toContain("sc-layout-section-action-trigger");
 
     fireEvent.mouseDown(trigger!);
@@ -1763,7 +1848,7 @@ describe("layout arrangement nodes", () => {
 
     await waitFor(() => {
       expect(menuOwnerForTest(editor)).toMatchObject({
-        id: "tab-a",
+        id: "tab000000001",
         kind: InteractionTargetKind.Section,
       });
       expect(document.body.querySelector('[data-authoring-chrome="menu"]')).not.toBeNull();
@@ -1775,8 +1860,6 @@ describe("layout arrangement nodes", () => {
     fireEvent.mouseDown(closeTrigger!);
     fireEvent.click(closeTrigger!);
     expect(menuOwnerForTest(editor)).toBeNull();
-
-    editor.destroy();
   });
 
   it("opens section settings through the shared settings target", async () => {
@@ -1788,15 +1871,16 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
-                  attrs: { id: "layout-tabs", variant: "tabs" },
+                  attrs: { id: "layoutTab001", variant: "tabs" },
                   content: [
                     {
                       type: "section",
-                      attrs: { id: "tab-a", role: "tab-panel" },
-                      content: [{ type: "paragraph" }],
+                      attrs: { id: "tab000000001", role: "tab-panel" },
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -1828,12 +1912,10 @@ describe("layout arrangement nodes", () => {
     // Phase 4C; the interaction contract here is the settings owner dispatch.
     await waitFor(() => {
       expect(settingsOwnerForTest(editor)).toMatchObject({
-        id: "tab-a",
+        id: "tab000000001",
         kind: InteractionTargetKind.Section,
       });
     });
-
-    editor.destroy();
   });
 
   it("keeps tab section chrome beside the tab item, outside the tab label and panel content", async () => {
@@ -1845,11 +1927,12 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
                   attrs: {
-                    id: "layout-tabs",
+                    id: "layoutTab001",
                     variant: "tabs",
                     options: { variant: "default", label: "Lesson sections" },
                   },
@@ -1857,11 +1940,11 @@ describe("layout arrangement nodes", () => {
                     {
                       type: "section",
                       attrs: {
-                        id: "tab-a",
+                        id: "tab000000001",
                         role: "tab-panel",
                         options: { label: "Overview" },
                       },
-                      content: [{ type: "paragraph" }],
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -1898,8 +1981,6 @@ describe("layout arrangement nodes", () => {
     expect(panel?.contains(menu ?? null)).toBe(false);
     expect(move?.getAttribute("contenteditable")).toBe("false");
     expect(menu?.getAttribute("contenteditable")).toBe("false");
-
-    editor.destroy();
   });
 
   it("uses the tab item as the section movement presentation source", async () => {
@@ -1912,11 +1993,12 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
                   attrs: {
-                    id: "layout-tabs-presentation",
+                    id: "layoutPre001",
                     variant: "tabs",
                     options: { variant: "default", label: "Lesson sections" },
                   },
@@ -1924,11 +2006,11 @@ describe("layout arrangement nodes", () => {
                     {
                       type: "section",
                       attrs: {
-                        id: "tab-presentation",
+                        id: "tabPresent01",
                         role: "tab-panel",
                         options: { label: "Overview" },
                       },
-                      content: [{ type: "paragraph" }],
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -1970,8 +2052,6 @@ describe("layout arrangement nodes", () => {
     const snapshot = document.body.querySelector<HTMLElement>("[data-authoring-movement-snapshot]");
     expect(snapshot?.textContent).toContain("Overview");
     expect(snapshot?.querySelector("[data-authoring-move-handle]")).toBeNull();
-
-    editor.destroy();
   });
 
   it("keeps accordion section chrome around the row header, outside the disclosure label and panel content", async () => {
@@ -1983,11 +2063,12 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
                   attrs: {
-                    id: "layout-accordion",
+                    id: "layoutAcc001",
                     variant: "accordion",
                     options: {
                       variant: "default",
@@ -1999,7 +2080,7 @@ describe("layout arrangement nodes", () => {
                     {
                       type: "section",
                       attrs: {
-                        id: "accordion-a",
+                        id: "accord000001",
                         role: "accordion-panel",
                         options: { defaultOpen: true },
                       },
@@ -2040,8 +2121,6 @@ describe("layout arrangement nodes", () => {
     expect(panel?.contains(menu ?? null)).toBe(false);
     expect(move?.getAttribute("contenteditable")).toBe("false");
     expect(menu?.getAttribute("contenteditable")).toBe("false");
-
-    editor.destroy();
   });
 
   it("renders tabs layout with Radix-inspired tab semantics", async () => {
@@ -2053,11 +2132,12 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
                   attrs: {
-                    id: "layout-tabs",
+                    id: "layoutTab001",
                     variant: "tabs",
                     options: { variant: "pills", label: "Lesson sections" },
                   },
@@ -2065,20 +2145,20 @@ describe("layout arrangement nodes", () => {
                     {
                       type: "section",
                       attrs: {
-                        id: "tab-a",
+                        id: "tab000000001",
                         role: "tab-panel",
                         options: { label: "Overview" },
                       },
-                      content: [{ type: "paragraph" }],
+                      content: [createBlankLayer()],
                     },
                     {
                       type: "section",
                       attrs: {
-                        id: "tab-b",
+                        id: "tab000000002",
                         role: "tab-panel",
                         options: { label: "Practice" },
                       },
-                      content: [{ type: "paragraph" }],
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -2123,10 +2203,10 @@ describe("layout arrangement nodes", () => {
     expect(panels[0]?.getAttribute("aria-labelledby")).toBe(tabs[0]?.id);
     expect(tabs[0]?.id).toMatch(/^sc-tabs-trigger-/);
     expect(panels[0]?.id).toMatch(/^sc-tabs-panel-/);
-    expect(tabs[0]?.id).not.toContain("layout-tabs");
-    expect(tabs[0]?.id).not.toContain("tab-a");
+    expect(tabs[0]?.id).not.toContain("layoutTab001");
+    expect(tabs[0]?.id).not.toContain("tab000000001");
 
-    const firstSectionPos = nodePos(editor, "section", "tab-a");
+    const firstSectionPos = nodePos(editor, "section", "tab000000001");
     const firstSectionDom = editor.view.nodeDOM(firstSectionPos);
     if (!(firstSectionDom instanceof Element)) throw new Error("Expected first section DOM");
     const movementPresentation = resolveStructureMovementTargetPresentation(
@@ -2148,15 +2228,13 @@ describe("layout arrangement nodes", () => {
     fireEvent.keyDown(tabs[1]!, { key: "ArrowDown" });
 
     await waitFor(() => {
-      const sectionPos = nodePos(editor, "section", "tab-b");
+      const sectionPos = nodePos(editor, "section", "tab000000002");
       const section = editor.state.doc.nodeAt(sectionPos);
 
       expect(section).not.toBeNull();
       expect(editor.state.selection.from).toBeGreaterThan(sectionPos);
       expect(editor.state.selection.from).toBeLessThan(sectionPos + (section?.nodeSize ?? 0));
     });
-
-    editor.destroy();
   });
 
   it("reveals the tab section that contains the editor text selection", async () => {
@@ -2168,11 +2246,12 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
                   attrs: {
-                    id: "layout-tabs",
+                    id: "layoutTab001",
                     variant: "tabs",
                     options: { variant: "default", label: "Lesson sections" },
                   },
@@ -2180,24 +2259,27 @@ describe("layout arrangement nodes", () => {
                     {
                       type: "section",
                       attrs: {
-                        id: "tab-a",
+                        id: "tab000000001",
                         role: "tab-panel",
                         options: { label: "Overview" },
                       },
-                      content: [{ type: "paragraph" }],
+                      content: [createBlankLayer()],
                     },
                     {
                       type: "section",
                       attrs: {
-                        id: "tab-b",
+                        id: "tab000000002",
                         role: "tab-panel",
                         options: { label: "Practice" },
                       },
                       content: [
-                        {
-                          type: "paragraph",
-                          content: [{ type: "text", text: "Practice prompt" }],
-                        },
+                        createLayerWithContent([
+                          {
+                            type: "paragraph",
+                            attrs: { id: createEmbeddedNodeId() },
+                            content: [{ type: "text", text: "Practice prompt" }],
+                          },
+                        ]),
                       ],
                     },
                   ],
@@ -2227,8 +2309,6 @@ describe("layout arrangement nodes", () => {
       expect(panels[0]?.hidden).toBe(true);
       expect(panels[1]?.hidden).toBe(false);
     });
-
-    editor.destroy();
   });
 
   it("reveals the tab section from live interaction context before stale selection", async () => {
@@ -2240,11 +2320,12 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
                   attrs: {
-                    id: "layout-tabs",
+                    id: "layoutTab001",
                     variant: "tabs",
                     options: { variant: "default", label: "Lesson sections" },
                   },
@@ -2252,29 +2333,35 @@ describe("layout arrangement nodes", () => {
                     {
                       type: "section",
                       attrs: {
-                        id: "tab-a",
+                        id: "tab000000001",
                         role: "tab-panel",
                         options: { label: "Overview" },
                       },
                       content: [
-                        {
-                          type: "paragraph",
-                          content: [{ type: "text", text: "Overview prompt" }],
-                        },
+                        createLayerWithContent([
+                          {
+                            type: "paragraph",
+                            attrs: { id: createEmbeddedNodeId() },
+                            content: [{ type: "text", text: "Overview prompt" }],
+                          },
+                        ]),
                       ],
                     },
                     {
                       type: "section",
                       attrs: {
-                        id: "tab-b",
+                        id: "tab000000002",
                         role: "tab-panel",
                         options: { label: "Practice" },
                       },
                       content: [
-                        {
-                          type: "paragraph",
-                          content: [{ type: "text", text: "Practice prompt" }],
-                        },
+                        createLayerWithContent([
+                          {
+                            type: "paragraph",
+                            attrs: { id: createEmbeddedNodeId() },
+                            content: [{ type: "text", text: "Practice prompt" }],
+                          },
+                        ]),
                       ],
                     },
                   ],
@@ -2298,7 +2385,7 @@ describe("layout arrangement nodes", () => {
 
     editor.view.dispatch(
       setInteractionOwnerCommandMeta(editor.state.tr, {
-        contextOwner: structuralRefForTest(editor, "section", "tab-b"),
+        contextOwner: structuralRefForTest(editor, "section", "tab000000002"),
         kind: InteractionOwnerCommandKind.EnterEditableContent,
       }),
     );
@@ -2310,8 +2397,6 @@ describe("layout arrangement nodes", () => {
       expect(panels[1]?.hidden).toBe(false);
       expect(editor.state.selection.from).toBe(overviewSelectionPos);
     });
-
-    editor.destroy();
   });
 
   it("moves an existing tabs caret into the clicked tab section", async () => {
@@ -2323,11 +2408,12 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
                   attrs: {
-                    id: "layout-tabs",
+                    id: "layoutTab001",
                     variant: "tabs",
                     options: { variant: "default", label: "Lesson sections" },
                   },
@@ -2335,25 +2421,28 @@ describe("layout arrangement nodes", () => {
                     {
                       type: "section",
                       attrs: {
-                        id: "tab-a",
+                        id: "tab000000001",
                         role: "tab-panel",
                         options: { label: "Overview" },
                       },
                       content: [
-                        {
-                          type: "paragraph",
-                          content: [{ type: "text", text: "Overview text" }],
-                        },
+                        createLayerWithContent([
+                          {
+                            type: "paragraph",
+                            attrs: { id: createEmbeddedNodeId() },
+                            content: [{ type: "text", text: "Overview text" }],
+                          },
+                        ]),
                       ],
                     },
                     {
                       type: "section",
                       attrs: {
-                        id: "tab-b",
+                        id: "tab000000002",
                         role: "tab-panel",
                         options: { label: "Practice" },
                       },
-                      content: [{ type: "paragraph" }],
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -2375,7 +2464,7 @@ describe("layout arrangement nodes", () => {
     fireEvent.click(tabs[1]!);
 
     await waitFor(() => {
-      const sectionPos = nodePos(editor, "section", "tab-b");
+      const sectionPos = nodePos(editor, "section", "tab000000002");
       const section = editor.state.doc.nodeAt(sectionPos);
 
       expect(tabs[1]?.getAttribute("aria-selected")).toBe("true");
@@ -2383,8 +2472,6 @@ describe("layout arrangement nodes", () => {
       expect(editor.state.selection.from).toBeGreaterThan(sectionPos);
       expect(editor.state.selection.from).toBeLessThan(sectionPos + (section?.nodeSize ?? 0));
     });
-
-    editor.destroy();
   });
 
   it("activates the parent layout when an authoring tab trigger is selected", async () => {
@@ -2396,11 +2483,12 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
                   attrs: {
-                    id: "layout-tabs",
+                    id: "layoutTab001",
                     variant: "tabs",
                     options: { variant: "default", label: "Lesson sections" },
                   },
@@ -2408,20 +2496,20 @@ describe("layout arrangement nodes", () => {
                     {
                       type: "section",
                       attrs: {
-                        id: "tab-a",
+                        id: "tab000000001",
                         role: "tab-panel",
                         options: { label: "Overview" },
                       },
-                      content: [{ type: "paragraph" }],
+                      content: [createBlankLayer()],
                     },
                     {
                       type: "section",
                       attrs: {
-                        id: "tab-b",
+                        id: "tab000000002",
                         role: "tab-panel",
                         options: { label: "Practice" },
                       },
-                      content: [{ type: "paragraph" }],
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -2437,7 +2525,7 @@ describe("layout arrangement nodes", () => {
       expect(document.body.querySelector('[role="tablist"]')).not.toBeNull();
     });
 
-    const layoutPos = nodePos(editor, "layout", "layout-tabs");
+    const layoutPos = nodePos(editor, "layout", "layoutTab001");
     const tabs = Array.from(document.body.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
 
     fireEvent.click(tabs[1]!);
@@ -2445,7 +2533,7 @@ describe("layout arrangement nodes", () => {
     await waitFor(() => {
       expect(tabs[1]?.getAttribute("aria-selected")).toBe("true");
       expect(explicitOwnerForTest(editor)).toMatchObject({
-        id: "layout-tabs",
+        id: "layoutTab001",
         kind: InteractionTargetKind.Layout,
         pos: layoutPos,
       });
@@ -2460,8 +2548,6 @@ describe("layout arrangement nodes", () => {
     fireEvent.keyDown(editor.view.dom, { key: "Backspace" });
     editor.commands.keyboardShortcut("Backspace");
     expect(countNodesOfType(editor, "layout")).toBe(layoutCountBefore);
-
-    editor.destroy();
   });
 
   it("activates the parent layout when an authoring paginated page is selected", async () => {
@@ -2473,31 +2559,32 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
                   attrs: {
-                    id: "layout-pages",
+                    id: "layoutPag001",
                     variant: "paginated",
                   },
                   content: [
                     {
                       type: "section",
                       attrs: {
-                        id: "page-a",
+                        id: "page00000001",
                         role: "page",
                         options: { label: "Page one" },
                       },
-                      content: [{ type: "paragraph" }],
+                      content: [createBlankLayer()],
                     },
                     {
                       type: "section",
                       attrs: {
-                        id: "page-b",
+                        id: "page00000002",
                         role: "page",
                         options: { label: "Page two" },
                       },
-                      content: [{ type: "paragraph" }],
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -2513,7 +2600,7 @@ describe("layout arrangement nodes", () => {
       expect(document.body.querySelector('[aria-label="Pages"]')).not.toBeNull();
     });
 
-    const layoutPos = nodePos(editor, "layout", "layout-pages");
+    const layoutPos = nodePos(editor, "layout", "layoutPag001");
     const pageButton = document.body.querySelector<HTMLButtonElement>(
       'button[aria-label="Page two"]',
     );
@@ -2540,7 +2627,7 @@ describe("layout arrangement nodes", () => {
       expect(panels[0]?.getAttribute("data-state")).toBe("inactive");
       expect(panels[1]?.getAttribute("data-state")).toBe("active");
       expect(explicitOwnerForTest(editor)).toMatchObject({
-        id: "layout-pages",
+        id: "layoutPag001",
         kind: InteractionTargetKind.Layout,
         pos: layoutPos,
       });
@@ -2554,8 +2641,6 @@ describe("layout arrangement nodes", () => {
     const layoutCountBefore = countNodesOfType(editor, "layout");
     editor.commands.keyboardShortcut("Backspace");
     expect(countNodesOfType(editor, "layout")).toBe(layoutCountBefore);
-
-    editor.destroy();
   });
 
   it("keeps the active tab panel visible after sections are reordered", async () => {
@@ -2567,11 +2652,12 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
                   attrs: {
-                    id: "layout-tabs",
+                    id: "layoutTab001",
                     variant: "tabs",
                     options: { variant: "default", label: "Lesson sections" },
                   },
@@ -2579,20 +2665,20 @@ describe("layout arrangement nodes", () => {
                     {
                       type: "section",
                       attrs: {
-                        id: "tab-a",
+                        id: "tab000000001",
                         role: "tab-panel",
                         options: { label: "Overview" },
                       },
-                      content: [{ type: "paragraph" }],
+                      content: [createBlankLayer()],
                     },
                     {
                       type: "section",
                       attrs: {
-                        id: "tab-b",
+                        id: "tab000000002",
                         role: "tab-panel",
                         options: { label: "Practice" },
                       },
-                      content: [{ type: "paragraph" }],
+                      content: [createBlankLayer()],
                     },
                   ],
                 },
@@ -2620,8 +2706,8 @@ describe("layout arrangement nodes", () => {
     expect(
       reorderLayoutSectionAt(
         editor,
-        nodePos(editor, "section", "tab-b"),
-        nodePos(editor, "layout", "layout-tabs"),
+        nodePos(editor, "section", "tab000000002"),
+        nodePos(editor, "layout", "layoutTab001"),
         0,
       ),
     ).toBe(true);
@@ -2636,8 +2722,6 @@ describe("layout arrangement nodes", () => {
       expect(panels[0]?.hidden).toBe(false);
       expect(panels[1]?.hidden).toBe(true);
     });
-
-    editor.destroy();
   });
 
   it("renders accordion layout with accessible disclosure semantics", async () => {
@@ -2649,11 +2733,12 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
                   attrs: {
-                    id: "layout-accordion",
+                    id: "layoutAcc001",
                     variant: "accordion",
                     options: {
                       variant: "default",
@@ -2665,7 +2750,7 @@ describe("layout arrangement nodes", () => {
                     {
                       type: "section",
                       attrs: {
-                        id: "accordion-a",
+                        id: "accord000001",
                         role: "accordion-panel",
                         options: { defaultOpen: true },
                       },
@@ -2674,7 +2759,7 @@ describe("layout arrangement nodes", () => {
                     {
                       type: "section",
                       attrs: {
-                        id: "accordion-b",
+                        id: "accord000002",
                         role: "accordion-panel",
                         options: { defaultOpen: false },
                       },
@@ -2742,8 +2827,6 @@ describe("layout arrangement nodes", () => {
       expect(sectionFrames[1]?.getAttribute("data-state")).toBe("closed");
       expect(panels[1]?.hidden).toBe(true);
     });
-
-    editor.destroy();
   });
 
   it("adds and reveals an accordion section without opening the layout menu", async () => {
@@ -2755,11 +2838,12 @@ describe("layout arrangement nodes", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [
                 {
                   type: "layout",
                   attrs: {
-                    id: "layout-accordion",
+                    id: "layoutAcc001",
                     variant: "accordion",
                     options: {
                       variant: "default",
@@ -2771,7 +2855,7 @@ describe("layout arrangement nodes", () => {
                     {
                       type: "section",
                       attrs: {
-                        id: "accordion-a",
+                        id: "accord000001",
                         role: "accordion-panel",
                         options: { defaultOpen: true },
                       },
@@ -2780,7 +2864,7 @@ describe("layout arrangement nodes", () => {
                     {
                       type: "section",
                       attrs: {
-                        id: "accordion-b",
+                        id: "accord000002",
                         role: "accordion-panel",
                         options: { defaultOpen: false },
                       },
@@ -2836,7 +2920,5 @@ describe("layout arrangement nodes", () => {
     });
     expect(menuOwnerForTest(editor)).toBeNull();
     expect(settingsOwnerForTest(editor)).toBeNull();
-
-    editor.destroy();
   });
 });
