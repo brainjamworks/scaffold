@@ -7,6 +7,7 @@ import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { Result } from "better-result";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { userEvent } from "vite-plus/test/browser/context";
 
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { projectCourseStructure, type SurfaceId } from "@/document/model/course-structure";
@@ -28,6 +29,7 @@ import type { SlideshowSurfaceRuntimeComposition } from "./slideshow-surface-run
 
 const compositionProbe = vi.hoisted(() => ({
   current: null as SlideshowSurfaceRuntimeComposition | null,
+  narrationAudio: null as HTMLAudioElement | null,
 }));
 
 vi.mock("./slideshow-surface-runtime-composition", async (importOriginal) => {
@@ -37,7 +39,12 @@ vi.mock("./slideshow-surface-runtime-composition", async (importOriginal) => {
     createSlideshowSurfaceRuntimeComposition(
       input: Parameters<typeof actual.createSlideshowSurfaceRuntimeComposition>[0],
     ) {
-      const composition = actual.createSlideshowSurfaceRuntimeComposition(input);
+      const composition = actual.createSlideshowSurfaceRuntimeComposition({
+        ...input,
+        ...(compositionProbe.narrationAudio
+          ? { createNarrationAudioElement: () => compositionProbe.narrationAudio! }
+          : {}),
+      });
       compositionProbe.current = composition;
       return composition;
     },
@@ -46,6 +53,9 @@ vi.mock("./slideshow-surface-runtime-composition", async (importOriginal) => {
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
 const coreProductAccess = { scaffoldPlusAuthorized: false } as const;
+// Native currentTime assignment, seek confirmation and RAF sampling are not sample-accurate.
+// This matches the established narration fixture's controller bound plus busy Chromium frames.
+const NATIVE_MEDIA_TOLERANCE_MS = 120;
 
 let root: Root | null = null;
 let host: HTMLElement | null = null;
@@ -59,6 +69,7 @@ afterEach(() => {
   restoreMatchMedia?.();
   restoreMatchMedia = null;
   compositionProbe.current = null;
+  compositionProbe.narrationAudio = null;
 });
 
 describe("Slideshow Region Layer playback", () => {
@@ -283,6 +294,187 @@ describe("Slideshow Region Layer playback", () => {
     );
   });
 
+  it("keeps the Region cut and reverse seek on one native narration clock", async () => {
+    const sourceUrl = URL.createObjectURL(silentWave(6));
+    const audio = new Audio();
+    audio.muted = true;
+    compositionProbe.narrationAudio = audio;
+    const startButton = document.createElement("button");
+    startButton.textContent = "Start narrated Region";
+    startButton.style.cssText = "position:fixed;inset:8px auto auto 8px;z-index:2147483647;";
+    const releaseButton = document.createElement("button");
+    releaseButton.textContent = "Continue narrated Region";
+    releaseButton.style.cssText = "position:fixed;inset:8px 8px auto auto;z-index:2147483647;";
+    document.body.append(startButton, releaseButton);
+
+    try {
+      const fixture = await mountRegionTracer({ narrationSourceUrl: sourceUrl });
+      const composition = requiredPresentationComposition();
+      const controls = composition.presentationControls;
+      const layerA = requiredLayer(fixture.layerAId);
+      const layerB = requiredLayer(fixture.layerBId);
+      const bCallout = requiredTarget(fixture.bCalloutId);
+      const scroll = requiredElement<HTMLElement>(
+        host!,
+        '[data-node="region"] > [data-bounded-scroll-frame] > [data-bounded-scroll]',
+      );
+      const canvas = requiredElement<HTMLElement>(host!, ".sc-slideshow-player__canvas");
+      await waitForCondition(
+        () => controls.getNarrationSnapshot()?.status === "paused" && audio.duration >= 5.9,
+      );
+
+      let startPromise: ReturnType<typeof controls.play> | undefined;
+      startButton.addEventListener("click", () => {
+        startPromise = controls.play();
+      });
+      await userEvent.click(startButton);
+      if (!startPromise) throw new Error("Native gesture did not start Region narration.");
+      const started = await startPromise;
+      if (started.isErr()) {
+        throw new Error(`Expected narrated Region playback: ${started.error.reason}.`);
+      }
+
+      await waitForCondition(() => {
+        const snapshot = controls.getSnapshot();
+        return (
+          snapshot.phase === "held" &&
+          snapshot.position.timeMs === 1_000 &&
+          snapshot.position.side === "before-actions" &&
+          controls.getNarrationSnapshot()?.status === "paused" &&
+          audio.paused &&
+          Math.abs(audio.currentTime * 1_000 - snapshot.position.timeMs) <=
+            NATIVE_MEDIA_TOLERANCE_MS
+        );
+      });
+      const holdSnapshot = controls.getSnapshot();
+      const holdStartMediaMs = audio.currentTime * 1_000;
+      expect(holdSnapshot).toMatchObject({
+        phase: "held",
+        advancement: "suspended",
+        position: { timeMs: 1_000, side: "before-actions" },
+      });
+      expect(controls.getNarrationSnapshot()).toMatchObject({ status: "paused" });
+      expectExclusiveLayer(layerA, layerB);
+      expect(canvas).toHaveAttribute("data-content-interaction", "enabled");
+      expect(canvas).not.toHaveAttribute("inert");
+      expect(scroll.scrollHeight).toBeGreaterThan(scroll.clientHeight);
+      const link = requiredElement<HTMLAnchorElement>(host!, 'a[href="#region-manual-hold"]');
+      scroll.scrollTop = 0;
+      link.focus();
+      await nextFrame();
+      expect(document.activeElement).toBe(link);
+      expect(link.closest("[inert]")).toBeNull();
+      expect(scroll.scrollTop).toBeGreaterThan(0);
+
+      await waitFrames(12);
+      const holdDriftMs = Math.abs(audio.currentTime * 1_000 - holdStartMediaMs);
+      expect(audio.paused).toBe(true);
+      expect(controls.getSnapshot().position).toEqual({
+        timeMs: 1_000,
+        side: "before-actions",
+      });
+      expect(holdDriftMs).toBeLessThanOrEqual(NATIVE_MEDIA_TOLERANCE_MS);
+
+      let releaseBoundary: NarratedRegionBoundaryObservation | null = null;
+      const unsubscribeBoundary = controls.subscribe(() => {
+        const snapshot = controls.getSnapshot();
+        if (
+          snapshot.position.timeMs !== 1_000 ||
+          snapshot.position.side !== "after-actions" ||
+          layerB.dataset["layerState"] !== "active"
+        ) {
+          return;
+        }
+        releaseBoundary ??= Object.freeze({
+          phase: snapshot.phase,
+          advancement: snapshot.advancement,
+          position: snapshot.position,
+          mediaPaused: audio.paused,
+          narrationStatus: controls.getNarrationSnapshot()?.status ?? null,
+        });
+      });
+      let releasePromise: ReturnType<typeof controls.advance> | undefined;
+      releaseButton.addEventListener("click", () => {
+        releasePromise = controls.advance();
+      });
+      await userEvent.click(releaseButton);
+      if (!releasePromise) throw new Error("Native gesture did not release the Region Wait.");
+      await waitForCondition(() => releaseBoundary !== null);
+      expect(releaseBoundary).toEqual({
+        phase: "playing",
+        advancement: "suspended",
+        position: { timeMs: 1_000, side: "after-actions" },
+        mediaPaused: true,
+        narrationStatus: "paused",
+      });
+      expectExclusiveLayer(layerB, layerA);
+      expect(controls.getSnapshot().position.timeMs).toBeGreaterThanOrEqual(1_000);
+      expect(controls.getSnapshot().position.side).toBe("after-actions");
+      expect(layerA.getClientRects()).toHaveLength(0);
+      expect(bCallout).toHaveAttribute("data-presentation-availability", "withheld");
+      expect(bCallout.getBoundingClientRect().height).toBeGreaterThan(0);
+      unsubscribeBoundary();
+
+      const released = await releasePromise;
+      if (released.isErr()) {
+        throw new Error(`Expected narrated Region Continue: ${released.error.reason}.`);
+      }
+      await waitForCondition(() => {
+        const snapshot = controls.getSnapshot();
+        return snapshot.position.timeMs >= 1_250 && snapshot.advancement === "advancing";
+      });
+      const continuedOffsetsMs: number[] = [];
+      for (let sample = 0; sample < 4; sample += 1) {
+        continuedOffsetsMs.push(audio.currentTime * 1_000 - controls.getSnapshot().position.timeMs);
+        await waitFrames(6);
+      }
+      expect(audio.paused).toBe(false);
+      expect(
+        continuedOffsetsMs.every((offsetMs) => Math.abs(offsetMs) <= NATIVE_MEDIA_TOLERANCE_MS),
+      ).toBe(true);
+      expect(Math.abs(continuedOffsetsMs.at(-1)! - continuedOffsetsMs[0]!)).toBeLessThanOrEqual(
+        NATIVE_MEDIA_TOLERANCE_MS,
+      );
+
+      await waitForCondition(() => controls.getSnapshot().position.timeMs >= 1_850);
+      const automaticSwitchSurfaceMs = controls.getSnapshot().position.timeMs;
+      expectExclusiveLayer(layerA, layerB);
+
+      controls.pause();
+      await waitForCondition(() => audio.paused);
+      const seekToBOffsetMs = await expectAlignedNativeSeek(composition, audio, 1_400);
+      expectExclusiveLayer(layerB, layerA);
+      const reverseSeekOffsetMs = await expectAlignedNativeSeek(composition, audio, 850);
+      expectExclusiveLayer(layerA, layerB);
+      expect(requiredTarget(fixture.aExitId)).toHaveAttribute(
+        "data-presentation-availability",
+        "withheld",
+      );
+
+      console.info(
+        "NARRATED_REGION_LAYER_MEASUREMENTS",
+        JSON.stringify({
+          toleranceMs: NATIVE_MEDIA_TOLERANCE_MS,
+          holdPosition: holdSnapshot.position,
+          holdMediaMs: Math.round(holdStartMediaMs),
+          holdDriftMs: Math.round(holdDriftMs),
+          releaseBoundary,
+          continuedOffsetsMs: continuedOffsetsMs.map(Math.round),
+          automaticSwitchSurfaceMs,
+          seekToBOffsetMs: Math.round(seekToBOffsetMs),
+          reverseSeekOffsetMs: Math.round(reverseSeekOffsetMs),
+        }),
+      );
+    } finally {
+      root?.unmount();
+      root = null;
+      startButton.remove();
+      releaseButton.remove();
+      compositionProbe.narrationAudio = null;
+      URL.revokeObjectURL(sourceUrl);
+    }
+  });
+
   it("changes paint but not Layer timing or reserved availability under reduced motion", async () => {
     restoreMatchMedia = installReducedMotionPreference();
     const fixture = await mountRegionTracer();
@@ -351,7 +543,19 @@ interface MountedRegionFixture extends RegionFixture {
   readonly editor: TiptapEditor;
 }
 
-async function mountRegionTracer(): Promise<MountedRegionFixture> {
+interface NarratedRegionBoundaryObservation {
+  readonly phase: string;
+  readonly advancement: string;
+  readonly position: Readonly<{ timeMs: number; side: string }>;
+  readonly mediaPaused: boolean;
+  readonly narrationStatus: string | null;
+}
+
+async function mountRegionTracer({
+  narrationSourceUrl,
+}: {
+  readonly narrationSourceUrl?: string;
+} = {}): Promise<MountedRegionFixture> {
   const surfaceId = createEmbeddedNodeId() as SurfaceId;
   const fixture = regionDocument(surfaceId);
   const structure = projectCourseStructure(fixture.content);
@@ -382,7 +586,10 @@ async function mountRegionTracer(): Promise<MountedRegionFixture> {
         surfaceRuntimeProgramSource={(requestedSurfaceId) =>
           requestedSurfaceId === surfaceId
             ? {
-                presentation: { timeline: compiledTimeline(fixture), autoAdvance: false },
+                presentation: {
+                  timeline: compiledTimeline(fixture, narrationSourceUrl),
+                  autoAdvance: false,
+                },
               }
             : undefined
         }
@@ -521,7 +728,10 @@ function portableActions(fixture: RegionFixture) {
   ];
 }
 
-function compiledTimeline(fixture: RegionFixture): CompiledSurfacePresentationTimeline {
+function compiledTimeline(
+  fixture: RegionFixture,
+  narrationSourceUrl?: string,
+): CompiledSurfacePresentationTimeline {
   const configuration = portableConfiguration(fixture).surfaces[0]!;
   const layerTrack = Object.freeze({
     ownerId: fixture.regionId,
@@ -539,6 +749,13 @@ function compiledTimeline(fixture: RegionFixture): CompiledSurfacePresentationTi
     surfaceId: fixture.surfaceId,
     durationMs: configuration.durationMs,
     transition: null,
+    ...(narrationSourceUrl
+      ? {
+          narration: Object.freeze({
+            source: Object.freeze({ mode: "external" as const, src: narrationSourceUrl }),
+          }),
+        }
+      : {}),
     layerTracks: Object.freeze([layerTrack]),
     layerTrackByOwnerId: new Map([[fixture.regionId, layerTrack]]),
     cues: Object.freeze([]),
@@ -702,6 +919,30 @@ async function expectAppliedSeek(
   await nextFrame();
 }
 
+async function expectAlignedNativeSeek(
+  composition: MountedPresentationComposition,
+  audio: HTMLAudioElement,
+  timeMs: number,
+): Promise<number> {
+  const result = await composition.seek(timeMs);
+  if (result.isErr()) throw new Error(`Expected native Seek to succeed: ${result.error.reason}.`);
+  expect(result.value).toMatchObject({
+    kind: "applied",
+    position: { timeMs, side: "after-actions" },
+  });
+  await waitForCondition(
+    () => audio.paused && Math.abs(audio.currentTime * 1_000 - timeMs) <= NATIVE_MEDIA_TOLERANCE_MS,
+  );
+  expect(composition.presentationControls.getSnapshot()).toMatchObject({
+    phase: "paused",
+    position: { timeMs, side: "after-actions" },
+  });
+  expect(composition.presentationControls.getNarrationSnapshot()).toMatchObject({
+    status: "paused",
+  });
+  return audio.currentTime * 1_000 - timeMs;
+}
+
 function semanticOptions() {
   return { origin: "configured-presentation" as const };
 }
@@ -783,6 +1024,37 @@ async function waitForCondition(condition: () => unknown): Promise<void> {
 
 function nextFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+async function waitFrames(count: number): Promise<void> {
+  for (let frame = 0; frame < count; frame += 1) await nextFrame();
+}
+
+function silentWave(durationSeconds: number): Blob {
+  const sampleRate = 8_000;
+  const sampleCount = sampleRate * durationSeconds;
+  const bytes = new ArrayBuffer(44 + sampleCount * 2);
+  const view = new DataView(bytes);
+  writeAscii(view, 0, "RIFF");
+  view.setUint32(4, 36 + sampleCount * 2, true);
+  writeAscii(view, 8, "WAVE");
+  writeAscii(view, 12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeAscii(view, 36, "data");
+  view.setUint32(40, sampleCount * 2, true);
+  return new Blob([bytes], { type: "audio/wav" });
+}
+
+function writeAscii(view: DataView, offset: number, value: string): void {
+  for (let index = 0; index < value.length; index += 1) {
+    view.setUint8(offset + index, value.charCodeAt(index));
+  }
 }
 
 function installReducedMotionPreference(): () => void {
