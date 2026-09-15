@@ -94,7 +94,10 @@ function expectChoiceSilhouette(
   initialRect: DOMRect,
   harness: DropdownAuthoringHarness,
 ): void {
-  const row = requiredElement<HTMLElement>(source, ".sc-course-assessment-choice--authoring");
+  const row = requiredElement<HTMLElement>(
+    source,
+    ".sc-app-assessment-choice-authoring-surface--workspace",
+  );
   const content = requiredElement<HTMLElement>(
     source,
     ".sc-course-assessment-choice__authoring-content",

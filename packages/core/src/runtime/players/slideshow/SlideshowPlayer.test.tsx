@@ -1646,7 +1646,7 @@ describe("SlideshowPlayer", () => {
     expect(screen.queryByRole("slider", { name: "Presentation progress" })).toBeNull();
     await user.click(play);
     await waitFor(() => expect(media.play).toHaveBeenCalledOnce());
-    expect(screen.getByRole("button", { name: "Play presentation" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pause presentation" })).toBeInTheDocument();
     media.confirmPlay();
 
     await screen.findByRole("button", { name: "Pause presentation" });

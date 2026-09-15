@@ -1035,14 +1035,14 @@ describe("composite dropdown node", () => {
       expect(dropdownDescription()).toBe("Submitted answer, incorrect");
     });
 
-    fireEvent.click(screen.getByText("Show answer"));
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
 
     await waitFor(() => {
       expect(screen.getByRole("combobox", { name: "Pick a term" }).textContent).toContain("Beta");
       expect(dropdownDescription()).toBe("Selected answer, correct");
     });
 
-    fireEvent.click(screen.getByText("Show answer"));
+    fireEvent.click(screen.getByRole("button", { name: "Show answer" }));
     await waitFor(() => {
       expect(screen.getByRole("combobox", { name: "Pick a term" }).textContent).toContain("Alpha");
       expect(dropdownDescription()).toBe("Submitted answer, incorrect");

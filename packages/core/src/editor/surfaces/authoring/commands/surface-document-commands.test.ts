@@ -404,7 +404,7 @@ describe("surface document commands", () => {
         surface("surface00003", "Third"),
       ],
       surfaceId: "surface00001",
-      expectedIds: ["section00002", "surface00002", "surface00003"],
+      expectedIds: ["section00001", "section00002", "surface00002", "surface00003"],
     },
     {
       label: "middle",
@@ -418,7 +418,14 @@ describe("surface document commands", () => {
         surface("surface00004", "Fourth"),
       ],
       surfaceId: "surface00003",
-      expectedIds: ["section00001", "surface00001", "surface00002", "section00003", "surface00004"],
+      expectedIds: [
+        "section00001",
+        "surface00001",
+        "surface00002",
+        "section00002",
+        "section00003",
+        "surface00004",
+      ],
     },
     {
       label: "end",
@@ -430,10 +437,10 @@ describe("surface document commands", () => {
         surface("surface00003", "Third"),
       ],
       surfaceId: "surface00003",
-      expectedIds: ["section00001", "surface00001", "surface00002"],
+      expectedIds: ["section00001", "surface00001", "surface00002", "section00002"],
     },
   ])(
-    "deletes a singleton member and its $label Course Section boundary",
+    "deletes a singleton member while retaining its $label Course Section boundary",
     ({ children, surfaceId, expectedIds }) => {
       const editor = makeEditor("slideshow", children);
 

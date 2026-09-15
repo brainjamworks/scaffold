@@ -388,24 +388,41 @@ describe("structural clipboard in a real browser", () => {
     ).toEqual({ status: "invalid", reason: "malformed_json" });
   });
 
-  it.each([
-    ["an unavailable nested compatibility item", unavailableLayoutFragment(), undefined],
-    [
-      "a failed mounted-owner clone",
-      contributedFragment(),
-      () => {
-        throw new Error("owner repair failed");
-      },
-    ],
-  ] as const)("refuses %s atomically", (_label, encodedFragment, identityRewrite) => {
-    const editor = makeEditor({ identityRewrite });
+  it("refuses an unavailable nested compatibility item atomically", () => {
+    const editor = makeEditor();
     selectNode(editor, "core-block-b");
     const before = editor.getJSON();
     const dispatch = vi.spyOn(editor.view, "dispatch");
     const clipboard = new DataTransfer();
-    clipboard.setData(SCAFFOLD_STRUCTURAL_FRAGMENT_MIME, encodedFragment);
+    clipboard.setData(SCAFFOLD_STRUCTURAL_FRAGMENT_MIME, unavailableLayoutFragment());
 
     const event = dispatchPaste(editor, clipboard);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(editor.getJSON()).toEqual(before);
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it("keeps a failed mounted-owner clone observable and atomic", () => {
+    const editor = makeEditor({
+      identityRewrite: () => {
+        throw new Error("owner repair failed");
+      },
+    });
+    selectNode(editor, "core-block-b");
+    const before = editor.getJSON();
+    const dispatch = vi.spyOn(editor.view, "dispatch");
+    const clipboard = new DataTransfer();
+    clipboard.setData(SCAFFOLD_STRUCTURAL_FRAGMENT_MIME, contributedFragment());
+    const event = new ClipboardEvent("paste", {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: clipboard,
+    });
+
+    expect(() =>
+      editor.view.someProp("handleDOMEvents", (handlers) => handlers.paste?.(editor.view, event)),
+    ).toThrow("owner repair failed");
 
     expect(event.defaultPrevented).toBe(true);
     expect(editor.getJSON()).toEqual(before);

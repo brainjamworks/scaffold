@@ -47,6 +47,7 @@ const BLOCK_PUBLICATION = {
   flashcard: { kind: "published-members", childNodeTypes: ["flashcard_card"] },
   categorise: { kind: "assessment-root-only" },
   dropdown: { kind: "assessment-root-only" },
+  drag_drop: { kind: "assessment-root-only" },
   fill_blanks: { kind: "assessment-root-only" },
   image_hotspot: { kind: "assessment-root-only" },
   matching: { kind: "assessment-root-only" },
@@ -108,6 +109,7 @@ const SURFACE_PUBLICATION = {
   "slide-module-cover": surface("title-and-subtitle"),
   "slide-categorise-question": assessmentSurface("surface_categorise_question"),
   "slide-dropdown-question": assessmentSurface("surface_dropdown_question"),
+  "slide-drag-drop-question": assessmentSurface("surface_drag_drop_question"),
   "slide-fill-blanks-question": assessmentSurface("surface_fill_blanks_question"),
   "slide-image-hotspot-question": assessmentSurface("surface_image_hotspot_question"),
   "slide-matching-question": assessmentSurface("surface_matching_question"),
@@ -244,8 +246,12 @@ describe("built-in document tree exposure coverage", () => {
     const firstId = EmbeddedNodeIdSchema.parse("covr_0000002");
     const secondId = EmbeddedNodeIdSchema.parse("covr_0000003");
     const owner = schema.node("layout", { id: ownerId, variant: "tabs" }, [
-      schema.node("section", { id: firstId }, [schema.node("paragraph")]),
-      schema.node("section", { id: secondId }, [schema.node("paragraph")]),
+      schema.node("section", { id: firstId }, [
+        schema.node("layer", { id: "covr_0000005" }, [schema.node("paragraph")]),
+      ]),
+      schema.node("section", { id: secondId }, [
+        schema.node("layer", { id: "covr_0000006" }, [schema.node("paragraph")]),
+      ]),
     ]);
 
     for (const definition of builtInLayoutDefinitions) {

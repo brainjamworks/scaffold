@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor.test-harness";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import "@/styles/globals.css";
@@ -97,17 +98,20 @@ function tabsDocument(): JSONContent {
       child.type === "region"
         ? {
             ...child,
-            content: [
-              {
-                type: "layout",
-                attrs: {
-                  id: createEmbeddedNodeId(),
-                  variant: "tabs",
-                  options: { label: "Lesson sections", variant: "default" },
+            content: (child.content ?? []).map((layer) => ({
+              ...layer,
+              content: [
+                {
+                  type: "layout",
+                  attrs: {
+                    id: createEmbeddedNodeId(),
+                    variant: "tabs",
+                    options: { label: "Lesson sections", variant: "default" },
+                  },
+                  content: [tabSection("Overview"), tabSection("Practice"), tabSection("Review")],
                 },
-                content: [tabSection("Overview"), tabSection("Practice"), tabSection("Review")],
-              },
-            ],
+              ],
+            })),
           }
         : child,
     ),
@@ -132,7 +136,7 @@ function tabSection(label: string): JSONContent {
   return {
     type: "section",
     attrs: { id: createEmbeddedNodeId(), role: "tab-panel", options: { label } },
-    content: [{ type: "paragraph" }],
+    content: [createLayerWithContent([{ type: "paragraph" }])],
   };
 }
 

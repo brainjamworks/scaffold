@@ -153,7 +153,7 @@ describe("surface variant registry foundation", () => {
   it("owns semantic shells without executing their callbacks", () => {
     const describe = vi.fn(() => ({ label: "Surface" }));
     const projectChildren = vi.fn(() => []);
-    const actionIds = ["reveal"];
+    const actionIds = ["reveal"] as const;
     const documentTree = {
       describe,
       presentation: { actionIds },

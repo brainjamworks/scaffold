@@ -19,6 +19,7 @@ import { createBlockInsertActions } from "@/editor/insertion/block-insert-action
 import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import type { SurfaceAuthoringViewProps } from "../../editor/surfaces/shared/surface-view-props";
 import type { SurfaceRuntimeViewProps } from "../../editor/surfaces/shared/surface-view-props";
@@ -203,22 +204,24 @@ function tabsDocumentContent(): JSONContent {
           type: "section",
           attrs: { id: "section00011", role: "tab-panel", verticalPosition: "top" },
           content: [
-            {
-              type: "paragraph",
-              content: [
-                {
-                  type: "text",
-                  text: "First topic resource",
-                  marks: [{ type: "link", attrs: { href: "https://example.com/first-topic" } }],
-                },
-              ],
-            },
+            createLayerWithContent([
+              {
+                type: "paragraph",
+                content: [
+                  {
+                    type: "text",
+                    text: "First topic resource",
+                    marks: [{ type: "link", attrs: { href: "https://example.com/first-topic" } }],
+                  },
+                ],
+              },
+            ]),
           ],
         },
         {
           type: "section",
           attrs: { id: "section00012", role: "tab-panel", verticalPosition: "top" },
-          content: [paragraph("Second topic")],
+          content: [createLayerWithContent([paragraph("Second topic")])],
         },
       ],
     },
@@ -961,15 +964,17 @@ function alignmentParityDocumentContent(): JSONContent {
                 type: "region",
                 attrs: { id: "region-alignment", verticalPosition: "bottom" },
                 content: [
-                  paragraphWithAlignment("Aligned text", "right"),
-                  {
-                    ...callout,
-                    attrs: {
-                      ...callout.attrs,
-                      id: "callout00002",
-                      frame: { align: "center", widthMode: "percent", widthPercent: 60 },
+                  createLayerWithContent([
+                    paragraphWithAlignment("Aligned text", "right"),
+                    {
+                      ...callout,
+                      attrs: {
+                        ...callout.attrs,
+                        id: "callout00002",
+                        frame: { align: "center", widthMode: "percent", widthPercent: 60 },
+                      },
                     },
-                  },
+                  ]),
                 ],
               },
             ],

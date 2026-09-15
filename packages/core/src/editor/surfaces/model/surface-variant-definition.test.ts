@@ -454,7 +454,13 @@ describe("surface definitions", () => {
         {
           type: "region",
           attrs: { role: "main" },
-          content: [{ type: "paragraph" }],
+          content: [
+            {
+              type: "layer",
+              attrs: { id: expect.any(String) },
+              content: [{ type: "paragraph", attrs: { id: expect.any(String) } }],
+            },
+          ],
         },
       ],
     });
@@ -495,14 +501,21 @@ describe("surface definitions", () => {
 
     try {
       expect(editor.schema.nodes.region?.spec.group).toBeUndefined();
-      expect(editor.schema.nodes.region?.spec.content).toBe("(block | arrangement)+");
+      expect(editor.schema.nodes.region?.spec.content).toBe("layer+");
       const arrangement = editor.schema.nodes.testArrangement?.create();
       const sectionArrangement = editor.schema.nodes.testSectionArrangement?.create();
       expect(arrangement).toBeDefined();
       expect(sectionArrangement).toBeDefined();
-      expect(() => editor.schema.nodes.region?.createChecked(null, [arrangement!])).not.toThrow();
+      if (!arrangement || !sectionArrangement) throw new Error("Expected test arrangements.");
+      const layer = editor.schema.nodes.layer?.createChecked({ id: createEmbeddedNodeId() }, [
+        arrangement,
+      ]);
+      if (!layer) throw new Error("Expected Layer node.");
+      expect(() => editor.schema.nodes.region?.createChecked(null, [layer])).not.toThrow();
       expect(() =>
-        editor.schema.nodes.region?.createChecked(null, [sectionArrangement!]),
+        editor.schema.nodes.layer?.createChecked({ id: createEmbeddedNodeId() }, [
+          sectionArrangement,
+        ]),
       ).toThrow();
     } finally {
       editor.destroy();

@@ -8,6 +8,7 @@ import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor.
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
@@ -596,50 +597,52 @@ function boundedAnnotatedFigureDocument(
   if (!region) throw new Error("Slide content fixture is missing its Region.");
 
   region.content = [
-    {
-      type: "annotated_figure",
-      attrs: {
-        id: "annotfig0001",
-        data: {
-          type: "annotated_figure",
-          source: { mode: "managed", mediaId: "annotated-figure-browser-image" },
-          alt: "Bounded two-to-one test image",
-          captionDisplay,
+    createLayerWithContent([
+      {
+        type: "annotated_figure",
+        attrs: {
+          id: "annotfig0001",
+          data: {
+            type: "annotated_figure",
+            source: { mode: "managed", mediaId: "annotated-figure-browser-image" },
+            alt: "Bounded two-to-one test image",
+            captionDisplay,
+          },
         },
-      },
-      content: [
-        { type: "annotated_figure_canvas" },
-        {
-          type: "annotated_figure_legend",
-          content: Array.from({ length: 18 }, (_, index) => ({
-            type: "annotated_figure_annotation",
-            attrs: {
-              id: `annotpin${String(index + 1).padStart(4, "0")}`,
-              x: 50,
-              y: 50,
-            },
-            content: [
-              {
-                type: "paragraph",
-                content: [
-                  {
-                    type: "text",
-                    text:
-                      longFirstCaption && index === 0
-                        ? Array.from(
-                            { length: 24 },
-                            (_, paragraphIndex) =>
-                              `Detailed long annotation segment ${paragraphIndex + 1}.`,
-                          ).join(" ")
-                        : `Detailed pin description ${index + 1}`,
-                  },
-                ],
+        content: [
+          { type: "annotated_figure_canvas" },
+          {
+            type: "annotated_figure_legend",
+            content: Array.from({ length: 18 }, (_, index) => ({
+              type: "annotated_figure_annotation",
+              attrs: {
+                id: `annotpin${String(index + 1).padStart(4, "0")}`,
+                x: 50,
+                y: 50,
               },
-            ],
-          })),
-        },
-      ],
-    },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [
+                    {
+                      type: "text",
+                      text:
+                        longFirstCaption && index === 0
+                          ? Array.from(
+                              { length: 24 },
+                              (_, paragraphIndex) =>
+                                `Detailed long annotation segment ${paragraphIndex + 1}.`,
+                            ).join(" ")
+                          : `Detailed pin description ${index + 1}`,
+                    },
+                  ],
+                },
+              ],
+            })),
+          },
+        ],
+      },
+    ]),
   ];
   assignFixtureNodeIds(surface);
 

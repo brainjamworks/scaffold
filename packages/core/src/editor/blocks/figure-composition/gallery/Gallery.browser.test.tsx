@@ -7,6 +7,7 @@ import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor.
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
@@ -480,48 +481,56 @@ function boundedGalleryDocument(owner: BoundedOwner, layout: "carousel" | "grid"
 
   const gallery = galleryNode(layout, layout === "carousel" ? 8 : 4);
   if (owner === "region") {
-    region.content = [gallery];
+    region.content = [createLayerWithContent([gallery])];
   } else if (owner === "section") {
     region.content = [
-      {
-        type: "layout",
-        attrs: {
-          id: "gallery-tabs",
-          variant: "tabs",
-          options: { variant: "default", label: "Gallery tabs" },
-        },
-        content: [
-          {
-            type: "section",
-            attrs: {
-              id: "gallerytab01",
-              role: "tab-panel",
-              label: "Gallery",
-              options: { label: "Gallery" },
-            },
-            content: [gallery],
+      createLayerWithContent([
+        {
+          type: "layout",
+          attrs: {
+            id: "gallery-tabs",
+            variant: "tabs",
+            options: { variant: "default", label: "Gallery tabs" },
           },
-        ],
-      },
+          content: [
+            {
+              type: "section",
+              attrs: {
+                id: "gallerytab01",
+                role: "tab-panel",
+                label: "Gallery",
+                options: { label: "Gallery" },
+              },
+              content: [createLayerWithContent([gallery])],
+            },
+          ],
+        },
+      ]),
     ];
   } else {
     region.content = [
-      {
-        type: "grid",
-        attrs: { id: "gallerygrid1", columnWidths: [1, 1] },
-        content: [
-          {
-            type: "cell",
-            attrs: { id: "gallerycell1" },
-            content: [gallery],
-          },
-          {
-            type: "cell",
-            attrs: { id: "gallerycell2" },
-            content: [{ type: "paragraph", content: [{ type: "text", text: "Support" }] }],
-          },
-        ],
-      },
+      createLayerWithContent([
+        {
+          type: "grid",
+          attrs: { id: "gallerygrid1", columnWidths: [1, 1] },
+          content: [
+            {
+              type: "cell",
+              attrs: { id: "gallerycell1" },
+              content: [createLayerWithContent([gallery])],
+            },
+            {
+              type: "cell",
+              attrs: { id: "gallerycell2" },
+              content: [
+                createLayerWithContent([
+                  { type: "paragraph", content: [{ type: "text", text: "Support" }] },
+                ]),
+              ],
+            },
+          ],
+        },
+      ]),
     ];
   }
 

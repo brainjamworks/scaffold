@@ -75,12 +75,17 @@ describe("structural floating visibility at the authoring boundary", () => {
       await waitForCondition(() => floatingContent.dataset.scaffoldOverlayPlaced === "true");
       const boundaryRect = boundary.getBoundingClientRect();
       const surfaceRect = surface.getBoundingClientRect();
+      const courseSection = host.querySelector<HTMLElement>("[data-course-section]");
 
       if (test.mode === "page") {
+        expect(courseSection).toBeNull();
         expect(Math.abs(surfaceRect.top - boundaryRect.top)).toBeLessThanOrEqual(1);
       } else {
-        expect(host.querySelector("[data-course-section-start-divider]")).not.toBeNull();
-        expect(surfaceRect.top).toBeGreaterThan(boundaryRect.top);
+        expect(courseSection).not.toBeNull();
+        expect(courseSection?.compareDocumentPosition(surface) ?? 0).toBe(
+          Node.DOCUMENT_POSITION_FOLLOWING,
+        );
+        expect(surfaceRect.top).toBeGreaterThanOrEqual(boundaryRect.top);
       }
       expect(floatingContent.dataset.scaffoldOverlayHidden).toBe("false");
       expect(getComputedStyle(floatingContent).visibility).toBe("visible");

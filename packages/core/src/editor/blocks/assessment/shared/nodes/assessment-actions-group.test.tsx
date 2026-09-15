@@ -279,11 +279,10 @@ describe("assessment_actions_group", () => {
     expect(surface?.getAttribute("data-tone")).toBe("hint");
     const addHintAction = dialog.querySelector('[data-action="add-hint"]');
     expect(addHintAction).toBeInstanceOf(HTMLButtonElement);
-    expect(addHintAction).toHaveClass("sc-course-popover-action");
-    expect(addHintAction?.className).not.toContain("sc-app-");
+    expect(addHintAction).toHaveClass("sc-app-editable-overlay-popover__text-action");
     const deleteHintAction = dialog.querySelector('[aria-label="Delete hint 1"]');
     expect(deleteHintAction).toBeInstanceOf(HTMLButtonElement);
-    expect(deleteHintAction).toHaveClass("sc-course-popover-action");
+    expect(deleteHintAction).toHaveClass("sc-app-editable-overlay-popover__text-action");
     expect(deleteHintAction?.getAttribute("data-tone")).toBe("danger");
 
     const bubbleAppendTarget = hostProps?.appendTo?.();

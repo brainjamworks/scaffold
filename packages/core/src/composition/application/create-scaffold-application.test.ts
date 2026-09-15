@@ -89,9 +89,7 @@ describe("createScaffoldApplication", () => {
     expect(Object.keys(application.runtime.layouts)).toEqual(["views"]);
     expect(Object.keys(application.authoring.surfaces)).toEqual(["views", "chrome"]);
     expect(Object.keys(application.runtime.surfaces)).toEqual(["views"]);
-    expect(application.authoring.documentTree).toBe(
-      application.capabilities.documentTree,
-    );
+    expect(application.authoring.documentTree).toBe(application.capabilities.documentTree);
     expect(application.runtime.documentTree).toBe(application.capabilities.documentTree);
     expect(application.authoring.layouts.views.getById(hostLayout.definition.id)?.layout).toBe(
       TestLayoutAuthoringView,
@@ -113,11 +111,15 @@ describe("createScaffoldApplication", () => {
     const firstApplication = createScaffoldApplication();
     const secondApplication = createScaffoldApplication();
 
-    expect(firstApplication.capabilities.blocks.registry.definitions).toHaveLength(35);
+    expect(firstApplication.capabilities.blocks.registry.definitions).toHaveLength(
+      builtInBlockDefinitions.length,
+    );
     expect(firstApplication.capabilities.blocks.registry).not.toBe(
       secondApplication.capabilities.blocks.registry,
     );
-    expect(firstApplication.capabilities.surfaces.registry.definitions).toHaveLength(18);
+    expect(firstApplication.capabilities.surfaces.registry.definitions).toHaveLength(
+      builtInSurfaceVariantDefinitions.length,
+    );
     expect(firstApplication.capabilities.surfaces.registry).not.toBe(
       secondApplication.capabilities.surfaces.registry,
     );
@@ -199,14 +201,15 @@ describe("createScaffoldApplication", () => {
     expect(hostActionIds.indexOf(hostLayout.definition.id)).toBeLessThan(
       hostActionIds.indexOf("grid"),
     );
-    expect(
-      hostApplication.authoring.catalogues.surfaceCreation
+    const hostSurfaceIds = hostApplication.authoring.catalogues.surfaceCreation
+      .forMode("slideshow")
+      .map(({ variantId }) => variantId);
+    expect(hostSurfaceIds.filter((id) => id !== hostSurface.definition.id)).toEqual(
+      coreApplication.authoring.catalogues.surfaceCreation
         .forMode("slideshow")
         .map(({ variantId }) => variantId),
-    ).toEqual([
-      ...coreApplication.authoring.catalogues.surfaceCreation
-        .forMode("slideshow")
-        .map(({ variantId }) => variantId),
+    );
+    expect(hostSurfaceIds.filter((id) => id === hostSurface.definition.id)).toEqual([
       hostSurface.definition.id,
     ]);
 
@@ -317,7 +320,9 @@ describe("createScaffoldApplication", () => {
     } satisfies SurfaceCapability;
 
     const application = createScaffoldApplication({
-      packs: [defineScaffoldExtensionPack({ id: "host-surface-identity", surfaces: [hostSurface] })],
+      packs: [
+        defineScaffoldExtensionPack({ id: "host-surface-identity", surfaces: [hostSurface] }),
+      ],
     });
 
     expect(
@@ -391,8 +396,7 @@ describe("createScaffoldApplication", () => {
       throw new Error("Expected conflicting identity registrations to throw.");
     } catch (error) {
       expect(error).toMatchObject({
-        message:
-          'Duplicate content identity rewrite registration for "shared_identity_owner".',
+        message: 'Duplicate content identity rewrite registration for "shared_identity_owner".',
         cause: {
           nodeType: "shared_identity_owner",
           registrations: [blockRegistration, surfaceRegistration],

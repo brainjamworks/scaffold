@@ -3,7 +3,7 @@
 import { CircleIcon } from "@phosphor-icons/react";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
@@ -309,6 +309,7 @@ function firstAccordionSectionContentTypes(editor: Editor): string[] {
 }
 
 afterEach(() => {
+  cleanup();
   for (const [editor, ownedElement] of ownedEditors) {
     if (!editor.isDestroyed) editor.destroy();
     ownedElement?.remove();
@@ -388,8 +389,6 @@ describe("EmptyInsertionRow", () => {
       document.body.querySelector('[data-empty-insertion-action="add-block"] svg'),
     ).not.toBeNull();
     expect(document.body.querySelector("p.is-empty")?.getAttribute("data-placeholder")).toBe("");
-
-    editor.destroy();
   });
 
   it("does not render for a direct empty paragraph in a surface variant with root insertion disabled", async () => {
@@ -416,8 +415,6 @@ describe("EmptyInsertionRow", () => {
     });
     expect(resolveEmptyInsertionTarget(editor.state)).toBeNull();
     expect(document.body.querySelector("[data-empty-insertion-row]")).toBeNull();
-
-    editor.destroy();
   });
 
   it("still renders inside nested grid cells on a surface variant with root insertion disabled", async () => {
@@ -462,8 +459,6 @@ describe("EmptyInsertionRow", () => {
     await waitFor(() => {
       expect(document.body.querySelector("[data-empty-insertion-row]")).not.toBeNull();
     });
-
-    editor.destroy();
   });
 
   it("renders inside surface regions on a surface variant with root insertion disabled", async () => {
@@ -497,8 +492,6 @@ describe("EmptyInsertionRow", () => {
     await waitFor(() => {
       expect(document.body.querySelector("[data-empty-insertion-row]")).not.toBeNull();
     });
-
-    editor.destroy();
   });
 
   it("exposes the empty insertion row and add action with accessible context", async () => {
@@ -516,8 +509,6 @@ describe("EmptyInsertionRow", () => {
     expect(document.getElementById("sc-empty-insertion-row-prompt")?.textContent).toBe(
       "Start typing or add a block",
     );
-
-    editor.destroy();
   });
 
   it("does not render inside field-owned paragraphs", async () => {
@@ -560,8 +551,6 @@ describe("EmptyInsertionRow", () => {
       expect(editor.state.selection.empty).toBe(true);
     });
     expect(document.body.querySelector("[data-empty-insertion-row]")).toBeNull();
-
-    editor.destroy();
   });
 
   it("rejects direct empty paragraphs in wrapper sections with child insertion hosts", () => {
@@ -590,8 +579,6 @@ describe("EmptyInsertionRow", () => {
       expectedChildTypes: ["accordion_section_title", "accordion_section_panel"],
       actualChildTypes: ["accordion_section_title", "accordion_section_panel", "paragraph"],
     });
-
-    editor.destroy();
   });
 
   it("renders in the Layer owned by an accordion panel", async () => {
@@ -605,8 +592,6 @@ describe("EmptyInsertionRow", () => {
     await waitFor(() => {
       expect(document.body.querySelector("[data-empty-insertion-row]")).not.toBeNull();
     });
-
-    editor.destroy();
   });
 
   it("uses the mark button to start slash insertion", async () => {
@@ -833,7 +818,6 @@ describe("EmptyInsertionRow", () => {
     fireEvent.mouseDown(field);
 
     expect(interactionOwnerPluginKey.getState(editor.state)?.menuOwner).toBeNull();
-    editor.destroy();
   });
 
   it("removes an active empty insertion line before a block on Backspace", async () => {
@@ -947,8 +931,6 @@ describe("EmptyInsertionRow", () => {
     await waitFor(() => {
       expect(document.body.querySelector("[data-empty-insertion-row]")).not.toBeNull();
     });
-
-    editor.destroy();
   });
 
   it("does not create an empty insertion line from blank root space on a surface variant with root insertion disabled", async () => {
@@ -1004,8 +986,6 @@ describe("EmptyInsertionRow", () => {
     expect(surfaceContentTypes(editor)).toEqual(["heading", "slide_cover_subtitle", "layout"]);
     expect(resolveEmptyInsertionTarget(editor.state)).toBeNull();
     expect(document.body.querySelector("[data-empty-insertion-row]")).toBeNull();
-
-    editor.destroy();
   });
 
   it("does not create a direct section paragraph after a nested insertion host", async () => {
@@ -1027,7 +1007,6 @@ describe("EmptyInsertionRow", () => {
       "accordion_section_title",
       "accordion_section_panel",
     ]);
-    editor.destroy();
   });
 
   it("does not create a second paragraph when blank surface space follows a textblock", () => {
@@ -1046,7 +1025,6 @@ describe("EmptyInsertionRow", () => {
     });
 
     expect(surfaceContentTypes(editor)).toEqual(["paragraph"]);
-    editor.destroy();
   });
 
   it("creates an empty insertion line in blank cell space after a final nested layout", async () => {
@@ -1119,8 +1097,6 @@ describe("EmptyInsertionRow", () => {
     await waitFor(() => {
       expect(document.body.querySelector("[data-empty-insertion-row]")).not.toBeNull();
     });
-
-    editor.destroy();
   });
 
   it("creates an empty insertion line after a fill layout in a page-flow cell", async () => {
@@ -1193,8 +1169,6 @@ describe("EmptyInsertionRow", () => {
     await waitFor(() => {
       expect(document.body.querySelector("[data-empty-insertion-row]")).not.toBeNull();
     });
-
-    editor.destroy();
   });
 
   it("does not create an empty insertion line after an active bounded fill layout in a cell", async () => {
@@ -1271,8 +1245,6 @@ describe("EmptyInsertionRow", () => {
 
     expect(firstCellContentTypes(editor)).toEqual(["layout"]);
     expect(resolveEmptyInsertionTarget(editor.state)?.parentType).not.toBe("cell");
-
-    editor.destroy();
   });
 });
 

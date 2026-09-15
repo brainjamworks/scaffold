@@ -29,6 +29,7 @@ import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtif
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import { documentAuthoringPluginKey } from "@/document/authoring/document-authoring-storage";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import {
@@ -151,7 +152,7 @@ function renderAnnotatedFigureLearningEventRuntime(
   const surface = slideContentSurfaceDefinition.createSurface({ surfaceId });
   const region = surface.content?.find((child) => child.type === "region");
   if (!region) throw new Error("Annotated Figure fixture is missing its Region.");
-  region.content = [figure];
+  region.content = [createLayerWithContent([figure])];
   assignFixtureNodeIds(surface);
 
   const content = createScaffoldDocumentContent({

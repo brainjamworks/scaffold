@@ -2319,10 +2319,14 @@ describe("ContentRuntimeHost", () => {
       </StrictMode>,
     );
 
-    const item = await screen.findByRole("button", { name: "Select matching item 1" });
+    const item = await screen.findByRole("button", {
+      name: "Select ‘Term A’ (item 1 of 2)",
+    });
     item.focus();
     await user.keyboard("{Enter}");
-    const target = screen.getByRole("button", { name: "Match target 1" });
+    const target = screen.getByRole("button", {
+      name: /^Match ‘Target A’ \(target \d of 2\)$/,
+    });
     target.focus();
     await user.keyboard("{Enter}");
 

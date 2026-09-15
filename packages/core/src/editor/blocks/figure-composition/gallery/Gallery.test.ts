@@ -47,6 +47,7 @@ import {
 import { ConfigurationSettingsSheet } from "@/editor/shell/settings/sheets/ConfigurationSettingsSheet";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { createLayerWithContent } from "@/document/model/layers/layer-construction";
 import type { LearningEventPort } from "@/host/ports/learning-events";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
@@ -186,7 +187,7 @@ function renderGalleryLearningEventRuntime(
   const surface = slideContentSurfaceDefinition.createSurface({ surfaceId });
   const region = surface.content?.find((child) => child.type === "region");
   if (!region) throw new Error("Gallery fixture is missing its Region.");
-  region.content = [gallery];
+  region.content = [createLayerWithContent([gallery])];
   assignFixtureNodeIds(surface);
 
   const content = createScaffoldDocumentContent({

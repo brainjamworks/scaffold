@@ -204,7 +204,7 @@ describe("defineBlock", () => {
   it("owns semantic shells without invoking callbacks and keeps title independent of insertion", () => {
     const describe = vi.fn(() => ({ label: "Safe label" }));
     const projectChildren = vi.fn(() => []);
-    const actionIds = ["reveal"];
+    const actionIds = ["reveal"] as const;
     const documentTree = {
       describe,
       presentation: { actionIds },

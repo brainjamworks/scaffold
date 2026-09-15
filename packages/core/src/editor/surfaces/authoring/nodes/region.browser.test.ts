@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "@/editor/frame/view/bounded-placement.css";
+import "@/editor/bounded-containers/view/bounded-container.css";
+import "@/editor/layers/layer.css";
 
 import "../../view/region.css";
 
@@ -62,13 +64,29 @@ describe("Region vertical content geometry", () => {
     region.style.cssText =
       "--sc-region-inset: 4px; --sc-region-flow-gap: 0; width: 200px; height: 200px;";
 
+    const scrollFrame = document.createElement("div");
+    scrollFrame.dataset.boundedScrollFrame = "";
+
     const nodeViewContent = document.createElement("div");
     nodeViewContent.className = "sc-region__content";
     nodeViewContent.dataset.nodeViewContent = "";
+    nodeViewContent.dataset.boundedScroll = "";
 
     const nodeViewContentReact = document.createElement("div");
     nodeViewContentReact.dataset.nodeViewContentReact = "";
 
+    const layerRenderer = document.createElement("div");
+    layerRenderer.className = "react-renderer";
+    const layer = document.createElement("div");
+    layer.className = "sc-layer";
+    layer.dataset.layerState = "active";
+    layer.dataset.layerComposition = "fill";
+    const layerContent = document.createElement("div");
+    layerContent.dataset.nodeViewContent = "";
+    const layerContentReact = document.createElement("div");
+    layerContentReact.dataset.nodeViewContentReact = "";
+    const blockRenderer = document.createElement("div");
+    blockRenderer.className = "react-renderer";
     const resizeContainer = document.createElement("div");
     resizeContainer.dataset.boundedPlacement = "fill";
     resizeContainer.dataset.resizeContainer = "";
@@ -77,9 +95,15 @@ describe("Region vertical content geometry", () => {
     intrinsicContent.style.height = "40px";
 
     resizeContainer.append(intrinsicContent);
-    nodeViewContentReact.append(resizeContainer);
+    blockRenderer.append(resizeContainer);
+    layerContentReact.append(blockRenderer);
+    layerContent.append(layerContentReact);
+    layer.append(layerContent);
+    layerRenderer.append(layer);
+    nodeViewContentReact.append(layerRenderer);
     nodeViewContent.append(nodeViewContentReact);
-    region.append(nodeViewContent);
+    scrollFrame.append(nodeViewContent);
+    region.append(scrollFrame);
     document.body.append(region);
 
     expect(getComputedStyle(region).alignContent).toBe("stretch");

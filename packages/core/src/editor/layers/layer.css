@@ -23,6 +23,25 @@
     grid-template-rows: minmax(0, 1fr);
   }
 
+  .react-renderer:has(> .sc-layer[data-layer-state="active"][data-layer-composition="fill"]) {
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+  }
+
+  .sc-layer[data-layer-state="active"][data-layer-composition="fill"] > [data-node-view-content],
+  .sc-layer[data-layer-state="active"][data-layer-composition="fill"]
+    > [data-node-view-content]
+    > [data-node-view-content-react],
+  .sc-layer[data-layer-state="active"][data-layer-composition="fill"]
+    > [data-node-view-content]
+    > [data-node-view-content-react]
+    > .react-renderer {
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+  }
+
   .sc-layer[data-layer-state="active"][data-layer-composition="fill"]
     > [data-node-view-content]
     > [data-node-view-content-react]
