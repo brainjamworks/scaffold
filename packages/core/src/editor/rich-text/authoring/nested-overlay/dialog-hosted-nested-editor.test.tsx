@@ -1,8 +1,11 @@
 // @vitest-environment happy-dom
 
+import { RowsIcon } from "@phosphor-icons/react";
+import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor, Node, type Extensions, type JSONContent } from "@tiptap/core";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import {
   EditorContent,
   NodeViewWrapper,
@@ -16,27 +19,33 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
+import {
+  readLayerEditingContextForState,
+  requireLayerMutationAccessForState,
+} from "@/document/authoring/layers/layer-editing-boundaries";
+import { insertCatalogItemChecked } from "@/document/authoring/layers/insert-catalog-item";
+import { createBlankLayer } from "@/document/model/layers/layer-construction";
 import { LayerNode } from "@/document/model/layers/layer-node";
+import {
+  validateLayerContext,
+  validateLayerIdentities,
+} from "@/document/model/layers/layer-validation";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
-import {
-  builtInBlockCapabilityRegistrations,
-  builtInBlockRegistry,
-} from "@/editor/blocks/built-in-block-definitions";
-import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { builtInBlockCapabilityRegistrations } from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-views";
-import {
-  CellAuthoringNode,
-  GridAuthoringNode,
-} from "@/editor/arrangements/grid/authoring/grid-nodes";
-import {
-  LayoutAuthoringNode,
-  SectionAuthoringNode,
-} from "@/editor/arrangements/layout/authoring/layout-nodes";
+import { createGridAuthoringNodes } from "@/editor/arrangements/grid/authoring/grid-nodes";
+import { deleteGridAt } from "@/editor/arrangements/grid/model/grid-commands";
+import { builtInLayoutAuthoringViews } from "@/editor/arrangements/layout/authoring/built-in-layout-views";
+import { DefaultLayoutContent } from "@/editor/arrangements/layout/authoring/default-layout-content";
+import { createLayoutAuthoringNodes } from "@/editor/arrangements/layout/authoring/layout-nodes";
+import { createLayoutAuthoringViewRegistry } from "@/editor/arrangements/layout/authoring/layout-view-registry";
 import {
   AccordionSectionPanelNode,
   AccordionSectionTitleNode,
 } from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
 import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
+import type { LayoutDefinition } from "@/editor/arrangements/layout/model/layout-definition";
 import { CalloutAuthoringExtension } from "@/editor/blocks/presentation/callout";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
@@ -47,7 +56,10 @@ import {
 import { getInteractionFacadeStoreForEditor } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-storage";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { interactionOwnerPluginKey } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-plugin-state";
-import type { NestedRichTextEditorTarget } from "@/editor/prosemirror/nested-rich-text-editor";
+import {
+  createNestedRichTextEditor,
+  type NestedRichTextEditorTarget,
+} from "@/editor/prosemirror/nested-rich-text-editor";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import { BlockStrip } from "@/editor/shell/chrome/BlockStrip";
 import { Toolbar } from "@/editor/shell/chrome/Toolbar";
@@ -60,17 +72,84 @@ import {
   useNestedRichTextEditor,
   type UseNestedRichTextEditorResult,
 } from "./use-nested-rich-text-editor";
+import { createNestedLayerAuthoringExtensions } from "./nested-layer-authoring";
 
 const TARGET_NODE_NAME = "test_dialog_content_target";
 const REACT_BLOCK_NODE_NAME = "test_dialog_react_block";
 const coreInsertCatalog = createCoreScaffoldAuthoringComposition().catalogues.inDocument;
 const ReactBlockContext = createContext("missing provider");
 const outerEditors: Editor[] = [];
+const DIALOG_LAYOUT_VARIANT = "dialog-content";
+const FULL_CHROME_IDS = {
+  firstCell: EmbeddedNodeIdSchema.parse("innercell001"),
+  firstCellLayer: EmbeddedNodeIdSchema.parse("celllayer001"),
+  firstCellParagraph: EmbeddedNodeIdSchema.parse("cellpara0001"),
+  inactiveCellLayer: EmbeddedNodeIdSchema.parse("celllayer003"),
+  inactiveCellParagraph: EmbeddedNodeIdSchema.parse("cellpara0003"),
+  secondCell: EmbeddedNodeIdSchema.parse("innercell002"),
+  secondCellLayer: EmbeddedNodeIdSchema.parse("celllayer002"),
+  secondCellParagraph: EmbeddedNodeIdSchema.parse("cellpara0002"),
+  section: EmbeddedNodeIdSchema.parse("innersect001"),
+  sectionLayer: EmbeddedNodeIdSchema.parse("sectlayer001"),
+  sectionParagraph: EmbeddedNodeIdSchema.parse("sectpara0001"),
+} as const;
+const dialogContentLayoutDefinition = {
+  id: DIALOG_LAYOUT_VARIANT,
+  title: "Dialog content",
+  description: "Generic block composition inside a dialog",
+  icon: RowsIcon,
+  section: {
+    label: "Section",
+    addLabel: "Add section",
+    compositionSlot: { kind: "direct" },
+    create: () => ({
+      type: "section",
+      attrs: { id: createEmbeddedNodeId(), verticalPosition: "top", options: {} },
+      content: [createBlankLayer()],
+    }),
+  },
+  createContent: () => ({
+    type: "layout",
+    attrs: { id: createEmbeddedNodeId(), variant: DIALOG_LAYOUT_VARIANT, options: {} },
+    content: [
+      {
+        type: "section",
+        attrs: { id: createEmbeddedNodeId(), verticalPosition: "top", options: {} },
+        content: [createBlankLayer()],
+      },
+    ],
+  }),
+} satisfies LayoutDefinition;
 const fullChromeCapabilities = resolveScaffoldCapabilities({
   blockCapabilities: builtInBlockCapabilityRegistrations,
-  layoutDefinitions: builtInLayoutDefinitions,
+  layoutDefinitions: [...builtInLayoutDefinitions, dialogContentLayoutDefinition],
   surfaceDefinitions: [],
 });
+const fullChromeBlockRegistry = fullChromeCapabilities.blocks.registry;
+const fullChromeSurfaceRegistry = fullChromeCapabilities.surfaces.registry;
+const fullChromeLayoutAuthoringViews = createLayoutAuthoringViewRegistry(
+  fullChromeCapabilities.layouts.registry,
+  [...builtInLayoutAuthoringViews, { id: DIALOG_LAYOUT_VARIANT, layout: DefaultLayoutContent }],
+);
+const { layoutNode: FullChromeLayoutAuthoringNode, sectionNode: FullChromeSectionAuthoringNode } =
+  createLayoutAuthoringNodes({
+    registry: fullChromeCapabilities.layouts.registry,
+    authoringViews: fullChromeLayoutAuthoringViews,
+    blockDefinitions: fullChromeBlockRegistry,
+  });
+const {
+  GridAuthoringNode: FullChromeGridAuthoringNode,
+  CellAuthoringNode: FullChromeCellAuthoringNode,
+} = createGridAuthoringNodes(fullChromeBlockRegistry);
+const fullChromeOpenLayerByOwnerId = new Map([
+  [FULL_CHROME_IDS.firstCell, FULL_CHROME_IDS.firstCellLayer],
+  [FULL_CHROME_IDS.secondCell, FULL_CHROME_IDS.secondCellLayer],
+  [FULL_CHROME_IDS.section, FULL_CHROME_IDS.sectionLayer],
+]);
+const inactiveFixtureOpenLayerByOwnerId = new Map([
+  [FULL_CHROME_IDS.firstCell, FULL_CHROME_IDS.firstCellLayer],
+  [FULL_CHROME_IDS.secondCell, FULL_CHROME_IDS.secondCellLayer],
+]);
 
 afterEach(() => {
   cleanup();
@@ -183,38 +262,7 @@ describe("dialog-hosted nested editor", () => {
   });
 
   it("runs isolated content authoring chrome through scoped overlays and outer history", async () => {
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
-      function (this: HTMLElement) {
-        if (isBoundaryGeometryElement(this)) {
-          return DOMRect.fromRect({ height: 768, width: 1024, x: 0, y: 0 });
-        }
-
-        return DOMRect.fromRect({ height: 120, width: 480, x: 40, y: 80 });
-      },
-    );
-    vi.spyOn(Element.prototype, "getClientRects").mockImplementation(function (this: Element) {
-      return [this.getBoundingClientRect()] as unknown as DOMRectList;
-    });
-    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(
-      function clientWidth(this: HTMLElement) {
-        return isBoundaryGeometryElement(this) ? 1024 : 480;
-      },
-    );
-    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
-      function clientHeight(this: HTMLElement) {
-        return isBoundaryGeometryElement(this) ? 768 : 120;
-      },
-    );
-    vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockImplementation(
-      function scrollWidth(this: HTMLElement) {
-        return this.clientWidth;
-      },
-    );
-    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(
-      function scrollHeight(this: HTMLElement) {
-        return this.clientHeight;
-      },
-    );
+    mockAuthoringGeometry();
 
     const outerEditor = makeFullChromeOuterEditor();
     const innerEditors: Editor[] = [];
@@ -241,6 +289,25 @@ describe("dialog-hosted nested editor", () => {
     expect(firstInnerEditor.schema.nodes["surface"]).toBeUndefined();
     expect(firstInnerEditor.schema.nodes["quiz"]).toBeUndefined();
     expect(firstInnerEditor.schema.nodes["mcq"]).toBeUndefined();
+    expect(() => firstInnerEditor.state.doc.check()).not.toThrow();
+    expect(validateLayerIdentities(firstInnerEditor.state.doc)).toEqual([]);
+    expect(
+      validateLayerContext({
+        document: firstInnerEditor.state.doc,
+        blockDefinitions: fullChromeBlockRegistry,
+        layoutDefinitions: fullChromeCapabilities.layouts.registry,
+      }),
+    ).toEqual([]);
+    const layerAccess = requireLayerMutationAccessForState(firstInnerEditor.state);
+    expect(layerAccess.kind).toBe("implicit-authoring");
+    if (layerAccess.kind !== "implicit-authoring") {
+      throw new Error("Expected scoped Layer authoring access");
+    }
+    expect([...layerAccess.context.openLayerByOwnerId]).toEqual([
+      [FULL_CHROME_IDS.firstCell, FULL_CHROME_IDS.firstCellLayer],
+      [FULL_CHROME_IDS.secondCell, FULL_CHROME_IDS.secondCellLayer],
+      [FULL_CHROME_IDS.section, FULL_CHROME_IDS.sectionLayer],
+    ]);
 
     const outerFloatingRoot = await waitForAuthoringFloatingRoot(outerEditor);
     const firstInnerFloatingRoot = await waitForAuthoringFloatingRoot(firstInnerEditor);
@@ -286,6 +353,14 @@ describe("dialog-hosted nested editor", () => {
     act(() => slashCalloutOption.click());
     await waitFor(() => expect(isSlashCommandActive(firstInnerEditor.state)).toBe(false));
     await waitFor(() => expect(slashListbox.isConnected).toBe(false));
+    await waitFor(() => {
+      expect(countTargetNodes(outerEditor, "callout")).toBe(calloutCountBeforeSlashInsert + 1);
+    });
+    await userEvent.click(within(workspace).getByRole("button", { name: "Undo" }));
+    await waitFor(() => {
+      expect(countTargetNodes(outerEditor, "callout")).toBe(calloutCountBeforeSlashInsert);
+    });
+    await userEvent.click(within(workspace).getByRole("button", { name: "Redo" }));
     await waitFor(() => {
       expect(countTargetNodes(outerEditor, "callout")).toBe(calloutCountBeforeSlashInsert + 1);
     });
@@ -467,7 +542,172 @@ describe("dialog-hosted nested editor", () => {
     expect(innerEditors.every((editor) => editor.isDestroyed)).toBe(true);
     expect(document.activeElement).toBe(trigger);
   }, 15_000);
+
+  it("rejects an ordinary inactive-Layer edit before publishing it to the outer document", () => {
+    const catalogItems = restrictedCatalogItems();
+    const outerEditor = makeFullChromeOuterEditor(scopedInactiveLayerOuterDoc());
+    const controller = createNestedRichTextEditor({
+      outerEditor,
+      target: contentTarget(outerEditor),
+      extensions: makeFullChromeInnerExtensions(catalogItems, inactiveFixtureOpenLayerByOwnerId),
+      editable: true,
+    });
+    try {
+      const editor = controller.editor;
+      const inactiveParagraphPos =
+        findNodePosById(editor, FULL_CHROME_IDS.inactiveCellParagraph) + 1;
+      const innerDocumentBefore = editor.state.doc;
+      const outerDocumentBefore = outerEditor.state.doc;
+
+      editor.view.dispatch(editor.state.tr.insertText("Changed ", inactiveParagraphPos));
+
+      expect(editor.state.doc).toBe(innerDocumentBefore);
+      expect(outerEditor.state.doc).toBe(outerDocumentBefore);
+      expect(editor.state.doc.textContent).not.toContain("Changed Inactive content");
+      expect(liveTargetNode(outerEditor).textContent).not.toContain("Changed Inactive content");
+
+      const openParagraphPos = findNodePosById(outerEditor, FULL_CHROME_IDS.firstCellParagraph) + 1;
+      outerEditor.view.dispatch(outerEditor.state.tr.insertText("Synced ", openParagraphPos));
+      controller.syncFromTarget({ kind: "content", node: liveTargetNode(outerEditor) });
+      expect(editor.state.doc.textContent).toContain("Synced Open content");
+      expect(scopedOpenLayers(editor).get(FULL_CHROME_IDS.firstCell)).toBe(
+        FULL_CHROME_IDS.firstCellLayer,
+      );
+    } finally {
+      controller.destroy();
+    }
+  });
+
+  it("reconciles new Cell Layer ownership through checked insertion, sync, undo, and redo", () => {
+    const catalogItems = restrictedCatalogItems();
+    const outerEditor = makeFullChromeOuterEditor(scopedEmptyLayerOuterDoc());
+    const controller = createNestedRichTextEditor({
+      outerEditor,
+      target: contentTarget(outerEditor),
+      extensions: makeFullChromeInnerExtensions(catalogItems, new Map()),
+      editable: true,
+    });
+    const syncFromOuter = () => {
+      controller.syncFromTarget({ kind: "content", node: liveTargetNode(outerEditor) });
+    };
+    try {
+      const editor = controller.editor;
+      expect(insertCatalogAction(editor, catalogItems, "grid")).toBe(true);
+      editor.state.doc.check();
+      const firstCell = findFirstNodeByType(editor, "cell");
+      const cellId = EmbeddedNodeIdSchema.parse(firstCell.node.attrs["id"]);
+      const layerId = EmbeddedNodeIdSchema.parse(firstCell.node.firstChild?.attrs["id"]);
+      expect(scopedOpenLayers(editor).get(cellId)).toBe(layerId);
+      expect(editor.state.selection.$from.parent.type.name).toBe("paragraph");
+
+      expect(insertCatalogAction(editor, catalogItems, "callout")).toBe(true);
+      expect(countEditorNodes(editor, "callout")).toBe(1);
+      expect(countTargetNodes(outerEditor, "callout")).toBe(1);
+
+      expect(editor.commands.undo()).toBe(true);
+      syncFromOuter();
+      expect(countEditorNodes(editor, "grid")).toBe(0);
+      expect(countEditorNodes(editor, "callout")).toBe(0);
+      expect(scopedOpenLayers(editor)).toEqual(new Map());
+
+      expect(editor.commands.redo()).toBe(true);
+      syncFromOuter();
+      expect(countEditorNodes(editor, "grid")).toBe(1);
+      expect(countEditorNodes(editor, "callout")).toBe(1);
+      expect(scopedOpenLayers(editor).get(cellId)).toBe(layerId);
+    } finally {
+      controller.destroy();
+    }
+  });
+
+  it("reopens after deleting an initially configured Grid owner", async () => {
+    mockAuthoringGeometry();
+    const outerEditor = makeFullChromeOuterEditor();
+    const innerEditors: Editor[] = [];
+    const latestResult: { current: UseNestedRichTextEditorResult | null } = { current: null };
+    const observeResult = (result: UseNestedRichTextEditorResult) => {
+      latestResult.current = result;
+      if (result.editor && !innerEditors.includes(result.editor)) innerEditors.push(result.editor);
+    };
+
+    render(<FullChromeDialogHarness onResult={observeResult} outerEditor={outerEditor} />);
+    const trigger = screen.getByRole("button", { name: "Edit nested content" });
+    await userEvent.click(trigger);
+    await screen.findByTestId("inner-authoring-workspace");
+    const firstEditor = latestResult.current?.editor;
+    if (!firstEditor) throw new Error("Expected the initial nested editor");
+
+    act(() => {
+      expect(deleteGridAt(firstEditor, findNodePosById(firstEditor, "innergrid001"))).toBe(true);
+    });
+    expect(countEditorNodes(firstEditor, "grid")).toBe(0);
+    expect(countTargetNodes(outerEditor, "grid")).toBe(0);
+    expect([...scopedOpenLayers(firstEditor)]).toEqual([
+      [FULL_CHROME_IDS.section, FULL_CHROME_IDS.sectionLayer],
+    ]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Close workspace" }));
+    await waitFor(() => expect(firstEditor.isDestroyed).toBe(true));
+    await userEvent.click(trigger);
+    await screen.findByTestId("inner-authoring-workspace");
+    const reopenedEditor = latestResult.current?.editor;
+    if (!reopenedEditor) throw new Error("Expected the reopened nested editor");
+
+    expect(reopenedEditor).not.toBe(firstEditor);
+    expect(countEditorNodes(reopenedEditor, "grid")).toBe(0);
+    expect([...scopedOpenLayers(reopenedEditor)]).toEqual([
+      [FULL_CHROME_IDS.section, FULL_CHROME_IDS.sectionLayer],
+    ]);
+    act(() => {
+      const sectionParagraphPos =
+        findNodePosById(reopenedEditor, FULL_CHROME_IDS.sectionParagraph) + 1;
+      reopenedEditor.view.dispatch(
+        reopenedEditor.state.tr.insertText("Reopened ", sectionParagraphPos),
+      );
+    });
+    expect(liveTargetNode(outerEditor).textContent).toContain("Reopened Layout section");
+
+    await userEvent.click(screen.getByRole("button", { name: "Close workspace" }));
+    await waitFor(() => expect(reopenedEditor.isDestroyed).toBe(true));
+    expect(innerEditors).toHaveLength(2);
+    expect(innerEditors.every((editor) => editor.isDestroyed)).toBe(true);
+  });
 });
+
+function mockAuthoringGeometry(): void {
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+    function (this: HTMLElement) {
+      if (isBoundaryGeometryElement(this)) {
+        return DOMRect.fromRect({ height: 768, width: 1024, x: 0, y: 0 });
+      }
+
+      return DOMRect.fromRect({ height: 120, width: 480, x: 40, y: 80 });
+    },
+  );
+  vi.spyOn(Element.prototype, "getClientRects").mockImplementation(function (this: Element) {
+    return [this.getBoundingClientRect()] as unknown as DOMRectList;
+  });
+  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(
+    function clientWidth(this: HTMLElement) {
+      return isBoundaryGeometryElement(this) ? 1024 : 480;
+    },
+  );
+  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
+    function clientHeight(this: HTMLElement) {
+      return isBoundaryGeometryElement(this) ? 768 : 120;
+    },
+  );
+  vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockImplementation(
+    function scrollWidth(this: HTMLElement) {
+      return this.clientWidth;
+    },
+  );
+  vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(
+    function scrollHeight(this: HTMLElement) {
+      return this.clientHeight;
+    },
+  );
+}
 
 function isBoundaryGeometryElement(element: HTMLElement): boolean {
   return (
@@ -558,11 +798,11 @@ function FullChromeDialogHarness({ onResult, outerEditor }: DialogHostedNestedEd
   return (
     <ReactBlockContext.Provider value="inherited workspace">
       <AuthoringContentChrome
-        blockDefinitions={builtInBlockRegistry}
+        blockDefinitions={fullChromeBlockRegistry}
         editable
         editor={outerEditor}
         surfaceAuthoringChrome={builtInSurfaceAuthoringChromeResolver}
-        surfaceVariants={builtInSurfaceVariantRegistry}
+        surfaceVariants={fullChromeSurfaceRegistry}
       >
         <EditorContent data-testid="outer-editor-content" editor={outerEditor} />
       </AuthoringContentChrome>
@@ -648,20 +888,20 @@ function FullChromeNestedEditorWorkspace({
     <div data-testid="inner-authoring-workspace">
       <div data-testid="nested-portal-host" ref={setOverlayContainer} />
       <AuthoringContentChrome
-        blockDefinitions={builtInBlockRegistry}
+        blockDefinitions={fullChromeBlockRegistry}
         editable
         editor={result.editor}
         overlayContainer={overlayContainer}
         surfaceAuthoringChrome={builtInSurfaceAuthoringChromeResolver}
-        surfaceVariants={builtInSurfaceVariantRegistry}
+        surfaceVariants={fullChromeSurfaceRegistry}
       >
         <Toolbar editor={result.editor} />
         <BlockStrip
-          blockDefinitions={builtInBlockRegistry}
+          blockDefinitions={fullChromeBlockRegistry}
           editor={result.editor}
           items={catalogItems}
           layoutDefinitions={fullChromeCapabilities.layouts.registry}
-          surfaceVariants={builtInSurfaceVariantRegistry}
+          surfaceVariants={fullChromeSurfaceRegistry}
         />
         <EditorContent data-testid="inner-editor-content" editor={result.editor} />
       </AuthoringContentChrome>
@@ -678,7 +918,7 @@ function makeOuterEditor(): Editor {
   return editor;
 }
 
-function makeFullChromeOuterEditor(): Editor {
+function makeFullChromeOuterEditor(content: JSONContent = fullChromeOuterDoc()): Editor {
   const editor = new Editor({
     extensions: [
       StarterKit.configure({ paragraph: false }),
@@ -686,19 +926,19 @@ function makeFullChromeOuterEditor(): Editor {
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension(["callout"]),
       createScaffoldCapabilitiesStorageExtension(fullChromeCapabilities),
-      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
-      GridAuthoringNode,
-      CellAuthoringNode,
+      createScaffoldInteractionOwnerExtension(fullChromeBlockRegistry),
+      FullChromeGridAuthoringNode,
+      FullChromeCellAuthoringNode,
       LayerNode,
-      LayoutAuthoringNode,
-      SectionAuthoringNode,
+      FullChromeLayoutAuthoringNode,
+      FullChromeSectionAuthoringNode,
       AccordionSectionTitleNode,
       AccordionSectionPanelNode,
       CalloutAuthoringExtension,
       makeTargetNode(true),
       makeReactBlockNode(),
     ],
-    content: fullChromeOuterDoc(),
+    content,
   });
   outerEditors.push(editor);
   return editor;
@@ -708,7 +948,10 @@ function makeInnerExtensions(): Extensions {
   return [StarterKit.configure({ undoRedo: false }), makeReactBlockNode()];
 }
 
-function makeFullChromeInnerExtensions(catalogItems: readonly InsertAction[]): Extensions {
+function makeFullChromeInnerExtensions(
+  catalogItems: readonly InsertAction[],
+  openLayerByOwnerId: ReadonlyMap<EmbeddedNodeId, EmbeddedNodeId> = fullChromeOpenLayerByOwnerId,
+): Extensions {
   return [
     makeContentDocumentNode(),
     StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
@@ -716,21 +959,26 @@ function makeFullChromeInnerExtensions(catalogItems: readonly InsertAction[]): E
     ExtendedParagraph,
     createRuntimeBlockFrameAttributesExtension(["callout"]),
     createScaffoldCapabilitiesStorageExtension(fullChromeCapabilities),
-    createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
-    GridAuthoringNode,
-    CellAuthoringNode,
+    createScaffoldInteractionOwnerExtension(fullChromeBlockRegistry),
+    FullChromeGridAuthoringNode,
+    FullChromeCellAuthoringNode,
     LayerNode,
-    LayoutAuthoringNode,
-    SectionAuthoringNode,
+    FullChromeLayoutAuthoringNode,
+    FullChromeSectionAuthoringNode,
     AccordionSectionTitleNode,
     AccordionSectionPanelNode,
     CalloutAuthoringExtension,
     makeReactBlockNode(),
+    ...createNestedLayerAuthoringExtensions({
+      blockDefinitions: fullChromeBlockRegistry,
+      layoutDefinitions: fullChromeCapabilities.layouts.registry,
+      openLayerByOwnerId,
+    }),
     createSlashCommand({
-      blockDefinitions: builtInBlockRegistry,
+      blockDefinitions: fullChromeBlockRegistry,
       items: catalogItems,
       layoutDefinitions: fullChromeCapabilities.layouts.registry,
-      surfaceVariants: builtInSurfaceVariantRegistry,
+      surfaceVariants: fullChromeSurfaceRegistry,
     }),
   ];
 }
@@ -828,6 +1076,69 @@ function outerDoc(): JSONContent {
 }
 
 function fullChromeOuterDoc(): JSONContent {
+  return fullChromeOuterDocWithTargetContent([
+    {
+      type: "paragraph",
+      content: [{ type: "text", text: "Initial authority" }],
+    },
+    {
+      type: REACT_BLOCK_NODE_NAME,
+      attrs: { label: "Initial block" },
+    },
+    {
+      type: "grid",
+      attrs: { id: "innergrid001", columnWidths: [1, 1] },
+      content: [
+        {
+          type: "cell",
+          attrs: { id: FULL_CHROME_IDS.firstCell, verticalPosition: "top" },
+          content: [
+            layerWithParagraph(
+              FULL_CHROME_IDS.firstCellLayer,
+              FULL_CHROME_IDS.firstCellParagraph,
+              "First cell",
+            ),
+          ],
+        },
+        {
+          type: "cell",
+          attrs: { id: FULL_CHROME_IDS.secondCell, verticalPosition: "top" },
+          content: [
+            layerWithParagraph(
+              FULL_CHROME_IDS.secondCellLayer,
+              FULL_CHROME_IDS.secondCellParagraph,
+              "Second cell",
+            ),
+          ],
+        },
+      ],
+    },
+    {
+      type: "layout",
+      attrs: { id: "innerlayout1", variant: DIALOG_LAYOUT_VARIANT, options: {} },
+      content: [
+        {
+          type: "section",
+          attrs: {
+            id: FULL_CHROME_IDS.section,
+            verticalPosition: "top",
+            options: {},
+          },
+          content: [
+            layerWithParagraph(
+              FULL_CHROME_IDS.sectionLayer,
+              FULL_CHROME_IDS.sectionParagraph,
+              "Layout section",
+            ),
+          ],
+        },
+      ],
+    },
+    calloutContent("innercall001"),
+  ]);
+}
+
+function fullChromeOuterDocWithTargetContent(targetContent: JSONContent[]): JSONContent {
   return {
     type: "doc",
     content: [
@@ -837,63 +1148,76 @@ function fullChromeOuterDoc(): JSONContent {
       },
       {
         type: TARGET_NODE_NAME,
-        content: [
-          {
-            type: "paragraph",
-            content: [{ type: "text", text: "Initial authority" }],
-          },
-          {
-            type: REACT_BLOCK_NODE_NAME,
-            attrs: { label: "Initial block" },
-          },
-          {
-            type: "grid",
-            attrs: { id: "innergrid001", columnWidths: [1, 1] },
-            content: [
-              {
-                type: "cell",
-                attrs: { id: "innercell001", verticalPosition: "top" },
-                content: [
-                  {
-                    type: "paragraph",
-                    content: [{ type: "text", text: "First cell" }],
-                  },
-                ],
-              },
-              {
-                type: "cell",
-                attrs: { id: "innercell002", verticalPosition: "top" },
-                content: [
-                  {
-                    type: "paragraph",
-                    content: [{ type: "text", text: "Second cell" }],
-                  },
-                ],
-              },
-            ],
-          },
-          {
-            type: "layout",
-            attrs: { id: "innerlayout1", variant: null, options: {} },
-            content: [
-              {
-                type: "section",
-                attrs: { id: "innersect001", verticalPosition: "top", options: {} },
-                content: [
-                  {
-                    type: "paragraph",
-                    content: [{ type: "text", text: "Layout section" }],
-                  },
-                ],
-              },
-            ],
-          },
-          calloutContent("innercall001"),
-        ],
+        content: targetContent,
       },
       {
         type: "paragraph",
         content: [{ type: "text", text: "After" }],
+      },
+    ],
+  };
+}
+
+function scopedInactiveLayerOuterDoc(): JSONContent {
+  return fullChromeOuterDocWithTargetContent([
+    {
+      type: "grid",
+      attrs: { id: "inactivegrid1", columnWidths: [1, 1] },
+      content: [
+        {
+          type: "cell",
+          attrs: { id: FULL_CHROME_IDS.firstCell, verticalPosition: "top" },
+          content: [
+            layerWithParagraph(
+              FULL_CHROME_IDS.firstCellLayer,
+              FULL_CHROME_IDS.firstCellParagraph,
+              "Open content",
+            ),
+            layerWithParagraph(
+              FULL_CHROME_IDS.inactiveCellLayer,
+              FULL_CHROME_IDS.inactiveCellParagraph,
+              "Inactive content",
+            ),
+          ],
+        },
+        {
+          type: "cell",
+          attrs: { id: FULL_CHROME_IDS.secondCell, verticalPosition: "top" },
+          content: [
+            layerWithParagraph(
+              FULL_CHROME_IDS.secondCellLayer,
+              FULL_CHROME_IDS.secondCellParagraph,
+              "Second cell",
+            ),
+          ],
+        },
+      ],
+    },
+  ]);
+}
+
+function scopedEmptyLayerOuterDoc(): JSONContent {
+  return fullChromeOuterDocWithTargetContent([
+    {
+      type: "paragraph",
+      attrs: { id: createEmbeddedNodeId() },
+    },
+  ]);
+}
+
+function layerWithParagraph(
+  layerId: EmbeddedNodeId,
+  paragraphId: EmbeddedNodeId,
+  text: string,
+): JSONContent {
+  return {
+    type: "layer",
+    attrs: { id: layerId },
+    content: [
+      {
+        type: "paragraph",
+        attrs: { id: paragraphId },
+        content: [{ type: "text", text }],
       },
     ],
   };
@@ -1049,6 +1373,46 @@ function countEditorNodes(editor: Editor, nodeType: string): number {
     if (node.type.name === nodeType) count += 1;
   });
   return count;
+}
+
+function insertCatalogAction(
+  editor: Editor,
+  catalogItems: readonly InsertAction[],
+  actionId: string,
+): boolean {
+  const item = catalogItems.find((candidate) => candidate.id === actionId);
+  if (!item) throw new Error(`Missing catalog item "${actionId}"`);
+  return insertCatalogItemChecked(
+    editor,
+    item,
+    fullChromeBlockRegistry,
+    fullChromeCapabilities.layouts.registry,
+    fullChromeSurfaceRegistry,
+  );
+}
+
+function findFirstNodeByType(
+  editor: Editor,
+  nodeType: string,
+): { readonly node: ProseMirrorNode; readonly pos: number } {
+  let found: { readonly node: ProseMirrorNode; readonly pos: number } | null = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name !== nodeType) return true;
+    found = { node, pos };
+    return false;
+  });
+  if (!found) throw new Error(`Missing editor node type "${nodeType}"`);
+  return found;
+}
+
+function scopedOpenLayers(editor: Editor): ReadonlyMap<EmbeddedNodeId, EmbeddedNodeId> {
+  const context = readLayerEditingContextForState(
+    editor.state,
+    fullChromeCapabilities.layouts.registry,
+    fullChromeBlockRegistry,
+  );
+  if (!context) throw new Error("Missing scoped Layer editing context");
+  return context.openLayerByOwnerId;
 }
 
 function calloutVariant(outerEditor: Editor, id: string): unknown {
