@@ -18,6 +18,7 @@ import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { isActiveBoundedContainerAtPosition } from "@/editor/bounded-containers/model/bounded-container-placement";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { createInteractionOwnerCommandPorts } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-command-ports";
 import { interactionOwnerPluginKey } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-plugin-state";
@@ -946,10 +947,11 @@ describe("EmptyInsertionRow", () => {
                 type: "surface",
                 attrs: { id: "surfslidelay", variant: "slide-cover" },
                 content: [
-                  { type: "heading", attrs: { level: 1 } },
+                  { type: "heading", attrs: { id: "slideheading1", level: 1 } },
                   {
                     type: "slide_cover_subtitle",
-                    content: [{ type: "paragraph" }],
+                    attrs: { id: "slidesubtitle1" },
+                    content: [{ type: "paragraph", attrs: { id: "subtitlepara1" } }],
                   },
                   {
                     type: "layout",
@@ -958,7 +960,11 @@ describe("EmptyInsertionRow", () => {
                       {
                         type: "section",
                         attrs: { id: "slidesection", role: "tab-panel" },
-                        content: [createLayerWithContent([{ type: "paragraph" }])],
+                        content: [
+                          createLayerWithContent([
+                            { type: "paragraph", attrs: { id: "tabpanelpara1" } },
+                          ]),
+                        ],
                       },
                     ],
                   },
@@ -1027,7 +1033,7 @@ describe("EmptyInsertionRow", () => {
     expect(surfaceContentTypes(editor)).toEqual(["paragraph"]);
   });
 
-  it("creates an empty insertion line in blank cell space after a final nested layout", async () => {
+  it("does not create a Cell insertion row beside a final Tabs fill Layout", async () => {
     const editor = makeEditor(
       {
         type: "doc",
@@ -1081,8 +1087,22 @@ describe("EmptyInsertionRow", () => {
 
     const cellElement = await waitFor(() => nodeElement(editor, nodePos(editor, "cell")));
     const layoutElement = nodeElement(editor, nodePos(editor, "layout"));
+    const cellLayerId = editor.state.doc.nodeAt(nodePos(editor, "cell"))?.firstChild?.attrs["id"];
+    const nestedLayerId = editor.state.doc.nodeAt(nodePos(editor, "section"))?.firstChild?.attrs[
+      "id"
+    ];
+    if (typeof cellLayerId !== "string" || typeof nestedLayerId !== "string") {
+      throw new Error("expected Cell and nested Tab Layer identities");
+    }
     stubRect(cellElement, { bottom: 420, left: 0, right: 420, top: 0 });
     stubRect(layoutElement, { bottom: 140, left: 16, right: 404, top: 16 });
+    expect(
+      validateLayerContext({
+        document: editor.state.doc,
+        blockDefinitions: builtInBlockRegistry,
+        layoutDefinitions: builtInLayoutRegistry,
+      }),
+    ).toEqual([]);
 
     fireEvent.mouseDown(cellElement, {
       button: 0,
@@ -1090,16 +1110,16 @@ describe("EmptyInsertionRow", () => {
       clientY: 260,
     });
 
-    expect(firstCellContentTypes(editor)).toEqual(["layout", "paragraph"]);
-    expect(resolveEmptyInsertionTarget(editor.state)).toMatchObject({
-      parentType: "layer",
-    });
-    await waitFor(() => {
-      expect(document.body.querySelector("[data-empty-insertion-row]")).not.toBeNull();
-    });
+    expect(firstCellContentTypes(editor)).toEqual(["layout"]);
+    expect(resolveEmptyInsertionTarget(editor.state)).toMatchObject({ parentType: "layer" });
+    const rowOwnerIds = [...document.body.querySelectorAll("[data-empty-insertion-row]")].map(
+      (row) => row.closest<HTMLElement>("[data-layer-id]")?.dataset.layerId,
+    );
+    expect(rowOwnerIds).toEqual([nestedLayerId]);
+    expect(rowOwnerIds).not.toContain(cellLayerId);
   });
 
-  it("creates an empty insertion line after a fill layout in a page-flow cell", async () => {
+  it("enforces fill exclusivity in a Page-flow Cell without bounded geometry", async () => {
     const editor = makeEditor(
       {
         type: "doc",
@@ -1153,8 +1173,24 @@ describe("EmptyInsertionRow", () => {
 
     const cellElement = await waitFor(() => nodeElement(editor, nodePos(editor, "cell")));
     const layoutElement = nodeElement(editor, nodePos(editor, "layout"));
+    const cellLayerId = editor.state.doc.nodeAt(nodePos(editor, "cell"))?.firstChild?.attrs["id"];
+    const nestedLayerId = editor.state.doc.nodeAt(nodePos(editor, "section"))?.firstChild?.attrs[
+      "id"
+    ];
+    if (typeof cellLayerId !== "string" || typeof nestedLayerId !== "string") {
+      throw new Error("expected Cell and nested Tab Layer identities");
+    }
     stubRect(cellElement, { bottom: 420, left: 0, right: 420, top: 0 });
     stubRect(layoutElement, { bottom: 140, left: 16, right: 404, top: 16 });
+    expect(
+      isActiveBoundedContainerAtPosition({
+        blockDefinitions: builtInBlockRegistry,
+        containerType: "cell",
+        doc: editor.state.doc,
+        layoutDefinitions: builtInLayoutRegistry,
+        pos: nodePos(editor, "cell"),
+      }),
+    ).toBe(false);
 
     fireEvent.mouseDown(cellElement, {
       button: 0,
@@ -1162,13 +1198,13 @@ describe("EmptyInsertionRow", () => {
       clientY: 260,
     });
 
-    expect(firstCellContentTypes(editor)).toEqual(["layout", "paragraph"]);
-    expect(resolveEmptyInsertionTarget(editor.state)).toMatchObject({
-      parentType: "layer",
-    });
-    await waitFor(() => {
-      expect(document.body.querySelector("[data-empty-insertion-row]")).not.toBeNull();
-    });
+    expect(firstCellContentTypes(editor)).toEqual(["layout"]);
+    expect(resolveEmptyInsertionTarget(editor.state)).toMatchObject({ parentType: "layer" });
+    const rowOwnerIds = [...document.body.querySelectorAll("[data-empty-insertion-row]")].map(
+      (row) => row.closest<HTMLElement>("[data-layer-id]")?.dataset.layerId,
+    );
+    expect(rowOwnerIds).toEqual([nestedLayerId]);
+    expect(rowOwnerIds).not.toContain(cellLayerId);
   });
 
   it("does not create an empty insertion line after an active bounded fill layout in a cell", async () => {
@@ -1178,6 +1214,7 @@ describe("EmptyInsertionRow", () => {
         content: [
           {
             type: "courseDocument",
+            attrs: { id: "course000006" },
             content: [
               {
                 type: "surface",
@@ -1210,7 +1247,14 @@ describe("EmptyInsertionRow", () => {
                                           id: "sectionnode1",
                                           role: "tab-panel",
                                         },
-                                        content: [createLayerWithContent([{ type: "paragraph" }])],
+                                        content: [
+                                          createLayerWithContent([
+                                            {
+                                              type: "paragraph",
+                                              attrs: { id: "tabpanelpara4" },
+                                            },
+                                          ]),
+                                        ],
                                       },
                                     ],
                                   },
