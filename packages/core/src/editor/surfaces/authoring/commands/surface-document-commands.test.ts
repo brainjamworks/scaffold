@@ -216,22 +216,14 @@ describe("surface document commands", () => {
     editor.destroy();
   });
 
-  it("rejects page surface commands for slideshow or branching mode", () => {
-    const slideshow = makeEditor("slideshow", [
-      surface("surface00001", "First"),
-      surface("surface00002", "Second"),
-    ]);
-    const branching = makeEditor("branching", [surface("surface00001", "Only")]);
+  it("rejects page surface commands for slideshow mode", () => {
+    const slideshow = makeEditor("slideshow", [surface("surface00001", "Only")]);
     const beforeSlideshow = slideshow.getJSON();
-    const beforeBranching = branching.getJSON();
 
     expect(setPageSurfaceTitle(slideshow, "Slide")).toBe(false);
-    expect(setPageSurfaceTitle(branching, "Branch")).toBe(false);
 
     expect(slideshow.getJSON()).toEqual(beforeSlideshow);
-    expect(branching.getJSON()).toEqual(beforeBranching);
     slideshow.destroy();
-    branching.destroy();
   });
 
   it("duplicates a non-page surface with fresh stable ids", () => {

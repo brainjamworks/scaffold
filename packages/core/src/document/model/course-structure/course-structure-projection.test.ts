@@ -173,6 +173,19 @@ describe("projectCourseStructure", () => {
     expect(projectCourseStructure(content)).toBeNull();
   });
 
+  it("rejects a Course Document in an unsupported mode", () => {
+    const content = createScaffoldDocumentContent({
+      mode: "slideshow",
+      initialCourseSectionTitle: "Practice",
+      surfaceId: SURFACE_1,
+    });
+    expect(projectCourseStructure(content)?.kind).toBe("slideshow");
+
+    content.content![0]!.attrs!["mode"] = "branching";
+
+    expect(projectCourseStructure(content)).toBeNull();
+  });
+
   it.each([
     {
       name: "a partially sectioned Slideshow",
