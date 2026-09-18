@@ -21,6 +21,7 @@ import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/t
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import "@/styles/globals.css";
+import "@/theme/app/AppThemeProvider.css";
 
 import { DropdownAuthoringExtension } from "./dropdown-authoring-extension";
 import { dropdownChoiceLabelContent } from "./dropdown-choice";
@@ -119,6 +120,7 @@ function expectChoiceSilhouette(
 
 async function mountDropdownAuthoringHarness(): Promise<DropdownAuthoringHarness> {
   const host = document.createElement("div");
+  host.className = "sc-app radix-themes light";
   host.style.cssText =
     "box-sizing: border-box; min-height: 560px; padding: 32px; position: relative; width: 820px";
   const ownerRoot = document.createElement("div");
