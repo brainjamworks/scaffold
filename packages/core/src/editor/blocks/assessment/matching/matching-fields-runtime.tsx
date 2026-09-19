@@ -73,8 +73,9 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
   return (
     <NodeViewWrapper
       data-assessment-interaction-content=""
-      data-slot="matching-content"
-      className="sc-course-matching__content sc-course-matching__content--runtime"
+      data-bounded-scroll-frame=""
+      data-slot="matching-pairs-group"
+      className="sc-course-matching__group"
     >
       <MatchingCourseInteraction
         assessmentTargetId={authoredBlockId}

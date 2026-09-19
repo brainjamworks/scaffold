@@ -326,10 +326,9 @@ export function MatchingCourseInteraction({
 
   return (
     <div
-      {...(inline ? { "data-bounded-scroll-frame": "" } : {})}
+      {...(inline ? {} : { "data-slot": "matching-pairs-group" })}
       data-assessment-answer-view={answerView}
       data-matching-presentation={presentation}
-      data-slot="matching-pairs-group"
       className="sc-course-matching__group"
     >
       <div
