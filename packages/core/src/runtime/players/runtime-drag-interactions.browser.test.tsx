@@ -59,7 +59,7 @@ describe("Runtime document accessibility", () => {
       expect(harness.ownerDocument.activeElement).toBe(source);
       source.click();
       await animationFrames(harness, 1);
-      matchingTarget(harness, "matchtarg001").click();
+      matchingPlaceAction(harness, "matchtarg001").click();
       await harness.waitForMatches({ matchitem001: "matchtarg001" }, 1);
     },
   );
@@ -299,7 +299,7 @@ describe("Matching connector coordinate gate", () => {
 
     harness.getSource('[data-item-id="matchitem001"]')?.click();
     await animationFrames(harness, 1);
-    harness.getSource('[data-matching-drop-target][data-target-id="matchtarg001"]')?.click();
+    matchingPlaceAction(harness, "matchtarg001").click();
     await harness.waitForMatches({ matchitem001: "matchtarg001" }, 1);
     await animationFrames(harness, 2);
 
@@ -471,13 +471,13 @@ describe("Matching shared drag runtime", () => {
     const harness = await mountRuntimeDragHarness({ interaction: "matching", surface: "page" });
     mounted.push(harness);
     const source = matchingSource(harness, "matchitem001");
-    const target = matchingTarget(harness, "matchtarg002");
+    const placeAction = matchingPlaceAction(harness, "matchtarg002");
     expect(source).not.toHaveAttribute("aria-roledescription");
     expect(source).not.toHaveAttribute("aria-description");
 
     fireEvent.keyDown(source, { code: "Enter", key: "Enter" });
     await animationFrames(harness, 1);
-    fireEvent.keyDown(target, { code: "Space", key: " " });
+    fireEvent.keyDown(placeAction, { code: "Space", key: " " });
     await harness.waitForMatches({ matchitem001: "matchtarg002" }, 1);
     expect(harness.getResponseRevision()).toBe(1);
     expect(harness.getAnnouncements()).toEqual([]);
@@ -494,7 +494,7 @@ describe("Matching shared drag runtime", () => {
     mounted.push(harness);
     matchingSource(harness, "matchitem001").click();
     await animationFrames(harness, 1);
-    matchingTarget(harness, "matchtarg001").click();
+    matchingPlaceAction(harness, "matchtarg001").click();
     await harness.waitForMatches({ matchitem001: "matchtarg001" }, 1);
     await animationFrames(harness, 2);
     assertMatchingConnectorAligned(harness, "matchitem001", "matchtarg001");
@@ -550,7 +550,7 @@ describe("Matching shared drag runtime", () => {
 
     matchingSource(harness, "matchitem002").click();
     await animationFrames(harness, 1);
-    matchingTarget(harness, "matchtarg002").click();
+    matchingPlaceAction(harness, "matchtarg002").click();
     await harness.waitForMatches({ matchitem002: "matchtarg002" }, 3);
     await animationFrames(harness, 2);
     assertMatchingConnectorAligned(harness, "matchitem002", "matchtarg002");
@@ -815,6 +815,17 @@ function matchingTarget(harness: RuntimeDragBrowserHarness, targetId: string): H
   );
   if (!target) throw new Error(`Expected Matching target ${targetId}.`);
   return target;
+}
+
+function matchingPlaceAction(
+  harness: RuntimeDragBrowserHarness,
+  targetId: string,
+): HTMLButtonElement {
+  const action = matchingTarget(harness, targetId).querySelector<HTMLButtonElement>(
+    ".sc-course-matching__place-action",
+  );
+  if (!action) throw new Error(`Expected Matching place action for ${targetId}.`);
+  return action;
 }
 
 function assertMatchingActivationGeometry(
