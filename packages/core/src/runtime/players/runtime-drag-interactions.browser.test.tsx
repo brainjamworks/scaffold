@@ -393,7 +393,7 @@ describe("Matching shared drag runtime", () => {
     const drag = await startPointerDrag(
       harness,
       source,
-      centerOf(target.getBoundingClientRect()),
+      usableMatchingDropPoint(harness, target) ?? matchingLaneEdgePoint(target),
       scale === 0.5 ? "touch" : "mouse",
       centerOf(source.getBoundingClientRect()),
     );
@@ -411,7 +411,8 @@ describe("Matching shared drag runtime", () => {
     expectClose(overlay.getBoundingClientRect().width, sourceRect.width, 1);
     expectClose(overlay.getBoundingClientRect().height, sourceRect.height, 1);
 
-    await finishPointerDrag(harness, drag.pointer, drag.pointerType);
+    const release = await revealMatchingDropTarget(harness, target, drag.pointerType);
+    await finishPointerDrag(harness, release, drag.pointerType);
     await harness.waitForMatches({ matchitem001: "matchtarg001" }, 1);
     await harness.waitForIdle();
     await animationFrames(harness, 2);
@@ -826,6 +827,78 @@ function matchingPlaceAction(
   );
   if (!action) throw new Error(`Expected Matching place action for ${targetId}.`);
   return action;
+}
+
+function usableMatchingDropPoint(
+  harness: RuntimeDragBrowserHarness,
+  target: HTMLElement,
+): { x: number; y: number } | null {
+  const point = centerOf(target.getBoundingClientRect());
+  const hit = harness.ownerDocument.elementFromPoint(point.x, point.y);
+  return hit instanceof Element && target.contains(hit) ? point : null;
+}
+
+function matchingLaneEdgePoint(target: HTMLElement): { x: number; y: number } {
+  const lane = target.closest<HTMLElement>("[data-bounded-scroll]");
+  if (!lane) throw new Error("Expected Matching target inside a bounded scroll lane.");
+  const laneRect = lane.getBoundingClientRect();
+  const below = centerOf(target.getBoundingClientRect()).y > centerOf(laneRect).y;
+  return {
+    x: centerOf(laneRect).x,
+    y: below ? laneRect.bottom - 4 : laneRect.top + 4,
+  };
+}
+
+async function revealMatchingDropTarget(
+  harness: RuntimeDragBrowserHarness,
+  target: HTMLElement,
+  pointerType: "mouse" | "touch",
+): Promise<{ x: number; y: number }> {
+  const lane = target.closest<HTMLElement>("[data-bounded-scroll]");
+  if (!lane) throw new Error("Expected Matching target inside a bounded scroll lane.");
+  let destination = usableMatchingDropPoint(harness, target);
+  for (let step = 0; !destination && step < 60; step += 1) {
+    const edge = matchingLaneEdgePoint(target);
+    fireEvent.pointerMove(harness.ownerDocument, {
+      button: 0,
+      buttons: 1,
+      clientX: edge.x,
+      clientY: edge.y,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType,
+    });
+    await animationFrames(harness, 2);
+    destination = usableMatchingDropPoint(harness, target);
+  }
+  if (!destination) {
+    throw new Error("Matching drop target never became reachable in the scroll lane.");
+  }
+  const release = { x: destination.x, y: destination.y + 2 };
+  fireEvent.pointerMove(harness.ownerDocument, {
+    button: 0,
+    buttons: 1,
+    clientX: destination.x,
+    clientY: destination.y,
+    isPrimary: true,
+    pointerId: 1,
+    pointerType,
+  });
+  fireEvent.pointerMove(harness.ownerDocument, {
+    button: 0,
+    buttons: 1,
+    clientX: release.x,
+    clientY: release.y,
+    isPrimary: true,
+    pointerId: 1,
+    pointerType,
+  });
+  await animationFrames(harness, 2);
+  const hit = harness.ownerDocument.elementFromPoint(release.x, release.y);
+  if (!(hit instanceof Element) || !target.contains(hit)) {
+    throw new Error("Matching drop release point did not resolve to the target.");
+  }
+  return release;
 }
 
 function assertMatchingActivationGeometry(
