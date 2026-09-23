@@ -201,7 +201,7 @@ describe("layout runtime nodes", () => {
     },
   );
 
-  it("reveals nested runtime Layout owners outer-to-inner in one isolated store", async () => {
+  it("refuses configured-presentation traversal into a nested hidden Layout Section", async () => {
     learningEventReport.mockClear();
     const editor = new Editor({
       editable: false,
@@ -227,24 +227,30 @@ describe("layout runtime nodes", () => {
         expect(environment.registry.resolve(outerLayoutId).kind).toBe("resolved");
         expect(environment.registry.resolve(innerLayoutId).kind).toBe("resolved");
       });
+      const authoredDocument = editor.getJSON();
+      const selection = editor.state.selection.toJSON();
+      const activeTabs = getLayoutInteractionStoreState(editor).activeTabByLayoutId;
       learningEventReport.mockClear();
 
       await expect(
         environment.coordinator.activate(innerTargetId, {
           origin: "configured-presentation",
         }),
-      ).resolves.toEqual({ kind: "reached", requestedId: innerTargetId });
+      ).resolves.toEqual({
+        kind: "refused",
+        requestedId: innerTargetId,
+        ownerId: outerLayoutId,
+        childId: outerTargetId,
+        nearestReachableOwnerId: outerLayoutId,
+        reason: "authority-boundary",
+      });
 
-      await waitFor(() => {
-        expect(elementWithIdWithin(editor.view.dom, outerPanelId)).not.toHaveAttribute("hidden");
-        expect(elementWithIdWithin(editor.view.dom, innerPanelId)).not.toHaveAttribute("hidden");
-      });
-      const interactionState = getLayoutInteractionStoreState(editor);
-      expect(interactionState.activeTabByLayoutId).toMatchObject({
-        [outerLayoutId]: outerTargetId,
-        [innerLayoutId]: innerTargetId,
-      });
+      expect(elementWithIdWithin(editor.view.dom, outerPanelId)).toHaveAttribute("hidden");
+      expect(elementWithIdWithin(editor.view.dom, innerPanelId)).toHaveAttribute("hidden");
+      expect(getLayoutInteractionStoreState(editor).activeTabByLayoutId).toEqual(activeTabs);
       expect(learningEventReport).not.toHaveBeenCalled();
+      expect(editor.getJSON()).toEqual(authoredDocument);
+      expect(editor.state.selection.toJSON()).toEqual(selection);
     } finally {
       editor.destroy();
     }
