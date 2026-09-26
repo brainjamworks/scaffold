@@ -79,7 +79,10 @@ function expectSurfaceBackgroundWithoutImageSlot(host: HTMLElement): void {
 
   expect(surface.getAttribute("data-surface-background-image")).toBe("");
   expect(globalThis.getComputedStyle(surface).backgroundImage).not.toBe("none");
-  expect(globalThis.getComputedStyle(surface).borderRadius).not.toBe("0px");
+  const surfaceStyle = globalThis.getComputedStyle(surface);
+  expect(surfaceStyle.borderRadius).toBe("0px");
+  const isAuthoring = surface.closest(".scaffold-authoring-surface-view") !== null;
+  expect(surfaceStyle.overflow).toBe(isAuthoring ? "visible" : "hidden");
   expect(surface.querySelector("[data-image-role]")).toBeNull();
 }
 
