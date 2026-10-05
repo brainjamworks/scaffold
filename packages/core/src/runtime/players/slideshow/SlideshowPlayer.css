@@ -27,6 +27,10 @@
     position: relative;
   }
 
+  [data-slideshow-overlay-owner] {
+    display: contents;
+  }
+
   .sc-slideshow-player__stage {
     box-sizing: border-box;
     position: relative;

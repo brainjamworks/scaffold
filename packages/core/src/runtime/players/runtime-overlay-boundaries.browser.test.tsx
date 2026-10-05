@@ -185,10 +185,10 @@ describe("runtime overlay boundary contract", () => {
       const canvas = uniqueElement<HTMLElement>(player, ".sc-slideshow-player__canvas");
       const controls = uniqueElement<HTMLElement>(player, ".sc-slideshow-player__controls");
       const baseline = measureSlideshowShell(player);
-      const normalHost = uniqueElement<HTMLElement>(
-        owner.document,
-        "body > [data-scaffold-overlay-host]",
-      );
+      const contentOwner = slideshowOverlayOwner(owner.document.body, "content");
+      const chromeOwner = slideshowOverlayOwner(owner.document.body, "chrome");
+      const normalHost = slideshowOverlayHost(contentOwner);
+      const normalChromeHost = slideshowOverlayHost(chromeOwner);
       const trigger = runtimeHintTrigger(player);
 
       expect(baseline.stageRect.width / baseline.stageRect.height).toBeCloseTo(16 / 9, 5);
@@ -200,8 +200,13 @@ describe("runtime overlay boundary contract", () => {
       expect(stage.contains(controls)).toBe(true);
       expect(canvas.contains(controls)).toBe(false);
       expect(canvas.contains(normalHost)).toBe(false);
+      expect(canvas.contains(normalChromeHost)).toBe(false);
       expect(normalHost.ownerDocument).toBe(owner.document);
-      expect(owner.document.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(1);
+      expect(normalChromeHost.ownerDocument).toBe(owner.document);
+      expect(contentOwner.dataset.slideshowOverlayInstance).toBe(
+        chromeOwner.dataset.slideshowOverlayInstance,
+      );
+      expect(owner.document.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(2);
       expect(getComputedStyle(normalHost).getPropertyValue("--color-background").trim()).toBe(
         getComputedStyle(player).getPropertyValue("--color-background").trim(),
       );
@@ -254,30 +259,32 @@ describe("runtime overlay boundary contract", () => {
     );
 
     const fullscreenBaseline = measureSlideshowShell(player);
-    let normalHost = uniqueElement<HTMLElement>(
-      owner.document,
-      "body > [data-scaffold-overlay-host]",
-    );
+    let normalHost = slideshowOverlayHost(slideshowOverlayOwner(owner.document.body, "content"));
     let popover = await ensureRuntimeHintOpen(player, normalHost);
     expect(normalHost.contains(popover)).toBe(true);
     buttonByName(player, "Enter fullscreen").click();
     await waitForCondition(
       () =>
         buttonByNameOrNull(player, "Exit fullscreen") !== null &&
-        viewport.querySelectorAll(":scope > [data-scaffold-overlay-host]").length === 1,
+        viewport.querySelectorAll(":scope > [data-slideshow-overlay-owner]").length === 2,
     );
-    const fullscreenHost = uniqueElement<HTMLElement>(
-      viewport,
-      ":scope > [data-scaffold-overlay-host]",
-    );
+    const fullscreenContentOwner = slideshowOverlayOwner(viewport, "content");
+    const fullscreenChromeOwner = slideshowOverlayOwner(viewport, "chrome");
+    const fullscreenHost = slideshowOverlayHost(fullscreenContentOwner);
+    const fullscreenChromeHost = slideshowOverlayHost(fullscreenChromeOwner);
 
     expect(normalHost.isConnected).toBe(false);
     expect(fullscreenHost.ownerDocument).toBe(owner.document);
+    expect(fullscreenChromeHost.ownerDocument).toBe(owner.document);
     expect(canvas.contains(fullscreenHost)).toBe(false);
+    expect(canvas.contains(fullscreenChromeHost)).toBe(false);
+    expect(fullscreenContentOwner.dataset.slideshowOverlayInstance).toBe(
+      fullscreenChromeOwner.dataset.slideshowOverlayInstance,
+    );
     expect(getComputedStyle(fullscreenHost).getPropertyValue("--color-background").trim()).toBe(
       getComputedStyle(player).getPropertyValue("--color-background").trim(),
     );
-    expect(owner.document.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(1);
+    expect(owner.document.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(2);
     popover = popover.isConnected ? popover : await ensureRuntimeHintOpen(player, fullscreenHost);
     expect(fullscreenHost.contains(popover)).toBe(true);
     expectSlideshowShellUnchanged(measureSlideshowShell(player), fullscreenBaseline);
@@ -288,11 +295,11 @@ describe("runtime overlay boundary contract", () => {
         buttonByNameOrNull(player, "Enter fullscreen") !== null &&
         viewport.querySelector("[data-scaffold-overlay-host]") === null,
     );
-    normalHost = uniqueElement<HTMLElement>(owner.document, "body > [data-scaffold-overlay-host]");
+    normalHost = slideshowOverlayHost(slideshowOverlayOwner(owner.document.body, "content"));
     expect(fullscreenHost.isConnected).toBe(false);
     expect(normalHost.ownerDocument).toBe(owner.document);
     expect(canvas.contains(normalHost)).toBe(false);
-    expect(owner.document.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(1);
+    expect(owner.document.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(2);
     popover = popover.isConnected ? popover : await ensureRuntimeHintOpen(player, normalHost);
     expect(normalHost.contains(popover)).toBe(true);
     expectSlideshowShellUnchanged(measureSlideshowShell(player), fullscreenBaseline);
@@ -309,7 +316,7 @@ describe("runtime overlay boundary contract", () => {
     expect(oldHost.isConnected).toBe(false);
     expect(owner.document.querySelector("[data-scaffold-overlay-host]")).toBeNull();
     const remounted = await mountSlideshow(owner);
-    expect(owner.document.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(1);
+    expect(owner.document.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(2);
     expect(uniqueElement(remounted.player, ".sc-slideshow-player__canvas").ownerDocument).toBe(
       owner.document,
     );
@@ -582,6 +589,17 @@ function expectSlideshowShellUnchanged(
   expect(actual.canvasTransform).toBe(expected.canvasTransform);
   expect(actual.controlsTransform.a).toBeCloseTo(expected.controlsTransform.a, 5);
   expect(actual.controlsTransform.d).toBeCloseTo(expected.controlsTransform.d, 5);
+}
+
+function slideshowOverlayOwner(container: ParentNode, owner: "content" | "chrome"): HTMLElement {
+  return uniqueElement<HTMLElement>(
+    container,
+    `:scope > [data-slideshow-overlay-owner="${owner}"]`,
+  );
+}
+
+function slideshowOverlayHost(ownerElement: HTMLElement): HTMLElement {
+  return uniqueElement<HTMLElement>(ownerElement, "[data-scaffold-overlay-host]");
 }
 
 async function waitForSlideshowBounds(
