@@ -75,10 +75,11 @@ claude-*.txt
 .impeccable/
 skills-lock.json
 
-# Local-only agent rules + personas
+# Local-only agent rules + personas; the root handover is shared
 .agents/
 CLAUDE.md
 AGENTS.md
+!/AGENTS.md
 
 # Local-only project and workflow docs
 docs/

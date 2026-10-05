@@ -9,6 +9,10 @@ contact
 
 ## Setup
 
+To resume the current project work, start with the tracked root
+[AGENTS.md](./AGENTS.md). It identifies the active workstream and next task and
+links the authoritative Linear checkpoint, plans and review evidence.
+
 ```sh
 vp install
 vp run dev:playground
@@ -136,6 +140,8 @@ zero accepted dependency debt and no known-violations file.
 
 Do not commit generated adapter bundles, `dist/`, `build/`, local screenshots,
 scratch folders, `.env*` files, `node_modules/`, or local agent/session docs.
+The root `AGENTS.md` is the shared, tracked handover and project instructions;
+keep it current. Nested agent files and personal tooling remain local-only.
 
 Generated adapter public bundles are produced by:
 

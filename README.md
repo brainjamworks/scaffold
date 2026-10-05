@@ -200,6 +200,8 @@ adapter tests own the non-dependency evidence.
 
 ## Project documentation
 
+- [Agent handover and next task](./AGENTS.md) — start here to resume development;
+  links the current Linear checkpoint, plans, review state and next action.
 - [Architecture](./ARCHITECTURE.md) — package ownership and dependency direction.
 - [Contributing](./CONTRIBUTING.md) — setup, boundaries, verification, and pull requests.
 - [Open edX adapter](./adapters/xblock/README.md) — XBlock lifecycle and host seams.
